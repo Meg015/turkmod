@@ -1,0 +1,228 @@
+/* Shared admin UI foundation: focus, priority, tables, forms and feedback. */
+:root {
+    --ui-admin-foundation-ring: 0 0 0 3px color-mix(in srgb, var(--ui-admin-primary, #8b1538) 28%, transparent);
+    --ui-admin-foundation-danger: var(--color-danger, #dc2626);
+    --ui-admin-foundation-warning: var(--color-warning, #d97706);
+    --ui-admin-foundation-success: var(--color-success, #16a34a);
+    --ui-admin-foundation-info: var(--color-info, #2563eb);
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--ui-admin-primary, #8b1538) 34%, transparent);
+    outline-offset: 3px;
+}
+
+:where(.ui-admin-btn, .btn-icon-minimal, .admin-menu-item, .ui-admin-queue-card, .topics-stat-card):focus-visible {
+    box-shadow: var(--ui-admin-foundation-ring) !important;
+}
+
+.ui-admin-page-offset-top {
+    margin-top: var(--space-6, 1.5rem);
+}
+
+.ui-admin-action-row-flush {
+    margin: 0;
+    gap: var(--space-2, .5rem);
+}
+
+.topic-toast {
+    align-items: flex-start;
+    min-height: 58px;
+}
+
+.topic-toast .toast-content {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.topic-toast .toast-title {
+    font-weight: 900;
+    line-height: 1.25;
+}
+
+.topic-toast .toast-message {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.topic-toast .toast-detail {
+    color: color-mix(in srgb, currentColor 78%, transparent);
+    font-size: .8rem;
+    line-height: 1.35;
+}
+
+.topic-toast .toast-action {
+    justify-self: start;
+    margin-top: 6px;
+    min-height: 30px;
+    padding: 5px 10px;
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, currentColor 9%, transparent);
+    color: inherit;
+    font: inherit;
+    font-size: .78rem;
+    font-weight: 900;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.ui-admin-form-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    margin-bottom: .42rem;
+}
+
+.ui-admin-form-help,
+.ui-admin-form-error,
+.notif-help {
+    line-height: 1.45;
+}
+
+.ui-admin-form-error {
+    color: var(--ui-admin-foundation-danger);
+    font-weight: 900;
+}
+
+:where(.ui-admin-form-control, .ui-admin-form-select, input, select, textarea).is-invalid,
+:where(.ui-admin-form-control, .ui-admin-form-select, input, select, textarea)[aria-invalid="true"] {
+    border-color: var(--ui-admin-foundation-danger) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-admin-foundation-danger) 18%, transparent) !important;
+}
+
+.ui-admin-table {
+    table-layout: auto;
+}
+
+.ui-admin-table th {
+    white-space: nowrap;
+}
+
+.ui-admin-table td {
+    vertical-align: middle;
+}
+
+.topics-table .topic-thumbnail,
+.topics-table .topic-thumbnail-empty {
+    width: 58px;
+    height: 42px;
+    flex: 0 0 58px;
+    aspect-ratio: 29 / 21;
+}
+
+.topics-table .topic-title-info {
+    min-width: 0;
+}
+
+.topics-table .topic-title-info strong,
+.topics-table .topic-title-info span {
+    overflow-wrap: anywhere;
+}
+
+.btn-icon-minimal {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+}
+
+.action-btns {
+    min-width: 170px;
+}
+
+.ui-admin-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.ui-admin-priority-badge,
+.notif-priority-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--ui-admin-border);
+    font-size: .72rem;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.ui-admin-priority-badge.is-high,
+.notif-priority-badge.is-high,
+.notif-row-priority-high {
+    border-color: color-mix(in srgb, var(--ui-admin-foundation-danger) 34%, var(--ui-admin-border));
+    background: color-mix(in srgb, var(--ui-admin-foundation-danger) 9%, var(--ui-admin-surface));
+}
+
+.ui-admin-priority-badge.is-medium,
+.notif-priority-badge.is-medium,
+.notif-row-priority-medium {
+    border-color: color-mix(in srgb, var(--ui-admin-foundation-warning) 34%, var(--ui-admin-border));
+    background: color-mix(in srgb, var(--ui-admin-foundation-warning) 10%, var(--ui-admin-surface));
+}
+
+.ui-admin-priority-badge.is-normal,
+.notif-priority-badge.is-normal,
+.notif-row-priority-normal {
+    border-color: color-mix(in srgb, var(--ui-admin-foundation-info) 24%, var(--ui-admin-border));
+    background: color-mix(in srgb, var(--ui-admin-foundation-info) 7%, var(--ui-admin-surface));
+}
+
+.notif-type-icon.type-error,
+.notification-log-chip.email-failed,
+.notification-log-error {
+    color: var(--ui-admin-foundation-danger) !important;
+}
+
+.notif-type-icon.type-warning,
+.notification-log-chip.email-queued,
+.notification-log-chip.email-processing {
+    color: var(--ui-admin-foundation-warning) !important;
+}
+
+.ui-admin-queue-card[data-priority="high"] {
+    border-color: color-mix(in srgb, var(--ui-admin-foundation-danger) 34%, var(--ui-admin-border));
+}
+
+.ui-admin-queue-card[data-priority="medium"] {
+    border-color: color-mix(in srgb, var(--ui-admin-foundation-warning) 32%, var(--ui-admin-border));
+}
+
+.ui-admin-queue-card[data-priority="normal"] {
+    border-color: color-mix(in srgb, var(--ui-admin-foundation-info) 22%, var(--ui-admin-border));
+}
+
+.ui-admin-btn.is-ui-loading,
+.topics-bulk-apply.is-ui-loading,
+.topic-health-scan-actions .is-loading {
+    cursor: progress !important;
+}
+
+.ui-admin-btn.is-ui-loading i,
+.topics-bulk-apply.is-ui-loading i,
+.topic-health-scan-actions .is-loading i {
+    animation: ui-admin-foundation-spin .75s linear infinite;
+}
+
+@keyframes ui-admin-foundation-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+    .action-btns {
+        min-width: 0;
+    }
+
+    .topic-toast {
+        min-width: min(100%, 280px);
+        max-width: calc(100vw - 24px);
+    }
+}

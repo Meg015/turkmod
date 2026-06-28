@@ -1,0 +1,2651 @@
+/* Shared public upload/edit form styles. Extracted from page templates to keep static CSS centralized. */
+
+/* ============================================================
+   MOD YÜKLEME EKRANI — Premium Gaming Dark Theme
+   ============================================================ */
+.public-upload-shell { 
+    max-width: 960px; 
+    margin: 3.5rem auto; 
+    padding: 0 1rem; 
+}
+
+.public-upload-card {
+    background: rgba(26, 31, 46, 0.95) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+    overflow: hidden !important;
+    position: relative !important;
+}
+
+/* Glowing cyberpunk header section */
+.public-upload-head {
+    padding: 4rem 3rem !important;
+    background: linear-gradient(135deg, rgba(30, 27, 75, 0.5) 0%, rgba(76, 29, 149, 0.15) 50%, transparent 100%) !important;
+    text-align: center !important;
+    position: relative !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+.public-upload-head h1 {
+    font-size: 2.5rem !important;
+    font-weight: 800 !important;
+    color: var(--text) !important;
+    margin: 0 0 0.85rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 1rem !important;
+    letter-spacing: -0.75px !important;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+}
+
+.public-upload-head h1 i {
+    color: var(--primary) !important;
+    font-size: 2.2rem !important;
+    background: #141820 !important;
+    padding: 0.8rem !important;
+    border-radius: 18px !important;
+    box-shadow: 0 8px 24px rgba(0, 212, 255, 0.25) !important;
+    border: 1px solid rgba(0, 212, 255, 0.2) !important;
+    transform: rotate(-4deg) !important;
+    display: inline-flex !important;
+}
+
+.public-upload-head p {
+    color: var(--text-dim) !important;
+    font-size: 1.15rem !important;
+    margin: 0 !important;
+    font-weight: 500 !important;
+    max-width: 620px !important;
+    margin-inline: auto !important;
+    line-height: 1.6 !important;
+}
+
+.public-upload-body { 
+    padding: 3.5rem !important; 
+}
+
+/* Premium Form Label Styling */
+.form-label {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: var(--text) !important;
+    margin-bottom: 0.65rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}
+
+.form-label .text-danger { 
+    color: #ff4757 !important; 
+    font-weight: 800 !important; 
+}
+
+/* Custom Styled Input Fields */
+.form-control, .form-select {
+    border: 2px solid var(--border) !important;
+    border-radius: 14px !important;
+    padding: 0.9rem 1.25rem !important;
+    font-size: 1.05rem !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    background: #141820 !important;
+    color: var(--text) !important;
+    font-weight: 500 !important;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(0, 212, 255, 0.15) !important;
+    background: var(--bg-hover) !important;
+    outline: none !important;
+}
+
+.form-control::placeholder { 
+    color: var(--text-light) !important; 
+    font-weight: 400 !important; 
+}
+
+.form-text {
+    color: var(--text-dim) !important;
+    font-size: 0.85rem !important;
+}
+
+/* Media Cards / Dropzones */
+.public-media-card {
+    padding: 2.2rem !important;
+    background: #141820 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 20px !important;
+    margin-bottom: 2.5rem !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+}
+
+.public-media-card:hover {
+    border-color: rgba(0, 212, 255, 0.25) !important;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25) !important;
+}
+
+.public-media-head {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 1.25rem !important;
+    margin-bottom: 1.5rem !important;
+    padding-bottom: 1.25rem !important;
+    border-bottom: 1px dashed var(--border) !important;
+}
+
+.public-media-head h3 {
+    margin: 0 !important;
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    color: var(--text) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.65rem !important;
+}
+
+.public-media-head h3 i {
+    color: var(--primary) !important;
+}
+
+.public-media-head p { 
+    margin: 0.4rem 0 0 !important; 
+    color: var(--text-dim) !important; 
+    font-size: 0.95rem !important; 
+}
+
+/* Capsule Pill Badges */
+.public-pill {
+    font-size: 0.82rem !important;
+    padding: 0.45rem 1.15rem !important;
+    border-radius: 30px !important;
+    background: rgba(0, 212, 255, 0.1) !important;
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    border: 1px solid rgba(0, 212, 255, 0.2) !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+}
+
+/* High-Tech Upload Drag-n-Drop Zone */
+.public-dropzone {
+    border: 2px dashed var(--border) !important;
+    border-radius: 18px !important;
+    background: rgba(26, 31, 46, 0.5) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    min-height: 200px !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.public-dropzone::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.05) 0%, transparent 80%) !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s !important;
+    pointer-events: none !important;
+}
+
+.public-dropzone.is-active, .public-dropzone:hover { 
+    border-color: var(--primary) !important; 
+    background: rgba(26, 31, 46, 0.95) !important; 
+}
+
+.public-dropzone.is-active::before, .public-dropzone:hover::before { 
+    opacity: 1 !important; 
+}
+
+.public-dropzone-trigger {
+    padding: 3rem !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    flex-grow: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    z-index: 1 !important;
+}
+
+.public-dropzone-trigger i {
+    font-size: 3.5rem !important;
+    color: var(--text-dim) !important;
+    margin-bottom: 1.25rem !important;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.public-dropzone:hover .public-dropzone-trigger i { 
+    color: var(--primary) !important; 
+    transform: translateY(-8px) scale(1.1) !important; 
+}
+
+.public-dropzone-trigger strong { 
+    display: block !important; 
+    font-size: 1.2rem !important; 
+    font-weight: 700 !important; 
+    color: var(--text) !important; 
+    margin-bottom: 0.4rem !important; 
+}
+
+.public-dropzone-trigger span { 
+    display: block !important; 
+    color: var(--text-dim) !important; 
+    font-size: 0.95rem !important; 
+}
+
+/* Upload Preview Items */
+.public-preview-grid { 
+    display: flex !important; 
+    flex-wrap: wrap !important; 
+    gap: 1.25rem !important; 
+    padding: 0 1.5rem 1.5rem !important; 
+    z-index: 1 !important; 
+    position: relative !important; 
+}
+
+.public-preview-item {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 140px !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 3px solid var(--border) !important;
+    background: #141820 !important;
+    position: relative !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.public-preview-item:hover { 
+    transform: scale(1.06) translateY(-5px) !important; 
+    box-shadow: 0 15px 35px rgba(0,0,0,0.45) !important; 
+    border-color: var(--primary) !important; 
+    z-index: 10 !important; 
+}
+
+.public-preview-item img { 
+    width: 100% !important; 
+    height: 110px !important; 
+    object-fit: cover !important; 
+    flex-shrink: 0 !important; 
+}
+
+.public-preview-name {
+    position: absolute !important;
+    left: 0 !important; right: 0 !important; top: 0 !important;
+    padding: 10px 10px 25px !important;
+    font-size: 0.75rem !important;
+    color: #fff !important;
+    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%) !important;
+    white-space: nowrap !important; 
+    overflow: hidden !important; 
+    text-overflow: ellipsis !important; 
+    font-weight: 700 !important; 
+    z-index: 5 !important; 
+    pointer-events: none !important;
+}
+
+.public-preview-remove-bar {
+    position: relative !important;
+    width: 100% !important; 
+    height: 38px !important;
+    background: #ff4757 !important; 
+    color: #fff !important;
+    border: none !important; 
+    font-size: 0.88rem !important; 
+    font-weight: 700 !important;
+    display: flex !important; 
+    align-items: center !important; 
+    justify-content: center !important; 
+    gap: 0.45rem !important;
+    cursor: pointer !important; 
+    transition: background 0.25s !important; 
+    flex-shrink: 0 !important;
+}
+
+.public-preview-remove-bar:hover { 
+    background: #ff2d40 !important; 
+}
+
+/* Download Link Rows */
+.dl-row { 
+    display: flex !important; 
+    gap: 1rem !important; 
+    margin-bottom: 1rem !important; 
+    animation: dlRowSlideIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) !important; 
+}
+
+@keyframes dlRowSlideIn { 
+    from { opacity: 0; transform: translateY(-12px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+.btn-add-link {
+    background: rgba(0, 212, 255, 0.05) !important;
+    border: 2px dashed rgba(0, 212, 255, 0.3) !important;
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+    padding: 0.9rem !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    transition: all 0.25s ease !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+}
+
+.btn-add-link:hover {
+    border-style: solid !important;
+    background: rgba(0, 212, 255, 0.12) !important;
+    border-color: var(--primary) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.15) !important;
+}
+
+/* Policy Note Banner */
+.public-alert-note {
+    padding: 1.5rem !important;
+    border: 1px solid rgba(0, 212, 255, 0.2) !important;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.05) 0%, transparent 100%) !important;
+    color: var(--text) !important;
+    border-radius: 16px !important;
+    font-size: 0.95rem !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 1.1rem !important;
+    margin-bottom: 2.5rem !important;
+}
+
+.public-alert-note i { 
+    font-size: 1.8rem !important; 
+    color: var(--primary) !important; 
+    flex-shrink: 0 !important; 
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.3) !important;
+}
+
+/* Action Area */
+.public-actions { 
+    display: flex !important; 
+    gap: 1.25rem !important; 
+    margin-top: 3rem !important; 
+    padding-top: 2.5rem !important; 
+    border-top: 1px solid var(--border) !important; 
+}
+
+.btn-submit-mod {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark)) !important;
+    color: #0f1419 !important;
+    border: none !important;
+    border-radius: 14px !important;
+    padding: 1.1rem 2.5rem !important;
+    font-weight: 800 !important;
+    font-size: 1.15rem !important;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    display: flex !important; 
+    align-items: center !important; 
+    justify-content: center !important; 
+    gap: 0.75rem !important; 
+    flex-grow: 1 !important;
+    box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3) !important;
+    cursor: pointer !important;
+}
+
+.btn-submit-mod:hover { 
+    transform: translateY(-4px) !important; 
+    box-shadow: 0 15px 35px rgba(0, 212, 255, 0.45) !important; 
+}
+
+.btn-submit-mod i { 
+    font-size: 1.3rem !important; 
+    transition: transform 0.3s !important; 
+}
+
+.btn-submit-mod:hover i { 
+    transform: translateX(4px) !important; 
+}
+
+.btn-cancel-mod {
+    background: #141820 !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+    border-radius: 14px !important;
+    padding: 1.1rem 2.5rem !important;
+    font-weight: 700 !important;
+    font-size: 1.15rem !important;
+    text-decoration: none !important;
+    transition: all 0.25s ease !important;
+    display: flex !important; 
+    align-items: center !important; 
+    justify-content: center !important;
+}
+
+.btn-cancel-mod:hover { 
+    background: var(--bg-hover) !important; 
+    border-color: var(--text-light) !important; 
+    color: var(--text) !important; 
+    transform: translateY(-2px) !important; 
+}
+
+@media (max-width: 768px) {
+    .public-upload-shell { margin: 1.5rem auto !important; padding: 0 0.5rem !important; }
+    .public-upload-card { border-radius: 16px !important; }
+    .public-upload-head { padding: 2.5rem 1.5rem !important; }
+    .public-upload-head h1 { font-size: 2rem !important; }
+    .public-upload-body { padding: 1.75rem !important; }
+    .public-media-card { padding: 1.5rem !important; }
+    .public-actions { flex-direction: column !important; gap: 1rem !important; }
+    .dl-row { flex-wrap: wrap !important; }
+    .dl-row .form-control.w-25 { width: 100% !important; }
+}
+
+/* Premium upload revision - scoped over the legacy inline theme. */
+body:has(.public-upload-shell) {
+    background:
+        linear-gradient(180deg, rgba(244, 184, 68, 0.07), transparent 250px),
+        #0d1117 !important;
+    overflow-x: hidden;
+}
+
+body:has(.public-upload-shell) .newsletter-form {
+    max-width: 100%;
+}
+
+body:has(.public-upload-shell) .newsletter-form input {
+    min-width: 0;
+}
+
+.public-upload-shell {
+    --upload-bg: #0d1117;
+    --upload-panel: #111821;
+    --upload-panel-2: #151e29;
+    --upload-line: #2a3542;
+    --upload-line-soft: rgba(255, 255, 255, 0.08);
+    --upload-text: #eef3f8;
+    --upload-muted: #9aa7b8;
+    --upload-soft: #c8d2df;
+    --upload-accent: #f4b844;
+    --upload-accent-strong: #d88a22;
+    --upload-teal: #58d5bd;
+    width: min(1180px, calc(100% - 32px)) !important;
+    max-width: none !important;
+    margin: clamp(1.25rem, 3vw, 2.4rem) auto 3rem !important;
+    padding: 0 !important;
+}
+
+.public-upload-card {
+    overflow: hidden !important;
+    border: 1px solid var(--upload-line) !important;
+    border-radius: 8px !important;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0)),
+        var(--upload-bg) !important;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34), 0 1px 0 rgba(255,255,255,0.06) inset !important;
+}
+
+.public-upload-head {
+    display: grid !important;
+    gap: .55rem !important;
+    padding: clamp(1.4rem, 3vw, 2rem) clamp(1.3rem, 3vw, 2rem) !important;
+    text-align: left !important;
+    border-bottom: 1px solid var(--upload-line) !important;
+    background:
+        linear-gradient(90deg, rgba(244,184,68,.14), rgba(88,213,189,.06) 48%, transparent),
+        linear-gradient(180deg, #17212d, #111821) !important;
+}
+
+.public-upload-head h1 {
+    justify-content: flex-start !important;
+    gap: .75rem !important;
+    margin: 0 !important;
+    color: var(--upload-text) !important;
+    font-size: clamp(1.65rem, 3vw, 2.35rem) !important;
+    line-height: 1.05 !important;
+    letter-spacing: 0 !important;
+    text-shadow: none !important;
+}
+
+.public-upload-head h1 i {
+    width: 48px !important;
+    height: 48px !important;
+    padding: 0 !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    border-radius: 8px !important;
+    color: #1a1204 !important;
+    background: linear-gradient(135deg, var(--upload-accent), #f7d17a) !important;
+    border: 1px solid rgba(255,255,255,.2) !important;
+    box-shadow: 0 12px 28px rgba(244,184,68,.2) !important;
+    transform: none !important;
+    font-size: 1.55rem !important;
+}
+
+.public-upload-head p {
+    max-width: 760px !important;
+    margin: 0 !important;
+    color: var(--upload-muted) !important;
+    font-size: 1rem !important;
+    line-height: 1.6 !important;
+}
+
+.public-upload-body {
+    padding: clamp(1rem, 2.4vw, 1.6rem) !important;
+    background:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        var(--upload-bg) !important;
+    background-size: 100% 42px !important;
+}
+
+.upload-composer-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 1rem;
+    align-items: start;
+}
+
+.upload-form-fields {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.upload-form-fields .row,
+.upload-form-fields .mb-4,
+.upload-form-fields .public-upload-grid,
+.upload-form-fields .public-alert-note {
+    margin-bottom: 0 !important;
+}
+
+.upload-wizard-panel {
+    padding: 2rem !important;
+    border: 1px solid var(--upload-line) !important;
+    border-radius: 12px !important;
+    background: linear-gradient(180deg, #131b25, #101720) !important;
+    margin-bottom: 1.5rem;
+}
+
+.upload-assist-panel {
+    position: sticky;
+    top: 92px;
+    display: grid;
+    gap: 1rem;
+    padding: 1.05rem;
+    border: 1px solid rgba(244,184,68,.24);
+    border-radius: 8px;
+    color: var(--upload-soft);
+    background:
+        linear-gradient(180deg, rgba(244,184,68,.12), rgba(244,184,68,0) 38%),
+        #121922;
+    box-shadow: 0 18px 44px rgba(0,0,0,.24);
+}
+
+.upload-assist-status {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem .6rem;
+    border: 1px solid rgba(88,213,189,.22);
+    border-radius: 999px;
+    color: var(--upload-teal);
+    background: rgba(88,213,189,.08);
+    font-size: .78rem;
+    font-weight: 850;
+}
+
+.upload-status-dot {
+    width: .48rem;
+    height: .48rem;
+    border-radius: 999px;
+    background: var(--upload-teal);
+    box-shadow: 0 0 0 4px rgba(88,213,189,.12);
+}
+
+.upload-assist-panel h2 {
+    margin: 0 !important;
+    color: var(--upload-text) !important;
+    font-size: 1.2rem !important;
+    line-height: 1.2 !important;
+}
+
+.upload-assist-panel p {
+    margin: 0 !important;
+    color: var(--upload-muted) !important;
+    line-height: 1.55 !important;
+    font-size: .92rem !important;
+}
+
+.upload-check-list {
+    display: grid;
+    gap: .65rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.upload-check-list li {
+    display: grid;
+    grid-template-columns: 32px minmax(0,1fr);
+    gap: .65rem;
+    align-items: center;
+    min-height: 42px;
+    padding: .55rem;
+    border: 1px solid var(--upload-line-soft);
+    border-radius: 8px;
+    color: var(--upload-soft);
+    background: rgba(255,255,255,.035);
+    font-size: .88rem;
+    font-weight: 750;
+}
+
+.upload-check-list i {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 8px;
+    color: #1a1204;
+    background: var(--upload-accent);
+}
+
+.public-upload-card .form-label {
+    margin-bottom: .45rem !important;
+    color: var(--upload-soft) !important;
+    font-size: .82rem !important;
+    font-weight: 850 !important;
+    letter-spacing: .03em !important;
+    text-transform: uppercase !important;
+}
+
+.public-upload-card .form-control,
+.public-upload-card .form-select {
+    min-height: 46px !important;
+    padding: .68rem .82rem !important;
+    border: 1px solid var(--upload-line) !important;
+    border-radius: 8px !important;
+    color: var(--upload-text) !important;
+    background: #0d131b !important;
+    font-size: .95rem !important;
+    font-weight: 650 !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,.04) inset !important;
+}
+
+.public-upload-card .form-select {
+    color-scheme: dark;
+}
+
+.public-upload-card .form-control:focus,
+.public-upload-card .form-select:focus {
+    border-color: rgba(244,184,68,.78) !important;
+    background: #101821 !important;
+    box-shadow: 0 0 0 3px rgba(244,184,68,.16) !important;
+}
+
+.public-upload-card .form-control::placeholder {
+    color: #687789 !important;
+}
+
+.public-upload-card .form-text {
+    color: var(--upload-muted) !important;
+    font-size: .84rem !important;
+}
+
+.public-media-card {
+    margin: 0 !important;
+    padding: 1rem !important;
+    border: 1px solid var(--upload-line) !important;
+    border-radius: 8px !important;
+    background: linear-gradient(180deg, var(--upload-panel-2), var(--upload-panel)) !important;
+    box-shadow: none !important;
+}
+
+.public-media-card:hover {
+    border-color: rgba(244,184,68,.42) !important;
+    box-shadow: 0 16px 38px rgba(0,0,0,.2) !important;
+}
+
+.public-media-head {
+    align-items: center !important;
+    gap: .8rem !important;
+    margin-bottom: .85rem !important;
+    padding-bottom: .85rem !important;
+    border-bottom: 1px solid var(--upload-line-soft) !important;
+}
+
+.public-media-head h3 {
+    color: var(--upload-text) !important;
+    font-size: 1.02rem !important;
+    gap: .5rem !important;
+}
+
+.public-media-head h3 i {
+    color: var(--upload-accent) !important;
+}
+
+.public-media-head p {
+    margin-top: .28rem !important;
+    color: var(--upload-muted) !important;
+    font-size: .88rem !important;
+}
+
+.public-pill {
+    padding: .38rem .65rem !important;
+    border: 1px solid rgba(244,184,68,.28) !important;
+    border-radius: 999px !important;
+    color: var(--upload-accent) !important;
+    background: rgba(244,184,68,.09) !important;
+    font-size: .72rem !important;
+    letter-spacing: 0 !important;
+}
+
+.public-dropzone {
+    min-height: 178px !important;
+    border: 1px dashed #465363 !important;
+    border-radius: 8px !important;
+    background:
+        linear-gradient(135deg, rgba(244,184,68,.08), transparent 42%),
+        #0d131b !important;
+}
+
+.public-dropzone.is-active,
+.public-dropzone:hover {
+    border-color: var(--upload-accent) !important;
+    background:
+        linear-gradient(135deg, rgba(244,184,68,.12), rgba(88,213,189,.05)),
+        #101821 !important;
+}
+
+.public-dropzone::before {
+    display: none !important;
+}
+
+.public-dropzone-trigger {
+    padding: 1.7rem !important;
+}
+
+.public-dropzone-trigger i {
+    margin-bottom: .8rem !important;
+    color: var(--upload-accent) !important;
+    font-size: 2.45rem !important;
+    text-shadow: none !important;
+}
+
+.public-dropzone:hover .public-dropzone-trigger i {
+    transform: translateY(-3px) !important;
+}
+
+.public-dropzone-trigger strong {
+    color: var(--upload-text) !important;
+    font-size: 1rem !important;
+}
+
+.public-dropzone-trigger span {
+    color: var(--upload-muted) !important;
+    font-size: .86rem !important;
+}
+
+.public-preview-grid {
+    gap: .7rem !important;
+    padding: 0 .9rem .9rem !important;
+}
+
+.public-preview-item {
+    width: 124px !important;
+    border: 1px solid var(--upload-line) !important;
+    border-radius: 8px !important;
+    background: #0d131b !important;
+    box-shadow: 0 10px 24px rgba(0,0,0,.24) !important;
+}
+
+.public-preview-item:hover {
+    transform: translateY(-3px) !important;
+    border-color: var(--upload-accent) !important;
+}
+
+.public-preview-item img {
+    height: 92px !important;
+}
+
+.public-preview-remove-bar {
+    height: 34px !important;
+    background: #352027 !important;
+    color: #ffb5bd !important;
+}
+
+.public-preview-remove-bar:hover {
+    background: #7f1d1d !important;
+    color: #fff !important;
+}
+
+.dl-row {
+    display: grid !important;
+    grid-template-columns: minmax(130px, .36fr) minmax(0, 1fr) 42px !important;
+    gap: .65rem !important;
+    margin-bottom: .65rem !important;
+}
+
+.dl-row .form-control.w-25 {
+    width: 100% !important;
+}
+
+.dl-row .btn {
+    width: 42px !important;
+    min-height: 46px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    display: inline-grid !important;
+    place-items: center !important;
+}
+
+.btn-add-link {
+    min-height: 46px !important;
+    padding: .72rem 1rem !important;
+    border: 1px dashed rgba(244,184,68,.5) !important;
+    border-radius: 8px !important;
+    color: var(--upload-accent) !important;
+    background: rgba(244,184,68,.07) !important;
+    font-size: .94rem !important;
+}
+
+.btn-add-link:hover {
+    transform: none !important;
+    border-style: solid !important;
+    background: rgba(244,184,68,.12) !important;
+    box-shadow: none !important;
+}
+
+.public-alert-note {
+    margin: 0 !important;
+    padding: 1rem !important;
+    border: 1px solid rgba(88,213,189,.24) !important;
+    border-radius: 8px !important;
+    color: var(--upload-soft) !important;
+    background: rgba(88,213,189,.07) !important;
+}
+
+.public-alert-note i {
+    color: var(--upload-teal) !important;
+    text-shadow: none !important;
+}
+
+.public-actions {
+    gap: .75rem !important;
+    margin-top: 1rem !important;
+    padding-top: 1rem !important;
+    border-top: 1px solid var(--upload-line) !important;
+}
+
+.btn-submit-mod,
+.btn-cancel-mod {
+    min-height: 48px !important;
+    border-radius: 8px !important;
+    font-size: .98rem !important;
+}
+
+.btn-submit-mod {
+    color: #1a1204 !important;
+    background: linear-gradient(135deg, var(--upload-accent), #f7d17a) !important;
+    box-shadow: 0 12px 28px rgba(244,184,68,.22) !important;
+}
+
+.btn-submit-mod:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 16px 34px rgba(244,184,68,.3) !important;
+}
+
+.btn-cancel-mod {
+    color: var(--upload-muted) !important;
+    background: #111821 !important;
+    border: 1px solid var(--upload-line) !important;
+}
+
+.btn-cancel-mod:hover {
+    color: var(--upload-text) !important;
+    background: #17212d !important;
+    transform: translateY(-1px) !important;
+}
+
+.public-upload-card .quill-container {
+    border: 1px solid var(--upload-line) !important;
+    border-radius: 8px !important;
+    background: #0d131b !important;
+}
+
+.public-upload-card .quill-container .ql-toolbar {
+    border-bottom: 1px solid var(--upload-line) !important;
+    background: #151e29 !important;
+}
+
+.public-upload-card .quill-container .ql-container,
+.public-upload-card .quill-container .ql-editor {
+    min-height: 220px !important;
+    color: var(--upload-text) !important;
+    background: #0d131b !important;
+}
+
+@media (max-width: 991.98px) {
+    .upload-composer-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .upload-assist-panel {
+        position: static;
+        order: -1;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .public-upload-shell {
+        width: min(100% - 20px, 1180px) !important;
+        margin-top: 1rem !important;
+    }
+
+    .public-upload-head,
+    .public-upload-body {
+        padding: 1rem !important;
+    }
+
+    .public-upload-head h1 i {
+        width: 42px !important;
+        height: 42px !important;
+    }
+
+    .upload-wizard-panel,
+    .public-media-card,
+    .upload-assist-panel {
+        padding: 1.2rem !important;
+    }
+
+    .dl-row {
+        grid-template-columns: 1fr 42px !important;
+    }
+
+    .dl-row .form-control.w-25 {
+        grid-column: 1 / -1;
+    }
+
+    .public-actions {
+        flex-direction: column !important;
+    }
+}
+
+/* Theme-aware upload layer. Keeps the premium layout, follows site light/dark tokens. */
+.public-upload-shell {
+    --upload-bg: var(--bg);
+    --upload-card: var(--bg-white);
+    --upload-panel: color-mix(in srgb, var(--bg-white) 94%, var(--bg) 6%);
+    --upload-panel-2: color-mix(in srgb, var(--bg-white) 88%, var(--primary) 12%);
+    --upload-field: color-mix(in srgb, var(--bg-white) 92%, var(--bg) 8%);
+    --upload-field-focus: color-mix(in srgb, var(--bg-white) 86%, var(--primary) 14%);
+    --upload-dropzone: color-mix(in srgb, var(--bg-white) 90%, var(--bg) 10%);
+    --upload-line: var(--border);
+    --upload-line-soft: color-mix(in srgb, var(--border) 70%, transparent);
+    --upload-text: var(--text);
+    --upload-muted: var(--text-light);
+    --upload-soft: var(--text-dim);
+    --upload-accent: var(--primary);
+    --upload-accent-strong: var(--primary-dark);
+    --upload-on-accent: var(--on-primary);
+    --upload-teal: var(--success);
+    --upload-shadow: color-mix(in srgb, var(--shadow) 70%, transparent);
+}
+
+[data-theme="dark"] .public-upload-shell {
+    --upload-panel: color-mix(in srgb, var(--bg-white) 82%, #05080d 18%);
+    --upload-panel-2: color-mix(in srgb, var(--bg-white) 86%, var(--primary) 8%);
+    --upload-field: color-mix(in srgb, var(--bg) 88%, #000 12%);
+    --upload-field-focus: color-mix(in srgb, var(--bg-hover) 86%, var(--primary) 14%);
+    --upload-dropzone: color-mix(in srgb, var(--bg) 90%, #000 10%);
+    --upload-shadow: rgba(0, 0, 0, .34);
+}
+
+body:has(.public-upload-shell) {
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--upload-accent) 7%, transparent), transparent 260px),
+        var(--bg) !important;
+    color: var(--text);
+}
+
+.public-upload-card {
+    border-color: var(--upload-line) !important;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--bg-white) 96%, var(--primary) 4%), var(--upload-card)),
+        var(--upload-card) !important;
+    box-shadow: 0 24px 70px var(--upload-shadow), inset 0 1px 0 color-mix(in srgb, var(--bg-white) 80%, transparent) !important;
+}
+
+.public-upload-head {
+    border-bottom-color: var(--upload-line) !important;
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--upload-accent) 14%, transparent), color-mix(in srgb, var(--upload-teal) 6%, transparent) 52%, transparent),
+        linear-gradient(180deg, var(--upload-panel-2), var(--upload-panel)) !important;
+}
+
+.public-upload-head h1,
+.upload-assist-panel h2,
+.public-media-head h3,
+.public-dropzone-trigger strong {
+    color: var(--upload-text) !important;
+}
+
+.public-upload-head p,
+.upload-assist-panel p,
+.public-media-head p,
+.public-dropzone-trigger span,
+.public-upload-card .form-text {
+    color: var(--upload-muted) !important;
+}
+
+.public-upload-head h1 i,
+.upload-check-list i,
+.btn-submit-mod {
+    color: var(--upload-on-accent) !important;
+    background: linear-gradient(135deg, var(--upload-accent), color-mix(in srgb, var(--upload-accent) 72%, white 28%)) !important;
+}
+
+.public-upload-body {
+    background:
+        linear-gradient(color-mix(in srgb, var(--text) 3%, transparent) 1px, transparent 1px),
+        var(--upload-bg) !important;
+}
+
+.upload-wizard-panel,
+.public-media-card,
+.upload-assist-panel {
+    border-color: var(--upload-line) !important;
+    background: linear-gradient(180deg, var(--upload-panel-2), var(--upload-panel)) !important;
+}
+
+.upload-assist-panel {
+    border-color: color-mix(in srgb, var(--upload-accent) 24%, var(--upload-line)) !important;
+    box-shadow: 0 18px 44px var(--upload-shadow) !important;
+}
+
+.upload-assist-status {
+    border-color: color-mix(in srgb, var(--upload-teal) 30%, transparent) !important;
+    color: var(--upload-teal) !important;
+    background: color-mix(in srgb, var(--upload-teal) 10%, transparent) !important;
+}
+
+.upload-status-dot {
+    background: var(--upload-teal) !important;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--upload-teal) 14%, transparent) !important;
+}
+
+.upload-check-list li,
+.public-preview-item {
+    border-color: var(--upload-line-soft) !important;
+    color: var(--upload-soft) !important;
+    background: color-mix(in srgb, var(--bg-white) 74%, var(--bg) 26%) !important;
+}
+
+.public-upload-card .form-label {
+    color: var(--upload-soft) !important;
+}
+
+.public-upload-card .form-control,
+.public-upload-card .form-select {
+    border-color: var(--upload-line) !important;
+    color: var(--upload-text) !important;
+    background: var(--upload-field) !important;
+    color-scheme: light;
+}
+
+[data-theme="dark"] .public-upload-card .form-control,
+[data-theme="dark"] .public-upload-card .form-select {
+    color-scheme: dark;
+}
+
+.public-upload-card .form-control:focus,
+.public-upload-card .form-select:focus {
+    border-color: color-mix(in srgb, var(--upload-accent) 78%, var(--upload-line)) !important;
+    background: var(--upload-field-focus) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--upload-accent) 16%, transparent) !important;
+}
+
+.public-upload-card .form-control::placeholder {
+    color: color-mix(in srgb, var(--upload-muted) 78%, transparent) !important;
+}
+
+.public-media-card:hover,
+.public-preview-item:hover {
+    border-color: color-mix(in srgb, var(--upload-accent) 42%, var(--upload-line)) !important;
+    box-shadow: 0 16px 38px var(--upload-shadow) !important;
+}
+
+.public-media-head {
+    border-bottom-color: var(--upload-line-soft) !important;
+}
+
+.public-media-head h3 i,
+.public-dropzone-trigger i,
+.btn-add-link {
+    color: var(--upload-accent) !important;
+}
+
+.public-pill,
+.btn-add-link {
+    border-color: color-mix(in srgb, var(--upload-accent) 32%, var(--upload-line)) !important;
+    color: var(--upload-accent) !important;
+    background: color-mix(in srgb, var(--upload-accent) 9%, transparent) !important;
+}
+
+.public-dropzone {
+    border-color: color-mix(in srgb, var(--upload-line) 78%, var(--upload-muted) 22%) !important;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--upload-accent) 8%, transparent), transparent 42%),
+        var(--upload-dropzone) !important;
+}
+
+.public-dropzone.is-active,
+.public-dropzone:hover {
+    border-color: var(--upload-accent) !important;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--upload-accent) 12%, transparent), color-mix(in srgb, var(--upload-teal) 5%, transparent)),
+        var(--upload-field-focus) !important;
+}
+
+.public-preview-name {
+    background: linear-gradient(180deg, rgba(0,0,0,.72), transparent 100%) !important;
+}
+
+.public-preview-remove-bar {
+    color: var(--danger) !important;
+    background: color-mix(in srgb, var(--danger) 12%, var(--bg-white)) !important;
+}
+
+.public-preview-remove-bar:hover {
+    color: #fff !important;
+    background: var(--danger) !important;
+}
+
+.btn-add-link:hover {
+    background: color-mix(in srgb, var(--upload-accent) 14%, transparent) !important;
+}
+
+.public-alert-note {
+    border-color: color-mix(in srgb, var(--upload-teal) 28%, var(--upload-line)) !important;
+    color: var(--upload-soft) !important;
+    background: color-mix(in srgb, var(--upload-teal) 8%, transparent) !important;
+}
+
+.public-alert-note i {
+    color: var(--upload-teal) !important;
+}
+
+.public-actions {
+    border-top-color: var(--upload-line) !important;
+}
+
+.btn-submit-mod {
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--upload-accent) 24%, transparent) !important;
+}
+
+.btn-submit-mod:hover {
+    box-shadow: 0 16px 34px color-mix(in srgb, var(--upload-accent) 34%, transparent) !important;
+}
+
+.btn-cancel-mod {
+    color: var(--upload-muted) !important;
+    background: var(--upload-panel) !important;
+    border-color: var(--upload-line) !important;
+}
+
+.btn-cancel-mod:hover {
+    color: var(--upload-text) !important;
+    background: var(--bg-hover) !important;
+}
+
+.public-upload-card .quill-container,
+.public-upload-card .quill-container .ql-container,
+.public-upload-card .quill-container .ql-editor {
+    border-color: var(--upload-line) !important;
+    color: var(--upload-text) !important;
+    background: var(--upload-field) !important;
+}
+
+.public-upload-card .quill-container .ql-toolbar {
+    border-bottom-color: var(--upload-line) !important;
+    background: var(--upload-panel-2) !important;
+}
+
+.upload-topic-breadcrumb a,
+.upload-topic-breadcrumb span {
+    color: var(--text-light);
+}
+
+.upload-topic-breadcrumb a:hover {
+    color: var(--primary);
+}
+
+.upload-topic-form-container {
+    padding-top: .35rem !important;
+}
+
+.upload-topic-form-container .public-upload-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: .35rem !important;
+}
+
+.upload-wizard-progress {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: .55rem;
+    margin: 0 0 1.25rem;
+}
+
+.upload-wizard-step {
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    color: var(--text-muted);
+    min-height: 74px;
+    border-radius: 8px;
+    padding: .7rem .55rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: .35rem;
+    text-align: left;
+    transition: border-color .2s ease, background .2s ease, color .2s ease, transform .2s ease;
+}
+
+.upload-wizard-step span {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: .8rem;
+    background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+    color: inherit;
+}
+
+.upload-wizard-step strong {
+    display: block;
+    font-size: .78rem;
+    line-height: 1.15;
+    font-weight: 800;
+}
+
+.upload-wizard-step:hover,
+.upload-wizard-step.is-active {
+    border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+    color: var(--text);
+    transform: translateY(-1px);
+}
+
+.upload-wizard-step.is-active span,
+.upload-wizard-step.is-complete span {
+    background: var(--primary);
+    color: var(--primary-contrast, #fff);
+}
+
+.upload-wizard-step.is-complete {
+    color: var(--text);
+}
+
+.upload-wizard-panel[hidden] {
+    display: none !important;
+}
+
+.upload-wizard-panel {
+    animation: uploadStepIn .18s ease-out;
+}
+
+.upload-step-eyebrow {
+    color: var(--primary);
+    font-size: .95rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .15em;
+    margin-bottom: .6rem;
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    background: rgba(0, 212, 255, 0.08);
+    border-radius: 6px;
+    border: 1px solid rgba(0, 212, 255, 0.15);
+}
+
+.upload-step-title {
+    color: var(--text);
+    font-size: 1.35rem;
+    font-weight: 800;
+    margin: 0 0 .4rem;
+}
+
+.upload-step-copy {
+    color: var(--text-muted);
+    margin: 0 0 1.2rem;
+    max-width: 720px;
+}
+
+.upload-review-list {
+    display: grid;
+    gap: .75rem;
+    margin: 1rem 0 1.2rem;
+}
+
+.upload-review-list > div {
+    display: flex;
+    gap: .75rem;
+    align-items: flex-start;
+    padding: .9rem 1rem;
+    border-radius: 8px;
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface-alt, var(--surface)) 82%, var(--primary) 8%);
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+.upload-review-list i {
+    color: var(--primary);
+    font-size: 1.1rem;
+    margin-top: .1rem;
+}
+
+.upload-profile-followup {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .85rem;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+    color: var(--text);
+}
+
+.upload-profile-followup > i {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.upload-profile-followup strong,
+.upload-profile-followup span {
+    display: block;
+}
+
+.upload-profile-followup span {
+    color: var(--text-muted);
+    font-size: .92rem;
+    margin-top: .15rem;
+}
+
+.upload-profile-followup-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: .55rem .85rem;
+    border-radius: 8px;
+    background: var(--primary);
+    color: var(--primary-contrast, #fff) !important;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.public-preview-item img {
+    display: block !important;
+    background: color-mix(in srgb, var(--surface) 72%, #000 8%) !important;
+}
+
+.public-preview-fallback {
+    height: 92px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .25rem;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    font-size: .78rem;
+    font-weight: 700;
+}
+
+.public-preview-fallback i {
+    font-size: 1.45rem;
+}
+
+.upload-image-rules,
+.upload-field-rules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-top: .85rem;
+}
+
+.upload-image-rules span,
+.upload-field-rules span {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    min-height: 30px;
+    padding: .35rem .55rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface) 82%, var(--primary) 6%);
+    color: var(--text-muted);
+    font-size: .78rem;
+    font-weight: 800;
+}
+
+.upload-image-rules i,
+.upload-field-rules i {
+    color: var(--primary);
+}
+
+.upload-live-hint {
+    min-height: 1.5rem;
+    margin-top: .5rem;
+    color: var(--text-muted);
+    font-size: .95rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.upload-live-hint.is-ok {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    display: inline-block;
+}
+
+.upload-live-hint.is-warning {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    display: inline-block;
+}
+
+.upload-live-hint.is-error {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    display: inline-block;
+}
+
+.upload-limit-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: .85rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+    color: var(--text);
+}
+
+.upload-limit-summary > i {
+    color: var(--primary);
+    font-size: 1.25rem;
+}
+
+.upload-limit-summary strong,
+.upload-limit-summary span {
+    display: block;
+}
+
+.upload-limit-summary span {
+    margin-top: .2rem;
+    color: var(--text-muted);
+    font-size: .88rem;
+    font-weight: 750;
+}
+
+.upload-assist-limit-summary {
+    margin: .75rem 0 1rem;
+    padding: .85rem;
+}
+
+.upload-wizard-controls,
+.upload-final-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1.2rem;
+}
+
+.upload-wizard-controls {
+    justify-content: flex-end;
+}
+
+.upload-wizard-controls .btn-submit-mod,
+.upload-wizard-controls .btn-cancel-mod {
+    min-height: 40px !important;
+    padding: .55rem .95rem !important;
+    border-radius: 8px !important;
+    font-size: .9rem !important;
+    line-height: 1 !important;
+}
+
+.upload-wizard-controls [hidden],
+.upload-composer-layout + .public-actions {
+    display: none !important;
+}
+
+.upload-wizard-controls .btn-cancel-mod:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.upload-section-divider {
+    border-top: 1px dashed var(--border);
+}
+
+.upload-final-actions .btn-submit-mod:disabled,
+.upload-final-actions .btn-submit-mod.is-submitted,
+.upload-final-actions .btn-submit-mod.is-submitted:hover,
+.upload-final-actions .btn-submit-mod.is-submit-locked,
+.upload-final-actions .btn-submit-mod.is-submit-locked:hover {
+    background: color-mix(in srgb, var(--text-muted) 34%, var(--surface)) !important;
+    border-color: color-mix(in srgb, var(--text-muted) 28%, var(--border)) !important;
+    color: color-mix(in srgb, var(--text-muted) 88%, var(--text)) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    opacity: .72 !important;
+    transform: none !important;
+    filter: grayscale(.35);
+}
+
+.upload-final-actions .btn-submit-mod.is-submitting:disabled {
+    cursor: progress !important;
+    opacity: .82 !important;
+}
+
+.upload-final-actions .btn-submit-mod.is-submitted i,
+.upload-final-actions .btn-submit-mod.is-submit-locked i {
+    color: inherit !important;
+}
+
+@keyframes uploadStepIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1199px) {
+    .upload-wizard-progress {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767px) {
+    .upload-wizard-progress {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .upload-wizard-step {
+        min-height: 64px;
+    }
+
+    .upload-wizard-controls,
+    .upload-final-actions {
+        flex-direction: column;
+    }
+
+    .upload-profile-followup {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .upload-profile-followup-link {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+
+    .upload-wizard-controls > *,
+    .upload-final-actions > * {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+.quill-container { border: 1px solid var(--upload-line, var(--border)); border-radius: 8px; overflow: hidden; background: var(--upload-field, var(--surface)); color: var(--upload-text, var(--text)); }
+.quill-container .ql-toolbar { border: none; border-bottom: 1px solid var(--upload-line, var(--border)); background: color-mix(in srgb, var(--upload-field, var(--surface)) 88%, var(--primary) 5%); }
+.quill-container .ql-container { border: none; min-height: 200px; font-size: .92rem; color: var(--upload-text, var(--text)); }
+.quill-container .ql-editor { min-height: 200px;  }
+.quill-container .ql-editor.ql-blank::before { color: var(--text-muted); }
+.quill-container .ql-stroke { stroke: var(--upload-text, var(--text)); }
+.quill-container .ql-fill { fill: var(--upload-text, var(--text)); }
+.quill-container .ql-picker { color: var(--upload-text, var(--text)); }
+.upload-rich-fallback {
+    border: 1px solid var(--upload-line, var(--border));
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--upload-field, var(--surface));
+    color: var(--upload-text, var(--text));
+}
+.upload-rich-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    padding: .5rem;
+    border-bottom: 1px solid var(--upload-line, var(--border));
+    background: color-mix(in srgb, var(--upload-field, var(--surface)) 88%, var(--primary) 5%);
+}
+.upload-rich-toolbar button {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--upload-text, var(--text));
+}
+.upload-rich-toolbar button:hover {
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+}
+.upload-rich-editor {
+    min-height: 220px;
+    padding: 1rem;
+    outline: none;
+    line-height: 1.65;
+    
+}
+.upload-rich-editor:focus {
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--primary) 13%, transparent);
+}
+
+.topic-edit-upload-page .public-upload-shell {
+    --upload-bg: var(--bg);
+    --upload-card: var(--bg-white);
+    --upload-panel: color-mix(in srgb, var(--bg-white) 94%, var(--bg) 6%);
+    --upload-panel-2: color-mix(in srgb, var(--bg-white) 88%, var(--primary) 12%);
+    --upload-field: color-mix(in srgb, var(--bg-white) 92%, var(--bg) 8%);
+    --upload-field-focus: color-mix(in srgb, var(--bg-white) 86%, var(--primary) 14%);
+    --upload-dropzone: color-mix(in srgb, var(--bg-white) 90%, var(--bg) 10%);
+    --upload-line: var(--border);
+    --upload-line-soft: color-mix(in srgb, var(--border) 70%, transparent);
+    --upload-text: var(--text);
+    --upload-muted: var(--text-light);
+    --upload-soft: var(--text-dim);
+    --upload-accent: var(--primary);
+    --upload-on-accent: var(--on-primary);
+    --upload-teal: var(--success);
+    --upload-shadow: color-mix(in srgb, var(--shadow) 70%, transparent);
+    width: 100%;
+    max-width: 100%;
+    margin: .35rem auto 3rem;
+}
+[data-theme="dark"] .topic-edit-upload-page .public-upload-shell {
+    --upload-panel: color-mix(in srgb, var(--bg-white) 82%, #05080d 18%);
+    --upload-panel-2: color-mix(in srgb, var(--bg-white) 86%, var(--primary) 8%);
+    --upload-field: color-mix(in srgb, var(--bg) 88%, #000 12%);
+    --upload-field-focus: color-mix(in srgb, var(--bg-hover) 86%, var(--primary) 14%);
+    --upload-dropzone: color-mix(in srgb, var(--bg) 90%, #000 10%);
+    --upload-shadow: rgba(0, 0, 0, .34);
+}
+body:has(.topic-edit-upload-page) {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 7%, transparent), transparent 260px), var(--bg) !important;
+}
+.topic-edit-upload-page .public-upload-card {
+    overflow: hidden;
+    border: 1px solid var(--upload-line);
+    border-radius: 8px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-white) 96%, var(--primary) 4%), var(--upload-card));
+    box-shadow: 0 24px 70px var(--upload-shadow), inset 0 1px 0 color-mix(in srgb, var(--bg-white) 80%, transparent);
+}
+.topic-edit-upload-page .public-upload-head {
+    display: grid;
+    gap: .55rem;
+    padding: clamp(1.4rem, 3vw, 2rem);
+    text-align: left;
+    border-bottom: 1px solid var(--upload-line);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--upload-accent) 14%, transparent), color-mix(in srgb, var(--upload-teal) 6%, transparent) 52%, transparent), linear-gradient(180deg, var(--upload-panel-2), var(--upload-panel));
+}
+.topic-edit-upload-page .public-upload-head h1 {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin: 0;
+    color: var(--upload-text);
+    font-size: clamp(1.65rem, 3vw, 2.35rem);
+    line-height: 1.05;
+    font-weight: 800;
+}
+.topic-edit-upload-page .public-upload-head h1 i {
+    width: 48px;
+    height: 48px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--upload-on-accent);
+    background: linear-gradient(135deg, var(--upload-accent), color-mix(in srgb, var(--upload-accent) 72%, white 28%));
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--upload-accent) 22%, transparent);
+}
+.topic-edit-upload-page .public-upload-head p {
+    max-width: 760px;
+    margin: 0;
+    color: var(--upload-muted);
+    font-size: 1rem;
+    line-height: 1.6;
+}
+.topic-edit-upload-page .public-upload-body {
+    padding: clamp(1rem, 2.4vw, 1.6rem);
+    background: linear-gradient(color-mix(in srgb, var(--text) 3%, transparent) 1px, transparent 1px), var(--upload-bg);
+    background-size: 100% 42px;
+}
+.topic-edit-upload-page .upload-wizard-progress {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: .55rem;
+    margin: 0 0 1.25rem;
+}
+.topic-edit-upload-page .upload-wizard-step {
+    min-height: 74px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: .35rem;
+    padding: .7rem .55rem;
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    color: var(--text-muted);
+    text-align: left;
+    transition: border-color .2s ease, background .2s ease, color .2s ease, transform .2s ease;
+}
+.topic-edit-upload-page .upload-wizard-step span {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: .8rem;
+    background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+}
+.topic-edit-upload-page .upload-wizard-step strong {
+    display: block;
+    font-size: .78rem;
+    line-height: 1.15;
+    font-weight: 800;
+}
+.topic-edit-upload-page .upload-wizard-step:hover,
+.topic-edit-upload-page .upload-wizard-step.is-active {
+    border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+    color: var(--text);
+    transform: translateY(-1px);
+}
+.topic-edit-upload-page .upload-wizard-step.is-active span,
+.topic-edit-upload-page .upload-wizard-step.is-complete span {
+    color: var(--upload-on-accent);
+    background: var(--primary);
+}
+.topic-edit-upload-page .upload-composer-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 1rem;
+    align-items: start;
+}
+.topic-edit-upload-page .upload-form-fields {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+}
+.topic-edit-upload-page .upload-form-fields > .row,
+.topic-edit-upload-page .upload-form-fields > .mb-4:not(.d-none),
+.topic-edit-upload-page .public-media-card,
+.topic-edit-upload-page .upload-assist-panel {
+    padding: 1rem;
+    border: 1px solid var(--upload-line);
+    border-radius: 8px;
+    background: linear-gradient(180deg, var(--upload-panel-2), var(--upload-panel));
+}
+.topic-edit-upload-page .upload-wizard-panel[hidden] {
+    display: none !important;
+}
+.topic-edit-upload-page .upload-wizard-panel {
+    animation: uploadStepIn .18s ease-out;
+}
+.topic-edit-upload-page .upload-step-eyebrow {
+    color: var(--primary);
+    font-size: .74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: .35rem;
+}
+.topic-edit-upload-page .upload-step-title {
+    color: var(--text);
+    font-size: 1.35rem;
+    font-weight: 800;
+    margin: 0 0 .4rem;
+}
+.topic-edit-upload-page .upload-step-copy {
+    color: var(--text-muted);
+    margin: 0 0 1.2rem;
+    max-width: 720px;
+}
+.topic-edit-upload-page .form-label {
+    margin-bottom: .45rem;
+    color: var(--upload-soft);
+    font-size: .82rem;
+    font-weight: 850;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+.topic-edit-upload-page .form-control,
+.topic-edit-upload-page .form-select {
+    min-height: 46px;
+    padding: .68rem .82rem;
+    border: 1px solid var(--upload-line);
+    border-radius: 8px;
+    color: var(--upload-text);
+    background: var(--upload-field);
+    font-size: .95rem;
+    font-weight: 650;
+}
+.topic-edit-upload-page .form-control:focus,
+.topic-edit-upload-page .form-select:focus {
+    border-color: color-mix(in srgb, var(--upload-accent) 78%, var(--upload-line));
+    background: var(--upload-field-focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--upload-accent) 16%, transparent);
+}
+.topic-edit-upload-page .public-media-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .8rem;
+    margin-bottom: .85rem;
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--upload-line-soft);
+}
+.topic-edit-upload-page .public-media-head h3 {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: 0;
+    color: var(--upload-text);
+    font-size: 1.02rem;
+    font-weight: 850;
+}
+.topic-edit-upload-page .public-media-head h3 i,
+.topic-edit-upload-page .public-dropzone-trigger i,
+.topic-edit-upload-page .btn-add-link {
+    color: var(--upload-accent);
+}
+.topic-edit-upload-page .public-media-head p {
+    margin: .28rem 0 0;
+    color: var(--upload-muted);
+    font-size: .88rem;
+}
+.topic-edit-upload-page .public-pill,
+.topic-edit-upload-page .btn-add-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .38rem .65rem;
+    border: 1px solid color-mix(in srgb, var(--upload-accent) 32%, var(--upload-line));
+    border-radius: 999px;
+    color: var(--upload-accent);
+    background: color-mix(in srgb, var(--upload-accent) 9%, transparent);
+    font-size: .72rem;
+    font-weight: 850;
+}
+.topic-edit-upload-page .public-dropzone {
+    min-height: 178px;
+    border: 1px dashed color-mix(in srgb, var(--upload-line) 78%, var(--upload-muted) 22%);
+    border-radius: 8px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--upload-accent) 8%, transparent), transparent 42%), var(--upload-dropzone);
+}
+.topic-edit-upload-page .public-dropzone:hover {
+    border-color: var(--upload-accent);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--upload-accent) 12%, transparent), color-mix(in srgb, var(--upload-teal) 5%, transparent)), var(--upload-field-focus);
+}
+.topic-edit-upload-page .public-dropzone-trigger {
+    display: grid;
+    place-items: center;
+    gap: .35rem;
+    padding: 1.7rem;
+    text-align: center;
+    cursor: pointer;
+}
+.topic-edit-upload-page .public-dropzone-trigger i {
+    font-size: 2.45rem;
+}
+.topic-edit-upload-page .public-dropzone-trigger strong {
+    color: var(--upload-text);
+    font-size: 1rem;
+}
+.topic-edit-upload-page .public-dropzone-trigger span {
+    color: var(--upload-muted);
+    font-size: .86rem;
+}
+.topic-edit-upload-page .public-preview-grid,
+.topic-edit-upload-page .topic-edit-existing-media {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .7rem;
+    margin: 0 0 1rem;
+}
+.topic-edit-upload-page .public-preview-grid {
+    padding: 0 .9rem .9rem;
+    margin: 0;
+}
+.topic-edit-upload-page .public-preview-item {
+    position: relative;
+    width: 124px;
+    overflow: hidden;
+    border: 1px solid var(--upload-line-soft);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-white) 74%, var(--bg) 26%);
+}
+.topic-edit-upload-page .public-preview-item img {
+    display: block;
+    width: 100%;
+    height: 92px;
+    object-fit: cover;
+}
+.topic-edit-upload-page .public-preview-name {
+    position: absolute;
+    inset: 0 0 auto;
+    padding: 8px 9px 18px;
+    color: #fff;
+    background: linear-gradient(180deg, rgba(0,0,0,.72), transparent);
+    font-size: .72rem;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.topic-edit-upload-page .topic-edit-existing-gallery {
+    padding-bottom: 1rem;
+    border-bottom: 1px dashed var(--upload-line, var(--border));
+}
+.topic-edit-upload-page .topic-edit-keep-toggle {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: .42rem .55rem;
+    margin: 0;
+    color: var(--upload-text, var(--text));
+    background: color-mix(in srgb, var(--success) 10%, var(--surface));
+    font-size: .78rem;
+    font-weight: 850;
+    cursor: pointer;
+}
+.topic-edit-upload-page .topic-edit-keep-toggle input {
+    accent-color: var(--success);
+}
+.topic-edit-upload-page .topic-edit-video-row {
+    border-top: 1px dashed var(--upload-line, var(--border));
+}
+.topic-edit-upload-page .topic-edit-moderation-note {
+    margin-bottom: 1rem !important;
+    border-color: color-mix(in srgb, var(--warning) 34%, var(--border)) !important;
+    background: color-mix(in srgb, var(--warning) 10%, var(--surface)) !important;
+}
+.topic-edit-upload-page .upload-image-rules,
+.topic-edit-upload-page .upload-field-rules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-top: .85rem;
+}
+.topic-edit-upload-page .upload-image-rules span,
+.topic-edit-upload-page .upload-field-rules span {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    min-height: 30px;
+    padding: .35rem .55rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface) 82%, var(--primary) 6%);
+    color: var(--text-muted);
+    font-size: .78rem;
+    font-weight: 800;
+}
+.topic-edit-upload-page .dl-row {
+    display: grid;
+    grid-template-columns: minmax(130px, .36fr) minmax(0, 1fr) 42px;
+    gap: .65rem;
+    margin-bottom: .65rem;
+}
+.topic-edit-upload-page .dl-row .form-control.w-25 {
+    width: 100% !important;
+}
+.topic-edit-upload-page .dl-row .btn {
+    width: 42px;
+    min-height: 46px;
+    padding: 0;
+    border-radius: 8px;
+    display: inline-grid;
+    place-items: center;
+}
+.topic-edit-upload-page .btn-add-link {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+    border-style: dashed;
+    cursor: pointer;
+}
+.topic-edit-upload-page .public-alert-note {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    margin: 0 0 1rem;
+    padding: 1rem;
+    border: 1px solid color-mix(in srgb, var(--upload-teal) 28%, var(--upload-line));
+    border-radius: 8px;
+    color: var(--upload-soft);
+    background: color-mix(in srgb, var(--upload-teal) 8%, transparent);
+}
+.topic-edit-upload-page .public-alert-note i {
+    color: var(--upload-teal);
+    font-size: 1.45rem;
+}
+.topic-edit-upload-page .upload-review-list {
+    display: grid;
+    gap: .75rem;
+    margin: 1rem 0 1.2rem;
+}
+.topic-edit-upload-page .upload-review-list > div {
+    display: flex;
+    gap: .75rem;
+    align-items: flex-start;
+    padding: .9rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    border-radius: 8px;
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface-alt, var(--surface)) 82%, var(--primary) 8%);
+}
+.topic-edit-upload-page .upload-review-list i {
+    color: var(--primary);
+    font-size: 1.1rem;
+    margin-top: .1rem;
+}
+.topic-edit-upload-page .upload-wizard-controls,
+.topic-edit-upload-page .upload-final-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1.2rem;
+}
+.topic-edit-upload-page .upload-final-actions {
+    justify-content: space-between;
+}
+.topic-edit-upload-page .upload-wizard-controls .btn-submit-mod,
+.topic-edit-upload-page .upload-wizard-controls .btn-cancel-mod,
+.topic-edit-upload-page .btn-submit-mod,
+.topic-edit-upload-page .btn-cancel-mod {
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .55rem;
+    padding: .72rem 1rem;
+    border-radius: 8px;
+    font-size: .95rem;
+    font-weight: 850;
+    text-decoration: none;
+}
+.topic-edit-upload-page .btn-submit-mod {
+    border: 0;
+    color: var(--upload-on-accent);
+    background: linear-gradient(135deg, var(--upload-accent), color-mix(in srgb, var(--upload-accent) 72%, white 28%));
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--upload-accent) 24%, transparent);
+}
+.topic-edit-upload-page .btn-cancel-mod {
+    color: var(--upload-muted);
+    background: var(--upload-panel);
+    border: 1px solid var(--upload-line);
+}
+.topic-edit-upload-page .upload-wizard-controls .btn-cancel-mod:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+.topic-edit-upload-page .upload-assist-panel {
+    position: sticky;
+    top: 92px;
+    display: grid;
+    gap: 1rem;
+    color: var(--upload-soft);
+    box-shadow: 0 18px 44px var(--upload-shadow);
+}
+.topic-edit-upload-page .upload-assist-status {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem .6rem;
+    border: 1px solid color-mix(in srgb, var(--upload-teal) 30%, transparent);
+    border-radius: 999px;
+    color: var(--upload-teal);
+    background: color-mix(in srgb, var(--upload-teal) 10%, transparent);
+    font-size: .78rem;
+    font-weight: 850;
+}
+.topic-edit-upload-page .upload-status-dot {
+    width: .48rem;
+    height: .48rem;
+    border-radius: 999px;
+    background: var(--upload-teal);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--upload-teal) 14%, transparent);
+}
+.topic-edit-upload-page .upload-assist-panel h2 {
+    margin: 0;
+    color: var(--upload-text);
+    font-size: 1.2rem;
+    font-weight: 800;
+}
+.topic-edit-upload-page .upload-assist-panel p {
+    margin: 0;
+    color: var(--upload-muted);
+    line-height: 1.55;
+    font-size: .92rem;
+}
+.topic-edit-upload-page .upload-check-list {
+    display: grid;
+    gap: .65rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+.topic-edit-upload-page .upload-check-list li {
+    display: grid;
+    grid-template-columns: 32px minmax(0,1fr);
+    gap: .65rem;
+    align-items: center;
+    min-height: 42px;
+    padding: .55rem;
+    border: 1px solid var(--upload-line-soft);
+    border-radius: 8px;
+    color: var(--upload-soft);
+    background: color-mix(in srgb, var(--bg-white) 74%, var(--bg) 26%);
+    font-size: .88rem;
+    font-weight: 750;
+}
+.topic-edit-upload-page .upload-check-list i {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--upload-on-accent);
+    background: var(--upload-accent);
+}
+
+@media (max-width: 1199px) {
+    .topic-edit-upload-page .upload-wizard-progress {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+@media (max-width: 991.98px) {
+    .topic-edit-upload-page .upload-composer-layout {
+        grid-template-columns: 1fr;
+    }
+    .topic-edit-upload-page .upload-assist-panel {
+        position: static;
+        order: -1;
+    }
+}
+@media (max-width: 767px) {
+    .topic-edit-upload-page .upload-wizard-progress {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .topic-edit-upload-page .upload-wizard-controls,
+    .topic-edit-upload-page .upload-final-actions {
+        flex-direction: column;
+    }
+    .topic-edit-upload-page .upload-wizard-controls > *,
+    .topic-edit-upload-page .upload-final-actions > * {
+        width: 100%;
+    }
+    .topic-edit-upload-page .dl-row {
+        grid-template-columns: 1fr 42px;
+    }
+    .topic-edit-upload-page .dl-row .form-control.w-25 {
+        grid-column: 1 / -1;
+    }
+}
+
+.topic-edit-page .topic-edit-existing-media {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .7rem;
+    margin: 0 0 1rem;
+}
+.topic-edit-page .topic-edit-existing-gallery {
+    padding-bottom: 1rem;
+    border-bottom: 1px dashed var(--upload-line, var(--border));
+}
+.topic-edit-page .topic-edit-keep-toggle {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: .42rem .55rem;
+    margin: 0;
+    color: var(--upload-text, var(--text));
+    background: color-mix(in srgb, var(--success) 10%, var(--surface));
+    font-size: .78rem;
+    font-weight: 850;
+    cursor: pointer;
+}
+.topic-edit-page .topic-edit-keep-toggle input {
+    accent-color: var(--success);
+}
+.topic-edit-page .topic-edit-video-row {
+    border-top: 1px dashed var(--upload-line, var(--border));
+}
+.topic-edit-page .topic-edit-moderation-note {
+    margin-bottom: 1rem !important;
+    border-color: color-mix(in srgb, var(--warning) 34%, var(--border)) !important;
+    background: color-mix(in srgb, var(--warning) 10%, var(--surface)) !important;
+}
+
+.public-upload-card .upload-rich-fallback {
+    border: 1px solid var(--upload-line, var(--border));
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--upload-field, var(--surface));
+    color: var(--upload-text, var(--text));
+}
+.public-upload-card .upload-rich-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    padding: .5rem;
+    border-bottom: 1px solid var(--upload-line, var(--border));
+    background: var(--upload-panel-2, var(--surface));
+}
+.public-upload-card .upload-rich-toolbar button {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--upload-line, var(--border));
+    border-radius: 8px;
+    background: transparent;
+    color: var(--upload-text, var(--text));
+}
+.public-upload-card .upload-rich-toolbar button:hover {
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+}
+.public-upload-card .upload-rich-editor {
+    min-height: 220px;
+    padding: 1rem;
+    outline: none;
+    
+}
+
+.rich-editor[data-default-align="left"] + .quill-container .ql-editor,
+.rich-editor[data-default-align="left"] + .upload-rich-fallback .upload-rich-editor {
+    text-align: left;
+}
+
+.rich-editor[data-default-align="center"] + .quill-container .ql-editor,
+.rich-editor[data-default-align="center"] + .upload-rich-fallback .upload-rich-editor {
+    text-align: center;
+}
+
+.rich-editor[data-default-align="right"] + .quill-container .ql-editor,
+.rich-editor[data-default-align="right"] + .upload-rich-fallback .upload-rich-editor {
+    text-align: right;
+}
+
+.public-preview-item.is-sortable {
+    cursor: grab;
+}
+
+.public-preview-item.is-sortable:active {
+    cursor: grabbing;
+}
+
+.public-preview-item.is-sortable:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--upload-accent, var(--primary)) 34%, transparent);
+    outline-offset: 4px;
+}
+
+.public-preview-item.is-dragging {
+    opacity: .58;
+    transform: scale(.97) !important;
+}
+
+.public-preview-item.is-drop-target {
+    border-color: var(--upload-accent, var(--primary)) !important;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--upload-accent, var(--primary)) 18%, transparent), 0 18px 40px var(--upload-shadow, rgba(0,0,0,.18)) !important;
+}
+
+.public-preview-order {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 8;
+    min-width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, #fff 36%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--upload-accent, var(--primary)) 88%, #000 12%);
+    color: #fff;
+    font-size: .78rem;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(0,0,0,.22);
+    pointer-events: none;
+}
+
+.public-alert-note-strong {
+    margin: 0 0 18px;
+    border-color: color-mix(in srgb, var(--upload-accent, var(--primary)) 32%, var(--upload-border, #dbe3ef)) !important;
+    background: color-mix(in srgb, var(--upload-accent, var(--primary)) 9%, var(--upload-surface, #fff)) !important;
+}
+
+.public-alert-note-strong i {
+    color: var(--upload-accent, var(--primary));
+}
+
+/* Shared upload/edit field polish */
+.public-upload-shell .ui-admin-form-control,
+.public-upload-shell .form-select {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 46px !important;
+    padding: .78rem .95rem !important;
+    border: 1px solid color-mix(in srgb, var(--upload-accent, var(--primary)) 24%, var(--upload-border, var(--border))) !important;
+    border-radius: 10px !important;
+    background: var(--upload-field, color-mix(in srgb, var(--bg-white, #fff) 92%, var(--bg, #f4f6f9) 8%)) !important;
+    color: var(--upload-text, var(--text)) !important;
+    box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 56%, transparent), 0 1px 2px rgba(15, 23, 42, .05) !important;
+    font: inherit !important;
+    font-weight: 650 !important;
+    line-height: 1.45 !important;
+    transition: border-color .18s ease, box-shadow .18s ease, background .18s ease !important;
+}
+
+.public-upload-shell .ui-admin-form-control:hover,
+.public-upload-shell .form-select:hover {
+    border-color: color-mix(in srgb, var(--upload-accent, var(--primary)) 42%, var(--upload-border, var(--border))) !important;
+}
+
+.public-upload-shell .ui-admin-form-control:focus,
+.public-upload-shell .form-select:focus {
+    outline: none !important;
+    border-color: var(--upload-accent, var(--primary)) !important;
+    background: var(--upload-field-focus, color-mix(in srgb, var(--bg-white, #fff) 88%, var(--upload-accent, var(--primary)) 12%)) !important;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--upload-accent, var(--primary)) 16%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 64%, transparent) !important;
+}
+
+.public-upload-shell .ui-admin-form-control::placeholder {
+    color: var(--upload-muted, var(--text-muted)) !important;
+    font-weight: 500 !important;
+}
+
+.public-upload-shell textarea.ui-admin-form-control,
+.public-upload-shell .upload-rich-editor {
+    min-height: 220px !important;
+    line-height: 1.65 !important;
+    resize: vertical !important;
+}
+
+.public-upload-shell input[type="file"].ui-admin-form-control {
+    padding: .68rem .9rem !important;
+    cursor: pointer !important;
+}
+
+.public-upload-shell .dl-row,
+.topic-edit-upload-page .public-upload-shell .dl-row {
+    display: grid !important;
+    grid-template-columns: minmax(145px, 190px) minmax(0, 1fr) 42px !important;
+    align-items: stretch !important;
+    gap: .65rem !important;
+    margin-bottom: .72rem !important;
+}
+
+.public-upload-shell .dl-row .ui-admin-form-control.w-25,
+.topic-edit-upload-page .public-upload-shell .dl-row .ui-admin-form-control.w-25 {
+    width: 100% !important;
+}
+
+.public-upload-shell .dl-row .ui-admin-form-control.flex-grow-1,
+.topic-edit-upload-page .public-upload-shell .dl-row .ui-admin-form-control.flex-grow-1 {
+    min-width: 0 !important;
+}
+
+.public-upload-shell .dl-row .ui-admin-btn,
+.topic-edit-upload-page .public-upload-shell .dl-row .ui-admin-btn {
+    width: 42px !important;
+    min-height: 46px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    display: inline-grid !important;
+    place-items: center !important;
+}
+
+[data-theme="dark"] .public-upload-shell .ui-admin-form-control,
+[data-theme="dark"] .public-upload-shell .form-select {
+    background: var(--upload-field, color-mix(in srgb, var(--bg-white, #141820) 90%, #000 10%)) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04), 0 1px 2px rgba(0, 0, 0, .18) !important;
+}
+
+@media (max-width: 640px) {
+    .public-upload-shell .dl-row,
+    .topic-edit-upload-page .public-upload-shell .dl-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    .public-upload-shell .dl-row .ui-admin-btn,
+    .topic-edit-upload-page .public-upload-shell .dl-row .ui-admin-btn {
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 767.98px) {
+    html,
+    body.public-page-upload-topic,
+    body.public-page-edit-topic {
+        overflow-x: hidden !important;
+        overflow-x: clip !important;
+    }
+}
+
+/* Final upload/edit composer polish */
+.upload-topic-form-container {
+    width: min(var(--container-wide), calc(100% - var(--space-8))) !important;
+    margin-inline: auto !important;
+}
+
+.upload-topic-form-container .public-upload-shell,
+.topic-edit-upload-page .public-upload-shell {
+    max-width: var(--container-wide) !important;
+    margin-block: var(--space-4) var(--space-10) !important;
+}
+
+.public-upload-card {
+    overflow: visible !important;
+    border-color: var(--color-border) !important;
+    background: var(--color-surface) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.upload-composer-layout,
+.topic-edit-upload-page .upload-composer-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, .34fr) !important;
+    gap: var(--space-5) !important;
+}
+
+.upload-wizard-progress {
+    position: sticky;
+    top: calc(var(--space-16) + var(--space-4));
+    z-index: var(--z-sticky);
+    gap: var(--space-2) !important;
+    padding: var(--space-2) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    background: color-mix(in srgb, var(--color-surface) 92%, transparent) !important;
+    box-shadow: var(--shadow-xs) !important;
+    backdrop-filter: blur(var(--space-3));
+}
+
+.upload-wizard-step {
+    min-height: var(--control-height) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+.upload-wizard-panel,
+.public-media-card,
+.upload-assist-panel,
+.topic-edit-upload-page .upload-form-fields > .mb-4:not(.d-none) {
+    border-color: var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    background: var(--color-surface) !important;
+    box-shadow: var(--shadow-xs) !important;
+}
+
+.upload-wizard-panel,
+.topic-edit-upload-page .upload-form-fields > .mb-4:not(.d-none) {
+    padding: var(--space-6) !important;
+}
+
+.upload-assist-panel {
+    top: calc(var(--space-16) + var(--space-4)) !important;
+    gap: var(--space-3) !important;
+}
+
+.upload-step-eyebrow,
+.upload-field-rules span,
+.public-pill {
+    border-radius: var(--radius-pill) !important;
+}
+
+.upload-step-title,
+.upload-assist-panel h2,
+.public-media-head h3 {
+    color: var(--color-text) !important;
+    letter-spacing: 0;
+}
+
+.upload-step-copy,
+.upload-assist-panel p,
+.public-media-head p,
+.upload-field-rules span {
+    color: var(--color-text-muted) !important;
+}
+
+.public-dropzone {
+    border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border)) !important;
+    border-radius: var(--radius-md) !important;
+    background: color-mix(in srgb, var(--color-primary-soft) 18%, var(--color-surface) 82%) !important;
+}
+
+.public-dropzone-trigger {
+    border-radius: var(--radius-md) !important;
+}
+
+.public-dropzone-trigger:focus-visible,
+.upload-wizard-step:focus-visible {
+    outline: 0 !important;
+    box-shadow: var(--state-focus-ring) !important;
+}
+
+@media (max-width: 991.98px) {
+    .upload-composer-layout,
+    .topic-edit-upload-page .upload-composer-layout {
+        grid-template-columns: 1fr !important;
+    }
+
+    .upload-wizard-progress,
+    .upload-assist-panel {
+        position: static !important;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .upload-topic-form-container {
+        width: min(100% - var(--space-4), var(--container-wide)) !important;
+    }
+
+    .upload-wizard-panel,
+    .topic-edit-upload-page .upload-form-fields > .mb-4:not(.d-none) {
+        padding: var(--space-4) !important;
+    }
+}
+
+/* Public upload/edit pages: no side columns, shared spacing rhythm. */
+.upload-topic-form-container .upload-composer-layout.upload-composer-layout--single,
+.topic-edit-upload-page .upload-composer-layout.upload-composer-layout--single {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: var(--space-4) !important;
+}
+
+.upload-topic-form-container .upload-composer-layout.upload-composer-layout--single .upload-form-fields,
+.topic-edit-upload-page .upload-composer-layout.upload-composer-layout--single .upload-form-fields {
+    min-width: 0;
+    width: 100%;
+}
+
+.upload-topic-form-container .upload-composer-layout.upload-composer-layout--single .upload-assist-panel,
+.topic-edit-upload-page .upload-composer-layout.upload-composer-layout--single .upload-assist-panel {
+    display: none !important;
+}
+
+/* Public upload/edit pages: shared focus width + spacing parity with other focus shells. */
+body.public-page-upload-topic .site-main--focus .content-area > .upload-topic-form-container,
+body.public-page-edit-topic .site-main--focus .content-area > .upload-topic-form-container {
+    width: min(var(--container-wide), calc(100% - var(--space-8))) !important;
+    margin: var(--space-5) auto var(--space-10) !important;
+    padding-inline: 0 !important;
+}
+
+body.public-page-upload-topic .upload-topic-form-container .public-upload-shell,
+body.public-page-edit-topic .upload-topic-form-container .public-upload-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+}
+
+@media (max-width: 767.98px) {
+    body.public-page-upload-topic .site-main--focus .content-area > .upload-topic-form-container,
+    body.public-page-edit-topic .site-main--focus .content-area > .upload-topic-form-container {
+        width: min(100% - var(--space-4), var(--container-wide)) !important;
+        margin-top: var(--space-4) !important;
+    }
+}

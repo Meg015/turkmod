@@ -1,0 +1,119 @@
+Options -Indexes
+
+# ============================================================================
+# PERFORMANCE: OpCache & PHP Optimization (item #11)
+# ============================================================================
+<IfModule mod_php.c>
+    # OpCache settings for production performance
+    php_value opcache.enable 1
+    php_value opcache.memory_consumption 256
+    php_value opcache.max_accelerated_files 10000
+    php_value opcache.validate_timestamps 0
+    php_value opcache.save_comments 1
+    php_value opcache.enable_file_override 1
+    php_value opcache.revalidate_path 0
+    php_value opcache.interned_strings_buffer 16
+</IfModule>
+
+# ============================================================================
+# PERFORMANCE: Static Asset Cache Headers (item #33-34)
+# ============================================================================
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # CSS & JS - 1 year (versioned filenames)
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    # Fonts - 1 year
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+    # Images - 1 month
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 month"
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Immutable cache for versioned static assets
+    <FilesMatch "\.(css|js|woff2|woff|png|jpg|jpeg|webp|gif|svg|ico)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    
+    # Font preloading hints
+    <FilesMatch "\.html$">
+        Header set Link "</assets/dist/bootstrap-icons-mSm7cUeB-CVBWLLHT.woff2>; rel=preload; as=font; type=font/woff2; crossorigin"
+    </FilesMatch>
+</IfModule>
+
+# Sitemap pagination rewrite rules
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Relative targets keep this portable across folder renames.
+
+    # Development and CLI-only paths must never be served over HTTP.
+    RewriteRule ^(?:\.maestro|cron|install)(?:/|$) - [F,L,NC]
+
+    # Serve font files directly (bypass router)
+    RewriteRule \.(woff2?|ttf|eot|otf)$ - [L]
+
+    # topic-sitemap-2.xml, topic-sitemap-3.xml, etc. -> topic-sitemap.php
+    RewriteRule ^topic-sitemap-(\d+)\.xml$ topic-sitemap.php [L,QSA]
+
+    # profile-sitemap-2.xml, profile-sitemap-3.xml, etc. -> profile-sitemap.php
+    RewriteRule ^profile-sitemap-(\d+)\.xml$ profile-sitemap.php [L,QSA]
+
+    # image-sitemap-2.xml, image-sitemap-3.xml, etc. -> image-sitemap.php
+    RewriteRule ^image-sitemap-(\d+)\.xml$ image-sitemap.php [L,QSA]
+
+    # Route non-existent files/dirs to the front controller.
+    # This replaces FallbackResource and works with relative paths.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . route.php [L]
+</IfModule>
+
+# Fallback for servers without mod_rewrite (uncomment and set absolute path):
+# FallbackResource route.php
+
+# Font MIME Types
+<IfModule mod_mime.c>
+    AddType font/woff2 .woff2
+    AddType font/woff .woff
+    AddType application/font-woff .woff
+    AddType application/font-woff2 .woff2
+</IfModule>
+
+# Block access to hidden files and sensitive extensions
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(env|sql|log|sh|bak|md|py|ini|conf|yml|yaml|json|lock)$">
+    Require all denied
+</FilesMatch>
+
+# 404 handling: route.php already handles 404 via routerNotFound().
+# ErrorDocument kept as a safety net for non-rewrite scenarios.
+ErrorDocument 404 route.php
+
+# Security Headers
+# Bu temel header'lar Apache tarafinda `set` (replace) ise emiyor olur; ayni isimli
+# PHP tarafinda init.php -> buildSecurityHeaders() ile emit edilen degerleri override
+# eder (degil duplicate). PHP ayrica CSP / COEP / COOP / CORP / HSTS uretir ( dinamik,
+# nonce icerdigi icin Apache tarafindan uretilemez). Statik asset isteklerinde (font
+# dosyalari gibi route.php'ye girmeden direkt servis edilen) header'lar buradan gelir
+# cunku PHP bootstrap calismaz. nginx / php-cli gibi .htaccess destegi olmayan
+# ortamlarda yine de init.php tarafinda ayni header'lar emit edilir.
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+</IfModule>

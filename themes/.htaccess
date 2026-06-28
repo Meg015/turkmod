@@ -1,0 +1,9 @@
+Options -Indexes
+
+<FilesMatch "\.(tpl|json|md|txt)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(php|phtml|phar|htaccess)$">
+    Require all denied
+</FilesMatch>

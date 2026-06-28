@@ -1,0 +1,201 @@
+{
+    "id": "turkmod",
+    "name": "TurkMod",
+    "version": "1.2.2",
+    "author": "TurkMod",
+    "description": "TurkMod TPL sistemi icin izole, tek tip ve gelistirilmis public tema.",
+    "engine": "turkmod-tpl",
+    "engine_version": "1.0",
+    "schema": "theme.schema.json",
+    "source": {
+        "type": "dle",
+        "runtime_dependency": false,
+        "converted_in_place": false
+    },
+    "supports": {
+        "color_modes": [
+            "light",
+            "dark",
+            "auto"
+        ],
+        "responsive": true,
+        "rtl": false,
+        "bootstrap": "5"
+    },
+    "shell": {
+        "renderer": "public",
+        "mode": "standard",
+        "left_sidebar": true,
+        "right_sidebar": true,
+        "auth_focus_pages": [
+            "login",
+            "register",
+            "forgot_password",
+            "reset_password"
+        ]
+    },
+    "assets": {
+        "css": [
+            "css/bundle.min.css"
+        ],
+        "js": [
+            "js/bundle.min.js"
+        ],
+        "preview": "images/preview.png"
+    },
+
+    "templates": {
+        "layout": "main.tpl",
+        "header": "modules/header.tpl",
+        "footer": "modules/footer.tpl",
+        "home": "home.tpl",
+        "category": "category.tpl",
+        "search": "search.tpl",
+        "topic": "topic.tpl",
+        "download": "download.tpl",
+        "profile": "userinfo.tpl",
+        "public_profile": "userinfo.tpl",
+        "login": "login.tpl",
+        "register": "registration.tpl",
+        "forgot_password": "lostpassword.tpl",
+        "reset_password": "reset-password.tpl",
+        "upload_topic": "addnews.tpl",
+        "edit_topic": "edit-topic.tpl",
+        "contact": "contact.tpl",
+        "notifications": "notifications.tpl",
+        "leaderboard": "leaderboard.tpl",
+        "ban_appeals": "ban-appeals.tpl",
+        "events": {
+            "index": "modules/events/index.tpl",
+            "wheel": "modules/events/wheel.tpl",
+            "raffle": "modules/events/raffle.tpl",
+            "rewards": "modules/events/rewards.tpl",
+            "tasks": "modules/events/tasks.tpl"
+        },
+        "not_found": "404.tpl",
+        "maintenance": "offline.tpl",
+        "empty_state": "info.tpl",
+        "partials": {
+            "topic_card": "topic-card.tpl",
+            "comments": "comments.tpl",
+            "comment_item": "comment-item.tpl",
+            "comment_form": "comment-form.tpl",
+            "topic_description": "topic-description.tpl",
+            "topic_media": "topic-media.tpl",
+            "topic_meta": "topic-meta.tpl",
+            "topic_report": "topic-report.tpl",
+            "topic_downloads": "topic-downloads.tpl",
+            "topic_related_card": "topic-related-card.tpl",
+            "pagination": "navigation.tpl",
+            "profile_pagination": "profile-pagination.tpl",
+            "profile_sidebar": "profile-sidebar.tpl",
+            "empty_state": "empty-state-full.tpl",
+            "empty_state_inline": "empty-state.tpl",
+            "user_menu": "modules/user-menu.tpl",
+            "breadcrumb": "speedbar.tpl",
+            "alert": "alert.tpl",
+            "sidebar_left": "modules/sidebar-left.tpl",
+            "sidebar_right": "modules/sidebar-right.tpl",
+            "upload_form": "upload-form.tpl",
+            "profile_private": "profile-private.tpl",
+            "profile_public": "profile-public.tpl",
+            "upload_step_basics": "partials/upload/step-01-basics.tpl",
+            "upload_step_cover": "partials/upload/step-02-cover.tpl",
+            "upload_step_description": "partials/upload/step-03-description.tpl",
+            "upload_step_gallery": "partials/upload/step-04-gallery.tpl",
+            "upload_step_author": "partials/upload/step-05-author.tpl",
+            "upload_step_downloads": "partials/upload/step-06-downloads.tpl",
+            "upload_step_review": "partials/upload/step-07-review.tpl"
+        }
+    },
+    "variables": {
+        "schema": "variables.schema.json",
+        "strict_missing": false,
+        "required": [
+            "site_name",
+            "base_url",
+            "page_title",
+            "content",
+            "theme_url",
+            "theme_id",
+            "theme_mode",
+            "layout_mode",
+            "site_language",
+            "body_class",
+            "head",
+            "header",
+            "footer",
+            "scripts"
+        ],
+
+        "pages": {
+            "layout": {
+                "template": "main.tpl",
+                "safe_variables": ["site_name", "base_url", "page_title", "page_description", "page_key", "layout_mode", "theme_mode", "body_class"],
+                "raw_slots": ["head", "header", "breadcrumbs_html", "sidebar_left", "content", "sidebar_right", "footer", "scripts"]
+            },
+            "topic_card": {
+                "template": "topic-card.tpl",
+                "safe_variables": ["topic.url", "topic.image", "topic.image_alt", "topic.title", "topic.category", "topic.category_url", "topic.date", "topic.excerpt", "topic.views", "topic.likes", "topic.comments_count", "topic.author", "topic.author_url"],
+                "raw_slots": []
+            },
+            "topic": {
+                "template": "topic.tpl",
+                "safe_variables": ["topic.id", "topic.url", "topic.image", "topic.image_alt", "topic.title", "topic.category", "topic.category_url", "topic.date", "topic.views", "topic.comments_count", "topic.can_edit", "topic.edit_url", "topic.tags", "topic.related_topics"],
+                "raw_slots": ["topic.description_html"],
+                "notes": "Topic sections are rendered from structured topic.* arrays; sanitized rich text remains raw by design."
+            },
+            "profile": {
+                "template": "userinfo.tpl",
+                "safe_variables": ["profile.name", "profile.bio", "profile.avatar", "profile.avatar_fallback", "profile.cover", "profile.is_public", "profile.is_private", "profile.role", "profile.initials", "profile.location", "profile.member_since", "profile.tenure", "profile.created_at", "profile.page_summary", "profile.pagination_groups", "profile.topics_pagination_groups", "profile.comments_pagination_groups", "profile.favorites_pagination_groups", "profile.reports_pagination_groups", "profile.activity_pagination_groups"],
+                "raw_slots": ["content"],
+                "notes": "Profile/public profile body and pagination are structured TPL; content is fallback only."
+            },
+            "profile_private": {
+                "template": "profile-private.tpl",
+                "safe_variables": ["profile"],
+                "raw_slots": []
+            },
+            "profile_public": {
+                "template": "profile-public.tpl",
+                "safe_variables": ["profile"],
+                "raw_slots": []
+            },
+            "upload_topic": {
+                "template": "addnews.tpl",
+                "safe_variables": ["page_title", "upload"],
+                "raw_slots": [],
+                "notes": "Upload form fields render from the structured upload.* contract."
+            },
+            "upload_form": {
+                "template": "upload-form.tpl",
+                "safe_variables": ["page_title", "upload"],
+                "raw_slots": []
+            },
+            "edit_topic": {
+                "template": "edit-topic.tpl",
+                "safe_variables": ["page_title", "upload"],
+                "raw_slots": [],
+                "notes": "Edit form fields render from the structured upload.* contract."
+            }
+        },
+        "raw_slots": [
+            "head",
+            "content",
+            "header",
+            "footer",
+            "scripts",
+            "sidebar_left",
+            "sidebar_right",
+            "sidebar_widget.html",
+            "topic.description_html",
+            "breadcrumbs_html"
+        ]
+    },
+    "conversion": {
+        "source": "dle",
+        "dle_aliases": true,
+        "layout_strategy": "TurkMod main.tpl structure is preserved; DLE tags are mapped to TurkMod variables.",
+        "documentation": "README.md"
+    }
+}

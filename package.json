@@ -1,0 +1,19 @@
+{
+  "name": "mod-portal",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "build:js": "node scripts/build.js --js",
+    "build:css": "node scripts/build.js --css",
+    "watch": "node scripts/build.js --watch",
+    "test:visual": "cross-env APP_ENV=production playwright test tests/visual/contacts-modal.visual.spec.js",
+    "test:events:public": "cross-env APP_ENV=production playwright test tests/visual/events-public-smoke.spec.js",
+    "test:visual:update": "cross-env APP_ENV=production playwright test tests/visual/contacts-modal.visual.spec.js --update-snapshots"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2",
+    "cross-env": "^10.1.0",
+    "esbuild": "^0.25.0"
+  }
+}

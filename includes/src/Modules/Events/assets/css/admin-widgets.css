@@ -1,0 +1,388 @@
+/**
+ * Dashboard Widgets & Stat Cards
+ * Light/Dark theme support
+ */
+
+/* Stat Cards Container */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+/* Stat Card */
+.stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    background: var(--admin-bg-secondary);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    box-shadow: var(--admin-shadow-sm);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--admin-accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.stat-card:hover {
+    box-shadow: var(--admin-shadow-md);
+    border-color: var(--admin-border-strong);
+    transform: translateY(-2px);
+}
+
+.stat-card:hover::before {
+    opacity: 1;
+}
+
+/* Stat Card Header */
+.stat-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.stat-card-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--admin-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--admin-accent);
+    font-size: 1.2rem;
+}
+
+/* Stat Card Value */
+.stat-card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--admin-text-primary);
+    line-height: 1;
+}
+
+/* Stat Card Change */
+.stat-card-change {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.stat-card-change.positive {
+    color: var(--admin-success);
+}
+
+.stat-card-change.negative {
+    color: var(--admin-danger);
+}
+
+.stat-card-change.neutral {
+    color: var(--admin-text-secondary);
+}
+
+/* Stat Card Variants */
+.stat-card.primary {
+    border-color: var(--admin-accent);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), transparent);
+}
+
+.stat-card.success {
+    border-color: var(--admin-success);
+}
+
+.stat-card.success .stat-card-icon {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--admin-success);
+}
+
+.stat-card.warning {
+    border-color: var(--admin-warning);
+}
+
+.stat-card.warning .stat-card-icon {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--admin-warning);
+}
+
+.stat-card.danger {
+    border-color: var(--admin-danger);
+}
+
+.stat-card.danger .stat-card-icon {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--admin-danger);
+}
+
+/* Mini Chart */
+.mini-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 40px;
+    margin-top: 8px;
+}
+
+.mini-chart-bar {
+    flex: 1;
+    background: linear-gradient(180deg, var(--admin-accent), rgba(59, 130, 246, 0.5));
+    border-radius: 4px 4px 0 0;
+    min-height: 4px;
+    transition: all 0.3s ease;
+}
+
+.mini-chart-bar:hover {
+    opacity: 0.8;
+    transform: scaleY(1.1);
+}
+
+/* Status Indicator */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.status-indicator::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.active {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--admin-success);
+}
+
+.status-indicator.active::before {
+    background: var(--admin-success);
+}
+
+.status-indicator.inactive {
+    background: rgba(107, 114, 128, 0.1);
+    color: var(--admin-text-secondary);
+}
+
+.status-indicator.inactive::before {
+    background: var(--admin-text-secondary);
+    animation: none;
+}
+
+.status-indicator.pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--admin-warning);
+}
+
+.status-indicator.pending::before {
+    background: var(--admin-warning);
+}
+
+.status-indicator.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--admin-danger);
+}
+
+.status-indicator.error::before {
+    background: var(--admin-danger);
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Alert Card */
+.alert-card {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border-left: 4px solid;
+    background: var(--admin-bg-secondary);
+    margin-bottom: 16px;
+}
+
+.alert-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    font-size: 1.3rem;
+}
+
+.alert-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.alert-card-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--admin-text-primary);
+}
+
+.alert-card-message {
+    font-size: 0.85rem;
+    color: var(--admin-text-secondary);
+    line-height: 1.4;
+}
+
+.alert-card-action {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.alert-card-action .ui-admin-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+/* Alert Card Variants */
+.alert-card.success {
+    border-left-color: var(--admin-success);
+}
+
+.alert-card.success .alert-card-icon {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--admin-success);
+}
+
+.alert-card.warning {
+    border-left-color: var(--admin-warning);
+}
+
+.alert-card.warning .alert-card-icon {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--admin-warning);
+}
+
+.alert-card.danger {
+    border-left-color: var(--admin-danger);
+}
+
+.alert-card.danger .alert-card-icon {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--admin-danger);
+}
+
+.alert-card.info {
+    border-left-color: var(--admin-info);
+}
+
+.alert-card.info .alert-card-icon {
+    background: rgba(34, 211, 238, 0.1);
+    color: var(--admin-info);
+}
+
+/* Progress Widget */
+.progress-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: var(--admin-bg-secondary);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+}
+
+.progress-widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.progress-widget-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--admin-text-primary);
+}
+
+.progress-widget-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--admin-accent);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--admin-bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--admin-accent), rgba(59, 130, 246, 0.6));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+    }
+
+    .stat-card {
+        padding: 16px;
+    }
+
+    .stat-card-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .stat-card,
+    .mini-chart-bar,
+    .status-indicator::before,
+    .progress-bar-fill {
+        transition: none;
+        animation: none;
+    }
+}

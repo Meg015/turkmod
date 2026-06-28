@@ -1,0 +1,115 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'id' => 'reports',
+    'name' => 'Reports',
+    'version' => '0.1.0',
+    'enabled' => true,
+    'requires' => [],
+    'requires_modules' => ['notifications'],
+    'routes' => __DIR__ . '/routes.php',
+    'admin' => [
+        'menu' => [
+            [
+                'label' => 'Reports',
+                'route' => 'admin/complaints-reports.php',
+                'permission' => 'reports.view',
+            ],
+        ],
+    ],
+    'permissions' => [
+        [
+            'key' => 'reports.view',
+            'label' => 'Reports View',
+            'description' => 'View topic reports and user complaints.',
+            'group' => 'reports',
+            'default' => false,
+        ],
+        [
+            'key' => 'reports.manage',
+            'label' => 'Reports Manage',
+            'description' => 'Moderate topic reports and user complaints.',
+            'group' => 'reports',
+            'default' => false,
+        ],
+        [
+            'key' => 'reports.create',
+            'label' => 'Reports Create',
+            'description' => 'Create topic reports and user complaints.',
+            'group' => 'reports',
+            'default' => true,
+        ],
+    ],
+    'config' => [
+        'api_reports_rate_limit' => [
+            'label' => 'Topic Reports API Rate Limit',
+            'type' => 'number',
+            'default' => '10',
+            'min' => 1,
+            'max' => 1000,
+            'tooltip' => 'General request limit for the topic reports API.',
+        ],
+        'api_reports_rate_window' => [
+            'label' => 'Topic Reports API Window',
+            'type' => 'number',
+            'default' => '1',
+            'min' => 1,
+            'max' => 1440,
+            'tooltip' => 'Minutes before the general topic reports API limit resets.',
+        ],
+        'api_report_submit_rate_limit' => [
+            'label' => 'Topic Report Submit Limit',
+            'type' => 'number',
+            'default' => '5',
+            'min' => 1,
+            'max' => 1000,
+            'tooltip' => 'Authenticated user submit limit for topic reports.',
+        ],
+        'api_report_submit_rate_window' => [
+            'label' => 'Topic Report Submit Window',
+            'type' => 'number',
+            'default' => '10',
+            'min' => 1,
+            'max' => 1440,
+            'tooltip' => 'Minutes before the topic report submit limit resets.',
+        ],
+        'api_user_reports_rate_limit' => [
+            'label' => 'User Reports API Rate Limit',
+            'type' => 'number',
+            'default' => '10',
+            'min' => 1,
+            'max' => 1000,
+            'tooltip' => 'General request limit for the user reports API.',
+        ],
+        'api_user_reports_rate_window' => [
+            'label' => 'User Reports API Window',
+            'type' => 'number',
+            'default' => '1',
+            'min' => 1,
+            'max' => 1440,
+            'tooltip' => 'Minutes before the general user reports API limit resets.',
+        ],
+        'api_user_report_submit_rate_limit' => [
+            'label' => 'User Report Submit Limit',
+            'type' => 'number',
+            'default' => '5',
+            'min' => 1,
+            'max' => 1000,
+            'tooltip' => 'Authenticated user submit limit for user reports.',
+        ],
+        'api_user_report_submit_rate_window' => [
+            'label' => 'User Report Submit Window',
+            'type' => 'number',
+            'default' => '10',
+            'min' => 1,
+            'max' => 1440,
+            'tooltip' => 'Minutes before the user report submit limit resets.',
+        ],
+    ],
+    'events' => [],
+    'lifecycle' => \App\Modules\Reports\Services\ReportsLifecycle::class,
+    'migrations' => __DIR__ . '/Database/migrations',
+    'lang' => __DIR__ . '/lang',
+];

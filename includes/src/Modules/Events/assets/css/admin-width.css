@@ -1,0 +1,65 @@
+/**
+ * Admin Panel Width Configuration
+ *
+ * Admin paneli etkinlik sayfası tam genişlikte gösterilir
+ * Tasarım bütünlüğü sağlanır
+ */
+
+/* Admin Panel - Full Width */
+.ui-events-admin-page {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Admin Cards - Full Width */
+.admin-card,
+.ui-events-admin-panel {
+    width: 100%;
+}
+
+/* Admin Grid - Full Width */
+.admin-grid {
+    width: 100%;
+}
+
+/* Tables - Full Width */
+.ui-events-table {
+    width: 100%;
+}
+
+/* Responsive Behavior */
+@media (max-width: 1200px) {
+    .ui-events-admin-page {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .ui-events-admin-page {
+        width: 100%;
+        max-width: 100%;
+        padding: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .ui-events-admin-page {
+        width: 100%;
+        max-width: 100%;
+        padding: 12px;
+    }
+}
+
+/* Ensure no max-width constraints */
+.ui-events-admin-page,
+.ui-events-admin-page * {
+    box-sizing: border-box;
+}
+
+/* Full width containers */
+.ui-events-admin-page > * {
+    width: 100%;
+}

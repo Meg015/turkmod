@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://turkmod.local/themes/turkmod/theme.schema.json",
+  "title": "TurkMod Theme Manifest",
+  "type": "object",
+  "required": ["id", "name", "version", "engine", "templates"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "engine": {
+      "const": "turkmod-tpl"
+    },
+    "engine_version": {
+      "type": "string"
+    },
+        "shell": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "renderer": {
+                    "enum": ["public", "legacy"]
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "left_sidebar": {
+                    "type": "boolean"
+                },
+                "right_sidebar": {
+                    "type": "boolean"
+                },
+                "auth_focus_pages": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_.-]+$"
+                    },
+                    "uniqueItems": true
+                }
+            }
+        },
+        "assets": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "css": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "js": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "preview": {
+          "type": "string"
+        }
+      }
+    },
+    "templates": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {"type": "string"},
+          {"type": "object"}
+        ]
+      }
+    },
+    "variables": {
+      "$ref": "variables.schema.json"
+    },
+    "conversion": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

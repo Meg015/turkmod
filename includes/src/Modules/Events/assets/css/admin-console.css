@@ -1,0 +1,2724 @@
+/**
+ * Events admin console
+ * Shared panel system for every admin events page.
+ */
+
+.ui-events-admin-page {
+    --ui-events-console-bg: var(--ui-admin-bg, var(--admin-bg-primary, var(--ui-bg, #f6f8fb)));
+    --ui-events-console-surface: var(--ui-admin-surface, var(--admin-bg-secondary, #ffffff));
+    --ui-events-console-surface-strong: var(--ui-admin-surface, var(--admin-bg-primary, #ffffff));
+    --ui-events-console-surface-muted: var(--ui-admin-surface-alt, var(--admin-bg-tertiary, #f1f5f9));
+    --ui-events-console-border: var(--ui-admin-border, var(--admin-border, #d8dee8));
+    --ui-events-console-border-strong: var(--ui-admin-border-strong, var(--admin-border-strong, #cbd5e1));
+    --ui-events-console-text: var(--ui-admin-text, var(--admin-text-primary, #111827));
+    --ui-events-console-muted: var(--ui-admin-text-secondary, var(--admin-text-secondary, #64748b));
+    --ui-events-console-faint: var(--ui-admin-text-muted, var(--admin-text-tertiary, #94a3b8));
+    --ui-events-console-accent: var(--ui-admin-accent, var(--brand-accent, var(--admin-accent, #8b1538)));
+    --ui-events-console-accent-hover: var(--ui-admin-accent-hover, var(--brand-accent-hover, var(--admin-accent-hover, #6d1029)));
+    --ui-events-console-shadow: var(--admin-shadow-sm, 0 14px 34px rgba(15, 23, 42, .06));
+    --ui-events-console-radius: 8px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(228px, 242px) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    width: 100%;
+    max-width: none;
+    margin: 0 auto;
+    padding: 0;
+    background: transparent;
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page *,
+.ui-events-admin-page *::before,
+.ui-events-admin-page *::after {
+    box-sizing: border-box;
+}
+
+.ui-events-admin-page>.ui-events-module-shell {
+    grid-column: 1;
+    grid-row: 1 / span 80;
+    position: sticky;
+    top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: stretch;
+    min-width: 0;
+    max-height: calc(100vh - 32px);
+    padding: 16px 12px;
+    overflow: auto;
+    border: 1px solid var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--ui-events-console-surface) 92%, var(--ui-events-console-accent) 4%), var(--ui-events-console-surface));
+    box-shadow: var(--ui-events-console-shadow);
+}
+
+.ui-events-admin-page> :not(.ui-events-module-shell) {
+    grid-column: 2;
+    min-width: 0;
+    width: 100%;
+}
+
+.ui-events-module-shell .ui-events-app-title {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: var(--ui-events-console-text);
+    font-size: .96rem;
+    font-weight: 900;
+    letter-spacing: 0;
+}
+
+.ui-events-module-shell .ui-events-app-title i {
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--ui-events-console-radius);
+    background: color-mix(in srgb, var(--ui-events-console-accent) 13%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-accent);
+    font-size: 1.05rem;
+}
+
+.ui-events-module-shell .ui-events-app-subtitle {
+    margin: 0;
+    padding: 0 2px 10px;
+    border-bottom: 1px solid var(--ui-events-console-border);
+    color: var(--ui-events-console-muted);
+    font-size: .8rem;
+    line-height: 1.5;
+}
+
+.ui-events-module-shell .ui-events-app-nav-minimal {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 8px;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-top: 0 !important;
+    background: transparent !important;
+}
+
+.ui-events-module-shell .ui-events-nav-group {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 5px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.ui-events-module-shell .ui-events-nav-section-label {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    min-height: 16px;
+    margin: 8px 8px 3px;
+    padding: 0;
+    border-right: 0;
+    color: var(--ui-events-console-faint);
+    font-size: .67rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.ui-events-module-shell .ui-events-nav-section-label:first-child {
+    margin-top: 0;
+}
+
+.ui-events-module-shell .ui-events-nav-link {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 10px;
+    min-height: 38px;
+    padding: 0 9px;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: var(--ui-events-console-radius);
+    background: transparent;
+    color: var(--ui-events-console-muted);
+    font-size: .84rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.ui-events-module-shell .ui-events-nav-link i {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--ui-events-console-surface-muted) 76%, transparent);
+    color: var(--ui-events-console-muted);
+    font-size: .95rem;
+}
+
+.ui-events-module-shell .ui-events-nav-link:hover {
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 22%, var(--ui-events-console-border));
+    background: color-mix(in srgb, var(--ui-events-console-accent) 7%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-module-shell .ui-events-nav-link.is-active {
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 38%, var(--ui-events-console-border));
+    background: color-mix(in srgb, var(--ui-events-console-accent) 12%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-accent);
+    box-shadow: inset 3px 0 0 var(--ui-events-console-accent);
+}
+
+.ui-events-module-shell .ui-events-nav-link.is-active i {
+    background: var(--ui-events-console-accent);
+    color: #ffffff;
+}
+
+.ui-events-module-shell .ui-events-nav-separator {
+    display: none;
+}
+
+.ui-events-module-shell .ui-events-nav-count {
+    justify-self: end;
+    min-height: 22px;
+    padding: 0 7px !important;
+    margin-left: 12px !important;
+    font-size: .68rem;
+}
+
+.ui-events-admin-page .ui-events-page-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: center;
+    margin: 0 0 18px;
+    padding: 20px;
+    border: 1px solid var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--ui-events-console-accent) 8%, transparent), transparent 44%),
+        linear-gradient(180deg, var(--ui-events-console-surface-strong), var(--ui-events-console-surface));
+    box-shadow: var(--ui-events-console-shadow);
+}
+
+.ui-events-admin-page .ui-events-page-hero-main {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    min-width: 0;
+}
+
+.ui-events-admin-page .ui-events-page-hero-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid color-mix(in srgb, var(--ui-events-console-accent) 22%, var(--ui-events-console-border));
+    border-radius: var(--ui-events-console-radius);
+    background: color-mix(in srgb, var(--ui-events-console-accent) 12%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-accent);
+    font-size: 1.28rem;
+}
+
+.ui-events-admin-page .ui-events-page-kicker {
+    display: inline-flex;
+    margin-bottom: 4px;
+    color: var(--ui-events-console-muted);
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.ui-events-admin-page .ui-events-page-hero h2 {
+    margin: 0;
+    color: var(--ui-events-console-text);
+    font-size: clamp(1.25rem, 1.8vw, 1.7rem);
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: 0;
+}
+
+.ui-events-admin-page .ui-events-page-hero p {
+    max-width: 920px;
+    margin: 6px 0 0;
+    color: var(--ui-events-console-muted);
+    font-size: .93rem;
+    line-height: 1.55;
+}
+
+.ui-events-admin-page .ui-events-page-hero-actions,
+.ui-events-admin-page .ui-events-page-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.ui-events-admin-page .admin-card,
+.ui-events-admin-page .ui-events-admin-panel,
+.ui-events-admin-page .ui-events-panel,
+.ui-events-admin-page .ui-events-list-item {
+    border-color: var(--ui-events-console-border) !important;
+    border-radius: var(--ui-events-console-radius) !important;
+    background: var(--ui-events-console-surface) !important;
+    box-shadow: var(--ui-events-console-shadow) !important;
+    transform: none !important;
+}
+
+.ui-events-admin-page .admin-card:hover,
+.ui-events-admin-page .ui-events-admin-panel:hover,
+.ui-events-admin-page .ui-events-panel:hover {
+    border-color: var(--ui-events-console-border-strong) !important;
+    box-shadow: var(--ui-events-console-shadow) !important;
+    transform: none !important;
+}
+
+.ui-events-admin-page .card-body,
+.ui-events-admin-page .ui-events-panel-body {
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 15px 16px;
+    border-bottom: 1px solid var(--ui-events-console-border);
+    background: color-mix(in srgb, var(--ui-events-console-surface-muted) 55%, var(--ui-events-console-surface));
+}
+
+.ui-events-admin-page .ui-events-panel-title {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.ui-events-admin-page .ui-events-panel-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--ui-events-console-radius);
+    background: color-mix(in srgb, var(--ui-events-console-accent) 11%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-accent);
+}
+
+.ui-events-admin-page .ui-events-panel-title h3 {
+    margin: 0;
+    color: var(--ui-events-console-text);
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1.2;
+}
+
+.ui-events-admin-page .ui-events-panel-title p {
+    margin: 4px 0 0;
+    color: var(--ui-events-console-muted);
+    font-size: .83rem;
+    line-height: 1.45;
+}
+
+.ui-events-admin-page .ui-admin-btn {
+    min-height: 40px;
+    padding: 0 13px;
+    border-radius: var(--ui-events-console-radius);
+    font-size: .86rem;
+    font-weight: 850;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.ui-events-admin-page .ui-admin-btn-sm {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: .8rem;
+}
+
+.ui-events-admin-page .ui-admin-btn-primary {
+    background: var(--ui-events-console-accent) !important;
+    border-color: var(--ui-events-console-accent) !important;
+    color: #ffffff !important;
+}
+
+.ui-events-admin-page .ui-admin-btn-primary:hover {
+    background: var(--ui-events-console-accent-hover) !important;
+    border-color: var(--ui-events-console-accent-hover) !important;
+}
+
+.ui-events-admin-page .ui-admin-btn-outline,
+.ui-events-admin-page .ui-admin-btn:not(.ui-admin-btn-primary):not(.ui-admin-btn-danger) {
+    background: var(--ui-events-console-surface-strong) !important;
+    border: 1px solid var(--ui-events-console-border) !important;
+    color: var(--ui-events-console-text) !important;
+}
+
+.ui-events-admin-page .ui-admin-btn-outline:hover,
+.ui-events-admin-page .ui-admin-btn:not(.ui-admin-btn-primary):not(.ui-admin-btn-danger):hover {
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 35%, var(--ui-events-console-border)) !important;
+    color: var(--ui-events-console-accent) !important;
+}
+
+.ui-events-admin-page .ui-events-tabs-shell {
+    display: grid;
+    gap: 14px;
+    margin-top: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-tabs-shell>.ui-events-app-nav-minimal[role="tablist"] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 4px !important;
+    padding: 6px !important;
+    border: 1px solid var(--ui-events-console-border) !important;
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface) !important;
+    box-shadow: var(--ui-events-console-shadow);
+}
+
+.ui-events-admin-page .ui-events-tabs-shell>.ui-events-app-nav-minimal[role="tablist"] .ui-events-nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ui-events-console-muted);
+    font-size: .84rem;
+    font-weight: 850;
+    text-decoration: none;
+}
+
+.ui-events-admin-page .ui-events-tabs-shell>.ui-events-app-nav-minimal[role="tablist"] .ui-events-nav-link:hover {
+    border-color: var(--ui-events-console-border);
+    background: var(--ui-events-console-surface-muted);
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-tabs-shell>.ui-events-app-nav-minimal[role="tablist"] .ui-events-nav-link.is-active {
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 36%, var(--ui-events-console-border));
+    background: color-mix(in srgb, var(--ui-events-console-accent) 12%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-accent);
+    box-shadow: none;
+}
+
+.ui-events-admin-page .ui-events-tabs-shell>.ui-events-app-nav-minimal[role="tablist"] .ui-events-nav-separator {
+    display: none;
+}
+
+.ui-events-admin-page .ui-events-tabs-body {
+    padding: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-tab-panel.is-active {
+    display: block;
+    animation: none !important;
+    transform: none !important;
+}
+
+.ui-events-admin-page .ui-events-settings-tabs {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 6px;
+    margin: 0 0 14px !important;
+    padding: 6px;
+    border: 1px solid var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface);
+    box-shadow: var(--ui-events-console-shadow);
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-tab-content.active {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-grid {
+    display: block !important;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-item {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 36%);
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 4px 22px;
+    min-height: 76px;
+    margin: 0;
+    padding: 14px 16px !important;
+    overflow: visible;
+    border: 0 !important;
+    border-bottom: 1px solid var(--ui-events-console-border) !important;
+    border-radius: 0 !important;
+    background: var(--ui-events-console-surface) !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-item.is-full {
+    grid-template-columns: minmax(0, .78fr) minmax(340px, 1fr);
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-item:last-child {
+    border-bottom: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-item::before,
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-item::after {
+    content: none !important;
+    display: none !important;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-header {
+    display: contents;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-label {
+    grid-column: 1;
+    grid-row: 1;
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-help {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0;
+    color: var(--ui-events-console-muted);
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-toggle-switch,
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-input-wrap {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    justify-self: stretch;
+    width: 100%;
+    margin: 0;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-toggle-switch {
+    justify-self: end;
+    width: auto;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-input {
+    width: 100%;
+    text-align: left !important;
+}
+
+.ui-events-admin-page .ui-events-settings-minimal-form .ui-events-field-error {
+    grid-column: 1 / -1;
+}
+
+.ui-events-admin-page .ui-events-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ui-events-console-muted);
+    font-size: .84rem;
+    font-weight: 850;
+}
+
+.ui-events-admin-page .ui-events-tab-btn:hover {
+    border-color: var(--ui-events-console-border);
+    background: var(--ui-events-console-surface-muted);
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-tab-btn.active {
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 36%, var(--ui-events-console-border));
+    background: color-mix(in srgb, var(--ui-events-console-accent) 12%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-accent);
+}
+
+.ui-events-admin-page .ui-events-rule-detail-summary {
+    gap: 12px !important;
+    margin-top: 0;
+}
+
+.ui-events-admin-page>.ui-events-rule-detail-summary {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+    gap: 16px !important;
+    margin-bottom: 18px !important;
+}
+
+.ui-events-admin-page .ui-events-rule-summary-card {
+    min-height: 78px;
+    border-color: var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface-strong);
+}
+
+.ui-events-admin-page .ui-events-rule-summary-card:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 28%, var(--ui-events-console-border));
+}
+
+.ui-events-admin-page .ui-events-rule-summary-card span {
+    color: var(--ui-events-console-muted);
+    letter-spacing: .04em;
+}
+
+.ui-events-admin-page .ui-events-rule-summary-card strong {
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-rule-summary-card.is-primary strong {
+    color: var(--ui-events-console-accent);
+}
+
+.ui-events-admin-page .ui-events-rules-master-shell .card-body,
+.ui-events-admin-page .ui-events-rules-master-body {
+    padding: 16px !important;
+}
+
+.ui-events-admin-page .ui-events-rules-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 16px;
+    padding: 14px;
+    border: 1px solid var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: color-mix(in srgb, var(--ui-events-console-surface-muted) 58%, var(--ui-events-console-surface));
+}
+
+.ui-events-admin-page .ui-events-rules-toolbar-left,
+.ui-events-admin-page .ui-events-rules-toolbar-right,
+.ui-events-admin-page .ui-events-rule-toolbar-actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    margin: 0;
+    order: 0;
+}
+
+.ui-events-admin-page .ui-events-rules-toolbar-left::before {
+    content: none !important;
+    display: none !important;
+}
+
+.ui-events-admin-page .ui-events-rule-toolbar-actions .ui-admin-btn,
+.ui-events-admin-page .ui-events-rules-toolbar-left>.ui-admin-btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 38px;
+    border-radius: var(--ui-events-console-radius);
+}
+
+.ui-events-admin-page .ui-events-rules-filter,
+.ui-events-admin-page .ui-events-rules-count {
+    min-height: 38px;
+    border-color: var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface-strong);
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-rules-filter {
+    flex: 0 1 220px;
+    max-width: none;
+}
+
+.ui-events-admin-page .ui-events-rules-master-layout {
+    display: grid !important;
+    grid-template-columns: minmax(620px, 1.45fr) minmax(420px, .9fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.ui-events-admin-page .ui-events-rules-list-panel {
+    overflow: auto;
+    border-color: var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface-strong);
+}
+
+.ui-events-admin-page .ui-events-rules-table-head {
+    min-height: 42px;
+    padding: 0 16px;
+    background: var(--ui-events-console-surface-muted);
+    color: var(--ui-events-console-muted);
+}
+
+.ui-events-admin-page .ui-events-rule-row {
+    min-height: 68px;
+    padding-right: 16px;
+    padding-left: 16px;
+    border-color: color-mix(in srgb, var(--ui-events-console-border) 76%, transparent);
+    background: var(--ui-events-console-surface-strong);
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-rule-row:hover,
+.ui-events-admin-page .ui-events-rule-row.is-selected {
+    background: color-mix(in srgb, var(--ui-events-console-accent) 7%, var(--ui-events-console-surface-strong));
+}
+
+.ui-events-admin-page .ui-events-rule-row.is-selected {
+    box-shadow: inset 3px 0 0 var(--ui-events-console-accent);
+}
+
+.ui-events-admin-page .ui-events-rule-row-name strong {
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-rule-row-name code,
+.ui-events-admin-page .ui-events-rule-detail-titlebar code,
+.ui-events-admin-page .ui-events-list-meta {
+    color: var(--ui-events-console-muted);
+}
+
+.ui-events-admin-page .ui-events-rule-row-value,
+.ui-events-admin-page .ui-events-rule-open-action,
+.ui-events-admin-page .ui-events-rule-soft-control,
+.ui-events-admin-page .ui-events-rule-scope-card {
+    border-color: var(--ui-events-console-border);
+    background: color-mix(in srgb, var(--ui-events-console-surface-muted) 68%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-rule-row-value {
+    padding-right: 10px;
+    padding-left: 10px;
+}
+
+.ui-events-admin-page .ui-events-rules-master-shell:not(.ui-events-wheel-master-shell):not(.ui-events-tasks-master-shell):not(.ui-events-raffles-master-shell) .ui-events-rules-table-head,
+.ui-events-admin-page .ui-events-rules-master-shell:not(.ui-events-wheel-master-shell):not(.ui-events-tasks-master-shell):not(.ui-events-raffles-master-shell) .ui-events-rule-row {
+    grid-template-columns: minmax(210px, 1.34fr) 86px 88px minmax(150px, .9fr) 106px 108px;
+    gap: 8px;
+}
+
+.ui-events-admin-page .ui-events-rules-master-shell:not(.ui-events-wheel-master-shell):not(.ui-events-tasks-master-shell):not(.ui-events-raffles-master-shell) .ui-events-rule-row-value {
+    min-height: 36px;
+    padding: 5px 8px;
+    line-height: 1.22;
+    white-space: normal;
+}
+
+.ui-events-admin-page .ui-events-tasks-master-shell .ui-events-rule-row-value {
+    min-height: 36px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    line-height: 1.22;
+    white-space: normal;
+}
+
+.ui-events-admin-page .ui-events-rule-open-action {
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 30%, var(--ui-events-console-border));
+    background: color-mix(in srgb, var(--ui-events-console-accent) 10%, var(--ui-events-console-surface-strong));
+    color: var(--ui-events-console-accent);
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) {
+    position: sticky !important;
+    inset: auto !important;
+    top: 16px;
+    z-index: 1;
+    display: block;
+    align-items: stretch;
+    justify-content: stretch;
+    max-height: calc(100vh - 48px);
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface-strong);
+    box-shadow: var(--ui-events-console-shadow);
+    backdrop-filter: none;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) .ui-events-rule-detail-form {
+    width: 100%;
+    max-height: calc(100vh - 50px);
+    border: 0;
+    border-radius: 0;
+    background: var(--ui-events-console-surface-strong);
+    box-shadow: none;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) .ui-events-rule-detail-head {
+    background: color-mix(in srgb, var(--ui-events-console-surface-muted) 54%, var(--ui-events-console-surface-strong));
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) [data-ui-events-rule-close],
+.ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) [data-ui-events-wheel-close],
+.ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) [data-ui-events-task-close],
+.ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) [data-ui-events-raffle-close],
+.ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) [data-ui-events-item-close] {
+    display: none;
+}
+
+.ui-events-admin-page .ui-events-admin-modal-panel.is-open,
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 13000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: calc(var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 77px)) + var(--ui-admin-modal-viewport-gap, 12px)) max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-right, 0px)) max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-bottom, 0px)) max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-left, 0px));
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 0;
+    border-radius: 0;
+    background: rgba(15, 23, 42, .66);
+    isolation: isolate;
+    opacity: 1;
+    animation: none;
+    overscroll-behavior: contain;
+}
+
+.ui-events-admin-page .ui-events-admin-modal-panel.is-open::before,
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open::before {
+    content: none;
+}
+
+@keyframes ui-events-modal-backdrop-fade {
+    to {
+        opacity: 1;
+    }
+}
+
+.ui-events-admin-page .ui-events-admin-modal-panel.is-open .ui-events-admin-detail-form,
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-admin-detail-form {
+    position: relative;
+    z-index: 1;
+    width: min(920px, calc(100vw - 24px));
+    max-width: 920px;
+    max-height: calc(100vh - var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 77px)) - var(--ui-admin-modal-viewport-gap, 12px) - max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-bottom, 0px)) - 4px);
+    max-height: calc(100dvh - var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 77px)) - var(--ui-admin-modal-viewport-gap, 12px) - max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-bottom, 0px)) - 4px);
+    margin: 0 auto;
+    flex-shrink: 0;
+    transform: translateY(12px) scale(0.985);
+    opacity: 0;
+    box-shadow:
+        0 24px 64px -16px rgba(15, 23, 42, .48),
+        0 0 0 1px rgba(15, 23, 42, .06);
+    border-radius: 14px;
+    border: 1px solid var(--ui-admin-border, var(--ui-events-console-border));
+    background: var(--ui-admin-surface, var(--ui-events-console-surface));
+    color: var(--ui-admin-text, var(--ui-events-console-text));
+    overflow: hidden;
+    animation: none;
+    transform: none;
+    opacity: 1;
+}
+
+@keyframes ui-events-modal-slide-up {
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* Form içi yapı: başlık sabit, gövde scroll, kaydet sabit */
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-admin-detail-form {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    max-height: none;
+}
+
+/* Modal açıkken sayfayı bloke et */
+body.ui-events-rule-modal-open {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .ui-events-admin-page .ui-events-admin-modal-panel.is-open,
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open {
+        background: rgba(15, 23, 42, .42);
+    }
+}
+
+.ui-events-admin-page .ui-events-rule-detail-titlebar h3,
+.ui-events-admin-page .ui-events-rule-scope-card strong,
+.ui-events-admin-page .ui-events-compact-label {
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-rule-scope-card em,
+.ui-events-admin-page .ui-events-compact-help,
+.ui-events-admin-page .ui-events-repeat-help {
+    color: var(--ui-events-console-muted);
+}
+
+.ui-events-admin-page .ui-events-compact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+    gap: 16px;
+}
+
+.ui-events-admin-page .ui-events-compact-item {
+    border-color: var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface-strong);
+}
+
+.ui-events-admin-page .ui-events-compact-input,
+.ui-events-admin-page .ui-events-field input,
+.ui-events-admin-page .ui-events-field select,
+.ui-events-admin-page .ui-events-field textarea {
+    border-color: var(--ui-events-console-border);
+    background: var(--ui-events-console-surface-strong);
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-settings-savebar,
+.ui-events-admin-page .ui-events-form-toolbar {
+    border-color: var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: color-mix(in srgb, var(--ui-events-console-surface-muted) 60%, var(--ui-events-console-surface));
+}
+
+.ui-events-admin-page .ui-events-table-wrap {
+    overflow: auto;
+    border-radius: var(--ui-events-console-radius);
+}
+
+.ui-events-admin-page .ui-events-table {
+    min-width: 820px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--ui-events-console-surface-strong);
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ui-events-console-border);
+    background: var(--ui-events-console-surface-muted);
+    color: var(--ui-events-console-muted);
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.ui-events-admin-page .ui-events-table tbody td {
+    padding: 13px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-events-console-border) 72%, transparent);
+    background: var(--ui-events-console-surface-strong);
+    color: var(--ui-events-console-text);
+    vertical-align: middle;
+}
+
+.ui-events-admin-page .ui-events-table tbody tr:hover td {
+    background: color-mix(in srgb, var(--ui-events-console-accent) 5%, var(--ui-events-console-surface-strong));
+}
+
+.ui-events-admin-page .ui-events-action-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.ui-events-admin-page .ui-events-action-dropdown-btn {
+    background: transparent;
+    border: none;
+    color: var(--ui-events-console-muted);
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.ui-events-admin-page .ui-events-action-dropdown-btn:hover {
+    color: var(--ui-events-console-text);
+    background: var(--ui-events-console-surface-muted);
+}
+
+.ui-events-admin-page .ui-events-action-dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    min-width: 160px;
+    background: var(--ui-events-console-surface-strong);
+    border: 1px solid var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    padding: 4px;
+}
+
+.ui-events-admin-page .ui-events-action-dropdown:hover .ui-events-action-dropdown-menu,
+.ui-events-admin-page .ui-events-action-dropdown:focus-within .ui-events-action-dropdown-menu {
+    display: block;
+    animation: ui-events-dropdown-fade 0.2s ease;
+}
+
+@keyframes ui-events-dropdown-fade {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ui-events-admin-page .ui-events-action-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    color: var(--ui-events-console-text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.ui-events-admin-page .ui-events-action-dropdown-item:hover {
+    background: var(--ui-events-console-surface-muted);
+}
+
+.ui-events-admin-page .ui-events-action-dropdown-item.is-danger {
+    color: var(--theme-danger, #ef4444);
+}
+
+.ui-events-admin-page .ui-events-action-dropdown-item.is-danger:hover {
+    background: color-mix(in srgb, var(--theme-danger, #ef4444) 10%, transparent);
+}
+
+.ui-events-admin-page .ui-events-empty,
+.ui-events-admin-page .ui-events-empty-state,
+.ui-events-admin-page .ui-events-empty-standard {
+    border-color: var(--ui-events-console-border) !important;
+    border-radius: var(--ui-events-console-radius) !important;
+    background: color-mix(in srgb, var(--ui-events-console-surface-muted) 74%, var(--ui-events-console-surface-strong)) !important;
+    color: var(--ui-events-console-muted);
+}
+
+.ui-events-admin-page .ui-events-empty h3,
+.ui-events-admin-page .ui-events-empty-state h3 {
+    color: var(--ui-events-console-text);
+}
+
+.ui-events-admin-page .ui-events-empty p,
+.ui-events-admin-page .ui-events-empty-state p {
+    color: var(--ui-events-console-muted);
+}
+
+html[data-theme="dark"] .ui-events-admin-page {
+    --ui-events-console-shadow: 0 16px 34px rgba(0, 0, 0, .28);
+}
+
+html[data-theme="dark"] .ui-events-admin-page .ui-events-page-hero,
+html[data-theme="dark"] .ui-events-admin-page>.ui-events-module-shell,
+html[data-theme="dark"] .ui-events-admin-page .admin-card,
+html[data-theme="dark"] .ui-events-admin-page .ui-events-admin-panel {
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--ui-events-console-surface) 92%, #ffffff 3%), var(--ui-events-console-surface)) !important;
+}
+
+html[data-theme="dark"] .ui-events-admin-page .ui-events-table tbody td,
+html[data-theme="dark"] .ui-events-admin-page .ui-events-rule-row,
+html[data-theme="dark"] .ui-events-admin-page .ui-events-rule-detail-form {
+    background: var(--ui-events-console-surface-strong);
+}
+
+@media (max-width: 1500px) {
+    .ui-events-admin-page .ui-events-rules-master-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) {
+        position: relative !important;
+        top: auto;
+        max-height: none;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) .ui-events-rule-detail-form {
+        max-height: none;
+    }
+}
+
+@media (max-width: 1120px) {
+    .ui-events-admin-page {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .ui-events-admin-page> :not(.ui-events-module-shell) {
+        grid-column: 1;
+    }
+
+    .ui-events-admin-page>.ui-events-module-shell {
+        grid-column: 1;
+        grid-row: auto;
+        position: relative;
+        top: auto;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 12px 18px;
+        max-height: none;
+        overflow: visible;
+        padding: 14px 16px;
+    }
+
+    .ui-events-module-shell .ui-events-app-title,
+    .ui-events-module-shell .ui-events-app-subtitle,
+    .ui-events-module-shell .ui-events-app-nav-minimal {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .ui-events-module-shell .ui-events-app-nav-minimal {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        justify-content: flex-start;
+        gap: 10px 14px;
+        padding-top: 12px !important;
+        border-top: 1px solid var(--ui-events-console-border) !important;
+    }
+
+    .ui-events-module-shell .ui-events-app-subtitle {
+        padding: 0 2px;
+        border-bottom: 0;
+    }
+
+    .ui-events-module-shell .ui-events-nav-group {
+        grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    }
+
+    .ui-events-module-shell .ui-events-nav-link {
+        min-height: 40px;
+        overflow: visible;
+        white-space: normal;
+    }
+}
+
+@media (max-width: 992px) {
+    .ui-events-admin-page {
+        max-width: 100%;
+    }
+
+    .ui-events-admin-page>.ui-events-module-shell {
+        position: relative;
+        top: auto;
+        max-height: none;
+        margin-bottom: 16px;
+    }
+
+    .ui-events-admin-page .ui-events-page-hero {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .ui-events-admin-page .ui-events-page-hero-actions,
+    .ui-events-admin-page .ui-events-page-meta {
+        justify-content: flex-start;
+    }
+
+    .ui-events-admin-page .ui-events-rules-table-head {
+        display: none;
+    }
+
+    .ui-events-admin-page .ui-events-rules-table-head,
+    .ui-events-admin-page .ui-events-rule-row,
+    .ui-events-admin-page .ui-events-wheel-master-shell .ui-events-rule-row,
+    .ui-events-admin-page .ui-events-tasks-master-shell .ui-events-rule-row,
+    .ui-events-admin-page .ui-events-raffles-master-shell .ui-events-rule-row {
+        grid-template-columns: 1fr;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel:not(.is-open) {
+        position: relative !important;
+        top: auto;
+        max-height: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .ui-events-admin-page {
+        padding: 0;
+    }
+
+    .ui-events-admin-page>.ui-events-module-shell,
+    .ui-events-admin-page .ui-events-page-hero,
+    .ui-events-admin-page .ui-events-tabs-shell>.ui-events-app-nav-minimal[role="tablist"],
+    .ui-events-admin-page .ui-events-settings-tabs,
+    .ui-events-admin-page .ui-events-rules-toolbar {
+        border-radius: var(--ui-events-console-radius);
+    }
+
+    .ui-events-admin-page .ui-events-page-hero-main {
+        grid-template-columns: 1fr;
+    }
+
+    .ui-events-module-shell .ui-events-app-nav-minimal {
+        display: grid;
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .ui-events-module-shell .ui-events-nav-group {
+        grid-template-columns: 1fr;
+    }
+
+    .ui-events-module-shell .ui-events-nav-section-label {
+        width: 100%;
+        min-height: auto;
+        margin: 10px 0 0;
+        padding: 0;
+        border-right: 0;
+    }
+
+    .ui-events-module-shell .ui-events-nav-section-label:first-child {
+        margin-top: 0;
+    }
+
+    .ui-events-module-shell .ui-events-nav-link {
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        min-height: 38px;
+    }
+
+    .ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-item,
+    .ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-item.is-full {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .ui-events-admin-page .ui-events-settings-minimal-form .ui-events-toggle-switch,
+    .ui-events-admin-page .ui-events-settings-minimal-form .ui-events-compact-input-wrap {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .ui-events-admin-page .ui-events-page-hero-icon {
+        width: 44px;
+        height: 44px;
+    }
+
+    .ui-events-admin-page .ui-events-page-hero-actions .ui-admin-btn,
+    .ui-events-admin-page .ui-events-tabs-shell>.ui-events-app-nav-minimal[role="tablist"] .ui-events-nav-link,
+    .ui-events-admin-page .ui-events-tab-btn {
+        width: 100%;
+    }
+
+    .ui-events-admin-page .ui-events-rules-toolbar,
+    .ui-events-admin-page .ui-events-rule-toolbar-actions,
+    .ui-events-admin-page .ui-events-rules-toolbar-left,
+    .ui-events-admin-page .ui-events-rules-toolbar-right {
+        width: 100%;
+    }
+
+    .ui-events-admin-page .ui-events-rule-toolbar-actions .ui-admin-btn,
+    .ui-events-admin-page .ui-events-rules-filter,
+    .ui-events-admin-page .ui-events-rules-count {
+        flex: 1 1 100%;
+    }
+
+    .ui-events-admin-page .ui-events-rule-form-grid,
+    .ui-events-admin-page .ui-events-rule-scope-grid,
+    .ui-events-admin-page .ui-events-compact-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   Events settings console redesign
+   ========================================================================== */
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] {
+    --events-settings-border: color-mix(in srgb, var(--ui-events-console-border) 78%, transparent);
+    --events-settings-soft: color-mix(in srgb, var(--ui-events-console-surface-muted) 72%, transparent);
+    --events-settings-hover: color-mix(in srgb, var(--ui-events-console-surface-muted) 58%, var(--ui-events-console-surface));
+    --events-settings-accent-soft: color-mix(in srgb, var(--ui-events-console-accent) 10%, var(--ui-events-console-surface));
+    gap: 14px;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-page-hero {
+    margin-bottom: 0;
+}
+
+.ui-events-settings-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.ui-events-settings-summary-card {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--events-settings-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .045);
+}
+
+.ui-events-settings-summary-icon {
+    display: inline-grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--events-settings-accent-soft);
+    color: var(--ui-events-console-accent);
+    font-size: 1rem;
+}
+
+.ui-events-settings-summary-card.is-success .ui-events-settings-summary-icon {
+    background: var(--theme-success-soft, rgba(16, 185, 129, .14));
+    color: var(--theme-success, #047857);
+}
+
+.ui-events-settings-summary-card.is-danger .ui-events-settings-summary-icon {
+    background: var(--theme-danger-soft, rgba(239, 68, 68, .14));
+    color: var(--theme-danger, #b91c1c);
+}
+
+.ui-events-settings-summary-card.is-info .ui-events-settings-summary-icon {
+    background: var(--theme-info-soft, rgba(59, 130, 246, .14));
+    color: var(--theme-info, #1d4ed8);
+}
+
+.ui-events-settings-summary-card small,
+.ui-events-settings-summary-card em {
+    display: block;
+    min-width: 0;
+    color: var(--ui-events-console-muted);
+    font-size: .74rem;
+    font-style: normal;
+    font-weight: 720;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.ui-events-settings-summary-card strong {
+    display: block;
+    min-width: 0;
+    margin: 1px 0;
+    color: var(--ui-events-console-text);
+    font-size: .98rem;
+    font-weight: 880;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.ui-events-settings-commandbar {
+    display: grid;
+    grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border: 1px solid var(--events-settings-border);
+    border-radius: var(--ui-events-console-radius);
+    background: color-mix(in srgb, var(--ui-events-console-surface) 92%, var(--ui-events-console-surface-muted));
+    box-shadow: none;
+}
+
+.ui-events-settings-search {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    min-height: 40px;
+    overflow: hidden;
+    border: 1px solid var(--events-settings-border);
+    border-radius: 8px;
+    background: var(--ui-events-console-surface);
+}
+
+.ui-events-settings-search i {
+    display: inline-grid;
+    place-items: center;
+    color: var(--ui-events-console-muted);
+    font-size: .95rem;
+}
+
+.ui-events-settings-search input {
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 0 10px 0 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--ui-events-console-text);
+    font: inherit;
+    font-size: .88rem;
+    font-weight: 680;
+}
+
+.ui-events-settings-commandbar-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 7px;
+    min-width: 0;
+}
+
+.ui-events-settings-commandbar-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 0 9px;
+    border: 1px solid var(--events-settings-border);
+    border-radius: 999px;
+    background: var(--ui-events-console-surface);
+    color: var(--ui-events-console-muted);
+    font-size: .75rem;
+    font-weight: 760;
+    white-space: nowrap;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-settings-tabs {
+    position: sticky;
+    top: 8px;
+    z-index: 4;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px !important;
+    margin: 0 !important;
+    padding: 5px !important;
+    border: 1px solid var(--events-settings-border) !important;
+    border-radius: var(--ui-events-console-radius) !important;
+    background: color-mix(in srgb, var(--ui-events-console-surface-muted) 72%, var(--ui-events-console-surface)) !important;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .055) !important;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn {
+    display: grid !important;
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: center !important;
+    justify-content: start !important;
+    gap: 9px !important;
+    min-height: 48px !important;
+    padding: 0 10px !important;
+    border: 1px solid transparent !important;
+    border-radius: 7px !important;
+    background: transparent !important;
+    color: var(--ui-events-console-muted) !important;
+    text-align: left;
+    box-shadow: none !important;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn i {
+    display: inline-grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--ui-events-console-surface) 70%, transparent);
+    color: inherit;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn strong,
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn small {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn strong {
+    color: inherit;
+    font-size: .88rem;
+    font-weight: 820;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn small {
+    margin-top: 2px;
+    color: var(--ui-events-console-faint);
+    font-size: .72rem;
+    font-weight: 720;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn:hover,
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn.active {
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 34%, var(--events-settings-border)) !important;
+    background: var(--ui-events-console-surface) !important;
+    color: var(--ui-events-console-text) !important;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn.active {
+    box-shadow: inset 0 -3px 0 var(--ui-events-console-accent) !important;
+}
+
+.ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-tab-btn.active i {
+    background: var(--ui-events-console-accent);
+    color: #fff;
+}
+
+.ui-events-settings-pro-form {
+    display: grid !important;
+    gap: 14px !important;
+    padding-bottom: 0 !important;
+}
+
+.ui-events-settings-pro-form .ui-events-tab-content {
+    display: none !important;
+}
+
+.ui-events-settings-pro-form .ui-events-tab-content.active {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px !important;
+}
+
+.ui-events-settings-panel-intro {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: center;
+    gap: 11px;
+    min-height: 64px;
+    padding: 12px 14px;
+    border: 1px solid var(--events-settings-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface);
+    box-shadow: none;
+}
+
+.ui-events-settings-panel-intro>span,
+.ui-events-settings-section-icon,
+.ui-events-setting-field-icon {
+    display: inline-grid;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--events-settings-accent-soft);
+    color: var(--ui-events-console-accent);
+}
+
+.ui-events-settings-panel-intro>span {
+    width: 40px;
+    height: 40px;
+}
+
+.ui-events-settings-section-icon {
+    width: 38px;
+    height: 38px;
+}
+
+.ui-events-setting-field-icon {
+    width: 32px;
+    height: 32px;
+    font-size: .9rem;
+}
+
+.ui-events-settings-panel-intro h2,
+.ui-events-settings-section-copy h2 {
+    margin: 0;
+    color: var(--ui-events-console-text);
+    font-size: .98rem;
+    font-weight: 860;
+    line-height: 1.25;
+    letter-spacing: 0;
+}
+
+.ui-events-settings-panel-intro p,
+.ui-events-settings-section-copy p {
+    margin: 3px 0 0;
+    color: var(--ui-events-console-muted);
+    font-size: .8rem;
+    line-height: 1.42;
+}
+
+.ui-events-settings-pro-form .ui-events-settings-section {
+    margin: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid var(--events-settings-border) !important;
+    border-radius: var(--ui-events-console-radius) !important;
+    background: var(--ui-events-console-surface) !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .045) !important;
+}
+
+.ui-events-settings-section-head {
+    display: grid !important;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center !important;
+    gap: 12px !important;
+    min-height: 64px !important;
+    padding: 13px 15px !important;
+    border-bottom: 1px solid var(--events-settings-border) !important;
+    background: linear-gradient(180deg, var(--events-settings-soft), transparent) !important;
+}
+
+.ui-events-settings-section-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 0 9px;
+    border: 1px solid var(--events-settings-border);
+    border-radius: 999px;
+    color: var(--ui-events-console-muted);
+    font-size: .72rem;
+    font-weight: 820;
+    white-space: nowrap;
+}
+
+.ui-events-settings-pro-form .ui-events-settings-section-body {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 !important;
+    padding: 0 !important;
+}
+
+.ui-events-settings-pro-form .ui-events-setting-field {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 220px) !important;
+    align-items: center !important;
+    gap: 8px 16px !important;
+    min-height: 74px !important;
+    margin: 0 !important;
+    padding: 13px 15px !important;
+    border: 0 !important;
+    border-right: 1px solid var(--events-settings-border) !important;
+    border-bottom: 1px solid var(--events-settings-border) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.ui-events-settings-pro-form .ui-events-setting-field:nth-child(2n) {
+    border-right: 0 !important;
+}
+
+.ui-events-settings-pro-form .ui-events-setting-field.is-full {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, .75fr) minmax(280px, 1fr) !important;
+    border-right: 0 !important;
+}
+
+.ui-events-settings-pro-form .ui-events-setting-field[hidden],
+.ui-events-settings-pro-form .ui-events-settings-section[hidden],
+.ui-events-settings-pro-form .ui-events-settings-empty-search[hidden],
+.ui-events-settings-pro-form .ui-events-settings-section-empty[hidden] {
+    display: none !important;
+}
+
+.ui-events-settings-pro-form .ui-events-setting-field::before,
+.ui-events-settings-pro-form .ui-events-setting-field::after {
+    content: none !important;
+    display: none !important;
+}
+
+.ui-events-settings-pro-form .ui-events-setting-field:hover,
+.ui-events-settings-pro-form .ui-events-setting-field:focus-within {
+    background: var(--events-settings-hover) !important;
+}
+
+.ui-events-settings-pro-form .ui-events-setting-copy,
+.ui-events-settings-pro-form .ui-events-setting-copy.ui-panel__head {
+    display: grid !important;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 0 !important;
+    width: auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.ui-events-settings-pro-form .ui-events-setting-copy-text {
+    min-width: 0;
+}
+
+.ui-events-settings-pro-form .ui-events-compact-label {
+    display: block !important;
+    margin: 0 !important;
+    color: var(--ui-events-console-text) !important;
+    font-size: .86rem !important;
+    font-weight: 820 !important;
+    line-height: 1.25 !important;
+    letter-spacing: 0 !important;
+}
+
+.ui-events-settings-pro-form .ui-events-compact-help {
+    display: block !important;
+    max-width: 34rem;
+    margin: 4px 0 0 !important;
+    color: var(--ui-events-console-muted) !important;
+    font-size: .76rem !important;
+    font-weight: 610 !important;
+    line-height: 1.38 !important;
+}
+
+.ui-events-settings-pro-form .ui-events-toggle-switch {
+    justify-self: end !important;
+}
+
+.ui-events-settings-pro-form .ui-events-compact-input-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.ui-events-settings-pro-form .ui-events-compact-input {
+    width: 100% !important;
+    min-height: 40px !important;
+    padding: 0 11px !important;
+    border: 1px solid color-mix(in srgb, var(--ui-events-console-border) 88%, var(--ui-events-console-muted)) !important;
+    border-radius: 7px !important;
+    background: color-mix(in srgb, var(--ui-events-console-surface) 96%, var(--ui-events-console-surface-muted)) !important;
+    color: var(--ui-events-console-text) !important;
+    font-size: .86rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    text-align: right !important;
+    box-shadow: none !important;
+}
+
+.ui-events-settings-pro-form textarea.ui-events-compact-input {
+    min-height: 82px !important;
+    padding: 9px 11px !important;
+    text-align: left !important;
+    resize: vertical !important;
+}
+
+.ui-events-settings-pro-form .ui-events-compact-input:focus,
+.ui-events-settings-pro-form textarea.ui-events-compact-input:focus,
+.ui-events-settings-pro-form .ui-events-compact-select:focus {
+    outline: 0 !important;
+    border-color: color-mix(in srgb, var(--ui-events-console-accent) 48%, var(--ui-events-console-border)) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-events-console-accent) 12%, transparent) !important;
+}
+
+.ui-events-readable-value {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-height: 22px;
+    color: var(--ui-events-console-muted);
+    font-size: .72rem;
+    font-weight: 720;
+    line-height: 1.25;
+    text-align: right;
+}
+
+.ui-events-readable-value i {
+    color: var(--ui-events-console-accent);
+    font-size: .78rem;
+}
+
+.ui-events-readable-value strong {
+    min-width: 0;
+    color: var(--ui-events-console-text);
+    font-size: .76rem;
+    font-weight: 850;
+    overflow-wrap: anywhere;
+}
+
+.ui-events-rule-field .ui-events-readable-value {
+    justify-content: flex-start;
+    text-align: left;
+    margin-top: 4px;
+}
+
+.ui-events-settings-pro-form .ui-events-field-error {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--theme-danger, #b91c1c);
+    font-size: .76rem;
+    font-style: normal;
+    font-weight: 760;
+}
+
+.ui-events-settings-section-empty,
+.ui-events-settings-empty-search {
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+    padding: 14px;
+    color: var(--ui-events-console-muted);
+    font-size: .85rem;
+    font-weight: 760;
+}
+
+.ui-events-settings-empty-search {
+    display: flex;
+    gap: 8px;
+    border: 1px dashed var(--events-settings-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface);
+}
+
+.ui-events-settings-section-empty {
+    display: flex;
+    border-top: 1px dashed var(--events-settings-border);
+}
+
+.ui-events-settings-pro-form .ui-events-settings-savebar.ui-events-settings-footer-savebar {
+    position: sticky !important;
+    bottom: 12px !important;
+    z-index: 5 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    min-height: 62px !important;
+    margin: 0 !important;
+    padding: 12px 14px !important;
+    border: 1px solid var(--events-settings-border) !important;
+    border-radius: var(--ui-events-console-radius) !important;
+    background: color-mix(in srgb, var(--ui-events-console-surface) 92%, var(--ui-events-console-surface-muted)) !important;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .12) !important;
+    backdrop-filter: blur(10px);
+}
+
+.ui-events-settings-pro-form .ui-events-settings-savebar span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ui-events-console-muted);
+    font-size: .84rem;
+    font-weight: 720;
+}
+
+html[data-theme="dark"] .ui-events-admin-page[data-ui-events-admin-page="settings"] {
+    --events-settings-border: color-mix(in srgb, var(--ui-events-console-border) 86%, transparent);
+    --events-settings-hover: color-mix(in srgb, var(--ui-events-console-surface-muted) 62%, transparent);
+}
+
+html[data-theme="dark"] .ui-events-settings-summary-card,
+html[data-theme="dark"] .ui-events-settings-commandbar,
+html[data-theme="dark"] .ui-events-settings-panel-intro,
+html[data-theme="dark"] .ui-events-settings-pro-form .ui-events-settings-section,
+html[data-theme="dark"] .ui-events-settings-pro-form .ui-events-compact-input,
+html[data-theme="dark"] .ui-events-settings-pro-form .ui-events-settings-savebar.ui-events-settings-footer-savebar {
+    background-color: var(--ui-events-console-surface);
+}
+
+@media (max-width: 1180px) {
+    .ui-events-settings-pro-form .ui-events-settings-section-body {
+        grid-template-columns: 1fr;
+    }
+
+    .ui-events-settings-pro-form .ui-events-setting-field,
+    .ui-events-settings-pro-form .ui-events-setting-field:nth-child(2n),
+    .ui-events-settings-pro-form .ui-events-setting-field.is-full {
+        grid-column: auto;
+        border-right: 0 !important;
+    }
+}
+
+@media (max-width: 760px) {
+    .ui-events-settings-commandbar,
+    .ui-events-admin-page[data-ui-events-admin-page="settings"] .ui-events-settings-tabs {
+        position: static;
+        grid-template-columns: 1fr;
+    }
+
+    .ui-events-settings-commandbar-meta {
+        justify-content: flex-start;
+    }
+
+    .ui-events-settings-pro-form .ui-events-setting-field,
+    .ui-events-settings-pro-form .ui-events-setting-field.is-full {
+        grid-template-columns: 1fr !important;
+        align-items: stretch !important;
+    }
+
+    .ui-events-settings-pro-form .ui-events-toggle-switch {
+        justify-self: start !important;
+    }
+
+    .ui-events-settings-pro-form .ui-events-compact-input {
+        text-align: left !important;
+    }
+
+    .ui-events-settings-pro-form .ui-events-settings-savebar.ui-events-settings-footer-savebar {
+        position: static !important;
+    }
+}
+
+@media (max-width: 560px) {
+    .ui-events-settings-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .ui-events-settings-section-head,
+    .ui-events-settings-panel-intro {
+        grid-template-columns: 1fr;
+    }
+
+    .ui-events-settings-section-count {
+        justify-self: start;
+    }
+}
+
+/* ==========================================================================
+   Events modals: match Admin Users 360 detail modal anatomy
+   ========================================================================== */
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 13000 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: calc(var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 77px)) + var(--ui-admin-modal-viewport-gap, 12px)) max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-right, 0px)) max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-bottom, 0px)) max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-left, 0px)) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: rgba(15, 23, 42, .65) !important;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    overscroll-behavior: contain;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-admin-detail-modal {
+    position: relative !important;
+    z-index: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: min(880px, 100%) !important;
+    max-width: 880px !important;
+    max-height: calc(100vh - var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 77px)) - var(--ui-admin-modal-viewport-gap, 12px) - max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-bottom, 0px)) - 4px) !important;
+    max-height: calc(100dvh - var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 77px)) - var(--ui-admin-modal-viewport-gap, 12px) - max(var(--ui-admin-modal-viewport-gap, 12px), env(safe-area-inset-bottom, 0px)) - 4px) !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid var(--ui-admin-border, var(--ui-events-console-border)) !important;
+    border-radius: 16px !important;
+    background: var(--ui-admin-surface, var(--ui-events-console-surface)) !important;
+    color: var(--ui-admin-text, var(--ui-events-console-text)) !important;
+    box-shadow: 0 24px 64px -16px rgba(15, 23, 42, .45), 0 0 0 1px rgba(15, 23, 42, .06) !important;
+    animation: admDetailIn .25s cubic-bezier(.4, 0, .2, 1);
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-head.ui-admin-detail-modal-head {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding: 1.1rem 1.5rem !important;
+    border-bottom: 1px solid var(--ui-admin-border, var(--ui-events-console-border)) !important;
+    background: linear-gradient(135deg, var(--ui-admin-surface-alt, var(--ui-events-console-surface-muted)) 0%, var(--ui-admin-surface, var(--ui-events-console-surface)) 100%) !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-titlebar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: start !important;
+    gap: 12px !important;
+    width: 100% !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-titlebar h3 {
+    display: flex !important;
+    align-items: center !important;
+    gap: .55rem !important;
+    margin: 0 !important;
+    color: var(--ui-admin-text, var(--ui-events-console-text)) !important;
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+    letter-spacing: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-title-actions {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-badges {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-modal-close.ui-admin-detail-close {
+    width: 32px !important;
+    height: 32px !important;
+    flex: 0 0 32px !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: var(--ui-admin-text-muted, var(--ui-events-console-muted)) !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-modal-close.ui-admin-detail-close:hover,
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-modal-close.ui-admin-detail-close:focus-visible {
+    border-color: var(--ui-admin-border, var(--ui-events-console-border)) !important;
+    background: var(--ui-admin-surface-alt, var(--ui-events-console-surface-muted)) !important;
+    color: var(--ui-admin-text, var(--ui-events-console-text)) !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-summary {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    margin: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card {
+    min-width: 0 !important;
+    min-height: 62px !important;
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    background: var(--ui-admin-surface, var(--ui-events-console-surface)) !important;
+    box-shadow: none !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card span,
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card strong {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card strong,
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card.is-primary strong {
+    font-size: 1.12rem !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-body.ui-admin-detail-modal-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    padding: 1.25rem 1.5rem 2rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background: var(--ui-admin-surface, var(--ui-events-console-surface)) !important;
+    scrollbar-width: thin;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-body.ui-admin-detail-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-body.ui-admin-detail-modal-body::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: var(--ui-admin-border, var(--ui-events-console-border));
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-admin-savebar {
+    flex: 0 0 auto !important;
+    padding: 14px 1.5rem !important;
+    margin: 0 !important;
+    border-top: 1px solid var(--ui-admin-border, var(--ui-events-console-border)) !important;
+    border-radius: 0 !important;
+    background: var(--ui-admin-surface-alt, var(--ui-events-console-surface-muted)) !important;
+    box-shadow: 0 -10px 24px rgba(15, 23, 42, .08) !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-admin-savebar .ui-admin-btn {
+    flex: 0 0 auto !important;
+}
+
+@media (max-width: 640px) {
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open {
+        padding: calc(var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 64px)) + 8px) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)) !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-admin-detail-modal {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 12px !important;
+        max-height: calc(100vh - var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 64px)) - 8px - max(8px, env(safe-area-inset-bottom, 0px)) - 4px) !important;
+        max-height: calc(100dvh - var(--ui-events-admin-modal-top-offset, var(--ui-admin-modal-top-offset, 64px)) - 8px - max(8px, env(safe-area-inset-bottom, 0px)) - 4px) !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-head.ui-admin-detail-modal-head {
+        padding: 14px 16px 12px !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-titlebar {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-title-actions {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        align-items: start !important;
+        width: 100% !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-badges {
+        justify-content: flex-start !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-summary {
+        grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)) !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card {
+        min-height: 58px !important;
+        padding: 8px 9px !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card strong,
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-summary-card.is-primary strong {
+        font-size: .98rem !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-rule-detail-body.ui-admin-detail-modal-body {
+        padding: 16px 16px 22px !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-admin-savebar {
+        align-items: stretch !important;
+        padding: 12px 16px !important;
+        gap: 10px !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-admin-savebar > span {
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+    }
+
+    .ui-events-admin-page .ui-events-admin-detail-overlay.is-open .ui-events-admin-savebar .ui-admin-btn {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+}
+
+/* =========================================================================
+   Çekiliş Yönetimi: liste tam genişlik, ayrıntı paneli yalnızca modal olarak
+   açılır. Sağdaki inline panel hiçbir viewport'ta görünmez.
+   ========================================================================= */
+.ui-events-admin-page .ui-events-wheel-master-layout,
+.ui-events-admin-page .ui-events-tasks-master-layout,
+.ui-events-admin-page [data-ui-events-item-master],
+.ui-events-admin-page [data-ui-events-rule-master],
+.ui-events-admin-page .ui-events-raffles-master-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.ui-events-admin-page .ui-events-wheel-list-panel,
+.ui-events-admin-page .ui-events-tasks-list-panel,
+.ui-events-admin-page [data-ui-events-item-master] .ui-events-rules-list-panel,
+.ui-events-admin-page [data-ui-events-rule-master] .ui-events-rules-list-panel,
+.ui-events-admin-page .ui-events-raffles-list-panel {
+    width: 100%;
+}
+
+/* Modal kapalıyken çekiliş ayrıntı paneli görünmesin (mevcut hidden
+   attribute'una ek olarak inline panel davranışını da bastırıyoruz). */
+.ui-events-admin-page .ui-events-raffle-detail-panel:not(.is-open) {
+    display: none !important;
+}
+
+/* Shared events admin vocabulary. These classes sit above page-specific
+   selectors so every events admin page can use the same structural language. */
+.ui-events-admin-page .ui-events-admin-actions,
+.ui-events-admin-page .ui-events-admin-actionbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.ui-events-admin-page .ui-events-admin-actionbar {
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.ui-events-admin-page .ui-events-wheel-section-tabs {
+    justify-content: flex-start;
+}
+
+.ui-events-admin-page .ui-events-wheel-history-shell {
+    padding: 16px !important;
+}
+
+.ui-events-admin-page .ui-events-master-actionbar .ui-events-app-nav-minimal.ui-events-admin-tablist {
+    display: inline-flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px !important;
+    min-width: 0;
+    margin: 0;
+    padding: 0 !important;
+    overflow: visible;
+    border: 0 !important;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none;
+    scrollbar-width: auto;
+}
+
+.ui-events-admin-page .ui-events-master-actionbar .ui-events-app-nav-minimal.ui-events-admin-tablist .ui-events-nav-separator {
+    display: none;
+}
+
+.ui-events-admin-page .ui-events-admin-tablist {
+    border-color: var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+}
+
+.ui-events-admin-page .ui-events-admin-tab {
+    min-width: 0;
+    letter-spacing: 0;
+}
+
+.ui-events-admin-page .ui-events-admin-tabs-shell {
+    margin-top: 10px;
+}
+
+.ui-events-admin-page .ui-events-admin-tabs-body {
+    display: grid;
+    gap: 14px;
+    padding: 0;
+}
+
+.ui-events-admin-page .ui-events-admin-tab-panel {
+    min-width: 0;
+}
+
+.ui-events-admin-page .ui-events-admin-master-card,
+.ui-events-admin-page .ui-events-admin-surface {
+    width: 100%;
+}
+
+.ui-events-admin-page .ui-events-admin-master-body,
+.ui-events-admin-page .ui-events-admin-panel-body {
+    min-width: 0;
+}
+
+.ui-events-admin-page .ui-events-admin-panel-body-flush,
+.ui-events-admin-page .ui-events-admin-table-wrap {
+    padding: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-admin-panel-spaced {
+    margin-bottom: 20px;
+}
+
+.ui-events-admin-page .ui-events-admin-master-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 18px;
+    align-items: start;
+    width: 100%;
+}
+
+.ui-events-admin-page .ui-events-admin-list-panel,
+.ui-events-admin-page .ui-events-admin-table-wrap {
+    min-width: 0;
+    width: 100%;
+    overflow: auto;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-panel[hidden],
+.ui-events-admin-page .ui-events-admin-modal-panel[hidden] {
+    display: none !important;
+}
+
+.ui-events-admin-page .ui-events-admin-detail-form {
+    width: min(1180px, calc(100vw - 32px));
+}
+
+.ui-events-admin-page .ui-events-admin-savebar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ui-events-admin-page .ui-events-admin-empty-state {
+    width: 100%;
+}
+
+.ui-events-admin-page .ui-events-admin-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 0 0 1.5rem;
+}
+
+.ui-events-admin-page .ui-events-admin-summary-grid.is-wide {
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.ui-events-admin-page .ui-events-admin-info-alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid color-mix(in srgb, var(--theme-warning, #f59e0b) 48%, var(--ui-events-console-border));
+    border-radius: var(--ui-events-console-radius);
+    background: var(--theme-warning-soft, #fef3c7);
+    color: var(--theme-warning, #92400e);
+}
+
+.ui-events-admin-page .ui-events-admin-subtabs,
+.ui-events-admin-page .ui-events-admin-actionstrip,
+.ui-events-admin-page .ui-events-admin-pagination,
+.ui-events-admin-page .ui-events-admin-bulkbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.ui-events-admin-page .ui-events-admin-subtabs {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ui-events-console-border);
+}
+
+.ui-events-admin-page .ui-events-admin-actionstrip {
+    justify-content: flex-end;
+    padding: 15px;
+    border-bottom: 1px solid var(--ui-events-console-border);
+}
+
+.ui-events-admin-page .ui-events-admin-pagination {
+    justify-content: center;
+    gap: 8px;
+    padding: 15px;
+    border-top: 1px solid var(--ui-events-console-border);
+}
+
+.ui-events-admin-page .ui-events-admin-page-number {
+    min-width: 40px;
+    text-align: center;
+}
+
+.ui-events-admin-page .ui-events-admin-bulkbar {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ui-events-console-border);
+    background: var(--ui-events-console-surface-muted);
+}
+
+.ui-events-admin-page .ui-events-admin-check-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.ui-events-admin-page .ui-events-admin-check-cell {
+    width: 40px;
+}
+
+.ui-events-admin-page .ui-events-admin-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ui-events-console-border);
+    background: var(--ui-events-console-surface-strong);
+}
+
+.ui-events-admin-page .ui-events-filter-input {
+    flex: 1 1 200px;
+    min-width: 0;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface);
+    color: var(--ui-events-console-text);
+    font-size: .85rem;
+}
+
+.ui-events-admin-page .ui-events-filter-input:focus {
+    outline: none;
+    border-color: var(--ui-events-console-accent);
+}
+
+.ui-events-admin-page .ui-events-filter-select {
+    flex: 0 0 auto;
+    height: 36px;
+    padding: 0 30px 0 12px;
+    border: 1px solid var(--ui-events-console-border);
+    border-radius: var(--ui-events-console-radius);
+    background: var(--ui-events-console-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 12px;
+    color: var(--ui-events-console-text);
+    font-size: .85rem;
+    appearance: none;
+}
+
+.ui-events-admin-page .ui-events-admin-checkbox {
+    cursor: pointer;
+}
+
+.ui-events-admin-page .ui-events-admin-spacer {
+    flex: 1 1 auto;
+}
+
+.ui-events-admin-page .ui-events-admin-hidden {
+    display: none !important;
+}
+
+.ui-events-admin-page .ui-events-admin-meta-danger {
+    color: var(--theme-danger, var(--ui-admin-alert-error, #ef4444)) !important;
+}
+
+.ui-events-admin-page .ui-events-admin-meta-muted {
+    color: var(--ui-events-console-faint) !important;
+}
+
+.ui-events-admin-page .ui-events-admin-small-meta {
+    font-size: .85rem;
+}
+
+.ui-events-admin-page .ui-events-admin-badge-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+}
+
+.ui-events-admin-page .ui-events-admin-icon-gap {
+    margin-right: 4px;
+}
+
+.ui-events-admin-page .ui-events-admin-code-cell {
+    color: var(--ui-events-console-muted);
+    font-family: 'Roboto', sans-serif;
+    font-size: .85em;
+}
+
+.ui-events-admin-page .ui-events-admin-section-block {
+    margin-bottom: 2rem;
+}
+
+.ui-events-admin-page .ui-events-admin-section-title {
+    margin-bottom: 10px;
+}
+
+.ui-events-admin-page .ui-events-admin-activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--ui-events-console-border);
+    transition: background .18s ease, border-color .18s ease;
+}
+
+.ui-events-admin-page .ui-events-admin-activity-item:last-child {
+    border-bottom: 0;
+}
+
+.ui-events-admin-page .ui-events-admin-activity-item:hover {
+    background: var(--ui-events-console-surface-muted);
+}
+
+.ui-events-admin-page .ui-events-admin-activity-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--ui-events-console-radius);
+    background: color-mix(in srgb, var(--theme-info, #3b82f6) 12%, transparent);
+    color: var(--theme-info, #2563eb);
+    font-size: 1.08rem;
+}
+
+.ui-events-admin-page .ui-events-admin-activity-icon.success {
+    background: var(--theme-success-soft, rgba(16, 185, 129, .12));
+    color: var(--theme-success, #059669);
+}
+
+.ui-events-admin-page .ui-events-admin-activity-icon.warning {
+    background: var(--theme-warning-soft, rgba(245, 158, 11, .14));
+    color: var(--theme-warning, #b45309);
+}
+
+.ui-events-admin-page .ui-events-admin-activity-icon.danger {
+    background: var(--theme-danger-soft, rgba(239, 68, 68, .12));
+    color: var(--theme-danger, #ef4444);
+}
+
+.ui-events-admin-page .ui-events-admin-activity-content {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ui-events-admin-page .ui-events-admin-activity-title {
+    color: var(--ui-events-console-text);
+    font-size: .9rem;
+    font-weight: 850;
+}
+
+.ui-events-admin-page .ui-events-admin-activity-desc {
+    color: var(--ui-events-console-muted);
+    font-size: .84rem;
+}
+
+.ui-events-admin-page .ui-events-admin-activity-time {
+    color: var(--ui-events-console-faint);
+    font-size: .75rem;
+}
+
+@media (max-width: 760px) {
+
+    .ui-events-admin-page .ui-events-admin-actions,
+    .ui-events-admin-page .ui-events-admin-actionbar,
+    .ui-events-admin-page .ui-events-admin-savebar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ui-events-admin-page .ui-events-admin-actions .ui-admin-btn,
+    .ui-events-admin-page .ui-events-admin-actionbar .ui-admin-btn,
+    .ui-events-admin-page .ui-events-admin-savebar .ui-admin-btn {
+        width: 100%;
+    }
+}
+
+/* ==========================================================================
+   MODAL — FORM VİZİBİLİTY FİXES
+   ========================================================================== */
+
+/* Aktif olmayan formları gizle */
+.ui-events-admin-page .ui-events-rule-detail-panel .ui-events-rule-detail-form:not(.is-active),
+.ui-events-admin-page .ui-events-rule-detail-panel .ui-events-rule-detail-form[hidden] {
+    display: none !important;
+}
+
+/* Özet kartları: 3 sütunlu yatay grid */
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-summary {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+    margin-top: 0 !important;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card {
+    min-height: 56px !important;
+    padding: 8px 12px !important;
+}
+
+/* ==========================================================================
+   Admin-native modal polish for Events workspaces
+   ========================================================================== */
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-admin-detail-form {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-head {
+    flex: 0 0 auto;
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid var(--ui-admin-border, var(--ui-events-console-border));
+    background: linear-gradient(135deg, var(--ui-admin-surface-alt, var(--ui-events-console-surface-muted)) 0%, var(--ui-admin-surface, var(--ui-events-console-surface)) 100%);
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-titlebar h3 {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    margin: 0;
+    color: var(--ui-admin-text, var(--ui-events-console-text));
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-modal-close {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    border-radius: 8px;
+    background: transparent;
+    border-color: transparent;
+    color: var(--ui-admin-text-muted, var(--ui-events-console-muted));
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-modal-close:hover,
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-modal-close:focus-visible {
+    border-color: var(--ui-admin-border, var(--ui-events-console-border));
+    background: var(--ui-admin-surface-alt, var(--ui-events-console-surface-muted));
+    color: var(--ui-admin-text, var(--ui-events-console-text));
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-summary {
+    gap: 10px !important;
+    margin-top: 12px !important;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card {
+    min-height: 62px !important;
+    padding: 10px 12px !important;
+    border-radius: 8px;
+    background: var(--ui-admin-surface, var(--ui-events-console-surface));
+    box-shadow: none;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card strong,
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card.is-primary strong {
+    font-size: 1.12rem;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    max-height: none;
+    padding: 16px 18px 18px;
+    background: var(--ui-admin-surface, var(--ui-events-console-surface));
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-body::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: var(--ui-admin-border, var(--ui-events-console-border));
+}
+
+.ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-admin-savebar {
+    flex: 0 0 auto;
+    padding: 13px 18px;
+    border-top: 1px solid var(--ui-admin-border, var(--ui-events-console-border));
+    background: var(--ui-admin-surface-alt, var(--ui-events-console-surface-muted));
+    box-shadow: 0 -10px 24px rgba(15, 23, 42, .08);
+}
+
+body.ui-events-rule-modal-open,
+body.ui-admin-dialog-open {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+@media (max-width: 640px) {
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-admin-detail-form {
+        width: min(100%, calc(100vw - 16px));
+        max-width: 100%;
+        border-radius: 12px;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-head {
+        padding: 14px 16px 12px;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-titlebar {
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-title-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 10px;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-badges {
+        justify-content: flex-start;
+        min-width: 0;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-detail-summary {
+        grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)) !important;
+        width: 100%;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card {
+        min-width: 0;
+        padding: 8px 9px !important;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card span,
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card strong,
+    .ui-events-admin-page .ui-events-rule-detail-panel.is-open .ui-events-rule-summary-card.is-primary strong {
+        font-size: .98rem;
+    }
+}

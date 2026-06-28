@@ -1,0 +1,83 @@
+let userReportModalController = null;
+
+function openUserReportModal(trigger) {
+    const modal = document.getElementById('userReportModal');
+    if (!modal) return;
+
+    if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
+        userReportModalController = window.TMUI.openDialog(modal, {
+            bodyClass: 'topic-report-modal-open',
+            initialFocus: 'select[name="reason"]',
+            returnFocus: trigger || document.activeElement,
+            onClose: function () {
+                userReportModalController = null;
+            }
+        });
+        return;
+    }
+
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('topic-report-modal-open');
+    const first = modal.querySelector('select, textarea, button');
+    if (first) first.focus();
+}
+
+function closeUserReportModal() {
+    const modal = document.getElementById('userReportModal');
+    if (!modal) return;
+    if (userReportModalController && typeof userReportModalController.close === 'function') {
+        userReportModalController.close(true);
+        return;
+    }
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('topic-report-modal-open');
+}
+
+document.addEventListener('click', function(event) {
+    const opener = event.target.closest('[data-user-report-modal-open]');
+    if (opener) openUserReportModal(opener);
+    if (event.target.closest('[data-user-report-modal-close]')) {
+        closeUserReportModal();
+    }
+});
+
+document.addEventListener('keydown', function(event) {
+    if (window.TMUI || event.key !== 'Escape') return;
+    closeUserReportModal();
+});
+
+document.addEventListener('submit', function(event) {
+    const form = event.target.closest('.user-report-form');
+    if (!form) return;
+    event.preventDefault();
+    const feedback = form.querySelector('.topic-report-feedback');
+    const button = form.querySelector('button[type="submit"]');
+    const original = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Gönderiliyor...';
+    fetch(form.action, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
+    }).then(function(response) {
+        return response.json().then(function(payload) {
+            return {ok: response.ok, payload: payload};
+        });
+    }).then(function(result) {
+        feedback.textContent = result.payload.message || (result.ok ? 'Şikayet gönderildi.' : 'Şikayet gönderilemedi.');
+        feedback.className = 'topic-report-feedback ' + (result.ok && result.payload.success ? 'is-success' : 'is-error');
+        if (result.ok && result.payload.success) {
+            form.reset();
+            closeUserReportModal();
+            window.showToast?.(result.payload.message || 'Şikayet gönderildi.', 'success');
+        }
+    }).catch(function() {
+        feedback.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
+        feedback.className = 'topic-report-feedback is-error';
+    }).finally(function() {
+        button.disabled = false;
+        button.innerHTML = original;
+    });
+});

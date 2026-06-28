@@ -1,0 +1,541 @@
+<?php
+
+declare(strict_types=1);
+
+$leaderboardProjectRoot = dirname(__DIR__, 5);
+$pdo = requireDatabaseConnection($GLOBALS['pdo'] ?? null);
+$GLOBALS['pdo'] = $pdo;
+$baseUri = (string) ($GLOBALS['baseUri'] ?? '');
+$isLoggedIn = (bool) ($GLOBALS['isLoggedIn'] ?? false);
+
+require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Legacy/helpers.php';
+require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Legacy/cache-manager.php';
+
+$pageTitle = 'Lider Tablosu';
+
+$settings = leaderboardGetSettings($pdo);
+
+$leaderboard_disabled = (($settings['leaderboard_enabled'] ?? '1') !== '1');
+$leaderboard_disabled_message = trim((string) ($settings['leaderboard_disabled_message'] ?? ''));
+if ($leaderboard_disabled_message === '') {
+    $leaderboard_disabled_message = 'Liderlik tablosu su anda kapali. Lutfen daha sonra tekrar kontrol edin.';
+}
+$leaderboard_disabled_contact_url = function_exists('routePublicStaticUrl')
+    ? routePublicStaticUrl('contact')
+    : (rtrim((string) $baseUri, '/') . '/iletisim');
+$leaderboard_disabled_categories_url = function_exists('categoryListUrl')
+    ? categoryListUrl()
+    : (rtrim((string) $baseUri, '/') . '/kategoriler');
+
+if ($leaderboard_disabled) {
+    $pageTitle = 'Lider Tablosu Kapali';
+    require_once $leaderboardProjectRoot . '/includes/public-header.php';
+    ?>
+
+    <div class="container public-container public-breadcrumb breadcrumb-container ui-container">
+        <nav class="breadcrumb">
+            <a href="<?= $baseUri ?>/index.php"><i class="bi bi-house-door"></i> Ana Sayfa</a>
+            <i class="bi bi-chevron-right"></i>
+            <span>Lider Tablosu</span>
+        </nav>
+    </div>
+
+    <div class="leaderboard-container ui-container ui-section">
+        <div class="ui-panel">
+            <div class="ui-panel__body">
+                <section class="leaderboard-empty-state leaderboard-empty-state--disabled ui-empty" role="status" aria-labelledby="leaderboardDisabledTitle">
+                    <div class="leaderboard-empty-state__media" aria-hidden="true">
+                        <span class="leaderboard-empty-state__halo"></span>
+                        <span class="leaderboard-empty-state__icon"><i class="bi bi-pause-circle"></i></span>
+                    </div>
+                    <div class="leaderboard-empty-state__content">
+                        <span class="leaderboard-empty-state__eyebrow">Liderlik sistemi</span>
+                        <h1 id="leaderboardDisabledTitle"><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></h1>
+                        <p><?= htmlspecialchars($leaderboard_disabled_message, ENT_QUOTES, 'UTF-8') ?></p>
+                        <ul class="leaderboard-empty-state__tips">
+                            <li><i class="bi bi-check2-circle"></i> Sistem yeniden acildiginda siralamalar otomatik hesaplanir.</li>
+                            <li><i class="bi bi-check2-circle"></i> Kategorileri gezerek aktif icerikleri takip edebilirsiniz.</li>
+                        </ul>
+                        <div class="leaderboard-empty-state__actions">
+                            <a class="leaderboard-empty-state__btn is-primary" href="<?= htmlspecialchars($leaderboard_disabled_categories_url, ENT_QUOTES, 'UTF-8') ?>">
+                                <i class="bi bi-grid"></i>
+                                <span>Kategorilere Git</span>
+                            </a>
+                            <a class="leaderboard-empty-state__btn is-secondary" href="<?= htmlspecialchars($leaderboard_disabled_contact_url, ENT_QUOTES, 'UTF-8') ?>">
+                                <i class="bi bi-envelope-paper"></i>
+                                <span>Yonetimle Iletisim</span>
+                            </a>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <?php
+    require_once $leaderboardProjectRoot . '/includes/public-footer.php';
+    return;
+}
+
+// Get parameters
+$category = $_GET['category'] ?? 'daily_login';
+$period = $_GET['period'] ?? 'daily';
+$page = max(1, (int)($_GET['page'] ?? 1));
+$search = trim($_GET['search'] ?? '');
+$perPage = 50;
+$offset = ($page - 1) * $perPage;
+
+// Validate category
+$validCategories = leaderboardGetValidCategories();
+if (!in_array($category, $validCategories, true)) {
+    $category = 'daily_login';
+}
+
+// Validate period
+$validPeriods = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'all_time'];
+if (!in_array($period, $validPeriods, true)) {
+    $period = 'daily';
+}
+
+$categories = leaderboardGetCategories();
+
+// Period names
+$periods = [
+    'daily' => 'GÃƒÂ¼nlÃƒÂ¼k',
+    'weekly' => 'HaftalÃ„Â±k',
+    'monthly' => 'AylÃ„Â±k',
+    'quarterly' => '3 AylÃ„Â±k',
+    'yearly' => 'YÃ„Â±llÃ„Â±k',
+    'all_time' => 'TÃƒÂ¼m Zamanlar'
+];
+$leaderboardBaseUrl = function_exists('routePublicStaticUrl')
+    ? routePublicStaticUrl('leaderboard')
+    : ($baseUri . '/leaderboard.php');
+
+try {
+    $leaderboardData = leaderboardGetData($pdo, $category, $period, $perPage, $offset);
+    $users = $leaderboardData['data'] ?? [];
+    $total = $leaderboardData['total'] ?? 0;
+    $isCached = $leaderboardData['is_cached'] ?? false;
+} catch (Throwable $e) {
+    appLogException($e, ['source' => 'leaderboard.php']);
+    $users = [];
+    $total = 0;
+    $isCached = false;
+}
+
+// Filter by search if provided
+if ($search !== '' && !empty($users)) {
+    $users = array_filter($users, function($user) use ($search) {
+        $username = $user['username'] ?? '';
+        return stripos($username, $search) !== false;
+    });
+    $total = count($users);
+}
+
+$totalPages = ceil($total / $perPage);
+$medals = ['Ã„Å¸Ã…Å¸Ã‚Â¥ââ‚¬Â¡', 'Ã„Å¸Ã…Å¸Ã‚Â¥Ã‹â€ ', 'Ã„Å¸Ã…Å¸Ã‚Â¥ââ‚¬Â°'];
+
+$leaderboard_description = (string) ($categories[$category]['desc'] ?? '');
+$leaderboard_is_cached = (bool) $isCached;
+$leaderboard_search = $search;
+$leaderboard_category = $category;
+$leaderboard_period = $period;
+$leaderboard_category_tabs = [];
+foreach ($categories as $catKey => $catInfo) {
+    $leaderboard_category_tabs[] = [
+        'url' => $leaderboardBaseUrl . '?' . http_build_query(array_filter([
+            'category' => $catKey,
+            'period' => $period,
+            'search' => $search !== '' ? $search : null,
+        ], static fn ($value): bool => $value !== null && $value !== '')),
+        'class' => $category === $catKey ? 'leaderboard-tab active' : 'leaderboard-tab',
+        'icon' => (string) ($catInfo['icon'] ?? 'bi-trophy'),
+        'name' => (string) ($catInfo['name'] ?? $catKey),
+    ];
+}
+
+$leaderboard_period_options = [];
+foreach ($periods as $periodKey => $periodName) {
+    $leaderboard_period_options[] = [
+        'url' => $leaderboardBaseUrl . '?' . http_build_query(array_filter([
+            'category' => $category,
+            'period' => $periodKey,
+            'search' => $search !== '' ? $search : null,
+        ], static fn ($value): bool => $value !== null && $value !== '')),
+        'class' => $period === $periodKey ? 'period-btn active' : 'period-btn',
+        'name' => (string) $periodName,
+    ];
+}
+
+$fallbackAvatarUrl = function_exists('defaultAvatarUrl')
+    ? defaultAvatarUrl($baseUri)
+    : $baseUri . '/assets/images/noavatar-neon-helmet.svg';
+$leaderboard_rows = [];
+foreach ($users as $index => $user) {
+    if (!is_array($user)) {
+        continue;
+    }
+
+    $rank = $offset + $index + 1;
+    $row = function_exists('leaderboardDecorateRow')
+        ? leaderboardDecorateRow($user, $baseUri)
+        : $user;
+    $userId = (int) ($row['user_id'] ?? 0);
+    $avatarUrl = (string) ($row['avatar_url'] ?? $fallbackAvatarUrl);
+    $hasAvatar = $avatarUrl !== $fallbackAvatarUrl;
+    $rowUsername = (string) ($row['username'] ?? 'Anonim');
+
+    $rankChange = (int) ($row['rank_change'] ?? $row['change'] ?? 0);
+    $metadata = isset($row['metadata']) && is_array($row['metadata']) ? $row['metadata'] : [];
+    $metricKey = $categories[$category]['metadata_key'] ?? null;
+    $metricLabel = (string) ($categories[$category]['metadata_label'] ?? 'Sayi');
+    $metricValue = $metricKey && isset($metadata[$metricKey]) ? number_format((int) $metadata[$metricKey]) : '';
+    $isCurrentUser = $isLoggedIn && $userId === (int) ($_SESSION['_auth_user_id'] ?? 0);
+
+    $leaderboard_rows[] = [
+        'row_class' => $isCurrentUser ? 'current-user' : '',
+        'rank_label' => (string) $rank,
+        'rank_class' => $rank <= 3 ? 'medal' : 'rank-number',
+        'avatar_url' => $avatarUrl,
+        'has_avatar' => $hasAvatar,
+        'profile_url' => (string) ($row['profile_url'] ?? (function_exists('publicProfileUrl')
+            ? publicProfileUrl([
+                'id' => $userId,
+                'name' => $rowUsername,
+            ])
+            : ($baseUri . '/profil/' . rawurlencode((string) $userId)))),
+        'username' => $rowUsername,
+        'is_current_user' => $isCurrentUser,
+        'score' => number_format((int) ($row['count'] ?? $row['score'] ?? 0)),
+        'change_class' => $rankChange > 0 ? 'rank-change up' : ($rankChange < 0 ? 'rank-change down' : 'rank-change neutral'),
+        'change_icon' => $rankChange > 0 ? 'bi-arrow-up' : ($rankChange < 0 ? 'bi-arrow-down' : 'bi-dash'),
+        'change_label' => $rankChange !== 0 ? (string) abs($rankChange) : '',
+        'has_metadata' => $metricValue !== '',
+        'metadata_icon' => (string) ($categories[$category]['icon'] ?? 'bi-trophy'),
+        'metadata_label' => $metricLabel,
+        'metadata_value' => $metricValue,
+    ];
+}
+
+$users = $leaderboard_rows;
+$leaderboard_has_rows = $leaderboard_rows !== [];
+$leaderboard_empty_message = $search !== ''
+    ? 'Aramanizla eslesen kullanici bulunamadi.'
+    : 'Bu kategori icin henuz siralama verisi bulunmuyor.';
+$leaderboard_avatar_fallback = $fallbackAvatarUrl;
+$leaderboard_search_clear_url = $leaderboardBaseUrl . '?' . http_build_query([
+    'category' => $category,
+    'period' => $period,
+]);
+$leaderboard_empty_title = $search !== ''
+    ? 'Arama sonucu bulunamadi'
+    : 'Siralama henuz olusmadi';
+$leaderboard_empty_description = $search !== ''
+    ? 'Filtreyi degistirerek tekrar deneyebilir veya aramayi temizleyerek tum kullanicilari gorebilirsiniz.'
+    : 'Bu kategori ve donem icin henuz puanlanan uye yok. Ilk hareket geldiginde tablo otomatik olusur.';
+$leaderboard_empty_primary_url = $search !== ''
+    ? $leaderboard_search_clear_url
+    : routePublicStaticUrl('upload_topic');
+$leaderboard_empty_primary_label = $search !== ''
+    ? 'Aramayi Temizle'
+    : 'Ilk Icerigi Yukle';
+$leaderboard_empty_secondary_url = function_exists('categoryListUrl')
+    ? categoryListUrl()
+    : (rtrim((string) $baseUri, '/') . '/kategoriler');
+$leaderboard_empty_secondary_label = 'Kategorileri Kesfet';
+$leaderboard_empty_period_label = (string) ($periods[$period] ?? 'Secili donem');
+$leaderboard_empty_category_label = (string) ($categories[$category]['name'] ?? 'Genel');
+$leaderboard_total_pages = (int) $totalPages;
+$leaderboard_current_page = (int) $page;
+$leaderboard_has_pagination = $leaderboard_total_pages > 1;
+$leaderboard_prev_url = $leaderboardBaseUrl . '?' . http_build_query(array_filter([
+    'category' => $category,
+    'period' => $period,
+    'page' => max(1, $page - 1),
+    'search' => $search !== '' ? $search : null,
+], static fn ($value): bool => $value !== null && $value !== ''));
+$leaderboard_next_url = $leaderboardBaseUrl . '?' . http_build_query(array_filter([
+    'category' => $category,
+    'period' => $period,
+    'page' => min($leaderboard_total_pages, $page + 1),
+    'search' => $search !== '' ? $search : null,
+], static fn ($value): bool => $value !== null && $value !== ''));
+$leaderboard_prev_disabled = $page <= 1;
+$leaderboard_next_disabled = $page >= $leaderboard_total_pages;
+$leaderboard_pagination_pages = [];
+if ($leaderboard_has_pagination) {
+    $startPage = max(1, $page - 2);
+    $endPage = min($leaderboard_total_pages, $page + 2);
+    for ($i = $startPage; $i <= $endPage; $i++) {
+        $leaderboard_pagination_pages[] = [
+            'url' => $leaderboardBaseUrl . '?' . http_build_query(array_filter([
+                'category' => $category,
+                'period' => $period,
+                'page' => $i,
+                'search' => $search !== '' ? $search : null,
+            ], static fn ($value): bool => $value !== null && $value !== '')),
+            'label' => (string) $i,
+            'class' => $i === $page ? 'active' : '',
+        ];
+    }
+}
+
+require_once $leaderboardProjectRoot . '/includes/public-header.php';
+?>
+
+<!-- Breadcrumb -->
+<?php if (!function_exists('usesPublicThemeRenderer') || !usesPublicThemeRenderer()): ?>
+<div class="container public-container public-breadcrumb breadcrumb-container ui-container">
+    <nav class="breadcrumb">
+        <a href="<?= $baseUri ?>/index.php"><i class="bi bi-house-door"></i> Ana Sayfa</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>Lider Tablosu</span>
+    </nav>
+</div>
+<?php endif; ?>
+
+<link rel="stylesheet" href="<?= asset_url('assets/css/leaderboard-page.css', $baseUri) ?>">
+
+<div class="leaderboard-container ui-container ui-section">
+    <div class="ui-panel">
+        <div class="ui-panel__body">
+                    <!-- Header -->
+                    <div class="leaderboard-header">
+                        <div class="leaderboard-title">
+                            <span class="leaderboard-eyebrow">Topluluk SÃ„Â±ralamasÃ„Â±</span>
+                            <h1><i class="bi bi-trophy"></i> Lider Tablosu</h1>
+                            <p><?= htmlspecialchars($categories[$category]['desc']) ?></p>
+                        </div>
+                        <?php if ($isCached): ?>
+                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert--info ui-admin-alert-spaced" role="status">
+                                <i class="bi bi-lightning-charge"></i> Ãƒ–nbellekten hÃ„Â±zlÃ„Â± yÃƒÂ¼klendi
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Category Tabs -->
+                    <div class="leaderboard-tabs">
+                        <?php foreach ($categories as $catKey => $catInfo): ?>
+                            <a href="?category=<?= $catKey ?>&period=<?= $period ?><?= $search ? '&search=' . urlencode($search) : '' ?>"
+                               class="leaderboard-tab<?= $category === $catKey ? ' active' : '' ?>">
+                                <i class="bi <?= $catInfo['icon'] ?>"></i>
+                                <span><?= $catInfo['name'] ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <!-- Period Buttons & Search -->
+                    <div class="leaderboard-controls">
+                        <div class="period-buttons">
+                            <?php foreach ($periods as $periodKey => $periodName): ?>
+                                <button class="period-btn<?= $period === $periodKey ? ' active' : '' ?>"
+                                        data-period="<?= $periodKey ?>"
+                                        data-leaderboard-href="?category=<?= $category ?>&period=<?= $periodKey ?><?= $search ? '&search=' . urlencode($search) : '' ?>">
+                                    <?= $periodName ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="leaderboard-search">
+                            <form method="get" action="">
+                                <input type="hidden" name="category" value="<?= $category ?>">
+                                <input type="hidden" name="period" value="<?= $period ?>">
+                                <div class="search-input-group">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text"
+                                           name="search"
+                                           placeholder="KullanÃ„Â±cÃ„Â± ara..."
+                                           value="<?= htmlspecialchars($search) ?>"
+                                           class="search-input">
+                                    <?php if ($search): ?>
+                                        <a href="?category=<?= $category ?>&period=<?= $period ?>" class="search-clear">
+                                            <i class="bi bi-x"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Leaderboard Table -->
+                    <?php if (empty($users)): ?>
+                        <div class="leaderboard-empty-state ui-empty" role="status" aria-live="polite" aria-labelledby="leaderboardEmptyTitle">
+                            <div class="leaderboard-empty-state__media" aria-hidden="true">
+                                <span class="leaderboard-empty-state__halo"></span>
+                                <span class="leaderboard-empty-state__icon"><i class="bi bi-graph-down-arrow"></i></span>
+                            </div>
+                            <div class="leaderboard-empty-state__content">
+                                <span class="leaderboard-empty-state__eyebrow">Siralama boslugu</span>
+                                <h3 id="leaderboardEmptyTitle"><?= htmlspecialchars($leaderboard_empty_title, ENT_QUOTES, 'UTF-8') ?></h3>
+                                <p><?= htmlspecialchars($leaderboard_empty_description, ENT_QUOTES, 'UTF-8') ?></p>
+                                <div class="leaderboard-empty-state__context">
+                                    <span><i class="bi bi-collection"></i> <?= htmlspecialchars($leaderboard_empty_category_label, ENT_QUOTES, 'UTF-8') ?></span>
+                                    <span><i class="bi bi-calendar3"></i> <?= htmlspecialchars($leaderboard_empty_period_label, ENT_QUOTES, 'UTF-8') ?></span>
+                                </div>
+                                <ul class="leaderboard-empty-state__tips">
+                                    <li><i class="bi bi-check2-circle"></i> Farkli donem secerek karsilastirma yapabilirsiniz.</li>
+                                    <li><i class="bi bi-check2-circle"></i> Liste olustugunda ilk 3 uye burada rozetle gosterilir.</li>
+                                    <li><i class="bi bi-check2-circle"></i> Kategori gecisleri ve arama filtreleri korunur.</li>
+                                </ul>
+                                <div class="leaderboard-empty-state__actions">
+                                    <a class="leaderboard-empty-state__btn is-primary" href="<?= htmlspecialchars($leaderboard_empty_primary_url, ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-magic"></i>
+                                        <span><?= htmlspecialchars($leaderboard_empty_primary_label, ENT_QUOTES, 'UTF-8') ?></span>
+                                    </a>
+                                    <a class="leaderboard-empty-state__btn is-secondary" href="<?= htmlspecialchars($leaderboard_empty_secondary_url, ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-compass"></i>
+                                        <span><?= htmlspecialchars($leaderboard_empty_secondary_label, ENT_QUOTES, 'UTF-8') ?></span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="leaderboard-table-container ui-table-wrap">
+                            <table class="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-rank">SÃ„Â±ra</th>
+                                        <th class="col-user">KullanÃ„Â±cÃ„Â±</th>
+                                        <th class="col-score">SayÃ„Â±</th>
+                                        <th class="col-change">DeÃ„Å¸iÃ…Å¸im</th>
+                                        <th class="col-metadata">Detaylar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaderboard-tbody">
+                                    <?php foreach ($users as $index => $user): ?>
+                                        <?php
+                                        $rank = $offset + $index + 1;
+                                        $username = htmlspecialchars($user['username'] ?? 'Anonim');
+                                        $count = number_format((int)($user['count'] ?? $user['score'] ?? 0));
+                                        $userId = (int)($user['user_id'] ?? 0);
+                                        $rankChange = (int)($user['rank_change'] ?? $user['change'] ?? 0);
+                                        $metadata = $user['metadata'] ?? [];
+                                        $metricKey = $categories[$category]['metadata_key'] ?? null;
+                                        $metricLabel = $categories[$category]['metadata_label'] ?? 'SayÃ„Â±';
+
+                                        // Highlight current user
+                                        $isCurrentUser = $isLoggedIn && $userId === (int)$_SESSION['_auth_user_id'];
+
+                                        $avatarUrl = htmlspecialchars((string)($user['avatar_url'] ?? $fallbackAvatarUrl), ENT_QUOTES, 'UTF-8');
+                                        $profileUrl = htmlspecialchars((string)($user['profile_url'] ?? (function_exists('publicProfileUrl')
+                                            ? publicProfileUrl([
+                                                'id' => $userId,
+                                                'name' => (string) ($user['username'] ?? 'uye'),
+                                            ])
+                                            : ($baseUri . '/profil/' . rawurlencode((string) $userId)))), ENT_QUOTES, 'UTF-8');
+                                        ?>
+                                        <tr class="<?= $isCurrentUser ? 'current-user' : '' ?>">
+                                            <td class="col-rank">
+                                                <?php if ($rank <= 3): ?>
+                                                    <span class="medal"><?= $medals[$rank - 1] ?></span>
+                                                <?php else: ?>
+                                                    <span class="rank-number"><?= $rank ?></span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="col-user">
+                                                <div class="user-cell">
+                                                    <a href="<?= $profileUrl ?>">
+                                                        <img src="<?= $avatarUrl ?>" alt="<?= $username ?>" class="user-avatar" width="30" height="30" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($fallbackAvatarUrl, ENT_QUOTES, 'UTF-8') ?>">
+                                                    </a>
+                                                    <div class="user-info">
+                                                        <a href="<?= $profileUrl ?>" class="user-name"><?= $username ?></a>
+                                                        <?php if ($isCurrentUser): ?>
+                                                            <span class="user-badge">Siz</span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="col-score">
+                                                <strong><?= $count ?></strong>
+                                            </td>
+                                            <td class="col-change">
+                                                <?php if ($rankChange > 0): ?>
+                                                    <span class="rank-change up">
+                                                        <i class="bi bi-arrow-up"></i> <?= $rankChange ?>
+                                                    </span>
+                                                <?php elseif ($rankChange < 0): ?>
+                                                    <span class="rank-change down">
+                                                        <i class="bi bi-arrow-down"></i> <?= abs($rankChange) ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="rank-change neutral">
+                                                        <i class="bi bi-dash"></i>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="col-metadata">
+                                                <?php if (!empty($metadata)): ?>
+                                                    <div class="metadata-items">
+                                                        <?php if ($metricKey && isset($metadata[$metricKey])): ?>
+                                                            <span class="metadata-item" title="<?= htmlspecialchars($metricLabel) ?>">
+                                                                <i class="bi <?= htmlspecialchars($categories[$category]['icon']) ?>"></i> <?= number_format((int)$metadata[$metricKey]) ?>
+                                                            </span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <?php if ($totalPages > 1): ?>
+                            <div class="pagination">
+                                <button <?= $page <= 1 ? 'disabled' : '' ?>
+                                        data-leaderboard-href="?category=<?= $category ?>&period=<?= $period ?>&page=<?= $page - 1 ?><?= $search ? '&search=' . urlencode($search) : '' ?>"
+                                        aria-label="Ãƒ–nceki sayfa">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+
+                                <?php
+                                $startPage = max(1, $page - 2);
+                                $endPage = min($totalPages, $page + 2);
+                                ?>
+
+                                <?php if ($startPage > 1): ?>
+                                    <button data-leaderboard-href="?category=<?= $category ?>&period=<?= $period ?>&page=1<?= $search ? '&search=' . urlencode($search) : '' ?>">1</button>
+                                    <?php if ($startPage > 2): ?>
+                                        <span>...</span>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+
+                                <?php for ($i = $startPage; $i <= $endPage; $i++): ?>
+                                    <button class="<?= $i === $page ? 'active' : '' ?>"
+                                            data-leaderboard-href="?category=<?= $category ?>&period=<?= $period ?>&page=<?= $i ?><?= $search ? '&search=' . urlencode($search) : '' ?>"
+                                            <?= $i === $page ? 'aria-current="page"' : '' ?>>
+                                        <?= $i ?>
+                                    </button>
+                                <?php endfor; ?>
+
+                                <?php if ($endPage < $totalPages): ?>
+                                    <?php if ($endPage < $totalPages - 1): ?>
+                                        <span>...</span>
+                                    <?php endif; ?>
+                                    <button data-leaderboard-href="?category=<?= $category ?>&period=<?= $period ?>&page=<?= $totalPages ?><?= $search ? '&search=' . urlencode($search) : '' ?>">
+                                        <?= $totalPages ?>
+                                    </button>
+                                <?php endif; ?>
+
+                                <button <?= $page >= $totalPages ? 'disabled' : '' ?>
+                                        data-leaderboard-href="?category=<?= $category ?>&period=<?= $period ?>&page=<?= $page + 1 ?><?= $search ? '&search=' . urlencode($search) : '' ?>"
+                                        aria-label="Sonraki sayfa">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+            </div>
+        </div>
+</div>
+
+<?php
+$leaderboardScriptPath = $leaderboardProjectRoot . '/assets/js/leaderboard.js';
+$leaderboardScriptUrl = rtrim($baseUri, '/') . '/assets/js/leaderboard.js?v=' . rawurlencode((string) (is_file($leaderboardScriptPath) ? filemtime($leaderboardScriptPath) : time()));
+?>
+<script src="<?= htmlspecialchars($leaderboardScriptUrl, ENT_QUOTES, 'UTF-8') ?>"></script>
+
+<?php require_once $leaderboardProjectRoot . '/includes/public-footer.php'; ?>
+
+

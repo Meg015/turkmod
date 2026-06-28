@@ -1,0 +1,297 @@
+/* Shared design tokens for public and admin surfaces. */
+:root {
+    color-scheme: light dark;
+
+    --brand-accent: #8b1538;
+    --brand-accent-hover: #6d1029;
+    --brand-accent-light: #b91d47;
+    --brand-accent-soft: #fce7ec;
+    --brand-accent-alpha-08: rgba(139, 21, 56, 0.08);
+    --brand-accent-alpha-10: rgba(139, 21, 56, 0.1);
+    --brand-accent-alpha-16: rgba(139, 21, 56, 0.16);
+    --brand-accent-alpha-20: rgba(139, 21, 56, 0.2);
+    --brand-accent-alpha-30: rgba(139, 21, 56, 0.3);
+
+    --theme-bg: #f0f2f5;
+    --theme-surface: #ffffff;
+    --theme-surface-muted: #f8fafc;
+    --theme-surface-hover: #eef2f7;
+    --theme-border: #d8dee8;
+    --theme-border-strong: #b9c3d2;
+    --theme-text: #111827;
+    --theme-text-muted: #64748b;
+    --theme-text-soft: #94a3b8;
+    --theme-on-accent: #ffffff;
+
+    --theme-success: #10b981;
+    --theme-success-soft: #d1fae5;
+    --theme-danger: #dc2626;
+    --theme-danger-soft: #fee2e2;
+    --theme-warning: #b45309;
+    --theme-warning-soft: #fef3c7;
+    --theme-info: #2563eb;
+    --theme-info-soft: #dbeafe;
+
+    /* Color aliases for new components. Keep legacy aliases below intact. */
+    --color-canvas: var(--theme-bg);
+    --color-surface: var(--theme-surface);
+    --color-surface-muted: var(--theme-surface-muted);
+    --color-surface-hover: var(--theme-surface-hover);
+    --color-border: var(--theme-border);
+    --color-border-strong: var(--theme-border-strong);
+    --color-text: var(--theme-text);
+    --color-text-muted: var(--theme-text-muted);
+    --color-text-soft: var(--theme-text-soft);
+    --color-primary: var(--brand-accent);
+    --color-primary-hover: var(--brand-accent-hover);
+    --color-primary-soft: var(--brand-accent-soft);
+    --color-on-primary: var(--theme-on-accent);
+    --color-success: var(--theme-success);
+    --color-success-soft: var(--theme-success-soft);
+    --color-danger: var(--theme-danger);
+    --color-danger-soft: var(--theme-danger-soft);
+    --color-warning: var(--theme-warning);
+    --color-warning-soft: var(--theme-warning-soft);
+    --color-info: var(--theme-info);
+    --color-info-soft: var(--theme-info-soft);
+
+    --font-family-base: "Roboto", sans-serif;
+    --font-family-heading: var(--font-family-base);
+    --font-family-mono: "Roboto", sans-serif;
+
+    --font-size-2xs: 0.6875rem;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-md: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+
+    --line-height-tight: 1.2;
+    --line-height-snug: 1.35;
+    --line-height-base: 1.5;
+    --line-height-relaxed: 1.65;
+    --letter-spacing-normal: 0;
+
+    --space-0: 0;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-14: 3.5rem;
+    --space-16: 4rem;
+    --space-20: 5rem;
+
+    --grid-gutter: var(--space-6);
+    --container-xs: 100%;
+    --container-sm: 540px;
+    --container-md: 720px;
+    --container-lg: 960px;
+    --container-xl: 1140px;
+    --container-2xl: 1320px;
+    --container-wide: 1400px;
+
+    /*
+      Breakpoint tokens are reference values for docs and JS.
+      CSS custom properties cannot be used directly in media query conditions.
+    */
+    --breakpoint-mobile: 480px;
+    --breakpoint-tablet: 768px;
+    --breakpoint-laptop: 992px;
+    --breakpoint-desktop: 1200px;
+    --breakpoint-large-desktop: 1400px;
+
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
+    --radius-full: 9999px;
+    --radius-control: var(--radius-md);
+    --radius-card: var(--radius-md);
+    --radius-dialog: var(--radius-lg);
+    --radius-pill: var(--radius-full);
+
+    --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 10px 28px rgba(15, 23, 42, 0.09);
+    --shadow-lg: 0 18px 42px rgba(15, 23, 42, 0.12);
+    --shadow-overlay: 0 24px 70px rgba(15, 23, 42, 0.2);
+    --theme-ring: 0 0 0 3px var(--brand-accent-alpha-16);
+
+    --z-base: 0;
+    --z-raised: 10;
+    --z-sticky: 100;
+    --z-header: 900;
+    --z-dropdown: 1000;
+    --z-drawer: 1040;
+    --z-modal-backdrop: 1050;
+    --z-modal: 1060;
+    --z-popover: 1070;
+    --z-tooltip: 1080;
+    --z-toast: 1090;
+
+    --duration-instant: 0ms;
+    --duration-fast: 150ms;
+    --duration-base: 220ms;
+    --duration-slow: 320ms;
+    --duration-slower: 500ms;
+    --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-control: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+    --transition-surface: background-color var(--duration-base) var(--ease-standard), border-color var(--duration-base) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard);
+
+    --control-height: 2.5rem;
+    --control-height-sm: 2rem;
+    --control-height-lg: 3rem;
+    --control-radius: var(--radius-md);
+    --control-padding-x: var(--space-3);
+    --control-padding-y: var(--space-2);
+    --surface-radius: var(--radius-md);
+
+    --state-hover-bg: var(--theme-surface-hover);
+    --state-focus-ring: var(--theme-ring);
+    --state-active-bg: var(--brand-accent-alpha-10);
+    --state-selected-bg: var(--brand-accent-soft);
+    --state-disabled-bg: var(--theme-surface-muted);
+    --state-disabled-text: var(--theme-text-soft);
+    --state-disabled-opacity: 0.55;
+    --state-loading-opacity: 0.72;
+    --state-success-bg: var(--theme-success-soft);
+    --state-success-text: var(--theme-success);
+    --state-warning-bg: var(--theme-warning-soft);
+    --state-warning-text: var(--theme-warning);
+    --state-error-bg: var(--theme-danger-soft);
+    --state-error-text: var(--theme-danger);
+    --state-info-bg: var(--theme-info-soft);
+    --state-info-text: var(--theme-info);
+    --state-empty-bg: var(--theme-surface-muted);
+    --state-empty-text: var(--theme-text-muted);
+
+    --component-gap-xs: var(--space-2);
+    --component-gap-sm: var(--space-3);
+    --component-gap-md: var(--space-4);
+    --component-gap-lg: var(--space-6);
+
+    --button-height: var(--control-height);
+    --button-radius: var(--radius-control);
+    --button-padding-x: var(--space-4);
+    --button-font-size: var(--font-size-sm);
+    --button-font-weight: var(--font-weight-semibold);
+
+    --input-height: var(--control-height);
+    --input-radius: var(--radius-control);
+    --input-padding-x: var(--control-padding-x);
+    --input-font-size: var(--font-size-sm);
+    --input-border: var(--theme-border);
+    --input-bg: var(--theme-surface);
+    --input-text: var(--theme-text);
+    --input-placeholder: var(--theme-text-soft);
+
+    --card-radius: var(--radius-card);
+    --card-padding: var(--space-5);
+    --card-bg: var(--theme-surface);
+    --card-border: var(--theme-border);
+    --card-shadow: var(--shadow-sm);
+
+    --modal-radius: var(--radius-dialog);
+    --modal-bg: var(--theme-surface);
+    --modal-border: var(--theme-border);
+    --modal-shadow: var(--shadow-overlay);
+    --modal-backdrop: rgba(15, 23, 42, 0.58);
+
+    --toast-radius: var(--radius-md);
+    --toast-shadow: var(--shadow-lg);
+    --tooltip-radius: var(--radius-sm);
+    --tooltip-bg: var(--theme-text);
+    --tooltip-text: var(--theme-surface);
+
+    --bg: var(--theme-bg);
+    --bg-white: var(--theme-surface);
+    --bg-hover: var(--theme-surface-hover);
+    --primary: var(--brand-accent);
+    --primary-dark: var(--brand-accent-hover);
+    --primary-light: var(--brand-accent-light);
+    --text: var(--theme-text);
+    --text-dim: var(--theme-text-muted);
+    --text-light: var(--theme-text-soft);
+    --border: var(--theme-border);
+    --success: var(--theme-success);
+    --danger: var(--theme-danger);
+    --warning: var(--brand-accent);
+    --info: var(--brand-accent);
+    --on-primary: var(--theme-on-accent);
+
+    --ui-surface: var(--theme-surface);
+    --ui-surface-muted: var(--theme-surface-muted);
+    --ui-hover: var(--theme-surface-hover);
+    --ui-border: var(--theme-border);
+    --ui-border-strong: var(--theme-border-strong);
+    --ui-radius: var(--surface-radius);
+    --ui-shadow: var(--shadow-sm);
+    --ui-shadow-hover: var(--shadow-md);
+    --ui-ring: var(--theme-ring);
+}
+
+html[data-theme="dark"] {
+    --brand-accent: #b91d47;
+    --brand-accent-hover: #d92454;
+    --brand-accent-light: #ff2d6a;
+    --brand-accent-soft: rgba(185, 29, 71, 0.18);
+    --brand-accent-alpha-08: rgba(185, 29, 71, 0.08);
+    --brand-accent-alpha-10: rgba(185, 29, 71, 0.1);
+    --brand-accent-alpha-16: rgba(185, 29, 71, 0.16);
+    --brand-accent-alpha-20: rgba(185, 29, 71, 0.2);
+    --brand-accent-alpha-30: rgba(185, 29, 71, 0.3);
+
+    --theme-bg: #020617;
+    --theme-surface: #0f172a;
+    --theme-surface-muted: #111c31;
+    --theme-surface-hover: #1e293b;
+    --theme-border: #243244;
+    --theme-border-strong: #3b4a5f;
+    --theme-text: #f8fafc;
+    --theme-text-muted: #cbd5e1;
+    --theme-text-soft: #94a3b8;
+    --theme-on-accent: #ffffff;
+
+    --theme-success: #34d399;
+    --theme-success-soft: rgba(16, 185, 129, 0.16);
+    --theme-danger: #fb7185;
+    --theme-danger-soft: rgba(239, 68, 68, 0.16);
+    --theme-warning: #fbbf24;
+    --theme-warning-soft: rgba(245, 158, 11, 0.18);
+    --theme-info: #60a5fa;
+    --theme-info-soft: rgba(37, 99, 235, 0.18);
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.28);
+    --shadow-sm: 0 8px 20px rgba(0, 0, 0, 0.22);
+    --shadow-md: 0 16px 38px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 24px 54px rgba(0, 0, 0, 0.38);
+    --shadow-overlay: 0 28px 80px rgba(0, 0, 0, 0.48);
+    --modal-backdrop: rgba(0, 0, 0, 0.68);
+}
+
+html[data-theme="light"] {
+    color-scheme: light;
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+}

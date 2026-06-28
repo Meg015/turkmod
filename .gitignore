@@ -1,0 +1,56 @@
+# ---- Environment & secrets ----
+.env
+.env.local
+.env.*.local
+*.local
+
+# ---- Keep example templates ----
+!.env.example
+!.env.production.example
+
+# ---- Runtime data ----
+storage/logs/*
+!storage/logs/.gitkeep
+storage/cache/*
+!storage/cache/.gitkeep
+storage/sessions/*
+!storage/sessions/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# ---- Vendor (managed by Composer) ----
+/vendor/
+!vendor/.gitkeep
+
+# ---- IDE / OS ----
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Build artifacts ----
+*.log
+*.cache
+*.tmp
+*.bak
+*.swp
+
+# ---- Node / JS build ----
+node_modules/
+playwright-report/
+test-results/
+
+# ---- Local tooling / docs / tests ----
+.claude/
+.playwright-cli/
+.superpowers/
+.vato_index/
+.tmp-playwright-report.json
+docs/
+tests/
+output/
+scratch/
+phpunit.xml
+playwright.config.js

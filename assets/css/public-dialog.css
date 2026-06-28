@@ -1,0 +1,113 @@
+/* Shared public confirmation and prompt dialogs. */
+.app-dialog-open {
+    overflow: hidden;
+}
+
+.app-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.54);
+    backdrop-filter: blur(10px);
+    animation: app-dialog-fade 0.16s ease-out;
+}
+
+.app-dialog-overlay.is-closing {
+    animation: app-dialog-fade 0.16s ease-in reverse;
+}
+
+.app-dialog {
+    width: min(420px, 100%);
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 16px);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-xl, 0 24px 80px rgba(15, 23, 42, 0.28));
+    animation: app-dialog-pop 0.18s ease-out;
+}
+
+.app-dialog-icon {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.85rem;
+    border-radius: 14px;
+    color: var(--primary);
+    background: var(--primary-soft, rgba(242, 165, 26, 0.14));
+}
+
+.app-dialog-copy h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.app-dialog-copy p {
+    margin: 0.45rem 0 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.app-dialog-input {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 10px);
+    background: var(--surface-alt);
+    color: var(--text);
+}
+
+.app-dialog-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-alpha-20, rgba(242, 165, 26, 0.22));
+}
+
+.app-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    margin-top: 1.15rem;
+}
+
+.app-dialog-btn {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 10px);
+    padding: 0.65rem 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.app-dialog-cancel {
+    background: var(--surface-alt);
+    color: var(--text-secondary);
+}
+
+.app-dialog-ok {
+    border-color: transparent;
+    background: var(--primary);
+    color: var(--on-primary, #fff);
+    box-shadow: 0 10px 24px var(--primary-alpha-25, rgba(242, 165, 26, 0.25));
+}
+
+.app-dialog-btn:hover {
+    transform: translateY(-1px);
+}
+
+@keyframes app-dialog-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes app-dialog-pop {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}

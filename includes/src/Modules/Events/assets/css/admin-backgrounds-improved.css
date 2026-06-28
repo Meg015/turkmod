@@ -1,0 +1,45 @@
+/**
+ * Background Improvements - Popup Only
+ * Modern popup background with blur effect on site
+ * Light/Dark theme support
+ */
+
+/* ============================================================
+   DETAIL PANEL BACKGROUNDS - POPUP ONLY
+   ============================================================ */
+
+/* Main Detail Body - Popup */
+.ui-events-rule-detail-body {
+    padding: 20px;
+    background: linear-gradient(135deg, var(--ui-admin-surface) 0%, var(--ui-admin-surface-alt) 100%);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.ui-events-rule-detail-body:hover {
+    box-shadow: var(--admin-shadow-md);
+}
+
+/* Modal Overlay - Keep Blur */
+.modal-overlay {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+/* ============================================================
+   DARK MODE ADJUSTMENTS
+   ============================================================ */
+
+html[data-theme="dark"] .ui-events-rule-detail-body {
+    background: linear-gradient(135deg, var(--ui-admin-surface) 0%, var(--ui-admin-surface-alt) 100%);
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-events-rule-detail-body {
+        transition: none;
+    }
+}

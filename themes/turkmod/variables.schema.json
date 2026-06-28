@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://turkmod.local/themes/turkmod/variables.schema.json",
+  "title": "TurkMod Theme Variables",
+  "description": "Schema for all TPL template variables used across the turkmod theme",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "required": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_.-]+$"
+      },
+      "uniqueItems": true
+    },
+    "raw_slots": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_.-]+$"
+      },
+      "uniqueItems": true
+    },
+    "strict_missing": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, rendering throws if a TPL variable is missing. Keep false for production."
+    },
+    "variables": {
+      "type": "object",
+      "description": "Type definitions for commonly used TPL variables",
+      "properties": {
+        "site_name": {
+          "type": "string",
+          "description": "Site adi"
+        },
+        "base_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Site ana URL'i"
+        },
+        "page_title": {
+          "type": "string",
+          "description": "Sayfa basligi"
+        },
+        "page_description": {
+          "type": "string",
+          "description": "Sayfa meta aciklamasi"
+        },
+        "page_key": {
+          "type": "string",
+          "description": "Sayfa tanimlayici anahtari"
+        },
+        "content": {
+          "type": "string",
+          "description": "Ana icerik HTML'i (raw slot)"
+        },
+        "theme_url": {
+          "type": "string",
+          "description": "Tema URL'i"
+        },
+        "theme_id": {
+          "type": "string",
+          "description": "Tema ID'si (turkmod)"
+        },
+        "theme_mode": {
+          "type": "string",
+          "enum": ["light", "dark", "auto"],
+          "description": "Renk modu"
+        },
+        "layout_mode": {
+          "type": "string",
+          "enum": ["standard", "focus", "left-sidebar", "right-sidebar"],
+          "description": "Sayfa yerlesim modu"
+        },
+        "site_language": {
+          "type": "string",
+          "enum": ["tr"],
+          "description": "Site dili (tr)"
+        },
+        "body_class": {
+          "type": "string",
+          "description": "Body elemani CSS class'lari"
+        },
+        "head": {
+          "type": "string",
+          "description": "Head alanina enjekte edilen raw HTML"
+        },
+        "header": {
+          "type": "string",
+          "description": "Header alanina enjekte edilen raw HTML"
+        },
+        "footer": {
+          "type": "string",
+          "description": "Footer alanina enjekte edilen raw HTML"
+        },
+        "scripts": {
+          "type": "string",
+          "description": "Body sonuna enjekte edilen raw script tagleri"
+        },
+        "current_year": {
+          "type": "string",
+          "description": "Current year for copyright"
+        },
+        "logged_in": {
+          "type": ["boolean", "string"],
+          "description": "Kullanici giris yapmis mi"
+        },
+        "user_is_admin": {
+          "type": ["boolean", "string"],
+          "description": "Kullanici admin mi"
+        },
+        "user_name": {
+          "type": "string",
+          "description": "Kullanici adi"
+        },
+        "user_avatar_url": {
+          "type": "string",
+          "description": "Kullanici avatar URL'i"
+        },
+        "user_avatar_fallback": {
+          "type": "string",
+          "description": "Avatar fallback URL'i"
+        },
+        "search_query": {
+          "type": "string",
+          "description": "Arama sorgusu"
+        },
+        "sidebar_width": {
+          "type": ["string", "number"],
+          "description": "Sidebar genisligi (piksel)"
+        },
+        "sidebar_widgets": {
+          "type": "array",
+          "description": "Sidebar widget dizisi"
+        },
+        "has_header_category_menu": {
+          "type": ["boolean", "string"],
+          "description": "Header kategorileri var mi"
+        },
+        "header_category_menu_items": {
+          "type": "array",
+          "description": "Header kategori menu ogeleri"
+        },
+        "pagination_items": {
+          "type": "array",
+          "description": "Sayfalama ogeleri"
+        },
+        "breadcrumb_items": {
+          "type": "array",
+          "description": "Breadcrumb ogeleri"
+        },
+        "topic": {
+          "type": "object",
+          "description": "Konu detay objesi"
+        },
+        "topics": {
+          "type": "array",
+          "description": "Konu listesi"
+        },
+        "empty_state": {
+          "type": "object",
+          "description": "Bos durum bilgisi"
+        },
+        "sort_options": {
+          "type": "array",
+          "description": "Siralama secenekleri"
+        },
+        "notifications_items": {
+          "type": "array",
+          "description": "Bildirim ogeleri"
+        },
+        "auth_error": {
+          "type": "string",
+          "description": "Auth form hata mesaji"
+        },
+        "auth_success": {
+          "type": "string",
+          "description": "Auth form basari mesaji"
+        },
+        "profile": {
+          "type": "object",
+          "description": "Profil bilgileri"
+        },
+        "appeal_items": {
+          "type": "array",
+          "description": "Itiraz kayitlari"
+        },
+        "leaderboard_rows": {
+          "type": "array",
+          "description": "Liderlik tablosu satirlari"
+        },
+        "upload": {
+          "type": "object",
+          "description": "Upload/edit topic form contract"
+        }
+      }
+    },
+    "pages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "template": {"type": "string"},
+          "safe_variables": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "raw_slots": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "notes": {"type": "string"}
+        }
+      }
+    },
+    "raw_slots_list": {
+      "type": "array",
+      "description": "Complete raw slot list",
+      "items": {
+        "type": "string",
+        "enum": [
+          "head", "content", "header", "footer", "scripts",
+          "sidebar_left", "sidebar_right", "sidebar_widget.html",
+          "topic.description_html", "breadcrumbs_html"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+<div class="card card-body text-center ui-panel ui-panel__body"><span class="icon-xl mx-auto mb-3"><i class="bi bi-compass" aria-hidden="true"></i></span><h1 class="h4 mb-2">Sayfa Bulunamadı</h1><p class="text-secondary mb-4">Aradığın sayfa taşınmış veya silinmiş olabilir.</p><a class="btn btn-primary" href="{base_url}/index.php">Ana sayfaya dön</a></div>
