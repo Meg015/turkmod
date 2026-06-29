@@ -41,6 +41,8 @@
     },
     "scripts": {
         "test": "@php vendor/phpunit/phpunit/phpunit -c phpunit.xml",
-        "lint": "@php tools/lint.php"
+        "lint": "@php tools/lint.php",
+        "guard:migration": "@php scripts/guard/migration_guard.php --cached",
+        "guard:migration:workspace": "@php scripts/guard/migration_guard.php"
     }
 }

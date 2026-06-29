@@ -28,7 +28,9 @@ final class MigrationRunner
             $this->pdo->beginTransaction();
             $migration->up($this->pdo);
             $this->recordApplied($migration);
-            $this->pdo->commit();
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->commit();
+            }
         } catch (Throwable $exception) {
             error_log('Migration apply failed for ' . $migration->name() . ': ' . $exception->getMessage());
             if ($this->pdo->inTransaction()) {
@@ -51,7 +53,9 @@ final class MigrationRunner
             $this->pdo->beginTransaction();
             $migration->down($this->pdo);
             $this->removeApplied($migration);
-            $this->pdo->commit();
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->commit();
+            }
         } catch (Throwable $exception) {
             error_log('Migration rollback failed for ' . $migration->name() . ': ' . $exception->getMessage());
             if ($this->pdo->inTransaction()) {

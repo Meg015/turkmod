@@ -1,0 +1,48 @@
+#!/bin/sh
+
+set -eu
+
+ZERO_SHA="0000000000000000000000000000000000000000"
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+if [ -z "$ROOT_DIR" ]; then
+    echo "[migration-guard] Git repo root bulunamadi." >&2
+    exit 1
+fi
+
+GUARD_FILE="$ROOT_DIR/scripts/guard/migration_guard.php"
+if [ ! -f "$GUARD_FILE" ]; then
+    echo "[migration-guard] Guard dosyasi bulunamadi: $GUARD_FILE" >&2
+    exit 1
+fi
+
+DEFAULT_BASE="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null || true)"
+DEFAULT_BASE="${DEFAULT_BASE#refs/remotes/}"
+if [ -z "$DEFAULT_BASE" ]; then
+    DEFAULT_BASE="origin/main"
+fi
+
+while read -r local_ref local_sha remote_ref remote_sha
+do
+    if [ -z "$local_sha" ] || [ "$local_sha" = "$ZERO_SHA" ]; then
+        continue
+    fi
+
+    if [ "${remote_sha:-$ZERO_SHA}" = "$ZERO_SHA" ]; then
+        base_sha="$(git merge-base "$local_sha" "$DEFAULT_BASE" 2>/dev/null || true)"
+        if [ -n "$base_sha" ]; then
+            range="$base_sha..$local_sha"
+        else
+            range="$local_sha^!"
+        fi
+    else
+        range="$remote_sha..$local_sha"
+    fi
+
+    if ! php "$GUARD_FILE" --range="$range"; then
+        echo "[migration-guard] Push engellendi. DB degisikligi icin migration ekleyin." >&2
+        exit 1
+    fi
+done
+
+exit 0

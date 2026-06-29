@@ -21,6 +21,7 @@ $isMediaManager = str_contains($currentPath, 'admin/media-manager.php');
 $isUsers = str_contains($currentPath, 'admin/users.php');
 $isUserActivity = str_contains($currentPath, 'admin/user-activity.php');
 $isSystemHealth = str_contains($currentPath, 'admin/system-health.php');
+$isDatabaseSync = str_contains($currentPath, 'admin/database-sync');
 $isLogs = str_contains($currentPath, 'admin/logs.php');
 $isActionLog = str_contains($currentPath, 'admin/action-log.php');
 $isRateLimits = str_contains($currentPath, 'admin/rate-limits.php');
@@ -105,7 +106,12 @@ if (function_exists('getAdminSettings') && isset($pdo) && $pdo instanceof PDO) {
 if (!in_array($adminThemeMode, ['auto', 'light', 'dark'], true)) {
     $adminThemeMode = 'auto';
 }
-$adminBrandText = $adminThemeSettings['header_brand_text'] ?? 'İçerik Topic';
+$adminSiteName = trim((string) ($adminThemeSettings['site_name'] ?? ''));
+if ($adminSiteName === '') {
+    $adminSiteName = 'İçerik Topic';
+}
+$adminBrandSetting = trim((string) ($adminThemeSettings['header_brand_text'] ?? ''));
+$adminBrandText = ($adminBrandSetting !== '' && $adminBrandSetting !== 'İçerik Topic') ? $adminBrandSetting : $adminSiteName;
 $adminBrandIcon = $adminThemeSettings['header_brand_icon'] ?? 'M';
 $adminAccentColor = trim((string) ($adminThemeSettings['accent_color'] ?? ''));
 $adminAccentColor = function_exists('uiCssColorValue') ? uiCssColorValue($adminAccentColor) : $adminAccentColor;
@@ -121,7 +127,7 @@ $adminStyleBridge = $adminAccentColor !== ''
     <meta name="color-scheme" content="light dark">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <meta name="app-base-uri" content="<?= htmlspecialchars($baseUri, ENT_QUOTES, 'UTF-8') ?>">
-    <title><?= htmlspecialchars($pageTitle) ?> - İçerik Topic Admin</title>
+    <title><?= htmlspecialchars($pageTitle) ?> - <?= htmlspecialchars($adminSiteName) ?> Admin</title>
     <link rel="icon" href="<?= $baseUri ?>/assets/favicon.svg" type="image/svg+xml">
     <script src="<?= asset_url('admin/assets/admin-ui.js', $baseUri) ?>"></script>
     <script src="<?= asset_url('assets/js/ui-foundation.js', $baseUri) ?>" defer></script>
@@ -200,6 +206,7 @@ $adminStyleBridge = $adminAccentColor !== ''
                         <?php if ($adminCan('logs.view')): ?><a class="admin-menu-item <?= $isLogs ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/logs.php"><i class="bi bi-journal-text"></i><span>Aktivite Logları</span></a><?php endif; ?>
                         <?php if ($adminCan('logs.view')): ?><a class="admin-menu-item <?= $isActionLog ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/action-log.php"><i class="bi bi-clock-history"></i><span>İşlem Günlüğü</span></a><?php endif; ?>
                         <?php if ($adminCan('rate_limits.view')): ?><a class="admin-menu-item <?= $isRateLimits ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/rate-limits.php"><i class="bi bi-speedometer"></i><span>Rate Limit İzleme</span></a><?php endif; ?>
+                        <?php if ($adminCan('system.manage')): ?><a class="admin-menu-item <?= $isDatabaseSync ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/database-sync/index.php"><i class="bi bi-database-check"></i><span>Veritabanı Senkronizasyonu</span></a><?php endif; ?>
                     </div>
                 </section>
             </nav>
