@@ -70,7 +70,7 @@
             return;
         }
 
-        icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+        icon.className = theme === 'dark' ? 'bi bi-lightbulb' : 'bi bi-moon-stars-fill';
         icon.setAttribute('data-theme-mode', normalizeMode(mode));
     }
 

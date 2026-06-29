@@ -24,7 +24,15 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
                 ? getAdminSettings($pdo)
                 : []);
         $_fLayout = $_fLay["footer_layout"] ?? "simple";
-        $_fBrand = $_fLay["footer_brand_text"] ?? "İçerik Topic";
+        $_fSiteName = trim((string) ($_fLay["site_name"] ?? ""));
+        if ($_fSiteName === "") {
+            $_fSiteName = trim((string) ($_fLay["header_brand_text"] ?? ""));
+        }
+        if ($_fSiteName === "") {
+            $_fSiteName = "İçerik Topic";
+        }
+        $_fBrandSetting = trim((string) ($_fLay["footer_brand_text"] ?? ""));
+        $_fBrand = ($_fBrandSetting !== "" && $_fBrandSetting !== "İçerik Topic") ? $_fBrandSetting : $_fSiteName;
         $_fDesc =
             $_fLay["footer_text"] ??
             $_fLay["footer_description"] ??
@@ -201,7 +209,7 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
                         : "(c) " .
                             date("Y") .
                             " " .
-                            htmlspecialchars($_fBrand) .
+                            htmlspecialchars($_fSiteName) .
                             ". Tüm hakları saklıdır." ?></p>
                     <?php if ($_fShowMeta): ?>
                     <div class="footer-meta">

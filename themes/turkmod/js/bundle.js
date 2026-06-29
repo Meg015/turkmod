@@ -2724,7 +2724,7 @@ if (typeof module !== 'undefined' && module.exports) {
             return;
         }
 
-        icon.className = theme === 'dark' ? 'bi bi-sun-fill fs-6' : 'bi bi-moon-stars-fill fs-6';
+        icon.className = theme === 'dark' ? 'bi bi-lightbulb fs-6' : 'bi bi-moon-stars-fill fs-6';
         icon.setAttribute('data-theme-mode', normalizeMode(mode));
     }
 
@@ -4438,8 +4438,8 @@ var e = {
 									navPosition: top,
 									autoplayPosition: top,
 									controlsText: [
-											'<i class="fa-solid fa-chevron-left"></i>',
-											'<i class="fa-solid fa-chevron-right"></i>'
+											'<i class="bi bi-chevron-left"></i>',
+											'<i class="bi bi-chevron-right"></i>'
 									],
 									loop: sliderLoop,
 									rewind: sliderRewind,
@@ -4541,7 +4541,7 @@ var e = {
 				var syncedTheme = document.documentElement.getAttribute('data-theme') || 'light';
 				var syncedIcon = document.querySelector('#theme-icon') || document.querySelector('#darkModeSwitch i');
 				if (syncedIcon) {
-					syncedIcon.className = syncedTheme === 'dark' ? 'bi bi-sun-fill fs-6' : 'bi bi-moon-stars-fill fs-6';
+					syncedIcon.className = syncedTheme === 'dark' ? 'bi bi-lightbulb fs-6' : 'bi bi-moon-stars-fill fs-6';
 				}
 				return;
 			}
@@ -4553,7 +4553,7 @@ var e = {
 			var syncThemeIcon = function (theme) {
 				var icon = document.querySelector('#theme-icon') || document.querySelector('#darkModeSwitch i');
 				if (icon) {
-					icon.className = theme === 'dark' ? 'bi bi-sun-fill fs-6' : 'bi bi-moon-stars-fill fs-6';
+					icon.className = theme === 'dark' ? 'bi bi-lightbulb fs-6' : 'bi bi-moon-stars-fill fs-6';
 				}
 			};
 
@@ -4894,9 +4894,9 @@ var e = {
 			var showHidePassword = () => {
 				if (password.type == 'password') {
 					password.setAttribute('type', 'text');
-					toggler.classList.add('fa-eye');
+					toggler.classList.add('bi-eye');
 				} else {
-					toggler.classList.remove('fa-eye');
+					toggler.classList.remove('bi-eye');
 					password.setAttribute('type', 'password');
 				}
 			};
@@ -5005,7 +5005,7 @@ e.init();
         var absoluteUrl = new URL(url, window.location.origin).href;
         navigator.clipboard.writeText(absoluteUrl).then(function () {
           var original = button.innerHTML;
-          button.innerHTML = '<i class="bi bi-check2 fa-fw pe-2"></i>Kopyalandi';
+          button.innerHTML = '<i class="bi bi-check2 me-2"></i>Kopyalandi';
           window.setTimeout(function () {
             button.innerHTML = original;
           }, 1600);
@@ -5018,7 +5018,7 @@ e.init();
 
       var icon = document.querySelector("#theme-icon") || document.querySelector("#darkModeSwitch i");
       if (icon) {
-        icon.className = theme === "dark" ? "bi bi-sun-fill fs-6" : "bi bi-moon-stars-fill fs-6";
+        icon.className = theme === "dark" ? "bi bi-lightbulb fs-6" : "bi bi-moon-stars-fill fs-6";
       }
     }
 

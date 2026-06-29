@@ -26,7 +26,12 @@ $publicCategoriesTree = isset($publicCategoriesTree) && is_array($publicCategori
 // Görünüm ayarları
 $_lay =
     function_exists("getAdminSettings") && $pdo ? getAdminSettings($pdo) : [];
-$_hBrand = $_lay["header_brand_text"] ?? "İçerik Topic";
+$siteNameSetting = trim((string) ($_lay["site_name"] ?? ""));
+if ($siteNameSetting !== "") {
+    $appName = $siteNameSetting;
+}
+$_hBrandSetting = trim((string) ($_lay["header_brand_text"] ?? ""));
+$_hBrand = ($_hBrandSetting !== "" && $_hBrandSetting !== "İçerik Topic") ? $_hBrandSetting : $appName;
 $_hIcon = $_lay["header_brand_icon"] ?? "M";
 $_hSearch = ($_lay["header_show_search"] ?? "1") === "1";
 $_hSearchPh = $_lay["header_search_placeholder"] ?? "İçerik ara...";
@@ -99,6 +104,7 @@ $_eventsPath = "/" . ltrim(routePublicStaticPath("events"), "/");
 $_contactPath = "/" . ltrim(routePublicStaticPath("contact"), "/");
 $_uploadTopicUrl = routePublicStaticUrl("upload_topic");
 $_notificationsUrl = routePublicStaticUrl("notifications");
+$_messagesUrl = routePublicStaticUrl("messages");
 $_logoutUrl = routePublicStaticUrl("logout");
 $_loginBaseHref = routePublicStaticUrl("login");
 $_registerHref = routePublicStaticUrl("register");
@@ -201,10 +207,17 @@ try {
 <?php endif; ?>
     <?php
 $robotsMeta = seoRobotsMeta($_lay, null, isset($pageKey) ? (string) $pageKey : null);
-if (isset($topic) && ($topic['status'] ?? 'published') !== 'published' && ($_lay['noindex_draft_topics'] ?? '1') === '1') {
+$indexDraftTopics = function_exists('seoIndexToggleValue')
+    ? seoIndexToggleValue($_lay, 'index_draft_topics', '0', 'noindex_draft_topics')
+    : (((string) ($_lay['noindex_draft_topics'] ?? '1')) === '1' ? '0' : '1');
+$indexEmptyCategories = function_exists('seoIndexToggleValue')
+    ? seoIndexToggleValue($_lay, 'index_empty_categories', '0', 'noindex_empty_categories')
+    : (((string) ($_lay['noindex_empty_categories'] ?? '1')) === '1' ? '0' : '1');
+
+if (isset($topic) && ($topic['status'] ?? 'published') !== 'published' && $indexDraftTopics !== '1') {
     $robotsMeta = "noindex, nofollow";
 }
-if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && ($_lay['noindex_empty_categories'] ?? '1') === '1') {
+if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && $indexEmptyCategories !== '1') {
     $robotsMeta = "noindex, nofollow";
 }
 ?>
@@ -417,9 +430,34 @@ echo htmlspecialchars($_mLabel);
                     </form>
                     <?php endif; ?>
 
-                    <button class="theme-toggle" title="Tema Değiştir" type="button"><i class="bi bi-sun-fill" id="theme-icon" aria-hidden="true"></i></button>
+                    <button class="theme-toggle" title="Tema Değiştir" type="button"><i class="bi bi-moon-stars-fill" id="theme-icon" aria-hidden="true"></i></button>
 
                     <?php if ($isLoggedIn): ?>
+                        <div
+                            class="notif-dropdown"
+                            id="messagesDropdown"
+                            data-messages-dropdown
+                            data-messages-api="<?= htmlspecialchars($baseUri . '/api/messages.php', ENT_QUOTES, 'UTF-8') ?>"
+                            data-messages-fallback-url="<?= htmlspecialchars($_messagesUrl, ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <button class="notif-toggle" type="button" aria-expanded="false" aria-label="Mesajlari ac" data-messages-toggle>
+                                <i class="bi bi-chat-left-text-fill"></i>
+                                <span class="notif-badge" id="msgBadge">0</span>
+                            </button>
+                            <div class="notif-menu">
+                                <div class="notif-menu-header">
+                                    <span>Mesajlar</span>
+                                    <a href="#" data-messages-mark-all>Tumunu Okundu Isaretle</a>
+                                </div>
+                                <div class="notif-menu-list" id="msgList">
+                                    <div class="notif-menu-state is-loading">Yukleniyor...</div>
+                                </div>
+                                <div class="notif-menu-footer">
+                                    <a href="<?= htmlspecialchars($_messagesUrl, ENT_QUOTES, 'UTF-8') ?>">Tum Mesajlari Gor</a>
+                                </div>
+                            </div>
+                        </div>
+
                         <div
                             class="notif-dropdown"
                             id="notifDropdown"
@@ -446,6 +484,7 @@ echo htmlspecialchars($_mLabel);
                             </div>
                         </div>
                         <script src="<?= asset_url('assets/js/public-notifications-menu.js', $baseUri) ?>" defer></script>
+                        <script src="<?= asset_url('assets/js/public-messages-menu.js', $baseUri) ?>" defer></script>
 
                         <?php
                         $_profileName = htmlspecialchars(
@@ -545,6 +584,7 @@ $_profileAvatarUrl = function_exists('defaultAvatarUrl') ? defaultAvatarUrl($bas
                                 <li><a class="tpm-item" href="<?= $baseUri ?>/profile.php#topics"><i class="bi bi-file-earmark-text" aria-hidden="true"></i>İçeriklerim</a></li>
                                 <li><a class="tpm-item" href="<?= $baseUri ?>/profile.php?tab=favorites"><i class="bi bi-heart" aria-hidden="true"></i>Favorilerim</a></li>
                                 <li><a class="tpm-item" href="<?= $baseUri ?>/profile.php?tab=activity"><i class="bi bi-clock-history" aria-hidden="true"></i>Aktivitem</a></li>
+                                <li><a class="tpm-item" href="<?= htmlspecialchars($_messagesUrl, ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-chat-left-text" aria-hidden="true"></i>Mesajlar</a></li>
                                 <li><a class="tpm-item" href="<?= htmlspecialchars($_notificationsUrl, ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bell" aria-hidden="true"></i>Bildirimlerim</a></li>
                                 <li><a class="tpm-item" href="<?= htmlspecialchars($_uploadTopicUrl, ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>İçerik Yükle</a></li>
                                 <?php if ($_hAdmin && $_isAdmin): ?>
@@ -582,11 +622,11 @@ $_profileAvatarUrl = function_exists('defaultAvatarUrl') ? defaultAvatarUrl($bas
                                 </div>
                                 <div class="auth-popover-actions">
                                     <a class="auth-popover-primary" href="<?= htmlspecialchars($_loginHref) ?>">
-                                        <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>
+                                        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                                         Giriş Yap
                                     </a>
                                     <a class="auth-popover-secondary" href="<?= htmlspecialchars($_registerHref) ?>">
-                                        <i class="bi bi-person-plus" aria-hidden="true"></i>
+                                        <i class="bi bi-person-circle" aria-hidden="true"></i>
                                         Kayıt Ol
                                     </a>
                                 </div>

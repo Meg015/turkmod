@@ -19,6 +19,7 @@ final class LegacyRedirectMap
         'profile.php' => 'profil',
         'public-profile.php' => 'profil',
         'notifications.php' => 'bildirimler',
+        'messages.php' => 'mesajlar',
         'leaderboard.php' => 'liderlik',
         'ban-appeals.php' => 'ban-itiraz',
         'upload-topic.php' => 'konu-yukle',

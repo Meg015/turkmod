@@ -1,7 +1,7 @@
 <article class="ui-theme-topic-card topic-card ui-card{if topic.image}{else} ui-theme-topic-card--no-image{/if}" data-topic-url="{topic.url}">
 {if topic.image}
 <a class="ui-theme-topic-card__media ui-card__media" href="{topic.url}" aria-label="{topic.title}">
-<img class="ui-theme-topic-card__image" src="{topic.image}" alt="{topic.image_alt}" width="800" height="450" loading="lazy" decoding="async">
+<img class="ui-theme-topic-card__image" src="{topic.image}" alt="{topic.image_alt}" width="800" height="450" loading="{topic.image_loading}" decoding="{topic.image_decoding}"{if topic.image_fetchpriority} fetchpriority="{topic.image_fetchpriority}"{/if}>
 <span class="ui-theme-topic-card__media-shade ui-card__media" aria-hidden="true"></span>
 </a>
 {/if}

@@ -318,7 +318,8 @@ if ($appDebug) {
 }
 
 // Session security settings
-if (session_status() === PHP_SESSION_NONE) {
+$skipSessionBootstrap = !empty($GLOBALS['_skip_session_bootstrap']);
+if (!$skipSessionBootstrap && session_status() === PHP_SESSION_NONE) {
     ini_set("session.cookie_httponly", "1");
     ini_set("session.cookie_samesite", "Strict");
     ini_set("session.use_strict_mode", "1");
@@ -960,6 +961,7 @@ function routePublicStaticPathDefaults(): array
         "forgot_password" => "sifremi-unuttum",
         "reset_password" => "sifre-sifirla",
         "notifications" => "bildirimler",
+        "messages" => "mesajlar",
         "leaderboard" => "liderlik",
         "ban_appeals" => "ban-itiraz",
         "contact" => "iletisim",
@@ -979,6 +981,7 @@ function routePublicStaticPathSettingKeys(): array
         "forgot_password" => "route_forgot_password_path",
         "reset_password" => "route_reset_password_path",
         "notifications" => "route_notifications_path",
+        "messages" => "route_messages_path",
         "leaderboard" => "route_leaderboard_path",
         "ban_appeals" => "route_ban_appeals_path",
         "contact" => "route_contact_path",
@@ -992,6 +995,7 @@ function routePublicStaticPathSettingKeys(): array
 function routePublicStaticLegacyAliases(): array
 {
     return [
+        "messages" => ["messages"],
         "leaderboard" => ["leaderboard"],
         "contact" => ["contact"],
         "upload_topic" => ["upload-topic"],
@@ -1267,6 +1271,12 @@ function routePublicRouteCatalog(): array
         "notifications" => [
             "label" => "Bildirimler",
             "target" => \App\Modules\Notifications\Http\NotificationsPage::class,
+            "kind" => "Sayfa",
+            "dispatch" => "handler",
+        ],
+        "messages" => [
+            "label" => "Mesajlar",
+            "target" => \App\Modules\Messages\Http\MessagesPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
         ],
@@ -2553,6 +2563,7 @@ function getSeoMeta(
     global $envConfig, $pdo;
 
     $settings = seoSettings();
+    $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
 
     // Apply meta_title_suffix if set
     $titleSuffix = $settings['meta_title_suffix'] ?? '';
@@ -2562,7 +2573,6 @@ function getSeoMeta(
 
     // Use default_meta_title if title is empty
     if (empty(trim($title))) {
-        $siteName = $envConfig['APP_NAME'] ?? 'İçerik Topic';
         $title = $settings['default_meta_title'] ?? $siteName;
     }
 
@@ -2628,7 +2638,7 @@ function getSeoMeta(
     $html .= '<meta property="og:locale" content="tr_TR">' . "\n";
     $html .=
         '<meta property="og:site_name" content="' .
-        $esc((string) ($envConfig["APP_NAME"] ?? "Topic")) .
+        $esc($siteName) .
         '">' .
         "\n";
 
@@ -2679,6 +2689,34 @@ function seoSettings(?array $settings = null): array
     }
 
     return [];
+}
+
+function seoIndexToggleValue(array $settings, string $indexKey, string $default = '1', ?string $legacyNoindexKey = null): string
+{
+    $normalize = static function ($value): ?string {
+        $normalized = strtolower(trim((string) $value));
+        if (in_array($normalized, ['1', 'true', 'on', 'yes'], true)) {
+            return '1';
+        }
+        if (in_array($normalized, ['0', 'false', 'off', 'no'], true)) {
+            return '0';
+        }
+        return null;
+    };
+
+    $canonical = $normalize($settings[$indexKey] ?? null);
+    if ($canonical !== null) {
+        return $canonical;
+    }
+
+    if ($legacyNoindexKey !== null) {
+        $legacy = $normalize($settings[$legacyNoindexKey] ?? null);
+        if ($legacy !== null) {
+            return $legacy === '1' ? '0' : '1';
+        }
+    }
+
+    return $default === '0' ? '0' : '1';
 }
 
 function seoCanonicalBase(?array $settings = null): string
@@ -2749,7 +2787,7 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
     $settings = seoSettings($settings);
 
     // Global indexing check
-    if ((string) ($settings["allow_indexing"] ?? "1") !== "1") {
+    if (seoIndexToggleValue($settings, 'allow_indexing', '1') !== '1') {
         return "noindex, nofollow";
     }
 
@@ -2770,6 +2808,7 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
         "upload_topic",
         "edit_topic",
         "notifications",
+        "messages",
         "login",
         "register",
         "forgot_password",
@@ -2786,6 +2825,7 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
         "/upload-topic.php",
         "/edit-topic.php",
         "/notifications.php",
+        "/messages.php",
     ];
     $focusPublicRouteKeys = [
         "download",
@@ -2797,6 +2837,7 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
         "upload_topic",
         "edit_topic",
         "notifications",
+        "messages",
     ];
     foreach ($focusPublicRouteKeys as $routeKey) {
         foreach (routePublicStaticPathAliases($routeKey, null, $publicStaticPaths) as $aliasPath) {
@@ -2866,13 +2907,12 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
         }
     }
 
+    $indexSearchResults = seoIndexToggleValue($settings, 'index_search_results', '0', 'robots_noindex_search');
+    $indexProfiles = seoIndexToggleValue($settings, 'index_profiles', '1', 'robots_noindex_profiles');
+
     // Search results check
     if ($query !== "" && (str_contains($query, "q=") || str_contains($query, "search="))) {
-        if ((string) ($settings["index_search_results"] ?? "0") !== "1") {
-            $shouldNoindex = true;
-        }
-        // Legacy setting support
-        if ((string) ($settings["robots_noindex_search"] ?? "1") === "1") {
+        if ($indexSearchResults !== '1') {
             $shouldNoindex = true;
         }
     }
@@ -2886,12 +2926,8 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
         || preg_match("~^/(?:" . $profilePattern . ")$~", $normalizedPath) === 1
     );
 
-    if ($isPrivateProfilePath) {
-        if ((string) ($settings["index_profiles"] ?? "1") !== "1") {
-            $shouldNoindex = true;
-        }
-        // Legacy setting support
-        if ((string) ($settings["robots_noindex_profiles"] ?? "0") === "1") {
+    if ($isPrivateProfilePath || $isPublicProfilePath) {
+        if ($indexProfiles !== '1') {
             $shouldNoindex = true;
         }
     }
@@ -2964,9 +3000,18 @@ function buildRobotsTxt(?array $settings = null, ?string $canonicalBase = null):
         return "# robots.txt disabled via admin settings\nUser-agent: *\nDisallow:";
     }
 
+    if (seoIndexToggleValue($settings, 'allow_indexing', '1') !== '1') {
+        return "# robots.txt - indexing disabled via admin settings\nUser-agent: *\nDisallow: /\n";
+    }
+
     $canonicalBase = rtrim($canonicalBase ?: seoCanonicalBase($settings), "/");
+    $siteName = trim((string) ($settings['site_name'] ?? 'Mod Portal'));
+    if ($siteName === '') {
+        $siteName = 'Mod Portal';
+    }
+    $siteName = preg_replace('/\s+/u', ' ', $siteName) ?? $siteName;
     $lines = [
-        "# robots.txt - Mod Portal",
+        "# robots.txt - " . $siteName,
         "User-agent: *",
         "Allow: /",
         "",
@@ -3498,4 +3543,3 @@ function sanitizeInput(?string $input): string
     
     return htmlspecialchars(trim($input), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
-

@@ -1,6 +1,13 @@
             </main>
+            <?php
+            $adminFooterSettings = function_exists('getAdminSettings') && isset($pdo) ? getAdminSettings($pdo) : [];
+            $adminFooterSiteName = trim((string) ($adminFooterSettings['site_name'] ?? ''));
+            if ($adminFooterSiteName === '') {
+                $adminFooterSiteName = 'İçerik Topic';
+            }
+            ?>
             <footer class="admin-footer ui-panel__foot">
-                &copy; <?= date('Y') ?> İçerik Topic - Yönetim Paneli
+                &copy; <?= date('Y') ?> <?= htmlspecialchars($adminFooterSiteName) ?> - Yönetim Paneli
             </footer>
         </div>
     </div>

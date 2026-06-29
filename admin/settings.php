@@ -103,6 +103,7 @@ $routeFilterGroups = [
             'route_forgot_password_path',
             'route_reset_password_path',
             'route_notifications_path',
+            'route_messages_path',
             'route_leaderboard_path',
             'route_ban_appeals_path',
             'route_contact_path',
@@ -293,19 +294,20 @@ $seoGroups = [
         ],
     ],
     'seo-tab-index' => [
-        'title' => 'Index/Noindex',
+        'title' => 'Indexleme Kontrolleri',
         'icon' => 'bi-eye-slash',
-        'description' => 'Sayfa türlerine göre gelişmiş indeksleme kontrolü.',
+        'description' => 'Sayfa tiplerine gore indexleme davranisini net bir sekilde yonetin.',
         'keys' => [
             'allow_indexing',
             'index_homepage',
             'index_categories',
             'index_topics',
             'index_tag_pages',
+            'index_archive_pages',
             'index_profiles',
-            'robots_noindex_search',
-            'noindex_empty_categories',
-            'noindex_draft_topics',
+            'index_search_results',
+            'index_empty_categories',
+            'index_draft_topics',
             'index_paginated_pages',
         ],
     ],
@@ -1170,6 +1172,17 @@ require_once __DIR__ . '/header.php';
                                         </div>
                                     <?php else: ?>
                                         <!-- Diğer SEO Alt Sekmeleri -->
+                                        <?php if ($seoTabId === 'seo-tab-index'): ?>
+                                            <div class="admin-divider-block">
+                                                <div class="admin-inline-head ui-panel__head">
+                                                    <i class="bi bi-info-circle"></i>Indexleme Notlari
+                                                </div>
+                                                <div class="admin-section-desc">
+                                                    Guvenlik odakli sayfalar (giris, kayit, bildirimler, mesajlar, konu yukleme, konu duzenleme, cikis) sistem tarafinda noindex kalir.
+                                                    Bu sekme; arama, arsiv, etiket, profil ve sayfa tiplerine ait gercek indexleme kontrolunu yonetir.
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
                                         <div class="admin-settings-grid ui-grid">
                                             <?php foreach (($seoGroup['keys'] ?? []) as $key): ?>
                                                 <?php if (!isset($definitions[$key])) { continue; } ?>

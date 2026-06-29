@@ -8,6 +8,7 @@
                 <span><strong>{user_name}</strong><small>Hesap menusu</small></span>
             </div>
             <a class="ui-theme-profile-menu__item" role="menuitem" href="{base_url}/profile.php"><i class="bi bi-person-circle" aria-hidden="true"></i><span>Profilim</span></a>
+            <a class="ui-theme-profile-menu__item" role="menuitem" href="{messages_url}"><i class="bi bi-chat-left-text" aria-hidden="true"></i><span>Mesajlar</span></a>
             <a class="ui-theme-profile-menu__item" role="menuitem" href="{notifications_url}"><i class="bi bi-bell" aria-hidden="true"></i><span>Bildirimler</span></a>
             <a class="ui-theme-profile-menu__item" role="menuitem" href="{base_url}/upload-topic.php"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i><span>Mod Yükle</span></a>
             {if user_is_admin}<a class="ui-theme-profile-menu__item is-admin" role="menuitem" href="{base_url}/admin/index.php"><i class="bi bi-speedometer2" aria-hidden="true"></i><span>Admin Paneli</span></a>{/if}

@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="{site_language}" data-theme-mode="{theme_mode}" data-public-theme="{theme_id}">
 <head>
-<link rel="shortcut icon" href="{theme_url}/images/favicon.ico">
 {raw:head}
 </head>
 <body class="site-body {body_class}">

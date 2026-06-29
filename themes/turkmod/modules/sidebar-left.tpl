@@ -1,7 +1,7 @@
 <aside class="sidebar sidebar-left ui-theme-sidebar-builder ui-theme-sidebar-builder-left" data-ui-style-number="--ui-theme-sidebar-width:{sidebar_width}px">
 <div class="d-flex align-items-center d-lg-none">
 <button class="border-0 bg-transparent" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSideNavbar" aria-controls="offcanvasSideNavbar">
-<i class="btn btn-primary fw-bold fa-solid fa-sliders-h"></i>
+<i class="btn btn-primary fw-bold bi bi-sliders"></i>
 <span class="h6 mb-0 fw-bold d-lg-none ms-2">Menu</span>
 </button>
 </div>

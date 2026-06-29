@@ -2,55 +2,55 @@
 
 declare(strict_types=1);
 
-$incomingSessionName = session_name();
-$incomingSessionId = isset($_COOKIE[$incomingSessionName])
-    ? (string) $_COOKIE[$incomingSessionName]
-    : '';
+$GLOBALS['_skip_session_bootstrap'] = true;
+$GLOBALS['_cache_control_set'] = true;
 
 require_once __DIR__ . '/../../includes/init.php';
 require_once __DIR__ . '/../../includes/src/Engine/Analytics/Legacy/helpers.php';
 
-// Stale analytics beacons must not replace a freshly regenerated login session.
-if (
-    $incomingSessionId === ''
-    || session_id() === ''
-    || !hash_equals($incomingSessionId, session_id())
-) {
-    header_remove('Set-Cookie');
-}
+// Analytics endpoint responses must not set session cookies or no-store headers,
+// otherwise browser back/forward cache eligibility is reduced.
+header_remove('Set-Cookie');
+header('Cache-Control: private, no-cache, max-age=0, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     sendMethodNotAllowed(['POST']);
 }
 
-// CSRF protection: validate Origin/Referer for JSON POST (Same-Origin policy).
-// Analytics beacons are fire-and-forget; token-based CSRF is impractical for
-// <navigator.sendBeacon()> usage, so we enforce same-origin via Origin/Referer.
-$requestOrigin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
-$requestReferer = (string)($_SERVER['HTTP_REFERER'] ?? '');
-$expectedHost = (string)($_SERVER['HTTP_HOST'] ?? '');
-$allowedSchemes = ['http://', 'https://'];
+// CSRF-style guard: analytics accepts only same-origin requests.
+// sendBeacon can omit Origin/Referer in some browsers, so we also allow
+// missing headers when Fetch Metadata indicates non-cross-site traffic.
+$requestOrigin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+$requestReferer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+$expectedHost = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+$expectedHost = preg_replace('/:\d+$/', '', $expectedHost) ?? '';
 $originValid = false;
-if ($requestOrigin !== '' && $expectedHost !== '') {
-    foreach ($allowedSchemes as $scheme) {
-        if (str_starts_with($requestOrigin, $scheme . $expectedHost)) {
-            $originValid = true;
-            break;
-        }
+$sameOriginHeader = static function (string $value) use ($expectedHost): bool {
+    if ($value === '' || $expectedHost === '') {
+        return false;
     }
-}
-if (!$originValid && $requestReferer !== '' && $expectedHost !== '') {
-    foreach ($allowedSchemes as $scheme) {
-        if (str_starts_with($requestReferer, $scheme . $expectedHost)) {
-            $originValid = true;
-            break;
-        }
+
+    $parts = parse_url($value);
+    if (!is_array($parts)) {
+        return false;
     }
+
+    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    if ($host === '' || !in_array($scheme, ['http', 'https'], true)) {
+        return false;
+    }
+
+    return $host === $expectedHost;
+};
+if ($sameOriginHeader($requestOrigin) || $sameOriginHeader($requestReferer)) {
+    $originValid = true;
 }
 if (!$originValid && $requestOrigin === '' && $requestReferer === '') {
-    // Same-origin requests from some browsers may omit both headers;
-    // allow only if a valid session cookie is present (authenticated user).
-    $originValid = !empty($_SESSION['_auth_user_id']);
+    $fetchSite = strtolower(trim((string) ($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '')));
+    $originValid = in_array($fetchSite, ['', 'same-origin', 'same-site', 'none'], true);
 }
 if (!$originValid) {
     sendError('origin_check_failed', 'Aynı alan adı doğrulaması başarısız.', 403);
@@ -86,7 +86,7 @@ $record = [
     'event' => mb_substr($event, 0, 80),
     'data' => analyticsSanitizeValue($data),
     'session_id' => mb_substr((string)($payload['session_id'] ?? ''), 0, 120),
-    'user_id' => $_SESSION['_auth_user_id'] ?? null,
+    'user_id' => null,
     'url' => analyticsSanitizeUrl((string)($payload['url'] ?? '')),
     'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
     'user_agent' => mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 512),

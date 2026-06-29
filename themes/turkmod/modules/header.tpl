@@ -68,6 +68,26 @@
 <button class="theme-toggle btn btn-light icon-md p-0 rounded-circle" title="Tema Degistir" type="button"><i class="bi bi-moon-stars-fill fs-6" id="theme-icon" aria-hidden="true"></i></button>
 
 {if logged_in}
+{if messages_enabled}
+<div class="notif-dropdown" id="messagesDropdown" data-messages-dropdown data-messages-api="{messages_api_url}" data-messages-fallback-url="{messages_fallback_url}">
+<button class="notif-toggle btn btn-light icon-md p-0 rounded-circle position-relative" type="button" aria-expanded="false" aria-label="Mesajlari ac" data-messages-toggle>
+<i class="bi bi-chat-left-text-fill fs-6" aria-hidden="true"></i>
+<span class="notif-badge" id="msgBadge">0</span>
+</button>
+<div class="notif-menu dropdown-menu dropdown-menu-end mt-2 shadow">
+<div class="notif-menu-header d-flex justify-content-between p-3 border-bottom">
+<span class="fw-bold">Mesajlar</span>
+<a href="#" class="small text-decoration-none" data-messages-mark-all>Tumunu okundu isaretle</a>
+</div>
+<div class="notif-menu-list p-2" id="msgList">
+<div class="notif-menu-state is-loading text-center p-3 text-muted">Yukleniyor...</div>
+</div>
+<div class="notif-menu-footer p-2 border-top text-center">
+<a href="{messages_url}" class="small text-decoration-none">Tum mesajlari gor</a>
+</div>
+</div>
+</div>
+{/if}
 {if notifications_enabled}
 <div class="notif-dropdown" id="notifDropdown" data-notif-dropdown data-notif-api="{notifications_api_url}" data-notif-fallback-url="{notifications_fallback_url}">
 <button class="notif-toggle btn btn-light icon-md p-0 rounded-circle position-relative" type="button" aria-expanded="false" aria-label="Bildirimleri ac" data-notif-toggle>
@@ -90,9 +110,18 @@
 {/if}
 
 {include "modules/user-menu.tpl"}
+{if messages_enabled}<script src="{base_url}/assets/js/public-messages-menu.js" defer></script>{/if}
 {else}
-<a class="btn btn-sm btn-primary-soft ms-2" href="{base_url}/giris">Giris</a>
-<a class="btn btn-sm btn-primary ms-2" href="{base_url}/kayit">Kayit</a>
+<div class="header-auth-actions" role="group" aria-label="Hesap işlemleri">
+<a class="header-auth-link header-auth-link--secondary" href="{base_url}/giris">
+<i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+<span>Giriş</span>
+</a>
+<a class="header-auth-link header-auth-link--primary" href="{base_url}/kayit">
+<i class="bi bi-person-circle" aria-hidden="true"></i>
+<span>Kayıt</span>
+</a>
+</div>
 {/if}
 </div>
 </div>

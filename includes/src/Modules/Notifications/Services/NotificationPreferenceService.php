@@ -49,6 +49,18 @@ final class NotificationPreferenceService
                 'preference_title' => 'Benden bahsedilince',
                 'preference_description' => '@kullanıcı adı ile etiketlendiğiniz yorumlar için bildirim alın.',
             ],
+            'direct_message_received' => [
+                'setting_key' => 'notif_event_direct_message_received',
+                'admin_setting' => 'notif_events_enabled',
+                'title' => 'Yeni mesaj aldiniz',
+                'message' => '{{actor_name}} size bir ozel mesaj gonderdi.',
+                'type' => 'info',
+                'default' => '1',
+                'admin_default' => '1',
+                'icon' => 'bi-chat-left-text',
+                'preference_title' => 'Mesaj aldigimda',
+                'preference_description' => 'Baska bir uye size ozel mesaj gonderdiginde bildirim alin.',
+            ],
             'topic_approved' => [
                 'setting_key' => 'notif_event_topic_approved',
                 'admin_setting' => 'notif_event_topic_moderation_enabled',

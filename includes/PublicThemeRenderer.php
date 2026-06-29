@@ -26,7 +26,7 @@ final class PublicThemeRenderer
         $settings = self::arrayValue($context, 'settings');
         $pageVars = self::arrayValue($context, 'page_vars');
         $baseUri = (string) ($context['base_uri'] ?? '');
-        $siteName = (string) ($context['app_name'] ?? ($settings['header_brand_text'] ?? 'TurkMod'));
+        $siteName = (string) ($context['app_name'] ?? ($settings['site_name'] ?? ($settings['header_brand_text'] ?? 'TurkMod')));
         $pageTitle = (string) ($context['page_title'] ?? 'Ana Sayfa');
         $siteDescription = (string) ($settings['footer_description'] ?? $settings['footer_text'] ?? 'Topluluk dosyalari, guncellemeler ve modlar.');
         $currentScript = (string) ($context['current_script'] ?? basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'index.php')));
@@ -52,7 +52,7 @@ final class PublicThemeRenderer
         $isEventsLoginRedirect = in_array($currentScript, ['login.php', 'giris'], true)
             && preg_match('~(?:^|/)events(?:/|$)~', '/' . trim($redirectPath, '/')) === 1;
         $focusPageKeys = array_values(array_unique(array_merge(
-            ['download', 'events', 'profile', 'public_profile', 'upload_topic', 'edit_topic', 'notifications', 'leaderboard', 'contact'],
+            ['download', 'events', 'profile', 'public_profile', 'upload_topic', 'edit_topic', 'notifications', 'messages', 'leaderboard', 'contact'],
             ThemeMetadata::authFocusPageKeys($themeManager),
         )));
         $isFocusLayout = in_array($pageKey, $focusPageKeys, true) || $isEventsLoginRedirect;
@@ -92,6 +92,7 @@ final class PublicThemeRenderer
         $headerVars = array_merge(
             $headerVars,
             ThemeHeaderViewData::notificationMenu($baseUri, $isLoggedIn),
+            ThemeHeaderViewData::messageMenu($baseUri, $isLoggedIn),
         );
 
         $footerData = self::buildFooterData($context);
@@ -115,7 +116,7 @@ final class PublicThemeRenderer
         $sidebarGlobalEnabled = !empty($leftSidebarVars['sidebar_global_enabled']) || !empty($rightSidebarVars['sidebar_global_enabled']);
         $showLeftSidebar = !$isFocusLayout && $sidebarGlobalEnabled && $desktopLayout !== 'right' && !empty($leftSidebarVars['has_sidebar_widgets']);
         $showRightSidebar = !$isFocusLayout && $sidebarGlobalEnabled && $desktopLayout !== 'left' && !empty($rightSidebarVars['has_sidebar_widgets']);
-        if (in_array($pageKey, ['leaderboard', 'upload_topic', 'edit_topic'], true)) {
+        if (in_array($pageKey, ['leaderboard', 'upload_topic', 'edit_topic', 'messages'], true)) {
             $showLeftSidebar = false;
             $showRightSidebar = false;
         }
@@ -146,18 +147,30 @@ final class PublicThemeRenderer
         $scripts = '';
         if (function_exists('asset_url')) {
             try {
-                $publicJsPath = __DIR__ . '/../assets/dist/public.min.js';
-                if (is_file($publicJsPath)) {
-                    $scripts = '<script src="' . htmlspecialchars(asset_url('assets/dist/public.min.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                $themeJs = trim($themeManager->renderAssetTags('js'));
+                $activeThemeId = $themeManager->activeThemeId();
+                // Listing surfaces can run on the shared public runtime to avoid loading the full
+                // theme JS bundle on pages that do not need heavy interactive modules.
+                $preferLeanRuntime = $activeThemeId === 'turkmod'
+                    && in_array($pageKey, ['home', 'search', 'category', 'leaderboard'], true);
+                $themeOwnsSharedRuntime = $themeJs !== '' && $activeThemeId === 'turkmod' && !$preferLeanRuntime;
+                if ($themeOwnsSharedRuntime) {
+                    // Turkmod bundle already includes shared public runtime (analytics/ui bootstrap).
+                    // Avoid loading root public bundle again to prevent duplicate initializers.
+                    $scripts = $themeJs;
                 } else {
-                    $scripts = '<script src="' . htmlspecialchars(asset_url('assets/js/app.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>' . "\n" .
-                               '<script src="' . htmlspecialchars(asset_url('assets/js/ui.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                    $publicJsPath = __DIR__ . '/../assets/dist/public.min.js';
+                    if (is_file($publicJsPath)) {
+                        $scripts = '<script src="' . htmlspecialchars(asset_url('assets/dist/public.min.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                    } else {
+                        $scripts = '<script src="' . htmlspecialchars(asset_url('assets/js/app.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>' . "\n" .
+                                   '<script src="' . htmlspecialchars(asset_url('assets/js/ui.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>' . "\n" .
+                                   '<script src="' . htmlspecialchars(asset_url('assets/js/ui-foundation.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                    }
+                    if ($themeJs !== '' && !$preferLeanRuntime) {
+                        $scripts = trim($scripts . "\n" . $themeJs);
+                    }
                 }
-                $themeJs = $themeManager->renderAssetTags('js');
-                if ($themeJs !== '') {
-                    $scripts = trim($scripts . "\n" . $themeJs);
-                }
-                $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/ui-foundation.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                 if ($pageKey === 'topic') {
                     $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-view-track.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                 }
@@ -244,16 +257,17 @@ final class PublicThemeRenderer
         $themeManager = $context['theme_manager'] ?? ($GLOBALS['themeManager'] ?? null);
         $html = '';
 
-        foreach ($items as $row) {
+        foreach ($items as $index => $row) {
             if (!is_array($row)) {
                 continue;
             }
 
             $item = $row;
+            $isLcpCandidate = $index === 0;
             if ($themeManager instanceof ThemeManager && $themeManager->usesPublicRenderer()) {
                 try {
                     $html .= $themeManager->render('partials.topic_card', [
-                        'topic' => self::topicCardVars($item, $baseUri, $pdo, $settings),
+                        'topic' => self::topicCardVars($item, $baseUri, $pdo, $settings, $isLcpCandidate),
                     ]);
                     continue;
                 } catch (Throwable $error) {
@@ -290,9 +304,9 @@ final class PublicThemeRenderer
         $settings = self::arrayValue($context, 'settings');
         $topics = [];
 
-        foreach ($items as $row) {
+        foreach ($items as $index => $row) {
             if (is_array($row)) {
-                $topics[] = self::topicCardVars($row, $baseUri, $pdo, $settings);
+                $topics[] = self::topicCardVars($row, $baseUri, $pdo, $settings, $index === 0);
             }
         }
 
@@ -429,7 +443,7 @@ final class PublicThemeRenderer
      * @param array<string, mixed> $settings
      * @return array<string, mixed>
      */
-    private static function topicCardVars(array $item, string $baseUri, mixed $pdo, array $settings): array
+    private static function topicCardVars(array $item, string $baseUri, mixed $pdo, array $settings, bool $isLcpCandidate = false): array
     {
         $category = (string) ($item['category'] ?? 'Genel');
         $categorySlug = (string) ($item['category_slug'] ?? strtolower($category));
@@ -473,6 +487,9 @@ final class PublicThemeRenderer
             'url' => $href,
             'image' => $image,
             'image_alt' => $imageAlt,
+            'image_loading' => $isLcpCandidate ? 'eager' : 'lazy',
+            'image_decoding' => 'async',
+            'image_fetchpriority' => $isLcpCandidate ? 'high' : '',
             'title' => $title,
             'category' => $category,
             'category_url' => $categorySlug !== '' && function_exists('categoryUrl') ? categoryUrl($categorySlug, $categoryParentSlug) : '#',
@@ -1677,6 +1694,7 @@ final class PublicThemeRenderer
             'upload_topic' => 'Icerik Yukle',
             'edit_topic' => 'Icerik Duzenle',
             'notifications' => 'Bildirimler',
+            'messages' => 'Mesajlar',
             'leaderboard' => 'Liderlik',
             'contact' => 'Iletisim',
             'ban_appeals' => 'Ban Itirazlari',
@@ -1755,13 +1773,58 @@ final class PublicThemeRenderer
     /**
      * @param array<string, mixed> $context
      */
+    private static function discoverListingLcpImageHref(array $pageVars, string $baseUri, string $pageKey): string
+    {
+        $listingPageKeys = ['home', 'search', 'category', 'leaderboard'];
+        if (!in_array($pageKey, $listingPageKeys, true)) {
+            return '';
+        }
+
+        $items = [];
+        if (isset($pageVars['items']) && is_array($pageVars['items'])) {
+            $items = $pageVars['items'];
+        } elseif (isset($pageVars['topics']) && is_array($pageVars['topics'])) {
+            $items = $pageVars['topics'];
+        }
+
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $imageHref = trim((string) ($item['image'] ?? ''));
+            if ($imageHref === '' && function_exists('getTopicPrimaryMediaPath')) {
+                $imageHref = trim((string) (getTopicPrimaryMediaPath($item) ?? ''));
+            }
+            if ($imageHref === '') {
+                $imageHref = trim((string) ($item['image_path'] ?? $item['primary_media_path'] ?? $item['cover_image'] ?? ''));
+            }
+            if ($imageHref === '') {
+                continue;
+            }
+            if (preg_match('~^data:~i', $imageHref) === 1) {
+                continue;
+            }
+            if (preg_match('~^(https?:)?//|^/~i', $imageHref) !== 1) {
+                $imageHref = rtrim($baseUri, '/') . '/' . ltrim($imageHref, '/');
+            }
+
+            return $imageHref;
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
     private static function buildHead(array $context): string
     {
         $themeManager = $context['theme_manager'] ?? null;
         $settings = self::arrayValue($context, 'settings');
         $pageVars = self::arrayValue($context, 'page_vars');
         $baseUri = (string) ($context['base_uri'] ?? '');
-        $siteName = (string) ($context['app_name'] ?? ($settings['header_brand_text'] ?? 'TurkMod'));
+        $siteName = (string) ($context['app_name'] ?? ($settings['site_name'] ?? ($settings['header_brand_text'] ?? 'TurkMod')));
         $pageTitle = (string) ($context['page_title'] ?? 'Ana Sayfa');
         $metaDescription = (string) ($context['meta_description'] ?? 'Topluluk dosyalari, guncellemeler ve modlar.');
         $themeMode = (string) ($context['theme_mode'] ?? 'auto');
@@ -1784,10 +1847,17 @@ final class PublicThemeRenderer
         }
 
         $robotsMeta = function_exists('seoRobotsMeta') ? seoRobotsMeta($settings, null, (string) ($context['page_key'] ?? '')) : 'index, follow';
-        if (isset($pageVars['topic']) && is_array($pageVars['topic']) && ($pageVars['topic']['status'] ?? 'published') !== 'published' && ($settings['noindex_draft_topics'] ?? '1') === '1') {
+        $indexDraftTopics = function_exists('seoIndexToggleValue')
+            ? seoIndexToggleValue($settings, 'index_draft_topics', '0', 'noindex_draft_topics')
+            : (((string) ($settings['noindex_draft_topics'] ?? '1')) === '1' ? '0' : '1');
+        $indexEmptyCategories = function_exists('seoIndexToggleValue')
+            ? seoIndexToggleValue($settings, 'index_empty_categories', '0', 'noindex_empty_categories')
+            : (((string) ($settings['noindex_empty_categories'] ?? '1')) === '1' ? '0' : '1');
+
+        if (isset($pageVars['topic']) && is_array($pageVars['topic']) && ($pageVars['topic']['status'] ?? 'published') !== 'published' && $indexDraftTopics !== '1') {
             $robotsMeta = 'noindex, nofollow';
         }
-        if (isset($pageVars['categoryId'], $pageVars['items']) && (int) $pageVars['categoryId'] > 0 && empty($pageVars['items']) && ($settings['noindex_empty_categories'] ?? '1') === '1') {
+        if (isset($pageVars['categoryId'], $pageVars['items']) && (int) $pageVars['categoryId'] > 0 && empty($pageVars['items']) && $indexEmptyCategories !== '1') {
             $robotsMeta = 'noindex, nofollow';
         }
         $head[] = '<meta name="robots" content="' . htmlspecialchars($robotsMeta, ENT_QUOTES, 'UTF-8') . '">';
@@ -1798,13 +1868,21 @@ final class PublicThemeRenderer
         $head[] = '<meta name="app-base-uri" content="' . htmlspecialchars($baseUri, ENT_QUOTES, 'UTF-8') . '">';
         $head[] = '<meta name="color-scheme" content="light dark">';
 
-        if ($themeManager instanceof ThemeManager && $themeManager->isAssetIsolated()) {
-            $faviconHref = $themeManager->assetUrl($themeManager->activeThemeId(), 'images/favicon.ico');
-        } else {
-            $faviconHref = self::publicSettingAsset($faviconUrl, $baseUri);
-            if ($faviconHref === '' && function_exists('asset_url')) {
-                $faviconHref = asset_url('assets/favicon.svg', $baseUri);
-            }
+        $lcpImageHref = self::discoverListingLcpImageHref($pageVars, $baseUri, (string) ($context['page_key'] ?? ''));
+        if ($lcpImageHref !== '') {
+            $head[] = '<link rel="preload" as="image" href="' . htmlspecialchars($lcpImageHref, ENT_QUOTES, 'UTF-8') . '" fetchpriority="high">';
+        }
+
+        $activeThemeId = $themeManager instanceof ThemeManager
+            ? $themeManager->activeThemeId()
+            : '';
+        $faviconHref = self::publicSettingAsset($faviconUrl, $baseUri);
+        if ($faviconHref === '' && function_exists('asset_url')) {
+            // Prefer lightweight SVG favicon for performance.
+            $faviconHref = asset_url('assets/favicon.svg', $baseUri);
+        }
+        if ($faviconHref === '' && $themeManager instanceof ThemeManager && $themeManager->isAssetIsolated()) {
+            $faviconHref = $themeManager->assetUrl($activeThemeId, 'images/favicon.ico');
         }
         if ($faviconHref !== '') {
             $head[] = '<link rel="icon" href="' . htmlspecialchars($faviconHref, ENT_QUOTES, 'UTF-8') . '">';
@@ -1814,12 +1892,35 @@ final class PublicThemeRenderer
             : rtrim($baseUri, '/') . '/assets/css/roboto-local.css';
         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($robotoLocalHref, ENT_QUOTES, 'UTF-8') . '">';
 
+        $pageKey = (string) ($context['page_key'] ?? '');
+        // Use the lightweight listing bundle on list-style public pages to reduce render-blocking CSS
+        // while preserving visual parity with the active turkmod shell.
+        $preferLeanThemeCss = $activeThemeId === 'turkmod'
+            && in_array($pageKey, ['home', 'search', 'category', 'leaderboard'], true);
+        $skipRootPublicCssForLeanListing = $preferLeanThemeCss && $activeThemeId === 'turkmod';
+
         if ($themeManager instanceof ThemeManager) {
             if (function_exists('asset_url')) {
                 try {
                     // Critical CSS (render-blocking) — design tokens, shell layout, ui-foundation
                     $publicCssPath = __DIR__ . '/../assets/dist/public.min.css';
-                    if (is_file($publicCssPath)) {
+                    if ($skipRootPublicCssForLeanListing) {
+                        // Lean turkmod listing pages already include shared shell/foundation CSS in the theme bundle.
+                        // Skipping root public.min.css avoids duplicate render-blocking payload.
+                        // Keep icon mapping for lean pages to prevent missing icons/layout jitter.
+                        $leanIconsRelative = 'css/bootstrap-icons-lean.min.css';
+                        $leanIconsPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanIconsRelative;
+                        if (is_file($leanIconsPath)) {
+                            $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanIconsRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-icons-lean="1">';
+                            $leanIconsFontRelative = 'webfonts/bootstrap-icons.woff2';
+                            $leanIconsFontPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanIconsFontRelative;
+                            if (is_file($leanIconsFontPath)) {
+                                $head[] = '<link rel="preload" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanIconsFontRelative), ENT_QUOTES, 'UTF-8') . '" as="font" type="font/woff2" crossorigin>';
+                            }
+                        } else {
+                            $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/bootstrap-icons.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
+                        }
+                    } elseif (is_file($publicCssPath)) {
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/dist/public.min.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     } else {
                         // Fallback: load individual files
@@ -1828,21 +1929,32 @@ final class PublicThemeRenderer
 
                     // Theme CSS — load normally so CSP cannot leave it stuck in print media.
                     // Prefer dist bundle ONLY if active theme is default. Always load active theme's own CSS asset tags.
-                    $activeThemeId = $themeManager->activeThemeId();
                     $themeMinCssPath = __DIR__ . '/../assets/dist/theme.min.css';
                     if ($activeThemeId === 'default' && is_file($themeMinCssPath)) {
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/dist/theme.min.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     }
-                    $head[] = $themeManager->renderAssetTags('css');
-
-                    // Font preload
-                    $fontFiles = glob(__DIR__ . '/../assets/dist/bootstrap-icons-*.woff2');
-                    if (!empty($fontFiles)) {
-                        $fontRelPath = 'assets/dist/' . basename($fontFiles[0]);
-                        $head[] = '<link rel="preload" href="' . htmlspecialchars(asset_url($fontRelPath, $baseUri), ENT_QUOTES, 'UTF-8') . '" as="font" type="font/woff2" crossorigin>';
+                    if ($preferLeanThemeCss && preg_match('/^[a-z0-9_-]+$/', $activeThemeId) === 1) {
+                        $leanThemeCssRelative = 'css/bundle-listing.min.css';
+                        $leanThemeCssPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanThemeCssRelative;
+                        if (is_file($leanThemeCssPath)) {
+                            $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanThemeCssRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-asset-lean="1">';
+                        } else {
+                            $head[] = $themeManager->renderAssetTags('css');
+                        }
                     } else {
-                        // Fallback: preload original font path
-                        $head[] = '<link rel="preload" href="' . htmlspecialchars(asset_url('assets/bootstrap-icons/fonts/bootstrap-icons.woff2', $baseUri), ENT_QUOTES, 'UTF-8') . '" as="font" type="font/woff2" crossorigin>';
+                        $head[] = $themeManager->renderAssetTags('css');
+                    }
+
+                    if ($activeThemeId !== 'turkmod') {
+                        // Font preload
+                        $fontFiles = glob(__DIR__ . '/../assets/dist/bootstrap-icons-*.woff2');
+                        if (!empty($fontFiles)) {
+                            $fontRelPath = 'assets/dist/' . basename($fontFiles[0]);
+                            $head[] = '<link rel="preload" href="' . htmlspecialchars(asset_url($fontRelPath, $baseUri), ENT_QUOTES, 'UTF-8') . '" as="font" type="font/woff2" crossorigin>';
+                        } else {
+                            // Fallback: preload original font path
+                            $head[] = '<link rel="preload" href="' . htmlspecialchars(asset_url('assets/bootstrap-icons/fonts/bootstrap-icons.woff2', $baseUri), ENT_QUOTES, 'UTF-8') . '" as="font" type="font/woff2" crossorigin>';
+                        }
                     }
 
                     // Page-specific CSS files
@@ -1859,7 +1971,7 @@ final class PublicThemeRenderer
                         }
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url($pageCssFile, $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     }
-                    if ((string) ($context['page_key'] ?? '') === 'leaderboard') {
+                    if ($pageKey === 'leaderboard') {
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/leaderboard-page.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     }
                 } catch (Throwable $error) {
@@ -2157,7 +2269,7 @@ final class PublicThemeRenderer
         if ($publicCategoriesTree === [] && $pageVars !== []) {
             $publicCategoriesTree = self::arrayValue($pageVars, 'publicCategoriesTree');
         }
-        $siteName = (string) ($settings['header_brand_text'] ?? ($envConfig['APP_NAME'] ?? 'TurkMod'));
+        $siteName = (string) ($settings['site_name'] ?? ($settings['header_brand_text'] ?? ($envConfig['APP_NAME'] ?? 'TurkMod')));
         $siteDescription = (string) ($settings['footer_text'] ?? $settings['footer_description'] ?? 'Topluluk dosyalari, guncellemeler ve modlar.');
 
         $popularTopics = [];
@@ -2458,6 +2570,7 @@ final class PublicThemeRenderer
             'upload-topic.php' => 'upload_topic',
             'edit-topic.php' => 'edit_topic',
             'notifications.php' => 'notifications',
+            'messages.php' => 'messages',
             'leaderboard.php' => 'leaderboard',
             'ban-appeals.php' => 'ban_appeals',
             default => 'home',
@@ -2492,6 +2605,10 @@ final class PublicThemeRenderer
             return 'home';
         }
 
+        if (self::matchesPublicStaticAlias('messages', $prefix)) {
+            return 'messages';
+        }
+
         $routes = function_exists('routePrefixSettings') ? routePrefixSettings($GLOBALS['pdo'] ?? null) : [];
         if (function_exists('routePrefixMatches')) {
             if (routePrefixMatches('topic', $prefix, $routes)) {
@@ -2516,6 +2633,7 @@ final class PublicThemeRenderer
             'konu-yukle', 'upload-topic', 'upload-topic.php', 'mod-yukle' => 'upload_topic',
             'konu-duzenle', 'edit-topic', 'edit-topic.php', 'mod-duzenle' => 'edit_topic',
             'bildirimler', 'notifications', 'notifications.php' => 'notifications',
+            'messages.php' => 'messages',
             'liderlik', 'leaderboard', 'leaderboard.php' => 'leaderboard',
             'ban-itiraz', 'ban-appeals', 'ban-appeals.php' => 'ban_appeals',
             'giris' => 'login',
@@ -2524,6 +2642,23 @@ final class PublicThemeRenderer
             'sifre-sifirla' => 'reset_password',
             default => '',
         };
+    }
+
+    private static function matchesPublicStaticAlias(string $routeKey, string $prefix): bool
+    {
+        if ($prefix === '' || !function_exists('routePublicStaticPathAliases')) {
+            return false;
+        }
+
+        $aliases = routePublicStaticPathAliases($routeKey);
+        foreach ($aliases as $alias) {
+            $cleanAlias = strtolower(trim((string) $alias, '/'));
+            if ($cleanAlias !== '' && $cleanAlias === $prefix) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -2821,6 +2956,11 @@ final class PublicThemeRenderer
             $stats = self::normalizeList(self::arrayValue($profileContext, 'stats'));
         }
         $canReport = !empty($pageVars['profile_can_report']) || !empty($profileContext['can_report']);
+        $canMessage = !empty($pageVars['profile_can_message']) || !empty($profileContext['can_message']);
+        $messageUrl = (string) ($pageVars['profile_message_url'] ?? ($profileContext['message_url'] ?? ''));
+        if ($messageUrl === '' && $canMessage && function_exists('routePublicStaticUrl')) {
+            $messageUrl = routePublicStaticUrl('messages') . '?with=' . (int) ($user['id'] ?? 0);
+        }
         $sidebarStats = [];
         $sidebarStatClasses = ['stat-info', '', 'stat-success', 'stat-warning'];
         foreach ($stats as $index => $stat) {
@@ -2851,9 +2991,11 @@ final class PublicThemeRenderer
             'sidebar_stats' => $sidebarStats,
             'social_links' => $socialLinks,
             'has_social_links' => $socialLinks !== [],
-            'has_sidebar_actions' => $socialLinks !== [] || $canReport,
-            'has_actions' => $socialLinks !== [] || $canReport,
+            'has_sidebar_actions' => $socialLinks !== [] || $canReport || $canMessage,
+            'has_actions' => $socialLinks !== [] || $canReport || $canMessage,
             'can_report' => $canReport,
+            'can_message' => $canMessage,
+            'message_url' => $messageUrl,
             'show_account_info' => false,
             'report_endpoint' => (string) ($pageVars['profile_report_endpoint'] ?? rtrim($baseUri, '/') . '/api/user-reports.php'),
             'report_reasons' => $reportReasons,

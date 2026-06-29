@@ -24,4 +24,22 @@ final class ThemeHeaderViewData
             'notifications_fallback_url' => $notificationsUrl,
         ];
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function messageMenu(string $baseUri, bool $isLoggedIn): array
+    {
+        $baseUrl = rtrim($baseUri, '/');
+        $messagesUrl = \function_exists('routePublicStaticUrl')
+            ? (string) \routePublicStaticUrl('messages')
+            : ($baseUrl . '/mesajlar');
+
+        return [
+            'messages_enabled' => $isLoggedIn,
+            'messages_url' => $messagesUrl,
+            'messages_api_url' => $baseUrl . '/api/messages.php',
+            'messages_fallback_url' => $messagesUrl,
+        ];
+    }
 }

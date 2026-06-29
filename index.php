@@ -7,12 +7,17 @@ $GLOBALS['_cache_control_set'] = true;
 require_once __DIR__ . "/includes/init.php";
 
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
-header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-header("Pragma: no-cache");
-header("Expires: 0");
+$usesThemeRenderer = function_exists('usesPublicThemeRenderer')
+    && usesPublicThemeRenderer()
+    && isset($themeManager)
+    && $themeManager instanceof ThemeManager;
 
 $pageTitle = "Ana Sayfa";
 $pageCssFiles = ["assets/css/home-categories.css"];
+if ($usesThemeRenderer) {
+    // Turkmod theme bundle already contains home category styles.
+    $pageCssFiles = [];
+}
 $homeUploadUrl = function_exists('routePublicStaticUrl')
     ? routePublicStaticUrl('upload_topic')
     : rtrim((string) ($baseUri ?? ''), '/') . '/upload-topic.php';
@@ -37,6 +42,20 @@ $categoryFilter = function_exists("validateSlug")
     : "";
 $page = max(1, (int) ($_GET["page"] ?? 1));
 $perPage = (int)($settings["items_per_page"] ?? TOPICS_PER_PAGE) ?: TOPICS_PER_PAGE;
+$isDefaultHomeRequest = ($page === 1 && $search === "" && $sort === "newest" && $categoryFilter === "");
+$cacheEnabled = ($settings['cache_enabled'] ?? '1') === '1';
+$isAnonymousVisitor = empty($_SESSION['_auth_user_id']);
+
+if ($cacheEnabled && $isAnonymousVisitor && $isDefaultHomeRequest) {
+    $ttl = max(60, (int) ($settings['cache_ttl'] ?? 300));
+    $staleWhileRevalidate = max($ttl, min(86400, $ttl * 12));
+    header("Cache-Control: public, max-age={$ttl}, stale-while-revalidate={$staleWhileRevalidate}");
+    header('Vary: Accept-Encoding, Cookie');
+} else {
+    header("Cache-Control: private, no-cache, max-age=0, must-revalidate");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+}
 
 if ($search !== "") {
     $searchRateLimit = (int)($settings['search_rate_limit'] ?? 10) ?: 10;
@@ -68,7 +87,7 @@ if (class_exists(\App\Core\Bootstrap\Boot::class)) {
 }
 
 $result = null;
-$isDefaultHome = ($page === 1 && $search === "" && $sort === "newest" && $categoryFilter === "");
+$isDefaultHome = $isDefaultHomeRequest;
 if ($isDefaultHome && $cache) {
     $result = $cache->get('homepage_default_topics');
 }
@@ -110,10 +129,29 @@ if (!is_array($sidebarItems)) {
 }
 
 // Kategoriler (public-header.php'den önce lazım)
-$publicCategories = getPublicCategories($pdo);
-$publicCategoriesTree = function_exists("getPublicCategoriesTree")
-    ? getPublicCategoriesTree($pdo)
-    : [];
+$publicCategories = [];
+$publicCategoriesTree = [];
+$publicCategoriesBundle = $cache ? $cache->get('homepage_public_categories_bundle') : null;
+if (
+    is_array($publicCategoriesBundle)
+    && isset($publicCategoriesBundle['categories'], $publicCategoriesBundle['tree'])
+    && is_array($publicCategoriesBundle['categories'])
+    && is_array($publicCategoriesBundle['tree'])
+) {
+    $publicCategories = $publicCategoriesBundle['categories'];
+    $publicCategoriesTree = $publicCategoriesBundle['tree'];
+} else {
+    $publicCategories = getPublicCategories($pdo);
+    $publicCategoriesTree = function_exists("getPublicCategoriesTree")
+        ? getPublicCategoriesTree($pdo)
+        : [];
+    if ($cache) {
+        $cache->set('homepage_public_categories_bundle', [
+            'categories' => $publicCategories,
+            'tree' => $publicCategoriesTree,
+        ], 600);
+    }
+}
 
 // Kategori sayılarını ve site istatistiklerini tek sorguda çek (N+1 query önleme + sorgu birleştirme)
 $categoryCounts = [];
@@ -135,7 +173,7 @@ if (is_array($statsCache) && isset($statsCache['categoryCounts'], $statsCache['s
     $siteStats['downloads'] = $cachedStats['downloads'] ?? 0;
     $siteStats['comments'] = $cachedStats['comments'] ?? 0;
     $siteStats['mods'] = $total;
-} else {
+} elseif (!$usesThemeRenderer) {
     if ($pdo) {
         try {
             // Tek sorguda hem kategori sayıları hem de toplam istatistikler
@@ -224,7 +262,7 @@ $sortInsight = $sortInsightMessages[$sort] ?? $sortInsightMessages["newest"];
 
 require_once __DIR__ . "/includes/public-header.php";
 
-if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer() && isset($themeManager) && $themeManager instanceof ThemeManager) {
+if ($usesThemeRenderer) {
     $tmSortUrl = static function (string $value) use ($baseUri, $search, $categoryFilter): string {
         $params = [];
         if ($search !== '') {

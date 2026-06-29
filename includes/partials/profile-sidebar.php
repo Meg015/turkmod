@@ -30,6 +30,8 @@ $profileSidebarStats = array_values(array_filter(
     static fn ($item): bool => is_array($item)
 ));
 $profileSidebarShowReport = !empty($profileSidebar['can_report']);
+$profileSidebarCanMessage = !empty($profileSidebar['can_message']);
+$profileSidebarMessageUrl = trim((string) ($profileSidebar['message_url'] ?? ''));
 $profileSidebarShowLeaderboard = !empty($profileSidebar['show_leaderboard']);
 $profileSidebarLeaderboardUserId = (int) ($profileSidebar['leaderboard_user_id'] ?? 0);
 ?>
@@ -71,7 +73,7 @@ $profileSidebarLeaderboardUserId = (int) ($profileSidebar['leaderboard_user_id']
             <?php endif; ?>
         </div>
 
-        <?php if ($profileSidebarSocialLinks !== [] || $profileSidebarShowReport): ?>
+        <?php if ($profileSidebarSocialLinks !== [] || $profileSidebarShowReport || ($profileSidebarCanMessage && $profileSidebarMessageUrl !== '')): ?>
             <div class="profile-sidebar-social">
                 <?php foreach ($profileSidebarSocialLinks as $_profileSidebarLink): ?>
                     <?php
@@ -87,6 +89,11 @@ $profileSidebarLeaderboardUserId = (int) ($profileSidebar['leaderboard_user_id']
                     <button type="button" class="profile-sidebar-social-link profile-sidebar-report-action" data-user-report-modal-open title="Kullanıcıyı Şikayet Et" aria-label="Kullanıcıyı Şikayet Et">
                         <i class="bi bi-flag" aria-hidden="true"></i>
                     </button>
+                <?php endif; ?>
+                <?php if ($profileSidebarCanMessage && $profileSidebarMessageUrl !== ''): ?>
+                    <a href="<?= htmlspecialchars($profileSidebarMessageUrl, ENT_QUOTES, 'UTF-8') ?>" class="profile-sidebar-social-link profile-sidebar-message-action" title="Mesaj Gonder" aria-label="Mesaj Gonder">
+                        <i class="bi bi-chat-left-text" aria-hidden="true"></i>
+                    </a>
                 <?php endif; ?>
             </div>
         <?php endif; ?>

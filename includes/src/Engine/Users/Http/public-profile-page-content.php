@@ -52,6 +52,10 @@ $showTopics = (int) ($user['public_show_topics'] ?? 1) === 1;
 $showComments = (int) ($user['public_show_comments'] ?? 0) === 1;
 $showSocials = (int) ($user['public_show_socials'] ?? 1) === 1;
 $canReportProfile = $isLoggedIn && (int) ($_SESSION['_auth_user_id'] ?? 0) !== (int) $user['id'];
+$canMessageProfile = $isLoggedIn && (int) ($_SESSION['_auth_user_id'] ?? 0) !== (int) $user['id'];
+$profileMessageUrl = function_exists('routePublicStaticUrl')
+    ? routePublicStaticUrl('messages') . '?with=' . (int) $user['id']
+    : (rtrim((string) ($baseUri ?? ''), '/') . '/mesajlar?with=' . (int) $user['id']);
 $publishedTopicCount = $showTopics ? profileCountPublishedTopics($pdo, (int) $user['id']) : 0;
 $profileContext = profileBuildProfileContext($user, [
     'base_uri' => $baseUri,
@@ -73,6 +77,8 @@ $profileContext = profileBuildProfileContext($user, [
         'downloads' => 'İndirme',
     ],
     'can_report' => $canReportProfile,
+    'can_message' => $canMessageProfile,
+    'message_url' => $profileMessageUrl,
     'cover' => (string) ($user['cover'] ?? $user['cover_image'] ?? ''),
 ]);
 $topicsPerPage = 12;
@@ -131,6 +137,8 @@ $profile_member_since = (string) ($profileContext['member_since'] ?? '');
 $profile_location = (string) ($profileContext['location'] ?? '');
 $profile_has_location = !empty($profileContext['has_location']);
 $profile_can_report = !empty($profileContext['can_report']);
+$profile_can_message = !empty($profileContext['can_message']);
+$profile_message_url = (string) ($profileContext['message_url'] ?? '');
 $profile_website = (string) ($profileContext['website'] ?? '');
 $profile_social_github = (string) ($profileContext['social_github'] ?? '');
 $profile_social_twitter = (string) ($profileContext['social_twitter'] ?? '');
@@ -374,6 +382,8 @@ require_once $projectRoot . '/includes/public-header.php';
             'social_links' => $profileContext['social_links'] ?? [],
             'stats' => is_array($profileContext['stats'] ?? null) ? $profileContext['stats'] : [],
             'can_report' => !empty($profileContext['can_report']),
+            'can_message' => !empty($profileContext['can_message']),
+            'message_url' => (string) ($profileContext['message_url'] ?? ''),
             'show_leaderboard' => !empty($profileContext['show_leaderboard']),
             'leaderboard_user_id' => (int) ($profileContext['leaderboard_user_id'] ?? $user['id']),
         ]);

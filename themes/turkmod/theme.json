@@ -63,6 +63,7 @@
         "edit_topic": "edit-topic.tpl",
         "contact": "contact.tpl",
         "notifications": "notifications.tpl",
+        "messages": "messages.tpl",
         "leaderboard": "leaderboard.tpl",
         "ban_appeals": "ban-appeals.tpl",
         "events": {

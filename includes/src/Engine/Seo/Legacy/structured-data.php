@@ -105,7 +105,7 @@ if (!function_exists('seoGetProfileStructuredData')) {
             $personSchema['image'] = $avatar;
         }
 
-        $orgName = $settings['schema_organization_name'] ?? 'İçerik Topic';
+        $orgName = $settings['schema_organization_name'] ?? ($settings['site_name'] ?? 'İçerik Topic');
         if ($orgName !== '') {
             $personSchema['memberOf'] = [
                 '@type' => 'Organization',

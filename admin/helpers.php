@@ -157,7 +157,7 @@ function adminSettingDefinitions(): array
         // -- SEO ------------------------------------------------
         'default_meta_title'       => ['label' => 'Varsayılan Meta Başlık',       'type' => 'string', 'default' => 'İçerik Topic',                                     'section' => 'seo', 'tooltip' => 'Sayfalarda özel başlık yoksa kullanılacak varsayılan meta başlık'],
         'default_meta_description' => ['label' => 'Varsayılan Meta Açıklama',     'type' => 'text',   'default' => 'Güncel topluluk içerikleri, modlar ve rehberler.',    'section' => 'seo', 'tooltip' => 'Sayfalarda özel açıklama yoksa kullanılacak varsayılan meta description'],
-        'allow_indexing'           => ['label' => 'Arama Motoru İndeksleme',      'type' => 'bool',   'default' => '1',                                                  'section' => 'seo', 'tooltip' => 'Sitenin arama motorları tarafından indekslenmesine genel izin (robots meta tag)'],
+        'allow_indexing'           => ['label' => 'Tum Sayfalar Indexlensin (Genel)',      'type' => 'bool',   'default' => '1',                                                  'section' => 'seo', 'tooltip' => 'Kapatildiginda tum sayfalara noindex uygulanir'],
         'canonical_base_url'       => ['label' => 'Canonical Ana URL',            'type' => 'string', 'default' => '',                               'section' => 'seo', 'tooltip' => 'Canonical URL\'ler için kullanılacak temel URL (boş bırakılırsa otomatik tespit edilir)'],
         'meta_title_suffix'        => ['label' => 'Meta Başlık Soneki',           'type' => 'string', 'default' => '',                                                   'section' => 'seo', 'tooltip' => 'Tüm sayfa başlıklarının sonuna eklenecek site adı eki (örn: "Başlık - Site Adı")'],
         'meta_description_max_length' => ['label' => 'Meta Açıklama Maks. Karakter', 'type' => 'number', 'default' => '160',                                             'section' => 'seo', 'tooltip' => 'Meta açıklamaların maksimum karakter uzunluğu (Google için 155-160 önerilir)'],
@@ -188,7 +188,7 @@ function adminSettingDefinitions(): array
         'robots_disallow_database' => ['label' => 'Robots: /database/ Engelle', 'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Veritabanı klasörünü arama motorlarından gizler (güvenlik için önerilir)'],
         'robots_crawl_delay'       => ['label' => 'Robots Crawl Delay (sn)',    'type' => 'number', 'default' => '0',                                                    'section' => 'seo', 'tooltip' => 'Botların istekler arasında beklemesi gereken süre (0=sınırsız, sunucu yükünü azaltır)'],
         'robots_custom_rules'      => ['label' => 'Robots Özel Kurallar',       'type' => 'text',   'default' => '',                                                     'section' => 'seo', 'tooltip' => 'Robots.txt\'e eklenecek özel kurallar (her satır bir kural)'],
-        'robots_noindex_search'    => ['label' => 'Arama Sayfalarına Noindex',  'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Arama sonuç sayfalarına noindex ekler (duplicate content önler, önerilir)'],
+        'robots_noindex_search'    => ['label' => 'Arama Sonuçlarını Noindexle (Eski Uyumluluk)',  'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Eski sürümlerle uyumluluk içindir. Yeni ayar: "Arama Sonuçları İndekslensin"'],
         'robots_noindex_profiles'  => ['label' => 'Profil Sayfalarına Noindex', 'type' => 'bool',   'default' => '0',                                                    'section' => 'seo', 'tooltip' => 'Tüm profil sayfalarına noindex ekler (genellikle kapalı tutulur)'],
         'structured_data'          => ['label' => 'Yapısal Veri (JSON-LD)',       'type' => 'bool',   'default' => '1',                                                  'section' => 'seo', 'tooltip' => 'Schema.org yapısal veri (JSON-LD) ekleme özelliğini aktif eder (rich snippets için önemli)'],
         'schema_site_search'       => ['label' => 'Site Search Schema',         'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Google\'da site içi arama kutusu gösterilmesini sağlar (SearchAction schema)'],
@@ -323,53 +323,67 @@ function adminSettingDefinitions(): array
 
         // Index/Noindex Settings
         'index_homepage' => [
-            'label' => 'Anasayfa İndekslensin',
+            'label' => 'Anasayfa Indexlensin',
             'type' => 'bool',
             'default' => '1',
             'section' => 'seo',
             'tooltip' => 'Anasayfanın arama motorları tarafından indekslenmesine izin verir'
         ],
         'index_categories' => [
-            'label' => 'Kategori Sayfaları İndekslensin',
+            'label' => 'Kategori Sayfalari Indexlensin',
             'type' => 'bool',
             'default' => '1',
             'section' => 'seo',
             'tooltip' => 'Kategori sayfalarının arama motorları tarafından indekslenmesine izin verir'
         ],
         'index_profiles' => [
-            'label' => 'Profil Sayfaları İndekslensin',
+            'label' => 'Profil Sayfalari Indexlensin',
             'type' => 'bool',
             'default' => '1',
             'section' => 'seo',
             'tooltip' => 'Kullanıcı profil sayfalarının arama motorları tarafından indekslenmesine izin verir'
         ],
         'index_topics' => [
-            'label' => 'Konu Sayfaları İndekslensin',
+            'label' => 'Konu Sayfalari Indexlensin',
             'type' => 'bool',
             'default' => '1',
             'section' => 'seo',
             'tooltip' => 'Konu detay sayfalarının arama motorları tarafından indekslenmesine izin verir'
         ],
         'index_search_results' => [
-            'label' => 'Arama Sonuçları İndekslensin',
+            'label' => 'Arama Sonuclari Indexlensin',
             'type' => 'bool',
             'default' => '0',
             'section' => 'seo',
             'tooltip' => 'Arama sonuç sayfalarının indekslenmesi (genellikle kapalı tutulur, duplicate content önler)'
         ],
         'index_tag_pages' => [
-            'label' => 'Etiket Sayfaları İndekslensin',
+            'label' => 'Etiket Sayfalari Indexlensin',
             'type' => 'bool',
             'default' => '1',
             'section' => 'seo',
             'tooltip' => 'Etiket sayfalarının arama motorları tarafından indekslenmesine izin verir'
         ],
         'index_archive_pages' => [
-            'label' => 'Arşiv Sayfaları İndekslensin',
+            'label' => 'Arsiv Sayfalari Indexlensin',
             'type' => 'bool',
             'default' => '0',
             'section' => 'seo',
             'tooltip' => 'Genel arşiv sayfalarının indekslenmesi (genellikle kapalı, duplicate content riski)'
+        ],
+        'index_empty_categories' => [
+            'label' => 'Bos Kategori Sayfalari Indexlensin',
+            'type' => 'bool',
+            'default' => '0',
+            'section' => 'seo',
+            'tooltip' => 'Kapalı olduğunda içeriği olmayan kategori sayfalarına noindex uygulanır'
+        ],
+        'index_draft_topics' => [
+            'label' => 'Taslak Konular Indexlensin',
+            'type' => 'bool',
+            'default' => '0',
+            'section' => 'seo',
+            'tooltip' => 'Kapalı olduğunda taslak konulara noindex uygulanır'
         ],
         'sitemap_exclude_drafts' => [
             'label' => 'Taslakları Sitemap\'ten Çıkar',
@@ -379,7 +393,7 @@ function adminSettingDefinitions(): array
             'tooltip' => 'Taslak durumundaki konuları sitemap.xml içeriklerinden hariç tutar'
         ],
         'index_paginated_pages' => [
-            'label' => 'Sayfalama Sayfalarını İndeksle',
+            'label' => 'Sayfalama Sayfalari Indexlensin',
             'type' => 'bool',
             'default' => '0',
             'section' => 'seo',
@@ -656,6 +670,7 @@ function adminSettingDefinitions(): array
         'route_forgot_password_path'    => ['label' => 'Sifremi Unuttum URL Yolu',            'type' => 'string', 'default' => 'sifremi-unuttum',  'section' => 'route_filters', 'tooltip' => 'Ornek: /sifremi-unuttum'],
         'route_reset_password_path'     => ['label' => 'Sifre Sifirlama URL Yolu',            'type' => 'string', 'default' => 'sifre-sifirla',    'section' => 'route_filters', 'tooltip' => 'Ornek: /sifre-sifirla'],
         'route_notifications_path'      => ['label' => 'Bildirimler URL Yolu',                'type' => 'string', 'default' => 'bildirimler',      'section' => 'route_filters', 'tooltip' => 'Ornek: /bildirimler'],
+        'route_messages_path'           => ['label' => 'Mesajlar URL Yolu',                   'type' => 'string', 'default' => 'mesajlar',         'section' => 'route_filters', 'tooltip' => 'Ornek: /mesajlar'],
         'route_leaderboard_path'        => ['label' => 'Liderlik URL Yolu',                   'type' => 'string', 'default' => 'liderlik',         'section' => 'route_filters', 'tooltip' => 'Ornek: /liderlik'],
         'route_ban_appeals_path'        => ['label' => 'Ban Itiraz URL Yolu',                 'type' => 'string', 'default' => 'ban-itiraz',       'section' => 'route_filters', 'tooltip' => 'Ornek: /ban-itiraz'],
         'route_contact_path'            => ['label' => 'Iletisim URL Yolu',                   'type' => 'string', 'default' => 'iletisim',         'section' => 'route_filters', 'tooltip' => 'Ornek: /iletisim'],
@@ -2170,6 +2185,35 @@ function adminApplySettingAliases(array $settings, array $definitions): array
         $settings[$alias] = $value;
     }
 
+    $inversePairs = [
+        'index_search_results' => 'robots_noindex_search',
+        'index_empty_categories' => 'noindex_empty_categories',
+        'index_draft_topics' => 'noindex_draft_topics',
+    ];
+
+    foreach ($inversePairs as $canonical => $legacyNoindex) {
+        if (!array_key_exists($canonical, $settings) || !array_key_exists($legacyNoindex, $settings)) {
+            continue;
+        }
+
+        $canonicalValue = (string) $settings[$canonical];
+        $legacyValue = (string) $settings[$legacyNoindex];
+        $canonicalDefault = (string) ($definitions[$canonical]['default'] ?? '0');
+        $legacyDefault = (string) ($definitions[$legacyNoindex]['default'] ?? '1');
+
+        $value = in_array($canonicalValue, ['0', '1'], true) ? $canonicalValue : $canonicalDefault;
+        $canonicalIsDefault = $canonicalValue === '' || $canonicalValue === $canonicalDefault;
+        $legacyIsBool = in_array($legacyValue, ['0', '1'], true);
+        $legacyHasSignal = $legacyValue !== '' && $legacyValue !== $legacyDefault;
+
+        if ($canonicalIsDefault && $legacyIsBool && $legacyHasSignal) {
+            $value = $legacyValue === '1' ? '0' : '1';
+        }
+
+        $settings[$canonical] = $value;
+        $settings[$legacyNoindex] = $value === '1' ? '0' : '1';
+    }
+
     if (array_key_exists('site_language', $settings)) {
         $settings['site_language'] = 'tr';
     }
@@ -2350,6 +2394,33 @@ function saveAdminSettings(?PDO $pdo, array $input): void
         $input['default_og_image'] = $input['og_image'];
     }
 
+    $normalizeBoolInput = static function ($value): string {
+        if (is_array($value)) {
+            $value = reset($value);
+        }
+        $normalized = strtolower(trim((string) $value));
+        return in_array($normalized, ['1', 'true', 'on', 'yes'], true) ? '1' : '0';
+    };
+
+    $inverseSeoPairs = [
+        'index_search_results' => 'robots_noindex_search',
+        'index_empty_categories' => 'noindex_empty_categories',
+        'index_draft_topics' => 'noindex_draft_topics',
+    ];
+    foreach ($inverseSeoPairs as $canonical => $legacyNoindex) {
+        if (array_key_exists($canonical, $input)) {
+            $canonicalValue = $normalizeBoolInput($input[$canonical]);
+        } elseif (array_key_exists($legacyNoindex, $input)) {
+            $legacyValue = $normalizeBoolInput($input[$legacyNoindex]);
+            $canonicalValue = $legacyValue === '1' ? '0' : '1';
+        } else {
+            $canonicalValue = '0';
+        }
+
+        $input[$canonical] = $canonicalValue;
+        $input[$legacyNoindex] = $canonicalValue === '1' ? '0' : '1';
+    }
+
     $stmt = $pdo->prepare("INSERT INTO admin_settings (setting_key, setting_value, created_at, updated_at)
         VALUES (:key, :value, NOW(), NOW())
         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
@@ -2404,6 +2475,7 @@ function saveAdminSettings(?PDO $pdo, array $input): void
             'forgot_password' => 'route_forgot_password_path',
             'reset_password' => 'route_reset_password_path',
             'notifications' => 'route_notifications_path',
+            'messages' => 'route_messages_path',
             'leaderboard' => 'route_leaderboard_path',
             'ban_appeals' => 'route_ban_appeals_path',
             'contact' => 'route_contact_path',
@@ -2480,7 +2552,16 @@ function saveAdminSettings(?PDO $pdo, array $input): void
 
         $type = (string)$definition['type'];
         if ($type === 'bool') {
-            $value = isset($input[$key]) ? '1' : '0';
+            if (array_key_exists($key, $input)) {
+                $rawBoolValue = $input[$key];
+                if (is_array($rawBoolValue)) {
+                    $rawBoolValue = reset($rawBoolValue);
+                }
+                $normalizedBool = strtolower(trim((string) $rawBoolValue));
+                $value = in_array($normalizedBool, ['1', 'true', 'on', 'yes'], true) ? '1' : '0';
+            } else {
+                $value = '0';
+            }
         } elseif ($type === 'multicheck') {
             $value = isset($input[$key]) && is_array($input[$key]) ? implode(',', array_map('trim', $input[$key])) : '';
         } else {

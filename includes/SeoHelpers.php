@@ -35,7 +35,7 @@ if (!function_exists('getSeoMeta')) {
             ? seoSettings()
             : (function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : []);
 
-        $siteName = $envConfig['APP_NAME'] ?? 'İçerik Topic';
+        $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
 
         // Apply meta_title_suffix if set
         $titleSuffix = $settings['meta_title_suffix'] ?? '';
@@ -271,9 +271,12 @@ if (!function_exists('getWebsiteStructuredData')) {
      * Generate website structured data for homepage
      */
     function getWebsiteStructuredData(): string {
-        global $baseUri, $envConfig;
-        
-        $siteName = $envConfig['APP_NAME'] ?? 'İçerik Topic';
+        global $baseUri, $envConfig, $pdo;
+
+        $settings = function_exists('seoSettings')
+            ? seoSettings()
+            : (function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : []);
+        $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
         $baseUrl = getBaseUrl();
         
         $data = [

@@ -18,7 +18,7 @@ if (!function_exists('seoGenerateCategoryMeta')) {
     {
         global $baseUri, $envConfig;
 
-        $siteName = $envConfig['APP_NAME'] ?? 'İçerik Topic';
+        $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
         $categoryName = trim((string) ($category['name'] ?? ''));
         $parentName = trim((string) ($category['parent_name'] ?? ''));
         $topicCount = (int) ($category['topic_count'] ?? 0);
@@ -41,7 +41,7 @@ if (!function_exists('seoGenerateCategoryMeta')) {
             ]);
         }
 
-        $maxLength = (int) ($settings['meta_description_length'] ?? 160);
+        $maxLength = (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160));
         if (mb_strlen($description, 'UTF-8') > $maxLength) {
             $description = mb_substr($description, 0, $maxLength - 3, 'UTF-8') . '...';
         }
@@ -67,7 +67,7 @@ if (!function_exists('seoGenerateProfileMeta')) {
     {
         global $baseUri, $envConfig;
 
-        $siteName = $envConfig['APP_NAME'] ?? 'İçerik Topic';
+        $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
         $username = trim((string) ($user['name'] ?? ''));
         $topics = (int) ($stats['topics'] ?? 0);
         $comments = (int) ($stats['comments'] ?? 0);
@@ -85,7 +85,7 @@ if (!function_exists('seoGenerateProfileMeta')) {
             'site_name' => $siteName,
         ]);
 
-        $maxLength = (int) ($settings['meta_description_length'] ?? 160);
+        $maxLength = (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160));
         if (mb_strlen($description, 'UTF-8') > $maxLength) {
             $description = mb_substr($description, 0, $maxLength - 3, 'UTF-8') . '...';
         }
@@ -115,7 +115,7 @@ if (!function_exists('seoGenerateTopicMeta')) {
     {
         global $envConfig;
 
-        $siteName = $envConfig['APP_NAME'] ?? 'İçerik Topic';
+        $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
         $title = trim((string) ($topic['meta_title'] ?? ''));
         if ($title === '') {
             $title = trim((string) ($topic['title'] ?? ''));
@@ -130,7 +130,7 @@ if (!function_exists('seoGenerateTopicMeta')) {
         }
         $description = trim(preg_replace('/\s+/u', ' ', strip_tags($descriptionSource)) ?? '');
 
-        $maxLength = (int) ($settings['meta_description_length'] ?? 160);
+        $maxLength = (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160));
         if ($description !== '' && mb_strlen($description, 'UTF-8') > $maxLength) {
             $description = mb_substr($description, 0, $maxLength - 3, 'UTF-8') . '...';
         }
