@@ -141,8 +141,9 @@ require_once $projectRoot . '/includes/public-header.php';
 </div>
 <?php endif; ?>
 
-<main
+<section
     class="messages-shell public-container public-content ui-container ui-section"
+    aria-labelledby="messages-title"
     data-messages-root
     data-messages-api-url="<?= htmlspecialchars($messagesApiUrl, ENT_QUOTES, 'UTF-8') ?>"
     data-messages-url="<?= htmlspecialchars($messagesBaseUrl, ENT_QUOTES, 'UTF-8') ?>"
@@ -152,7 +153,7 @@ require_once $projectRoot . '/includes/public-header.php';
     <section class="messages-hero ui-card">
         <div>
             <span class="messages-kicker"><i class="bi bi-chat-dots" aria-hidden="true"></i> Ozel Mesajlar</span>
-            <h1>Mesajlasma Merkezi</h1>
+            <h1 id="messages-title">Mesajlasma Merkezi</h1>
             <p>Sadece birebir sohbetleri yonetin, okunmamislari tek panelden takip edin ve acilan sohbetlerde otomatik okundu akisini kullanin.</p>
         </div>
         <div class="messages-hero-meta">
@@ -336,7 +337,7 @@ require_once $projectRoot . '/includes/public-header.php';
             <?php endif; ?>
         </section>
     </div>
-</main>
+</section>
 
 <script src="<?= asset_url('assets/js/messages-page.js', $baseUri) ?>" defer></script>
 

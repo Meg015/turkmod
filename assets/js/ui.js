@@ -671,103 +671,104 @@
    ============================================================ */
 
 /**
- * Navbar Dropdown Handler - Keyboard Navigation Desteği
+ * Navbar Dropdown Handler - Keyboard Navigation Support
  */
 
 (function() {
     'use strict';
 
+    const root = document.querySelector('.topic-profile-dd');
     const btn = document.getElementById('profileDropdownBtn');
     const menu = document.getElementById('profileDropdownMenu');
 
     if (!btn || !menu) return;
 
-    let isOpen = false;
+    const items = () => Array.from(menu.querySelectorAll('.tpm-item, button.tpm-item'));
 
-    function openMenu() {
-        isOpen = true;
-        menu.classList.add('show');
-        btn.setAttribute('aria-expanded', 'true');
+    function setOpen(open, focusFirst) {
+        if (root) root.classList.toggle('is-open', open);
+        menu.classList.toggle('show', open);
+        menu.hidden = !open;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 
-        // İlk menü öğesine focus
-        const firstItem = menu.querySelector('.tpm-item');
-        if (firstItem) {
-            setTimeout(() => firstItem.focus(), 100);
+        if (open && focusFirst) {
+            window.setTimeout(function () {
+                const first = items()[0];
+                if (first) first.focus();
+            }, 20);
         }
     }
 
-    function closeMenu() {
-        isOpen = false;
-        menu.classList.remove('show');
-        btn.setAttribute('aria-expanded', 'false');
+    function isOpen() {
+        return !menu.hidden && menu.classList.contains('show');
     }
+
+    menu.hidden = true;
+    setOpen(false, false);
 
     function toggleMenu() {
-        if (isOpen) {
-            closeMenu();
-        } else {
-            openMenu();
-        }
+        setOpen(!isOpen(), true);
     }
 
-    // Mouse click
-    btn.addEventListener('click', function(e) {
-        e.stopPropagation();
+    btn.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
         toggleMenu();
     });
 
-    // Keyboard support - Enter ve Space
-    btn.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
+    btn.addEventListener('keydown', function (event) {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setOpen(true, true);
+        } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
             toggleMenu();
-        } else if (e.key === 'Escape' && isOpen) {
-            closeMenu();
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            setOpen(false, false);
+        }
+    });
+
+    menu.addEventListener('keydown', function (event) {
+        const menuItems = items();
+        const currentIndex = menuItems.indexOf(document.activeElement);
+
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            setOpen(false, false);
             btn.focus();
+            return;
+        }
+
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+
+        event.preventDefault();
+        if (!menuItems.length) return;
+
+        const nextIndex = event.key === 'ArrowDown'
+            ? (currentIndex + 1) % menuItems.length
+            : (currentIndex <= 0 ? menuItems.length - 1 : currentIndex - 1);
+        menuItems[nextIndex].focus();
+    });
+
+    document.addEventListener('click', function (event) {
+        if (isOpen() && root && !root.contains(event.target)) {
+            setOpen(false, false);
         }
     });
 
-    // Menü içinde keyboard navigation
-    menu.addEventListener('keydown', function(e) {
-        const items = Array.from(menu.querySelectorAll('.tpm-item, button.tpm-item'));
-        const currentIndex = items.indexOf(document.activeElement);
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            const nextIndex = (currentIndex + 1) % items.length;
-            items[nextIndex].focus();
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            const prevIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
-            items[prevIndex].focus();
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            closeMenu();
-            btn.focus();
-        } else if (e.key === 'Tab') {
-            // Tab ile menüden çıkınca kapat
-            closeMenu();
-        }
+    window.addEventListener('resize', function () {
+        if (isOpen()) setOpen(false, false);
     });
 
-    // Dışarı tıklanınca kapat
-    document.addEventListener('click', function(e) {
-        if (isOpen && !menu.contains(e.target) && e.target !== btn) {
-            closeMenu();
-        }
-    });
-
-    // Focus kaybedince kapat (accessibility)
-    menu.addEventListener('focusout', function(e) {
-        // Yeni focus edilen element menü içinde değilse kapat
-        setTimeout(() => {
-            if (isOpen && !menu.contains(document.activeElement) && document.activeElement !== btn) {
-                closeMenu();
+    menu.addEventListener('focusout', function () {
+        window.setTimeout(function () {
+            if (isOpen() && !menu.contains(document.activeElement) && document.activeElement !== btn) {
+                setOpen(false, false);
             }
-        }, 100);
+        }, 50);
     });
 })();
-
 /* ============================================================
    SECTION 5: MOBILE SIDEBAR
    ============================================================ */
