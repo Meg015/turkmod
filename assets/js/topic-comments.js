@@ -75,6 +75,16 @@
                     setTimeout(() => toast.remove(), 300);
                 }, 3000);
             }
+            function dispatchCommentCreatedEvent(payload = {}) {
+                try {
+                    const detail = Object.assign({
+                        topicId: parseInt(TOPIC || '0', 10) || 0,
+                    }, payload || {});
+                    const event = new CustomEvent('topic-comment:created', { detail });
+                    document.dispatchEvent(event);
+                    window.dispatchEvent(event);
+                } catch (error) {}
+            }
             function avatar(name,avUrl){
                 const src = avUrl
                     ? (avUrl.startsWith('http') ? avUrl : BASE_URI + '/' + avUrl.replace(/^\/+/,''))
@@ -713,8 +723,10 @@
                         replyTo = null;
                         if(data.pending){
                             showAlert(data.message,'warning');
+                            dispatchCommentCreatedEvent({ pending: true, source: 'main' });
                         } else {
                             showAlert(data.message,'success');
+                            dispatchCommentCreatedEvent({ pending: false, source: 'main' });
                             loadComments(1);
                         }
                     } else {
@@ -799,8 +811,15 @@
                         if(data._token) CSRF=data._token;
                         if(data.success){
                             removeInlineReply();
-                            if(data.pending) showAlert(data.message,'warning');
-                            else { showAlert(data.message,'success'); loadComments(1); }
+                            if(data.pending) {
+                                showAlert(data.message,'warning');
+                                dispatchCommentCreatedEvent({ pending: true, source: 'reply' });
+                            }
+                            else {
+                                showAlert(data.message,'success');
+                                dispatchCommentCreatedEvent({ pending: false, source: 'reply' });
+                                loadComments(1);
+                            }
                         } else {
                             showAlert(data.error||'Hata','error');
                             clearButtonBusy(btn);

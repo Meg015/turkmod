@@ -561,6 +561,149 @@
     border-color: color-mix(in srgb, var(--ui-foundation-success) 38%, var(--border, #d8dee8));
 }
 
+.topic-dl-card.is-locked {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 46%, var(--border, #d8dee8));
+    cursor: pointer;
+}
+
+.topic-dl-card.is-locked .topic-dl-spinner {
+    display: none !important;
+}
+
+.topic-dl-lock-message {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-dim, #64748b);
+    font-size: .82rem;
+    line-height: 1.35;
+}
+
+.topic-dl-access-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 14px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 35%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 10%, transparent);
+    color: var(--color-text, #111827);
+}
+
+.topic-download-auth-backdrop[hidden],
+.topic-download-auth-modal[hidden] {
+    display: none;
+}
+
+.topic-download-auth-modal {
+    --ui-modal-width: min(100% - 1.25rem, 480px);
+    padding: 16px;
+}
+
+.topic-download-auth-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.topic-download-auth-head h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.topic-download-auth-close {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.topic-download-auth-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.topic-download-auth-tabs button {
+    border: 1px solid var(--color-border, #d8dee8);
+    border-radius: 10px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #111827);
+    padding: 9px 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.topic-download-auth-tabs button.is-active {
+    border-color: var(--color-primary, #8b1538);
+    background: color-mix(in srgb, var(--color-primary, #8b1538) 14%, transparent);
+}
+
+.topic-download-auth-feedback {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-size: .88rem;
+    line-height: 1.4;
+}
+
+.topic-download-auth-feedback.is-error {
+    background: color-mix(in srgb, var(--ui-foundation-danger, #dc2626) 14%, transparent);
+    color: color-mix(in srgb, var(--ui-foundation-danger, #dc2626) 90%, #111827);
+}
+
+.topic-download-auth-feedback.is-warning {
+    background: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 14%, transparent);
+    color: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 90%, #111827);
+}
+
+.topic-download-auth-feedback.is-success {
+    background: color-mix(in srgb, var(--ui-foundation-success, #16a34a) 14%, transparent);
+    color: color-mix(in srgb, var(--ui-foundation-success, #16a34a) 90%, #111827);
+}
+
+.topic-download-auth-pane {
+    display: grid;
+    gap: 10px;
+}
+
+.topic-download-auth-pane label {
+    display: grid;
+    gap: 5px;
+}
+
+.topic-download-auth-pane input {
+    min-height: 38px;
+}
+
+.topic-download-auth-checkbox {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    font-size: .88rem;
+}
+
+.topic-download-auth-checkbox input {
+    min-height: 0;
+}
+
+.topic-download-auth-submit {
+    min-height: 40px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--color-primary, #8b1538);
+    color: var(--color-on-primary, #fff);
+    font-weight: 800;
+    cursor: pointer;
+}
+
 .public-preview-grid {
     min-height: 0;
 }

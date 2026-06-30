@@ -157,14 +157,22 @@ require_once $projectRoot . '/includes/public-header.php';
             <p>Sadece birebir sohbetleri yonetin, okunmamislari tek panelden takip edin ve acilan sohbetlerde otomatik okundu akisini kullanin.</p>
         </div>
         <div class="messages-hero-meta">
-            <div>
-                <strong><?= number_format(count($threads), 0, ',', '.') ?></strong>
-                <span>Sohbet</span>
-            </div>
-            <div>
-                <strong><?= number_format($unreadTotal, 0, ',', '.') ?></strong>
-                <span>Okunmamis</span>
-            </div>
+            <article class="messages-hero-stat is-threads">
+                <span class="messages-hero-stat-icon" aria-hidden="true"><i class="bi bi-chat-dots"></i></span>
+                <div class="messages-hero-stat-copy">
+                    <span class="messages-hero-stat-label">Toplam Sohbet</span>
+                    <strong><?= number_format(count($threads), 0, ',', '.') ?></strong>
+                    <small>Tum birebir konusmalar</small>
+                </div>
+            </article>
+            <article class="messages-hero-stat is-unread">
+                <span class="messages-hero-stat-icon" aria-hidden="true"><i class="bi bi-envelope-open"></i></span>
+                <div class="messages-hero-stat-copy">
+                    <span class="messages-hero-stat-label">Bekleyen Mesaj</span>
+                    <strong><?= number_format($unreadTotal, 0, ',', '.') ?></strong>
+                    <small>Okunmamis iletiler</small>
+                </div>
+            </article>
         </div>
     </section>
 
@@ -185,7 +193,14 @@ require_once $projectRoot . '/includes/public-header.php';
     <div class="messages-workspace">
         <aside class="messages-sidebar ui-card" aria-label="Sohbet listesi">
             <div class="messages-sidebar-head">
-                <h2>Sohbetler</h2>
+                <div class="messages-sidebar-title">
+                    <h2>Sohbetler</h2>
+                    <p>
+                        <?= number_format(count($threads), 0, ',', '.') ?> sohbet
+                        <span aria-hidden="true">&middot;</span>
+                        <?= number_format($unreadTotal, 0, ',', '.') ?> okunmamis
+                    </p>
+                </div>
                 <a href="<?= htmlspecialchars($messagesBaseUrl, ENT_QUOTES, 'UTF-8') ?>" class="messages-refresh-link">
                     <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
                     <span>Yenile</span>
@@ -243,7 +258,10 @@ require_once $projectRoot . '/includes/public-header.php';
             <?php endif; ?>
 
             <section class="messages-start-card" aria-label="Yeni sohbet baslat">
-                <h3>Yeni Sohbet</h3>
+                <h3>
+                    <i class="bi bi-plus-circle" aria-hidden="true"></i>
+                    <span>Yeni Sohbet</span>
+                </h3>
                 <form method="post" class="messages-start-form" data-messages-start-form>
                     <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="start">
@@ -285,7 +303,7 @@ require_once $projectRoot . '/includes/public-header.php';
                         >
                         <div>
                             <strong><?= htmlspecialchars((string) ($activeThread['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?></strong>
-                            <span>Tekil thread · canonical sohbet</span>
+                            <span>Tekil sohbet</span>
                         </div>
                     </div>
                 </header>

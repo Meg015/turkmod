@@ -1,49 +1,668 @@
-document.querySelectorAll('.topic-dl-section .topic-dl-card').forEach(function (card) {
-    if (card.dataset.downloadHandlerBound === '1') return;
-    card.dataset.downloadHandlerBound = '1';
-    card.addEventListener('click', function (event) {
-        event.preventDefault();
-        if (card.dataset.ready === '1') {
-            window.open(card.href, '_blank', 'noopener');
+﻿(function () {
+    'use strict';
+
+    function toBool(value, fallback) {
+        if (value === undefined || value === null || value === '') {
+            return fallback;
+        }
+        return String(value) === '1' || String(value).toLowerCase() === 'true';
+    }
+
+    function showToast(message, type) {
+        if (!message) {
             return;
         }
-        if (card.dataset.counting === '1') return;
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type || 'info');
+            return;
+        }
+        console.log('[topic-downloads]', message);
+    }
+
+    function sectionState(section) {
+        const topicId = parseInt(section.dataset.topicId || '0', 10) || 0;
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const currentPath = window.location.pathname + window.location.search;
+
+        return {
+            topicId: topicId,
+            csrf: section.dataset.csrf || (csrfMeta ? csrfMeta.getAttribute('content') : ''),
+            countdownSeconds: Math.max(0, parseInt(section.dataset.countdownSeconds || '5', 10) || 0),
+            waitText: section.dataset.waitText || 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz',
+            doneText: section.dataset.doneText || 'Indirme linkiniz hazir, indirmek icin tiklayin',
+            lockButtonText: section.dataset.lockButtonText || 'Kilidi Ac',
+            commentCtaLabel: section.dataset.commentCtaLabel || 'Yorumlara Git',
+            lockMessage: section.dataset.lockMessage || '',
+            lockReason: section.dataset.lockReason || 'none',
+            statusApi: section.dataset.statusApi || '',
+            authApi: section.dataset.authApi || '',
+            loginUrl: section.dataset.loginUrl || '',
+            registerUrl: section.dataset.registerUrl || '',
+            commentTarget: section.dataset.commentTarget || '#comments-heading',
+            currentRequestUri: section.dataset.currentRequestUri || currentPath,
+            openAuthPopup: toBool(section.dataset.openAuthPopup, true),
+            focusCommentForm: toBool(section.dataset.focusCommentForm, true),
+            unlockAfterAuth: toBool(section.dataset.unlockAfterAuth, true),
+            unlockAfterComment: toBool(section.dataset.unlockAfterComment, true),
+            authModalTitle: section.dataset.authModalTitle || 'Indirme linklerini acmak icin giris yapin',
+            authLoginLabel: section.dataset.authLoginLabel || 'Giris Yap',
+            authRegisterLabel: section.dataset.authRegisterLabel || 'Kayit Ol',
+            authSuccessMessage: section.dataset.authSuccessMessage || 'Oturum basariyla acildi.',
+            modal: null,
+            modalBackdrop: null,
+            modalFeedback: null,
+            modalAction: 'login',
+            pendingCard: null,
+            commentWatchTimer: null,
+            commentWatchCount: 0,
+        };
+    }
+
+    function lockedReason(card, state) {
+        return card.dataset.lockReason || state.lockReason || 'none';
+    }
+
+    function lockMessage(card, state) {
+        return card.dataset.lockMessage || state.lockMessage || '';
+    }
+
+    function cardHref(card) {
+        return card.dataset.downloadHref || card.getAttribute('href') || '#';
+    }
+
+    function updateCardLockedUi(card, state, locked, reason, message) {
+        const action = card.querySelector('.topic-dl-action');
+        const icon = card.querySelector('.topic-dl-icon i');
+        const info = card.querySelector('.topic-dl-info');
+
+        card.dataset.locked = locked ? '1' : '0';
+        card.dataset.lockReason = locked ? reason : 'none';
+        card.dataset.lockMessage = locked ? message : '';
+        card.classList.toggle('is-locked', !!locked);
+        card.setAttribute('aria-disabled', locked ? 'true' : 'false');
+
+        if (locked) {
+            card.classList.remove('is-ready', 'is-counting');
+            card.dataset.ready = '0';
+            card.dataset.counting = '0';
+            card.setAttribute('href', '#');
+            if (action) {
+                action.textContent = reason === 'comment_required' ? state.commentCtaLabel : state.lockButtonText;
+            }
+            if (icon) {
+                icon.className = 'bi bi-lock-fill';
+            }
+            if (info && !info.querySelector('.topic-dl-lock-message') && message) {
+                const small = document.createElement('small');
+                small.className = 'topic-dl-lock-message';
+                small.textContent = message;
+                info.appendChild(small);
+            }
+            return;
+        }
+
+        card.setAttribute('href', cardHref(card));
+        if (action) {
+            action.textContent = card.dataset.readyText || state.doneText;
+        }
+        if (icon) {
+            icon.className = 'bi bi-cloud-arrow-down';
+        }
+        const lockMsgEl = info ? info.querySelector('.topic-dl-lock-message') : null;
+        if (lockMsgEl) {
+            lockMsgEl.remove();
+        }
+    }
+
+    function updateSectionNotice(section, state, locked, reason, message) {
+        section.dataset.locked = locked ? '1' : '0';
+        section.dataset.lockReason = locked ? reason : 'none';
+        section.dataset.lockMessage = locked ? message : '';
+        state.lockReason = section.dataset.lockReason;
+        state.lockMessage = section.dataset.lockMessage;
+
+        const notice = section.parentElement ? section.parentElement.querySelector('[data-download-lock-notice]') : null;
+        if (!notice) {
+            return;
+        }
+        notice.style.display = locked ? '' : 'none';
+        const span = notice.querySelector('span');
+        if (span && locked) {
+            span.textContent = message || (reason === 'comment_required'
+                ? 'Indirme linklerini gormek icin once yorum yapmaniz gerekir.'
+                : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz gerekir.');
+        }
+    }
+
+    async function fetchAccessState(section, state) {
+        if (!state.statusApi || !state.topicId) {
+            return null;
+        }
+        const url = state.statusApi + '?topic_id=' + encodeURIComponent(String(state.topicId)) + '&_=' + Date.now();
+        const response = await fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        const data = await response.json().catch(function () { return null; });
+        if (!response.ok || !data || data.success === false) {
+            return null;
+        }
+        if (data._token) {
+            state.csrf = data._token;
+        }
+        return data;
+    }
+
+    async function refreshLockState(section, state, autoOpenCard) {
+        const data = await fetchAccessState(section, state);
+        if (!data) {
+            return false;
+        }
+
+        const locked = !!(data.locked || (data.access && data.access.locked));
+        const reason = String((data.reason || (data.access && data.access.reason) || 'none'));
+        const message = String((data.message || (data.access && data.access.message) || ''));
+
+        updateSectionNotice(section, state, locked, reason, message);
+
+        const cards = section.querySelectorAll('.topic-dl-card');
+        cards.forEach(function (card) {
+            updateCardLockedUi(card, state, locked, reason, message);
+        });
+
+        if (!locked && autoOpenCard) {
+            runCountdown(autoOpenCard, state, true);
+        }
+        return !locked;
+    }
+
+    function openDownload(card) {
+        const href = cardHref(card);
+        if (!href || href === '#') {
+            return;
+        }
+        window.open(href, '_blank', 'noopener');
+    }
+
+    function finishCountdown(card, state, autoOpen) {
+        card.dataset.ready = '1';
+        card.dataset.counting = '0';
+        card.removeAttribute('aria-busy');
+        card.classList.remove('is-counting');
+        card.classList.add('is-ready');
+        const action = card.querySelector('.topic-dl-action');
+        if (action) {
+            action.textContent = state.doneText;
+        }
+        if (autoOpen) {
+            openDownload(card);
+        }
+    }
+
+    function runCountdown(card, state, autoOpen) {
+        if (!card || card.dataset.locked === '1') {
+            return;
+        }
+        if (card.dataset.ready === '1') {
+            if (autoOpen) {
+                openDownload(card);
+            }
+            return;
+        }
+        if (card.dataset.counting === '1') {
+            return;
+        }
+
         card.dataset.counting = '1';
-        const section = card.closest('.topic-dl-section');
-        const seconds = Math.max(0, parseInt(section?.dataset.countdownSeconds || '5', 10) || 0);
-        const waitText = section?.dataset.waitText || 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz';
-        const doneText = section?.dataset.doneText || 'İndirme linkiniz hazır, indirmek için tıklayın';
+        let remaining = state.countdownSeconds;
         const action = card.querySelector('.topic-dl-action');
         const button = card.querySelector('.topic-dl-button');
-        let remaining = seconds;
 
         card.classList.add('is-counting');
         card.setAttribute('aria-busy', 'true');
-        if (button) button.setAttribute('aria-live', 'polite');
-        if (action) action.textContent = waitText + (remaining > 0 ? '... ' + remaining : '...');
+        if (button) {
+            button.setAttribute('aria-live', 'polite');
+        }
+        if (action) {
+            action.textContent = state.waitText + (remaining > 0 ? '... ' + remaining : '...');
+        }
 
         if (remaining <= 0) {
-            finishCountdown(card, action, doneText);
+            finishCountdown(card, state, autoOpen);
             return;
         }
 
         const timer = setInterval(function () {
             remaining -= 1;
             if (remaining > 0) {
-                if (action) action.textContent = waitText + '... ' + remaining;
+                if (action) {
+                    action.textContent = state.waitText + '... ' + remaining;
+                }
                 return;
             }
             clearInterval(timer);
-            finishCountdown(card, action, doneText);
+            finishCountdown(card, state, autoOpen);
         }, 1000);
-    });
-});
+    }
 
-function finishCountdown(card, action, doneText) {
-    card.dataset.ready = '1';
-    card.dataset.counting = '0';
-    card.removeAttribute('aria-busy');
-    card.classList.remove('is-counting');
-    card.classList.add('is-ready');
-    if (action) action.textContent = doneText;
-}
+    function focusCommentArea(state) {
+        const commentSection = document.querySelector('.topic-comments');
+        if (!commentSection) {
+            if (state.commentTarget) {
+                window.location.hash = state.commentTarget.replace(/^.*#/, '');
+            }
+            return;
+        }
+
+        commentSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (!state.focusCommentForm) {
+            return;
+        }
+
+        window.setTimeout(function () {
+            const input = document.getElementById('tcInput') || commentSection.querySelector('.ui-comment-textarea') || commentSection.querySelector('textarea');
+            if (input) {
+                input.focus();
+            }
+        }, 240);
+    }
+
+    function loginRedirectUrl(state) {
+        if (!state.loginUrl) {
+            return '';
+        }
+        const glue = state.loginUrl.indexOf('?') >= 0 ? '&' : '?';
+        return state.loginUrl + glue + 'redirect=' + encodeURIComponent(state.currentRequestUri || (window.location.pathname + window.location.search));
+    }
+
+    function closeAuthModal(state) {
+        if (!state.modal || !state.modalBackdrop) {
+            return;
+        }
+        state.modal.hidden = true;
+        state.modalBackdrop.hidden = true;
+        document.body.classList.remove('topic-download-auth-open');
+    }
+
+    function switchModalTab(state, action) {
+        if (!state.modal) {
+            return;
+        }
+        state.modalAction = action === 'register' ? 'register' : 'login';
+        const loginTab = state.modal.querySelector('[data-download-auth-tab="login"]');
+        const registerTab = state.modal.querySelector('[data-download-auth-tab="register"]');
+        const loginPane = state.modal.querySelector('[data-download-auth-pane="login"]');
+        const registerPane = state.modal.querySelector('[data-download-auth-pane="register"]');
+
+        if (loginTab) {
+            loginTab.classList.toggle('is-active', state.modalAction === 'login');
+            loginTab.setAttribute('aria-selected', state.modalAction === 'login' ? 'true' : 'false');
+        }
+        if (registerTab) {
+            registerTab.classList.toggle('is-active', state.modalAction === 'register');
+            registerTab.setAttribute('aria-selected', state.modalAction === 'register' ? 'true' : 'false');
+        }
+        if (loginPane) {
+            loginPane.hidden = state.modalAction !== 'login';
+        }
+        if (registerPane) {
+            registerPane.hidden = state.modalAction !== 'register';
+        }
+    }
+
+    function ensureAuthModal(state, section) {
+        if (state.modal && state.modalBackdrop) {
+            return;
+        }
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'topic-download-auth-backdrop ui-modal-backdrop';
+        backdrop.hidden = true;
+
+        const modal = document.createElement('div');
+        modal.className = 'topic-download-auth-modal ui-modal';
+        modal.hidden = true;
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'topicDownloadAuthTitle');
+
+        modal.innerHTML = '' +
+            '<div class="topic-download-auth-head">' +
+                '<h3 id="topicDownloadAuthTitle"></h3>' +
+                '<button type="button" class="topic-download-auth-close" data-download-auth-close aria-label="Kapat">&times;</button>' +
+            '</div>' +
+            '<div class="topic-download-auth-tabs" role="tablist" aria-label="Kimlik dogrulama">' +
+                '<button type="button" class="is-active" role="tab" data-download-auth-tab="login" aria-selected="true">' + state.authLoginLabel + '</button>' +
+                '<button type="button" role="tab" data-download-auth-tab="register" aria-selected="false">' + state.authRegisterLabel + '</button>' +
+            '</div>' +
+            '<div class="topic-download-auth-feedback" data-download-auth-feedback hidden></div>' +
+            '<div class="topic-download-auth-pane" data-download-auth-pane="login">' +
+                '<label><span>Kullanici adi veya e-posta</span><input type="text" name="identifier" autocomplete="username"></label>' +
+                '<label><span>Sifre</span><input type="password" name="password" autocomplete="current-password"></label>' +
+                '<label class="topic-download-auth-checkbox"><input type="checkbox" name="remember_session" value="1"><span>Beni hatirla</span></label>' +
+                '<button type="button" class="topic-download-auth-submit" data-download-auth-submit="login">' + state.authLoginLabel + '</button>' +
+            '</div>' +
+            '<div class="topic-download-auth-pane" data-download-auth-pane="register" hidden>' +
+                '<label><span>Isim</span><input type="text" name="name" autocomplete="name"></label>' +
+                '<label><span>E-posta</span><input type="email" name="email" autocomplete="email"></label>' +
+                '<label><span>Sifre</span><input type="password" name="password" autocomplete="new-password"></label>' +
+                '<label><span>Sifre tekrar</span><input type="password" name="password_confirm" autocomplete="new-password"></label>' +
+                '<label class="topic-download-auth-checkbox"><input type="checkbox" name="remember_session" value="1"><span>Kaydolduktan sonra beni hatirla</span></label>' +
+                '<button type="button" class="topic-download-auth-submit" data-download-auth-submit="register">' + state.authRegisterLabel + '</button>' +
+            '</div>';
+
+        state.modal = modal;
+        state.modalBackdrop = backdrop;
+        state.modalFeedback = modal.querySelector('[data-download-auth-feedback]');
+
+        const title = modal.querySelector('#topicDownloadAuthTitle');
+        if (title) {
+            title.textContent = state.authModalTitle;
+        }
+
+        backdrop.addEventListener('click', function () { closeAuthModal(state); });
+        modal.addEventListener('click', function (event) {
+            const closeBtn = event.target.closest('[data-download-auth-close]');
+            if (closeBtn) {
+                closeAuthModal(state);
+                return;
+            }
+            const tabBtn = event.target.closest('[data-download-auth-tab]');
+            if (tabBtn) {
+                switchModalTab(state, tabBtn.getAttribute('data-download-auth-tab') || 'login');
+                return;
+            }
+            const submitBtn = event.target.closest('[data-download-auth-submit]');
+            if (submitBtn) {
+                submitAuth(state, section, submitBtn.getAttribute('data-download-auth-submit') || 'login', submitBtn);
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && state.modal && !state.modal.hidden) {
+                closeAuthModal(state);
+            }
+        });
+
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+    }
+
+    function modalFieldValue(modal, pane, name) {
+        const field = modal.querySelector('[data-download-auth-pane="' + pane + '"] [name="' + name + '"]');
+        if (!field) {
+            return '';
+        }
+        if (field.type === 'checkbox') {
+            return field.checked ? '1' : '';
+        }
+        return (field.value || '').trim();
+    }
+
+    function setModalFeedback(state, text, tone) {
+        if (!state.modalFeedback) {
+            return;
+        }
+        if (!text) {
+            state.modalFeedback.hidden = true;
+            state.modalFeedback.className = 'topic-download-auth-feedback';
+            state.modalFeedback.textContent = '';
+            return;
+        }
+        state.modalFeedback.hidden = false;
+        state.modalFeedback.className = 'topic-download-auth-feedback is-' + (tone || 'info');
+        state.modalFeedback.textContent = text;
+    }
+
+    async function submitAuth(state, section, action, submitBtn) {
+        if (!state.authApi) {
+            setModalFeedback(state, 'Auth API adresi bulunamadi.', 'error');
+            return;
+        }
+
+        const payload = {
+            action: action,
+            _token: state.csrf,
+            redirect: state.currentRequestUri || (window.location.pathname + window.location.search)
+        };
+
+        if (action === 'login') {
+            payload.identifier = modalFieldValue(state.modal, 'login', 'identifier');
+            payload.password = modalFieldValue(state.modal, 'login', 'password');
+            payload.remember_session = modalFieldValue(state.modal, 'login', 'remember_session') === '1' ? 1 : 0;
+        } else {
+            payload.name = modalFieldValue(state.modal, 'register', 'name');
+            payload.email = modalFieldValue(state.modal, 'register', 'email');
+            payload.password = modalFieldValue(state.modal, 'register', 'password');
+            payload.password_confirm = modalFieldValue(state.modal, 'register', 'password_confirm');
+            payload.remember_session = modalFieldValue(state.modal, 'register', 'remember_session') === '1' ? 1 : 0;
+        }
+
+        if (!payload.identifier && action === 'login') {
+            setModalFeedback(state, 'Kullanici adi veya e-posta zorunludur.', 'warning');
+            return;
+        }
+        if (!payload.password) {
+            setModalFeedback(state, 'Sifre zorunludur.', 'warning');
+            return;
+        }
+        if (action === 'register' && !payload.name) {
+            setModalFeedback(state, 'Isim zorunludur.', 'warning');
+            return;
+        }
+        if (action === 'register' && !payload.email) {
+            setModalFeedback(state, 'E-posta zorunludur.', 'warning');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.dataset.originalText = submitBtn.textContent || '';
+        submitBtn.textContent = 'Islem yapiliyor...';
+        setModalFeedback(state, '', 'info');
+
+        try {
+            const response = await fetch(state.authApi, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(function () { return null; });
+
+            if (data && data._token) {
+                state.csrf = data._token;
+                section.dataset.csrf = data._token;
+            }
+
+            if (!response.ok || !data || data.success === false) {
+                const errorMsg = data && (data.message || data.error) ? String(data.message || data.error) : 'Kimlik dogrulama basarisiz.';
+                setModalFeedback(state, errorMsg, 'error');
+                return;
+            }
+
+            setModalFeedback(state, state.authSuccessMessage || 'Oturum basariyla acildi.', 'success');
+            showToast(data.message || state.authSuccessMessage || 'Oturum basariyla acildi.', 'success');
+
+            if (state.unlockAfterAuth) {
+                const pending = state.pendingCard;
+                await refreshLockState(section, state, pending || null);
+                if (pending && pending.dataset.locked !== '1') {
+                    runCountdown(pending, state, true);
+                }
+            }
+
+            window.setTimeout(function () {
+                closeAuthModal(state);
+            }, 260);
+        } catch (error) {
+            setModalFeedback(state, 'Baglanti hatasi. Lutfen tekrar deneyin.', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = submitBtn.dataset.originalText || submitBtn.textContent;
+        }
+    }
+
+    function openAuthModal(state, section) {
+        ensureAuthModal(state, section);
+        if (!state.modal || !state.modalBackdrop) {
+            return;
+        }
+
+        switchModalTab(state, state.modalAction || 'login');
+        setModalFeedback(state, state.lockMessage || '', state.lockReason === 'comment_required' ? 'warning' : 'info');
+
+        state.modalBackdrop.hidden = false;
+        state.modal.hidden = false;
+        document.body.classList.add('topic-download-auth-open');
+
+        const firstInput = state.modal.querySelector('[data-download-auth-pane="' + (state.modalAction || 'login') + '"] input');
+        if (firstInput) {
+            window.setTimeout(function () {
+                firstInput.focus();
+            }, 30);
+        }
+    }
+
+    function startCommentUnlockWatcher(section, state) {
+        if (!state.unlockAfterComment) {
+            return;
+        }
+        if (state.commentWatchTimer) {
+            return;
+        }
+        state.commentWatchCount = 0;
+        state.commentWatchTimer = window.setInterval(async function () {
+            state.commentWatchCount += 1;
+            const unlocked = await refreshLockState(section, state, state.pendingCard || null);
+            if (unlocked || state.commentWatchCount >= 15) {
+                window.clearInterval(state.commentWatchTimer);
+                state.commentWatchTimer = null;
+                if (unlocked && state.pendingCard && state.pendingCard.dataset.locked !== '1') {
+                    runCountdown(state.pendingCard, state, true);
+                }
+            }
+        }, 1800);
+    }
+
+    function handleLockedCardClick(card, section, state) {
+        const reason = lockedReason(card, state);
+        const message = lockMessage(card, state);
+
+        state.pendingCard = card;
+        if (message) {
+            showToast(message, 'warning');
+        }
+
+        if (reason === 'comment_required') {
+            focusCommentArea(state);
+            startCommentUnlockWatcher(section, state);
+            return;
+        }
+
+        if (state.openAuthPopup) {
+            state.modalAction = 'login';
+            openAuthModal(state, section);
+            return;
+        }
+
+        const fallbackLogin = loginRedirectUrl(state);
+        if (fallbackLogin) {
+            window.location.href = fallbackLogin;
+        }
+    }
+
+    function bindCard(section, state, card) {
+        if (card.dataset.downloadLockInterceptorBound !== '1') {
+            card.dataset.downloadLockInterceptorBound = '1';
+            card.addEventListener('click', function (event) {
+                if (card.dataset.locked === '1') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.stopImmediatePropagation();
+                    handleLockedCardClick(card, section, state);
+                }
+            }, true);
+        }
+
+        if (card.dataset.downloadHandlerBound === '1' || card.dataset.downloadCountdownBound === '1') {
+            return;
+        }
+
+        card.dataset.downloadHandlerBound = '1';
+        card.dataset.downloadCountdownBound = '1';
+        card.addEventListener('click', function (event) {
+            event.preventDefault();
+            if (card.dataset.locked === '1') {
+                return;
+            }
+            if (card.dataset.ready === '1') {
+                openDownload(card);
+                return;
+            }
+            runCountdown(card, state, false);
+        });
+    }
+
+    function bindCommentBridge(section, state) {
+        const schedule = function () {
+            if ((section.dataset.locked || '0') !== '1') {
+                return;
+            }
+            if ((section.dataset.lockReason || '') !== 'comment_required') {
+                return;
+            }
+            startCommentUnlockWatcher(section, state);
+        };
+
+        document.addEventListener('click', function (event) {
+            const submitBtn = event.target.closest('#tcSubmit, .ui-comment-inline-submit, .ui-comment-btn-submit');
+            if (!submitBtn) {
+                return;
+            }
+            window.setTimeout(schedule, 250);
+        });
+
+        window.addEventListener('topic-comment:created', schedule);
+        document.addEventListener('topic-comment:created', schedule);
+    }
+
+    function initSection(section) {
+        const state = sectionState(section);
+        const cards = Array.from(section.querySelectorAll('.topic-dl-card'));
+
+        updateSectionNotice(section, state, toBool(section.dataset.locked, false), section.dataset.lockReason || 'none', section.dataset.lockMessage || '');
+
+        cards.forEach(function (card) {
+            bindCard(section, state, card);
+        });
+
+        const notice = section.parentElement ? section.parentElement.querySelector('[data-download-lock-notice]') : null;
+        if (notice && notice.dataset.downloadLockNoticeBound !== '1') {
+            notice.dataset.downloadLockNoticeBound = '1';
+            notice.addEventListener('click', function () {
+                const firstLocked = section.querySelector('.topic-dl-card[data-locked="1"]');
+                if (firstLocked) {
+                    handleLockedCardClick(firstLocked, section, state);
+                }
+            });
+        }
+
+        bindCommentBridge(section, state);
+    }
+
+    function boot() {
+        document.querySelectorAll('.topic-dl-section').forEach(initSection);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot, { once: true });
+    } else {
+        boot();
+    }
+})();

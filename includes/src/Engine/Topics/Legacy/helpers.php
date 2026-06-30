@@ -204,6 +204,99 @@ function parseTopicDownloadLinksText(string $raw): array
     return $links;
 }
 
+function topicDownloadAccessMode(array $settings): string
+{
+    $mode = strtolower(trim((string) ($settings['download_access_mode'] ?? 'public')));
+    if (!in_array($mode, ['public', 'members', 'members_comment'], true)) {
+        return 'public';
+    }
+
+    return $mode;
+}
+
+function topicDownloadCommentRequirement(array $settings): string
+{
+    $mode = strtolower(trim((string) ($settings['download_access_comment_requirement'] ?? 'submitted')));
+    return $mode === 'approved' ? 'approved' : 'submitted';
+}
+
+function topicUserHasTopicComment(?PDO $pdo, int $topicId, int $userId, bool $approvedOnly = false): bool
+{
+    if (!$pdo || $topicId <= 0 || $userId <= 0) {
+        return false;
+    }
+
+    try {
+        $sql = "SELECT 1
+                FROM comments
+                WHERE topic_id = :topic_id
+                  AND user_id = :user_id
+                  AND deleted_at IS NULL";
+        if ($approvedOnly) {
+            $sql .= " AND status = 'approved'";
+        }
+        $sql .= " LIMIT 1";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            'topic_id' => $topicId,
+            'user_id' => $userId,
+        ]);
+        return (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicUserHasTopicComment', 'topic_id' => $topicId, 'user_id' => $userId]);
+        }
+        return false;
+    }
+}
+
+function topicDownloadAccessState(?PDO $pdo, array $settings, int $topicId, int $userId = 0): array
+{
+    $mode = topicDownloadAccessMode($settings);
+    $commentRequirement = topicDownloadCommentRequirement($settings);
+    $loginMessage = trim((string) ($settings['download_access_login_message'] ?? 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.'));
+    $commentMessage = trim((string) ($settings['download_access_comment_message'] ?? 'Indirme linklerini gormek icin once yorum yapmaniz lazim.'));
+
+    $state = [
+        'mode' => $mode,
+        'comment_requirement' => $commentRequirement,
+        'locked' => false,
+        'reason' => 'none',
+        'message' => '',
+        'has_comment' => false,
+        'requires_login' => false,
+    ];
+
+    if ($topicId <= 0 || $mode === 'public') {
+        return $state;
+    }
+
+    if ($userId <= 0) {
+        $state['locked'] = true;
+        $state['reason'] = 'auth_required';
+        $state['message'] = $loginMessage !== '' ? $loginMessage : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.';
+        $state['requires_login'] = true;
+        return $state;
+    }
+
+    if ($mode !== 'members_comment') {
+        return $state;
+    }
+
+    $approvedOnly = $commentRequirement === 'approved';
+    $hasComment = topicUserHasTopicComment($pdo, $topicId, $userId, $approvedOnly);
+    $state['has_comment'] = $hasComment;
+    if ($hasComment) {
+        return $state;
+    }
+
+    $state['locked'] = true;
+    $state['reason'] = 'comment_required';
+    $state['message'] = $commentMessage !== '' ? $commentMessage : 'Indirme linklerini gormek icin once yorum yapmaniz lazim.';
+    return $state;
+}
+
 function getTopicDownloadLinks(?PDO $pdo, int $topicId, string $legacyLinks = ''): array
 {
     $fallback = parseTopicDownloadLinksText($legacyLinks);

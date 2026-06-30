@@ -194,7 +194,7 @@ $seoGroups = [
     'seo-tab-meta' => [
         'title' => 'Meta & Canonical',
         'icon' => 'bi-card-text',
-        'description' => 'Sayfa basliklari, aciklamalar, indeksleme ve canonical davranisi.',
+        'description' => 'Sayfa başlıkları, açıklamalar ve canonical URL davranışı.',
         'keys' => [
             'default_meta_title',
             'meta_title_suffix',
@@ -207,9 +207,9 @@ $seoGroups = [
         ],
     ],
     'seo-tab-social' => [
-        'title' => 'Sosyal & Dogrulama',
+        'title' => 'Sosyal Medya & Analitik',
         'icon' => 'bi-share',
-        'description' => 'Open Graph, Twitter kartlari ve arama motoru dogrulama kodlari.',
+        'description' => 'Open Graph, Twitter kartları, Google Analytics ve arama motoru doğrulama kodları.',
         'keys' => [
             'og_image',
             'og_type',
@@ -219,10 +219,30 @@ $seoGroups = [
             'google_site_verification',
         ],
     ],
+    'seo-tab-index' => [
+        'title' => 'İndeksleme & Sayfalama',
+        'icon' => 'bi-eye-slash',
+        'description' => 'Sayfa tiplerine göre indeksleme davranışı ve sayfalama stratejisi.',
+        'keys' => [
+            'allow_indexing',
+            'index_homepage',
+            'index_categories',
+            'index_topics',
+            'index_tag_pages',
+            'index_archive_pages',
+            'index_profiles',
+            'index_search_results',
+            'index_empty_categories',
+            'index_draft_topics',
+            'index_paginated_pages',
+            'pagination_strategy',
+            'pagination_max_pages_index',
+        ],
+    ],
     'seo-tab-sitemap' => [
-        'title' => 'Sitemap Ayarları',
+        'title' => 'Sitemap',
         'icon' => 'bi-diagram-3',
-        'description' => 'XML sitemap ve görsel sitemap ayarlarını tek yerden yönetin.',
+        'description' => 'XML sitemap, görsel sitemap ve sitemap routing ayarlarını tek yerden yönetin.',
         'keys' => [
             'sitemap_enabled',
             'sitemap_max_urls',
@@ -234,13 +254,6 @@ $seoGroups = [
             'sitemap_exclude_drafts',
             'sitemap_route_enabled',
             'sitemap_cache_duration',
-        ],
-    ],
-    'seo-tab-images' => [
-        'title' => 'Gorseller',
-        'icon' => 'bi-images',
-        'description' => 'Gorsel sitemap ve medya indeksleme ayarlari.',
-        'keys' => [
             'image_sitemap_enabled',
             'image_sitemap_max_images',
             'image_sitemap_hero',
@@ -263,63 +276,29 @@ $seoGroups = [
         ],
     ],
     'seo-tab-structured' => [
-        'title' => 'Structured Data',
+        'title' => 'Yapısal Veri & Özel Kod',
         'icon' => 'bi-code-square',
-        'description' => 'Schema.org yapisal veri ve organizasyon bilgileri.',
+        'description' => 'Schema.org yapısal veri işaretlemeleri, organizasyon bilgileri ve özel head kodları.',
         'keys' => [
             'structured_data_category',
             'structured_data_profile',
             'schema_organization_name',
             'schema_organization_logo',
-        ],
-    ],
-    'seo-tab-pagination' => [
-        'title' => 'Pagination SEO',
-        'icon' => 'bi-arrow-left-right',
-        'description' => 'Sayfalama stratejisi ve indeksleme ayarlari.',
-        'keys' => [
-            'pagination_strategy',
-            'pagination_max_pages_index',
+            'structured_data',
+            'schema_site_search',
+            'schema_breadcrumbs',
+            'custom_head_code',
         ],
     ],
     'seo-tab-image-seo' => [
-        'title' => 'Image SEO',
+        'title' => 'Görsel SEO',
         'icon' => 'bi-image',
-        'description' => 'Gorsel alt metni otomatik olusturma ve sablonlari.',
+        'description' => 'Görsel alt metni otomatik oluşturma ve şablonları.',
         'keys' => [
             'image_alt_auto_generate',
             'image_alt_template',
             'image_alt_fallback',
             'image_alt_min_length',
-        ],
-    ],
-    'seo-tab-index' => [
-        'title' => 'Indexleme Kontrolleri',
-        'icon' => 'bi-eye-slash',
-        'description' => 'Sayfa tiplerine gore indexleme davranisini net bir sekilde yonetin.',
-        'keys' => [
-            'allow_indexing',
-            'index_homepage',
-            'index_categories',
-            'index_topics',
-            'index_tag_pages',
-            'index_archive_pages',
-            'index_profiles',
-            'index_search_results',
-            'index_empty_categories',
-            'index_draft_topics',
-            'index_paginated_pages',
-        ],
-    ],
-    'seo-tab-advanced' => [
-        'title' => 'Yapisal Veri & Kod',
-        'icon' => 'bi-code-square',
-        'description' => 'Schema.org isaretlemeleri ve ozel head kodlari.',
-        'keys' => [
-            'structured_data',
-            'schema_site_search',
-            'schema_breadcrumbs',
-            'custom_head_code',
         ],
     ],
 ];
@@ -393,6 +372,27 @@ $downloadGroups = [
             'download_redirect_missing_message',
             'download_redirect_invalid_message',
             'download_redirect_error_message',
+        ],
+    ],
+    'downloads-tab-access' => [
+        'title' => 'Indirme Erisim Kilidi',
+        'icon' => 'bi-shield-lock',
+        'description' => 'Uyelik/yorum sartli kilit, popup akis ve sayfa yenilemeden kilit acma davranislari.',
+        'keys' => [
+            'download_access_mode',
+            'download_access_comment_requirement',
+            'download_access_login_message',
+            'download_access_comment_message',
+            'download_access_locked_button_text',
+            'download_access_comment_cta_label',
+            'download_access_open_auth_popup',
+            'download_access_focus_comment_form',
+            'download_access_unlock_after_auth',
+            'download_access_unlock_after_comment',
+            'download_access_auth_modal_title',
+            'download_access_auth_login_label',
+            'download_access_auth_register_label',
+            'download_access_auth_success_message',
         ],
     ],
 ];
@@ -1059,7 +1059,7 @@ require_once __DIR__ . '/header.php';
                                             <div class="admin-settings-grid ui-grid">
                                                 <?php
                                                 $xmlKeys = ['sitemap_enabled', 'sitemap_max_urls', 'sitemap_changefreq', 'sitemap_priority_home', 'sitemap_priority_topics', 'sitemap_priority_categories', 'sitemap_include_categories', 'sitemap_exclude_drafts'];
-                                                foreach ($xmlKeys as $key): 
+                                                foreach ($xmlKeys as $key):
                                                     if (!isset($definitions[$key])) continue;
                                                     $definition = $definitions[$key];
                                                 ?>
@@ -1103,9 +1103,9 @@ require_once __DIR__ . '/header.php';
                                                 <span class="admin-inline-title">Görsel Sitemap</span>
                                             </div>
                                             <div class="admin-settings-grid ui-grid">
-                                                <?php 
+                                                <?php
                                                 $imageKeys = ['image_sitemap_enabled', 'image_sitemap_max_images', 'image_sitemap_hero', 'image_sitemap_media', 'image_sitemap_inline'];
-                                                foreach ($imageKeys as $key): 
+                                                foreach ($imageKeys as $key):
                                                     if (!isset($definitions[$key])) continue;
                                                     $definition = $definitions[$key];
                                                 ?>
@@ -1170,16 +1170,90 @@ require_once __DIR__ . '/header.php';
                                                 </div>
                                             </div>
                                         </div>
+
+                                    <?php elseif ($seoTabId === 'seo-tab-structured'): ?>
+                                        <!-- Yapısal Veri İşaretlemeleri -->
+                                        <div class="admin-section-block ui-section">
+                                            <div class="admin-inline-head ui-panel__head">
+                                                <i class="bi bi-diagram-2"></i>
+                                                <span class="admin-inline-title">Schema.org İşaretlemeleri</span>
+                                            </div>
+                                            <div class="admin-settings-grid ui-grid">
+                                                <?php
+                                                $schemaKeys = ['structured_data_category', 'structured_data_profile', 'schema_organization_name', 'schema_organization_logo', 'schema_site_search', 'schema_breadcrumbs'];
+                                                foreach ($schemaKeys as $key):
+                                                    if (!isset($definitions[$key])) continue;
+                                                    $definition = $definitions[$key];
+                                                ?>
+                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
+                                                        <?php if ($definition['type'] === 'bool'): ?>
+                                                            <label class="ui-admin-switch">
+                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
+                                                                <span class="ui-admin-switch-label">
+                                                                    <?= htmlspecialchars($definition['label']) ?>
+                                                                    <?php if (!empty($definition['tooltip'])): ?>
+                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
+                                                                    <?php endif; ?>
+                                                                </span>
+                                                            </label>
+                                                        <?php else: ?>
+                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
+                                                                <?= htmlspecialchars($definition['label']) ?>
+                                                                <?php if (!empty($definition['tooltip'])): ?>
+                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
+                                                                <?php endif; ?>
+                                                            </label>
+                                                            <?php if ($definition['type'] === 'select'): ?>
+                                                                <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
+                                                                    <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
+                                                                        <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+                                                                    <?php endforeach; ?>
+                                                                </select>
+                                                            <?php else: ?>
+                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
+                                                            <?php endif; ?>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+
+                                        <!-- Özel Kodlar -->
+                                        <div class="admin-section-block ui-section">
+                                            <div class="admin-inline-head ui-panel__head">
+                                                <i class="bi bi-code-slash"></i>
+                                                <span class="admin-inline-title">Özel Kodlar</span>
+                                            </div>
+                                            <div class="admin-settings-grid ui-grid">
+                                                <?php
+                                                $codeKeys = ['structured_data', 'custom_head_code'];
+                                                foreach ($codeKeys as $key):
+                                                    if (!isset($definitions[$key])) continue;
+                                                    $definition = $definitions[$key];
+                                                ?>
+                                                    <div class="admin-field-wide">
+                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
+                                                            <?= htmlspecialchars($definition['label']) ?>
+                                                            <?php if (!empty($definition['tooltip'])): ?>
+                                                                <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
+                                                            <?php endif; ?>
+                                                        </label>
+                                                        <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="5" class="ui-admin-form-control ui-admin-code-editor"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+
                                     <?php else: ?>
                                         <!-- Diğer SEO Alt Sekmeleri -->
                                         <?php if ($seoTabId === 'seo-tab-index'): ?>
                                             <div class="admin-divider-block">
                                                 <div class="admin-inline-head ui-panel__head">
-                                                    <i class="bi bi-info-circle"></i>Indexleme Notlari
+                                                    <i class="bi bi-info-circle"></i>İndeksleme Notları
                                                 </div>
                                                 <div class="admin-section-desc">
-                                                    Guvenlik odakli sayfalar (giris, kayit, bildirimler, mesajlar, konu yukleme, konu duzenleme, cikis) sistem tarafinda noindex kalir.
-                                                    Bu sekme; arama, arsiv, etiket, profil ve sayfa tiplerine ait gercek indexleme kontrolunu yonetir.
+                                                    Güvenlik odaklı sayfalar (giriş, kayıt, bildirimler, mesajlar, konu yükleme, konu düzenleme, çıkış) sistem tarafında noindex kalır.
+                                                    Bu sekme; arama, arşiv, etiket, profil ve sayfa tiplerine ait gerçek indeksleme kontrolünü yönetir.
                                                 </div>
                                             </div>
                                         <?php endif; ?>

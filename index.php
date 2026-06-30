@@ -45,12 +45,19 @@ $perPage = (int)($settings["items_per_page"] ?? TOPICS_PER_PAGE) ?: TOPICS_PER_P
 $isDefaultHomeRequest = ($page === 1 && $search === "" && $sort === "newest" && $categoryFilter === "");
 $cacheEnabled = ($settings['cache_enabled'] ?? '1') === '1';
 $isAnonymousVisitor = empty($_SESSION['_auth_user_id']);
+$canUseAnonHomeFullPageCache = $usesThemeRenderer
+    && $cacheEnabled
+    && $isAnonymousVisitor
+    && $isDefaultHomeRequest;
+$anonHomeFullPageCacheKey = '';
+$baseHomeCacheTtl = max(60, (int) ($settings['cache_ttl'] ?? 300));
+$anonHomeFullPageCacheTtl = max(300, min(1800, $baseHomeCacheTtl * 3));
 
 if ($cacheEnabled && $isAnonymousVisitor && $isDefaultHomeRequest) {
     $ttl = max(60, (int) ($settings['cache_ttl'] ?? 300));
     $staleWhileRevalidate = max($ttl, min(86400, $ttl * 12));
     header("Cache-Control: public, max-age={$ttl}, stale-while-revalidate={$staleWhileRevalidate}");
-    header('Vary: Accept-Encoding, Cookie');
+    header('Vary: Accept-Encoding');
 } else {
     header("Cache-Control: private, no-cache, max-age=0, must-revalidate");
     header("Pragma: no-cache");
@@ -83,6 +90,23 @@ if (class_exists(\App\Core\Bootstrap\Boot::class)) {
         $cache = \App\Core\Bootstrap\Boot::container()->get(\App\Core\Cache\Cache::class);
     } catch (Throwable $e) {
         // Fallback to null
+    }
+}
+
+if ($canUseAnonHomeFullPageCache && $cache) {
+    $anonHomeFullPageCacheKey = 'homepage_default_full_html_v7:' . hash(
+        'sha256',
+        implode('|', [
+            (string) ($settings['theme_active_id'] ?? 'default'),
+            (string) ($settings['site_language'] ?? 'tr'),
+            (string) ($settings['dark_mode'] ?? 'auto'),
+        ])
+    );
+    $cachedFullPageHtml = $cache->get($anonHomeFullPageCacheKey);
+    if (is_string($cachedFullPageHtml) && $cachedFullPageHtml !== '') {
+        header('X-Page-Cache: hit');
+        echo $cachedFullPageHtml;
+        exit;
     }
 }
 
@@ -260,6 +284,17 @@ $sortInsightMessages = [
 ];
 $sortInsight = $sortInsightMessages[$sort] ?? $sortInsightMessages["newest"];
 
+$captureThemeHomeOutput = $canUseAnonHomeFullPageCache && $cache && $anonHomeFullPageCacheKey !== '';
+if ($captureThemeHomeOutput) {
+    ob_start();
+}
+$publicThemePageVars = [
+    'items' => $items,
+    'topics' => $items,
+    'pageCssFiles' => $pageCssFiles,
+    'pageTitle' => $pageTitle,
+    'categoryId' => 0,
+];
 require_once __DIR__ . "/includes/public-header.php";
 
 if ($usesThemeRenderer) {
@@ -345,6 +380,16 @@ if ($usesThemeRenderer) {
     ]);
 
     require_once __DIR__ . "/includes/public-footer.php";
+    if ($captureThemeHomeOutput) {
+        $fullPageHtml = ob_get_clean();
+        if (is_string($fullPageHtml) && $fullPageHtml !== '') {
+            $cache->set($anonHomeFullPageCacheKey, $fullPageHtml, $anonHomeFullPageCacheTtl);
+            header('X-Page-Cache: miss');
+            echo $fullPageHtml;
+        } else {
+            ob_end_flush();
+        }
+    }
     exit;
 }
 ?>

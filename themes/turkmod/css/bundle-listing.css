@@ -78,9 +78,9 @@ html[data-public-theme="turkmod"] .ui-theme-theme-error p {
 
   font-family: "bootstrap-icons";
 
-  src: url("../webfonts/bootstrap-icons.woff2?524846017b983fc8ded9325d94ed40f3") format("woff2"),
+  src: url("../webfonts/bootstrap-icons.woff2") format("woff2"),
 
-url("../webfonts/bootstrap-icons.woff?524846017b983fc8ded9325d94ed40f3") format("woff");
+url("../webfonts/bootstrap-icons.woff") format("woff");
 
 }
 

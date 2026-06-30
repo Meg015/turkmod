@@ -171,8 +171,18 @@ final class PublicThemeRenderer
                         $scripts = trim($scripts . "\n" . $themeJs);
                     }
                 }
+                if ($preferLeanRuntime && $activeThemeId === 'turkmod') {
+                    // Lean listing runtime still needs sidebar category/atlas toggles.
+                    // Load a tiny theme script instead of the full turkmod bundle.
+                    $leanRuntimeRelative = 'js/lean-runtime.js';
+                    $leanRuntimePath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanRuntimeRelative;
+                    if (preg_match('/^[a-z0-9_-]+$/', $activeThemeId) === 1 && is_file($leanRuntimePath)) {
+                        $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanRuntimeRelative), ENT_QUOTES, 'UTF-8') . '" defer></script>');
+                    }
+                }
                 if ($pageKey === 'topic') {
                     $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-view-track.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
+                    $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-downloads.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                 }
             } catch (Throwable $error) {
                 if (function_exists('appLogException')) {
@@ -470,13 +480,21 @@ final class PublicThemeRenderer
         ];
         $cover = $imageMap[$category] ?? 'portal-pack.svg';
         $image = function_exists('getTopicPrimaryMediaPath') ? (string) (getTopicPrimaryMediaPath($item) ?? '') : '';
-        if ($image !== '' && !preg_match('~^(https?:)?//|^data:|^/~i', $image)) {
-            $image = rtrim($baseUri, '/') . '/' . ltrim($image, '/');
-        }
+        $image = self::absolutePublicHref($image, $baseUri);
         if ($image === '') {
             $image = function_exists('asset_url')
                 ? asset_url('assets/' . $cover, $baseUri)
                 : rtrim($baseUri, '/') . '/assets/' . $cover;
+        }
+        $imageSrcset = '';
+        $imageSizes = '';
+        if ($isLcpCandidate) {
+            $thumbnailHref = self::listingThumbnailHref($image, $baseUri);
+            if ($thumbnailHref !== '') {
+                $imageSrcset = $thumbnailHref . ' 400w, ' . $image . ' 1200w';
+                $imageSizes = '(max-width: 640px) 94vw, (max-width: 1024px) 70vw, 640px';
+                $image = $thumbnailHref;
+            }
         }
 
         $imageAlt = function_exists('seoGenerateImageAlt')
@@ -486,9 +504,11 @@ final class PublicThemeRenderer
         return [
             'url' => $href,
             'image' => $image,
+            'image_srcset' => $imageSrcset,
+            'image_sizes' => $imageSizes,
             'image_alt' => $imageAlt,
             'image_loading' => $isLcpCandidate ? 'eager' : 'lazy',
-            'image_decoding' => 'async',
+            'image_decoding' => $isLcpCandidate ? 'sync' : 'async',
             'image_fetchpriority' => $isLcpCandidate ? 'high' : '',
             'title' => $title,
             'category' => $category,
@@ -884,9 +904,73 @@ final class PublicThemeRenderer
      */
     private static function topicDownloadVars(array $topic, string $baseUri, array $settings, mixed $pdo): array
     {
-        $readyText = trim((string) ($settings['download_ready_text'] ?? 'İndirmek için tıklayınız')) ?: 'İndirmek için tıklayınız';
-        $waitText = trim((string) ($settings['download_wait_text'] ?? 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz')) ?: 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz';
-        $doneText = trim((string) ($settings['download_done_text'] ?? 'İndirme linkiniz hazır, indirmek için tıklayın')) ?: 'İndirme linkiniz hazır, indirmek için tıklayın';
+        // Keep download-gate behavior synced with live admin settings.
+        $runtimeSettings = function_exists('getAdminSettings')
+            ? getAdminSettings($pdo instanceof PDO ? $pdo : ($GLOBALS['pdo'] ?? null))
+            : [];
+        if (is_array($runtimeSettings) && $runtimeSettings !== []) {
+            foreach ([
+                'topic_detail_show_download_panel',
+                'download_countdown_seconds',
+                'download_ready_text',
+                'download_wait_text',
+                'download_done_text',
+                'download_show_counts',
+                'download_access_mode',
+                'download_access_comment_requirement',
+                'download_access_login_message',
+                'download_access_comment_message',
+                'download_access_locked_button_text',
+                'download_access_comment_cta_label',
+                'download_access_open_auth_popup',
+                'download_access_focus_comment_form',
+                'download_access_unlock_after_auth',
+                'download_access_unlock_after_comment',
+                'download_access_auth_modal_title',
+                'download_access_auth_login_label',
+                'download_access_auth_register_label',
+                'download_access_auth_success_message',
+            ] as $downloadKey) {
+                if (array_key_exists($downloadKey, $runtimeSettings)) {
+                    $settings[$downloadKey] = $runtimeSettings[$downloadKey];
+                }
+            }
+        }
+
+        $readyText = trim((string) ($settings['download_ready_text'] ?? 'Indirmek icin tiklayiniz')) ?: 'Indirmek icin tiklayiniz';
+        $waitText = trim((string) ($settings['download_wait_text'] ?? 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz')) ?: 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz';
+        $doneText = trim((string) ($settings['download_done_text'] ?? 'Indirme linkiniz hazir, indirmek icin tiklayin')) ?: 'Indirme linkiniz hazir, indirmek icin tiklayin';
+        $topicId = (int) ($topic['id'] ?? 0);
+        $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+        $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
+        $downloadAuthApi = rtrim($baseUri, '/') . '/api/auth-popup.php';
+        $downloadLoginUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris');
+        $downloadRegisterUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('register') : ($baseUri . '/kayit');
+        $downloadLockButtonText = trim((string) ($settings['download_access_locked_button_text'] ?? 'Kilidi Ac')) ?: 'Kilidi Ac';
+        $downloadCommentCtaLabel = trim((string) ($settings['download_access_comment_cta_label'] ?? 'Yorumlara Git')) ?: 'Yorumlara Git';
+        $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'Indirme linklerini acmak icin giris yapin')) ?: 'Indirme linklerini acmak icin giris yapin';
+        $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giris Yap')) ?: 'Giris Yap';
+        $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayit Ol')) ?: 'Kayit Ol';
+        $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.')) ?: 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.';
+        $downloadOpenAuthPopup = (string) ($settings['download_access_open_auth_popup'] ?? '1') === '1';
+        $downloadFocusCommentForm = (string) ($settings['download_access_focus_comment_form'] ?? '1') === '1';
+        $downloadUnlockAfterAuth = (string) ($settings['download_access_unlock_after_auth'] ?? '1') === '1';
+        $downloadUnlockAfterComment = (string) ($settings['download_access_unlock_after_comment'] ?? '1') === '1';
+
+        $downloadAccessState = function_exists('topicDownloadAccessState')
+            ? topicDownloadAccessState($pdo instanceof PDO ? $pdo : null, $settings, $topicId, $currentUserId)
+            : ['locked' => false, 'reason' => 'none', 'message' => '', 'mode' => 'public'];
+        $downloadLocked = !empty($downloadAccessState['locked']);
+        $downloadLockReason = trim((string) ($downloadAccessState['reason'] ?? 'none')) ?: 'none';
+        $downloadLockMessage = trim((string) ($downloadAccessState['message'] ?? ''));
+        if ($downloadLockMessage === '') {
+            $downloadLockMessage = $downloadLockReason === 'comment_required'
+                ? 'Indirme linklerini gormek icin once yorum yapmaniz gerekir.'
+                : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz gerekir.';
+        }
+        $downloadCommentTarget = function_exists('topicUrl')
+            ? topicUrl((string) ($topic['slug'] ?? ''), $topicId) . '#comments-heading'
+            : (rtrim($baseUri, '/') . '/topic.php?id=' . $topicId . '#comments-heading');
 
         if (($settings['topic_detail_show_download_panel'] ?? '1') !== '1') {
             return [
@@ -896,6 +980,9 @@ final class PublicThemeRenderer
                 'download_ready_text' => $readyText,
                 'download_wait_text' => $waitText,
                 'download_done_text' => $doneText,
+                'download_locked' => false,
+                'download_lock_reason' => 'none',
+                'download_lock_message' => '',
             ];
         }
 
@@ -923,12 +1010,23 @@ final class PublicThemeRenderer
             if ($href === '') {
                 continue;
             }
+            $cardButtonText = $readyText;
+            if ($downloadLocked) {
+                $cardButtonText = $downloadLockReason === 'comment_required'
+                    ? $downloadCommentCtaLabel
+                    : $downloadLockButtonText;
+            }
             $rows[] = [
-                'href' => $href,
-                'name' => trim((string) ($link['name'] ?? '')) ?: 'İndirme Linki',
+                'href' => $downloadLocked ? '#' : $href,
+                'download_href' => $href,
+                'name' => trim((string) ($link['name'] ?? '')) ?: 'Indirme Linki',
                 'host' => (string) (parse_url($url, PHP_URL_HOST) ?: $url),
                 'show_count' => $showCounts,
                 'count' => number_format((int) ($link['download_count'] ?? 0), 0, ',', '.'),
+                'locked' => $downloadLocked,
+                'lock_reason' => $downloadLockReason,
+                'lock_message' => $downloadLockMessage,
+                'button_text' => $cardButtonText,
             ];
         }
 
@@ -939,9 +1037,29 @@ final class PublicThemeRenderer
             'download_ready_text' => $readyText,
             'download_wait_text' => $waitText,
             'download_done_text' => $doneText,
+            'download_topic_id' => $topicId,
+            'download_locked' => $downloadLocked,
+            'download_lock_reason' => $downloadLockReason,
+            'download_lock_message' => $downloadLockMessage,
+            'download_lock_button_text' => $downloadLockButtonText,
+            'download_comment_cta_label' => $downloadCommentCtaLabel,
+            'download_open_auth_popup' => $downloadOpenAuthPopup ? '1' : '0',
+            'download_focus_comment_form' => $downloadFocusCommentForm ? '1' : '0',
+            'download_unlock_after_auth' => $downloadUnlockAfterAuth ? '1' : '0',
+            'download_unlock_after_comment' => $downloadUnlockAfterComment ? '1' : '0',
+            'download_auth_modal_title' => $downloadAuthModalTitle,
+            'download_auth_login_label' => $downloadAuthLoginLabel,
+            'download_auth_register_label' => $downloadAuthRegisterLabel,
+            'download_auth_success_message' => $downloadAuthSuccessMessage,
+            'download_login_url' => $downloadLoginUrl,
+            'download_register_url' => $downloadRegisterUrl,
+            'download_status_api' => $downloadStatusApi,
+            'download_auth_api' => $downloadAuthApi,
+            'download_comment_target' => $downloadCommentTarget,
+            'download_current_request_uri' => (string) ($_SERVER['REQUEST_URI'] ?? ''),
+            'download_csrf_token' => function_exists('csrf_token') ? csrf_token() : '',
         ];
     }
-
     /**
      * @param array<string, mixed> $topic
      * @return array<string, mixed>
@@ -1805,13 +1923,94 @@ final class PublicThemeRenderer
             if (preg_match('~^data:~i', $imageHref) === 1) {
                 continue;
             }
-            if (preg_match('~^(https?:)?//|^/~i', $imageHref) !== 1) {
-                $imageHref = rtrim($baseUri, '/') . '/' . ltrim($imageHref, '/');
+            $imageHref = self::absolutePublicHref($imageHref, $baseUri);
+            $thumbnailHref = self::listingThumbnailHref($imageHref, $baseUri);
+            if ($thumbnailHref !== '') {
+                return $thumbnailHref;
             }
 
             return $imageHref;
         }
 
+        return '';
+    }
+
+    private static function absolutePublicHref(string $href, string $baseUri): string
+    {
+        $href = trim($href);
+        if ($href === '') {
+            return '';
+        }
+        if (preg_match('~^(https?:)?//|^data:|^/~i', $href) === 1) {
+            return $href;
+        }
+
+        return rtrim($baseUri, '/') . '/' . ltrim($href, '/');
+    }
+
+    private static function listingThumbnailHref(string $imageHref, string $baseUri): string
+    {
+        $imageHref = trim($imageHref);
+        if ($imageHref === '' || preg_match('~^data:~i', $imageHref) === 1) {
+            return '';
+        }
+
+        static $cache = [];
+        $cacheKey = $baseUri . '|' . $imageHref;
+        if (array_key_exists($cacheKey, $cache)) {
+            return $cache[$cacheKey];
+        }
+
+        $path = $imageHref;
+        if (preg_match('~^(https?:)?//~i', $path) === 1) {
+            $path = (string) parse_url($path, PHP_URL_PATH);
+        }
+        $path = str_replace('\\', '/', $path);
+        if ($path === '') {
+            $cache[$cacheKey] = '';
+            return '';
+        }
+
+        $trimmedBase = trim($baseUri, '/');
+        if ($trimmedBase !== '') {
+            $prefix = '/' . $trimmedBase . '/';
+            if (str_starts_with($path, $prefix)) {
+                $path = substr($path, strlen($prefix));
+            }
+        }
+        $path = ltrim($path, '/');
+        if (!str_starts_with($path, 'uploads/')) {
+            $cache[$cacheKey] = '';
+            return '';
+        }
+
+        $dirname = trim((string) pathinfo($path, PATHINFO_DIRNAME), '/.');
+        $filename = (string) pathinfo($path, PATHINFO_FILENAME);
+        $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+        if ($dirname === '' || $filename === '') {
+            $cache[$cacheKey] = '';
+            return '';
+        }
+
+        $candidates = [$dirname . '/thumbnails/' . $filename . '.webp'];
+        if ($extension !== '' && $extension !== 'webp') {
+            $candidates[] = $dirname . '/thumbnails/' . $filename . '.' . $extension;
+        }
+        $candidates[] = $dirname . '/thumbs/' . $filename . '.webp';
+        if ($extension !== '') {
+            $candidates[] = $dirname . '/thumbs/' . $filename . '.' . $extension;
+        }
+
+        foreach ($candidates as $candidate) {
+            $candidate = (string) preg_replace('~/+~', '/', $candidate);
+            $fullPath = __DIR__ . '/../' . str_replace('/', DIRECTORY_SEPARATOR, ltrim($candidate, '/'));
+            if (is_file($fullPath)) {
+                $cache[$cacheKey] = rtrim($baseUri, '/') . '/' . ltrim($candidate, '/');
+                return $cache[$cacheKey];
+            }
+        }
+
+        $cache[$cacheKey] = '';
         return '';
     }
 
@@ -1862,7 +2061,14 @@ final class PublicThemeRenderer
         }
         $head[] = '<meta name="robots" content="' . htmlspecialchars($robotsMeta, ENT_QUOTES, 'UTF-8') . '">';
 
-        if (function_exists('csrf_token')) {
+        $pageKey = (string) ($context['page_key'] ?? '');
+        $isLeanListingPage = in_array($pageKey, ['home', 'search', 'category', 'leaderboard'], true);
+        $sessionCookieName = session_name();
+        $hasSessionCookie = $sessionCookieName !== '' && isset($_COOKIE[$sessionCookieName]);
+        $shouldEmitCsrfMeta = !$isLeanListingPage
+            || session_status() === PHP_SESSION_ACTIVE
+            || $hasSessionCookie;
+        if (function_exists('csrf_token') && $shouldEmitCsrfMeta) {
             $head[] = '<meta name="csrf-token" content="' . htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
         }
         $head[] = '<meta name="app-base-uri" content="' . htmlspecialchars($baseUri, ENT_QUOTES, 'UTF-8') . '">';
@@ -1890,9 +2096,10 @@ final class PublicThemeRenderer
         $robotoLocalHref = function_exists('asset_url')
             ? asset_url('assets/css/roboto-local.css', $baseUri)
             : rtrim($baseUri, '/') . '/assets/css/roboto-local.css';
-        $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($robotoLocalHref, ENT_QUOTES, 'UTF-8') . '">';
+        $robotoLocalEsc = htmlspecialchars($robotoLocalHref, ENT_QUOTES, 'UTF-8');
+        $head[] = '<link rel="preload" as="style" href="' . $robotoLocalEsc . '">';
+        $head[] = '<link rel="stylesheet" href="' . $robotoLocalEsc . '">';
 
-        $pageKey = (string) ($context['page_key'] ?? '');
         // Use the lightweight listing bundle on list-style public pages to reduce render-blocking CSS
         // while preserving visual parity with the active turkmod shell.
         $preferLeanThemeCss = $activeThemeId === 'turkmod'
@@ -1902,29 +2109,39 @@ final class PublicThemeRenderer
         if ($themeManager instanceof ThemeManager) {
             if (function_exists('asset_url')) {
                 try {
+                    // Keep the non-min listing bundle for visual parity.
+                    // The previous minified variant dropped some style rules on parse in production browsers.
+                    $leanThemeCssRelative = 'css/bundle-listing.css';
+                    $leanThemeCssPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanThemeCssRelative;
+                    $leanThemeCssAvailable = $preferLeanThemeCss
+                        && preg_match('/^[a-z0-9_-]+$/', $activeThemeId) === 1
+                        && is_file($leanThemeCssPath);
                     // Critical CSS (render-blocking) — design tokens, shell layout, ui-foundation
                     $publicCssPath = __DIR__ . '/../assets/dist/public.min.css';
                     if ($skipRootPublicCssForLeanListing) {
                         // Lean turkmod listing pages already include shared shell/foundation CSS in the theme bundle.
                         // Skipping root public.min.css avoids duplicate render-blocking payload.
-                        // Keep icon mapping for lean pages to prevent missing icons/layout jitter.
-                        $leanIconsRelative = 'css/bootstrap-icons-lean.min.css';
-                        $leanIconsPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanIconsRelative;
-                        if (is_file($leanIconsPath)) {
-                            $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanIconsRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-icons-lean="1">';
-                            $leanIconsFontRelative = 'webfonts/bootstrap-icons.woff2';
-                            $leanIconsFontPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanIconsFontRelative;
-                            if (is_file($leanIconsFontPath)) {
-                                $head[] = '<link rel="preload" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanIconsFontRelative), ENT_QUOTES, 'UTF-8') . '" as="font" type="font/woff2" crossorigin>';
+                        // bundle-listing.css already contains @font-face + icon map.
+                        // Keep standalone icon CSS only when lean bundle is unavailable.
+                        if (!$leanThemeCssAvailable) {
+                            $leanIconsRelative = 'css/bootstrap-icons-lean.min.css';
+                            $leanIconsPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanIconsRelative;
+                            if (is_file($leanIconsPath)) {
+                                $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanIconsRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-icons-lean="1">';
+                            } else {
+                                $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/bootstrap-icons.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                             }
-                        } else {
-                            $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/bootstrap-icons.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                         }
                     } elseif (is_file($publicCssPath)) {
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/dist/public.min.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     } else {
                         // Fallback: load individual files
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/general.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
+                    }
+                    // The lean turkmod listing bundle already includes ui-foundation.
+                    // Skip duplicate render-blocking payload on those pages.
+                    if (!$leanThemeCssAvailable) {
+                        $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/ui-foundation.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     }
 
                     // Theme CSS — load normally so CSP cannot leave it stuck in print media.
@@ -1933,13 +2150,14 @@ final class PublicThemeRenderer
                     if ($activeThemeId === 'default' && is_file($themeMinCssPath)) {
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/dist/theme.min.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     }
-                    if ($preferLeanThemeCss && preg_match('/^[a-z0-9_-]+$/', $activeThemeId) === 1) {
-                        $leanThemeCssRelative = 'css/bundle-listing.min.css';
-                        $leanThemeCssPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanThemeCssRelative;
-                        if (is_file($leanThemeCssPath)) {
-                            $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanThemeCssRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-asset-lean="1">';
-                        } else {
-                            $head[] = $themeManager->renderAssetTags('css');
+                    if ($leanThemeCssAvailable) {
+                        $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanThemeCssRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-asset-lean="1">';
+                        if ($pageKey === 'home' && $activeThemeId === 'turkmod') {
+                            $leanHomeToolbarCssRelative = 'css/lean-home-toolbar.css';
+                            $leanHomeToolbarCssPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanHomeToolbarCssRelative;
+                            if (is_file($leanHomeToolbarCssPath)) {
+                                $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanHomeToolbarCssRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-home-toolbar-lean="1">';
+                            }
                         }
                     } else {
                         $head[] = $themeManager->renderAssetTags('css');

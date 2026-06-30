@@ -1,0 +1,115 @@
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3, 0.75rem);
+    overflow: hidden;
+    padding: var(--space-3, 0.75rem) var(--space-4, 1rem) !important;
+    border: 1px solid var(--ui-border, var(--color-border, #dde3eb)) !important;
+    border-radius: var(--ui-radius, var(--card-radius, 10px)) !important;
+    background: var(--ui-surface, var(--color-surface, #ffffff)) !important;
+    box-shadow: var(--shadow-sm, 0 2px 6px rgba(15, 23, 42, 0.08));
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--primary, #8b1538), var(--primary-light, #b91d47));
+    opacity: 0.9;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar > .d-flex {
+    justify-content: space-between !important;
+    align-items: center;
+    width: 100%;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2, 0.5rem);
+    color: var(--text-dim, #64748b) !important;
+    font-size: var(--font-size-sm, 0.875rem) !important;
+    font-weight: var(--font-weight-semibold, 600);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar-nav {
+    flex-wrap: nowrap;
+    gap: var(--space-1, 0.25rem) !important;
+    padding: var(--space-1, 0.25rem);
+    border: 1px solid var(--ui-border, var(--color-border, #dde3eb));
+    border-radius: var(--radius-pill, var(--ui-radius, 10px));
+    background: var(--ui-surface-muted, var(--color-surface-muted, #f8fafc));
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar-nav::-webkit-scrollbar {
+    display: none;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar-btn {
+    border: 0 !important;
+    border-radius: var(--radius-pill, var(--radius-control, 999px)) !important;
+    background: transparent !important;
+    color: var(--text-dim, #64748b) !important;
+    font-size: var(--font-size-sm, 0.875rem) !important;
+    font-weight: var(--font-weight-semibold, 600);
+    line-height: 1.2;
+    white-space: nowrap;
+    padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem) !important;
+    transition: var(--transition-control, 0.2s ease) !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar-btn:hover {
+    background: var(--bg-hover, #eef2f7) !important;
+    color: var(--text, #111827) !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar-btn:focus-visible {
+    outline: 0;
+    box-shadow: var(--state-focus-ring, 0 0 0 3px rgba(139, 21, 56, 0.16));
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar-nav .ui-theme-home-toolbar-btn.active {
+    background: var(--primary, #8b1538) !important;
+    color: var(--on-primary, #ffffff) !important;
+    font-weight: var(--font-weight-bold, 700);
+    box-shadow: var(--shadow-sm, 0 2px 6px rgba(15, 23, 42, 0.08));
+}
+
+html[data-public-theme="turkmod"] .ui-theme-home-toolbar-nav .ui-theme-home-toolbar-btn.active:hover {
+    background: var(--primary-dark, var(--primary, #8b1538)) !important;
+    color: var(--on-primary, #ffffff) !important;
+}
+
+@media (max-width: 640px) {
+    html[data-public-theme="turkmod"] .ui-theme-home-toolbar {
+        padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem) !important;
+    }
+
+    html[data-public-theme="turkmod"] .ui-theme-home-toolbar > .d-flex {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-2, 0.5rem);
+    }
+
+    html[data-public-theme="turkmod"] .ui-theme-home-toolbar-nav {
+        justify-content: flex-start;
+    }
+}
+
+html[data-public-theme="turkmod"] .container.public-breadcrumb.breadcrumb-container.crumb-wrap.ui-container {
+    margin-top: 0 !important;
+    margin-bottom: var(--space-3, 0.75rem) !important;
+}
+
+@media (max-width: 640px) {
+    html[data-public-theme="turkmod"] .container.public-breadcrumb.breadcrumb-container.crumb-wrap.ui-container {
+        margin-bottom: 10px !important;
+    }
+}

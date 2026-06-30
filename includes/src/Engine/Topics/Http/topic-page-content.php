@@ -658,105 +658,210 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         <script src="<?= asset_url("assets/js/topic-report.js", $baseUri) ?>" defer></script>
 
         <?php
-        $downloadLinks = getTopicDownloadLinks($pdo, (int)$topic['id']);
-        $downloadCountdownSeconds = max(
-            0,
-            (int) ($settings["download_countdown_seconds"] ?? 5),
-        );
-        $downloadReadyText =
-            trim(
-                (string) ($settings["download_ready_text"] ??
-                    "İndirmek için tıklayınız"),
-            ) ?:
-            "İndirmek için tıklayınız";
-        $downloadWaitText =
-            trim(
-                (string) ($settings["download_wait_text"] ??
-                    "İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz"),
-            ) ?:
-            "İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz";
-        $downloadDoneText = "İndirme linkiniz hazır, indirmek için tıklayın";
-        $downloadShowCounts =
-            (string) ($settings["download_show_counts"] ?? "1") === "1";
+        $downloadLinks = getTopicDownloadLinks($pdo, (int) $topic['id']);
+        $downloadCountdownSeconds = max(0, (int) ($settings['download_countdown_seconds'] ?? 5));
+        $downloadReadyText = trim((string) ($settings['download_ready_text'] ?? 'Indirmek icin tiklayiniz')) ?: 'Indirmek icin tiklayiniz';
+        $downloadWaitText = trim((string) ($settings['download_wait_text'] ?? 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz')) ?: 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz';
+        $downloadDoneText = trim((string) ($settings['download_done_text'] ?? 'Indirme linkiniz hazir, indirmek icin tiklayin')) ?: 'Indirme linkiniz hazir, indirmek icin tiklayin';
+        $downloadShowCounts = (string) ($settings['download_show_counts'] ?? '1') === '1';
+
+        $downloadAccessState = function_exists('topicDownloadAccessState')
+            ? topicDownloadAccessState($pdo, $settings, (int) ($topic['id'] ?? 0), (int) $currentUserId)
+            : ['locked' => false, 'reason' => 'none', 'message' => '', 'mode' => 'public'];
+        $downloadLocked = !empty($downloadAccessState['locked']);
+        $downloadLockReason = trim((string) ($downloadAccessState['reason'] ?? 'none')) ?: 'none';
+        $downloadLockMessage = trim((string) ($downloadAccessState['message'] ?? ''));
+        $downloadLockButtonText = trim((string) ($settings['download_access_locked_button_text'] ?? 'Kilidi Ac')) ?: 'Kilidi Ac';
+        $downloadCommentCtaLabel = trim((string) ($settings['download_access_comment_cta_label'] ?? 'Yorumlara Git')) ?: 'Yorumlara Git';
+        $downloadOpenAuthPopup = (string) ($settings['download_access_open_auth_popup'] ?? '1') === '1';
+        $downloadFocusCommentForm = (string) ($settings['download_access_focus_comment_form'] ?? '1') === '1';
+        $downloadUnlockAfterAuth = (string) ($settings['download_access_unlock_after_auth'] ?? '1') === '1';
+        $downloadUnlockAfterComment = (string) ($settings['download_access_unlock_after_comment'] ?? '1') === '1';
+        $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'Indirme linklerini acmak icin giris yapin')) ?: 'Indirme linklerini acmak icin giris yapin';
+        $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giris Yap')) ?: 'Giris Yap';
+        $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayit Ol')) ?: 'Kayit Ol';
+        $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.')) ?: 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.';
+        $downloadLoginUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris');
+        $downloadRegisterUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('register') : ($baseUri . '/kayit');
+        $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
+        $downloadAuthApi = rtrim($baseUri, '/') . '/api/auth-popup.php';
+        $downloadTopicId = (int) ($topic['id'] ?? 0);
+        $downloadSectionLockMessage = $downloadLockMessage !== ''
+            ? $downloadLockMessage
+            : ($downloadLockReason === 'comment_required'
+                ? 'Indirme linklerini gormek icin once yorum yapmaniz gerekir.'
+                : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz gerekir.');
+        $downloadTopicUrl = function_exists('topicUrl')
+            ? topicUrl((string) ($topic['slug'] ?? ''), $downloadTopicId)
+            : ($baseUri . '/topic.php?id=' . $downloadTopicId);
+        $downloadCommentTarget = $downloadTopicUrl . '#comments-heading';
+        $downloadCurrentRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+
         if ($topicDetailShowDownloadPanel && !empty($downloadLinks)): ?>
+
         <section class="topic-section topic-downloads topic-download-links ui-section" aria-labelledby="dl-heading">
-            <h2 id="dl-heading">İndirme Bağlantıları</h2>
+
+            <h2 id="dl-heading">Indirme Baglantilari</h2>
+
             <div class="topic-dl-trust" role="note">
+
                 <i class="bi bi-shield-check" aria-hidden="true"></i>
-                <span>İndirme bağlantısı açılmadan önce kısa bir güvenlik beklemesi uygulanır. Hedef alan adını kontrol edip dış bağlantı onay ekranından devam edebilirsiniz.</span>
+
+                <span>Indirme baglantisi acilmadan once kisa bir guvenlik beklemesi uygulanir. Hedef alan adini kontrol edip dis baglanti onay ekranindan devam edebilirsiniz.</span>
+
             </div>
+
+            <?php if ($downloadLocked): ?>
+
+            <div class="topic-dl-access-notice" data-download-lock-notice role="status" aria-live="polite">
+
+                <i class="bi bi-lock-fill" aria-hidden="true"></i>
+
+                <span><?= htmlspecialchars($downloadSectionLockMessage, ENT_QUOTES, 'UTF-8') ?></span>
+
+            </div>
+
+            <?php endif; ?>
+
             <div class="topic-dl-section ui-section"
+
+                 data-topic-id="<?= $downloadTopicId ?>"
+
+                 data-csrf="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>"
+
                  data-countdown-seconds="<?= $downloadCountdownSeconds ?>"
+
                  data-wait-text="<?= htmlspecialchars($downloadWaitText, ENT_QUOTES, 'UTF-8') ?>"
-                 data-done-text="<?= htmlspecialchars($downloadDoneText, ENT_QUOTES, 'UTF-8') ?>">
+
+                 data-done-text="<?= htmlspecialchars($downloadDoneText, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-status-api="<?= htmlspecialchars($downloadStatusApi, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-auth-api="<?= htmlspecialchars($downloadAuthApi, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-login-url="<?= htmlspecialchars($downloadLoginUrl, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-register-url="<?= htmlspecialchars($downloadRegisterUrl, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-comment-target="<?= htmlspecialchars($downloadCommentTarget, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-current-request-uri="<?= htmlspecialchars($downloadCurrentRequestUri, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-locked="<?= $downloadLocked ? '1' : '0' ?>"
+
+                 data-lock-reason="<?= htmlspecialchars($downloadLockReason, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-lock-message="<?= htmlspecialchars($downloadSectionLockMessage, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-lock-button-text="<?= htmlspecialchars($downloadLockButtonText, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-comment-cta-label="<?= htmlspecialchars($downloadCommentCtaLabel, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-open-auth-popup="<?= $downloadOpenAuthPopup ? '1' : '0' ?>"
+
+                 data-focus-comment-form="<?= $downloadFocusCommentForm ? '1' : '0' ?>"
+
+                 data-unlock-after-auth="<?= $downloadUnlockAfterAuth ? '1' : '0' ?>"
+
+                 data-unlock-after-comment="<?= $downloadUnlockAfterComment ? '1' : '0' ?>"
+
+                 data-auth-modal-title="<?= htmlspecialchars($downloadAuthModalTitle, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-auth-login-label="<?= htmlspecialchars($downloadAuthLoginLabel, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-auth-register-label="<?= htmlspecialchars($downloadAuthRegisterLabel, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-auth-success-message="<?= htmlspecialchars($downloadAuthSuccessMessage, ENT_QUOTES, 'UTF-8') ?>">
+
                 <div class="download-grid topic-dl-grid ui-grid">
+
                     <?php foreach ($downloadLinks as $dl):
 
-                        $dlId = (int) ($dl["id"] ?? 0);
-                        // UTF-8 encoding düzeltmesi
-                        $dlName = trim((string) ($dl["name"] ?? ""));
-                        
-                        // Encoding sorunlarını düzelt
+                        $dlId = (int) ($dl['id'] ?? 0);
+                        $dlName = trim((string) ($dl['name'] ?? ''));
                         if (!mb_check_encoding($dlName, 'UTF-8')) {
-                            // Latin1'den UTF-8'e çevir
                             $dlName = mb_convert_encoding($dlName, 'UTF-8', 'ISO-8859-9');
                         }
-                        
-                        if (empty($dlName)) {
-                            $dlName = "İndirme Linki";
+                        if ($dlName === '') {
+                            $dlName = 'Indirme Linki';
                         }
-                        
-                        $dlUrl = trim((string) ($dl["url"] ?? ""));
-                        $dlCount = (int) ($dl["download_count"] ?? 0);
-                        if (empty($dlUrl)) {
+                        $dlUrl = trim((string) ($dl['url'] ?? ''));
+                        $dlCount = (int) ($dl['download_count'] ?? 0);
+                        if ($dlUrl === '') {
                             continue;
                         }
-                        $dlHref =
-                            $dlId > 0
-                                ? (function_exists('routePublicStaticUrl')
+                        $dlHref = $dlId > 0
+                            ? (function_exists('routePublicStaticUrl')
                                 ? routePublicStaticUrl('download')
                                 : ($baseUri . '/download.php')) . '?id=' . $dlId
-                                : $dlUrl;
+                            : $dlUrl;
+                        $cardLocked = $downloadLocked;
+                        $cardLockReason = $cardLocked ? $downloadLockReason : 'none';
+                        $cardLockMessage = $cardLocked ? $downloadSectionLockMessage : '';
+                        $cardButtonText = $downloadReadyText;
+                        if ($cardLocked) {
+                            $cardButtonText = $cardLockReason === 'comment_required'
+                                ? $downloadCommentCtaLabel
+                                : $downloadLockButtonText;
+                        }
+                        $cardHref = $cardLocked ? '#' : $dlHref;
                         ?>
-                    <a href="<?= htmlspecialchars(
-                        $dlHref,
-                    ) ?>" rel="noopener" class="download-card topic-dl-card ui-card">
-                        <div class="download-icon topic-dl-icon"><i class="bi bi-cloud-arrow-down"></i></div>
-                        <div class="download-info topic-dl-info">
-                            <strong><?= htmlspecialchars($dlName, ENT_QUOTES, 'UTF-8') ?></strong>
-                            <small><?= htmlspecialchars(
-                                parse_url($dlUrl, PHP_URL_HOST) ?: $dlUrl,
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?></small>
-                            <?php if ($downloadShowCounts): ?>
-                            <span class="download-count topic-dl-count"><i class="bi bi-download"></i> <?= number_format(
-                                $dlCount,
-                                0,
-                                ",",
-                                ".",
-                            ) ?> indirme</span>
-                            <?php endif; ?>
-                        </div>
-                        <span class="download-btn topic-dl-button">
-                            <span class="topic-dl-spinner"></span>
-                            <span class="topic-dl-action"><?= htmlspecialchars(
-                                $downloadReadyText,
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?></span>
-                        </span>
-                    </a>
-                    <?php
-                    endforeach; ?>
-                </div>
-            </div>
-            <script src="<?= asset_url("assets/js/topic-downloads.js", $baseUri) ?>" defer></script>
-        </section>
-            <?php endif;
-        ?>
 
-<?php
+                    <a href="<?= htmlspecialchars($cardHref, ENT_QUOTES, 'UTF-8') ?>"
+                       rel="noopener"
+                       class="download-card topic-dl-card ui-card<?= $cardLocked ? ' is-locked' : '' ?>"
+                       data-download-href="<?= htmlspecialchars($dlHref, ENT_QUOTES, 'UTF-8') ?>"
+                       data-ready-text="<?= htmlspecialchars($downloadReadyText, ENT_QUOTES, 'UTF-8') ?>"
+                       data-locked="<?= $cardLocked ? '1' : '0' ?>"
+                       data-lock-reason="<?= htmlspecialchars($cardLockReason, ENT_QUOTES, 'UTF-8') ?>"
+                       data-lock-message="<?= htmlspecialchars($cardLockMessage, ENT_QUOTES, 'UTF-8') ?>"
+                       data-locked-button-text="<?= htmlspecialchars($downloadLockButtonText, ENT_QUOTES, 'UTF-8') ?>"
+                       data-comment-cta-label="<?= htmlspecialchars($downloadCommentCtaLabel, ENT_QUOTES, 'UTF-8') ?>"
+                       aria-disabled="<?= $cardLocked ? 'true' : 'false' ?>">
+
+                        <div class="download-icon topic-dl-icon"><i class="bi <?= $cardLocked ? 'bi-lock-fill' : 'bi-cloud-arrow-down' ?>" aria-hidden="true"></i></div>
+
+                        <div class="download-info topic-dl-info">
+
+                            <strong><?= htmlspecialchars($dlName, ENT_QUOTES, 'UTF-8') ?></strong>
+
+                            <small><?= htmlspecialchars((string) (parse_url($dlUrl, PHP_URL_HOST) ?: $dlUrl), ENT_QUOTES, 'UTF-8') ?></small>
+
+                            <?php if ($cardLocked): ?>
+
+                            <small class="topic-dl-lock-message"><?= htmlspecialchars($cardLockMessage, ENT_QUOTES, 'UTF-8') ?></small>
+
+                            <?php endif; ?>
+
+                            <?php if ($downloadShowCounts): ?>
+
+                            <span class="download-count topic-dl-count"><i class="bi bi-download"></i> <?= number_format($dlCount, 0, ',', '.') ?> indirme</span>
+
+                            <?php endif; ?>
+
+                        </div>
+
+                        <span class="download-btn topic-dl-button">
+
+                            <span class="topic-dl-spinner"></span>
+
+                            <span class="topic-dl-action"><?= htmlspecialchars($cardButtonText, ENT_QUOTES, 'UTF-8') ?></span>
+
+                        </span>
+
+                    </a>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+            </div>
+
+            <script src="<?= asset_url('assets/js/topic-downloads.js', $baseUri) ?>" defer></script>
+
+        </section>
+
+            <?php endif; ?><?php
 $currentUserAvatar = '';
 if ($isLoggedIn && !empty($_SESSION['_auth_user_id'])) {
     try {

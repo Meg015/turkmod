@@ -5,7 +5,14 @@ declare(strict_types=1);
 require_once $projectRoot . '/includes/init.php';
 
 $pageKey = 'download';
-$downloadSettings = $adminSettingsGlobal ?? [];
+$downloadSettings = is_array($adminSettingsGlobal ?? null) ? $adminSettingsGlobal : [];
+$settingsPdo = isset($pdo) && $pdo instanceof PDO ? $pdo : ($GLOBALS['pdo'] ?? null);
+if (function_exists('getAdminSettings')) {
+    $runtimeSettings = getAdminSettings($settingsPdo instanceof PDO ? $settingsPdo : null);
+    if (is_array($runtimeSettings) && $runtimeSettings !== []) {
+        $downloadSettings = $runtimeSettings;
+    }
+}
 
 function downloadSettingText(array $settings, string $key, string $fallback): string
 {
@@ -94,6 +101,47 @@ try {
             exit;
         }
         echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert">' . htmlspecialchars($download_alert_message, ENT_QUOTES, 'UTF-8') . '</div>';
+        require_once $projectRoot . '/includes/public-footer.php';
+        exit;
+    }
+
+    $downloadTopicId = (int) ($link['topic_id'] ?? 0);
+    $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+    $downloadAccessState = function_exists('topicDownloadAccessState')
+        ? topicDownloadAccessState($pdo, $downloadSettings, $downloadTopicId, $currentUserId)
+        : ['locked' => false, 'reason' => 'none', 'message' => ''];
+    if (!empty($downloadAccessState['locked'])) {
+        http_response_code(403);
+        $pageTitle = 'Indirme Kilitli';
+        $download_has_alert = true;
+        $download_alert_class = 'ui-admin-alert ui-admin-alert-warning ui-alert ui-alert--warning';
+        $download_alert_message = trim((string) ($downloadAccessState['message'] ?? ''));
+        if ($download_alert_message === '') {
+            $download_alert_message = (string) ($downloadAccessState['reason'] ?? '') === 'comment_required'
+                ? 'Indirme linklerini gormek icin once yorum yapmaniz gerekir.'
+                : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz gerekir.';
+        }
+        $topicHref = topicUrl((string) ($link['topic_slug'] ?? ''), $downloadTopicId);
+        $loginHref = function_exists('routePublicStaticUrl')
+            ? routePublicStaticUrl('login')
+            : (($baseUri ?? '') . '/giris');
+        $loginHref .= (str_contains($loginHref, '?') ? '&' : '?') . 'redirect=' . rawurlencode((string) ($_SERVER['REQUEST_URI'] ?? ''));
+
+        require_once $projectRoot . '/includes/public-header.php';
+        if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
+            require_once $projectRoot . '/includes/public-footer.php';
+            exit;
+        }
+
+        echo '<div class="' . htmlspecialchars($download_alert_class, ENT_QUOTES, 'UTF-8') . '" role="alert">' . htmlspecialchars($download_alert_message, ENT_QUOTES, 'UTF-8') . '</div>';
+        echo '<div class="download-lock-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">';
+        if ((string) ($downloadAccessState['reason'] ?? '') === 'auth_required') {
+            echo '<a class="ui-admin-btn ui-admin-btn-primary" href="' . htmlspecialchars($loginHref, ENT_QUOTES, 'UTF-8') . '">Giris Yap / Kayit Ol</a>';
+        } else {
+            echo '<a class="ui-admin-btn ui-admin-btn-primary" href="' . htmlspecialchars($topicHref . '#comments-heading', ENT_QUOTES, 'UTF-8') . '">Yorumlara Git</a>';
+        }
+        echo '<a class="ui-admin-btn ui-admin-btn-secondary" href="' . htmlspecialchars($topicHref, ENT_QUOTES, 'UTF-8') . '">Konuya Don</a>';
+        echo '</div>';
         require_once $projectRoot . '/includes/public-footer.php';
         exit;
     }

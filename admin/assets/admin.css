@@ -2325,10 +2325,110 @@ input[type="checkbox"], input[type="radio"] {
 .seo-subtab-panel {
     border: 1px solid var(--ui-admin-border) !important;
     border-radius: var(--radius-lg) !important;
-    padding: 1.25rem !important;
+    padding: 1.5rem !important;
     background: var(--ui-admin-surface) !important;
     margin-bottom: 1rem !important;
     box-shadow: var(--shadow-xs) !important;
+}
+
+/* SEO panel içindeki section blokları */
+.seo-subtab-panel .admin-section-block {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+    background: var(--ui-admin-surface-alt, #f8f9fa);
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--radius-md);
+}
+
+.seo-subtab-panel .admin-section-block:last-child {
+    margin-bottom: 0;
+}
+
+.seo-subtab-panel .admin-section-block .admin-inline-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 2px solid var(--ui-admin-border);
+}
+
+.seo-subtab-panel .admin-section-block .admin-inline-head i {
+    color: var(--ui-admin-accent, #4361ee);
+    font-size: 1.1rem;
+}
+
+.seo-subtab-panel .admin-section-block .admin-inline-title {
+    color: var(--ui-admin-text);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.seo-subtab-panel .admin-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.seo-subtab-panel .admin-field-wide {
+    grid-column: 1 / -1;
+}
+
+.seo-subtab-panel .admin-section-desc {
+    margin-bottom: 1.25rem;
+    font-size: 0.88rem;
+    color: var(--ui-admin-text-secondary, #6c757d);
+    line-height: 1.6;
+}
+
+/* SEO panel code editor */
+.ui-admin-code-editor {
+    font-family: 'Courier New', monospace !important;
+    font-size: 0.85rem !important;
+    line-height: 1.5 !important;
+    background: #1e1e2e !important;
+    color: #cdd6f4 !important;
+    border-color: var(--ui-admin-border) !important;
+    min-height: 120px !important;
+    resize: vertical !important;
+}
+
+.seo-subtab-panel .admin-divider-block {
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ui-admin-border);
+}
+
+.seo-subtab-panel .admin-divider-block .admin-inline-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--ui-admin-border);
+}
+
+.seo-subtab-panel .admin-divider-block .admin-inline-head i {
+    color: var(--ui-admin-accent, #4361ee);
+    font-size: 1.1rem;
+}
+
+.seo-subtab-panel .admin-settings-grid-sm {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.75rem;
+}
+
+.seo-subtab-panel .admin-inline-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.seo-subtab-panel .admin-muted-input {
+    background: var(--ui-admin-surface-alt, #f0f0f0) !important;
+    color: var(--ui-admin-text-muted, #6c757d) !important;
+    cursor: default !important;
 }
 
 /* Form elemanları - settings sayfası için */

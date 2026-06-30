@@ -24,8 +24,13 @@ $publicCategoriesTree = isset($publicCategoriesTree) && is_array($publicCategori
         : []);
 
 // Görünüm ayarları
-$_lay =
-    function_exists("getAdminSettings") && $pdo ? getAdminSettings($pdo) : [];
+$_lay = isset($_lay) && is_array($_lay)
+    ? $_lay
+    : (isset($settings) && is_array($settings)
+        ? $settings
+        : (function_exists("getAdminSettings") && $pdo
+            ? getAdminSettings($pdo)
+            : []));
 $siteNameSetting = trim((string) ($_lay["site_name"] ?? ""));
 if ($siteNameSetting !== "") {
     $appName = $siteNameSetting;
@@ -167,7 +172,9 @@ if (
         "public_categories_tree" => $publicCategoriesTree,
         "sidebar_items" => $sidebarItems ?? [],
         "recent_comments" => $recentComments ?? [],
-        "page_vars" => get_defined_vars(),
+        "page_vars" => isset($publicThemePageVars) && is_array($publicThemePageVars)
+            ? $publicThemePageVars
+            : get_defined_vars(),
     ])
 ) {
     return;
@@ -225,7 +232,10 @@ if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && $
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
     <meta name="app-base-uri" content="<?= htmlspecialchars($baseUri) ?>">
     <meta name="color-scheme" content="light dark">
-    <link rel="stylesheet" href="<?= asset_url("assets/css/roboto-local.css", $baseUri) ?>">
+    <?php $__robotoLocalHref = asset_url("assets/css/roboto-local.css", $baseUri); ?>
+    <link rel="preload" as="style" href="<?= htmlspecialchars($__robotoLocalHref, ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars($__robotoLocalHref, ENT_QUOTES, 'UTF-8') ?>" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="<?= htmlspecialchars($__robotoLocalHref, ENT_QUOTES, 'UTF-8') ?>"></noscript>
     <link rel="icon" href="<?= htmlspecialchars($_faviconHref !== "" ? $_faviconHref : asset_url("assets/favicon.svg", $baseUri)) ?>">
     <?php if (is_file($_publicCssBundle)): ?>
     <!-- Critical CSS (render-blocking) -->
@@ -249,6 +259,7 @@ if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && $
     <?php endif; ?>
     <link rel="stylesheet" href="<?= asset_url("assets/css/public-dialog.css", $baseUri) ?>">
     <?php endif; ?>
+    <link rel="stylesheet" href="<?= asset_url("assets/css/ui-foundation.css", $baseUri) ?>">
     <?php foreach ($_pageCssFiles as $_pageCssFile): ?>
     <link rel="stylesheet" href="<?= asset_url($_pageCssFile, $baseUri) ?>">
     <?php endforeach; ?>

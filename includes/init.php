@@ -319,6 +319,41 @@ if ($appDebug) {
 
 // Session security settings
 $skipSessionBootstrap = !empty($GLOBALS['_skip_session_bootstrap']);
+if (!$skipSessionBootstrap) {
+    $requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    $sessionCookieName = session_name();
+    $hasSessionCookie = $sessionCookieName !== '' && isset($_COOKIE[$sessionCookieName]);
+    $requestPathForSession = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+    $requestPathForSession = str_replace('\\', '/', $requestPathForSession);
+    $baseUriForSession = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
+    if ($baseUriForSession === '' && !empty($_SERVER['SCRIPT_NAME'])) {
+        $scriptDir = rtrim(str_replace('\\', '/', dirname((string) $_SERVER['SCRIPT_NAME'])), '/');
+        if ($scriptDir !== '' && $scriptDir !== '.') {
+            $baseUriForSession = $scriptDir;
+        }
+    }
+    if ($baseUriForSession !== '' && ($requestPathForSession === $baseUriForSession || str_starts_with($requestPathForSession, $baseUriForSession . '/'))) {
+        $requestPathForSession = substr($requestPathForSession, strlen($baseUriForSession));
+        if ($requestPathForSession === '') {
+            $requestPathForSession = '/';
+        }
+    }
+
+    // Keep truly anonymous first-hit listing requests stateless to reduce TTFB and avoid unnecessary session cookies.
+    $isStatelessHomeRequest = in_array($requestMethod, ['GET', 'HEAD'], true)
+        && !$hasSessionCookie
+        && ($requestPathForSession === '/' || $requestPathForSession === '/index.php');
+    if ($isStatelessHomeRequest) {
+        $skipSessionBootstrap = true;
+        $GLOBALS['_stateless_home_request'] = true;
+        // Defensive hardening: if any downstream helper accidentally starts a session,
+        // prevent emitting a session cookie on anonymous default-home requests.
+        ini_set('session.use_cookies', '0');
+        ini_set('session.use_only_cookies', '0');
+        ini_set('session.use_trans_sid', '0');
+    }
+}
+
 if (!$skipSessionBootstrap && session_status() === PHP_SESSION_NONE) {
     ini_set("session.cookie_httponly", "1");
     ini_set("session.cookie_samesite", "Strict");
@@ -1912,6 +1947,7 @@ function routePrefixAliases(
     ?array $routes = null,
 ): array {
     $routes = $routes ?: routePrefixSettings($GLOBALS["pdo"] ?? null);
+    $settingsProvided = is_array($settings);
     $settings = $settings ?: [];
     $prefixes = [(string) ($routes[$type] ?? "")];
     $settingKey = "route_" . $type . "_aliases";
@@ -1919,6 +1955,7 @@ function routePrefixAliases(
 
     if (
         $raw === "" &&
+        !$settingsProvided &&
         isset($GLOBALS["pdo"]) &&
         $GLOBALS["pdo"] instanceof PDO
     ) {
