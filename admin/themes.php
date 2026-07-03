@@ -9,7 +9,7 @@ $pageTitle = 'Tema Merkezi';
 
 if (!isset($themeManager) || !$themeManager instanceof ThemeManager) {
     $themeManager = new ThemeManager(dirname(__DIR__), $baseUri ?? '', false);
-    $themeManager->setActiveTheme('default');
+    $themeManager->setActiveTheme($themeManager->defaultThemeId());
 }
 
 function adminThemesSaveSetting(PDO $pdo, string $key, string $value): void
@@ -107,7 +107,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
 
         if ($action === 'duplicate') {
-            $source = $themeManager->sanitizeThemeId((string) ($_POST['source_theme'] ?? 'default'));
+            $source = $themeManager->sanitizeThemeId((string) ($_POST['source_theme'] ?? $themeManager->defaultThemeId()));
             $newId = $themeManager->sanitizeThemeId((string) ($_POST['new_theme_id'] ?? ''));
             $newName = trim((string) ($_POST['new_theme_name'] ?? ''));
             $themeManager->duplicateTheme($source, $newId, $newName);
@@ -167,6 +167,7 @@ if ($activeThemeId === '' || !$themeManager->themeExists($activeThemeId)) {
     $activeThemeId = $themeManager->defaultThemeId();
 }
 $themeManager->setActiveTheme($activeThemeId);
+$activeThemeId = $themeManager->activeThemeId();
 $themes = $themeManager->discoverThemes();
 $selectedTheme = $themeManager->sanitizeThemeId((string) ($_GET['theme'] ?? $themeManager->activeThemeId()));
 if ($selectedTheme === '' || !$themeManager->themeExists($selectedTheme)) {
@@ -255,7 +256,7 @@ require_once __DIR__ . '/header.php';
                     <form method="post" action="themes.php" class="theme-mini-form">
                         <?= csrf_field() ?>
                         <input type="hidden" name="_theme_action" value="duplicate">
-                        <input type="hidden" name="source_theme" value="default">
+                        <input type="hidden" name="source_theme" value="<?= htmlspecialchars($themeManager->defaultThemeId()) ?>">
                         <label class="ui-admin-form-label" for="newThemeId">Tema ID</label>
                         <input class="ui-admin-form-control" id="newThemeId" name="new_theme_id" placeholder="modern_dark" pattern="[a-z0-9_-]+" required>
                         <label class="ui-admin-form-label" for="newThemeName">Tema adı</label>

@@ -42,7 +42,6 @@ document.addEventListener('click', function(event) {
         closeUserReportModal();
     }
 });
-
 document.addEventListener('keydown', function(event) {
     if (window.TMUI || event.key !== 'Escape') return;
     closeUserReportModal();
@@ -66,16 +65,25 @@ document.addEventListener('submit', function(event) {
             return {ok: response.ok, payload: payload};
         });
     }).then(function(result) {
-        feedback.textContent = result.payload.message || (result.ok ? 'Şikayet gönderildi.' : 'Şikayet gönderilemedi.');
-        feedback.className = 'topic-report-feedback ' + (result.ok && result.payload.success ? 'is-success' : 'is-error');
-        if (result.ok && result.payload.success) {
+        const isSuccess = !!(result.ok && result.payload.success);
+        const message = result.payload.message || (isSuccess ? 'Şikayet gönderildi.' : 'Şikayet gönderilemedi.');
+        feedback.textContent = message;
+        feedback.className = 'topic-report-feedback ' + (isSuccess ? 'is-success' : 'is-error');
+        if (isSuccess) {
             form.reset();
             closeUserReportModal();
-            window.showToast?.(result.payload.message || 'Şikayet gönderildi.', 'success');
+            window.showToast?.(message, 'success');
+            return;
+        }
+        if (window.showToast) {
+            window.showToast(message, 'error');
         }
     }).catch(function() {
         feedback.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
         feedback.className = 'topic-report-feedback is-error';
+        if (window.showToast) {
+            window.showToast('Şikayet gönderilemedi.', 'error');
+        }
     }).finally(function() {
         button.disabled = false;
         button.innerHTML = original;

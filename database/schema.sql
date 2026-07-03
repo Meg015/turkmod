@@ -334,6 +334,7 @@ CREATE TABLE `events_activity_rules` (
   `repeat_policy` varchar(40) NOT NULL DEFAULT 'once_per_subject',
   `min_length` int(11) NOT NULL DEFAULT 0,
   `min_account_age_days` int(11) NOT NULL DEFAULT 0,
+  `required_group_id` bigint(20) unsigned DEFAULT NULL,
   `allow_self_subject` tinyint(1) NOT NULL DEFAULT 1,
   `requires_approved_subject` tinyint(1) NOT NULL DEFAULT 0,
   `reversal_enabled` tinyint(1) NOT NULL DEFAULT 1,
@@ -346,7 +347,8 @@ CREATE TABLE `events_activity_rules` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `activity_type` (`activity_type`),
   KEY `idx_events_activity_rules_active` (`is_active`,`activity_type`),
-  KEY `idx_events_activity_rules_dates` (`starts_at`,`ends_at`)
+  KEY `idx_events_activity_rules_dates` (`starts_at`,`ends_at`),
+  KEY `events_activity_rules_group_index` (`required_group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `events_audit_log` (
@@ -588,6 +590,7 @@ CREATE TABLE `events_tasks` (
   `starts_at` datetime DEFAULT NULL,
   `ends_at` datetime DEFAULT NULL,
   `min_user_points` int(11) DEFAULT NULL,
+  `group_id` bigint(20) unsigned DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `display_order` int(11) NOT NULL DEFAULT 0,
   `created_at` timestamp NULL DEFAULT NULL,
@@ -595,7 +598,8 @@ CREATE TABLE `events_tasks` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`),
   KEY `idx_events_tasks_active_type_order` (`is_active`,`task_type`,`display_order`),
-  KEY `idx_events_tasks_dates` (`starts_at`,`ends_at`)
+  KEY `idx_events_tasks_dates` (`starts_at`,`ends_at`),
+  KEY `events_tasks_group_index` (`group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `events_user_bonus_spins` (

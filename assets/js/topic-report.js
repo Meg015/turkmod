@@ -45,8 +45,7 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
             if (event.target.closest('[data-report-modal-close]')) {
                 closeTopicReportModal(modal);
             }
-        });
-
+});
         document.addEventListener('keydown', function(event) {
             if (window.TMUI) return;
             const modal = document.getElementById('topicReportModal');
@@ -93,19 +92,27 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
                     return {ok: response.ok, payload: payload};
                 });
             }).then(function(result) {
-                feedback.textContent = result.payload.message || (result.ok ? 'Rapor gönderildi.' : 'Rapor gönderilemedi.');
-                feedback.className = 'topic-report-feedback ' + (result.ok && result.payload.success ? 'is-success' : 'is-error');
-                if (result.ok && result.payload.success) {
+                const isSuccess = !!(result.ok && result.payload.success);
+                const message = result.payload.message || (isSuccess ? 'Rapor gönderildi.' : 'Rapor gönderilemedi.');
+                feedback.textContent = message;
+                feedback.className = 'topic-report-feedback ' + (isSuccess ? 'is-success' : 'is-error');
+                if (isSuccess) {
                     form.reset();
                     const modal = document.getElementById('topicReportModal');
                     if (modal) {
                         closeTopicReportModal(modal);
                     }
                     if (window.showToast) {
-                        window.showToast(result.payload.message || 'Rapor gönderildi.', 'success', {
+                        window.showToast(message, 'success', {
                             detail: 'İnceleme kuyruğuna alındı.'
                         });
                     }
+                    return;
+                }
+                if (window.showToast) {
+                    window.showToast(message, 'error', {
+                        solution: 'Lütfen alanları kontrol edip tekrar deneyin.'
+                    });
                 }
             }).catch(function() {
                 feedback.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';

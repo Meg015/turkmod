@@ -48,7 +48,8 @@ $isAnonymousVisitor = empty($_SESSION['_auth_user_id']);
 $canUseAnonHomeFullPageCache = $usesThemeRenderer
     && $cacheEnabled
     && $isAnonymousVisitor
-    && $isDefaultHomeRequest;
+    && $isDefaultHomeRequest
+    && !function_exists('appCspNonceAttr');
 $anonHomeFullPageCacheKey = '';
 $baseHomeCacheTtl = max(60, (int) ($settings['cache_ttl'] ?? 300));
 $anonHomeFullPageCacheTtl = max(300, min(1800, $baseHomeCacheTtl * 3));
@@ -94,12 +95,53 @@ if (class_exists(\App\Core\Bootstrap\Boot::class)) {
 }
 
 if ($canUseAnonHomeFullPageCache && $cache) {
-    $anonHomeFullPageCacheKey = 'homepage_default_full_html_v7:' . hash(
+    $activeThemeId = $themeManager instanceof ThemeManager
+        ? $themeManager->activeThemeId()
+        : (string) ($settings['theme_active_id'] ?? 'default');
+    $renderSignatureFiles = [
+        __DIR__ . '/includes/PublicThemeRenderer.php',
+        __DIR__ . '/includes/TemplateRenderer.php',
+        __DIR__ . '/includes/ThemeManager.php',
+        __DIR__ . '/assets/dist/public.min.css',
+        __DIR__ . '/assets/dist/public.min.js',
+        __DIR__ . '/assets/dist/theme.min.css',
+        __DIR__ . '/assets/css/ui-foundation.css',
+        __DIR__ . '/assets/css/general.css',
+        __DIR__ . '/assets/css/roboto-local.css',
+        __DIR__ . '/assets/bootstrap-icons.css',
+        __DIR__ . '/assets/js/app.js',
+        __DIR__ . '/assets/js/ui.js',
+        __DIR__ . '/assets/js/ui-foundation.js',
+        __DIR__ . '/assets/js/public-toast-bridge.js',
+        __DIR__ . '/assets/js/theme-mode-init.js',
+    ];
+    foreach (glob(__DIR__ . '/assets/dist/bootstrap-icons-*.woff2') ?: [] as $fontFile) {
+        $renderSignatureFiles[] = $fontFile;
+    }
+    $renderSignatureParts = [];
+    foreach ($renderSignatureFiles as $renderSignatureFile) {
+        if (!is_file($renderSignatureFile)) {
+            continue;
+        }
+        $renderSignatureParts[] = str_replace('\\', '/', $renderSignatureFile) . ':' . (string) filemtime($renderSignatureFile) . ':' . (string) filesize($renderSignatureFile);
+    }
+    sort($renderSignatureParts, SORT_STRING);
+    $renderSignature = hash('sha256', implode('|', $renderSignatureParts));
+    $settingsForCache = $settings;
+    if ($settingsForCache !== []) {
+        ksort($settingsForCache);
+    }
+    $settingsSignature = hash('sha256', json_encode($settingsForCache, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '');
+    $themeSignature = $themeManager instanceof ThemeManager
+        ? $themeManager->themeSignature($activeThemeId)
+        : '';
+    $anonHomeFullPageCacheKey = 'homepage_default_full_html_v9:' . hash(
         'sha256',
         implode('|', [
-            (string) ($settings['theme_active_id'] ?? 'default'),
-            (string) ($settings['site_language'] ?? 'tr'),
-            (string) ($settings['dark_mode'] ?? 'auto'),
+            $activeThemeId,
+            $themeSignature,
+            $renderSignature,
+            $settingsSignature,
         ])
     );
     $cachedFullPageHtml = $cache->get($anonHomeFullPageCacheKey);

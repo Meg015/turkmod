@@ -35,10 +35,11 @@ if (!verify_csrf_token($token)) {
     sendCsrfError();
 }
 
-$redirectHint = trim((string) ($payload['redirect'] ?? ($_SERVER['REQUEST_URI'] ?? '')));
-if ($redirectHint === '') {
-    $redirectHint = '/';
-}
+$baseUri = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
+$redirectHint = loginSafeRedirect(
+    (string) ($payload['redirect'] ?? ''),
+    $baseUri . '/index.php'
+);
 
 $loginIdentifierMode = strtolower(trim((string) ($settings['login_identifier_mode'] ?? 'email')));
 if (!in_array($loginIdentifierMode, ['email', 'username', 'both'], true)) {

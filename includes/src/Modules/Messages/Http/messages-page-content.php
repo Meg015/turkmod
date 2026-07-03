@@ -119,6 +119,9 @@ if ($markedUnreadCount > 0 && $successMessage === '') {
     $successMessage = $markedUnreadCount . ' okunmamis mesaj okundu olarak isaretlendi.';
 }
 
+$successMsg = $successMessage;
+$errorMsg = $errorMessage;
+
 $csrfToken = csrf_token();
 $messagesApiUrl = rtrim((string) ($baseUri ?? ''), '/') . '/api/messages.php';
 $activeThreadId = $activeThread !== null ? (int) ($activeThread['thread_id'] ?? 0) : 0;

@@ -167,34 +167,45 @@ require dirname(__DIR__, 6) . '/includes/public-header.php';
                         <div class="ui-events-hero-actions">
                         </div>
                     </div>
-                    <div class="ui-events-hero-side" aria-label="Etkinlik özeti">
-                        <div class="ui-events-profile-card ui-card">
-                            <div class="ui-events-profile-body">
-                                <div class="ui-events-profile-header">
-                                    <div class="ui-events-profile-avatar-container">
-                                        <img src="<?= htmlspecialchars($eventsAvatarUrl) ?>" alt="Avatar" class="ui-events-profile-avatar" width="60" height="60" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($eventsAvatarFallback) ?>">
-                                    </div>
-                                    <div class="ui-events-profile-info">
-                                        <h3 class="ui-events-profile-name"><?= e((string)($userProfile['name'] ?? 'Kullanıcı')) ?></h3>
-                                    </div>
+                    <div class="ui-events-hero-side ui-events-hero-side--overview" aria-label="Etkinlik özeti">
+                        <article class="ui-events-profile-card ui-events-profile-card--minimal" aria-label="Hesap özeti">
+                            <header class="ui-events-profile-minimal-head">
+                                <div class="ui-events-profile-minimal-avatar">
+                                    <img src="<?= htmlspecialchars($eventsAvatarUrl) ?>" alt="Avatar" class="ui-events-profile-avatar" width="52" height="52" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($eventsAvatarFallback) ?>">
                                 </div>
+                                <div class="ui-events-profile-minimal-meta">
+                                    <h3 class="ui-events-profile-name"><?= e((string)($userProfile['name'] ?? 'Kullanıcı')) ?></h3>
+                                    <p class="ui-events-profile-minimal-subtitle">Etkinlik hesabın aktif. Güncel durumun aşağıda.</p>
+                                </div>
+                            </header>
 
-                                <div class="ui-events-profile-stats-grid">
-                                    <div class="ui-events-profile-stat-item">
-                                        <span class="ui-events-stat-num val-danger"><?= (int)$overview['pending_rewards'] ?></span>
-                                        <span class="ui-events-stat-lbl">Bekleyen Ödül</span>
-                                    </div>
-                                    <div class="ui-events-profile-stat-item">
-                                        <span class="ui-events-stat-num val-success"><?= count($claimableTasks) ?></span>
-                                        <span class="ui-events-stat-lbl">Hazır Görev</span>
-                                    </div>
-                                    <div class="ui-events-profile-stat-item">
-                                        <span class="ui-events-stat-num val-info"><?= $remainingDaily ?></span>
-                                        <span class="ui-events-stat-lbl">Çark Hakkı</span>
-                                    </div>
+                            <dl class="ui-events-profile-minimal-stats" aria-label="Etkinlik kısa durum">
+                                <div class="ui-events-profile-minimal-stat">
+                                    <dt>Toplam Puan</dt>
+                                    <dd data-ui-events-countup><?= (int)$taskData['balance'] ?></dd>
                                 </div>
-                            </div>
-                        </div>
+                                <div class="ui-events-profile-minimal-stat">
+                                    <dt>Çark Hakkı</dt>
+                                    <dd><?= $remainingDaily ?></dd>
+                                </div>
+                                <div class="ui-events-profile-minimal-stat">
+                                    <dt>Hazır Görev</dt>
+                                    <dd><?= count($claimableTasks) ?></dd>
+                                </div>
+                                <div class="ui-events-profile-minimal-stat">
+                                    <dt>Aktif Çekiliş</dt>
+                                    <dd><?= count($overview['active_raffles']) ?></dd>
+                                </div>
+                                <div class="ui-events-profile-minimal-stat">
+                                    <dt>Bekleyen Ödül</dt>
+                                    <dd><?= (int)$overview['pending_rewards'] ?></dd>
+                                </div>
+                                <div class="ui-events-profile-minimal-stat">
+                                    <dt>Tamamlanan Görev</dt>
+                                    <dd><?= $completedTaskCount ?> / <?= $activeTaskCount ?></dd>
+                                </div>
+                            </dl>
+                        </article>
                     </div>
                 </section>
 

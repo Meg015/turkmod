@@ -1090,38 +1090,60 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
             return '';
         }
 
+        // Refine Minimal paleti: noise-free, hairline borders, muted accent
         $typeConfigs = [
             'info' => [
-                'gradient' => 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                'icon' => 'bi-info-circle-fill',
-                'shadow' => 'rgba(59, 130, 246, 0.3)',
-                'action_bg' => '#3b82f6',
-                'action_hover' => '#2563eb',
+                'accent' => '#3b82f6',
+                'accent_rgb' => '59, 130, 246',
+                'icon' => '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>',
             ],
             'success' => [
-                'gradient' => 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
-                'icon' => 'bi-gift-fill',
-                'shadow' => 'rgba(16, 185, 129, 0.3)',
-                'action_bg' => '#10b981',
-                'action_hover' => '#059669',
+                'accent' => '#10b981',
+                'accent_rgb' => '16, 185, 129',
+                'icon' => '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>',
             ],
             'warning' => [
-                'gradient' => 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                'icon' => 'bi-exclamation-triangle-fill',
-                'shadow' => 'rgba(245, 158, 11, 0.3)',
-                'action_bg' => '#f59e0b',
-                'action_hover' => '#d97706',
+                'accent' => '#f59e0b',
+                'accent_rgb' => '245, 158, 11',
+                'icon' => '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917zM14.22 12c.223.447.48 1 .48 1.5A1.5 1.5 0 0 1 13.5 15h-11a1.5 1.5 0 0 1-1.5-1.5c0-.5.257-1.053.48-1.5h12.74z"/></svg>',
             ],
             'danger' => [
-                'gradient' => 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
-                'icon' => 'bi-exclamation-octagon-fill',
-                'shadow' => 'rgba(239, 68, 68, 0.3)',
-                'action_bg' => '#ef4444',
-                'action_hover' => '#dc2626',
+                'accent' => '#ef4444',
+                'accent_rgb' => '239, 68, 68',
+                'icon' => '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M4.54.146A.5.5 0 0 1 4.893 0h6.214a.5.5 0 0 1 .353.146l4.394 4.394a.5.5 0 0 1 .146.353v6.214a.5.5 0 0 1-.146.353l-4.394 4.394a.5.5 0 0 1-.353.146H4.893a.5.5 0 0 1-.353-.146L.146 11.46A.5.5 0 0 1 0 11.107V4.893a.5.5 0 0 1 .146-.353L4.54.146zM5.1 1 1 5.1v5.8L5.1 15h5.8l4.1-4.1V5.1L10.9 1z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>',
             ],
         ];
 
         $cfg = $typeConfigs[$type] ?? $typeConfigs['info'];
+
+        $badgeConfigs = [
+            'info' => [
+                'label' => 'Bilgilendirme',
+                'bg' => 'rgba(59, 130, 246, 0.12)',
+                'border' => 'rgba(59, 130, 246, 0.25)',
+                'text' => '#93c5fd'
+            ],
+            'success' => [
+                'label' => 'Duyuru / Kampanya',
+                'bg' => 'rgba(16, 185, 129, 0.12)',
+                'border' => 'rgba(16, 185, 129, 0.25)',
+                'text' => '#a7f3d0'
+            ],
+            'warning' => [
+                'label' => 'Önemli Uyarı',
+                'bg' => 'rgba(245, 158, 11, 0.12)',
+                'border' => 'rgba(245, 158, 11, 0.25)',
+                'text' => '#fde68a'
+            ],
+            'danger' => [
+                'label' => 'Kritik Bildirim',
+                'bg' => 'rgba(239, 68, 68, 0.12)',
+                'border' => 'rgba(239, 68, 68, 0.25)',
+                'text' => '#fca5a5'
+            ],
+        ];
+        $badgeCfg = $badgeConfigs[$type] ?? $badgeConfigs['info'];
+        $badgeLabel = $badgeCfg['label'];
 
         // Generate a content hash so that any change in Title or Content will automatically reset the cookie dismiss state.
         $contentHash = substr(md5($title . $content), 0, 8);
@@ -1131,302 +1153,452 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
         ?>
         <!-- Popup Announcement -->
         <style<?= $nonceAttr ?>>
+            @keyframes pa-card-in {
+                0% { opacity: 0; transform: translateY(24px) scale(0.96); }
+                100% { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @keyframes pa-card-out {
+                0% { opacity: 1; transform: translateY(0) scale(1); }
+                100% { opacity: 0; transform: translateY(16px) scale(0.97); }
+            }
+
+            .popup-announcement-overlay,
+            .popup-announcement-card,
+            .popup-announcement-card * {
+                box-sizing: border-box !important;
+            }
+            .popup-announcement-card {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
+            }
+            .popup-announcement-card h3,
+            .popup-announcement-card p,
+            .popup-announcement-card ul,
+            .popup-announcement-card ol,
+            .popup-announcement-card li,
+            .popup-announcement-card a,
+            .popup-announcement-card button,
+            .popup-announcement-card span,
+            .popup-announcement-card div {
+                font-family: inherit;
+            }
+
             .popup-announcement-overlay {
                 position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(15, 23, 42, 0.65);
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
+                inset: 0;
+                z-index: 999999;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                z-index: 999999;
+                padding: 20px;
+                background:
+                    linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(2, 6, 23, 0.92)),
+                    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 28px);
+                backdrop-filter: blur(16px) saturate(1.2);
+                -webkit-backdrop-filter: blur(16px) saturate(1.2);
                 opacity: 0;
                 visibility: hidden;
-                transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+                transition: opacity 0.3s ease, visibility 0.3s ease;
             }
-
             .popup-announcement-overlay.is-active {
                 opacity: 1;
                 visibility: visible;
             }
 
             .popup-announcement-card {
-                background: #ffffff;
-                border-radius: 16px;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-                width: 90%;
-                max-width: 480px;
-                padding: 36px 32px 32px 32px;
+                --pa-accent: <?= $cfg['accent'] ?>;
+                --pa-accent-rgb: <?= $cfg['accent_rgb'] ?>;
+                --pa-badge-bg: <?= $badgeCfg['bg'] ?>;
+                --pa-badge-border: <?= $badgeCfg['border'] ?>;
+                --pa-badge-text: <?= $badgeCfg['text'] ?>;
+                --pa-border: rgba(var(--pa-accent-rgb), 0.25);
+                --pa-glow: rgba(var(--pa-accent-rgb), 0.15);
+                --pa-bg: var(--theme-bg, #020617);
+                --pa-surface: var(--theme-surface, #0f172a);
+                --pa-muted: var(--theme-text-muted, #cbd5e1);
+                --pa-soft: var(--theme-text-soft, #94a3b8);
                 position: relative;
-                border: 1px solid rgba(226, 232, 240, 0.8);
-                transform: scale(0.9) translateY(20px);
-                opacity: 0;
-                transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+                width: 100%;
+                max-width: 680px;
+                max-height: calc(100dvh - 40px);
+                color: #f8fafc;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+                border-radius: 18px;
+                border: 1px solid var(--pa-border);
+                background:
+                    radial-gradient(circle at 60px 60px, rgba(var(--pa-accent-rgb), 0.09), transparent 260px),
+                    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(6, 8, 18, 0.99));
+                box-shadow:
+                    0 0 0 1px rgba(255, 255, 255, 0.07) inset,
+                    0 40px 100px rgba(0, 0, 0, 0.8),
+                    0 0 70px var(--pa-glow);
                 overflow: hidden;
-            }
-
-            .popup-announcement-overlay.is-active .popup-announcement-card {
-                transform: scale(1) translateY(0);
-                opacity: 1;
-            }
-
-            .popup-announcement-overlay.is-closing .popup-announcement-card {
-                transform: scale(0.95) translateY(10px);
+                display: flex;
+                flex-direction: column;
                 opacity: 0;
-                transition: transform 0.3s ease, opacity 0.3s ease;
+                transform: translateY(24px) scale(0.96);
+            }
+            .popup-announcement-overlay.is-active .popup-announcement-card {
+                animation: pa-card-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            .popup-announcement-overlay.is-closing .popup-announcement-card {
+                animation: pa-card-out 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+
+            .popup-announcement-card::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                z-index: 1;
+                background:
+                    linear-gradient(90deg, rgba(var(--pa-accent-rgb), 0.15), transparent 30%, transparent 70%, rgba(var(--pa-accent-rgb), 0.1)),
+                    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 20px);
+                opacity: 0.72;
+            }
+
+            .popup-announcement-head {
+                position: relative;
+                z-index: 3;
+                padding: 24px 32px 20px;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 16px;
+                flex: 0 0 auto;
+                background: none;
+                border-bottom: 1px solid rgba(255,255,255,0.06);
+            }
+            .popup-announcement-icon-wrapper {
+                flex: 0 0 auto;
+                width: 52px;
+                height: 52px;
+                display: grid;
+                place-items: center;
+                border-radius: 14px;
+                color: #ffffff;
+                background: linear-gradient(135deg, var(--pa-accent), rgba(var(--pa-accent-rgb), 0.7));
+                box-shadow: 0 8px 20px rgba(var(--pa-accent-rgb), 0.25);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            .popup-announcement-icon-mark {
+                display: grid;
+                place-items: center;
+            }
+            .popup-announcement-icon-mark svg { width: 24px; height: 24px; }
+
+            .popup-announcement-head-text {
+                flex: 1 1 auto;
+                min-width: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: center;
+                gap: 6px;
+            }
+            .popup-announcement-stripe {
+                display: inline-flex;
+                align-items: center;
+                min-height: 26px;
+                padding: 5px 13px;
+                border-radius: 999px;
+                border: 1px solid var(--pa-badge-border);
+                background: var(--pa-badge-bg);
+                color: var(--pa-badge-text);
+                font-size: 11.5px;
+                font-weight: 700;
+                line-height: 1.2;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
             }
 
             .popup-announcement-close-btn {
-                position: absolute;
-                top: 16px;
-                right: 16px;
-                background: none;
-                border: none;
-                font-size: 28px;
-                line-height: 1;
+                flex: 0 0 auto;
+                align-self: center;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 38px;
+                height: 38px;
+                margin-left: auto;
+                background: rgba(255, 255, 255, 0.03);
                 color: #94a3b8;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 11px;
                 cursor: pointer;
-                transition: color 0.2s ease, transform 0.2s ease;
-                padding: 4px 8px;
-                border-radius: 50%;
-                z-index: 10;
+                z-index: 30;
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             }
-
             .popup-announcement-close-btn:hover {
-                color: #475569;
-                transform: rotate(90deg);
+                background: rgba(var(--pa-accent-rgb), 0.12);
+                color: #ffffff;
+                border-color: rgba(var(--pa-accent-rgb), 0.35);
+                transform: rotate(90deg) scale(1.05);
+            }
+            .popup-announcement-close-btn svg { width: 14px; height: 14px; }
+
+            .popup-announcement-body {
+                padding: 24px 40px 24px;
+                position: relative;
+                z-index: 3;
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+            }
+            .popup-announcement-title {
+                font-weight: 800;
+                font-size: 26px;
+                letter-spacing: -0.01em;
+                line-height: 1.3;
+                color: #ffffff;
+                margin: 0 0 14px;
+                flex: 0 0 auto;
+                word-wrap: break-word;
+                overflow-wrap: anywhere;
+            }
+            .popup-announcement-content {
+                font-size: 16.5px;
+                line-height: 1.85;
+                color: #cbd5e1;
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                padding-right: 14px;
+            }
+            .popup-announcement-content p { margin: 0 0 16px 0; }
+            .popup-announcement-content p:last-child { margin-bottom: 0; }
+            .popup-announcement-content strong {
+                font-weight: 700;
+                color: #ffffff;
+            }
+            .popup-announcement-content a {
+                color: var(--pa-badge-text);
+                text-decoration: none;
+                font-weight: 600;
+                border-bottom: 1px solid rgba(var(--pa-accent-rgb), 0.36);
+                transition: color 0.15s ease, border-bottom-color 0.15s ease;
+            }
+            .popup-announcement-content a:hover {
+                color: #fff;
+                border-bottom-color: #fff;
+            }
+            .popup-announcement-content ul,
+            .popup-announcement-content ol { padding-left: 24px; margin: 0 0 16px 0; }
+            .popup-announcement-content li { margin-bottom: 8px; line-height: 1.7; }
+            .popup-announcement-content blockquote {
+                margin: 18px 0;
+                padding: 16px 20px;
+                border-left: 3px solid var(--pa-accent);
+                color: #cbd5e1;
+                font-style: italic;
+                background: rgba(var(--pa-accent-rgb), 0.08);
+                border-radius: 0 10px 10px 0;
+            }
+            .popup-announcement-content::-webkit-scrollbar { width: 5px; }
+            .popup-announcement-content::-webkit-scrollbar-track { background: rgba(255,255,255,0.01); border-radius: 99px; }
+            .popup-announcement-content::-webkit-scrollbar-thumb {
+                background: rgba(var(--pa-accent-rgb), 0.25);
+                border-radius: 99px;
+            }
+            .popup-announcement-content::-webkit-scrollbar-thumb:hover {
+                background: rgba(var(--pa-accent-rgb), 0.45);
             }
 
-            .popup-announcement-progress-container {
-                position: absolute;
-                top: 1px;
-                left: 1px;
-                right: 1px;
-                height: 4px;
-                background-color: #f1f5f9;
-                border-top-left-radius: 15px;
-                border-top-right-radius: 15px;
+            .popup-announcement-divider {
+                height: 1px;
+                margin: 0 40px;
+                flex: 0 0 auto;
+                background: linear-gradient(90deg,
+                    transparent,
+                    rgba(var(--pa-accent-rgb), 0.25) 20%,
+                    rgba(var(--pa-accent-rgb), 0.25) 80%,
+                    transparent);
+                position: relative;
+                z-index: 3;
+            }
+
+            .popup-announcement-footer {
+                display: flex;
+                gap: 14px;
+                justify-content: stretch;
+                align-items: stretch;
+                padding: 20px 40px 28px;
+                position: relative;
+                z-index: 3;
+                flex: 0 0 auto;
+            }
+            .popup-announcement-btn {
+                font-weight: 700;
+                font-size: 15px;
+                letter-spacing: 0;
+                height: 52px;
+                padding: 0 22px;
+                border-radius: 12px;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                box-sizing: border-box;
+                border: 1px solid transparent;
+                transition: all 0.2s ease;
+                white-space: nowrap;
+                position: relative;
                 overflow: hidden;
+                flex: 1 1 0;
+                min-width: 0;
+            }
+            .popup-announcement-btn::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+                transform: translateX(-100%);
+                transition: transform 0.4s ease;
+            }
+            .popup-announcement-btn:hover::after { transform: translateX(100%); }
+            .popup-announcement-btn:active { transform: scale(0.96); }
+
+            .popup-announcement-btn-close {
+                background: rgba(255, 255, 255, 0.05);
+                color: #cbd5e1;
+                border-color: rgba(255, 255, 255, 0.1);
+            }
+            .popup-announcement-btn-close:hover {
+                background: rgba(255, 255, 255, 0.09);
+                color: #ffffff;
+                border-color: rgba(255, 255, 255, 0.2);
+                transform: translateY(-1px);
+            }
+            .popup-announcement-btn-action {
+                background: linear-gradient(135deg, var(--pa-accent), rgba(var(--pa-accent-rgb), 0.8));
+                color: #ffffff;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow:
+                    0 8px 20px rgba(var(--pa-accent-rgb), 0.2),
+                    0 0 0 1px rgba(255,255,255,0.05) inset;
+            }
+            .popup-announcement-btn-action:hover {
+                box-shadow:
+                    0 12px 28px rgba(var(--pa-accent-rgb), 0.3),
+                    0 0 0 1px rgba(255,255,255,0.1) inset;
+                transform: translateY(-2px);
+                filter: brightness(1.15);
             }
 
+            .popup-announcement-progress {
+                position: absolute;
+                left: 0; right: 0; bottom: 0;
+                height: 2px;
+                background: rgba(255, 255, 255, 0.04);
+                overflow: hidden;
+                z-index: 4;
+            }
             .popup-announcement-progress-bar {
                 height: 100%;
                 width: 100%;
-                background: <?= $cfg['gradient'] ?>;
-                transform-origin: left;
+                background: linear-gradient(90deg, var(--pa-accent), rgba(var(--pa-accent-rgb), 0.4));
+                transform-origin: left center;
                 transform: scaleX(1);
             }
-
             .popup-announcement-overlay.is-active .popup-announcement-progress-bar {
                 transform: scaleX(0);
                 transition: transform <?= $timer ?>s linear;
             }
 
-            .popup-announcement-icon-wrapper {
-                width: 64px;
-                height: 64px;
-                background: <?= $cfg['gradient'] ?>;
-                color: #ffffff;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 20px auto;
-                font-size: 28px;
-                box-shadow: 0 10px 15px -3px <?= $cfg['shadow'] ?>;
-                animation: popup-pulse 2s infinite;
+            body.popup-announcement-open { overflow: hidden !important; }
+
+            html:not([data-theme="dark"]) .popup-announcement-overlay {
+                background:
+                    linear-gradient(135deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.84)),
+                    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 28px);
             }
 
-            @keyframes popup-pulse {
-                0% {
-                    box-shadow: 0 0 0 0 <?= str_replace('0.3', '0.4', $cfg['shadow']) ?>;
+            @media (max-width: 560px) {
+                .popup-announcement-overlay { padding: 14px; }
+                .popup-announcement-card {
+                    max-height: calc(100vh - 28px);
+                    border-radius: 16px;
+                    background:
+                        radial-gradient(circle at 36px 44px, rgba(var(--pa-accent-rgb), 0.08), transparent 180px),
+                        linear-gradient(180deg, rgba(15, 23, 42, 0.97), rgba(8, 10, 21, 0.98));
                 }
-                70% {
-                    box-shadow: 0 0 0 10px <?= str_replace('0.3', '0', $cfg['shadow']) ?>;
+                .popup-announcement-head { padding: 20px 22px 16px; gap: 12px; }
+                .popup-announcement-icon-wrapper { width: 44px; height: 44px; border-radius: 12px; }
+                .popup-announcement-icon-mark svg { width: 21px; height: 21px; }
+                .popup-announcement-stripe { font-size: 10.5px; padding: 3px 9px; min-height: 22px; }
+                .popup-announcement-close-btn { width: 34px; height: 34px; }
+                .popup-announcement-close-btn svg { width: 12px; height: 12px; }
+                .popup-announcement-body { padding: 20px 22px 20px; }
+                .popup-announcement-title { font-size: 22px; margin-bottom: 12px; }
+                .popup-announcement-content { font-size: 14.5px; line-height: 1.7; padding-right: 8px; }
+                .popup-announcement-footer {
+                    flex-direction: column;
+                    align-items: stretch;
+                    padding: 16px 22px 22px;
+                    gap: 10px;
                 }
-                100% {
-                    box-shadow: 0 0 0 0 <?= str_replace('0.3', '0', $cfg['shadow']) ?>;
+                .popup-announcement-btn { height: 48px; font-size: 14px; padding: 0 18px; }
+                .popup-announcement-divider { margin: 0 22px; }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .popup-announcement-overlay,
+                .popup-announcement-card,
+                .popup-announcement-btn,
+                .popup-announcement-close-btn {
+                    animation: none !important;
+                    transition: none !important;
                 }
-            }
-
-            .popup-announcement-card-title {
-                font-family: inherit;
-                font-weight: 700;
-                font-size: 22px;
-                color: #0f172a;
-                text-align: center;
-                margin: 0 0 16px 0;
-                line-height: 1.3;
-            }
-
-            .popup-announcement-card-body {
-                font-family: inherit;
-                font-size: 15px;
-                line-height: 1.6;
-                color: #475569;
-                margin-bottom: 24px;
-                text-align: center;
-                max-height: 250px;
-                overflow-y: auto;
-                padding-right: 4px;
-            }
-
-            /* Rich Text Editor Elements styling */
-            .popup-announcement-card-body p {
-                margin-bottom: 12px;
-            }
-            .popup-announcement-card-body p:last-child {
-                margin-bottom: 0;
-            }
-            .popup-announcement-card-body strong {
-                font-weight: 600;
-                color: #0f172a;
-            }
-            .popup-announcement-card-body a {
-                color: <?= $cfg['action_bg'] ?>;
-                text-decoration: underline;
-            }
-            .popup-announcement-card-body a:hover {
-                color: <?= $cfg['action_hover'] ?>;
-            }
-            .popup-announcement-card-body ul, .popup-announcement-card-body ol {
-                text-align: left;
-                padding-left: 20px;
-                margin-bottom: 16px;
-            }
-            .popup-announcement-card-body li {
-                margin-bottom: 6px;
-            }
-            .popup-announcement-card-body blockquote {
-                border-left: 4px solid #cbd5e1;
-                padding-left: 12px;
-                margin: 12px 0;
-                color: #64748b;
-                font-style: italic;
-            }
-
-            .popup-announcement-card-body::-webkit-scrollbar {
-                width: 6px;
-            }
-            .popup-announcement-card-body::-webkit-scrollbar-track {
-                background: transparent;
-            }
-            .popup-announcement-card-body::-webkit-scrollbar-thumb {
-                background: #cbd5e1;
-                border-radius: 3px;
-            }
-
-            .popup-announcement-card-footer {
-                display: flex;
-                gap: 12px;
-                justify-content: center;
-            }
-
-            .popup-announcement-btn {
-                font-family: inherit;
-                font-weight: 600;
-                font-size: 14px;
-                padding: 10px 24px;
-                border-radius: 8px;
-                border: none;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                text-decoration: none;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .popup-announcement-btn-close {
-                background-color: #f1f5f9;
-                color: #475569;
-            }
-
-            .popup-announcement-btn-close:hover {
-                background-color: #e2e8f0;
-                color: #0f172a;
-            }
-
-            .popup-announcement-btn-action {
-                background-color: <?= $cfg['action_bg'] ?>;
-                color: #ffffff;
-                box-shadow: 0 4px 6px -1px <?= $cfg['shadow'] ?>;
-            }
-
-            .popup-announcement-btn-action:hover {
-                background-color: <?= $cfg['action_hover'] ?>;
-                box-shadow: 0 10px 15px -3px <?= $cfg['shadow'] ?>;
-                transform: translateY(-1px);
-            }
-
-            body.popup-announcement-open {
-                overflow: hidden !important;
-            }
-
-            html[data-theme="dark"] .popup-announcement-card {
-                background-color: #1e293b;
-                border-color: #334155;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            }
-
-            html[data-theme="dark"] .popup-announcement-card-title {
-                color: #f8fafc;
-            }
-
-            html[data-theme="dark"] .popup-announcement-card-body {
-                color: #94a3b8;
-            }
-
-            html[data-theme="dark"] .popup-announcement-card-body strong {
-                color: #f8fafc;
-            }
-
-            html[data-theme="dark"] .popup-announcement-card-body::-webkit-scrollbar-thumb {
-                background: #475569;
-            }
-
-            html[data-theme="dark"] .popup-announcement-progress-container {
-                background-color: #334155;
-            }
-
-            html[data-theme="dark"] .popup-announcement-btn-close {
-                background-color: #334155;
-                color: #cbd5e1;
-            }
-
-            html[data-theme="dark"] .popup-announcement-btn-close:hover {
-                background-color: #475569;
-                color: #f8fafc;
+                .popup-announcement-overlay.is-active .popup-announcement-card {
+                    opacity: 1;
+                    transform: none;
+                }
             }
         </style>
 
         <div id="popupAnnouncementModal" class="popup-announcement-overlay" data-cookie-days="<?= $cookieDays ?>" data-popup-hash="<?= $contentHash ?>" data-popup-strict="<?= $strict ? '1' : '0' ?>" data-popup-timer="<?= $timer ?>" role="dialog" aria-modal="true" aria-labelledby="popupAnnouncementTitle">
-            <div class="popup-announcement-card">
-                <?php if ($timer > 0): ?>
-                    <div class="popup-announcement-progress-container">
-                        <div class="popup-announcement-progress-bar" id="popupProgressBar"></div>
+            <div class="popup-announcement-card" role="document">
+                <div class="popup-announcement-head">
+                    <div class="popup-announcement-icon-wrapper" aria-hidden="true">
+                        <span class="popup-announcement-icon-mark"><?= $cfg['icon'] ?></span>
                     </div>
-                <?php endif; ?>
-                <?php if (!$strict): ?>
-                    <button class="popup-announcement-close-btn" aria-label="Kapat" type="button">&times;</button>
-                <?php endif; ?>
-                <div class="popup-announcement-icon-wrapper">
-                    <i class="bi <?= $cfg['icon'] ?>"></i>
-                </div>
-                <h3 id="popupAnnouncementTitle" class="popup-announcement-card-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h3>
-                <div class="popup-announcement-card-body">
-                    <?= $content ?>
-                </div>
-                <div class="popup-announcement-card-footer">
-                    <button type="button" class="popup-announcement-btn popup-announcement-btn-close" data-popup-dismiss><?= htmlspecialchars($buttonText, ENT_QUOTES, 'UTF-8') ?></button>
-                    <?php if ($actionText !== '' && $actionUrl !== ''): ?>
-                        <a href="<?= htmlspecialchars($actionUrl, ENT_QUOTES, 'UTF-8') ?>" class="popup-announcement-btn popup-announcement-btn-action"><?= htmlspecialchars($actionText, ENT_QUOTES, 'UTF-8') ?></a>
+                    <div class="popup-announcement-head-text">
+                        <span class="popup-announcement-stripe"><?= htmlspecialchars($badgeLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <?php if (!$strict): ?>
+                        <button class="popup-announcement-close-btn" aria-label="Kapat" type="button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                              <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
+                            </svg>
+                        </button>
                     <?php endif; ?>
                 </div>
+
+                <div class="popup-announcement-body">
+                    <h3 id="popupAnnouncementTitle" class="popup-announcement-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h3>
+                    <div class="popup-announcement-content">
+                        <?= $content ?>
+                    </div>
+                </div>
+
+                <div class="popup-announcement-divider" aria-hidden="true"></div>
+
+                <div class="popup-announcement-footer">
+                    <?php if ($actionText !== '' && $actionUrl !== ''): ?>
+                        <a href="<?= htmlspecialchars($actionUrl, ENT_QUOTES, 'UTF-8') ?>" class="popup-announcement-btn popup-announcement-btn-action">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.146 3.146a.5.5 0 0 1 .708 0l4.5 4.5a.5.5 0 0 1 0 .708l-4.5 4.5a.5.5 0 0 1-.708-.708L11.793 8.5H3a.5.5 0 0 1 0-1h8.793L8.146 3.854a.5.5 0 0 1 0-.708z"/></svg>
+                            <?= htmlspecialchars($actionText, ENT_QUOTES, 'UTF-8') ?>
+                        </a>
+                    <?php endif; ?>
+                    <button type="button" class="popup-announcement-btn popup-announcement-btn-close" data-popup-dismiss><?= htmlspecialchars($buttonText, ENT_QUOTES, 'UTF-8') ?></button>
+                </div>
+
+                <?php if ($timer > 0): ?>
+                    <div class="popup-announcement-progress"><div class="popup-announcement-progress-bar" id="popupProgressBar"></div></div>
+                <?php endif; ?>
+
             </div>
         </div>
 

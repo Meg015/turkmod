@@ -72,6 +72,8 @@ final class PublicThemeRenderer
             'site_name' => $siteName,
             'site_description' => $siteDescription,
             'base_url' => rtrim($baseUri, '/'),
+            'logo_url' => self::publicSettingAsset(trim((string) ($settings['logo_url'] ?? '')), $baseUri),
+            'logo_alt' => $siteName . ' logo',
             'page_title' => $pageTitle,
             'search_query' => (string) ($_GET['q'] ?? ''),
             'menu_items' => function_exists('sidebarBuilderNavigationItems')
@@ -149,10 +151,10 @@ final class PublicThemeRenderer
             try {
                 $themeJs = trim($themeManager->renderAssetTags('js'));
                 $activeThemeId = $themeManager->activeThemeId();
-                // Listing surfaces can run on the shared public runtime to avoid loading the full
-                // theme JS bundle on pages that do not need heavy interactive modules.
-                $preferLeanRuntime = $activeThemeId === 'turkmod'
-                    && in_array($pageKey, ['home', 'search', 'category', 'leaderboard'], true);
+                // Public header/sidebar behavior must stay identical across all Turkmod pages.
+                // Use the full theme runtime everywhere so Bootstrap dropdowns, theme toggle,
+                // notifications, profile menu, and sidebar controls share one initializer path.
+                $preferLeanRuntime = false;
                 $themeOwnsSharedRuntime = $themeJs !== '' && $activeThemeId === 'turkmod' && !$preferLeanRuntime;
                 if ($themeOwnsSharedRuntime) {
                     // Turkmod bundle already includes shared public runtime (analytics/ui bootstrap).
@@ -179,6 +181,10 @@ final class PublicThemeRenderer
                     if (preg_match('/^[a-z0-9_-]+$/', $activeThemeId) === 1 && is_file($leanRuntimePath)) {
                         $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanRuntimeRelative), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                     }
+                }
+                $toastBridgeScript = '<script src="' . htmlspecialchars(asset_url('assets/js/public-toast-bridge.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                if (!str_contains($scripts, 'assets/js/public-toast-bridge.js')) {
+                    $scripts = trim($scripts . "\n" . $toastBridgeScript);
                 }
                 if ($pageKey === 'topic') {
                     $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-view-track.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
@@ -2100,10 +2106,9 @@ final class PublicThemeRenderer
         $head[] = '<link rel="preload" as="style" href="' . $robotoLocalEsc . '">';
         $head[] = '<link rel="stylesheet" href="' . $robotoLocalEsc . '">';
 
-        // Use the lightweight listing bundle on list-style public pages to reduce render-blocking CSS
-        // while preserving visual parity with the active turkmod shell.
-        $preferLeanThemeCss = $activeThemeId === 'turkmod'
-            && in_array($pageKey, ['home', 'search', 'category', 'leaderboard'], true);
+        // Keep Turkmod on the same CSS bundle across public pages. The lean listing bundle is
+        // intentionally skipped here because it can omit topbar/sidebar rules used by shared shell widgets.
+        $preferLeanThemeCss = false;
         $skipRootPublicCssForLeanListing = $preferLeanThemeCss && $activeThemeId === 'turkmod';
 
         if ($themeManager instanceof ThemeManager) {

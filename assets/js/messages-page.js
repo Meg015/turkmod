@@ -64,11 +64,16 @@
             results.hidden = true;
         }
 
+        function clearSearchInvalid() {
+            searchInput.classList.remove("is-invalid");
+            searchInput.removeAttribute("aria-invalid");
+        }
+
         function setSelectedUser(user) {
             var userId = Number(user && user.id ? user.id : 0);
             targetInput.value = userId > 0 ? String(userId) : "";
             searchInput.value = user && user.name ? String(user.name) : "";
-            searchInput.setCustomValidity("");
+            clearSearchInvalid();
             clearResults();
         }
 
@@ -119,7 +124,7 @@
         var searchUsers = debounce(fetchUsers, 180);
         searchInput.addEventListener("input", function () {
             targetInput.value = "";
-            searchInput.setCustomValidity("");
+            clearSearchInvalid();
             searchUsers(searchInput.value);
         });
 
@@ -142,8 +147,11 @@
             }
 
             event.preventDefault();
-            searchInput.setCustomValidity("Lutfen listeden bir kullanici secin.");
-            searchInput.reportValidity();
+            searchInput.classList.add("is-invalid");
+            searchInput.setAttribute("aria-invalid", "true");
+            if (typeof window.showToast === "function") {
+                window.showToast("Lütfen listeden bir kullanıcı seçin.", "warning");
+            }
             searchInput.focus();
         });
     }

@@ -3,7 +3,14 @@
 <div class="container ui-container">
 
 <a class="header__logo" href="{base_url}/index.php" aria-label="{site_name}">
-<i class="bi bi-megaphone-fill" aria-hidden="true"></i>
+<span class="header__logo-mark" aria-hidden="true">
+{if logo_url}
+<img class="header__logo-img" src="{logo_url}" alt="">
+{else}
+<img class="header__logo-img" src="{base_url}/themes/turkmod/images/logo-sample.svg" alt="">
+{/if}
+</span>
+<span class="header__logo-text">{site_name}</span>
 </a>
 
 <button class="navbar-toggler ms-auto icon-md btn btn-light p-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Menu">

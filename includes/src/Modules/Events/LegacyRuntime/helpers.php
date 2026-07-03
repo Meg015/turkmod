@@ -106,17 +106,6 @@ if (!function_exists('eventsConfigUiSections')) {
                     ['key' => 'events_tasks_disabled_message', 'label' => 'Görev kapalı mesajı', 'type' => 'textarea', 'help' => 'Boş bırakılırsa varsayılan mesaj gösterilir.'],
                     ['key' => 'events_rewards_enabled', 'label' => 'Ödüller açık', 'type' => 'bool', 'help' => 'Kapalıyken ödül kasası ve teslim alma işlemi durur.'],
                     ['key' => 'events_rewards_disabled_message', 'label' => 'Ödüller kapalı mesajı', 'type' => 'textarea', 'help' => 'Boş bırakılırsa varsayılan mesaj gösterilir.'],
-                    ['key' => 'points_system_enabled', 'label' => 'Puan sistemi açık', 'type' => 'bool', 'help' => 'Kapalıyken puan ödülleri otomatik uygulanmaz; admin bekleyen ödülü manuel teslim eder. Açıkken puan tablosu ayarlarını yapılandırmalısınız.'],
-                ],
-            ],
-            'points' => [
-                'title' => 'Puan Entegrasyonu',
-                'icon' => 'bi-database-check',
-                'description' => 'Harici puan tablosuna yazılacak tablo ve kolonları belirle. Puan sistemi açıkken bu alanlar doğrulanır.',
-                'fields' => [
-                    ['key' => 'points_system_table', 'label' => 'Puan tablosu', 'type' => 'string', 'placeholder' => 'users', 'help' => 'Puan değerinin tutulduğu veritabanı tablosu. Sadece güvenli SQL adları kabul edilir.'],
-                    ['key' => 'points_system_column', 'label' => 'Puan kolonu', 'type' => 'string', 'placeholder' => 'points', 'help' => 'Puan değerinin artırılacağı kolon.'],
-                    ['key' => 'points_system_user_id_column', 'label' => 'Kullanıcı ID kolonu', 'type' => 'string', 'placeholder' => 'id', 'help' => 'Kullanıcıyı eşleştiren ID kolonu.'],
                 ],
             ],
             'security' => [
@@ -528,6 +517,16 @@ if (!function_exists('eventsNormalizeConfigInput')) {
             }
 
             $data[$key] = trim((string)($input[$key] ?? $definition['value']));
+        }
+
+        $backendManagedKeys = [
+            'points_system_enabled',
+            'points_system_table',
+            'points_system_column',
+            'points_system_user_id_column',
+        ];
+        foreach ($backendManagedKeys as $backendManagedKey) {
+            unset($data[$backendManagedKey], $errors[$backendManagedKey]);
         }
 
         if (($data['points_system_enabled'] ?? 'false') === 'true') {
@@ -1261,10 +1260,70 @@ if (!function_exists('eventsConfigBool')) {
     }
 }
 
+if (!function_exists('eventsEnsureAuditLogTable')) {
+    function eventsEnsureAuditLogTable(?PDO $pdo): bool
+    {
+        if (!$pdo || !eventsTablesReady($pdo)) {
+            return false;
+        }
+
+        if (eventsTableExists($pdo, 'events_audit_log')) {
+            return true;
+        }
+
+        $sqlWithForeignKey = "CREATE TABLE IF NOT EXISTS events_audit_log (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NULL,
+            action VARCHAR(80) NOT NULL,
+            subject_type VARCHAR(80) NULL,
+            subject_id BIGINT UNSIGNED NULL,
+            details LONGTEXT NULL,
+            ip_address VARCHAR(45) NULL,
+            created_at TIMESTAMP NULL DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY idx_events_audit_log_action_created (action, created_at),
+            KEY idx_events_audit_log_user_created (user_id, created_at),
+            CONSTRAINT events_audit_log_user_foreign FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        $sqlWithoutForeignKey = "CREATE TABLE IF NOT EXISTS events_audit_log (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NULL,
+            action VARCHAR(80) NOT NULL,
+            subject_type VARCHAR(80) NULL,
+            subject_id BIGINT UNSIGNED NULL,
+            details LONGTEXT NULL,
+            ip_address VARCHAR(45) NULL,
+            created_at TIMESTAMP NULL DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY idx_events_audit_log_action_created (action, created_at),
+            KEY idx_events_audit_log_user_created (user_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+        try {
+            $pdo->exec($sqlWithForeignKey);
+        } catch (Throwable $e) {
+            try {
+                $pdo->exec($sqlWithoutForeignKey);
+            } catch (Throwable $fallbackError) {
+                if (function_exists('appLogException')) {
+                    appLogException($fallbackError, ['source' => 'eventsEnsureAuditLogTable']);
+                }
+                return false;
+            }
+        }
+
+        return eventsTableExists($pdo, 'events_audit_log');
+    }
+}
+
 if (!function_exists('eventsAuditLog')) {
     function eventsAuditLog(?PDO $pdo, string $action, ?string $subjectType = null, ?int $subjectId = null, array $details = [], ?int $userId = null): void
     {
-        if (!$pdo || !eventsTablesReady($pdo) || !eventsTableExists($pdo, 'events_audit_log')) {
+        if (!$pdo || !eventsTablesReady($pdo)) {
+            return;
+        }
+
+        if (!eventsTableExists($pdo, 'events_audit_log') && !eventsEnsureAuditLogTable($pdo)) {
             return;
         }
 
@@ -1295,9 +1354,12 @@ if (!function_exists('eventsTableExists')) {
         }
 
         try {
-            $stmt = $pdo->prepare('SHOW TABLES LIKE ?');
+            $stmt = $pdo->prepare("SELECT COUNT(*)
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?");
             $stmt->execute([$tableName]);
-            return $stmt->fetchColumn() !== false;
+            return (int)$stmt->fetchColumn() > 0;
         } catch (Throwable $e) {
             return false;
         }

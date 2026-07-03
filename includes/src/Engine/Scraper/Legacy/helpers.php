@@ -187,6 +187,12 @@ function ensureScraperSchema(?PDO $pdo): void
 
 function getScraperBotSettings(?PDO $pdo): array
 {
+    static $cache = [];
+    $cacheKey = $pdo ? spl_object_id($pdo) : 0;
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+
     $defaults = [
         'bot_deepl_api_key'     => '',
         'bot_user_agent'        => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -194,6 +200,7 @@ function getScraperBotSettings(?PDO $pdo): array
         'bot_request_timeout'   => '30',
         'bot_retry_count'       => '1',
         'bot_retry_delay'       => '750',
+        'bot_discover_cover_lookup_limit'=> '2',
         'bot_follow_redirects'  => '1',
         'bot_ssl_verify'        => '1',
         'bot_proxy_url'         => '',
@@ -255,6 +262,7 @@ function getScraperBotSettings(?PDO $pdo): array
     // pinning can be enforced through the proxy connection itself.
     $defaults['bot_proxy_url'] = '';
 
+    $cache[$cacheKey] = $defaults;
     return $defaults;
 }
 
@@ -263,7 +271,8 @@ function saveScraperBotSettings(?PDO $pdo, array $input): void
     if (!$pdo) return;
     $keys = [
         'bot_deepl_api_key', 'bot_user_agent', 'bot_request_delay', 'bot_request_timeout',
-        'bot_retry_count', 'bot_retry_delay', 'bot_follow_redirects', 'bot_ssl_verify',
+        'bot_retry_count', 'bot_retry_delay', 'bot_discover_cover_lookup_limit',
+        'bot_follow_redirects', 'bot_ssl_verify',
         'bot_proxy_url', 'bot_custom_headers',
         'bot_default_max_images', 'bot_image_save_path', 'bot_translate_enabled',
         'bot_translate_title', 'bot_translate_content', 'bot_translate_download_names',
@@ -317,9 +326,9 @@ function markScraperImportedTopics(?PDO $pdo, int $siteId, array $topics): array
 
     try {
         $placeholders = implode(',', array_fill(0, count($urls), '?'));
+        // INNER JOIN topics kaldırıldı - sadece bot_imports tablosu yeterli
         $stmt = $pdo->prepare("SELECT i.source_url, i.status, i.topic_id
                                FROM bot_imports i
-                               INNER JOIN topics t ON t.id = i.topic_id
                                WHERE i.bot_site_id = ? AND i.source_url IN ({$placeholders})");
         $stmt->execute(array_merge([$siteId], $urls));
         $seen = [];
@@ -360,11 +369,17 @@ function getScraperSites(?PDO $pdo): array
 
 function getScraperSite(?PDO $pdo, int $id): ?array
 {
+    static $cache = [];
     if (!$pdo) return null;
+    if (array_key_exists($id, $cache)) {
+        return $cache[$id];
+    }
     try {
         $stmt = $pdo->prepare("SELECT * FROM bot_sites WHERE id = ?");
         $stmt->execute([$id]);
-        return $stmt->fetch() ?: null;
+        $result = $stmt->fetch() ?: null;
+        $cache[$id] = $result;
+        return $result;
     } catch (Throwable $e) { return null; }
 }
 
@@ -543,7 +558,10 @@ function getScraperJobs(?PDO $pdo, ?int $siteId = null, int $limit = 50): array
 {
     if (!$pdo) return [];
     try {
-        $sql = "SELECT j.*, s.name AS site_name FROM bot_jobs j LEFT JOIN bot_sites s ON j.bot_site_id = s.id";
+        $limit = max(1, min(100, $limit));
+        $sql = "SELECT j.id, j.bot_site_id, j.status, j.total_urls, j.processed_urls, j.failed_urls,
+                       j.imported_urls, j.created_at, j.started_at, j.completed_at, s.name AS site_name
+                FROM bot_jobs j LEFT JOIN bot_sites s ON j.bot_site_id = s.id";
         if ($siteId) {
             $sql .= " WHERE j.bot_site_id = ?";
             $stmt = $pdo->prepare($sql . " ORDER BY j.created_at DESC LIMIT {$limit}");
@@ -592,7 +610,12 @@ function getScraperImports(?PDO $pdo, ?int $siteId = null, ?string $status = nul
 {
     if (!$pdo) return [];
     try {
-        $sql = "SELECT i.*, s.name AS site_name FROM bot_imports i LEFT JOIN bot_sites s ON i.bot_site_id = s.id WHERE 1=1";
+        $limit = max(1, min(200, $limit));
+        $sql = "SELECT i.id, i.bot_job_id, i.bot_site_id, i.topic_id, i.source_url,
+                       i.source_title, i.translated_title, i.source_images, i.downloaded_images,
+                       i.status, i.images_count, i.error_message, i.created_at, i.updated_at,
+                       s.name AS site_name
+                FROM bot_imports i LEFT JOIN bot_sites s ON i.bot_site_id = s.id WHERE 1=1";
         $params = [];
         if ($siteId) { $sql .= " AND i.bot_site_id = ?"; $params[] = $siteId; }
         if ($status) { $sql .= " AND i.status = ?"; $params[] = $status; }
@@ -905,12 +928,18 @@ function getScraperStats(?PDO $pdo): array
     $stats = ['sites' => 0, 'mappings' => 0, 'jobs' => 0, 'imports' => 0, 'imported' => 0, 'pending' => 0];
     if (!$pdo) return $stats;
     try {
-        $stats['sites'] = (int)$pdo->query("SELECT COUNT(*) FROM bot_sites")->fetchColumn();
-        $stats['mappings'] = (int)$pdo->query("SELECT COUNT(*) FROM bot_category_mappings")->fetchColumn();
-        $stats['jobs'] = (int)$pdo->query("SELECT COUNT(*) FROM bot_jobs")->fetchColumn();
-        $stats['imports'] = (int)$pdo->query("SELECT COUNT(*) FROM bot_imports")->fetchColumn();
-        $stats['imported'] = (int)$pdo->query("SELECT COUNT(*) FROM bot_imports WHERE status='imported' AND topic_id IS NOT NULL")->fetchColumn();
-        $stats['pending'] = (int)$pdo->query("SELECT COUNT(*) FROM bot_imports WHERE status = 'pending'")->fetchColumn();
+        $row = $pdo->query("
+            SELECT
+                (SELECT COUNT(*) FROM bot_sites) AS sites,
+                (SELECT COUNT(*) FROM bot_category_mappings) AS mappings,
+                (SELECT COUNT(*) FROM bot_jobs) AS jobs,
+                (SELECT COUNT(*) FROM bot_imports) AS imports,
+                (SELECT COUNT(*) FROM bot_imports WHERE status = 'imported' AND topic_id IS NOT NULL) AS imported,
+                (SELECT COUNT(*) FROM bot_imports WHERE status = 'pending') AS pending
+        ")->fetch(PDO::FETCH_ASSOC) ?: [];
+        foreach (array_keys($stats) as $key) {
+            $stats[$key] = (int)($row[$key] ?? 0);
+        }
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
     return $stats;
 }

@@ -96,12 +96,7 @@ function healthRuntimeLogSummary(string $root): array
     ];
 
     foreach ($files as $file) {
-        $lines = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if (!is_array($lines)) {
-            continue;
-        }
-
-        foreach (array_slice($lines, -250) as $line) {
+        foreach (healthTailLines($file, 250) as $line) {
             if (preg_match('~critical|fatal|exception|uncaught|undefined function|stack trace~i', $line) === 1) {
                 $summary['critical']++;
                 $summary['latest'] = basename($file) . ': ' . mb_substr(trim($line), 0, 160);
@@ -118,25 +113,88 @@ function healthRuntimeLogSummary(string $root): array
     return $summary;
 }
 
+function healthTailLines(string $file, int $lineLimit = 250, int $byteLimit = 262144): array
+{
+    if (!is_file($file) || !is_readable($file)) {
+        return [];
+    }
+
+    $size = @filesize($file);
+    if ($size === false || $size <= 0) {
+        return [];
+    }
+
+    $handle = @fopen($file, 'rb');
+    if (!$handle) {
+        return [];
+    }
+
+    $readSize = min($byteLimit, (int) $size);
+    if ($readSize < (int) $size) {
+        @fseek($handle, -$readSize, SEEK_END);
+    }
+
+    $chunk = (string) @fread($handle, $readSize);
+    @fclose($handle);
+
+    $lines = preg_split('/\R/u', $chunk) ?: [];
+    $lines = array_values(array_filter($lines, static fn (string $line): bool => trim($line) !== ''));
+
+    return array_slice($lines, -$lineLimit);
+}
+
 function healthTableExists(?PDO $pdo, string $table): bool
 {
     if (!$pdo || $table === '') {
         return false;
     }
 
+    static $cache = [];
+
     try {
         $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $cacheKey = spl_object_id($pdo) . ':' . $driver;
+
+        if (!isset($cache[$cacheKey])) {
+            $cache[$cacheKey] = [];
+
+            if ($driver === 'sqlite') {
+                $stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'");
+                foreach (($stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : []) ?: [] as $name) {
+                    $cache[$cacheKey][strtolower((string) $name)] = true;
+                }
+            } else {
+                $stmt = $pdo->query('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()');
+                foreach (($stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : []) ?: [] as $name) {
+                    $cache[$cacheKey][strtolower((string) $name)] = true;
+                }
+            }
+        }
+
+        $normalized = strtolower($table);
+        if (isset($cache[$cacheKey][$normalized])) {
+            return true;
+        }
+
         if ($driver === 'sqlite') {
             $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1");
             $stmt->execute([$table]);
-            return (bool) $stmt->fetchColumn();
+            $exists = (bool) $stmt->fetchColumn();
+            if ($exists) {
+                $cache[$cacheKey][$normalized] = true;
+            }
+            return $exists;
         }
 
         $stmt = $pdo->prepare(
             'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?'
         );
         $stmt->execute([$table]);
-        return (int) $stmt->fetchColumn() > 0;
+        $exists = (int) $stmt->fetchColumn() > 0;
+        if ($exists) {
+            $cache[$cacheKey][$normalized] = true;
+        }
+        return $exists;
     } catch (Throwable $e) {
         return false;
     }
@@ -148,8 +206,37 @@ function healthColumnExists(?PDO $pdo, string $table, string $column): bool
         return false;
     }
 
+    static $cache = [];
+
     try {
         $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $cacheKey = spl_object_id($pdo) . ':' . $driver . ':' . strtolower($table);
+
+        if (!isset($cache[$cacheKey])) {
+            $cache[$cacheKey] = [];
+
+            if ($driver === 'sqlite') {
+                $safeTable = str_replace('"', '""', $table);
+                $query = $pdo->query('PRAGMA table_info("' . $safeTable . '")');
+                foreach (($query ? $query->fetchAll(PDO::FETCH_ASSOC) : []) ?: [] as $row) {
+                    $cache[$cacheKey][strtolower((string) ($row['name'] ?? ''))] = true;
+                }
+            } else {
+                $stmt = $pdo->prepare(
+                    'SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?'
+                );
+                $stmt->execute([$table]);
+                foreach (($stmt->fetchAll(PDO::FETCH_COLUMN) ?: []) as $name) {
+                    $cache[$cacheKey][strtolower((string) $name)] = true;
+                }
+            }
+        }
+
+        $normalized = strtolower($column);
+        if (isset($cache[$cacheKey][$normalized])) {
+            return true;
+        }
+
         if ($driver === 'sqlite') {
             $safeTable = str_replace('"', '""', $table);
             $query = $pdo->query('PRAGMA table_info("' . $safeTable . '")');
@@ -227,6 +314,55 @@ function healthDiskDetail(string $path): string
 
     $usedPercent = (int) round((1 - ($free / $total)) * 100);
     return healthReadableBytes((float) $free) . ' boş / ' . healthReadableBytes((float) $total) . ' toplam, kullanım %' . $usedPercent;
+}
+
+function healthPhpFileCount(string $root): int
+{
+    $codePaths = [
+        'admin',
+        'api',
+        'cron',
+        'includes',
+        'themes',
+        'index.php',
+        'messages.php',
+        'route.php',
+    ];
+    $skipDirs = ['.git', 'node_modules', 'storage', 'tmp', 'uploads', 'vendor'];
+    $count = 0;
+
+    foreach ($codePaths as $relativePath) {
+        $path = $root . DIRECTORY_SEPARATOR . $relativePath;
+        if (is_file($path)) {
+            if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'php') {
+                $count++;
+            }
+            continue;
+        }
+        if (!is_dir($path)) {
+            continue;
+        }
+
+        $directory = new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS);
+        $filter = new RecursiveCallbackFilterIterator(
+            $directory,
+            static function (SplFileInfo $current) use ($skipDirs): bool {
+                if (!$current->isDir()) {
+                    return true;
+                }
+
+                return !in_array(strtolower($current->getFilename()), $skipDirs, true);
+            }
+        );
+        $iterator = new RecursiveIteratorIterator($filter);
+        foreach ($iterator as $file) {
+            if ($file instanceof SplFileInfo && strtolower($file->getExtension()) === 'php') {
+                $count++;
+            }
+        }
+    }
+
+    return $count;
 }
 
 function healthAgeLabel(?string $datetime): string
@@ -424,7 +560,7 @@ $latestAppLog = healthTableExists($pdo, 'application_logs')
     ? healthTextScalar($pdo, "SELECT CONCAT(level, ' / ', channel, ' / ', LEFT(message, 140)) FROM application_logs ORDER BY created_at DESC, id DESC LIMIT 1", [], 'kayıt yok')
     : 'application_logs tablosu yok';
 $activityToday = healthTableExists($pdo, 'activity_logs')
-    ? healthScalar($pdo, "SELECT COUNT(*) FROM activity_logs WHERE DATE(created_at) = CURDATE()")
+    ? healthScalar($pdo, "SELECT COUNT(*) FROM activity_logs WHERE created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)")
     : 0;
 
 $emailQueued = healthTableExists($pdo, 'notification_email_queue')
@@ -479,16 +615,10 @@ $cronRuns = [
     'events_master' => healthCronLastRun($pdo, 'events_master'),
 ];
 
-$phpFiles = [];
 try {
-    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
-    foreach ($iterator as $file) {
-        if ($file instanceof SplFileInfo && strtolower($file->getExtension()) === 'php') {
-            $phpFiles[] = $file->getPathname();
-        }
-    }
+    $phpFileCount = healthPhpFileCount($root);
 } catch (Throwable $e) {
-    $phpFiles = [];
+    $phpFileCount = 0;
 }
 
 $mdFiles = glob($root . DIRECTORY_SEPARATOR . '*.md') ?: [];
@@ -523,7 +653,7 @@ $checks = [
     healthRow('database', 'Core tablolar', count($missingCoreTables) === 0, count($missingCoreTables) === 0 ? count($coreTables) . ' tablo mevcut' : 'Eksik: ' . implode(', ', $missingCoreTables)),
     healthRow('database', 'Runtime schema güncellemesi', !$isProduction || !$runtimeSchemaAllowed, $runtimeSchemaAllowed ? 'aktif' : 'kapalı', 'warning'),
     healthRow('database', 'database/schema.sql', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans schema için gerekli'),
-    healthRow('database', 'PHP dosyaları', count($phpFiles) > 0, count($phpFiles) . ' adet PHP dosyası'),
+    healthRow('database', 'PHP dosyaları', $phpFileCount > 0, $phpFileCount . ' adet PHP dosyası'),
     healthRow('database', 'storage/cache yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), 'warning'),
     healthRow('database', 'uploads yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'uploads'), healthPath($root . DIRECTORY_SEPARATOR . 'uploads')),
     healthRow('database', 'storage/logs yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs')),

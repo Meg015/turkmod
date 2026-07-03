@@ -19816,23 +19816,83 @@ html[data-public-theme="turkmod"] .btn-primary-soft {
 
 html[data-public-theme="turkmod"] .header__logo {
 
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  flex: 0 0 auto;
+
+  min-width: 0;
+
+  padding: 3px 10px 3px 3px;
+
+  border-radius: 10px;
+
+  background: transparent;
+
+  border: 1px solid transparent;
+
+  color: #334155;
+
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .header__logo-mark {
+
   display: inline-grid;
 
   place-items: center;
-
-  flex: 0 0 auto;
 
   width: 38px;
 
   height: 38px;
 
-  border-radius: 7px;
+  border-radius: 8px;
 
-  background: var(--t-primary);
+  background: linear-gradient(140deg, var(--t-primary), var(--t-primary-hover));
 
-  color: #fff;
+  box-shadow: 0 8px 18px rgba(26, 40, 56, .18);
 
-  font-size: 1.05rem;
+  overflow: hidden;
+
+  flex: 0 0 38px;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .header__logo-img {
+
+  display: block;
+
+  width: 100%;
+
+  height: 100%;
+
+  object-fit: cover;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .header__logo-text {
+
+  font-size: .95rem;
+
+  font-weight: 750;
+
+  letter-spacing: .01em;
+
+  color: #334155;
+
+  white-space: nowrap;
+
+  line-height: 1;
 
 }
 
@@ -19842,9 +19902,41 @@ html[data-public-theme="turkmod"] .header__logo:hover,
 
 html[data-public-theme="turkmod"] .header__logo:focus {
 
-  color: #fff;
+  color: #334155;
 
-  background: var(--t-primary-hover);
+  background: rgba(139, 21, 56, .08);
+
+  border-color: rgba(139, 21, 56, .18);
+
+  box-shadow: 0 4px 12px rgba(139, 21, 56, .12);
+
+}
+
+
+
+@media (max-width: 991.98px) {
+
+  html[data-public-theme="turkmod"] .header__logo {
+
+    padding-right: 3px;
+
+  }
+
+  html[data-public-theme="turkmod"] .header__logo-text {
+
+    display: none;
+
+  }
+
+}
+
+
+html[data-public-theme="turkmod"][data-theme="dark"] .header__logo,
+html[data-public-theme="turkmod"][data-theme-mode="dark"] .header__logo,
+html[data-public-theme="turkmod"][data-theme="dark"] .header__logo-text,
+html[data-public-theme="turkmod"][data-theme-mode="dark"] .header__logo-text {
+
+  color: #e2e8f0;
 
 }
 

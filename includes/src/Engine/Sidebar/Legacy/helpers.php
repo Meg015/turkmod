@@ -1339,17 +1339,47 @@ if (!function_exists('sidebarBuilderNavigationItems')) {
             $categoryListHref = ($prefix !== '' ? $prefix : '') . '/kategoriler';
         }
 
+        $lower = static function (string $value): string {
+            $value = trim($value);
+            if ($value === '') {
+                return '';
+            }
+            return function_exists('mb_strtolower')
+                ? mb_strtolower($value, 'UTF-8')
+                : strtolower($value);
+        };
+
+        $defaultItems = [
+            'home' => [
+                'line' => 'Anasayfa|/index.php|bi-house',
+                'markers' => ['anasayfa', 'ana sayfa', '/index.php', 'index.php'],
+            ],
+            'categories' => [
+                'line' => 'Kategoriler|{category_list}|bi-grid',
+                'markers' => ['kategoriler', 'kategori', '{category_list}', '/kategori', '/kategoriler', 'category', 'categories'],
+            ],
+            'upload_topic' => [
+                'line' => 'Mod Yukle|{upload_topic}|bi-cloud-arrow-up',
+                'markers' => ['mod yukle', 'mod yükle', 'icerik yukle', 'içerik yükle', '{upload_topic}', '/upload-topic.php', 'upload-topic.php', '/konu-yukle', 'konu-yukle'],
+            ],
+            'events' => [
+                'line' => 'Etkinlikler|{events}|bi-calendar-event',
+                'markers' => ['etkinlikler', 'events', '{events}', '/events'],
+            ],
+            'leaderboard' => [
+                'line' => 'Liderlik|{leaderboard}|bi-trophy',
+                'markers' => ['liderlik', 'leaderboard', '{leaderboard}', '/leaderboard.php', 'leaderboard.php', '/liderlik'],
+            ],
+            'contact' => [
+                'line' => 'Iletisim|{contact}|bi-envelope-paper',
+                'markers' => ['iletisim', 'iletişim', 'contact', '{contact}', '/contact', '/iletisim'],
+            ],
+        ];
+
         $raw = trim((string) ($settings['menu_items'] ?? ''));
         $lines = $raw !== '' ? (preg_split('/\R+/', $raw) ?: []) : [];
         if ($lines === []) {
-            $lines = [
-                'Anasayfa|/index.php|bi-house',
-                'Kategoriler|{category_list}|bi-grid',
-                'Mod Yukle|{upload_topic}|bi-cloud-arrow-up',
-                'Etkinlikler|{events}|bi-calendar-event',
-                'Liderlik|{leaderboard}|bi-trophy',
-                'Iletisim|{contact}|bi-envelope-paper',
-            ];
+            $lines = array_column($defaultItems, 'line');
         }
 
         $placeholderMap = [
@@ -1360,16 +1390,6 @@ if (!function_exists('sidebarBuilderNavigationItems')) {
             '{contact}' => $routeUrl('contact', '/iletisim'),
             '{notifications}' => $routeUrl('notifications', '/notifications.php'),
         ];
-
-        $lower = static function (string $value): string {
-            $value = trim($value);
-            if ($value === '') {
-                return '';
-            }
-            return function_exists('mb_strtolower')
-                ? mb_strtolower($value, 'UTF-8')
-                : strtolower($value);
-        };
 
         $categoryPath = (string) parse_url($categoryListHref, PHP_URL_PATH);
         $categoryMarkers = array_filter([

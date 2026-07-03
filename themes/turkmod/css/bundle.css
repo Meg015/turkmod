@@ -1,4 +1,4 @@
-@charset "UTF-8";
+﻿@charset "UTF-8";
 
 /* TurkMod TurkMod - Bundled CSS */
 
@@ -6600,7 +6600,7 @@ html[data-public-theme="turkmod"] .transition-slow { transition: all var(--trans
 
 
 
-html[data-public-theme="turkmod"] [data-theme="dark"] .sidebar-left .category-atlas-widget {
+html[data-public-theme="turkmod"][data-theme="dark"] .sidebar-left .category-atlas-widget {
 
     --home-cat-surface: #0f172a;
 
@@ -12676,7 +12676,7 @@ html[data-public-theme="turkmod"] .notifications-empty-actions a:hover {
 
 
 
-/* Final notification center polish — width is governed by the focus layout
+/* Final notification center polish â€” width is governed by the focus layout
 
    (grid--focus spans the full page-wrap), so the shell only sets vertical rhythm. */
 
@@ -138404,7 +138404,7 @@ html[data-public-theme="turkmod"] .site-header .container {
 
 html[data-public-theme="turkmod"] .site-header form {
 
-  width: min(320px, 27vw);
+  width: min(260px, 21vw);
 
 }
 
@@ -140348,23 +140348,83 @@ html[data-public-theme="turkmod"] .content-area .ui-events-btn-primary {
 
 html[data-public-theme="turkmod"] .header__logo {
 
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  flex: 0 0 auto;
+
+  min-width: 0;
+
+  padding: 3px 10px 3px 3px;
+
+  border-radius: 10px;
+
+  background: transparent;
+
+  border: 1px solid transparent;
+
+  color: #334155;
+
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .header__logo-mark {
+
   display: inline-grid;
 
   place-items: center;
-
-  flex: 0 0 auto;
 
   width: 38px;
 
   height: 38px;
 
-  border-radius: 7px;
+  border-radius: 8px;
 
-  background: var(--t-primary);
+  background: linear-gradient(140deg, var(--t-primary), var(--t-primary-hover));
 
-  color: #fff;
+  box-shadow: 0 8px 18px rgba(26, 40, 56, .18);
 
-  font-size: 1.05rem;
+  overflow: hidden;
+
+  flex: 0 0 38px;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .header__logo-img {
+
+  display: block;
+
+  width: 100%;
+
+  height: 100%;
+
+  object-fit: cover;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .header__logo-text {
+
+  font-size: .95rem;
+
+  font-weight: 750;
+
+  letter-spacing: .01em;
+
+  color: #334155;
+
+  white-space: nowrap;
+
+  line-height: 1;
 
 }
 
@@ -140374,9 +140434,42 @@ html[data-public-theme="turkmod"] .header__logo:hover,
 
 html[data-public-theme="turkmod"] .header__logo:focus {
 
-  color: #fff;
+  color: #334155;
 
-  background: var(--t-primary-hover);
+  background: rgba(139, 21, 56, .08);
+
+  border-color: rgba(139, 21, 56, .18);
+
+  box-shadow: 0 4px 12px rgba(139, 21, 56, .12);
+
+}
+
+
+
+@media (max-width: 1399.98px) {
+
+  html[data-public-theme="turkmod"] .header__logo {
+
+    padding-right: 3px;
+
+  }
+
+  html[data-public-theme="turkmod"] .header__logo-text {
+
+    display: none;
+
+  }
+
+}
+
+
+
+html[data-public-theme="turkmod"][data-theme="dark"] .header__logo,
+html[data-public-theme="turkmod"][data-theme-mode="dark"] .header__logo,
+html[data-public-theme="turkmod"][data-theme="dark"] .header__logo-text,
+html[data-public-theme="turkmod"][data-theme-mode="dark"] .header__logo-text {
+
+  color: #e2e8f0;
 
 }
 
@@ -141512,7 +141605,7 @@ html[data-public-theme="turkmod"] .public-breadcrumb + .layout {
 
    ------------------------------------------------ */
 
-/* Hide Bootstrap's default caret – we use our own bi-chevron-down icon */
+/* Hide Bootstrap's default caret â€“ we use our own bi-chevron-down icon */
 
 html[data-public-theme="turkmod"] .user-dropdown-container .dropdown-toggle::after {
 
@@ -142480,7 +142573,7 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-dl-card {
 
 
 
-/* Sol kenarda marka aksanı — hover/hazır durumda belirir */
+/* Sol kenarda marka aksanÄ± â€” hover/hazÄ±r durumda belirir */
 
 html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-dl-card::before {
 
@@ -142690,7 +142783,7 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-dl-card:hover .t
 
 
 
-/* Spinner: yalnızca sayım sırasında görünür */
+/* Spinner: yalnÄ±zca sayÄ±m sÄ±rasÄ±nda gÃ¶rÃ¼nÃ¼r */
 
 html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-dl-button .topic-dl-spinner {
 
@@ -142708,7 +142801,7 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-dl-button .topic
 
 
 
-/* Durum: güvenlik beklemesi sürüyor */
+/* Durum: gÃ¼venlik beklemesi sÃ¼rÃ¼yor */
 
 html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-dl-card.is-counting {
 
@@ -142868,7 +142961,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .ui-comment-header h2 
 
 
 
-/* Durum: indirme hazır */
+/* Durum: indirme hazÄ±r */
 
 html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-dl-card.is-ready {
 
@@ -150726,7 +150819,7 @@ html[data-public-theme="turkmod"] .sidebar-category-atlas .subcategory-count::af
 
 /* === TURKMOD ABSOLUTE GLOBAL RHYTHM OVERRIDE === */
 
-/* KULLANICININ İSTEĞİ ÜZERİNE: HER YERDEKİ BOŞLUKLAR SAYFA STANDARTINA (var(--t-page-gap)) EŞİTLENDİ */
+/* KULLANICININ Ä°STEÄÄ° ÃœZERÄ°NE: HER YERDEKÄ° BOÅLUKLAR SAYFA STANDARTINA (var(--t-page-gap)) EÅÄ°TLENDÄ° */
 
 html[data-public-theme="turkmod"] .mb-3,
 
@@ -150820,7 +150913,7 @@ html[data-public-theme="turkmod"] .row {
 
 
 
-/* === PROFIL SAYFASI KUTU (PADDING) VE IZGARA (GAP) MUTLAK EŞİTLEMESİ === */
+/* === PROFIL SAYFASI KUTU (PADDING) VE IZGARA (GAP) MUTLAK EÅÄ°TLEMESÄ° === */
 
 html[data-public-theme="turkmod"] .profile-page-shell {
 
@@ -152878,7 +152971,7 @@ html[data-public-theme="turkmod"] .ui-theme-home-toolbar {
 
 
 
-/* Üstte ince marka aksanı — sol kalın çizgi yerine daha rafine bir vurgu */
+/* Ãœstte ince marka aksanÄ± â€” sol kalÄ±n Ã§izgi yerine daha rafine bir vurgu */
 
 html[data-public-theme="turkmod"] .ui-theme-home-toolbar::before {
 
@@ -152910,7 +153003,7 @@ html[data-public-theme="turkmod"] .ui-theme-home-toolbar > .d-flex {
 
 
 
-/* Sol taraftaki "Sıralama" başlığı */
+/* Sol taraftaki "SÄ±ralama" baÅŸlÄ±ÄŸÄ± */
 
 html[data-public-theme="turkmod"] .ui-theme-home-toolbar-label {
 
@@ -154600,7 +154693,7 @@ html[data-public-theme="turkmod"] .site-main--focus .content-area .ui-theme-auth
 
 /* Auth card: span the FULL focus frame, identical to the home content edges
 
-   (madde 10 + 12). Breadcrumb is intentionally NOT overridden here — its native
+   (madde 10 + 12). Breadcrumb is intentionally NOT overridden here â€” its native
 
    .container.ui-container already centres at --container-wide, exactly like the
 
@@ -154692,7 +154785,7 @@ html[data-public-theme="turkmod"] body.public-page-edit-topic .upload-wizard-pro
 
 /* ==========================================================================
 
-   THEME SWITCH — instant, glitch-free toggle (madde 2)
+   THEME SWITCH â€” instant, glitch-free toggle (madde 2)
 
    When the theme controller swaps data-theme it adds .theme-switching to <html>
 
@@ -154942,7 +155035,7 @@ html[data-public-theme="turkmod"] .profile-page-shell .profile-quick-card strong
 
 
 
-/* Recent comments — fix broken layout */
+/* Recent comments â€” fix broken layout */
 
 html[data-public-theme="turkmod"] .profile-page-shell .profile-comment-item {
 
@@ -155082,7 +155175,7 @@ html[data-public-theme="turkmod"] .profile-page-shell .profile-comment-body {
 
 
 
-/* Aktif Oturum — tüm cihazlardan çıkış butonu */
+/* Aktif Oturum â€” tÃ¼m cihazlardan Ã§Ä±kÄ±ÅŸ butonu */
 
 html[data-public-theme="turkmod"] .profile-page-shell .profile-session-logout-form {
 
@@ -155172,7 +155265,7 @@ html[data-public-theme="turkmod"] .profile-page-shell .profile-session-logout-hi
 
 
 
-/* İçerik Bilgileri — kesilen değerler için özel tooltip kutusu */
+/* Ä°Ã§erik Bilgileri â€” kesilen deÄŸerler iÃ§in Ã¶zel tooltip kutusu */
 
 html[data-public-theme="turkmod"] .topic-info-row strong[data-info-value] {
 
@@ -156192,7 +156285,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
 
 
 
-/* â”€â”€â”€ YORUM METNİ: Kelimeler alt alta dizilme düzeltmesi â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ YORUM METNÄ°: Kelimeler alt alta dizilme dÃ¼zeltmesi Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-comment-content-wrap {
 
@@ -156236,7 +156329,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .comme
 
 
 
-/* â”€â”€â”€ ALINTIYLA CEVAP FORMU: Sıkışık görünüm düzeltmesi â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ ALINTIYLA CEVAP FORMU: SÄ±kÄ±ÅŸÄ±k gÃ¶rÃ¼nÃ¼m dÃ¼zeltmesi Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-comment-inline-reply-slot {
 
@@ -156312,7 +156405,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
 
 
 
-/* â”€â”€â”€ YORUM ITEM GRID OVERRIDE: pro-comments.css block layout korunur â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ YORUM ITEM GRID OVERRIDE: pro-comments.css block layout korunur Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-comment-item {
 
@@ -156326,7 +156419,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
 
 
 
-/* â”€â”€â”€ YORUM İKONLARI: Buton içi ikonlar görünür yapılır â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ YORUM Ä°KONLARI: Buton iÃ§i ikonlar gÃ¶rÃ¼nÃ¼r yapÄ±lÄ±r Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments i.bi,
 
@@ -156348,7 +156441,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
 
 
 
-/* â”€â”€â”€ YENİ GÖRSEL VE ETKİLEŞİM İYİLEŞTİRMELERİ â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ YENÄ° GÃ–RSEL VE ETKÄ°LEÅÄ°M Ä°YÄ°LEÅTÄ°RMELERÄ° Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 
 
@@ -156404,7 +156497,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .anima
 
 
 
-/* 3. İskelet Yükleme Ekranı (Skeleton Loader) */
+/* 3. Ä°skelet YÃ¼kleme EkranÄ± (Skeleton Loader) */
 
 html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-comment-skeleton {
 
@@ -156500,7 +156593,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
 
 
 
-/* 4. Paylaşılan/Odaklanılan Yorum Vurgusu (is-linked-comment) */
+/* 4. PaylaÅŸÄ±lan/OdaklanÄ±lan Yorum Vurgusu (is-linked-comment) */
 
 @keyframes commentHighlightPulse {
 
@@ -156530,7 +156623,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
 
 
 
-/* 5. Boş Yorum Durumu (Empty State) Tasarımı */
+/* 5. BoÅŸ Yorum Durumu (Empty State) TasarÄ±mÄ± */
 
 html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-comment-empty-state {
 
@@ -156596,7 +156689,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
 
 
 
-/* 6. Yorum Kırpma / Devamını Oku Fade Düzeltmesi */
+/* 6. Yorum KÄ±rpma / DevamÄ±nÄ± Oku Fade DÃ¼zeltmesi */
 
 html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .comment-body.is-truncated {
 
@@ -158326,3 +158419,6 @@ html[data-public-theme="turkmod"] .header-auth-actions {
 html[data-public-theme="turkmod"] .header-auth-link {
   white-space: nowrap;
 }
+
+
+

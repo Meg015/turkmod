@@ -67,6 +67,8 @@ $errorMsg = get_flash('error');
 require_once __DIR__ . '/header.php';
 ?>
 
+<?php adminRenderLogsSubtabs('activity'); ?>
+
 <div class="logs-page">
 <?php if (!empty($runtimeLogSummary['latest_at'])): ?>
 <div class="ui-admin-alert <?= ((int)$runtimeLogSummary['error_count_24h'] > 0) ? 'ui-admin-alert-error' : 'ui-admin-alert-info' ?> ui-alert">

@@ -157,6 +157,8 @@ $actionLogPostAction = 'action-log.php' . ($actionLogQuery !== '' ? '?' . $actio
 require_once __DIR__ . '/header.php';
 ?>
 
+<?php adminRenderLogsSubtabs('action'); ?>
+
 <div class="action-log-page">
 <section class="ui-admin-page-hero">
     <div class="ui-admin-page-hero-text">

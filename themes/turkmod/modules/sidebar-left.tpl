@@ -12,6 +12,7 @@
 {loop sidebar_widgets}
 {if sidebar_widget.is_navigation_menu}
 <div class="{sidebar_widget.class} card ui-panel" data-ui-style-color="{sidebar_widget.color_style}">
+<div class="card-header pb-0 border-0 ui-panel__head"><h5 class="card-title mb-0">{sidebar_widget.title}</h5></div>
 <div class="card-body ui-panel__body">
 <ul class="nav nav-link-secondary flex-column fw-bold gap-2">
 {loop sidebar_widget.items}

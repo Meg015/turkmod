@@ -24,7 +24,8 @@ php -l includes/init.php
 
 ## Veritabani Senkronizasyonu (Pull Sonrasi)
 
-Admin panelden su sirayla calistir:
+Admin panelden:
 
-1. `.../admin/database-sync/index.php?preview=1`
-2. `.../admin/database-sync/index.php`
+1. `.../admin/database-sync/index.php` ekranini ac.
+2. Bekleyen migration varsa `Bekleyen Migrationlari Uygula` butonuna bas.
+3. Bekleyen sayisi `0` oldugunda veritabani guncel kabul edilir.

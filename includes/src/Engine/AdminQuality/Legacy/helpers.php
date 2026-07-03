@@ -19,6 +19,20 @@ function adminQualityColumnExists(PDO $pdo, string $table, string $column): bool
     }
 }
 
+function adminQualityTableExists(PDO $pdo, string $table): bool
+{
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?");
+        $stmt->execute([$table]);
+        return (int)$stmt->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function adminQualityEnsureSchema(?PDO $pdo): void
 {
     if (!$pdo) {
@@ -934,24 +948,26 @@ function adminQualityTopicHealthSummary(?PDO $pdo): array
         $summary['total'] = adminQualityCountScannableTopics($pdo);
         $summary['checked'] = (int)$pdo->query("SELECT COUNT(*) FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') AND last_checked_at IS NOT NULL")->fetchColumn();
         foreach (['ok', 'warning', 'broken', 'unchecked'] as $status) {
-            $summary[$status] = (int)$pdo->query("SELECT COUNT(*) FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') AND health_status = " . $pdo->quote($status))->fetchColumn();
+            $summary[$status] = (int)$pdo->query("SELECT COUNT(*) FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') AND last_checked_at IS NOT NULL AND health_status = " . $pdo->quote($status))->fetchColumn();
         }
         $summary['download_link_issues'] = (int)$pdo->query("SELECT COUNT(*)
             FROM topics t
             WHERE t.deleted_at IS NULL
               AND t.status IN ('published','approved')
+              AND t.last_checked_at IS NOT NULL
               AND (
                 NOT EXISTS (SELECT 1 FROM topic_download_links l WHERE l.topic_id = t.id)
                 OR EXISTS (SELECT 1 FROM topic_download_links l WHERE l.topic_id = t.id AND l.health_status = 'broken')
               )")->fetchColumn();
-        $summary['missing_download_links'] = (int)$pdo->query("SELECT COUNT(*) FROM topics t WHERE t.deleted_at IS NULL AND t.status IN ('published','approved') AND NOT EXISTS (SELECT 1 FROM topic_download_links l WHERE l.topic_id = t.id)")->fetchColumn();
-        $summary['missing_primary_media'] = (int)$pdo->query("SELECT COUNT(*) FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') AND primary_media_file_id IS NULL")->fetchColumn();
-        $summary['broken_download_links'] = (int)$pdo->query("SELECT COUNT(*) FROM topic_download_links WHERE health_status = 'broken'")->fetchColumn();
-        $summary['broken_media'] = (int)$pdo->query("SELECT COUNT(*) FROM media_files WHERE health_status = 'broken'")->fetchColumn();
+        $summary['missing_download_links'] = (int)$pdo->query("SELECT COUNT(*) FROM topics t WHERE t.deleted_at IS NULL AND t.status IN ('published','approved') AND t.last_checked_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM topic_download_links l WHERE l.topic_id = t.id)")->fetchColumn();
+        $summary['missing_primary_media'] = (int)$pdo->query("SELECT COUNT(*) FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') AND last_checked_at IS NOT NULL AND primary_media_file_id IS NULL")->fetchColumn();
+        $summary['broken_download_links'] = (int)$pdo->query("SELECT COUNT(*) FROM topic_download_links l INNER JOIN topics t ON t.id = l.topic_id WHERE l.health_status = 'broken' AND t.deleted_at IS NULL AND t.status IN ('published','approved') AND t.last_checked_at IS NOT NULL")->fetchColumn();
+        $summary['broken_media'] = (int)$pdo->query("SELECT COUNT(*) FROM media_files m INNER JOIN topics t ON t.id = m.topic_id WHERE m.health_status = 'broken' AND t.deleted_at IS NULL AND t.status IN ('published','approved') AND t.last_checked_at IS NOT NULL")->fetchColumn();
         $summary['image_issues'] = (int)$pdo->query("SELECT COUNT(*)
             FROM topics t
             WHERE t.deleted_at IS NULL
               AND t.status IN ('published','approved')
+              AND t.last_checked_at IS NOT NULL
               AND (
                 t.primary_media_file_id IS NULL
                 OR NOT EXISTS (SELECT 1 FROM media_files m WHERE m.topic_id = t.id AND (m.type = 'image' OR m.mime_type LIKE 'image/%'))
@@ -970,6 +986,9 @@ function adminQualityClearTopicHealth(?PDO $pdo): array
         'topics' => 0,
         'topic_download_links' => 0,
         'media_files' => 0,
+        'activity_logs' => 0,
+        'user_activity_events' => 0,
+        'application_logs' => 0,
     ];
 
     if (!$pdo) {
@@ -1016,16 +1035,48 @@ function adminQualityClearTopicHealth(?PDO $pdo): array
                 continue;
             }
 
-            $affected = $pdo->exec('UPDATE ' . $table . ' SET ' . implode(', ', $setParts));
+            $whereClause = '';
+            if (adminQualityColumnExists($pdo, $table, 'id')) {
+                // Safe-update mode in MySQL/MariaDB can reject UPDATE without WHERE.
+                $whereClause = ' WHERE id >= 0';
+            }
+
+            $affected = $pdo->exec('UPDATE ' . $table . ' SET ' . implode(', ', $setParts) . $whereClause);
             if ($affected === false) {
                 throw new RuntimeException('Konu sağlığı temizlenemedi: ' . $table . ' tablosu güncellenemedi.');
             }
             $result[$table] = max(0, (int) $affected);
         }
 
+        if (adminQualityTableExists($pdo, 'activity_logs')) {
+            $stmt = $pdo->prepare("DELETE FROM activity_logs WHERE action LIKE 'topic_health_scan_%'");
+            if (!$stmt->execute()) {
+                throw new RuntimeException('Konu sağlığı geçmişi temizlenemedi: activity_logs tablosu güncellenemedi.');
+            }
+            $result['activity_logs'] = max(0, (int) $stmt->rowCount());
+        }
+
+        if (adminQualityTableExists($pdo, 'user_activity_events')) {
+            $stmt = $pdo->prepare("DELETE FROM user_activity_events WHERE event_type LIKE 'topic_health_scan_%'");
+            if (!$stmt->execute()) {
+                throw new RuntimeException('Konu sağlığı geçmişi temizlenemedi: user_activity_events tablosu güncellenemedi.');
+            }
+            $result['user_activity_events'] = max(0, (int) $stmt->rowCount());
+        }
+
+        if (adminQualityTableExists($pdo, 'application_logs')) {
+            $stmt = $pdo->prepare("DELETE FROM application_logs WHERE channel = 'activity' AND message LIKE 'topic_health_scan_%'");
+            if (!$stmt->execute()) {
+                throw new RuntimeException('Konu sağlığı geçmişi temizlenemedi: application_logs tablosu güncellenemedi.');
+            }
+            $result['application_logs'] = max(0, (int) $stmt->rowCount());
+        }
+
         if ($startedTransaction && $pdo->inTransaction()) {
             $pdo->commit();
         }
+
+        $result['summary'] = adminQualityTopicHealthSummary($pdo);
 
         if (function_exists('logActivity')) {
             try {
@@ -1033,6 +1084,10 @@ function adminQualityClearTopicHealth(?PDO $pdo): array
                     'topics' => $result['topics'],
                     'topic_download_links' => $result['topic_download_links'],
                     'media_files' => $result['media_files'],
+                    'activity_logs' => $result['activity_logs'],
+                    'user_activity_events' => $result['user_activity_events'],
+                    'application_logs' => $result['application_logs'],
+                    'summary' => $result['summary'],
                 ]);
             } catch (Throwable $logError) {
                 error_log('[silent-catch] ' . $logError->getMessage());
@@ -1040,7 +1095,7 @@ function adminQualityClearTopicHealth(?PDO $pdo): array
         }
 
         $result['success'] = true;
-        $result['message'] = 'Konu sağlığı verileri temizlendi.';
+        $result['message'] = 'Konu sağlığı verileri ve tarama geçmişi temizlendi.';
     } catch (Throwable $e) {
         if (!empty($startedTransaction) && $pdo->inTransaction()) {
             $pdo->rollBack();
@@ -1128,10 +1183,10 @@ function adminQualityTopicHealthFilterSql(array $filters): array
             $where[] = 't.last_checked_at IS NULL';
             break;
         case 'download_issues':
-            $where[] = "(NOT EXISTS (SELECT 1 FROM topic_download_links l WHERE l.topic_id = t.id) OR EXISTS (SELECT 1 FROM topic_download_links l WHERE l.topic_id = t.id AND l.health_status = 'broken'))";
+            $where[] = "(t.last_checked_at IS NOT NULL AND (NOT EXISTS (SELECT 1 FROM topic_download_links l WHERE l.topic_id = t.id) OR EXISTS (SELECT 1 FROM topic_download_links l WHERE l.topic_id = t.id AND l.health_status = 'broken')))";
             break;
         case 'image_issues':
-            $where[] = "(t.primary_media_file_id IS NULL OR NOT EXISTS (SELECT 1 FROM media_files m WHERE m.topic_id = t.id AND (m.type = 'image' OR m.mime_type LIKE 'image/%')) OR EXISTS (SELECT 1 FROM media_files m WHERE m.topic_id = t.id AND m.health_status IN ('broken', 'warning')))";
+            $where[] = "(t.last_checked_at IS NOT NULL AND (t.primary_media_file_id IS NULL OR NOT EXISTS (SELECT 1 FROM media_files m WHERE m.topic_id = t.id AND (m.type = 'image' OR m.mime_type LIKE 'image/%')) OR EXISTS (SELECT 1 FROM media_files m WHERE m.topic_id = t.id AND m.health_status IN ('broken', 'warning'))))";
             break;
     }
 

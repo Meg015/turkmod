@@ -144,6 +144,19 @@ function initScraperThumbnailFallbacks(root = document) {
     });
 }
 
+function hydrateScraperDeferredThumbs(root = document) {
+    root.querySelectorAll('img[data-scraper-thumb][data-scraper-thumb-src]').forEach((img) => {
+        if (img.dataset.scraperThumbHydrated === '1') return;
+
+        const deferredSrc = (img.getAttribute('data-scraper-thumb-src') || '').trim();
+        if (!deferredSrc) return;
+
+        img.dataset.scraperThumbHydrated = '1';
+        img.src = deferredSrc;
+        img.removeAttribute('data-scraper-thumb-src');
+    });
+}
+
 function scraperSanitizeHtml(value = '') {
     if (typeof document === 'undefined') {
         return escapeHtml(value);
@@ -187,6 +200,21 @@ function scraperSetTrustedHtml(target, html = '') {
     target.innerHTML = scraperSanitizeHtml(html);
 }
 
+function scraperCreateImagePlaceholder(options = {}) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'crm-cover-placeholder';
+
+    const icon = document.createElement('i');
+    icon.className = `bi ${options.placeholderIcon || 'bi-image'}`;
+    placeholder.appendChild(icon);
+
+    const label = document.createElement('span');
+    label.textContent = options.placeholderText || 'Gorsel yok';
+    placeholder.appendChild(label);
+
+    return placeholder;
+}
+
 function scraperSetImagePreview(target, src = '', options = {}) {
     if (!target) return;
     target.textContent = '';
@@ -196,7 +224,16 @@ function scraperSetImagePreview(target, src = '', options = {}) {
         const img = document.createElement('img');
         img.src = imageUrl;
         img.referrerPolicy = 'no-referrer';
+        img.loading = 'eager';
+        img.decoding = 'async';
         img.className = 'scraper-cover-image';
+        img.addEventListener('error', () => {
+            target.textContent = '';
+            target.appendChild(scraperCreateImagePlaceholder({
+                placeholderIcon: 'bi-image',
+                placeholderText: 'Gorsel yuklenemedi',
+            }));
+        }, { once: true });
         target.appendChild(img);
 
         if (options.badge) {
@@ -243,7 +280,18 @@ function scraperSetGalleryPreview(target, images = []) {
         const img = document.createElement('img');
         img.src = src;
         img.referrerPolicy = 'no-referrer';
+        img.loading = 'lazy';
+        img.decoding = 'async';
         img.className = 'scraper-gallery-image';
+        img.addEventListener('error', () => {
+            thumb.remove();
+            if (!target.querySelector('.scraper-gallery-thumb-lg')) {
+                const empty = document.createElement('span');
+                empty.className = 'crm-gallery-empty';
+                empty.textContent = 'Ek gorsel yuklenemedi';
+                target.appendChild(empty);
+            }
+        }, { once: true });
 
         thumb.appendChild(img);
         target.appendChild(thumb);
@@ -304,9 +352,10 @@ function renderMappingTopicCard(item, index, siteId, localCatId) {
         ? `Sayfa ${parseInt(item.page, 10) || item.page}`
         : `#${index + 1}`;
     // Harici resimler için proxy veya placeholder kullan
-    const isExternalImage = safeImage && (safeImage.startsWith('http://') || safeImage.startsWith('https://')) && !safeImage.includes(window.location.hostname);
+    const imageLoading = index < 6 ? 'eager' : 'lazy';
+    const imagePriority = index < 4 ? ' fetchpriority="high"' : '';
     const thumbHtml = safeImage
-        ? `<img src="${safeImage}" alt="${safeTitle}" width="300" height="150" loading="lazy" referrerpolicy="no-referrer" data-remove-on-error>`
+        ? `<img src="${safeImage}" alt="${safeTitle}" width="300" height="150" loading="${imageLoading}" decoding="async"${imagePriority} referrerpolicy="no-referrer" data-remove-on-error>`
         : '<div class="mapping-topic-thumb-placeholder"><i class="bi bi-image"></i></div>';
 
     return `
@@ -342,8 +391,10 @@ function renderBulkTopicCard(item, index, siteId, localCatId, mappingId) {
     const badge = item && typeof item === 'object' && item.page
         ? `Sayfa ${parseInt(item.page, 10) || item.page}`
         : `#${index + 1}`;
+    const imageLoading = index < 6 ? 'eager' : 'lazy';
+    const imagePriority = index < 4 ? ' fetchpriority="high"' : '';
     const thumbHtml = safeImage
-        ? `<img src="${safeImage}" alt="${safeTitle}" width="300" height="150" loading="lazy" referrerpolicy="no-referrer" data-remove-on-error>`
+        ? `<img src="${safeImage}" alt="${safeTitle}" width="300" height="150" loading="${imageLoading}" decoding="async"${imagePriority} referrerpolicy="no-referrer" data-remove-on-error>`
         : '<div class="mapping-topic-thumb-placeholder"><i class="bi bi-image"></i></div>';
     const checked = typeof botBulkDefaultSelected === 'undefined' || botBulkDefaultSelected === '1' ? 'checked' : '';
 
@@ -441,8 +492,21 @@ document.querySelectorAll('.scraper-tab-link').forEach(link => {
         const id = link.dataset.tab;
         document.querySelectorAll('.scraper-tab-link').forEach(l => l.classList.toggle('active', l.dataset.tab === id));
         document.querySelectorAll('.scraper-tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + id));
+        if (id === 'imports') {
+            const importsPane = document.getElementById('tab-imports');
+            if (importsPane) {
+                hydrateScraperDeferredThumbs(importsPane);
+                initScraperThumbnailFallbacks(importsPane);
+            }
+        }
     });
 });
+
+const initialImportsPane = document.getElementById('tab-imports');
+if (initialImportsPane && initialImportsPane.classList.contains('active')) {
+    hydrateScraperDeferredThumbs(initialImportsPane);
+    initScraperThumbnailFallbacks(initialImportsPane);
+}
 
 document.querySelectorAll('.settings-subtab-link').forEach(link => {
     link.addEventListener('click', () => {
@@ -719,7 +783,7 @@ function discoverUrls() {
     if (!siteId || !catUrl) return scraperToast('Site ve kategori URL seçin', 'error');
     const btn = document.getElementById('btnDiscover');
     btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Taranıyor...';
-    apiPost('discover_urls', { site_id: siteId, category_url: catUrl }).then(r => {
+    apiPost('discover_urls', { site_id: siteId, category_url: catUrl, cover_lookup_limit: 2 }).then(r => {
         const list = document.getElementById('discoveredUrls');
         if (r.success && r.urls && r.urls.length > 0) {
             list.classList.add('scraper-preview-url-grid');
@@ -811,6 +875,153 @@ function addPrevDownloadRow(name = '', url = '') {
     container.appendChild(row);
 }
 
+function getPreviewEditorHtml() {
+    const contentEl = document.getElementById('prevContentEdit');
+    if (!contentEl) return '';
+    if (contentEl.quillInstance && contentEl.quillInstance.root) {
+        return contentEl.quillInstance.root.innerHTML || '';
+    }
+    return contentEl.innerHTML || contentEl.value || '';
+}
+
+function setPreviewQuillHtml(quill, html = '') {
+    if (!quill || !quill.root) return;
+    const safeHtml = String(html || '');
+    const trimmedHtml = safeHtml.trim();
+
+    try {
+        if (quill.clipboard && typeof quill.clipboard.convert === 'function' && typeof quill.setContents === 'function') {
+            let delta = null;
+            try {
+                delta = quill.clipboard.convert(safeHtml);
+            } catch (_unusedConvertStringError) {
+                delta = null;
+            }
+
+            const hasOps = !!(delta && Array.isArray(delta.ops) && delta.ops.length > 0);
+            if (!hasOps && trimmedHtml !== '') {
+                try {
+                    delta = quill.clipboard.convert({ html: safeHtml });
+                } catch (_unusedConvertObjectError) {
+                    delta = null;
+                }
+            }
+
+            const canSetDelta =
+                !!delta &&
+                (!Array.isArray(delta.ops) || delta.ops.length > 0 || trimmedHtml === '');
+
+            if (canSetDelta) {
+                quill.setContents(delta, 'silent');
+            } else {
+                quill.root.innerHTML = safeHtml;
+            }
+        } else {
+            quill.root.innerHTML = safeHtml;
+        }
+    } catch (_unusedApplyError) {
+        quill.root.innerHTML = safeHtml;
+    }
+
+    if (typeof quill.update === 'function') {
+        quill.update('silent');
+    }
+}
+
+function setPreviewEditorHtml(contentEl, html = '') {
+    if (!contentEl) return;
+    const safeContent = scraperSanitizeHtml(html);
+    contentEl.dataset.previewEditorHtml = safeContent;
+    contentEl.contentEditable = 'true';
+
+    if (contentEl.quillInstance && contentEl.quillInstance.root) {
+        setPreviewQuillHtml(contentEl.quillInstance, safeContent);
+        return;
+    }
+
+    scraperSetTrustedHtml(contentEl, safeContent);
+}
+
+function schedulePreviewEditorUpgrade(contentEl) {
+    if (!contentEl || typeof Quill === 'undefined' || contentEl.quillInstance || contentEl.dataset.previewEditorUpgradePending === '1') {
+        return;
+    }
+
+    contentEl.dataset.previewEditorUpgradePending = '1';
+    const run = () => {
+        delete contentEl.dataset.previewEditorUpgradePending;
+        if (contentEl.quillInstance || typeof Quill === 'undefined') return;
+
+        try {
+            if (!window.__scraperQuillAlignRegistered) {
+                const AlignStyle = Quill.import('attributors/style/align');
+                Quill.register(AlignStyle, true);
+                window.__scraperQuillAlignRegistered = true;
+            }
+
+            const currentHtml = contentEl.dataset.previewEditorHtml || contentEl.innerHTML || '';
+            const quill = new Quill(contentEl, {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        ['blockquote', 'code-block'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link', 'image', 'video'],
+                        ['clean'],
+                        [{ 'align': [] }]
+                    ]
+                }
+            });
+            contentEl.quillInstance = quill;
+            setPreviewQuillHtml(quill, currentHtml);
+        } catch (error) {
+            delete contentEl.dataset.previewEditorUpgradePending;
+            window.__lastPreviewEditorError = error;
+            console.error('Preview editor init failed', error);
+        }
+    };
+
+    if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(run, { timeout: 800 });
+    } else {
+        window.setTimeout(run, 60);
+    }
+}
+
+function getPreviewContentValue(imp = {}) {
+    const candidates = [
+        imp?.translated_content,
+        imp?.source_content,
+        imp?.content,
+        imp?.translated_description,
+        imp?.source_description,
+        imp?.description,
+        imp?.excerpt,
+        imp?.summary,
+    ];
+
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim() !== '') {
+            return candidate;
+        }
+        if (typeof candidate === 'number') {
+            return String(candidate);
+        }
+        if (candidate && typeof candidate === 'object') {
+            const nestedCandidates = [candidate.html, candidate.content, candidate.description];
+            for (const nested of nestedCandidates) {
+                if (typeof nested === 'string' && nested.trim() !== '') {
+                    return nested;
+                }
+            }
+        }
+    }
+
+    return '';
+}
+
 function populatePreviewModal(imp) {
     const modal = document.getElementById('previewModal');
 
@@ -843,7 +1054,7 @@ function populatePreviewModal(imp) {
         translationErrors.innerHTML = renderTranslationErrors(imp.translation_errors || []);
     }
 
-    let content = imp.translated_content || imp.source_content || imp.content || '';
+    let content = getPreviewContentValue(imp);
 
     // Center content by default if not already explicitly styled
     if (content && !content.includes('text-align: center') && !content.includes('ql-align-center') && !content.includes('text-align:center')) {
@@ -906,36 +1117,7 @@ function populatePreviewModal(imp) {
     // Init Quill Editor on a div element
     const contentEl = document.getElementById('prevContentEdit');
     if (contentEl) {
-        const safeContent = scraperSanitizeHtml(content);
-        if (typeof Quill === 'undefined') {
-            contentEl.contentEditable = 'true';
-            scraperSetTrustedHtml(contentEl, content);
-        } else if (!contentEl.quillInstance) {
-            const AlignStyle = Quill.import('attributors/style/align');
-            Quill.register(AlignStyle, true);
-            const quill = new Quill(contentEl, {
-                theme: 'snow',
-                modules: {
-                    toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        ['blockquote', 'code-block'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link', 'image', 'video'],
-                        ['clean'],
-                        [{ 'align': [] }]
-                    ]
-                }
-            });
-            contentEl.quillInstance = quill;
-        }
-        
-        // Correctly load HTML into Quill
-        if (contentEl.quillInstance && contentEl.quillInstance.clipboard && contentEl.quillInstance.clipboard.dangerouslyPasteHTML) {
-            contentEl.quillInstance.clipboard.dangerouslyPasteHTML(safeContent);
-        } else if (contentEl.quillInstance) {
-            scraperSetTrustedHtml(contentEl.quillInstance.root, content);
-        }
+        setPreviewEditorHtml(contentEl, content);
     }
     
     // Hide go to topic button when modal opens
@@ -946,6 +1128,7 @@ function populatePreviewModal(imp) {
     }
 
     openPreviewModalFrame();
+    schedulePreviewEditorUpgrade(contentEl);
 }
 
 function openPreviewModalFrame() {
@@ -1061,7 +1244,6 @@ function showPreviewErrorPopup(message = '') {
 }
 
 function showPreviewPopup(data) {
-    openPreviewModalFrame();
     try {
         pendingImportData = data || {};
         const importIdInput = document.getElementById('publish_import_id');
@@ -1132,7 +1314,7 @@ function listMappingTopics(mappingId, siteId, categoryUrl, localCatId, pageUrl =
     list.style.display = 'none';
     loading.style.display = 'block';
 
-    apiPost('discover_urls', { site_id: siteId, mapping_id: mappingId, category_url: targetUrl }).then(r => {
+    apiPost('discover_urls', { site_id: siteId, mapping_id: mappingId, category_url: targetUrl, cover_lookup_limit: 0 }).then(r => {
         loading.style.display = 'none';
         if (r.success) {
             if (direction === 'next' && state.currentUrl !== targetUrl) {
@@ -1325,7 +1507,7 @@ async function listBulkMappingTopics(mappingId, siteId, categoryUrl, localCatId)
 
         let result;
         try {
-            result = await apiPost('discover_urls', { site_id: siteId, mapping_id: mappingId, category_url: currentUrl });
+            result = await apiPost('discover_urls', { site_id: siteId, mapping_id: mappingId, category_url: currentUrl, cover_lookup_limit: 0 });
         } catch (e) {
             errorMessage = 'Ağ bağlantısı hatası.';
             break;
@@ -1480,8 +1662,6 @@ function previewAndScrapeTopic(btnEl, url, siteId, localCatId) {
             scraperToast('Önizleme hazır!', 'success');
         } else {
             scraperToast(r.error || 'İçerik çekilemedi', 'error');
-            // Hata durumunda popup'ı açma (kullanıcı bunu boş geldi sanıyor)
-            // showPreviewErrorPopup(r.error || 'İçerik çekilemedi');
         }
     }).catch((error) => {
         window.__lastPreviewRequestError = error;
@@ -1489,7 +1669,6 @@ function previewAndScrapeTopic(btnEl, url, siteId, localCatId) {
         btnEl.disabled = false;
         btnEl.innerHTML = origBtnHtml;
         scraperToast(error?.message || 'Bağlantı hatası oluştu', 'error');
-        // showPreviewErrorPopup(error?.message || 'Bağlantı hatası oluştu');
     });
 }
 
@@ -1504,10 +1683,7 @@ function publishImport() {
     const editedTitle = document.getElementById('prevTitleEdit').value;
     const editedAuthorTopic = document.getElementById('prevAuthorTopicEdit').value;
     const editedTopicVersion = document.getElementById('prevTopicVersionEdit').value;
-    const contentEl = document.getElementById('prevContentEdit');
-    const editedContent = contentEl && contentEl.quillInstance
-        ? contentEl.quillInstance.root.innerHTML
-        : (contentEl ? (contentEl.value || contentEl.innerHTML || '') : '');
+    const editedContent = getPreviewEditorHtml();
 
     const dlNames = document.querySelectorAll('#prevDownloadsContainer input.dl-name');
     const dlUrls = document.querySelectorAll('#prevDownloadsContainer input.dl-url');

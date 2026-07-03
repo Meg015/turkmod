@@ -16,6 +16,14 @@ final class ThemeManager
     /** @var array<int, string> */
     private array $editableExtensions = ['tpl', 'css', 'js', 'json', 'md', 'txt'];
 
+    /** @var array<int, string> */
+    private array $signatureExtensions = [
+        'tpl', 'css', 'js', 'json',
+        'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'ico',
+        'woff', 'woff2', 'ttf', 'eot', 'otf',
+        'mp3', 'wav', 'ogg', 'mp4', 'webm',
+    ];
+
     private array $themeSettings = [];
 
     /** @var array<int, string> */
@@ -49,19 +57,50 @@ final class ThemeManager
 
     public function defaultThemeId(): string
     {
+        if ($this->isRenderableTheme('turkmod')) {
+            return 'turkmod';
+        }
+
+        if (!is_dir($this->themesDir)) {
+            return 'default';
+        }
+
+        foreach (scandir($this->themesDir) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            $themePath = $this->themesDir . DIRECTORY_SEPARATOR . $entry;
+            if (!is_dir($themePath)) {
+                continue;
+            }
+
+            $themeId = $this->sanitizeThemeId($entry);
+            if ($themeId === '' || !is_file($themePath . DIRECTORY_SEPARATOR . 'theme.json')) {
+                continue;
+            }
+
+            if ($this->isRenderableTheme($themeId)) {
+                return $themeId;
+            }
+        }
+
         return 'default';
     }
 
     public function setActiveTheme(string $themeId): void
     {
         $themeId = $this->sanitizeThemeId($themeId);
-        if ($themeId === '' || !$this->themeExists($themeId)) {
-            throw new RuntimeException('Active theme not found: ' . ($themeId !== '' ? $themeId : '[invalid id]'));
+        if ($themeId === '') {
+            throw new RuntimeException('Active theme not found: [invalid id]');
         }
 
-        $validation = $this->validateTheme($themeId);
-        if (!$validation['ok']) {
-            throw new RuntimeException('Active theme is invalid: ' . implode(' ', $validation['errors']));
+        if (!$this->isRenderableTheme($themeId)) {
+            $themeId = $this->defaultThemeId();
+        }
+
+        if (!$this->isRenderableTheme($themeId)) {
+            throw new RuntimeException('Active theme not found: ' . ($themeId !== '' ? $themeId : '[invalid id]'));
         }
 
         $this->activeThemeId = $themeId;
@@ -70,6 +109,64 @@ final class ThemeManager
     public function activeThemeId(): string
     {
         return $this->activeThemeId;
+    }
+
+    public function themeSignature(?string $themeId = null): string
+    {
+        $themeId = $this->sanitizeThemeId($themeId ?: $this->activeThemeId);
+        if ($themeId === '' || !$this->themeExists($themeId)) {
+            return '';
+        }
+
+        $dir = $this->themeDirectory($themeId);
+        if (!is_dir($dir)) {
+            return '';
+        }
+
+        $fingerprints = ['theme:' . $themeId];
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+            );
+
+            foreach ($iterator as $file) {
+                if (!$file instanceof SplFileInfo || !$file->isFile()) {
+                    continue;
+                }
+
+                $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($dir) + 1));
+                if ($relative === '' || $this->isBackupPath($relative)) {
+                    continue;
+                }
+
+                $ext = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
+                if (!in_array($ext, $this->signatureExtensions, true)) {
+                    continue;
+                }
+
+                $hash = @hash_file('sha256', $file->getPathname());
+                $fingerprints[] = $relative . ':' . ($hash !== false ? $hash : 'unreadable');
+            }
+        } catch (Throwable) {
+            return hash('sha256', 'theme:' . $themeId . '|scan-error');
+        }
+
+        sort($fingerprints, SORT_STRING);
+        return hash('sha256', implode('|', $fingerprints));
+    }
+
+    private function isRenderableTheme(string $themeId): bool
+    {
+        $themeId = $this->sanitizeThemeId($themeId);
+        if ($themeId === '' || !$this->themeExists($themeId)) {
+            return false;
+        }
+
+        try {
+            return $this->validateTheme($themeId)['ok'];
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     public function setThemeSettings(array $settings): void
@@ -604,6 +701,10 @@ final class ThemeManager
         $newThemeId = $this->sanitizeThemeId($newThemeId);
         $newName = trim($newName);
 
+        if ($sourceThemeId === 'default' && !$this->themeExists($sourceThemeId)) {
+            $sourceThemeId = $this->defaultThemeId();
+        }
+
         if ($sourceThemeId === '' || !$this->themeExists($sourceThemeId)) {
             throw new InvalidArgumentException('Source theme not found.');
         }
@@ -843,10 +944,10 @@ final class ThemeManager
         $legacyWarnings = [];
         $includeGraph = [];
         $legacyPatterns = [
-            '/\[(?:\/)?(?:not-)?logged\]/i' => 'DLE login block',
-            '/\[(?:\/)?(?:not-)?available[^\]]*\]/i' => 'DLE available block',
-            '/\[(?:\/)?(?:not-)?aviable[^\]]*\]/i' => 'DLE aviable block',
-            '/\[(?:\/)?(?:fullresult|shortresult|group|not-group|catlist|not-catlist)[^\]]*\]/i' => 'DLE conditional block',
+            '/(?<!\[)\[(?:\/)?(?:not-)?logged\]/i' => 'DLE login block',
+            '/(?<!\[)\[(?:\/)?(?:not-)?available[^\]]*\]/i' => 'DLE available block',
+            '/(?<!\[)\[(?:\/)?(?:not-)?aviable[^\]]*\]/i' => 'DLE aviable block',
+            '/(?<!\[)\[(?:\/)?(?:fullresult|shortresult|group|not-group|catlist|not-catlist)[^\]]*\]/i' => 'DLE conditional block',
             '/\{THEME\}/i' => 'DLE theme path token',
             '/\{include\s+file\s*=/i' => 'DLE include token',
         ];
@@ -861,6 +962,10 @@ final class ThemeManager
             }
 
             $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($dir) + 1));
+            if ($this->isBackupPath($relative)) {
+                continue;
+            }
+
             $content = file_get_contents($file->getPathname());
             if (!is_string($content)) {
                 $warnings[] = 'Cannot read TPL file: ' . $relative;
@@ -1219,15 +1324,17 @@ final class ThemeManager
     private function isEditableRelativePath(string $relativePath): bool
     {
         $relativePath = $this->normalizeRelativePath($relativePath);
-        if ($relativePath === '') {
-            return false;
-        }
-        if (str_starts_with($relativePath, '.theme-backups/')) {
+        if ($relativePath === '' || $this->isBackupPath($relativePath)) {
             return false;
         }
 
         $ext = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));
         return in_array($ext, $this->editableExtensions, true);
+    }
+
+    private function isBackupPath(string $relativePath): bool
+    {
+        return preg_match('~(^|/)\.theme-backups(?:/|$)~', str_replace('\\', '/', $relativePath)) === 1;
     }
 
     private function backupEditableFile(string $themeId, string $relativePath, string $sourcePath): void
@@ -1253,6 +1360,10 @@ final class ThemeManager
 
     private function isImportSafeRelativePath(string $relativePath): bool
     {
+        if ($this->isBackupPath($relativePath)) {
+            return false;
+        }
+
         $ext = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));
         if ($ext === '' || in_array($ext, $this->blockedExtensions, true)) {
             return false;
@@ -1299,6 +1410,10 @@ final class ThemeManager
             }
 
             $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($source) + 1));
+            if ($this->isBackupPath($relative)) {
+                continue;
+            }
+
             $targetPath = $target . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
 
             if ($item->isDir()) {
@@ -1382,6 +1497,10 @@ final class ThemeManager
                 continue;
             }
             $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($dir) + 1));
+            if ($this->isBackupPath($relative)) {
+                continue;
+            }
+
             $allTplFiles[$relative] = false;
 
             $content = file_get_contents($file->getPathname());

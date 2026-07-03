@@ -132,6 +132,49 @@ function adminDenyAction(string $message = 'Bu islemi yapma yetkiniz yok.', stri
     adminRenderForbiddenPage($message);
 }
 
+function adminRenderLogsSubtabs(string $active): void
+{
+    global $baseUri;
+
+    $items = [
+        'activity' => [
+            'label' => 'Aktivite Logları',
+            'href' => '/admin/logs.php',
+            'icon' => 'bi-journal-text',
+            'permission' => 'logs.view',
+        ],
+        'action' => [
+            'label' => 'İşlem Günlüğü',
+            'href' => '/admin/action-log.php',
+            'icon' => 'bi-clock-history',
+            'permission' => 'logs.view',
+        ],
+        'rate_limits' => [
+            'label' => 'Rate Limit İzleme',
+            'href' => '/admin/rate-limits.php',
+            'icon' => 'bi-speedometer2',
+            'permission' => 'rate_limits.view',
+        ],
+    ];
+
+    $visibleItems = array_filter($items, static function (array $item): bool {
+        return function_exists('adminCurrentUserCan') && adminCurrentUserCan((string) $item['permission']);
+    });
+    if ($visibleItems === []) {
+        return;
+    }
+
+    echo '<nav class="site-subtabs logs-subtabs" aria-label="Günlükler alt sekmeleri">';
+    foreach ($visibleItems as $key => $item) {
+        $classes = 'site-subtab-link logs-subtab-link' . ($active === $key ? ' active' : '');
+        echo '<a class="' . htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars(rtrim((string) $baseUri, '/') . (string) $item['href'], ENT_QUOTES, 'UTF-8') . '">';
+        echo '<i class="bi ' . htmlspecialchars((string) $item['icon'], ENT_QUOTES, 'UTF-8') . '"></i>';
+        echo '<span>' . htmlspecialchars((string) $item['label'], ENT_QUOTES, 'UTF-8') . '</span>';
+        echo '</a>';
+    }
+    echo '</nav>';
+}
+
 function adminSettingDefinitions(): array
 {
     // Performans (#20): Tanımlar saf sabit bir dizi olduğundan, her çağrıda ~1000

@@ -1136,6 +1136,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function initUploadForm() {
     var form = document.getElementById("uploadForm");
     if (!form || form.dataset.turkmodUploadInit === "1") return;
+    if (form.dataset.uploadTopicStandalone === "1") return;
     form.dataset.turkmodUploadInit = "1";
 
     function imageConfig(inputId) {

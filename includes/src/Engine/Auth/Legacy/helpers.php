@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Engine\Auth\RememberMeService;
 use App\Engine\Auth\SessionUserContext;
+use App\Core\Http\RedirectResponse;
 
 /**
  * Auth modülü - Kullanıcı kimlik doğrulama fonksiyonları
@@ -65,6 +66,61 @@ if (!function_exists('authPopulateSessionUser')) {
     function authPopulateSessionUser(PDO $pdo, array $user, bool $remembered = false): array
     {
         return authSessionUserContext()->populate($pdo, $user, $remembered);
+    }
+}
+
+if (!function_exists('loginSafeRedirect')) {
+    function loginSafeRedirect(string $candidate, string $fallback): string
+    {
+        $candidate = trim($candidate);
+        if ($candidate === '') {
+            return $fallback;
+        }
+
+        if (str_starts_with($candidate, '//') || str_contains($candidate, '\\')) {
+            return $fallback;
+        }
+
+        if ($candidate[0] !== '/' && !preg_match('~^(?:https?:)?//~i', $candidate)) {
+            $candidate = '/' . ltrim($candidate, '/');
+        }
+
+        if (!RedirectResponse::onlyTrusted($candidate)) {
+            return $fallback;
+        }
+
+        $path = parse_url($candidate, PHP_URL_PATH);
+        if (!is_string($path) || $path === '' || str_contains($path, "\0")) {
+            return $fallback;
+        }
+
+        $authPaths = [
+            '/login.php',
+            '/register.php',
+            '/forgot-password.php',
+            '/reset-password.php',
+            '/logout.php',
+        ];
+        if (function_exists('routePublicStaticPathAliases')) {
+            foreach (['login', 'register', 'forgot_password', 'reset_password', 'logout'] as $authRouteKey) {
+                foreach (routePublicStaticPathAliases($authRouteKey) as $aliasPath) {
+                    $cleanAliasPath = trim((string) $aliasPath, '/');
+                    if ($cleanAliasPath !== '') {
+                        $authPaths[] = '/' . $cleanAliasPath;
+                    }
+                }
+            }
+        } else {
+            $authPaths = array_merge($authPaths, ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla', '/cikis']);
+        }
+
+        foreach (array_values(array_unique($authPaths)) as $authPath) {
+            if ($authPath !== '' && str_ends_with($path, (string) $authPath)) {
+                return $fallback;
+            }
+        }
+
+        return $candidate;
     }
 }
 

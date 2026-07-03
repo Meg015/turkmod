@@ -741,7 +741,8 @@ if (
 $themeActivationError = null;
 try {
     $themeManager->setActiveTheme($activePublicTheme);
-    $activeThemeSettings = json_decode((string) ($adminSettingsGlobal['theme_' . $activePublicTheme . '_settings'] ?? '{}'), true);
+    $activeThemeId = $themeManager->activeThemeId();
+    $activeThemeSettings = json_decode((string) ($adminSettingsGlobal['theme_' . $activeThemeId . '_settings'] ?? '{}'), true);
     if (is_array($activeThemeSettings)) {
         $themeManager->setThemeSettings($activeThemeSettings);
     }
@@ -761,6 +762,7 @@ try {
         try {
             $defaultId = $themeManager->defaultThemeId();
             $themeManager->setActiveTheme($defaultId);
+            $defaultId = $themeManager->activeThemeId();
             $defaultSettings = json_decode((string) ($adminSettingsGlobal['theme_' . $defaultId . '_settings'] ?? '{}'), true);
             if (is_array($defaultSettings)) {
                 $themeManager->setThemeSettings($defaultSettings);
@@ -769,7 +771,7 @@ try {
             if (function_exists('appLogException')) {
                 appLogException($fallbackError, [
                     'source' => 'Theme activation admin recovery',
-                    'theme_active_id' => $themeManager->defaultThemeId(),
+                    'theme_active_id' => $themeManager->activeThemeId(),
                 ]);
             }
         }

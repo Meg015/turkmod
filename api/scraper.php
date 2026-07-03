@@ -44,6 +44,91 @@ function scraperJson(array $payload): string
 return $json;
 }
 
+function scraperCacheDirectory(string $bucket): string
+{
+    $safeBucket = preg_replace('/[^a-z0-9_-]/i', '', $bucket) ?: 'scraper';
+    return dirname(__DIR__) . '/storage/cache/' . $safeBucket;
+}
+
+function scraperReadJsonCache(string $bucket, string $key, int $ttlSeconds): ?array
+{
+    $ttlSeconds = max(1, $ttlSeconds);
+    $file = scraperCacheDirectory($bucket) . '/' . hash('crc32b', $key) . '.json';
+    if (!is_file($file) || (time() - filemtime($file)) > $ttlSeconds) {
+        return null;
+    }
+
+    $payload = json_decode((string) @file_get_contents($file), true);
+    return is_array($payload) ? $payload : null;
+}
+
+function scraperWriteJsonCache(string $bucket, string $key, array $payload): void
+{
+    $directory = scraperCacheDirectory($bucket);
+    if (!is_dir($directory)) {
+        @mkdir($directory, 0775, true);
+    }
+    if (!is_dir($directory) || !is_writable($directory)) {
+        return;
+    }
+
+    @file_put_contents(
+        $directory . '/' . hash('sha256', $key) . '.json',
+        json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+        LOCK_EX
+    );
+}
+
+function scraperPreviewBotSettings(array $botSettings): array
+{
+    $timeout = (int) ($botSettings['bot_request_timeout'] ?? 30);
+    $timeout = max(5, min(15, $timeout > 0 ? $timeout : 15));
+
+    return array_merge($botSettings, [
+        'bot_request_delay' => '0',
+        'bot_request_timeout' => (string) $timeout,
+        'bot_retry_count' => '0',
+        'bot_retry_delay' => '0',
+        'bot_download_images' => '0',
+        'bot_use_hotlink_images' => '1',
+        'bot_require_cover_image' => '0',
+        'bot_min_title_length' => '0',
+        'bot_min_content_length' => '0',
+        'bot_translate_enabled' => '0',
+        'bot_translate_title' => '0',
+        'bot_translate_content' => '0',
+        'bot_translate_download_names' => '0',
+        'bot_deepl_api_key' => '',
+    ]);
+}
+
+function scraperDiscoverBotSettings(array $botSettings): array
+{
+    $timeout = (int) ($botSettings['bot_request_timeout'] ?? 30);
+    $timeout = max(4, min(8, $timeout > 0 ? $timeout : 8));
+
+    return array_merge($botSettings, [
+        'bot_request_delay' => '0',
+        'bot_request_timeout' => (string) $timeout,
+        'bot_retry_count' => '0',
+        'bot_retry_delay' => '0',
+        'bot_download_images' => '0',
+        'bot_use_hotlink_images' => '1',
+        'bot_translate_enabled' => '0',
+        'bot_translate_title' => '0',
+        'bot_translate_content' => '0',
+        'bot_translate_download_names' => '0',
+        'bot_deepl_api_key' => '',
+    ]);
+}
+
+function scraperPreviewSiteConfig(array $siteConfig): array
+{
+    $siteConfig['settings'] = is_array($siteConfig['settings'] ?? null) ? $siteConfig['settings'] : [];
+    $siteConfig['settings']['translate'] = false;
+    return $siteConfig;
+}
+
 function scraperResolveMappingSite(PDO $pdo, int $mappingId): ?array
 {
     if ($mappingId <= 0) {
@@ -71,6 +156,58 @@ function scraperResolveMappingSiteByUrl(PDO $pdo, string $categoryUrl): ?array
     return is_array($mapping) ? $mapping : null;
 }
 
+/**
+ * Content fallback: DOMDocument ile yaygın CSS selector'larını dener.
+ * Regex tabanlı yaklaşımdan daha güvenilir ve hızlıdır.
+ */
+function scraperFallbackContentByDom(string $html): string
+{
+    libxml_use_internal_errors(true);
+    $doc = new DOMDocument('1.0', 'UTF-8');
+    $html = '<meta charset="UTF-8">' . $html;
+    $doc->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
+    $xpath = new DOMXPath($doc);
+    libxml_clear_errors();
+
+    // Yaygın içerik selector'ları (WordPress, custom temalar, forumlar)
+    $contentSelectors = [
+        '//*[contains(@class, "entry-content")]',
+        '//*[contains(@class, "post-content")]',
+        '//*[contains(@class, "the-content")]',
+        '//*[contains(@class, "post-entry")]',
+        '//*[contains(@class, "article-body")]',
+        '//*[contains(@class, "article-content")]',
+        '//*[contains(@class, "content-inner")]',
+        '//*[contains(@class, "single-content")]',
+        '//*[contains(@class, "main-content")]',
+        '//*[contains(@class, "node-content")]',
+        '//*[@id="main-content"]',
+        '//*[@id="content"]',
+        '//*[@id="article"]',
+        '//article//div[contains(@class, "content")]',
+        '//article',
+        '//*[@role="main"]',
+    ];
+
+    foreach ($contentSelectors as $selector) {
+        $nodes = $xpath->query($selector);
+        if ($nodes && $nodes->length > 0) {
+            $innerHtml = '';
+            foreach ($nodes as $node) {
+                foreach ($node->childNodes as $child) {
+                    $innerHtml .= $doc->saveHTML($child);
+                }
+            }
+            $innerHtml = trim($innerHtml);
+            if ($innerHtml !== '' && trim(strip_tags($innerHtml)) !== '') {
+                return $innerHtml;
+            }
+        }
+    }
+
+    return '';
+}
+
 function scraperPreviewFallback(ScraperEngine $engine, string $url, array $siteConfig, string $error = ''): array
 {
     $html = $engine->fetchPage($url, !empty($siteConfig['settings']['custom_headers']) ? [(string)$siteConfig['settings']['custom_headers']] : []);
@@ -78,7 +215,7 @@ function scraperPreviewFallback(ScraperEngine $engine, string $url, array $siteC
         return ['success' => false, 'error' => $error ?: 'Sayfa indirilemedi: ' . $url];
     }
 
-    // Selector'lar varsa kullan, yoksa boş array kullan
+    // Önce mevcut selector'larla dene
     $selectors = $siteConfig['selectors'] ?? [];
     $parsed = $engine->parseTopicPage($html, $selectors, $url);
     $title = trim((string)($parsed['title'] ?? ''));
@@ -91,39 +228,42 @@ function scraperPreviewFallback(ScraperEngine $engine, string $url, array $siteC
         }
     }
 
-    // Fallback: selector'lar boş olsa bile sayfa başlığını meta tag'lerden almayı dene
+    // Selector content boşsa DOM fallback dene
+    if ($content === '' && $html !== '') {
+        $domContent = scraperFallbackContentByDom($html);
+        if ($domContent !== '') {
+            $content = $engine->cleanHtmlWithSettingsOverride($domContent);
+        }
+    }
+
+    // Hâlâ boşsa meta tag'leri dene
+    if ($content === '' && $html !== '') {
+        if (preg_match('/<meta[^>]*(?:property=["\']og:description["\'][^>]*content=["\']([^"\']+)["\']|content=["\']([^"\']+)["\'][^>]*property=["\']og:description["\'])[^>]*\/?>/si', $html, $m)) {
+            $content = '<p>' . htmlspecialchars(trim($m[1] ?: $m[2] ?: ''), ENT_QUOTES, 'UTF-8') . '</p>';
+        }
+        if ($content === '' && preg_match('/<meta[^>]*(?:name=["\']description["\'][^>]*content=["\']([^"\']+)["\']|content=["\']([^"\']+)["\'][^>]*name=["\']description["\'])[^>]*\/?>/si', $html, $m)) {
+            $content = '<p>' . htmlspecialchars(trim($m[1] ?: $m[2] ?: ''), ENT_QUOTES, 'UTF-8') . '</p>';
+        }
+    }
+
+    // Title fallback
     if ($title === '' && $html !== '') {
         if (preg_match('/<title[^>]*>([^<]+)<\/title>/si', $html, $m)) {
             $title = trim($m[1]);
         }
-        if ($title === '' && preg_match('/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/si', $html, $m)) {
-            $title = trim($m[1]);
+        if ($title === '' && preg_match('/<meta[^>]*(?:property=["\']og:title["\'][^>]*content=["\']([^"\']+)["\']|content=["\']([^"\']+)["\'][^>]*property=["\']og:title["\'])[^>]*\/?>/si', $html, $m)) {
+            $title = trim($m[1] ?: $m[2] ?: '');
         }
         if ($title === '' && preg_match('/<h1[^>]*>([^<]+)<\/h1>/si', $html, $m)) {
             $title = trim($m[1]);
         }
     }
 
-    // Fallback: hiçbir şey bulunamadıysa bile ham HTML'den meta description ve body text çek
-    if ($content === '' && $html !== '') {
-        if (preg_match('/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']/si', $html, $m)) {
-            $content = '<p>' . htmlspecialchars(trim($m[1]), ENT_QUOTES, 'UTF-8') . '</p>';
-        }
-        if ($content === '' && preg_match('/<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']/si', $html, $m)) {
-            $content = '<p>' . htmlspecialchars(trim($m[1]), ENT_QUOTES, 'UTF-8') . '</p>';
-        }
-        // Son çare: body'den ilk paragrafı çek
-        if ($content === '' && preg_match('/<p[^>]*>([^<]+)<\/p>/si', $html, $m)) {
-            $content = '<p>' . htmlspecialchars(trim($m[1]), ENT_QUOTES, 'UTF-8') . '</p>';
-        }
-    }
-
-    // Fallback: hiç resim bulunamadıysa og:image meta tag'ini dene
+    // Image fallback
     if (empty($images) && $html !== '') {
-        if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/si', $html, $m)) {
-            $images[] = trim($m[1]);
+        if (preg_match('/<meta[^>]*(?:property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\']|content=["\']([^"\']+)["\'][^>]*property=["\']og:image["\'])[^>]*\/?>/si', $html, $m)) {
+            $images[] = trim($m[1] ?: $m[2] ?: '');
         }
-        // Son çare: ilk img tag'ini çek
         if (empty($images) && preg_match('/<img[^>]+src=["\']([^"\']+)["\']/si', $html, $m)) {
             $images[] = trim($m[1]);
         }
@@ -187,9 +327,6 @@ if ($userId > 0 && scraperShouldRateLimitAction((string)$action, $isPrivilegedSc
     scraperRateLimitStore($cacheKey, $count + 1, 3600);
 }
 
-// Ensure schema
-ensureScraperSchema($pdo);
-
 // Action whitelist validation
 $allowedActions = [
     'save_site', 'delete_site', 'get_site',
@@ -236,6 +373,8 @@ if (in_array($action, $postOnlyActions, true) && ($_SERVER['REQUEST_METHOD'] ?? 
     echo json_encode(['success' => false, 'error' => 'Bu işlem sadece POST isteğiyle yapılabilir.']);
     exit;
 }
+
+$schemaSkipActions = ['discover_urls', 'preview_url', 'test_connection'];
 
 function scraperImportDataFromResult(int $siteId, string $url, array $result, ?int $jobId = null, string $status = 'preview'): array
 {
@@ -300,6 +439,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if (!in_array($action, $schemaSkipActions, true)) {
+    ensureScraperSchema($pdo);
+}
+
 try {
     switch ($action) {
 
@@ -357,31 +500,21 @@ try {
             $siteId = (int)($_POST['site_id'] ?? 0);
             $mappingId = (int)($_POST['mapping_id'] ?? 0);
             $categoryUrl = trim($_POST['category_url'] ?? '');
-            if (!$siteId || !$categoryUrl) {
-                $mapping = scraperResolveMappingSite($pdo, $mappingId);
-                if ($mapping) {
-                    $siteId = (int)($mapping['bot_site_id'] ?? 0);
-                    if ($categoryUrl === '') {
-                        $categoryUrl = trim((string)($mapping['remote_category_url'] ?? ''));
-                    }
-                }
 
-                if (!$siteId || !$categoryUrl) {
-                    echo json_encode(['success' => false, 'error' => 'Site ve kategori URL gerekli.']);
-                    break;
-                }
-            }
-            $site = getScraperSite($pdo, $siteId);
-            if (!$site && $mappingId > 0) {
+            // Tek seferlik mapping çözümleme - önce siteId/categoryUrl eksikse mapping'den doldur
+            if ((!$siteId || !$categoryUrl) && $mappingId > 0) {
                 $mapping = scraperResolveMappingSite($pdo, $mappingId);
                 if ($mapping) {
-                    $siteId = (int)($mapping['bot_site_id'] ?? 0);
-                    if ($categoryUrl === '') {
-                        $categoryUrl = trim((string)($mapping['remote_category_url'] ?? ''));
-                    }
-                    $site = getScraperSite($pdo, $siteId);
+                    $siteId = $siteId ?: (int)($mapping['bot_site_id'] ?? 0);
+                    $categoryUrl = $categoryUrl ?: trim((string)($mapping['remote_category_url'] ?? ''));
                 }
             }
+            if (!$siteId || !$categoryUrl) {
+                echo json_encode(['success' => false, 'error' => 'Site ve kategori URL gerekli.']);
+                break;
+            }
+            // Site bulunamazsa URL üzerinden dene
+            $site = getScraperSite($pdo, $siteId);
             if (!$site) {
                 $mapping = scraperResolveMappingSiteByUrl($pdo, $categoryUrl);
                 if ($mapping) {
@@ -395,21 +528,51 @@ try {
             }
             $selectors = json_decode($site['selectors'] ?? '{}', true) ?: [];
             $botSettings = getScraperBotSettings($pdo);
-            $engine = new ScraperEngine($botSettings);
+            $requestedCoverLookupLimit = array_key_exists('cover_lookup_limit', $_POST)
+                ? max(0, min(50, (int)($_POST['cover_lookup_limit'] ?? 0)))
+                : null;
+            $coverLookupLimit = $requestedCoverLookupLimit
+                ?? max(0, min(50, (int)($botSettings['bot_discover_cover_lookup_limit'] ?? 2)));
+            $maxTopics = max(0, (int)($botSettings['bot_bulk_max_topics_per_page'] ?? 0));
+            $discoverCacheKey = implode('|', [
+                'v3',
+                (string)$siteId,
+                $categoryUrl,
+                (string)$coverLookupLimit,
+                (string)$maxTopics,
+                hash('crc32b', json_encode($selectors, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+                (string)($site['updated_at'] ?? ''),
+            ]);
+            $cachedDiscover = scraperReadJsonCache('scraper-discover', $discoverCacheKey, 900);
+            if (is_array($cachedDiscover) && isset($cachedDiscover['urls'])) {
+                $cachedUrls = markScraperImportedTopics($pdo, $siteId, (array)$cachedDiscover['urls']);
+                echo json_encode([
+                    'success' => true,
+                    'urls' => $cachedUrls,
+                    'count' => count($cachedUrls),
+                    'current_url' => (string)($cachedDiscover['current_url'] ?? $categoryUrl),
+                    'next_url' => (string)($cachedDiscover['next_url'] ?? ''),
+                    'cover_lookup_limit' => (int)($cachedDiscover['cover_lookup_limit'] ?? $coverLookupLimit),
+                    'cached' => true,
+                ]);
+                break;
+            }
+            $discoverBotSettings = scraperDiscoverBotSettings($botSettings);
+            $engine = new ScraperEngine($discoverBotSettings);
             $html = $engine->fetchPage($categoryUrl);
             if (!$html) {
                 echo json_encode(['success' => false, 'error' => 'Sayfa indirilemedi.']);
                 break;
             }
-            $urls = $engine->discoverTopicUrls($html, $selectors, $categoryUrl);
-            $urls = markScraperImportedTopics($pdo, $siteId, $urls);
-            $maxTopics = max(0, (int)($botSettings['bot_bulk_max_topics_per_page'] ?? 0));
+            // Kombine metot: HTML'i tek seferde parse eder - discoverTopicUrls + discoverPaginationUrl
+            $discovered = $engine->discoverTopicUrlsWithPagination($html, $selectors, $categoryUrl);
+            $urls = $discovered['items'];
+            $nextUrl = $discovered['nextUrl'];
             if ($maxTopics > 0) {
                 $urls = array_slice($urls, 0, $maxTopics);
             }
             
             // Resim yoksa detay sayfasından ilk resmi çek (tüm konular için)
-            $coverLookupLimit = max(0, (int)($botSettings['bot_discover_cover_lookup_limit'] ?? 8));
             $coverLookups = 0;
             foreach ($urls as &$topic) {
                 if ($coverLookups >= $coverLookupLimit) {
@@ -427,14 +590,21 @@ try {
                 }
             }
             unset($topic);
-            
-            $nextUrl = $engine->discoverPaginationUrl($html, $selectors, $categoryUrl);
+            scraperWriteJsonCache('scraper-discover', $discoverCacheKey, [
+                'urls' => $urls,
+                'current_url' => $categoryUrl,
+                'next_url' => $nextUrl,
+                'cover_lookup_limit' => $coverLookupLimit,
+            ]);
+            $urls = markScraperImportedTopics($pdo, $siteId, $urls);
             echo json_encode([
                 'success' => true,
                 'urls' => $urls,
                 'count' => count($urls),
                 'current_url' => $categoryUrl,
                 'next_url' => $nextUrl,
+                'cover_lookup_limit' => $coverLookupLimit,
+                'cached' => false,
             ]);
             break;
 
@@ -541,8 +711,36 @@ try {
                 'slug' => $site['slug'],
             ];
             $botSettings = getScraperBotSettings($pdo);
-            $engine = new ScraperEngine($botSettings);
-            $result = $engine->scrapeUrl($url, $siteConfig, $botSettings);
+            $previewBotSettings = scraperPreviewBotSettings($botSettings);
+            $previewSiteConfig = scraperPreviewSiteConfig($siteConfig);
+            $engine = new ScraperEngine($previewBotSettings);
+            $result = $engine->scrapeUrl($url, $previewSiteConfig, $previewBotSettings);
+            // İçerik boş veya çok kısaysa (< 100 karakter gerçek metin) DOM fallback dene
+            $rawContent = trim(strip_tags((string)($result['translated_content'] ?? '')));
+            if ($rawContent === '') $rawContent = trim(strip_tags((string)($result['content'] ?? '')));
+            $contentLooksEmptyOrMinimal = $rawContent === '' || mb_strlen($rawContent) < 100;
+            if (!empty($result['success']) && $contentLooksEmptyOrMinimal) {
+                $fallbackForEmptyContent = scraperPreviewFallback($engine, $url, $previewSiteConfig);
+                if (!empty($fallbackForEmptyContent['success'])) {
+                    $fallbackContent = (string)($fallbackForEmptyContent['content'] ?? '');
+                    if (trim(strip_tags($fallbackContent)) !== '') {
+                        $result['content'] = $fallbackContent;
+                        if (trim((string)($result['title'] ?? '')) === '' && trim((string)($fallbackForEmptyContent['title'] ?? '')) !== '') {
+                            $result['title'] = (string)($fallbackForEmptyContent['title'] ?? '');
+                        }
+                        if (empty($result['images']) && !empty($fallbackForEmptyContent['images'])) {
+                            $result['images'] = (array)($fallbackForEmptyContent['images'] ?? []);
+                        }
+                        if (empty($result['downloaded_images']) && !empty($fallbackForEmptyContent['downloaded_images'])) {
+                            $result['downloaded_images'] = (array)($fallbackForEmptyContent['downloaded_images'] ?? []);
+                        }
+                        if (empty($result['download_links']) && !empty($fallbackForEmptyContent['download_links'])) {
+                            $result['download_links'] = (string)($fallbackForEmptyContent['download_links'] ?? '');
+                        }
+                        $result['images_count'] = count((array)($result['downloaded_images'] ?? $result['images'] ?? []));
+                    }
+                }
+            }
             $duplicateImport = getScraperDuplicateImportBySource($pdo, $siteId, $url);
             $duplicate = resolveScraperDuplicateImportAction($duplicateImport, (string)($botSettings['bot_duplicate_strategy'] ?? 'skip'));
 
@@ -571,7 +769,7 @@ try {
                 ];
                 echo scraperJson(['success' => true, 'duplicate' => $duplicate['action'] !== 'create', 'warning' => $duplicate['warning'], 'translation_errors' => $previewData['translation_errors'], 'data' => $previewData]);
             } else {
-                $fallback = scraperPreviewFallback($engine, $url, $siteConfig, (string)($result['error'] ?? ''));
+                $fallback = scraperPreviewFallback($engine, $url, $previewSiteConfig, (string)($result['error'] ?? ''));
                 if (!empty($fallback['success'])) {
                     // Frontend'in beklediği alan adlarıyla eşleştir
                     $previewData = [
@@ -606,14 +804,31 @@ try {
                         if (preg_match('/<title[^>]*>([^<]+)<\/title>/si', $rawHtml, $m)) {
                             $rawTitle = trim($m[1]);
                         }
-                        if (preg_match('/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/si', $rawHtml, $m)) {
-                            $rawTitle = $rawTitle ?: trim($m[1]);
+                        if (preg_match('/<meta[^>]*(?:property=["\']og:title["\'][^>]*content=["\']([^"\']+)["\']|content=["\']([^"\']+)["\'][^>]*property=["\']og:title["\'])[^>]*\/?>/si', $rawHtml, $m)) {
+                            $rawTitle = $rawTitle ?: trim($m[1] ?: $m[2] ?: '');
                         }
-                        if (preg_match('/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']/si', $rawHtml, $m)) {
-                            $rawContent = '<p>' . htmlspecialchars(trim($m[1]), ENT_QUOTES, 'UTF-8') . '</p>';
+                        if (preg_match('/<meta[^>]*(?:property=["\']og:description["\'][^>]*content=["\']([^"\']+)["\']|content=["\']([^"\']+)["\'][^>]*property=["\']og:description["\'])[^>]*\/?>/si', $rawHtml, $m)) {
+                            $rawContent = '<p>' . htmlspecialchars(trim($m[1] ?: $m[2] ?: ''), ENT_QUOTES, 'UTF-8') . '</p>';
                         }
-                        if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/si', $rawHtml, $m)) {
-                            $rawImages[] = trim($m[1]);
+                        // Hala content yoksa body'den ilk metin bloğunu çek
+                        if ($rawContent === '') {
+                            if (preg_match('/<meta[^>]*(?:name=["\']description["\'][^>]*content=["\']([^"\']+)["\']|content=["\']([^"\']+)["\'][^>]*name=["\']description["\'])[^>]*\/?>/si', $rawHtml, $m)) {
+                                $rawContent = '<p>' . htmlspecialchars(trim($m[1] ?: $m[2] ?: ''), ENT_QUOTES, 'UTF-8') . '</p>';
+                            }
+                            if ($rawContent === '' && preg_match('/<body[^>]*>(.*?)<\/body>/si', $rawHtml, $bodyMatch)) {
+                                $bodyText = trim(strip_tags((string)$bodyMatch[1]));
+                                $bodyText = preg_replace('/\s+/', ' ', $bodyText);
+                                if ($bodyText !== '') {
+                                    $firstSentence = mb_substr($bodyText, 0, 500);
+                                    if (preg_match('/^[^.!?]*[.!?]/u', $bodyText, $sentMatch)) {
+                                        $firstSentence = $sentMatch[0];
+                                    }
+                                    $rawContent = '<p>' . htmlspecialchars(trim($firstSentence), ENT_QUOTES, 'UTF-8') . '</p>';
+                                }
+                            }
+                        }
+                        if (preg_match('/<meta[^>]*(?:property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\']|content=["\']([^"\']+)["\'][^>]*property=["\']og:image["\'])[^>]*\/?>/si', $rawHtml, $m)) {
+                            $rawImages[] = trim($m[1] ?: $m[2] ?: '');
                         }
                     }
                     if ($rawTitle !== '' || $rawContent !== '' || !empty($rawImages)) {

@@ -20,5 +20,6 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Output "OK: Git hooks aktif edildi (.githooks)."
+Write-Output "Pre-commit migration autogen + guard aktif."
 Write-Output "Pre-push migration guard aktif."
 Write-Output "Elle kontrol icin: php scripts/guard/migration_guard.php --cached"

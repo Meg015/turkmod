@@ -31,6 +31,25 @@ class ScraperEngine
     private int $maxImageBytes;
     private array $translationErrors = [];
 
+    /**
+     * İstek bazlı önbellek — aynı URL aynı request'te iki kez çekilmesin.
+     */
+    private static array $pageCache = [];
+
+    /**
+     * parseTopicPage önbelleği — aynı HTML tekrar parse edilmesin.
+     */
+    private static array $parseCache = [];
+
+    /**
+     * İstek önbelleğini temizler (her yeni request başında).
+     */
+    public static function clearCache(): void
+    {
+        self::$pageCache = [];
+        self::$parseCache = [];
+    }
+
     public function __construct(array $botSettings = [])
     {
         $this->userAgent = $botSettings['bot_user_agent'] ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
@@ -148,6 +167,14 @@ class ScraperEngine
             return null;
         }
 
+        // HTTP sayfaları için önbellek (binary değilse)
+        if (!$binary) {
+            $cacheKey = 'page:' . $url;
+            if (array_key_exists($cacheKey, self::$pageCache)) {
+                return self::$pageCache[$cacheKey];
+            }
+        }
+
         $headers = $binary
             ? ['Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8', 'Accept-Language: tr,en;q=0.5']
             : ['Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language: tr,en;q=0.5'];
@@ -184,6 +211,7 @@ class ScraperEngine
             for ($attempt = 0; $attempt <= $this->retryCount; $attempt++) {
             $requestHeaders = $headers;
             array_push($requestHeaders, ...$this->steamCommunityHeaders($currentUrl));
+            $connectTimeout = max(1, min(10, $this->timeout));
             $ch = curl_init();
             $curlOptions = [
                 CURLOPT_URL            => $currentUrl,
@@ -192,7 +220,7 @@ class ScraperEngine
                 CURLOPT_HEADER         => true,
                 CURLOPT_MAXREDIRS      => 0,
                 CURLOPT_TIMEOUT        => $this->timeout,
-                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_CONNECTTIMEOUT => $connectTimeout,
                 CURLOPT_USERAGENT      => $this->userAgent,
                 CURLOPT_SSL_VERIFYPEER => $this->sslVerify,
                 CURLOPT_SSL_VERIFYHOST => $this->sslVerify ? 2 : 0,
@@ -232,6 +260,10 @@ class ScraperEngine
 
             $body = is_string($response) ? substr($response, $headerSize) : null;
             if ($httpCode >= 200 && $httpCode < 300 && is_string($body) && $body !== '') {
+                // Önbelleğe kaydet
+                if (!$binary) {
+                    self::$pageCache['page:' . $url] = $body;
+                }
                 return $body;
             }
             if ($attempt < $this->retryCount && $this->retryDelay > 0) {
@@ -290,6 +322,12 @@ class ScraperEngine
      */
     public function parseTopicPage(string $html, array $selectors, string $baseUrl = ''): array
     {
+        // Aynı HTML'i tekrar parse etme (önbellek)
+        $cacheKey = 'parse:' . md5($html) . ':' . md5(json_encode($selectors));
+        if (array_key_exists($cacheKey, self::$parseCache)) {
+            return self::$parseCache[$cacheKey];
+        }
+
         $result = [
             'title'          => '',
             'content'        => '',
@@ -377,6 +415,9 @@ class ScraperEngine
         if ($this->isSteamCommunityUrl($baseUrl)) {
             $result = $this->applySteamCommunityFallback($doc, $xpath, $result, $baseUrl);
         }
+
+        // Parse sonucunu önbelleğe kaydet
+        self::$parseCache[$cacheKey] = $result;
 
         return $result;
     }
@@ -474,6 +515,105 @@ class ScraperEngine
         }
 
         return null;
+    }
+
+    /**
+     * Discover topic URLs from a category listing page with pagination in a single HTML parse.
+     * Combines discoverTopicUrls + discoverPaginationUrl to avoid parsing the same HTML twice.
+     */
+    public function discoverTopicUrlsWithPagination(string $html, array $selectors, string $baseUrl = ''): array
+    {
+        $items = [];
+        $urls = [];
+        $nextUrl = '';
+        libxml_use_internal_errors(true);
+        $doc = new DOMDocument('1.0', 'UTF-8');
+        $html = $this->prepareHtmlForDom($html);
+        $doc->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new DOMXPath($doc);
+        libxml_clear_errors();
+
+        // Discover topic URLs
+        $selector = $selectors['topic_list'] ?? $selectors['topic_link'] ?? '';
+        if ($selector !== '') {
+            $xp = $this->cssToXPath($selector);
+            $nodes = $xpath->query($xp);
+            if ($nodes) {
+                foreach ($nodes as $node) {
+                    $href = '';
+                    $title = '';
+                    $image = '';
+                    
+                    if (!empty($selectors['topic_list']) && !empty($selectors['topic_link']) && strtolower($node->nodeName) !== 'a') {
+                        $linkXpath = $this->cssToXPath($selectors['topic_link']);
+                        $linkXpath = preg_replace('#^//#', './/', $linkXpath);
+                        $links = $xpath->query($linkXpath, $node);
+                        if ($links && $links->length > 0) {
+                            $a = $links->item(0);
+                            $href = $a->getAttribute('href');
+                            $title = trim($a->textContent);
+                        }
+                        $image = $this->extractThumbnailNearNode($node, $xpath);
+                    } elseif (strtolower($node->nodeName) === 'a') {
+                        $href = $node->getAttribute('href');
+                        $title = trim($node->textContent);
+                        
+                        $image = $this->extractThumbnailNearNode($node, $xpath);
+                    } else {
+                        $links = $node->getElementsByTagName('a');
+                        if ($links->length > 0) {
+                            $a = $links->item(0);
+                            $href = $a->getAttribute('href');
+                            $title = trim($a->textContent);
+                            if ($title === '') {
+                                foreach ($links as $l) {
+                                    if (trim($l->textContent) !== '') {
+                                        $title = trim($l->textContent);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        $image = $this->extractThumbnailNearNode($node, $xpath);
+                    }
+                    
+                    if ($href && $href !== '#') {
+                        $resolved = $this->resolveUrl($href, $baseUrl);
+                        if (!in_array($resolved, $urls)) {
+                            $urls[] = $resolved;
+                            $resolvedImg = $image ? $this->resolveUrl($image, $baseUrl) : '';
+                            $items[] = [
+                                'url' => $resolved,
+                                'title' => $title,
+                                'image' => $resolvedImg
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // Discover pagination URL using same DOM
+        $selector = trim((string)($selectors['pagination'] ?? ''));
+        $queries = [];
+        if ($selector !== '') {
+            $queries[] = $this->cssToXPath($selector);
+        }
+        $queries[] = '//a[contains(concat(" ", normalize-space(translate(@rel, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")), " "), " next ")]';
+        $queries[] = '//a[contains(translate(@title, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "next") or contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "next") or contains(translate(@title, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "sonraki") or contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "sonraki")]';
+        $queries[] = '//a[contains(concat(" ", normalize-space(@class), " "), " next ")]';
+        $queries[] = '//*[contains(concat(" ", normalize-space(@class), " "), " next ")]//a';
+        $queries[] = '//nav//a';
+        $queries[] = '//*[contains(translate(@class, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "pagination") or contains(translate(@class, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "pager") or contains(translate(@class, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "page-numbers") or contains(translate(@class, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "nav-links") or contains(translate(@class, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "pagenavi")]//a';
+        $queries[] = '//a[contains(normalize-space(.), "Next") or contains(normalize-space(.), "Older") or contains(normalize-space(.), "Sonraki") or contains(normalize-space(.), "ÿ") or contains(normalize-space(.), "þ")]';
+
+        $nextUrl = $this->findPaginationUrl($xpath, $queries, $baseUrl, true);
+        if ($nextUrl === '' && $selector !== '') {
+            $nextUrl = $this->findPaginationUrl($xpath, [$this->cssToXPath($selector)], $baseUrl, false);
+        }
+
+        return ['items' => $items, 'nextUrl' => $nextUrl];
     }
 
     /**
@@ -1272,6 +1412,15 @@ class ScraperEngine
         }
         $html = preg_replace('/\s+/', ' ', $html);
         return trim(strip_tags($html, '<p><br><strong><em><b><i><a><ul><ol><li><h2><h3><h4><h5><h6><blockquote><pre><code><div><span><table><thead><tbody><tfoot><tr><td><th>'));
+    }
+
+    /**
+     * Public wrapper — fallback'lerin (örn. DOM içerik çekme) cleanHtmlWithSettings'i
+     * engine dışından çağırabilmesi için.
+     */
+    public function cleanHtmlWithSettingsOverride(string $html): string
+    {
+        return $this->cleanHtmlWithSettings($html);
     }
 
     private function sanitizeHtmlAttributes(string $html): string

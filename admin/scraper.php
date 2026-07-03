@@ -554,7 +554,18 @@ require_once __DIR__ . '/header.php';
                             </td>
                             <td>
                                 <?php if($thumb): ?>
-                                    <img src="<?= htmlspecialchars($thumb) ?>" class="scraper-thumb" alt="Thumbnail" data-scraper-thumb width="40" height="40">
+                                    <img
+                                        src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                                        data-scraper-thumb-src="<?= htmlspecialchars($thumb) ?>"
+                                        class="scraper-thumb"
+                                        alt="Thumbnail"
+                                        data-scraper-thumb
+                                        width="40"
+                                        height="40"
+                                        loading="lazy"
+                                        decoding="async"
+                                        fetchpriority="low"
+                                    >
                                 <?php else: ?>
                                     <div class="scraper-thumb-empty">
                                         <i class="bi bi-image"></i>
@@ -637,6 +648,11 @@ require_once __DIR__ . '/header.php';
                             <label class="ui-admin-form-label">Retry Sayısı</label>
                             <input type="number" name="bot_retry_count" class="ui-admin-form-control" value="<?= htmlspecialchars($botSettings['bot_retry_count']) ?>" min="0" max="10">
                             <small class="text-muted">Hata durumunda tekrar deneme</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="ui-admin-form-label">Liste Kapak Arama Limiti</label>
+                            <input type="number" name="bot_discover_cover_lookup_limit" class="ui-admin-form-control" value="<?= htmlspecialchars($botSettings['bot_discover_cover_lookup_limit']) ?>" min="0" max="50">
+                            <small class="text-muted">Kategori listesinde kapak yoksa açılacak detay sayısı</small>
                         </div>
                         <div class="col-md-6">
                             <label class="ui-admin-form-label">Retry Bekleme (ms)</label>
@@ -1078,6 +1094,6 @@ require_once __DIR__ . '/header.php';
     'botBulkContinueOnError' => (string) ($botSettings['bot_bulk_continue_on_error'] ?? '1'),
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?: '{}' ?></script>
 <script src="<?= asset_url('admin/assets/scraper-page.js', $baseUri) ?>" defer></script>
-<script src="<?= asset_url('admin/assets/scraper.js', $baseUri) ?>"></script>
+<script src="<?= asset_url('admin/assets/scraper.js', $baseUri) ?>" defer></script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

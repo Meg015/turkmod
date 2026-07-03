@@ -85,8 +85,8 @@ $tabs = [
     'user' => [
         'label' => 'Kullanıcı',
         'icon' => 'bi-person',
-        'description' => 'Aktivite puanı, entegrasyon, bildirim, arayüz ve bakım.',
-        'sections' => ['activity', 'points', 'notifications', 'frontend', 'system'],
+        'description' => 'Aktivite puanı, bildirim, arayüz ve bakım.',
+        'sections' => ['activity', 'notifications', 'frontend', 'system'],
     ],
 ];
 $settingsMarkers = 'events_activity_points_enabled Modül Görünürlüğü ' . implode(' ', array_merge(eventsConfigEditableKeys(), array_map(
@@ -111,7 +111,6 @@ $enabledModules = [
 ];
 $activeModuleCount = count(array_filter($enabledModules));
 $systemEnabled = eventsConfigBool($config, 'events_system_enabled');
-$pointsEnabled = eventsConfigBool($config, 'points_system_enabled');
 $queueEnabled = eventsConfigBool($config, 'email_notifications_enabled') && eventsConfigBool($config, 'email_queue_enabled');
 $readableSetting = static function (string $key, string $fallback = '') use ($config, $fieldByKey): string {
     if (!isset($fieldByKey[$key])) {
@@ -144,11 +143,11 @@ $summaryCards = [
         'tone' => 'accent',
     ],
     [
-        'label' => 'Puan & e-posta',
-        'value' => ($pointsEnabled ? 'Puan açık' : 'Manuel') . ' · ' . ($queueEnabled ? 'Kuyruk açık' : 'Kuyruk kapalı'),
+        'label' => 'E-posta & API',
+        'value' => $queueEnabled ? 'Kuyruk açık' : 'Kuyruk kapalı',
         'detail' => 'API limit: ' . $readableSetting('api_rate_limit_max', (string)($config['api_rate_limit_max'] ?? '45') . ' istek') . ' / ' . $readableSetting('api_rate_limit_window', (string)($config['api_rate_limit_window'] ?? '60') . ' sn'),
         'icon' => 'bi-diagram-3',
-        'tone' => $pointsEnabled || $queueEnabled ? 'info' : 'muted',
+        'tone' => $queueEnabled ? 'info' : 'muted',
     ],
 ];
 

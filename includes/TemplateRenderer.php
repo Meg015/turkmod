@@ -40,6 +40,13 @@ final class TemplateRenderer
         $this->compiledCacheDir = rtrim($dir, '/\\');
     }
 
+    private function compiledCacheFile(string $templatePath, string $template): string
+    {
+        $fingerprint = $this->templateFingerprint($template);
+        $cacheKey = hash('sha256', $templatePath . "\n" . $fingerprint);
+        return $this->compiledCacheDir . '/' . $cacheKey . '.php';
+    }
+
     /**
      * Render a template file using compiled cache if available.
      *
@@ -50,16 +57,14 @@ final class TemplateRenderer
     public function renderFile(string $templatePath, array $variables = [], array $rawKeys = []): string
     {
         $this->rawKeys = array_fill_keys($rawKeys, true);
+        $template = (string) file_get_contents($templatePath);
 
         if ($this->compiledCacheDir !== '' && !$this->debug) {
-            $cacheKey = md5($templatePath);
-            $cacheFile = $this->compiledCacheDir . '/' . $cacheKey . '.php';
-
-            if (is_file($cacheFile) && filemtime($cacheFile) >= filemtime($templatePath)) {
+            $cacheFile = $this->compiledCacheFile($templatePath, $template);
+            if (is_file($cacheFile)) {
                 return $this->executeCompiledTemplate($cacheFile, $variables, $rawKeys);
             }
 
-            $template = (string) file_get_contents($templatePath);
             $compiled = $this->compileTemplate($template);
 
             if (!is_dir($this->compiledCacheDir)) {
@@ -72,7 +77,7 @@ final class TemplateRenderer
             return $this->executeCompiledTemplate($cacheFile, $variables, $rawKeys);
         }
 
-        return $this->renderString((string) file_get_contents($templatePath), $variables, $rawKeys);
+        return $this->renderString($template, $variables, $rawKeys);
     }
 
     /**
@@ -104,10 +109,8 @@ final class TemplateRenderer
      */
     private function renderStringCompiled(string $template, array $variables = [], array $rawKeys = []): string
     {
-        $cacheKey = md5($template);
-        $cacheFile = $this->compiledCacheDir . '/' . $cacheKey . '.php';
+        $cacheFile = $this->compiledCacheFile('', $template);
 
-        // Check if compiled cache exists and is valid
         if (is_file($cacheFile)) {
             return $this->executeCompiledTemplate($cacheFile, $variables, $rawKeys);
         }
@@ -175,6 +178,45 @@ final class TemplateRenderer
         $template = $this->compileVariables($template);
 
         return $template;
+    }
+
+    private function templateFingerprint(string $template, array $includeStack = []): string
+    {
+        $parts = [hash('sha256', $template)];
+        if ($this->templateResolver === null) {
+            return hash('sha256', implode('|', $parts));
+        }
+
+        if (count($includeStack) >= 20) {
+            $parts[] = 'depth';
+            return hash('sha256', implode('|', $parts));
+        }
+
+        if (preg_match_all('/\{include\s+[\'"]([^\'"]+)[\'"]\s*\}/i', $template, $matches, PREG_SET_ORDER) < 1) {
+            return hash('sha256', implode('|', $parts));
+        }
+
+        foreach ($matches as $match) {
+            $filename = (string) ($match[1] ?? '');
+            if ($filename === '') {
+                continue;
+            }
+
+            if (in_array($filename, $includeStack, true)) {
+                $parts[] = 'cycle';
+                continue;
+            }
+
+            $content = ($this->templateResolver)($filename);
+            if ($content === null) {
+                $parts[] = 'missing';
+                continue;
+            }
+
+            $parts[] = $this->templateFingerprint($content, array_merge($includeStack, [$filename]));
+        }
+
+        return hash('sha256', implode('|', $parts));
     }
 
     /**

@@ -1,0 +1,35 @@
+#!/bin/sh
+
+set -eu
+
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+if [ -z "$ROOT_DIR" ]; then
+    echo "[migration-guard] Git repo root bulunamadi." >&2
+    exit 1
+fi
+
+AUTOGEN_FILE="$ROOT_DIR/scripts/guard/migration_autogen.php"
+GUARD_FILE="$ROOT_DIR/scripts/guard/migration_guard.php"
+
+if [ ! -f "$AUTOGEN_FILE" ]; then
+    echo "[migration-autogen] Dosya bulunamadi: $AUTOGEN_FILE" >&2
+    exit 1
+fi
+
+if [ ! -f "$GUARD_FILE" ]; then
+    echo "[migration-guard] Guard dosyasi bulunamadi: $GUARD_FILE" >&2
+    exit 1
+fi
+
+if ! php "$AUTOGEN_FILE" --cached --stage; then
+    echo "[migration-autogen] Pre-commit otomatik migration olusturma basarisiz." >&2
+    exit 1
+fi
+
+if ! php "$GUARD_FILE" --cached; then
+    echo "[migration-guard] Pre-commit engellendi. Migration durumunu duzeltin." >&2
+    exit 1
+fi
+
+exit 0

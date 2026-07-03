@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">Yenidosyalar sample logo</title>
+  <desc id="desc">Sample brand mark with a truck-like shape and YD monogram.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b91d47"/>
+      <stop offset="100%" stop-color="#6d1029"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ffd77a" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="22" fill="url(#bg)"/>
+  <rect x="12" y="12" width="72" height="72" rx="16" fill="none" stroke="#ffffff" stroke-opacity="0.16"/>
+  <path d="M22 52h45l8 8v10H22z" fill="#ffffff" fill-opacity="0.95"/>
+  <path d="M43 34h14l10 12H43z" fill="url(#shine)"/>
+  <circle cx="35" cy="70" r="6" fill="#7a1232"/>
+  <circle cx="61" cy="70" r="6" fill="#7a1232"/>
+  <path d="M28 26h13l7 10h-8l-4-6-4 6h-8z" fill="#ffffff"/>
+  <text x="66" y="42" text-anchor="middle" font-size="12" font-family="Arial, sans-serif" font-weight="700" fill="#ffffff">YD</text>
+</svg>

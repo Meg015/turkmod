@@ -140,7 +140,7 @@ final class NotFoundPage implements Handler
             $baseUri = $baseUri ?? $this->resolveBaseUri();
             $isLoggedIn = $GLOBALS['isLoggedIn'] ?? false;
             $envConfig = $GLOBALS['envConfig'] ?? [];
-            $_lay = $GLOBALS['_lay'] ?? [];
+            $_lay = $GLOBALS['_lay'] ?? null;
             $pageTitle = '404 - Sayfa Bulunamadı';
 
             ob_start();

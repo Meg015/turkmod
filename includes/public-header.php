@@ -105,8 +105,7 @@ if ($_themeAssetIsolated && $_themeManager instanceof ThemeManager) {
 
 // Menü ayarları
 $_menuItems = trim($_lay["menu_items"] ?? "");
-$_eventsPath = "/" . ltrim(routePublicStaticPath("events"), "/");
-$_contactPath = "/" . ltrim(routePublicStaticPath("contact"), "/");
+
 $_uploadTopicUrl = routePublicStaticUrl("upload_topic");
 $_notificationsUrl = routePublicStaticUrl("notifications");
 $_messagesUrl = routePublicStaticUrl("messages");
@@ -114,8 +113,7 @@ $_logoutUrl = routePublicStaticUrl("logout");
 $_loginBaseHref = routePublicStaticUrl("login");
 $_registerHref = routePublicStaticUrl("register");
 $_forgotPasswordHref = routePublicStaticUrl("forgot_password");
-$_menuHasEvents = stripos($_menuItems, $_eventsPath) !== false || stripos($_menuItems, "etkinlik") !== false;
-$_menuHasContact = stripos($_menuItems, $_contactPath) !== false || stripos($_menuItems, "iletisim") !== false || stripos($_menuItems, "/contact") !== false || stripos($_menuItems, "contact") !== false;
+
 $_menuShowCats = ($_lay["menu_show_categories"] ?? "0") === "1";
 $_menuCatLimit = (int) ($_lay["menu_category_limit"] ?? 8);
 $_menuCta = ($_lay["menu_cta_enabled"] ?? "0") === "1";
@@ -273,6 +271,7 @@ if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && $
     <script src="<?= asset_url("assets/js/ui.js", $baseUri) ?>" defer></script>
     <script src="<?= asset_url("assets/js/ui-foundation.js", $baseUri) ?>" defer></script>
     <?php endif; ?>
+    <script src="<?= asset_url("assets/js/public-toast-bridge.js", $baseUri) ?>" defer></script>
     <?php if ($_themeManager instanceof ThemeManager): ?>
     <?= $_themeManager->renderAssetTags("js") . "\n" ?>
     <?php endif; ?>
@@ -373,12 +372,8 @@ echo htmlspecialchars($_mLabel);
                         <a href="<?= $baseUri ?>/index.php">Anasayfa</a>
                         <a href="<?= categoryListUrl() ?>">Kategoriler</a>
                         <a href="<?= htmlspecialchars($_uploadTopicUrl) ?>">Mod Yükle</a>
-                    <?php endif; ?>
-                    <?php if (!$_menuHasContact): ?>
-                        <a href="<?= htmlspecialchars(routePublicStaticUrl("contact")) ?>"><i class="bi bi-envelope-paper" aria-hidden="true"></i> Iletisim</a>
-                    <?php endif; ?>
-                    <?php if (!$_menuHasEvents): ?>
                         <a href="<?= htmlspecialchars(routePublicStaticUrl("events")) ?>">Etkinlikler</a>
+                        <a href="<?= htmlspecialchars(routePublicStaticUrl("contact")) ?>"><i class="bi bi-envelope-paper" aria-hidden="true"></i> Iletisim</a>
                     <?php endif; ?>
                     <?php if ($_menuShowCats): ?>
                         <?php foreach (

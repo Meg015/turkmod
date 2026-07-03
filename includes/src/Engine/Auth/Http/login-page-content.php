@@ -1,65 +1,10 @@
-<?php
-
-declare(strict_types=1);
-
-use App\Core\Http\RedirectResponse;
-
-require_once $projectRoot . '/includes/init.php';
-if (is_file($projectRoot . '/includes/src/Modules/Events/init.php')) {
-    require_once $projectRoot . '/includes/src/Modules/Events/init.php';
-}
-
-function loginSafeRedirect(string $candidate, string $fallback): string
-{
-    $candidate = trim($candidate);
-    if ($candidate === '') {
-        return $fallback;
-    }
+<?php
 
-    if (str_starts_with($candidate, '//') || str_contains($candidate, '\\')) {
-        return $fallback;
-    }
+declare(strict_types=1);
 
-    if ($candidate[0] !== '/' && !preg_match('~^(?:https?:)?//~i', $candidate)) {
-        $candidate = '/' . ltrim($candidate, '/');
-    }
-
-    if (!RedirectResponse::onlyTrusted($candidate)) {
-        return $fallback;
-    }
-
-    $path = parse_url($candidate, PHP_URL_PATH);
-    if (!is_string($path) || $path === '' || str_contains($path, "\0")) {
-        return $fallback;
-    }
-
-    $authPaths = [
-        '/login.php',
-        '/register.php',
-        '/forgot-password.php',
-        '/reset-password.php',
-        '/logout.php',
-    ];
-    if (function_exists('routePublicStaticPathAliases')) {
-        foreach (['login', 'register', 'forgot_password', 'reset_password', 'logout'] as $authRouteKey) {
-            foreach (routePublicStaticPathAliases($authRouteKey) as $aliasPath) {
-                $cleanAliasPath = trim((string) $aliasPath, '/');
-                if ($cleanAliasPath !== '') {
-                    $authPaths[] = '/' . $cleanAliasPath;
-                }
-            }
-        }
-    } else {
-        $authPaths = array_merge($authPaths, ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla', '/cikis']);
-    }
-
-    foreach (array_values(array_unique($authPaths)) as $authPath) {
-        if ($authPath !== '' && str_ends_with($path, (string) $authPath)) {
-            return $fallback;
-        }
-    }
-
-    return $candidate;
+require_once $projectRoot . '/includes/init.php';
+if (is_file($projectRoot . '/includes/src/Modules/Events/init.php')) {
+    require_once $projectRoot . '/includes/src/Modules/Events/init.php';
 }
 
 function loginRedirectForAuthenticatedUser(bool $isAdminUser, string $requestedRedirect, string $baseUri): string

@@ -349,7 +349,19 @@ document.getElementById('bulkTopicsForm')?.addEventListener('submit', async func
         const currentUrl = new URL(window.location.href);
         if (currentUrl.searchParams.get('health_cleared') === '1') {
             localStorage.removeItem(STATE_KEY);
+            ['checked', 'ok', 'warning', 'broken', 'download_link_issues', 'image_issues'].forEach(function(key) {
+                document.querySelectorAll('[data-health-summary="' + key + '"]').forEach(function(node) {
+                    node.textContent = formatter.format(0);
+                });
+            });
+            progressText.textContent = 'Sağlık geçmişi temizlendi.';
+            progressPercent.textContent = '0%';
+            progressBar.style.width = '0%';
+            document.querySelectorAll('.topics-admin-tabs .badge').forEach(function(node) {
+                node.remove();
+            });
             currentUrl.searchParams.delete('health_cleared');
+            currentUrl.searchParams.delete('health_clear_ts');
             window.history.replaceState({}, '', currentUrl.toString());
         }
     } catch (error) {}

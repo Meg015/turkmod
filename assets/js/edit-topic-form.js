@@ -18,6 +18,51 @@
     };
     let current = 1;
 
+    function setFieldInvalid(field) {
+        if (!field) return;
+        field.classList.add('is-invalid');
+        field.setAttribute('aria-invalid', 'true');
+    }
+
+    function clearFieldInvalid(field) {
+        if (!field) return;
+        field.classList.remove('is-invalid');
+        field.removeAttribute('aria-invalid');
+    }
+
+    function focusField(field) {
+        if (!field) return;
+        setFieldInvalid(field);
+        if (typeof field.focus === 'function') field.focus();
+        if (typeof field.scrollIntoView === 'function') {
+            try {
+                field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (error) {
+                field.scrollIntoView();
+            }
+        }
+    }
+
+    function invalidFieldMessage(field) {
+        if (!field) return 'Lütfen zorunlu alanları kontrol edin.';
+        switch (field.name) {
+            case 'title':
+                return 'Mod başlığı zorunludur.';
+            case 'category_id':
+                return 'Kategori seçimi zorunludur.';
+            case 'content':
+                return 'Mod açıklaması zorunludur.';
+            case 'author_topic':
+                return 'Yapımcı alanı zorunludur.';
+            case 'topic_version':
+                return 'Oyun sürümü zorunludur.';
+            case 'dl_url[]':
+                return 'İndirme bağlantısı alanını kontrol edin.';
+            default:
+                return 'Lütfen zorunlu alanları kontrol edin.';
+        }
+    }
+
     function setStep(step) {
         current = Math.max(1, Math.min(7, step));
         panels.forEach(function(panel) {
@@ -42,7 +87,8 @@
         const required = Array.from(panel.querySelectorAll('input[required], select[required], textarea[required]'));
         for (const field of required) {
             if (!field.checkValidity()) {
-                field.reportValidity();
+                focusField(field);
+                window.showToast?.(invalidFieldMessage(field), 'warning');
                 return false;
             }
         }
@@ -62,6 +108,15 @@
     document.querySelectorAll('[data-open-input]').forEach(function(trigger) {
         trigger.addEventListener('click', function() {
             document.getElementById(trigger.dataset.openInput)?.click();
+        });
+    });
+
+    form.querySelectorAll('input, select, textarea').forEach(function(field) {
+        field.addEventListener('input', function() {
+            clearFieldInvalid(field);
+        });
+        field.addEventListener('change', function() {
+            clearFieldInvalid(field);
         });
     });
 
@@ -115,7 +170,11 @@
         });
 
         if (!form.checkValidity()) {
-            form.reportValidity();
+            const firstInvalid = form.querySelector(':invalid');
+            if (firstInvalid) {
+                focusField(firstInvalid);
+            }
+            window.showToast?.(invalidFieldMessage(firstInvalid), 'warning');
             return;
         }
 

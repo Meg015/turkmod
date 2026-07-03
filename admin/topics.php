@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         }
         $result = adminQualityClearTopicHealth($pdo);
         flash($result['success'] ? 'success' : 'error', (string) $result['message']);
-        header('Location: topics.php?tab=health&health_cleared=1');
+        header('Location: topics.php?tab=health&health_cleared=1&health_clear_ts=' . rawurlencode((string) time()));
         exit;
     }
 
@@ -765,7 +765,7 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
             <button type="button" class="ui-admin-btn ui-admin-btn-primary topic-health-start" id="topicHealthScanStart">
                 <i class="bi bi-play-circle"></i> Kontrolü Başlat
             </button>
-            <form method="post" action="topics.php?tab=health" class="topic-health-clear-form" data-admin-confirm="Tüm konu sağlığı kayıtları kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?" data-admin-confirm-title="Konu sağlığı temizlensin mi?" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
+            <form method="post" action="topics.php?tab=health" class="topic-health-clear-form" data-admin-confirm="Tüm konu sağlığı verileri sıfırlanacak ve sağlık taraması geçmişi silinecek. Bu işlem geri alınamaz. Devam edilsin mi?" data-admin-confirm-title="Konu sağlığı temizlensin mi?" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="clear_topic_health">
                 <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline topic-health-clear-btn">
@@ -869,6 +869,7 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
                         $rowStatus = isset($healthStatusMeta[$rowStatus]) ? $rowStatus : 'unchecked';
                         $meta = $healthStatusMeta[$rowStatus];
                         $summary = adminQualityDecodeTopicHealthSummary($row['health_summary'] ?? null);
+                        $isChecked = !empty($row['last_checked_at']);
                         $downloads = $summary['downloads'] ?? [];
                         $media = $summary['media'] ?? [];
                         $external = $summary['external_links'] ?? [];
@@ -876,10 +877,10 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
                         $downloadIssueCount = (int)($row['download_issue_count'] ?? 0);
                         $imageCount = (int)($row['image_count'] ?? ($media['total'] ?? 0));
                         $imageIssueCount = (int)($row['image_issue_count'] ?? 0);
-                        $hasDownloadIssue = $downloadLinkCount === 0 || $downloadIssueCount > 0 || (int)($downloads['missing'] ?? 0) > 0 || (int)($downloads['broken'] ?? 0) > 0;
-                        $hasImageIssue = empty($row['primary_media_file_id']) || $imageCount === 0 || $imageIssueCount > 0 || (int)($media['missing_primary'] ?? 0) > 0 || (int)($media['broken'] ?? 0) > 0 || (int)($media['warning'] ?? 0) > 0;
-                        $hasExternalIssue = (int)($external['broken'] ?? 0) > 0 || (int)($external['warning'] ?? 0) > 0;
-                        $hasManualWarning = !$hasDownloadIssue && !$hasImageIssue && !$hasExternalIssue && $rowStatus === 'warning';
+                        $hasDownloadIssue = $isChecked && ($downloadLinkCount === 0 || $downloadIssueCount > 0 || (int)($downloads['missing'] ?? 0) > 0 || (int)($downloads['broken'] ?? 0) > 0);
+                        $hasImageIssue = $isChecked && (empty($row['primary_media_file_id']) || $imageCount === 0 || $imageIssueCount > 0 || (int)($media['missing_primary'] ?? 0) > 0 || (int)($media['broken'] ?? 0) > 0 || (int)($media['warning'] ?? 0) > 0);
+                        $hasExternalIssue = $isChecked && ((int)($external['broken'] ?? 0) > 0 || (int)($external['warning'] ?? 0) > 0);
+                        $hasManualWarning = $isChecked && !$hasDownloadIssue && !$hasImageIssue && !$hasExternalIssue && $rowStatus === 'warning';
                         $healthReasonLabels = [];
                         if ($hasDownloadIssue) {
                             $healthReasonLabels[] = 'İndirme Linki Sorunlu';
@@ -914,8 +915,8 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
                                     <?= htmlspecialchars($healthBadgeLabel, ENT_QUOTES, 'UTF-8') ?>
                                 </span>
                             </td>
-                            <td><?= $hasDownloadIssue ? 'İndirme Linki Sorunlu' : 'Sorun Yok' ?></td>
-                            <td><?= $hasImageIssue ? 'Resimlerde Sorun Var' : 'Sorun Yok' ?></td>
+                            <td><?= $isChecked ? ($hasDownloadIssue ? 'İndirme Linki Sorunlu' : 'Sorun Yok') : 'Kontrol edilmedi' ?></td>
+                            <td><?= $isChecked ? ($hasImageIssue ? 'Resimlerde Sorun Var' : 'Sorun Yok') : 'Kontrol edilmedi' ?></td>
                             <td><?= (int)($external['total'] ?? 0) ?> link</td>
                             <td class="ui-admin-table-cell-muted"><?= htmlspecialchars($lastChecked) ?></td>
                             <td>

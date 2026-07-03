@@ -26,7 +26,7 @@ abstract class ScriptBackedHandler implements Handler
             $isLoggedIn = $GLOBALS['isLoggedIn'] ?? false;
             $envConfig = $GLOBALS['envConfig'] ?? [];
             $themeManager = $GLOBALS['themeManager'] ?? null;
-            $_lay = $GLOBALS['_lay'] ?? [];
+            $_lay = $GLOBALS['_lay'] ?? null;
             require $projectRoot . '/' . ltrim($this->contentPath(), '/\\');
             $body = ob_get_clean();
 

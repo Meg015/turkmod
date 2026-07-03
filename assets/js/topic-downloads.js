@@ -417,6 +417,53 @@
         state.modalFeedback.textContent = text;
     }
 
+    function updateCsrfTokenFromResponse(state, section, data) {
+        if (!data || typeof data !== 'object') {
+            return false;
+        }
+        const nextToken = typeof data._token === 'string' ? data._token.trim() : '';
+        if (!nextToken) {
+            return false;
+        }
+        const changed = nextToken !== state.csrf;
+        state.csrf = nextToken;
+        section.dataset.csrf = nextToken;
+        return changed;
+    }
+
+    function isCsrfFailureResponse(response, data) {
+        if (response && response.status === 419) {
+            return true;
+        }
+        if (!data || typeof data !== 'object') {
+            return false;
+        }
+        const code = String(data.error || data.code || '').toLowerCase();
+        return code === 'csrf_token_invalid' || code === 'csrf_failed' || code === 'csrf_invalid';
+    }
+
+    async function refreshAuthCsrfToken(section, state) {
+        if (!state.statusApi || !state.topicId) {
+            return false;
+        }
+
+        try {
+            const refreshResponse = await fetch(state.statusApi, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ topic_id: state.topicId })
+            });
+            const refreshData = await refreshResponse.json().catch(function () { return null; });
+            return updateCsrfTokenFromResponse(state, section, refreshData);
+        } catch (error) {
+            return false;
+        }
+    }
+
     async function submitAuth(state, section, action, submitBtn) {
         if (!state.authApi) {
             setModalFeedback(state, 'Auth API adresi bulunamadi.', 'error');
@@ -464,24 +511,38 @@
         setModalFeedback(state, '', 'info');
 
         try {
-            const response = await fetch(state.authApi, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json().catch(function () { return null; });
+            let response = null;
+            let data = null;
+            let retriedAfterCsrf = false;
 
-            if (data && data._token) {
-                state.csrf = data._token;
-                section.dataset.csrf = data._token;
+            while (true) {
+                payload._token = state.csrf;
+                response = await fetch(state.authApi, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                data = await response.json().catch(function () { return null; });
+
+                const tokenChanged = updateCsrfTokenFromResponse(state, section, data);
+                if (!retriedAfterCsrf && isCsrfFailureResponse(response, data)) {
+                    const refreshed = tokenChanged || await refreshAuthCsrfToken(section, state);
+                    if (refreshed) {
+                        retriedAfterCsrf = true;
+                        continue;
+                    }
+                }
+                break;
             }
 
             if (!response.ok || !data || data.success === false) {
-                const errorMsg = data && (data.message || data.error) ? String(data.message || data.error) : 'Kimlik dogrulama basarisiz.';
+                const errorMsg = isCsrfFailureResponse(response, data)
+                    ? 'Guvenlik dogrulamasi yenilenemedi. Lutfen sayfayi yenileyip tekrar deneyin.'
+                    : (data && (data.message || data.error) ? String(data.message || data.error) : 'Kimlik dogrulama basarisiz.');
                 setModalFeedback(state, errorMsg, 'error');
                 return;
             }

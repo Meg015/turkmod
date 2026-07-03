@@ -169,14 +169,16 @@ function validateUploadFieldRules(showToast) {
 }
 
 function bindUploadRuleInputs(scope) {
-    (scope || document).querySelectorAll('input[name="title"], textarea[name="content"], input[name="author_topic"], input[name="topic_version"], input[name="topic_video_url"], input[name="attachment"], input[name="dl_name[]"], input[name="dl_url[]"]').forEach(function(input) {
+    (scope || document).querySelectorAll('input[name="title"], select[name="category_id"], textarea[name="content"], input[name="author_topic"], input[name="topic_version"], input[name="topic_video_url"], input[name="attachment"], input[name="dl_name[]"], input[name="dl_url[]"]').forEach(function(input) {
         if (input.dataset.liveRuleBound === '1') return;
         input.dataset.liveRuleBound = '1';
         input.addEventListener('input', function() {
+            clearUploadFieldInvalid(input);
             validateUploadFieldRules(false);
             scheduleUploadTopicDraftSave();
         });
         input.addEventListener('change', function() {
+            clearUploadFieldInvalid(input);
             validateUploadFieldRules(false);
             scheduleUploadTopicDraftSave();
         });
@@ -278,6 +280,31 @@ function notifyUploadImageRule(message, type) {
         return;
     }
     console.warn(message);
+}
+
+function setUploadFieldInvalid(field) {
+    if (!field) return;
+    field.classList.add('is-invalid');
+    field.setAttribute('aria-invalid', 'true');
+}
+
+function clearUploadFieldInvalid(field) {
+    if (!field) return;
+    field.classList.remove('is-invalid');
+    field.removeAttribute('aria-invalid');
+}
+
+function focusUploadField(field) {
+    if (!field) return;
+    setUploadFieldInvalid(field);
+    if (typeof field.focus === 'function') field.focus();
+    if (typeof field.scrollIntoView === 'function') {
+        try {
+            field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (error) {
+            field.scrollIntoView();
+        }
+    }
 }
 
 function getUploadImageRules() {
@@ -624,17 +651,17 @@ const uploadWizard = (function() {
             const category = document.querySelector('select[name="category_id"]');
             if (!title || !title.value.trim()) {
                 notify('Mod başlığı zorunludur.');
-                title && title.focus();
+                focusUploadField(title);
                 return false;
             }
             if (title && !title.checkValidity()) {
                 validateUploadFieldRules(true);
-                title.reportValidity();
+                focusUploadField(title);
                 return false;
             }
             if (!category || !category.value) {
                 notify('Kategori seçimi zorunludur.');
-                category && category.focus();
+                focusUploadField(category);
                 return false;
             }
         }
@@ -809,7 +836,14 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     }
 
     if (!form.checkValidity()) {
-        form.reportValidity();
+        const firstInvalid = form.querySelector(':invalid');
+        const invalidMessage = firstInvalid && firstInvalid.name === 'title'
+            ? 'Mod başlığı zorunludur.'
+            : firstInvalid && firstInvalid.name === 'category_id'
+                ? 'Kategori seçimi zorunludur.'
+                : 'Lütfen zorunlu alanları kontrol edin.';
+        focusUploadField(firstInvalid);
+        notify(invalidMessage);
         return;
     }
 

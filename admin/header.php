@@ -10,31 +10,6 @@ if (!isset($baseUri)) {
     }
 }
 $pageTitle = $pageTitle ?? 'Admin Paneli';
-$currentPath = $_SERVER['SCRIPT_NAME'];
-$isDashboard = str_contains($currentPath, 'admin/index.php');
-$isQueue = str_contains($currentPath, 'admin/queue.php');
-$isTopics = str_contains($currentPath, 'admin/topics.php') || str_contains($currentPath, 'admin/edit.php');
-$isCreate = str_contains($currentPath, 'admin/create.php');
-$isCategories = str_contains($currentPath, 'admin/categories.php');
-$isSettings = str_contains($currentPath, 'admin/settings.php');
-$isMediaManager = str_contains($currentPath, 'admin/media-manager.php');
-$isUsers = str_contains($currentPath, 'admin/users.php');
-$isUserActivity = str_contains($currentPath, 'admin/user-activity.php');
-$isSystemHealth = str_contains($currentPath, 'admin/system-health.php');
-$isDatabaseSync = str_contains($currentPath, 'admin/database-sync');
-$isLogs = str_contains($currentPath, 'admin/logs.php');
-$isActionLog = str_contains($currentPath, 'admin/action-log.php');
-$isRateLimits = str_contains($currentPath, 'admin/rate-limits.php');
-$isAppearance = str_contains($currentPath, 'admin/appearance.php');
-$isThemes = str_contains($currentPath, 'admin/themes.php');
-$isScraper = str_contains($currentPath, 'admin/scraper.php');
-$isLegacyRedirects = str_contains($currentPath, 'admin/legacy-redirects.php');
-$isReports = str_contains($currentPath, 'admin/complaints-reports.php') || str_contains($currentPath, 'admin/reports.php') || str_contains($currentPath, 'admin/user-reports.php');
-$isCommentsManager = str_contains($currentPath, 'admin/comments-manager.php');
-$isContacts = str_contains($currentPath, 'admin/contacts.php');
-$isLeaderboard = str_contains($currentPath, 'admin/leaderboard.php');
-$isEvents = str_contains($currentPath, 'admin/events');
-$isNotifications = str_contains($currentPath, 'admin/notifications.php');
 
 $userName = $_SESSION['_auth_user_name'] ?? 'Admin';
 $adminCan = static function (array|string $permissions): bool {
@@ -133,19 +108,17 @@ $adminStyleBridge = $adminAccentColor !== ''
     <script src="<?= asset_url('assets/js/ui-foundation.js', $baseUri) ?>" defer></script>
     <link rel="stylesheet" href="<?= asset_url('assets/css/roboto-local.css', $baseUri) ?>">
     <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" integrity="sha384-cPa8kzsYWhqpAfWOLWYIw3V0BhPi/m3lrd8tBTPxr2NrYCHRVZ7xy1cEoRGOM/03" crossorigin="anonymous">
-    <?php if (!$isEvents): ?>
-    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.min.css" rel="stylesheet" integrity="sha384-ww0rVASXMoKHk188bKXg4fIZUrd5s80drZJWVP6tgTtu4AskG/wVqDnOEmhjJhvp" crossorigin="anonymous">
-    <?php endif; ?>
+    <?php
+    // Sayfa bazında conditional asset yüklemeleri için route map kontrolü
+    $isMediaManagerPage = str_contains($_SERVER['SCRIPT_NAME'], 'admin/media-manager.php');
+    ?>
     <link rel="stylesheet" href="<?= asset_url('assets/css/design-tokens.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('assets/css/ui-foundation.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('admin/assets/admin.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('admin/assets/admin-foundation.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('assets/bootstrap-icons.css', $baseUri) ?>">
-    <?php if ($isMediaManager): ?>
+    <?php if ($isMediaManagerPage): ?>
     <link rel="stylesheet" href="<?= asset_url('admin/assets/media-manager.css', $baseUri) ?>">
-    <?php endif; ?>
-    <?php if (!$isEvents): ?>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.all.min.js" integrity="sha384-/Wx1NuqlgALfa1Do1U6Mer7quEDHOo8REf/0izoIrV8Y3Z/gtEHQc01STCEMM1LZ" crossorigin="anonymous"></script>
     <?php endif; ?>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
 </head>
@@ -157,59 +130,7 @@ $adminStyleBridge = $adminAccentColor !== ''
                 <span class="admin-brand-mark"><?php if (str_starts_with($adminBrandIcon, 'bi-')): ?><i class="bi <?= htmlspecialchars($adminBrandIcon) ?>"></i><?php else: ?><?= htmlspecialchars($adminBrandIcon) ?><?php endif; ?></span>
                 <span><?= htmlspecialchars($adminBrandText) ?></span>
             </a>
-            <nav class="admin-menu" aria-label="Admin menüsü">
-                <section class="admin-menu-group">
-                    <button class="admin-menu-group-toggle" type="button" aria-expanded="true">
-                        <span>Ana Menü</span><i class="bi bi-chevron-down"></i>
-                    </button>
-                    <div class="admin-menu-group-body ui-panel__body">
-                        <?php if ($adminCan('dashboard.view')): ?><a class="admin-menu-item <?= $isDashboard ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/index.php"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a><?php endif; ?>
-                        <?php if ($adminCan('queue.view')): ?><a class="admin-menu-item <?= $isQueue ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/queue.php"><i class="bi bi-inbox-fill"></i><span>Bekleyen İşler</span><?php if ($sidebarQueueCount > 0): ?><span class="admin-menu-badge"><?= $sidebarQueueCount > 99 ? '99+' : $sidebarQueueCount ?></span><?php endif; ?></a><?php endif; ?>
-                    </div>
-                </section>
-                <section class="admin-menu-group">
-                    <button class="admin-menu-group-toggle" type="button" aria-expanded="true">
-                        <span>İçerik Yönetimi</span><i class="bi bi-chevron-down"></i>
-                    </button>
-                    <div class="admin-menu-group-body ui-panel__body">
-                        <?php if ($adminCan('topics.view')): ?><a class="admin-menu-item <?= $isTopics ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/topics.php"><i class="bi bi-files"></i><span>Konular</span></a><?php endif; ?>
-                        <?php if ($adminCan('topics.create')): ?><a class="admin-menu-item <?= $isCreate ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/create.php"><i class="bi bi-plus-circle"></i><span>Yeni Konu</span></a><?php endif; ?>
-                        <?php if ($adminCan('categories.view')): ?><a class="admin-menu-item <?= $isCategories ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/categories.php"><i class="bi bi-diagram-3"></i><span>Kategoriler</span></a><?php endif; ?>
-                        <?php if ($adminCan('comments.view')): ?><a class="admin-menu-item <?= $isCommentsManager ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/comments-manager.php"><i class="bi bi-chat-left-text"></i><span>Yorumlar</span></a><?php endif; ?>
-                        <?php if ($adminCan('reports.view')): ?><a class="admin-menu-item <?= $isReports ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/complaints-reports.php"><i class="bi bi-shield-exclamation"></i><span>Şikayetler &amp; Raporlar</span><?php if ($sidebarReportsCount > 0): ?><span class="admin-menu-badge"><?= $sidebarReportsCount > 99 ? '99+' : $sidebarReportsCount ?></span><?php endif; ?></a><?php endif; ?>
-                        <?php if ($adminCan('contact.view')): ?><a class="admin-menu-item <?= $isContacts ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/contacts.php"><i class="bi bi-envelope-paper"></i><span>İletişim</span><?php if (!empty($sidebarContactCount)): ?><span class="admin-menu-badge"><?= $sidebarContactCount > 99 ? '99+' : $sidebarContactCount ?></span><?php endif; ?></a><?php endif; ?>
-                    </div>
-                </section>
-                <section class="admin-menu-group">
-                    <button class="admin-menu-group-toggle" type="button" aria-expanded="true">
-                        <span>Araçlar</span><i class="bi bi-chevron-down"></i>
-                    </button>
-                    <div class="admin-menu-group-body ui-panel__body">
-                        <?php if ($adminCan('scraper.view')): ?><a class="admin-menu-item <?= $isScraper ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/scraper.php"><i class="bi bi-robot"></i><span>İçerik Botu</span></a><?php endif; ?>
-                        <?php if ($adminCan('events.view')): ?><a class="admin-menu-item <?= $isEvents ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/events.php"><i class="bi bi-stars"></i><span>Etkinlikler</span></a><?php endif; ?>
-                        <?php if ($adminCan('legacy_redirects.view')): ?><a class="admin-menu-item <?= $isLegacyRedirects ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/legacy-redirects.php"><i class="bi bi-signpost-split"></i><span>SEO Yönlendirmeleri</span></a><?php endif; ?>
-                    </div>
-                </section>
-                <section class="admin-menu-group">
-                    <button class="admin-menu-group-toggle" type="button" aria-expanded="true">
-                        <span>Sistem</span><i class="bi bi-chevron-down"></i>
-                    </button>
-                    <div class="admin-menu-group-body ui-panel__body">
-                        <?php if ($adminCan('settings.view')): ?><a class="admin-menu-item <?= $isSettings ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/settings.php"><i class="bi bi-sliders"></i><span>Genel Ayarlar</span></a><?php endif; ?>
-                        <?php if ($adminCan('appearance.view')): ?><a class="admin-menu-item <?= $isAppearance ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/appearance.php"><i class="bi bi-palette2"></i><span>Görünüm</span></a><?php endif; ?>
-                        <?php if ($adminCan('themes.view')): ?><a class="admin-menu-item <?= $isThemes ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/themes.php"><i class="bi bi-brush"></i><span>Temalar</span></a><?php endif; ?>
-                        <?php if ($adminCan(['users.view', 'groups.view'])): ?><a class="admin-menu-item <?= $isUsers ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/users.php"><i class="bi bi-people"></i><span>Kullanıcılar</span></a><?php endif; ?>
-                        <?php if ($adminCan('notifications.view')): ?><a class="admin-menu-item <?= $isNotifications ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/notifications.php"><i class="bi bi-bell"></i><span>Bildirim Merkezi</span></a><?php endif; ?>
-                        <?php if ($adminCan('leaderboard.view')): ?><a class="admin-menu-item <?= $isLeaderboard ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/leaderboard.php"><i class="bi bi-trophy"></i><span>Liderlik Tablosu</span></a><?php endif; ?>
-                        <?php if ($adminCan('media.view')): ?><a class="admin-menu-item <?= $isMediaManager ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/media-manager.php"><i class="bi bi-folder2-open"></i><span>Dosya Yöneticisi</span></a><?php endif; ?>
-                        <?php if ($adminCan('system.view')): ?><a class="admin-menu-item <?= $isSystemHealth ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/system-health.php"><i class="bi bi-clipboard2-pulse"></i><span>Sistem Sağlığı</span></a><?php endif; ?>
-                        <?php if ($adminCan('logs.view')): ?><a class="admin-menu-item <?= $isLogs ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/logs.php"><i class="bi bi-journal-text"></i><span>Aktivite Logları</span></a><?php endif; ?>
-                        <?php if ($adminCan('logs.view')): ?><a class="admin-menu-item <?= $isActionLog ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/action-log.php"><i class="bi bi-clock-history"></i><span>İşlem Günlüğü</span></a><?php endif; ?>
-                        <?php if ($adminCan('rate_limits.view')): ?><a class="admin-menu-item <?= $isRateLimits ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/rate-limits.php"><i class="bi bi-speedometer"></i><span>Rate Limit İzleme</span></a><?php endif; ?>
-                        <?php if ($adminCan('system.manage')): ?><a class="admin-menu-item <?= $isDatabaseSync ? 'active' : '' ?>" href="<?= $baseUri ?>/admin/database-sync/index.php"><i class="bi bi-database-check"></i><span>Veritabanı Senkronizasyonu</span></a><?php endif; ?>
-                    </div>
-                </section>
-            </nav>
+            <?php require __DIR__ . '/sidebar.php'; ?>
         </aside>
         <div class="admin-main">
             <header class="admin-topbar">
