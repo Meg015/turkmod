@@ -147,6 +147,10 @@ if (!$_hSticky) {
 $_publicCssBundle = __DIR__ . "/../assets/dist/public.min.css";
 $_publicJsBundle = __DIR__ . "/../assets/dist/public.min.js";
 
+if ($_isAuthPage && function_exists('sendNoStoreHeaders')) {
+    sendNoStoreHeaders();
+}
+
 if (
     $_themeManager instanceof ThemeManager
     && $_themeManager->usesPublicRenderer()

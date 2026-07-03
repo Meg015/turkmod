@@ -10961,6 +10961,10 @@ input[type="checkbox"]:checked ~ .cover-action-bar-content .state-restore { disp
     border: none !important;
 }
 
+.admin-menu-group-standalone .admin-menu-group-body {
+    margin-top: 0 !important;
+}
+
 .admin-menu-item {
     min-height: var(--control-height-sm) !important;
     gap: var(--space-2) !important;

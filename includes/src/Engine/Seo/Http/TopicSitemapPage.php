@@ -35,7 +35,7 @@ final class TopicSitemapPage implements Handler
         $maxUrlsPerSitemap = max(1, min(50000, (int) ($settings['sitemap_max_urls'] ?? 1000)));
         $latestLastmod = null;
 
-        $body = '<?xml version="1.0" encoding="UTF-8"?>';
+        $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
         if ($page === 1) {
@@ -51,7 +51,7 @@ final class TopicSitemapPage implements Handler
 
             $body .= $this->renderUrlEntry(
                 $this->topicUrl($topic, $settings, $canonicalBase),
-                date('Y-m-d', $timestamp !== false ? $timestamp : time()),
+                date('Y-m-d\TH:i:sP', $timestamp !== false ? $timestamp : time()),
                 (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
                 (string) ($settings['sitemap_priority_topics'] ?? '0.6'),
             );
@@ -120,9 +120,10 @@ final class TopicSitemapPage implements Handler
      */
     private function renderStaticEntries(array $settings, string $canonicalBase): string
     {
+        $staticLastmod = $this->now();
         $body = $this->renderUrlEntry(
             $this->canonicalUrl('/', $settings, $canonicalBase),
-            null,
+            $staticLastmod,
             'daily',
             (string) ($settings['sitemap_priority_home'] ?? '1.0'),
         );
@@ -134,13 +135,13 @@ final class TopicSitemapPage implements Handler
         $changefreq = (string) ($settings['sitemap_changefreq'] ?? 'weekly');
         $body .= $this->renderUrlEntry(
             $this->canonicalUrl($this->categoryListPath(), $settings, $canonicalBase),
-            null,
+            $staticLastmod,
             $changefreq,
             '0.8',
         );
 
         foreach ($this->resolveCategoryTree() as $node) {
-            $body .= $this->renderCategoryNode($node, '', $settings, $canonicalBase);
+            $body .= $this->renderCategoryNode($node, '', $settings, $canonicalBase, $staticLastmod);
         }
 
         return $body;
@@ -171,7 +172,7 @@ final class TopicSitemapPage implements Handler
      * @param array<string,mixed> $node
      * @param array<string,mixed> $settings
      */
-    private function renderCategoryNode(array $node, string $parentSlug, array $settings, string $canonicalBase): string
+    private function renderCategoryNode(array $node, string $parentSlug, array $settings, string $canonicalBase, string $lastmod): string
     {
         $slug = (string) ($node['slug'] ?? '');
         if ($slug === '') {
@@ -180,14 +181,14 @@ final class TopicSitemapPage implements Handler
 
         $body = $this->renderUrlEntry(
             $this->canonicalUrl($this->categoryPath($slug, $parentSlug), $settings, $canonicalBase),
-            null,
+            $lastmod,
             (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
             (string) ($settings['sitemap_priority_categories'] ?? '0.7'),
         );
 
         foreach (($node['children'] ?? []) as $child) {
             if (is_array($child)) {
-                $body .= $this->renderCategoryNode($child, $slug, $settings, $canonicalBase);
+                $body .= $this->renderCategoryNode($child, $slug, $settings, $canonicalBase, $lastmod);
             }
         }
 
@@ -230,7 +231,7 @@ final class TopicSitemapPage implements Handler
             $statement = $pdo->prepare(
                 'SELECT id, slug, updated_at, published_at FROM topics WHERE status IN ('
                 . $statusPlaceholders
-                . ') AND deleted_at IS NULL AND slug IS NOT NULL ORDER BY published_at DESC LIMIT ? OFFSET ?',
+                . ') AND deleted_at IS NULL AND slug IS NOT NULL ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?',
             );
             $parameter = 1;
             foreach ($statuses as $status) {
@@ -322,6 +323,16 @@ final class TopicSitemapPage implements Handler
 
     private function xmlResponse(string $body, ?int $lastModifiedTimestamp): Response
     {
+        if (!str_contains($body, 'xml-stylesheet')) {
+            $declaration = '<?xml version="1.0" encoding="UTF-8"?>';
+            $stylesheet = '<?xml-stylesheet type="text/css" href="sitemap.css"?>';
+            if (str_starts_with($body, $declaration)) {
+                $body = $declaration . "\n" . $stylesheet . "\n" . substr($body, strlen($declaration) + 1);
+            } else {
+                $body = $stylesheet . "\n" . $body;
+            }
+        }
+        $body = function_exists('formatSitemapXml') ? formatSitemapXml($body) : $body;
         $expiresAt = ($lastModifiedTimestamp ?? time()) + 600;
 
         return new Response($body, 200, [

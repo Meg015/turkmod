@@ -33,8 +33,8 @@ final class ProfileSitemapPage implements Handler
         $maxUrlsPerSitemap = max(1, min(50000, (int) ($settings['sitemap_max_urls'] ?? 1000)));
         $latestLastmod = null;
 
-        $body = '<?xml version="1.0" encoding="UTF-8"?>';
-        $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+        $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
         if ((string) ($settings['sitemap_enabled'] ?? '1') === '1') {
             $body .= "\n";
@@ -47,7 +47,9 @@ final class ProfileSitemapPage implements Handler
 
                 $body .= $this->renderUrlEntry(
                     $this->profileUrl($profile, $settings, $canonicalBase),
-                    date('Y-m-d', $timestamp !== false ? $timestamp : time()),
+                    date('Y-m-d\TH:i:sP', $timestamp !== false ? $timestamp : time()),
+                    (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
+                    '0.5',
                 );
             }
         }
@@ -195,11 +197,13 @@ final class ProfileSitemapPage implements Handler
         return rtrim($canonicalBase, '/') . '/' . ltrim($path, '/');
     }
 
-    private function renderUrlEntry(string $loc, string $lastmod): string
+    private function renderUrlEntry(string $loc, string $lastmod, string $changefreq, string $priority): string
     {
         $body = '    <url>' . "\n";
         $body .= '        <loc>' . htmlspecialchars($loc, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</loc>' . "\n";
         $body .= '        <lastmod>' . htmlspecialchars($lastmod, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</lastmod>' . "\n";
+        $body .= '        <changefreq>' . htmlspecialchars($changefreq, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</changefreq>' . "\n";
+        $body .= '        <priority>' . htmlspecialchars($priority, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</priority>' . "\n";
         $body .= '    </url>' . "\n";
 
         return $body;
@@ -216,6 +220,16 @@ final class ProfileSitemapPage implements Handler
 
     private function xmlResponse(string $body, ?int $lastModifiedTimestamp): Response
     {
+        if (!str_contains($body, 'xml-stylesheet')) {
+            $declaration = '<?xml version="1.0" encoding="UTF-8"?>';
+            $stylesheet = '<?xml-stylesheet type="text/css" href="sitemap.css"?>';
+            if (str_starts_with($body, $declaration)) {
+                $body = $declaration . "\n" . $stylesheet . "\n" . substr($body, strlen($declaration) + 1);
+            } else {
+                $body = $stylesheet . "\n" . $body;
+            }
+        }
+        $body = function_exists('formatSitemapXml') ? formatSitemapXml($body) : $body;
         $expiresAt = ($lastModifiedTimestamp ?? time()) + 600;
 
         return new Response($body, 200, [

@@ -158,7 +158,11 @@ function sidebarBadge(?int $count, int $max = 99): string {
 
     <!-- Günlükler (tek link, alt sekmeler sayfa içinde) -->
     <?php if ($adminCan('logs.view') || $adminCan('rate_limits.view')): ?>
-        <a class="admin-menu-item<?= sidebarActiveClass('logs') ?>" href="<?= $baseUri ?>/admin/logs.php"><i class="bi bi-journal-text"></i><span>Günlükler</span></a>
+        <div class="admin-menu-group admin-menu-group-standalone">
+            <div class="admin-menu-group-body ui-panel__body">
+                <a class="admin-menu-item<?= sidebarActiveClass('logs') ?>" href="<?= $baseUri ?>/admin/logs.php"><i class="bi bi-journal-text"></i><span>Günlükler</span></a>
+            </div>
+        </div>
     <?php endif; ?>
 
     <!-- Sistem -->

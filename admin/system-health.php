@@ -500,6 +500,10 @@ $appUrl = (string) ($envConfig['APP_URL'] ?? '');
 $isLocalUrl = preg_match('~localhost|127\.0\.0\.1|\.test(?:/|$)~i', $appUrl) === 1;
 $runtimeSchemaAllowed = function_exists('runtimeSchemaUpdatesAllowed') && runtimeSchemaUpdatesAllowed();
 $trustedProxies = trim((string) ($envConfig['TRUSTED_PROXIES'] ?? ''));
+$loadLogSection = !$isProduction || $activeTab === 'logs';
+$loadQueueSection = !$isProduction || $activeTab === 'queues';
+$loadContentSection = !$isProduction || $activeTab === 'content';
+$loadDatabaseSection = !$isProduction || $activeTab === 'database';
 $maintenanceMode = function_exists('adminSettingValue') && $pdo instanceof PDO
     ? adminSettingValue($pdo, 'maintenance_mode', '0')
     : '0';
@@ -507,7 +511,7 @@ $maintenanceMessage = function_exists('adminSettingValue') && $pdo instanceof PD
     ? adminSettingValue($pdo, 'maintenance_message', 'Site bakım modundadır, lütfen daha sonra tekrar deneyin.')
     : '';
 $healthAdminSettings = [];
-if (function_exists('getAdminSettings') && $pdo instanceof PDO) {
+if ($loadQueueSection && function_exists('getAdminSettings') && $pdo instanceof PDO) {
     try {
         $healthAdminSettings = getAdminSettings($pdo);
     } catch (Throwable $e) {
@@ -515,20 +519,28 @@ if (function_exists('getAdminSettings') && $pdo instanceof PDO) {
     }
 }
 $notificationEmailEnabled = (($healthAdminSettings['notif_email_channel_ready'] ?? '0') === '1');
-$eventsReady = function_exists('eventsTablesReady') && $pdo instanceof PDO && eventsTablesReady($pdo);
+$eventsReady = false;
 $eventsConfig = [];
-if ($eventsReady && function_exists('eventsGetConfig')) {
-    try {
-        $eventsConfig = eventsGetConfig($pdo, true);
-    } catch (Throwable $e) {
-        $eventsConfig = [];
+$eventsSystemEnabled = false;
+$eventsEmailQueueEnabled = false;
+$eventsRaffleAutoResolve = false;
+if ($loadQueueSection) {
+    $eventsReady = function_exists('eventsTablesReady') && $pdo instanceof PDO && eventsTablesReady($pdo);
+    if ($eventsReady && function_exists('eventsGetConfig')) {
+        try {
+            $eventsConfig = eventsGetConfig($pdo, true);
+        } catch (Throwable $e) {
+            $eventsConfig = [];
+        }
     }
+    $eventsSystemEnabled = $eventsReady && function_exists('eventsConfigBool') && eventsConfigBool($eventsConfig, 'events_system_enabled');
+    $eventsEmailQueueEnabled = $eventsSystemEnabled && function_exists('eventsConfigBool') && eventsConfigBool($eventsConfig, 'email_notifications_enabled') && eventsConfigBool($eventsConfig, 'email_queue_enabled');
+    $eventsRaffleAutoResolve = $eventsSystemEnabled && function_exists('eventsConfigBool') && eventsConfigBool($eventsConfig, 'events_raffles_enabled') && eventsConfigBool($eventsConfig, 'raffle_auto_resolve');
 }
-$eventsSystemEnabled = $eventsReady && function_exists('eventsConfigBool') && eventsConfigBool($eventsConfig, 'events_system_enabled');
-$eventsEmailQueueEnabled = $eventsSystemEnabled && function_exists('eventsConfigBool') && eventsConfigBool($eventsConfig, 'email_notifications_enabled') && eventsConfigBool($eventsConfig, 'email_queue_enabled');
-$eventsRaffleAutoResolve = $eventsSystemEnabled && function_exists('eventsConfigBool') && eventsConfigBool($eventsConfig, 'events_raffles_enabled') && eventsConfigBool($eventsConfig, 'raffle_auto_resolve');
 
-$runtimeLogSummary = healthRuntimeLogSummary($root);
+$runtimeLogSummary = $loadLogSection
+    ? healthRuntimeLogSummary($root)
+    : ['files' => 0, 'critical' => 0, 'errors' => 0, 'latest' => 'canlı hızlı görünümde log özeti atlandı'];
 $coreTables = ['users', 'user_groups', 'user_group_members', 'user_group_permissions', 'categories', 'topics', 'media_files', 'admin_settings', 'activity_logs', 'application_logs', 'request_rate_limits'];
 $missingCoreTables = [];
 foreach ($coreTables as $table) {
@@ -537,61 +549,61 @@ foreach ($coreTables as $table) {
     }
 }
 
-$topicReportsOpen = healthTableExists($pdo, 'topic_reports')
+$topicReportsOpen = $loadContentSection && healthTableExists($pdo, 'topic_reports')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM topic_reports WHERE status IN ('open','reviewing')")
     : 0;
-$userReportsOpen = healthTableExists($pdo, 'user_reports')
+$userReportsOpen = $loadContentSection && healthTableExists($pdo, 'user_reports')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM user_reports WHERE status IN ('open','reviewing')")
     : 0;
-$pendingTopics = healthTableExists($pdo, 'topics')
+$pendingTopics = $loadContentSection && healthTableExists($pdo, 'topics')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM topics WHERE status = 'draft' AND deleted_at IS NULL")
     : 0;
-$orphanMedia = healthTableExists($pdo, 'media_files') && healthTableExists($pdo, 'topics')
+$orphanMedia = $loadContentSection && healthTableExists($pdo, 'media_files') && healthTableExists($pdo, 'topics')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM media_files mf LEFT JOIN topics t ON t.id = mf.topic_id WHERE mf.topic_id IS NOT NULL AND t.id IS NULL")
     : 0;
 
-$appErrors24h = healthTableExists($pdo, 'application_logs')
+$appErrors24h = $loadLogSection && healthTableExists($pdo, 'application_logs')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM application_logs WHERE level IN ('error','critical') AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")
     : 0;
-$appErrors7d = healthTableExists($pdo, 'application_logs')
+$appErrors7d = $loadLogSection && healthTableExists($pdo, 'application_logs')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM application_logs WHERE level IN ('error','critical') AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")
     : 0;
-$latestAppLog = healthTableExists($pdo, 'application_logs')
-    ? healthTextScalar($pdo, "SELECT CONCAT(level, ' / ', channel, ' / ', LEFT(message, 140)) FROM application_logs ORDER BY created_at DESC, id DESC LIMIT 1", [], 'kayıt yok')
-    : 'application_logs tablosu yok';
-$activityToday = healthTableExists($pdo, 'activity_logs')
+$latestAppLog = $loadLogSection && healthTableExists($pdo, 'application_logs')
+    ? healthTextScalar($pdo, "SELECT CONCAT(level, ' / ', channel, ' / ', LEFT(message, 140)) FROM application_logs ORDER BY id DESC LIMIT 1", [], 'kayıt yok')
+    : 'log detayı için Logs sekmesini açın';
+$activityToday = $loadLogSection && healthTableExists($pdo, 'activity_logs')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM activity_logs WHERE created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)")
     : 0;
 
-$emailQueued = healthTableExists($pdo, 'notification_email_queue')
+$emailQueued = $loadQueueSection && healthTableExists($pdo, 'notification_email_queue')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM notification_email_queue WHERE status IN ('queued','processing')")
     : 0;
-$emailFailed = healthTableExists($pdo, 'notification_email_queue')
+$emailFailed = $loadQueueSection && healthTableExists($pdo, 'notification_email_queue')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM notification_email_queue WHERE status = 'failed'")
     : 0;
-$emailStuckProcessing = healthTableExists($pdo, 'notification_email_queue') && healthColumnExists($pdo, 'notification_email_queue', 'locked_at')
+$emailStuckProcessing = $loadQueueSection && healthTableExists($pdo, 'notification_email_queue') && healthColumnExists($pdo, 'notification_email_queue', 'locked_at')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM notification_email_queue WHERE status = 'processing' AND locked_at IS NOT NULL AND locked_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)")
     : 0;
-$latestFailedEmail = healthTableExists($pdo, 'notification_email_queue')
+$latestFailedEmail = $loadQueueSection && healthTableExists($pdo, 'notification_email_queue')
     ? healthTextScalar($pdo, "SELECT CONCAT('#', id, ' / ', LEFT(COALESCE(error_message, 'hata detayı yok'), 140)) FROM notification_email_queue WHERE status = 'failed' ORDER BY updated_at DESC, id DESC LIMIT 1", [], 'başarısız kayıt yok')
-    : 'notification_email_queue tablosu yok';
-$eventsEmailPending = healthTableExists($pdo, 'events_email_queue')
+    : 'kuyruk detayı için Kuyruklar sekmesini açın';
+$eventsEmailPending = $loadQueueSection && healthTableExists($pdo, 'events_email_queue')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM events_email_queue WHERE status = 'pending'")
     : 0;
-$eventsEmailFailed = healthTableExists($pdo, 'events_email_queue')
+$eventsEmailFailed = $loadQueueSection && healthTableExists($pdo, 'events_email_queue')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM events_email_queue WHERE status = 'failed'")
     : 0;
 
-$expiredRewards = healthTableExists($pdo, 'events_user_rewards')
+$expiredRewards = $loadQueueSection && healthTableExists($pdo, 'events_user_rewards')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM events_user_rewards WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < NOW()")
     : 0;
-$expiredRateLimits = healthTableExists($pdo, 'request_rate_limits')
+$expiredRateLimits = $loadQueueSection && healthTableExists($pdo, 'request_rate_limits')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM request_rate_limits WHERE expires_at IS NOT NULL AND expires_at < NOW()")
     : 0;
-$requestRateLimitRows = healthTableExists($pdo, 'request_rate_limits')
+$requestRateLimitRows = $loadDatabaseSection && healthTableExists($pdo, 'request_rate_limits')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM request_rate_limits")
     : 0;
-$legacyRateLimitRows = healthTableExists($pdo, 'rate_limits')
+$legacyRateLimitRows = $loadDatabaseSection && healthTableExists($pdo, 'rate_limits')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM rate_limits")
     : 0;
 $rateLimitHelperReady = function_exists('checkRateLimit')
@@ -609,16 +621,25 @@ foreach ($cronScriptPaths as $label => $path) {
         $missingCronScripts[] = $label;
     }
 }
-$cronRuns = [
-    'notification_email_queue' => healthCronLastRun($pdo, 'notification_email_queue'),
-    'leaderboard_cache' => healthCronLastRun($pdo, 'leaderboard_cache'),
-    'events_master' => healthCronLastRun($pdo, 'events_master'),
-];
+$cronRuns = $loadQueueSection
+    ? [
+        'notification_email_queue' => healthCronLastRun($pdo, 'notification_email_queue'),
+        'leaderboard_cache' => healthCronLastRun($pdo, 'leaderboard_cache'),
+        'events_master' => healthCronLastRun($pdo, 'events_master'),
+    ]
+    : [
+        'notification_email_queue' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
+        'leaderboard_cache' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
+        'events_master' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
+    ];
 
-try {
-    $phpFileCount = healthPhpFileCount($root);
-} catch (Throwable $e) {
-    $phpFileCount = 0;
+$phpFileCount = 0;
+if ($loadDatabaseSection) {
+    try {
+        $phpFileCount = healthPhpFileCount($root);
+    } catch (Throwable $e) {
+        $phpFileCount = 0;
+    }
 }
 
 $mdFiles = glob($root . DIRECTORY_SEPARATOR . '*.md') ?: [];
@@ -653,13 +674,13 @@ $checks = [
     healthRow('database', 'Core tablolar', count($missingCoreTables) === 0, count($missingCoreTables) === 0 ? count($coreTables) . ' tablo mevcut' : 'Eksik: ' . implode(', ', $missingCoreTables)),
     healthRow('database', 'Runtime schema güncellemesi', !$isProduction || !$runtimeSchemaAllowed, $runtimeSchemaAllowed ? 'aktif' : 'kapalı', 'warning'),
     healthRow('database', 'database/schema.sql', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans schema için gerekli'),
-    healthRow('database', 'PHP dosyaları', $phpFileCount > 0, $phpFileCount . ' adet PHP dosyası'),
+    healthRow('database', 'PHP dosyaları', $loadDatabaseSection ? $phpFileCount > 0 : true, $loadDatabaseSection ? $phpFileCount . ' adet PHP dosyası' : 'canlı hızlı görünümde atlandı', $loadDatabaseSection ? 'required' : 'info'),
     healthRow('database', 'storage/cache yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), 'warning'),
     healthRow('database', 'uploads yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'uploads'), healthPath($root . DIRECTORY_SEPARATOR . 'uploads')),
     healthRow('database', 'storage/logs yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs')),
     healthRow('database', 'Disk kapasitesi', true, healthDiskDetail($root), 'info'),
-    healthRow('database', 'Rate limit helper uyumu', $rateLimitHelperReady && healthTableExists($pdo, 'request_rate_limits'), ($rateLimitHelperReady ? 'helper hazır' : 'helper eksik') . ', request_rate_limits=' . $requestRateLimitRows . ', legacy rate_limits=' . $legacyRateLimitRows, 'warning', $baseUri . '/admin/rate-limits.php', 'Rate Limit'),
-    healthRow('database', 'Legacy rate_limits kullanımı', $legacyRateLimitRows === 0, $legacyRateLimitRows === 0 ? 'aktif eski kayıt yok' : $legacyRateLimitRows . ' eski tablo kaydı var; runtime request_rate_limits ile izlenmeli', 'warning', $baseUri . '/admin/rate-limits.php', 'İzle'),
+    healthRow('database', 'Rate limit helper uyumu', $rateLimitHelperReady && healthTableExists($pdo, 'request_rate_limits'), $loadDatabaseSection ? (($rateLimitHelperReady ? 'helper hazır' : 'helper eksik') . ', request_rate_limits=' . $requestRateLimitRows . ', legacy rate_limits=' . $legacyRateLimitRows) : 'canlı hızlı görünümde sayım atlandı', $loadDatabaseSection ? 'warning' : 'info', $baseUri . '/admin/rate-limits.php', 'Rate Limit'),
+    healthRow('database', 'Legacy rate_limits kullanımı', $loadDatabaseSection ? $legacyRateLimitRows === 0 : true, $loadDatabaseSection ? ($legacyRateLimitRows === 0 ? 'aktif eski kayıt yok' : $legacyRateLimitRows . ' eski tablo kaydı var; runtime request_rate_limits ile izlenmeli') : 'canlı hızlı görünümde sayım atlandı', $loadDatabaseSection ? 'warning' : 'info', $baseUri . '/admin/rate-limits.php', 'İzle'),
 
     healthRow('logs', 'Runtime kritik loglar', (int) $runtimeLogSummary['critical'] === 0, (int) $runtimeLogSummary['critical'] === 0 ? 'son kayıtlarda kritik hata yok' : $runtimeLogSummary['critical'] . ' kritik sinyal; son: ' . $runtimeLogSummary['latest']),
     healthRow('logs', 'Runtime hata logları', (int) $runtimeLogSummary['errors'] === 0, (int) $runtimeLogSummary['errors'] === 0 ? $runtimeLogSummary['files'] . ' log dosyası tarandı' : $runtimeLogSummary['errors'] . ' hata/uyarı sinyali; son: ' . $runtimeLogSummary['latest'], 'warning', $baseUri . '/admin/logs.php', 'Loglar'),
@@ -707,7 +728,7 @@ $priorityActions = array_slice($overviewProblemChecks, 0, 4);
 
 $dbSizeMb = 0;
 $dbOverheadMb = 0;
-if ($pdo) {
+if ($loadDatabaseSection && $pdo) {
     try {
         $stmt = $pdo->query("SELECT SUM(data_length + index_length) AS size, SUM(data_free) AS overhead FROM information_schema.tables WHERE table_schema = DATABASE()");
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

@@ -335,6 +335,50 @@ if (!function_exists('getBaseUrl')) {
 }
 
 if (!function_exists('generateSitemap')) {
+    if (!function_exists('formatSitemapXml')) {
+        function formatSitemapXml(string $xml): string
+        {
+            if (!class_exists(DOMDocument::class)) {
+                return $xml;
+            }
+
+            $document = new DOMDocument('1.0', 'UTF-8');
+            $document->preserveWhiteSpace = false;
+            $document->formatOutput = true;
+
+            libxml_use_internal_errors(true);
+            $loaded = $document->loadXML($xml, LIBXML_NOBLANKS);
+            libxml_clear_errors();
+
+            if (!$loaded) {
+                return $xml;
+            }
+
+            $formatted = $document->saveXML();
+
+            return is_string($formatted) && $formatted !== '' ? $formatted : $xml;
+        }
+    }
+
+    if (!function_exists('decorateSitemapXml')) {
+        function decorateSitemapXml(string $xml, string $stylesheetHref = 'sitemap.css'): string
+        {
+            $stylesheetHref = trim($stylesheetHref);
+            if ($stylesheetHref === '' || str_contains($xml, 'xml-stylesheet')) {
+                return $xml;
+            }
+
+            $pi = '<?xml-stylesheet type="text/css" href="' . htmlspecialchars($stylesheetHref, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '"?>';
+            $declaration = '<?xml version="1.0" encoding="UTF-8"?>';
+
+            if (str_starts_with($xml, $declaration)) {
+                return $declaration . "\n" . $pi . "\n" . substr($xml, strlen($declaration) + 1);
+            }
+
+            return $pi . "\n" . $xml;
+        }
+    }
+
     /**
      * Generate XML sitemap
      */
@@ -342,49 +386,49 @@ if (!function_exists('generateSitemap')) {
         $baseUrl = getBaseUrl();
         $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
         $xml .= "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
-        
-        // Homepage
-        $xml .= "  <url>\n";
-        $xml .= "    <loc>{$baseUrl}/</loc>\n";
-        $xml .= "    <changefreq>daily</changefreq>\n";
-        $xml .= "    <priority>1.0</priority>\n";
-        $xml .= "  </url>\n";
-        
-        // Topics
+        $seen = [];
+
+        $appendUrl = static function (string $loc, ?string $lastmod, string $changefreq, string $priority) use (&$xml, &$seen): void {
+            $loc = trim($loc);
+            if ($loc === '' || isset($seen[$loc])) {
+                return;
+            }
+
+            $seen[$loc] = true;
+            $xml .= "  <url>\n";
+            $xml .= '    <loc>' . htmlspecialchars($loc, ENT_XML1 | ENT_COMPAT, 'UTF-8') . "</loc>\n";
+            if ($lastmod !== null && $lastmod !== '') {
+                $xml .= '    <lastmod>' . htmlspecialchars($lastmod, ENT_XML1 | ENT_COMPAT, 'UTF-8') . "</lastmod>\n";
+            }
+            $xml .= '    <changefreq>' . htmlspecialchars($changefreq, ENT_XML1 | ENT_COMPAT, 'UTF-8') . "</changefreq>\n";
+            $xml .= '    <priority>' . htmlspecialchars($priority, ENT_XML1 | ENT_COMPAT, 'UTF-8') . "</priority>\n";
+            $xml .= "  </url>\n";
+        };
+
+        $appendUrl(rtrim($baseUrl, '/') . '/', null, 'daily', '1.0');
+
         $stmt = $pdo->query("
-            SELECT id, slug, updated_at 
-            FROM topics 
-            WHERE status = 'published' 
-            ORDER BY updated_at DESC 
+            SELECT id, slug, updated_at
+            FROM topics
+            WHERE status = 'published'
+            ORDER BY updated_at DESC, id DESC
             LIMIT 5000
         ");
-        
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $url = topicUrlForRow($row);
-            $lastmod = date('Y-m-d', strtotime($row['updated_at']));
-            
-            $xml .= "  <url>\n";
-            $xml .= "    <loc>{$url}</loc>\n";
-            $xml .= "    <lastmod>{$lastmod}</lastmod>\n";
-            $xml .= "    <changefreq>weekly</changefreq>\n";
-            $xml .= "    <priority>0.8</priority>\n";
-            $xml .= "  </url>\n";
+            $lastmod = !empty($row['updated_at']) ? date('Y-m-d\TH:i:sP', strtotime((string) $row['updated_at']) ?: time()) : null;
+            $appendUrl($url, $lastmod, 'weekly', '0.8');
         }
-        
-        // Categories
-        $stmt = $pdo->query("SELECT slug FROM categories WHERE parent_id IS NULL");
+
+        $stmt = $pdo->query("SELECT slug FROM categories WHERE parent_id IS NULL ORDER BY name ASC, id ASC");
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $url = categoryUrl($row['slug']);
-            
-            $xml .= "  <url>\n";
-            $xml .= "    <loc>{$url}</loc>\n";
-            $xml .= "    <changefreq>weekly</changefreq>\n";
-            $xml .= "    <priority>0.7</priority>\n";
-            $xml .= "  </url>\n";
+            $appendUrl(categoryUrl((string) $row['slug']), null, 'weekly', '0.7');
         }
-        
-        $xml .= '</urlset>';
-        
-        return $xml;
+
+        $xml .= "</urlset>\n";
+
+        $xml = function_exists('decorateSitemapXml') ? decorateSitemapXml($xml) : $xml;
+
+        return formatSitemapXml($xml);
     }
 }

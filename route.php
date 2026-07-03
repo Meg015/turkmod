@@ -110,6 +110,19 @@ function routerHandleSitemapRoute(string $cleanRoute, array $settings): void
         routerDispatchTarget($sitemapRoutes[$cleanRoute], $cleanRoute);
         exit;
     }
+
+    $patternRoutes = [
+        '/^topic-sitemap-(\d+)\.xml$/' => \App\Engine\Seo\Http\TopicSitemapPage::class,
+        '/^profile-sitemap-(\d+)\.xml$/' => \App\Engine\Seo\Http\ProfileSitemapPage::class,
+        '/^image-sitemap-(\d+)\.xml$/' => \App\Engine\Seo\Http\ImageSitemapPage::class,
+    ];
+
+    foreach ($patternRoutes as $pattern => $target) {
+        if (preg_match($pattern, $cleanRoute) === 1) {
+            routerDispatchTarget($target, $cleanRoute);
+            exit;
+        }
+    }
 }
 
 /**

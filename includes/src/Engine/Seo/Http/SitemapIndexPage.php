@@ -35,8 +35,8 @@ final class SitemapIndexPage implements Handler
 
         if ((string) ($settings['sitemap_enabled'] ?? '1') !== '1') {
             return $this->xmlResponse(
-                '<?xml version="1.0" encoding="UTF-8"?>'
-                . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>',
+                '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+                . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' . "\n",
                 $now,
             );
         }
@@ -230,7 +230,7 @@ final class SitemapIndexPage implements Handler
         $maxUrlsPerSitemap = max(1, min(50000, (int) ($settings['sitemap_max_urls'] ?? 1000)));
         $imageEnabled = (string) ($settings['image_sitemap_enabled'] ?? '1') === '1';
 
-        $body = '<?xml version="1.0" encoding="UTF-8"?>';
+        $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $body .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
         $body .= $this->renderSitemapEntries($canonicalBase, 'topic-sitemap', $statistics['topic_lastmod'], $statistics['total_topics'], $maxUrlsPerSitemap);
         $body .= $this->renderSitemapEntries($canonicalBase, 'profile-sitemap', $statistics['profile_lastmod'], $statistics['total_public_profiles'], $maxUrlsPerSitemap);
@@ -292,6 +292,16 @@ final class SitemapIndexPage implements Handler
 
     private function xmlResponse(string $body, string $lastModified): Response
     {
+        if (!str_contains($body, 'xml-stylesheet')) {
+            $declaration = '<?xml version="1.0" encoding="UTF-8"?>';
+            $stylesheet = '<?xml-stylesheet type="text/css" href="sitemap.css"?>';
+            if (str_starts_with($body, $declaration)) {
+                $body = $declaration . "\n" . $stylesheet . "\n" . substr($body, strlen($declaration) + 1);
+            } else {
+                $body = $stylesheet . "\n" . $body;
+            }
+        }
+        $body = function_exists('formatSitemapXml') ? formatSitemapXml($body) : $body;
         $expiresAt = max(time(), strtotime($lastModified) ?: time()) + 600;
 
         return new Response($body, 200, [

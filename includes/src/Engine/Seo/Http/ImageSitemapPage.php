@@ -36,7 +36,7 @@ final class ImageSitemapPage implements Handler
 
         if ((string) ($settings['image_sitemap_enabled'] ?? '1') !== '1') {
             return $this->xmlResponse(
-                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
                 . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>' . "\n",
                 null,
             );
@@ -46,7 +46,7 @@ final class ImageSitemapPage implements Handler
         $maxImages = (int) ($settings['image_sitemap_max_images'] ?? 20);
         $latestLastmod = null;
 
-        $body = '<?xml version="1.0" encoding="UTF-8"?>';
+        $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"' . "\n";
         $body .= '        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
 
@@ -64,7 +64,9 @@ final class ImageSitemapPage implements Handler
 
             $body .= $this->renderUrlEntry(
                 $this->topicUrl($topic, $settings, $canonicalBase),
-                date('Y-m-d', $timestamp !== false ? $timestamp : time()),
+                date('Y-m-d\TH:i:sP', $timestamp !== false ? $timestamp : time()),
+                (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
+                (string) ($settings['sitemap_priority_topics'] ?? '0.6'),
                 $images,
             );
         }
@@ -165,7 +167,7 @@ final class ImageSitemapPage implements Handler
                  FROM topics t
                  LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                  WHERE t.status IN (' . $statusPlaceholders . ') AND t.deleted_at IS NULL AND t.slug IS NOT NULL
-                 ORDER BY t.published_at DESC
+                 ORDER BY t.published_at DESC, t.id DESC
                  LIMIT ? OFFSET ?',
             );
             $parameter = 1;
@@ -198,48 +200,53 @@ final class ImageSitemapPage implements Handler
     private function collectImages(array $topic, array $settings, string $canonicalBase, int $maxImages): array
     {
         $images = [];
+        $seen = [];
         $title = (string) ($topic['title'] ?? '');
+        $appendImage = static function (string $url, string $caption) use (&$images, &$seen, $maxImages): void {
+            $url = trim($url);
+            if ($url === '' || isset($seen[$url]) || count($images) >= $maxImages) {
+                return;
+            }
+
+            $seen[$url] = true;
+            $images[] = [
+                'url' => $url,
+                'caption' => $caption,
+            ];
+        };
 
         if ((string) ($settings['image_sitemap_hero'] ?? '1') === '1') {
             $hero = $this->primaryMediaPath($topic);
             if ($hero !== '') {
-                $images[] = [
-                    'url' => filter_var($hero, FILTER_VALIDATE_URL) ? $hero : $this->canonicalUrl($hero, $settings, $canonicalBase),
-                    'caption' => $title . ' - kapak görseli',
-                ];
+                $appendImage(
+                    filter_var($hero, FILTER_VALIDATE_URL) ? $hero : $this->canonicalUrl($hero, $settings, $canonicalBase),
+                    $title . ' - kapak görseli',
+                );
             }
         }
 
         if ((string) ($settings['image_sitemap_inline'] ?? '1') === '1') {
             foreach ($this->mediaGallery((int) ($topic['id'] ?? 0)) as $line) {
-                if (count($images) >= $maxImages) {
-                    break;
-                }
-
                 if ($line !== '' && preg_match('/\.(jpg|jpeg|png|gif|webp|svg)$/i', $line) === 1) {
-                    $images[] = [
-                        'url' => filter_var($line, FILTER_VALIDATE_URL) ? $line : $this->canonicalUrl($line, $settings, $canonicalBase),
-                        'caption' => $title . ' - ' . basename($line),
-                    ];
+                    $appendImage(
+                        filter_var($line, FILTER_VALIDATE_URL) ? $line : $this->canonicalUrl($line, $settings, $canonicalBase),
+                        $title . ' - ' . basename($line),
+                    );
                 }
             }
         }
 
         if ((string) ($settings['image_sitemap_media'] ?? '1') === '1') {
             foreach ($this->mediaFiles((int) ($topic['id'] ?? 0), max(1, $maxImages - count($images))) as $mediaFile) {
-                if (count($images) >= $maxImages) {
-                    break;
-                }
-
                 $filePath = trim((string) ($mediaFile['path'] ?? ''));
                 if ($filePath === '') {
                     continue;
                 }
 
-                $images[] = [
-                    'url' => $this->canonicalUrl($filePath, $settings, $canonicalBase),
-                    'caption' => $title . ' - ' . (string) ($mediaFile['original_name'] ?? basename($filePath)),
-                ];
+                $appendImage(
+                    $this->canonicalUrl($filePath, $settings, $canonicalBase),
+                    $title . ' - ' . (string) ($mediaFile['original_name'] ?? basename($filePath)),
+                );
             }
         }
 
@@ -364,11 +371,13 @@ final class ImageSitemapPage implements Handler
     /**
      * @param list<array{url:string,caption:string}> $images
      */
-    private function renderUrlEntry(string $loc, string $lastmod, array $images): string
+    private function renderUrlEntry(string $loc, string $lastmod, string $changefreq, string $priority, array $images): string
     {
         $body = '    <url>' . "\n";
         $body .= '        <loc>' . htmlspecialchars($loc, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</loc>' . "\n";
         $body .= '        <lastmod>' . htmlspecialchars($lastmod, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</lastmod>' . "\n";
+        $body .= '        <changefreq>' . htmlspecialchars($changefreq, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</changefreq>' . "\n";
+        $body .= '        <priority>' . htmlspecialchars($priority, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</priority>' . "\n";
         foreach ($images as $image) {
             $body .= '        <image:image>' . "\n";
             $body .= '            <image:loc>' . htmlspecialchars($image['url'], ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</image:loc>' . "\n";
@@ -391,6 +400,16 @@ final class ImageSitemapPage implements Handler
 
     private function xmlResponse(string $body, ?int $lastModifiedTimestamp): Response
     {
+        if (!str_contains($body, 'xml-stylesheet')) {
+            $declaration = '<?xml version="1.0" encoding="UTF-8"?>';
+            $stylesheet = '<?xml-stylesheet type="text/css" href="sitemap.css"?>';
+            if (str_starts_with($body, $declaration)) {
+                $body = $declaration . "\n" . $stylesheet . "\n" . substr($body, strlen($declaration) + 1);
+            } else {
+                $body = $stylesheet . "\n" . $body;
+            }
+        }
+        $body = function_exists('formatSitemapXml') ? formatSitemapXml($body) : $body;
         $expiresAt = ($lastModifiedTimestamp ?? time()) + 600;
 
         return new Response($body, 200, [

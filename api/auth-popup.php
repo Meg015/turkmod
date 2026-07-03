@@ -6,6 +6,10 @@ require_once __DIR__ . '/../includes/init.php';
 require_once __DIR__ . '/../includes/ApiResponse.php';
 require_once __DIR__ . '/../admin/helpers.php';
 
+if (function_exists('sendNoStoreHeaders')) {
+    sendNoStoreHeaders();
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     sendMethodNotAllowed(['POST']);
 }

@@ -51490,3 +51490,54 @@ html[data-public-theme="turkmod"][data-theme="dark"] .ui-theme-topic-card.topic-
     outline: none;
     box-shadow: var(--state-focus-ring);
 }
+
+/* Header brand stability */
+.header .brand {
+    min-width: 0 !important;
+    max-width: min(100%, 340px) !important;
+    flex: 0 1 340px !important;
+    gap: 12px !important;
+    overflow: hidden !important;
+}
+
+.header .brand-logo {
+    flex: 0 0 auto !important;
+    max-width: clamp(108px, 20vw, 148px) !important;
+    height: 40px !important;
+    object-fit: contain !important;
+}
+
+.header .brand .topic-brand-mark {
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    border-radius: 10px !important;
+    background: color-mix(in srgb, var(--primary) 12%, transparent) !important;
+}
+
+.header .brand > span {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0 !important;
+}
+
+@media (max-width: 640px) {
+    .header .brand {
+        max-width: min(100%, 240px) !important;
+    }
+
+    .header .brand-logo {
+        max-width: 124px !important;
+    }
+
+    .header .brand > span {
+        max-width: 150px !important;
+    }
+}

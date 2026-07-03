@@ -1,0 +1,120 @@
+@charset "UTF-8";
+
+sitemapindex,
+urlset {
+    display: block;
+    margin: 0;
+    padding: 24px;
+    min-height: 100vh;
+    box-sizing: border-box;
+    background: #f8fafc;
+    color: #0f172a;
+    font: 14px/1.55 "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+sitemapindex > sitemap,
+urlset > url {
+    display: block;
+    margin: 0 0 12px;
+    padding: 14px 16px;
+    border: 1px solid #dbe3ea;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+sitemapindex > sitemap:last-child,
+urlset > url:last-child {
+    margin-bottom: 0;
+}
+
+sitemapindex > sitemap > loc,
+urlset > url > loc {
+    display: block;
+    margin: 0 0 6px;
+    color: #0b57d0;
+    font: 600 13px/1.45 "Segoe UI", Tahoma, Arial, sans-serif;
+    word-break: break-word;
+}
+
+sitemapindex > sitemap > loc::before,
+urlset > url > loc::before,
+urlset > url > image\:loc::before {
+    display: inline-block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: top;
+}
+
+sitemapindex > sitemap > loc::before {
+    content: "Sitemap\00a0";
+}
+
+urlset > url > loc::before {
+    content: "URL\00a0";
+}
+
+urlset > url > lastmod,
+urlset > url > changefreq,
+urlset > url > priority {
+    display: block;
+    margin: 0 0 4px;
+    color: #475569;
+    font-size: 12px;
+    word-break: break-word;
+}
+
+urlset > url > lastmod::before {
+    content: "Last mod\00a0";
+}
+
+urlset > url > changefreq::before {
+    content: "Changefreq\00a0";
+}
+
+urlset > url > priority::before {
+    content: "Priority\00a0";
+}
+
+urlset > url > image\:image {
+    display: block;
+    margin-top: 8px;
+}
+
+urlset > url > image\:image > image\:loc,
+urlset > url > image\:image > image\:caption {
+    display: block;
+    margin: 0 0 4px;
+    color: #475569;
+    word-break: break-word;
+}
+
+urlset > url > image\:image > image\:loc {
+    color: #0b57d0;
+    font-weight: 600;
+}
+
+urlset > url > image\:image > image\:loc::before {
+    content: "Image\00a0";
+    display: inline-block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: top;
+}
+
+urlset > url > image\:image > image\:caption::before {
+    content: "Caption\00a0";
+    display: inline-block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: top;
+}

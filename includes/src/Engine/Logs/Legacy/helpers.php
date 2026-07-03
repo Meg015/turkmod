@@ -126,13 +126,24 @@ function logsGetRuntimeLogSummary(string $logDir): array
     $cutoff = time() - 86400;
     $files = glob(rtrim($logDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*.log') ?: [];
     foreach ($files as $file) {
-        if (!is_file($file)) {
+        if (!is_file($file) || !is_readable($file)) {
             continue;
         }
 
-        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-        foreach ($lines as $line) {
-            if (!str_contains(strtolower($line), 'error') && !str_contains(strtolower($line), 'critical')) {
+        $fileMtime = filemtime($file) ?: null;
+        $handle = fopen($file, 'rb');
+        if ($handle === false) {
+            continue;
+        }
+
+        while (($line = fgets($handle)) !== false) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $lowerLine = strtolower($line);
+            if (!str_contains($lowerLine, 'error') && !str_contains($lowerLine, 'critical')) {
                 continue;
             }
 
@@ -140,23 +151,25 @@ function logsGetRuntimeLogSummary(string $logDir): array
             $message = $line;
             $decoded = json_decode($line, true);
             if (is_array($decoded)) {
-                $timestamp = strtotime((string)($decoded['ts'] ?? '')) ?: null;
-                $message = (string)($decoded['msg'] ?? $line);
+                $timestamp = strtotime((string) ($decoded['ts'] ?? '')) ?: null;
+                $message = (string) ($decoded['msg'] ?? $line);
             } elseif (preg_match('/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/', $line, $matches) === 1) {
                 $timestamp = strtotime($matches[1]) ?: null;
             }
 
-            $timestamp ??= filemtime($file) ?: null;
+            $timestamp ??= $fileMtime;
             if ($timestamp !== null && $timestamp >= $cutoff) {
                 $summary['error_count_24h']++;
             }
 
-            if ($timestamp !== null && ($summary['latest_at'] === null || $timestamp > (int)$summary['latest_at'])) {
+            if ($timestamp !== null && ($summary['latest_at'] === null || $timestamp > (int) $summary['latest_at'])) {
                 $summary['latest_at'] = $timestamp;
                 $summary['latest_message'] = mb_substr($message, 0, 220, 'UTF-8');
                 $summary['latest_file'] = basename($file);
             }
         }
+
+        fclose($handle);
     }
 
     return $summary;
