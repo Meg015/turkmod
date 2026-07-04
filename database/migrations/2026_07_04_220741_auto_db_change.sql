@@ -15,7 +15,6 @@
 --   - $pdo->exec("ALTER TABLE message_messages ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 AFTER body");
 
 -- Candidate SQL statements auto-detected from added lines:
-$pdo->exec("ALTER TABLE message_thread_participants ADD COLUMN typing_at TEXT NULL");
-$pdo->exec("ALTER TABLE message_thread_participants ADD COLUMN typing_at TIMESTAMP NULL AFTER last_read_at");
-$pdo->exec("ALTER TABLE message_messages ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 AFTER body");
+ALTER TABLE message_thread_participants ADD COLUMN typing_at TIMESTAMP NULL AFTER last_read_at;
+ALTER TABLE message_messages ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 AFTER body;
 

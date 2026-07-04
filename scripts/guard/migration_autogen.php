@@ -447,6 +447,11 @@ function extractStandaloneDdlStatements(array $lines): array
             continue;
         }
 
+        // If the line is a PHP $pdo->exec("..."); call, extract the inner SQL string.
+        if (preg_match('/^\$\w+\s*->\s*\w+\s*\(\s*["\'](.+?)["\']\s*\)\s*;$/', $payload, $m) === 1) {
+            $payload = rtrim(trim($m[1]), ';') . ';';
+        }
+
         if (!str_ends_with($payload, ';')) {
             continue;
         }
