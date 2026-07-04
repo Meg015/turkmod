@@ -145,7 +145,7 @@ require_once $projectRoot . '/includes/public-header.php';
 <?php endif; ?>
 
 <section
-    class="messages-shell container ui-container"
+    class="messages-shell"
     aria-label="Mesajlasma"
     data-messages-root
     data-messages-api-url="<?= htmlspecialchars($messagesApiUrl, ENT_QUOTES, 'UTF-8') ?>"

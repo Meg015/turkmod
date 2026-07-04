@@ -51541,3 +51541,26 @@ html[data-public-theme="turkmod"][data-theme="dark"] .ui-theme-topic-card.topic-
         max-width: 150px !important;
     }
 }
+
+/* ============================================================
+   MESSAGES PAGE — Full-width layout (breadcrumb ile hizali)
+   ============================================================ */
+body.public-page-messages .page-wrap {
+    padding-inline: 0 !important;
+    max-width: none !important;
+}
+
+body.public-page-messages .layout {
+    display: block !important;
+}
+
+body.public-page-messages .content-area {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
+
+body.public-page-messages .ui-theme-messages-full-width {
+    width: 100% !important;
+}
+
