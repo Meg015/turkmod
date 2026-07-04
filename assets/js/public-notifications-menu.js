@@ -78,7 +78,7 @@
                 var iconState = getIconState(notification.type);
                 var item = document.createElement("a");
                 item.href = notification.link ? notification.link : fallbackUrl;
-                item.className = "notif-item " + (notification.is_read ? "" : "unread");
+                item.className = "notif-item " + (notification.is_read ? "" : "unread"); item.setAttribute("data-notif-open","true"); item.setAttribute("data-id",notification.id);
 
                 var iconWrap = document.createElement("div");
                 iconWrap.className = "notif-item-icon" + iconState.state;

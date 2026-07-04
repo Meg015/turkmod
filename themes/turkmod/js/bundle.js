@@ -5131,8 +5131,10 @@ e.init();
           if (notification.type === "system") { icon = "bi-gear"; iconState = " is-system"; }
 
           var item = document.createElement("a");
-          item.href = safeNotificationUrl(notification.link || "", fallbackUrl(root));
           item.className = "notif-item " + (notification.is_read ? "" : "unread");
+          item.setAttribute("data-notif-dropdown-item", "true");
+          item.setAttribute("data-id", notification.id);
+          item.href = safeNotificationUrl(notification.link || "", fallbackUrl(root));
 
           var iconWrap = document.createElement("div");
           iconWrap.className = "notif-item-icon" + iconState;
@@ -5143,17 +5145,48 @@ e.init();
 
           var content = document.createElement("div");
           content.className = "notif-item-content";
-          var title = document.createElement("div");
-          title.className = "notif-item-title";
-          title.textContent = notification.title || "";
-          var message = document.createElement("div");
-          message.className = "notif-item-msg";
-          message.textContent = notification.message || "";
-          content.appendChild(title);
-          content.appendChild(message);
+          var titleEl = document.createElement("div");
+          titleEl.className = "notif-item-title";
+          titleEl.textContent = notification.title || "";
+          var msgEl = document.createElement("div");
+          msgEl.className = "notif-item-msg";
+          msgEl.textContent = notification.message || "";
+          content.appendChild(titleEl);
+          content.appendChild(msgEl);
 
           item.appendChild(iconWrap);
           item.appendChild(content);
+
+          (function(notif, el) {
+            el.addEventListener("click", function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              var readApi = root.getAttribute("data-notif-read-api") || "";
+              var dest = fallbackUrl(root) + "#notif-" + notif.id;
+              var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+              var csrfToken = csrfMeta ? csrfMeta.getAttribute("content") : "";
+              if (!notif.is_read && readApi) {
+                // Immediately update badge
+                el.classList.remove("unread");
+                notif.is_read = true;
+                var badge = document.getElementById("notifBadge");
+                if (badge && badge.classList.contains("is-visible")) {
+                  var cur = parseInt(badge.textContent || "0", 10);
+                  if (cur > 1) { badge.textContent = String(cur - 1); }
+                  else { badge.textContent = "0"; badge.classList.remove("is-visible"); }
+                }
+                var fd = new FormData();
+                fd.append("_token", csrfToken);
+                fd.append("id", notif.id);
+                fetch(readApi, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
+                  .finally(function() { window.location.href = dest; });
+              } else {
+                window.location.href = dest;
+              }
+            });
+          })(notification, item);
+
           list.appendChild(item);
         });
 
@@ -5392,7 +5425,7 @@ e.init();
       }
 
       var notificationLink = event.target.closest("[data-notif-open]");
-      if (notificationLink && root.contains(notificationLink)) {
+      if (notificationLink && root.contains(notificationLink) && !notificationLink.closest("[data-notif-dropdown]")) {
         event.preventDefault();
         var targetUrl = notificationLink.href;
         if (!autoMarkOnOpen) {

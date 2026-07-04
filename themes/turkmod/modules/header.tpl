@@ -96,10 +96,10 @@
 </div>
 {/if}
 {if notifications_enabled}
-<div class="notif-dropdown" id="notifDropdown" data-notif-dropdown data-notif-api="{notifications_api_url}" data-notif-fallback-url="{notifications_fallback_url}">
+<div class="notif-dropdown" id="notifDropdown" data-notif-dropdown data-notif-api="{notifications_api_url}" data-notif-read-api="{notifications_read_api_url}" data-notif-fallback-url="{notifications_fallback_url}">
 <button class="notif-toggle btn btn-light icon-md p-0 rounded-circle position-relative" type="button" aria-expanded="false" aria-label="Bildirimleri ac" data-notif-toggle>
 <i class="bi bi-bell-fill fs-6" aria-hidden="true"></i>
-<span class="notif-badge" id="notifBadge">0</span>
+<span class="notif-badge{if notifications_has_unread} is-visible{/if}" id="notifBadge">{notifications_unread_count_text}</span>
 </button>
 <div class="notif-menu dropdown-menu dropdown-menu-end mt-2 shadow">
 <div class="notif-menu-header d-flex justify-content-between p-3 border-bottom">

@@ -152,7 +152,34 @@ final class NotificationEmailQueueService
             return $link;
         }
 
-        return $baseUrl . '/' . ltrim($link, '/');
+        $baseParts = parse_url($baseUrl);
+        if (!is_array($baseParts) || empty($baseParts['scheme']) || empty($baseParts['host'])) {
+            return $baseUrl . '/' . ltrim($link, '/');
+        }
+
+        $origin = $baseParts['scheme'] . '://' . $baseParts['host'];
+        if (!empty($baseParts['port'])) {
+            $origin .= ':' . $baseParts['port'];
+        }
+
+        $basePath = rtrim((string) ($baseParts['path'] ?? ''), '/');
+        $linkParts = parse_url($link);
+        $linkPath = is_array($linkParts) ? (string) ($linkParts['path'] ?? '') : '';
+        $linkSuffix = '';
+        if (is_array($linkParts)) {
+            if (isset($linkParts['query']) && $linkParts['query'] !== '') {
+                $linkSuffix .= '?' . $linkParts['query'];
+            }
+            if (isset($linkParts['fragment']) && $linkParts['fragment'] !== '') {
+                $linkSuffix .= '#' . $linkParts['fragment'];
+            }
+        }
+
+        if ($basePath !== '' && $basePath !== '/' && $linkPath !== '' && str_starts_with($linkPath, $basePath . '/')) {
+            return rtrim($origin, '/') . $linkPath . $linkSuffix;
+        }
+
+        return rtrim($baseUrl, '/') . '/' . ltrim($link, '/');
     }
 
     public function buildHtml(array $row): string

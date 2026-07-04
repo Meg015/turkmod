@@ -19,7 +19,7 @@ class SecurityHeaders {
                 'style-src-attr' => ["'unsafe-inline'"],
                 'img-src' => ["'self'", "data:", "https:"],
                 'font-src' => ["'self'", "data:", "https://cdn.jsdelivr.net"],
-                'connect-src' => ["'self'", "https://cdn.jsdelivr.net", "https://cdn.quilljs.com", "https:"],
+                'connect-src' => ["'self'", 'ws:', 'wss:', "https://cdn.jsdelivr.net", "https://cdn.quilljs.com", "https:"],
                 'frame-ancestors' => ["'self'"],
                 'base-uri' => ["'self'"],
                 'form-action' => ["'self'"],
@@ -74,7 +74,7 @@ class SecurityHeaders {
 
             return;
         }
-        
+
         // Content Security Policy
         $this->setCSP();
         
@@ -198,7 +198,7 @@ class SecurityHeaders {
         if (headers_sent()) {
             return;
         }
-        
+
         header('Content-Type: application/json; charset=utf-8');
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: DENY');

@@ -265,7 +265,7 @@ final class SecurityHeadersMiddleware implements Middleware
             'style-src-attr' => ["'unsafe-inline'"],
             'img-src' => ["'self'", "data:", "https:"],
             'font-src' => ["'self'", "data:", "https://cdn.jsdelivr.net"],
-            'connect-src' => ["'self'", "https://cdn.jsdelivr.net", "https://cdn.quilljs.com", "https:"],
+            'connect-src' => ["'self'", 'ws:', 'wss:', "https://cdn.jsdelivr.net", "https://cdn.quilljs.com", "https:"],
             'frame-ancestors' => ["'self'"],
             'base-uri' => ["'self'"],
             'form-action' => ["'self'"],

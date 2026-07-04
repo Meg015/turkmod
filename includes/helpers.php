@@ -190,11 +190,11 @@ if (! function_exists('asset_version')) {
     function asset_version(string $relativePath): string
     {
         $method = defined('ASSET_VERSION_METHOD') ? ASSET_VERSION_METHOD : 'filemtime';
-        
+
         if ($method === 'manual') {
             return defined('ASSET_VERSION_MANUAL') ? ASSET_VERSION_MANUAL : '1.0.0';
         }
-        
+
         if ($method === 'git_hash') {
             static $gitHash = null;
             if ($gitHash === null) {
@@ -207,13 +207,13 @@ if (! function_exists('asset_version')) {
             }
             return $gitHash;
         }
-        
+
         // Default: filemtime
         $fullPath = dirname(__DIR__) . '/' . ltrim($relativePath, '/');
         if (file_exists($fullPath)) {
             return (string) filemtime($fullPath);
         }
-        
+
         return '1';
     }
 }
@@ -1246,8 +1246,8 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
 
             .popup-announcement-head {
                 position: absolute;
-                top: 8px;
-                right: 8px;
+                top: 5px;
+                right: 5px;
                 z-index: 6;
                 pointer-events: none;
             }
@@ -1272,25 +1272,39 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                width: 24px !important;
-                height: 24px !important;
+                width: 28px !important;
+                height: 28px !important;
                 padding: 0 !important;
                 flex: 0 0 auto;
-                background: transparent;
-                color: #64748b;
-                border: 1px solid transparent;
+                background: rgba(15, 23, 42, 0.04);
+                color: #475569;
+                border: 1px solid rgba(148, 163, 184, 0.2);
                 border-radius: 999px;
                 cursor: pointer;
                 pointer-events: auto;
-                transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+                transition: all 0.18s ease;
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
             }
             .popup-announcement-close-btn:hover {
-                background: rgba(var(--pa-accent-rgb), 0.08);
+                background: rgba(var(--pa-accent-rgb), 0.1);
                 color: var(--pa-accent);
-                border-color: rgba(var(--pa-accent-rgb), 0.14);
-                transform: translateY(-1px);
+                border-color: rgba(var(--pa-accent-rgb), 0.25);
+                transform: translateY(-1px) scale(1.08);
+                box-shadow: 0 3px 8px rgba(var(--pa-accent-rgb), 0.08);
             }
-            .popup-announcement-close-btn svg { width: 9px; height: 9px; display: block; }
+            .popup-announcement-close-btn:active {
+                transform: translateY(0) scale(0.94);
+            }
+            .popup-announcement-close-btn svg {
+                width: 11px;
+                height: 11px;
+                display: block;
+                transition: transform 0.2s ease;
+            }
+            .popup-announcement-close-btn:hover svg {
+                transform: rotate(90deg);
+            }
 
             .popup-announcement-body {
                 padding: 8px 18px 0;
@@ -1307,9 +1321,9 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
                 width: 100%;
                 display: flex;
                 justify-content: center;
-                margin: -8px 0 24px !important;
+                margin: 8px 0 18px !important;
+                padding-top: 4px !important;
                 padding-bottom: 0 !important;
-                transform: none;
                 position: relative;
                 z-index: 2;
             }
@@ -1509,15 +1523,15 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
                     max-height: calc(100vh - 24px);
                     border-radius: 16px;
                 }
-                .popup-announcement-head { top: 7px; right: 7px; }
+                .popup-announcement-head { top: 5px; right: 5px; }
                 .popup-announcement-badge-row {
-                    margin: -6px 0 18px;
+                    margin: 6px 0 12px !important;
+                    padding-top: 4px !important;
                     padding-bottom: 0;
-                    transform: translateY(-6px);
                 }
                 .popup-announcement-stripe { font-size: 9.5px; padding: 2px 8px; min-height: 19px; }
-                .popup-announcement-close-btn { width: 22px !important; height: 22px !important; }
-                .popup-announcement-close-btn svg { width: 9px; height: 9px; }
+                .popup-announcement-close-btn { width: 24px !important; height: 24px !important; }
+                .popup-announcement-close-btn svg { width: 10px; height: 10px; }
                 .popup-announcement-body {
                     padding: 7px 14px 0;
                     row-gap: 0 !important;
@@ -1617,7 +1631,7 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
             (function() {
                 const modal = document.getElementById('popupAnnouncementModal');
                 if (!modal) return;
-                
+
                 const hash = modal.getAttribute('data-popup-hash') || 'default';
                 const cookieName = 'popup_dismissed_' + hash;
                 const cookieDays = parseInt(modal.getAttribute('data-cookie-days') || '1', 10);

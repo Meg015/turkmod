@@ -1585,7 +1585,7 @@ $sql = "UPDATE users
     ];
 
     if ($password !== '') {
-        $sql .= ', password = :password';
+        $sql .= ', password = :password, password_changed_at = NOW(), remember_token = NULL';
         $params['password'] = password_hash($password, PASSWORD_DEFAULT);
     }
 

@@ -67,7 +67,7 @@
             {if notifications_has_items}
             <div class="notifications-feed" data-notif-feed>
                 {loop notifications_items}
-                <article class="{notifications_item.class}" data-notif-item data-id="{notifications_item.id}">
+                <article class="{notifications_item.class}" id="notif-{notifications_item.id}" data-notif-item data-id="{notifications_item.id}">
                     <span class="{notifications_item.icon_class}" aria-hidden="true"><i class="bi {notifications_item.icon}"></i></span>
                     <div class="notification-body ui-panel__body">
                         <div class="notification-topline">

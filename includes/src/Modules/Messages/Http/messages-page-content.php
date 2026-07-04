@@ -128,7 +128,7 @@ $activeThreadId = $activeThread !== null ? (int) ($activeThread['thread_id'] ?? 
 
 $pageCssFiles = array_values(array_unique(array_merge(
     $pageCssFiles ?? [],
-    ['assets/css/messages-page.css'],
+    ['assets/css/messages-page.css?v=' . time()],
 )));
 
 require_once $projectRoot . '/includes/public-header.php';
@@ -145,40 +145,15 @@ require_once $projectRoot . '/includes/public-header.php';
 <?php endif; ?>
 
 <section
-    class="messages-shell public-container public-content ui-container ui-section"
-    aria-labelledby="messages-title"
+    class="messages-shell"
+    aria-label="Mesajlasma"
     data-messages-root
     data-messages-api-url="<?= htmlspecialchars($messagesApiUrl, ENT_QUOTES, 'UTF-8') ?>"
     data-messages-url="<?= htmlspecialchars($messagesBaseUrl, ENT_QUOTES, 'UTF-8') ?>"
     data-messages-csrf="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>"
     data-active-thread-id="<?= (int) $activeThreadId ?>"
+    data-current-user-id="<?= (int) $userId ?>"
 >
-    <section class="messages-hero ui-card">
-        <div>
-            <span class="messages-kicker"><i class="bi bi-chat-dots" aria-hidden="true"></i> Ozel Mesajlar</span>
-            <h1 id="messages-title">Mesajlasma Merkezi</h1>
-            <p>Sadece birebir sohbetleri yonetin, okunmamislari tek panelden takip edin ve acilan sohbetlerde otomatik okundu akisini kullanin.</p>
-        </div>
-        <div class="messages-hero-meta">
-            <article class="messages-hero-stat is-threads">
-                <span class="messages-hero-stat-icon" aria-hidden="true"><i class="bi bi-chat-dots"></i></span>
-                <div class="messages-hero-stat-copy">
-                    <span class="messages-hero-stat-label">Toplam Sohbet</span>
-                    <strong><?= number_format(count($threads), 0, ',', '.') ?></strong>
-                    <small>Tum birebir konusmalar</small>
-                </div>
-            </article>
-            <article class="messages-hero-stat is-unread">
-                <span class="messages-hero-stat-icon" aria-hidden="true"><i class="bi bi-envelope-open"></i></span>
-                <div class="messages-hero-stat-copy">
-                    <span class="messages-hero-stat-label">Bekleyen Mesaj</span>
-                    <strong><?= number_format($unreadTotal, 0, ',', '.') ?></strong>
-                    <small>Okunmamis iletiler</small>
-                </div>
-            </article>
-        </div>
-    </section>
-
     <?php if ($successMessage !== ''): ?>
         <div class="messages-alert is-success" role="status">
             <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
@@ -194,7 +169,7 @@ require_once $projectRoot . '/includes/public-header.php';
     <?php endif; ?>
 
     <div class="messages-workspace">
-        <aside class="messages-sidebar ui-card" aria-label="Sohbet listesi">
+        <aside class="messages-sidebar" aria-label="Sohbet listesi">
             <div class="messages-sidebar-head">
                 <div class="messages-sidebar-title">
                     <h2>Sohbetler</h2>
@@ -204,16 +179,24 @@ require_once $projectRoot . '/includes/public-header.php';
                         <?= number_format($unreadTotal, 0, ',', '.') ?> okunmamis
                     </p>
                 </div>
-                <a href="<?= htmlspecialchars($messagesBaseUrl, ENT_QUOTES, 'UTF-8') ?>" class="messages-refresh-link">
-                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
-                    <span>Yenile</span>
-                </a>
+                <div class="messages-sidebar-actions">
+                    <a href="<?= htmlspecialchars($messagesBaseUrl, ENT_QUOTES, 'UTF-8') ?>" class="messages-refresh-link" title="Yenile">
+                        <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                    </a>
+                    <button class="messages-new-chat-btn" type="button" aria-label="Yeni Sohbet Başlat" data-messages-new-chat-toggle title="Yeni Mesaj">
+                        <i class="bi bi-envelope-plus" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="messages-sidebar-search">
+                <i class="bi bi-search"></i>
+                <input type="text" placeholder="Sohbetlerde ara..." data-messages-sidebar-search-input>
             </div>
 
             <?php if ($threads === []): ?>
                 <div class="messages-empty-state">
                     <i class="bi bi-inbox" aria-hidden="true"></i>
-                    <p>Henuz sohbet yok. Profil sayfalarindan yeni bir sohbet baslatabilirsiniz.</p>
+                    <p>Henuz sohbet yok. Yeni mesaj butonu ile yeni bir sohbet baslatabilirsiniz.</p>
                 </div>
             <?php else: ?>
                 <div class="messages-thread-list" data-messages-thread-list>
@@ -259,34 +242,9 @@ require_once $projectRoot . '/includes/public-header.php';
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-
-            <section class="messages-start-card" aria-label="Yeni sohbet baslat">
-                <h3>
-                    <i class="bi bi-plus-circle" aria-hidden="true"></i>
-                    <span>Yeni Sohbet</span>
-                </h3>
-                <form method="post" class="messages-start-form" data-messages-start-form>
-                    <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="action" value="start">
-                    <input type="hidden" name="target_user_id" value="" data-messages-target-user-id>
-                    <label class="messages-field">
-                        <span>Kullanici</span>
-                        <input type="text" name="target_user_name" autocomplete="off" placeholder="En az 2 harf yazin" data-messages-user-search>
-                        <div class="messages-search-results" data-messages-search-results hidden></div>
-                    </label>
-                    <label class="messages-field">
-                        <span>Mesaj</span>
-                        <textarea name="body" rows="3" maxlength="4000" placeholder="Ilk mesajinizi yazin..." required></textarea>
-                    </label>
-                    <button type="submit" class="messages-submit"<?= $messagesReady ? '' : ' disabled aria-disabled="true"' ?>>
-                        <i class="bi bi-send" aria-hidden="true"></i>
-                        <span>Sohbeti Baslat</span>
-                    </button>
-                </form>
-            </section>
         </aside>
 
-        <section class="messages-panel ui-card" aria-label="Aktif sohbet">
+        <section class="messages-panel" aria-label="Aktif sohbet">
             <?php if ($activeThread === null): ?>
                 <div class="messages-empty-chat">
                     <i class="bi bi-chat-square-text" aria-hidden="true"></i>
@@ -295,7 +253,13 @@ require_once $projectRoot . '/includes/public-header.php';
                 </div>
             <?php else: ?>
                 <header class="messages-panel-head">
-                    <div class="messages-peer">
+                    <?php
+                    $peerProfileUrl = publicProfileUrl([
+                        'id' => (int) ($activeThread['with_user_id'] ?? 0),
+                        'name' => (string) ($activeThread['with_user_name'] ?? '')
+                    ]);
+                    ?>
+                    <a href="<?= htmlspecialchars($peerProfileUrl, ENT_QUOTES, 'UTF-8') ?>" class="messages-peer">
                         <img
                             src="<?= htmlspecialchars((string) ($activeThread['with_user_avatar'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                             alt="<?= htmlspecialchars((string) ($activeThread['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?>"
@@ -306,9 +270,9 @@ require_once $projectRoot . '/includes/public-header.php';
                         >
                         <div>
                             <strong><?= htmlspecialchars((string) ($activeThread['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?></strong>
-                            <span>Tekil sohbet</span>
+                            <span>Profilini Gör</span>
                         </div>
-                    </div>
+                    </a>
                 </header>
 
                 <div class="messages-stream" data-messages-stream>
@@ -318,27 +282,86 @@ require_once $projectRoot . '/includes/public-header.php';
                             <p>Bu sohbette henuz mesaj yok. Ilk mesaji gonderebilirsiniz.</p>
                         </div>
                     <?php else: ?>
-                        <?php foreach ($activeMessages as $messageItem): ?>
+                        <?php
+                        // Group messages: consecutive messages from same sender
+                        $msgCount = count($activeMessages);
+                        $prevSenderId = null;
+                        $prevDate = null;
+                        for ($i = 0; $i < $msgCount; $i++):
+                            $msg = $activeMessages[$i];
+                            $isMine = !empty($msg['is_mine']);
+                            $senderId = (int) ($msg['sender_user_id'] ?? 0);
+                            $isRead = !empty($msg['is_read_by_recipient']);
+
+                            // Determine group position
+                            $nextSenderId = ($i + 1 < $msgCount)
+                                ? (int) ($activeMessages[$i + 1]['sender_user_id'] ?? 0)
+                                : null;
+                            $isGroupStart = ($prevSenderId === null || $prevSenderId !== $senderId);
+                            $isGroupEnd = ($nextSenderId === null || $nextSenderId !== $senderId);
+
+                            // Date separator
+                            $msgDate = date('Y-m-d', strtotime((string) ($msg['created_at'] ?? '')));
+                            if ($msgDate !== $prevDate && $msgDate !== '1970-01-01'):
+                                $label = date('d F Y', strtotime($msgDate));
+                                $isToday = $msgDate === date('Y-m-d');
+                                $isYesterday = $msgDate === date('Y-m-d', strtotime('-1 day'));
+                                if ($isToday) $label = 'Bugun';
+                                elseif ($isYesterday) $label = 'Dun';
+                        ?>
+                            <div class="msg-date-separator">
+                                <span><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span>
+                            </div>
+                        <?php endif; $prevDate = $msgDate; ?>
+
                             <?php
-                            $isMine = !empty($messageItem['is_mine']);
-                            $isReadByRecipient = !empty($messageItem['is_read_by_recipient']);
+                            // Group classes
+                            $groupClasses = 'msg';
+                            $groupClasses .= $isMine ? ' is-mine' : ' is-theirs';
+                            $showAvatar = !$isMine && ($isGroupEnd || (!$isGroupStart && !$isGroupEnd && $i === $msgCount - 1));
+                            if ($isGroupStart) $groupClasses .= ' msg-group-first';
+                            if ($isGroupEnd) $groupClasses .= ' msg-group-last';
+                            if (!$isGroupStart && !$isGroupEnd) $groupClasses .= ' msg-group-middle';
                             ?>
-                            <article class="messages-bubble<?= $isMine ? ' is-mine' : ' is-theirs' ?>" data-message-id="<?= (int) ($messageItem['id'] ?? 0) ?>">
-                                <div class="messages-bubble-body">
-                                    <?= nl2br(htmlspecialchars((string) ($messageItem['body'] ?? ''), ENT_QUOTES, 'UTF-8')) ?>
+                            <article class="<?= trim($groupClasses) ?>" data-message-id="<?= (int) ($msg['id'] ?? 0) ?>">
+                                <?php if (!$isMine): ?>
+                                <div class="msg-avatar">
+                                    <?php if ($showAvatar): ?>
+                                    <img
+                                        src="<?= htmlspecialchars((string) ($activeThread['with_user_avatar'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        alt="<?= htmlspecialchars((string) ($activeThread['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?>"
+                                        width="32"
+                                        height="32"
+                                        loading="lazy"
+                                        data-ui-avatar-img
+                                    >
+                                    <?php endif; ?>
                                 </div>
-                                <div class="messages-bubble-meta">
-                                    <time datetime="<?= htmlspecialchars((string) ($messageItem['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                        <?= htmlspecialchars((string) ($messageItem['created_at_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-                                    </time>
-                                    <?php if ($isMine): ?>
-                                        <span class="messages-read-state<?= $isReadByRecipient ? ' is-read' : '' ?>">
-                                            <?= $isReadByRecipient ? 'Okundu' : 'Gonderildi' ?>
+                                <?php endif; ?>
+                                <div class="msg-content">
+                                    <div class="msg-body"><?= htmlspecialchars((string) ($msg['body'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                                    <?php if ($isGroupEnd || $isMine): ?>
+                                    <div class="msg-meta">
+                                        <time datetime="<?= htmlspecialchars((string) ($msg['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <?= htmlspecialchars((string) ($msg['created_at_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                        </time>
+                                        <?php if ($isMine): ?>
+                                        <span class="msg-read-state<?= $isRead ? ' is-read' : '' ?>"<?= $isRead && !empty($msg['read_at_label']) ? ' title="Görüldü: ' . htmlspecialchars((string)$msg['read_at_label'], ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
+                                            <?php if ($isRead): ?>
+                                                <i class="bi bi-check-all" aria-hidden="true"></i>
+                                            <?php else: ?>
+                                                <i class="bi bi-check" aria-hidden="true"></i>
+                                            <?php endif; ?>
                                         </span>
+                                        <?php endif; ?>
+                                    </div>
                                     <?php endif; ?>
                                 </div>
                             </article>
-                        <?php endforeach; ?>
+                        <?php
+                            $prevSenderId = $senderId;
+                        endfor;
+                        ?>
                     <?php endif; ?>
                 </div>
 
@@ -346,20 +369,57 @@ require_once $projectRoot . '/includes/public-header.php';
                     <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="send">
                     <input type="hidden" name="thread_id" value="<?= (int) $activeThreadId ?>" data-messages-thread-id>
-                    <label class="messages-field messages-field-composer">
-                        <span class="visually-hidden">Mesajiniz</span>
-                        <textarea name="body" rows="2" maxlength="4000" placeholder="Mesajinizi yazin..." required></textarea>
-                    </label>
-                    <button type="submit" class="messages-submit"<?= $messagesReady ? '' : ' disabled aria-disabled="true"' ?>>
-                        <i class="bi bi-send" aria-hidden="true"></i>
-                        <span>Gonder</span>
-                    </button>
+                    <div class="messages-composer-inner">
+                        <textarea class="messages-composer-textarea" name="body" rows="1" maxlength="4000" placeholder="Bir mesaj yazın..." required></textarea>
+                        <button type="submit" class="messages-submit"<?= $messagesReady ? '' : ' disabled aria-disabled="true"' ?> title="Gönder">
+                            <i class="bi bi-send-fill" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </form>
             <?php endif; ?>
         </section>
     </div>
 </section>
 
-<script src="<?= asset_url('assets/js/messages-page.js', $baseUri) ?>" defer></script>
+<!-- Modal overlay starting new chats -->
+<div class="messages-modal" id="newChatModal" hidden aria-hidden="true">
+    <div class="messages-modal-backdrop" data-messages-modal-close></div>
+    <div class="messages-modal-container">
+        <div class="messages-modal-header">
+            <h3>Yeni Mesaj</h3>
+            <button type="button" class="messages-modal-close" data-messages-modal-close aria-label="Kapat">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="messages-modal-body">
+            <form method="post" class="messages-start-form" data-messages-start-form>
+                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="start">
+                <input type="hidden" name="target_user_id" value="" data-messages-target-user-id>
+
+                <div class="messages-modal-field">
+                    <label for="newChatSearch">Kullanıcı Ara</label>
+                    <div class="messages-modal-search-wrapper">
+                        <i class="bi bi-search"></i>
+                        <input type="text" id="newChatSearch" name="target_user_name" autocomplete="off" placeholder="En az 2 harf yazın..." data-messages-user-search required>
+                    </div>
+                    <div class="messages-search-results" data-messages-search-results hidden></div>
+                </div>
+
+                <div class="messages-modal-field">
+                    <label for="newChatMessage">Mesajınız</label>
+                    <textarea id="newChatMessage" name="body" rows="4" maxlength="4000" placeholder="İlk mesajınızı buraya yazın..." required></textarea>
+                </div>
+
+                <button type="submit" class="messages-modal-submit"<?= $messagesReady ? '' : ' disabled aria-disabled="true"' ?>>
+                    <i class="bi bi-send-fill"></i>
+                    <span>Sohbeti Başlat</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="<?= asset_url('assets/js/messages-page.js', $baseUri) ?>?v=<?= time() ?>" defer></script>
 
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>

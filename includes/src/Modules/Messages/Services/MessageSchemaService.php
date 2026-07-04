@@ -78,6 +78,7 @@ final class MessageSchemaService
                     user_id INTEGER NOT NULL,
                     last_read_message_id INTEGER NULL,
                     last_read_at TEXT NULL,
+                    typing_at TEXT NULL,
                     created_at TEXT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NULL DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(thread_id, user_id),
@@ -96,6 +97,7 @@ final class MessageSchemaService
                 user_id BIGINT UNSIGNED NOT NULL,
                 last_read_message_id BIGINT UNSIGNED NULL,
                 last_read_at TIMESTAMP NULL,
+                typing_at TIMESTAMP NULL,
                 created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
@@ -105,6 +107,14 @@ final class MessageSchemaService
                 CONSTRAINT message_participants_thread_foreign FOREIGN KEY (thread_id) REFERENCES message_threads(id) ON DELETE CASCADE,
                 CONSTRAINT message_participants_user_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+            if (!$this->columnExists($pdo, 'message_thread_participants', 'typing_at')) {
+                if ($this->isSqlite($pdo)) {
+                    $pdo->exec("ALTER TABLE message_thread_participants ADD COLUMN typing_at TEXT NULL");
+                } else {
+                    $pdo->exec("ALTER TABLE message_thread_participants ADD COLUMN typing_at TIMESTAMP NULL AFTER last_read_at");
+                }
+            }
         });
     }
 
@@ -118,6 +128,7 @@ final class MessageSchemaService
                     thread_id INTEGER NOT NULL,
                     sender_user_id INTEGER NOT NULL,
                     body TEXT NOT NULL,
+                    is_deleted INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NULL DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (thread_id) REFERENCES message_threads(id) ON DELETE CASCADE,
@@ -135,6 +146,7 @@ final class MessageSchemaService
                 thread_id BIGINT UNSIGNED NOT NULL,
                 sender_user_id BIGINT UNSIGNED NOT NULL,
                 body TEXT NOT NULL,
+                is_deleted TINYINT(1) NOT NULL DEFAULT 0,
                 created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
@@ -144,6 +156,10 @@ final class MessageSchemaService
                 CONSTRAINT message_messages_thread_foreign FOREIGN KEY (thread_id) REFERENCES message_threads(id) ON DELETE CASCADE,
                 CONSTRAINT message_messages_sender_foreign FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+            if (!$this->columnExists($pdo, 'message_messages', 'is_deleted')) {
+                $pdo->exec("ALTER TABLE message_messages ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 AFTER body");
+            }
         });
     }
 
@@ -248,4 +264,3 @@ final class MessageSchemaService
         $this->initialized[$key] = true;
     }
 }
-

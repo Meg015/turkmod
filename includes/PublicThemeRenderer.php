@@ -97,6 +97,19 @@ final class PublicThemeRenderer
             ThemeHeaderViewData::messageMenu($baseUri, $isLoggedIn),
         );
 
+        $unreadCount = 0;
+        if ($isLoggedIn && $pdo instanceof \PDO && $currentUserId > 0) {
+            if (class_exists(\App\Modules\Notifications\Services\NotificationCenterService::class)) {
+                $payload = (new \App\Modules\Notifications\Services\NotificationCenterService())->dropdownPayload($pdo, $currentUserId);
+                if (isset($payload['show_badge']) && $payload['show_badge']) {
+                    $unreadCount = (int) ($payload['unread_count'] ?? 0);
+                }
+            }
+        }
+
+        $headerVars['notifications_has_unread'] = $unreadCount > 0;
+        $headerVars['notifications_unread_count_text'] = $unreadCount > 99 ? '99+' : (string) $unreadCount;
+
         $footerData = self::buildFooterData($context);
         $sidebarConfig = function_exists('sidebarBuilderConfigFromSettings') ? sidebarBuilderConfigFromSettings($settings) : [];
         $sidebarSourceVars = array_merge($headerVars, $footerData, [
@@ -3909,5 +3922,5 @@ final class PublicThemeRenderer
         return mb_strtoupper(mb_substr($value, 0, 1, 'UTF-8'), 'UTF-8');
     }
 }
-
-
+
+

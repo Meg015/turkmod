@@ -75,6 +75,23 @@ try {
                     'unread_count' => $service->unreadCount($pdo, $userId),
                 ]);
 
+            case 'history':
+                if (!$schemaReady) {
+                    sendValidationError($schemaUnavailableMessage);
+                }
+                $threadId = max(0, (int) ($_GET['thread_id'] ?? 0));
+                $beforeId = max(0, (int) ($_GET['before_id'] ?? 0));
+
+                if ($threadId <= 0 || $beforeId <= 0) {
+                    sendValidationError('Gecerli bir sohbet ve referans mesaji belirtilmedi.');
+                }
+
+                $messages = $service->getHistory($pdo, $userId, $threadId, $beforeId);
+                sendSuccess('OK', [
+                    'ok' => true,
+                    'messages' => $messages,
+                ]);
+
             case 'search':
                 $query = trim((string) ($_GET['q'] ?? ''));
                 $limit = max(1, min(20, (int) ($_GET['limit'] ?? 8)));
@@ -134,6 +151,39 @@ try {
                     'updated_threads' => $updatedThreads,
                     'unread_count' => $service->unreadCount($pdo, $userId),
                 ]);
+
+            case 'typing':
+                if (!$schemaReady) {
+                    sendValidationError($schemaUnavailableMessage);
+                }
+                $threadId = max(0, (int) ($_POST['thread_id'] ?? 0));
+                if ($threadId > 0) {
+                    $service->updateTypingStatus($pdo, $threadId, $userId);
+                }
+                sendSuccess('OK', ['ok' => true]);
+
+            case 'delete':
+                if (!$schemaReady) {
+                    sendValidationError($schemaUnavailableMessage);
+                }
+                $messageId = max(0, (int) ($_POST['message_id'] ?? 0));
+                $result = $service->deleteMessage($pdo, $messageId, $userId);
+                if (empty($result['success'])) {
+                    sendValidationError((string) ($result['message'] ?? 'Mesaj silinemedi.'));
+                }
+                sendSuccess((string) ($result['message'] ?? 'Mesaj silindi.'), ['ok' => true]);
+
+            case 'edit':
+                if (!$schemaReady) {
+                    sendValidationError($schemaUnavailableMessage);
+                }
+                $messageId = max(0, (int) ($_POST['message_id'] ?? 0));
+                $body = (string) ($_POST['body'] ?? '');
+                $result = $service->editMessage($pdo, $messageId, $userId, $body);
+                if (empty($result['success'])) {
+                    sendValidationError((string) ($result['message'] ?? 'Mesaj düzenlenemedi.'));
+                }
+                sendSuccess((string) ($result['message'] ?? 'Mesaj düzenlendi.'), ['ok' => true]);
 
             default:
                 sendValidationError('Gecersiz islem.');

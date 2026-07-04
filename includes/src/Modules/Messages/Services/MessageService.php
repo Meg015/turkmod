@@ -88,6 +88,8 @@ final class MessageService
                 self_p.last_read_message_id AS self_last_read_message_id,
                 other_p.user_id AS with_user_id,
                 other_p.last_read_message_id AS with_last_read_message_id,
+                other_p.typing_at AS with_typing_at,
+                other_p.last_read_at AS with_last_read_at,
                 u.name AS with_user_name,
                 u.avatar AS with_user_avatar,
                 lm.sender_user_id AS last_sender_user_id,
@@ -145,6 +147,8 @@ final class MessageService
                 self_p.last_read_message_id AS self_last_read_message_id,
                 other_p.user_id AS with_user_id,
                 other_p.last_read_message_id AS with_last_read_message_id,
+                other_p.typing_at AS with_typing_at,
+                other_p.last_read_at AS with_last_read_at,
                 u.name AS with_user_name,
                 u.avatar AS with_user_avatar,
                 lm.sender_user_id AS last_sender_user_id,
@@ -262,10 +266,11 @@ final class MessageService
 
         $messages = $this->fetchThreadMessages($pdo, $threadId, 300);
         $withCursor = isset($thread['with_last_read_message_id']) ? (int) $thread['with_last_read_message_id'] : 0;
+        $withReadAt = (string) ($thread['with_last_read_at'] ?? '');
 
         return [
             'thread' => $thread,
-            'messages' => $this->decorateMessages($messages, $userId, $withCursor),
+            'messages' => $this->decorateMessages($messages, $userId, $withCursor, $withReadAt),
             'marked_unread_count' => $markedUnreadCount,
         ];
     }
@@ -552,7 +557,7 @@ final class MessageService
         $limit = max(1, min(500, $limit));
 
         $stmt = $pdo->prepare("
-            SELECT id, thread_id, sender_user_id, body, created_at, updated_at
+            SELECT id, thread_id, sender_user_id, body, is_deleted, created_at, updated_at
             FROM message_messages
             WHERE thread_id = :thread_id
             ORDER BY id ASC
@@ -569,7 +574,7 @@ final class MessageService
      * @param list<array<string,mixed>> $messages
      * @return list<array<string,mixed>>
      */
-    private function decorateMessages(array $messages, int $viewerUserId, int $otherReadCursor): array
+    private function decorateMessages(array $messages, int $viewerUserId, int $otherReadCursor, string $otherReadAt = ''): array
     {
         $items = [];
         foreach ($messages as $row) {
@@ -587,10 +592,12 @@ final class MessageService
                 'thread_id' => (int) ($row['thread_id'] ?? 0),
                 'sender_user_id' => $senderId,
                 'body' => (string) ($row['body'] ?? ''),
+                'is_deleted' => !empty($row['is_deleted']),
                 'created_at' => $createdAt,
                 'created_at_label' => $this->formatDateTime($createdAt),
                 'is_mine' => $isMine,
                 'is_read_by_recipient' => $isMine && $otherReadCursor > 0 && $id <= $otherReadCursor,
+                'read_at_label' => ($isMine && $otherReadCursor > 0 && $id <= $otherReadCursor && $otherReadAt !== '') ? $this->formatDateTime($otherReadAt) : '',
             ];
         }
 
@@ -770,6 +777,13 @@ final class MessageService
 
         $this->dispatchNotificationBestEffort($pdo, $targetUserId, $senderUserId, $threadId, $messageId, $body, $baseUri);
 
+        $participants = $this->getThreadParticipants($pdo, $threadId);
+        $this->broadcastToWebSocket($participants, [
+            'type' => 'new_message',
+            'thread_id' => $threadId,
+            'message_id' => $messageId
+        ]);
+
         return [
             'success' => true,
             'message' => 'Mesaj gonderildi.',
@@ -925,6 +939,12 @@ final class MessageService
         $withCursor = (int) ($row['with_last_read_message_id'] ?? 0);
         $lastMessageAt = (string) ($row['last_message_created_at'] ?? $row['last_message_at'] ?? $row['thread_created_at'] ?? '');
 
+        $withTypingAt = (string) ($row['with_typing_at'] ?? '');
+        $isTypingNow = false;
+        if ($withTypingAt !== '') {
+            $isTypingNow = strtotime($withTypingAt) >= time() - 6;
+        }
+
         return [
             'thread_id' => $threadId,
             'thread_key' => (string) ($row['thread_key'] ?? ''),
@@ -942,6 +962,8 @@ final class MessageService
             'last_message_read' => $lastSenderId > 0 && $lastSenderId === $userId && $lastMessageId > 0 && $withCursor >= $lastMessageId,
             'self_last_read_message_id' => (int) ($row['self_last_read_message_id'] ?? 0),
             'with_last_read_message_id' => $withCursor,
+            'with_last_read_at' => (string) ($row['with_last_read_at'] ?? ''),
+            'is_typing_now' => $isTypingNow,
             'thread_url' => $this->threadUrl($threadId, $baseUri),
         ];
     }
@@ -983,7 +1005,37 @@ final class MessageService
             return '';
         }
 
-        return date('d.m.Y H:i', $timestamp);
+        $now = time();
+        $diff = $now - $timestamp;
+
+        // Just now (< 60s)
+        if ($diff < 60) {
+            return 'Az once';
+        }
+
+        // Minutes ago (< 60 min)
+        if ($diff < 3600) {
+            $mins = floor($diff / 60);
+            return $mins . ' dk once';
+        }
+
+        // Today - show time only
+        if (date('Y-m-d', $timestamp) === date('Y-m-d', $now)) {
+            return date('H:i', $timestamp);
+        }
+
+        // Yesterday
+        if (date('Y-m-d', $timestamp) === date('Y-m-d', $now - 86400)) {
+            return 'Dun ' . date('H:i', $timestamp);
+        }
+
+        // This year - show date without year
+        if (date('Y', $timestamp) === date('Y', $now)) {
+            return date('d M H:i', $timestamp);
+        }
+
+        // Older - full date
+        return date('d M Y H:i', $timestamp);
     }
 
     private function threadUrl(int $threadId, string $baseUri = ''): string
@@ -1006,6 +1058,248 @@ final class MessageService
     {
         return $this->schema->tableExists($pdo, 'message_threads')
             && $this->schema->tableExists($pdo, 'message_thread_participants')
-            && $this->schema->tableExists($pdo, 'message_messages');
+            && $this->schema->tableExists($pdo, 'message_messages')
+            && $this->schema->columnExists($pdo, 'message_thread_participants', 'typing_at')
+            && $this->schema->columnExists($pdo, 'message_messages', 'is_deleted');
+    }
+
+    public function updateTypingStatus(PDO $pdo, int $threadId, int $userId): void
+    {
+        if ($threadId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
+            return;
+        }
+
+        $nowSql = $this->schema->nowSql($pdo);
+        $update = $pdo->prepare("
+            UPDATE message_thread_participants
+            SET typing_at = {$nowSql}
+            WHERE thread_id = :thread_id
+              AND user_id = :user_id
+        ");
+        $update->execute([
+            'thread_id' => $threadId,
+            'user_id' => $userId,
+        ]);
+
+        $participants = $this->getThreadParticipants($pdo, $threadId);
+        $this->broadcastToWebSocket($participants, [
+            'type' => 'typing',
+            'thread_id' => $threadId,
+            'user_id' => $userId
+        ]);
+    }
+
+    public function deleteMessage(PDO $pdo, int $messageId, int $userId): array
+    {
+        if ($messageId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
+            return ['success' => false, 'message' => 'Geçersiz istek.'];
+        }
+
+        // Fetch message
+        $stmt = $pdo->prepare("SELECT id, thread_id, sender_user_id, created_at, is_deleted FROM message_messages WHERE id = :id");
+        $stmt->execute(['id' => $messageId]);
+        $msg = $stmt->fetch();
+
+        if (!$msg) {
+            return ['success' => false, 'message' => 'Mesaj bulunamadı.'];
+        }
+
+        if ((int)$msg['sender_user_id'] !== $userId) {
+            return ['success' => false, 'message' => 'Sadece kendi mesajlarınızı silebilirsiniz.'];
+        }
+
+        if (!empty($msg['is_deleted'])) {
+            return ['success' => false, 'message' => 'Mesaj zaten silinmiş.'];
+        }
+
+        // 15 minute limit
+        $createdAt = strtotime((string)$msg['created_at']);
+        if (time() - $createdAt > 15 * 60) {
+            return ['success' => false, 'message' => 'Mesajlar sadece ilk 15 dakika içinde silinebilir.'];
+        }
+
+        $nowSql = $this->schema->nowSql($pdo);
+        $update = $pdo->prepare("UPDATE message_messages SET is_deleted = 1, body = :deleted_body, updated_at = {$nowSql} WHERE id = :id");
+        $update->execute([
+            'id' => $messageId,
+            'deleted_body' => 'Bu mesaj silindi',
+        ]);
+
+        $threadId = (int) $msg['thread_id'];
+        $participants = $this->getThreadParticipants($pdo, $threadId);
+        $this->broadcastToWebSocket($participants, [
+            'type' => 'delete_message',
+            'thread_id' => $threadId,
+            'message_id' => $messageId
+        ]);
+
+        return ['success' => true, 'message' => 'Mesaj başarıyla silindi.'];
+    }
+
+    public function editMessage(PDO $pdo, int $messageId, int $userId, string $newBody): array
+    {
+        if ($messageId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
+            return ['success' => false, 'message' => 'Geçersiz istek.'];
+        }
+
+        $newBody = trim($newBody);
+        if ($newBody === '') {
+            return ['success' => false, 'message' => 'Mesaj içeriği boş olamaz.'];
+        }
+
+        // Fetch message
+        $stmt = $pdo->prepare("SELECT id, thread_id, sender_user_id, created_at, is_deleted FROM message_messages WHERE id = :id");
+        $stmt->execute(['id' => $messageId]);
+        $msg = $stmt->fetch();
+
+        if (!$msg) {
+            return ['success' => false, 'message' => 'Mesaj bulunamadı.'];
+        }
+
+        if ((int)$msg['sender_user_id'] !== $userId) {
+            return ['success' => false, 'message' => 'Sadece kendi mesajlarınızı düzenleyebilirsiniz.'];
+        }
+
+        if (!empty($msg['is_deleted'])) {
+            return ['success' => false, 'message' => 'Silinmiş mesajı düzenleyemezsiniz.'];
+        }
+
+        // 15 minute limit
+        $createdAt = strtotime((string)$msg['created_at']);
+        if (time() - $createdAt > 15 * 60) {
+            return ['success' => false, 'message' => 'Mesajlar sadece ilk 15 dakika içinde düzenlenebilir.'];
+        }
+
+        $nowSql = $this->schema->nowSql($pdo);
+        $update = $pdo->prepare("UPDATE message_messages SET body = :body, updated_at = {$nowSql} WHERE id = :id");
+        $update->execute(['id' => $messageId, 'body' => $newBody]);
+
+        $threadId = (int) $msg['thread_id'];
+        $participants = $this->getThreadParticipants($pdo, $threadId);
+        $this->broadcastToWebSocket($participants, [
+            'type' => 'edit_message',
+            'thread_id' => $threadId,
+            'message_id' => $messageId,
+            'body' => $newBody
+        ]);
+
+        return ['success' => true, 'message' => 'Mesaj başarıyla düzenlendi.'];
+    }
+
+    public function getHistory(PDO $pdo, int $userId, int $threadId, int $beforeId): array
+    {
+        if ($userId <= 0 || $threadId <= 0 || $beforeId <= 0 || !$this->isSchemaReady($pdo)) {
+            return [];
+        }
+
+        $thread = $this->threadForUser($pdo, $userId, $threadId);
+        if (!$thread) {
+            return [];
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT
+                mm.id,
+                mm.thread_id,
+                mm.sender_user_id,
+                mm.body,
+                mm.created_at,
+                (mm.sender_user_id = :user_id) AS is_mine,
+                (mm.id <= :with_cursor) AS is_read_by_recipient,
+                mm.is_deleted
+            FROM message_messages mm
+            WHERE mm.thread_id = :thread_id
+              AND mm.id < :before_id
+            ORDER BY mm.id DESC
+            LIMIT 50
+        ");
+        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':with_cursor', (int) $thread['with_last_read_message_id'], PDO::PARAM_INT);
+        $stmt->bindValue(':thread_id', $threadId, PDO::PARAM_INT);
+        $stmt->bindValue(':before_id', $beforeId, PDO::PARAM_INT);
+        $stmt->execute();
+        $messages = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $otherReadCursor = (int) $thread['with_last_read_message_id'];
+        $otherReadAt = (string) ($thread['with_last_read_at'] ?? '');
+
+        // Reverse to chronological
+        $messages = array_reverse($messages);
+
+        foreach ($messages as &$msg) {
+            $msg['created_at_label'] = $this->formatDateTime((string) ($msg['created_at'] ?? ''));
+            $isMine = !empty($msg['is_mine']);
+            $id = (int)$msg['id'];
+            if ($isMine && $otherReadCursor > 0 && $id <= $otherReadCursor && $otherReadAt !== '') {
+                $msg['read_at_label'] = $this->formatDateTime($otherReadAt);
+            } else {
+                $msg['read_at_label'] = '';
+            }
+        }
+        unset($msg);
+
+        return $messages;
+    }
+
+    public function getThreadParticipants(PDO $pdo, int $threadId): array
+    {
+        $stmt = $pdo->prepare("SELECT user_id FROM message_thread_participants WHERE thread_id = :thread_id");
+        $stmt->execute(['thread_id' => $threadId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        return array_map('intval', $rows);
+    }
+
+    public function broadcastToWebSocket(array|int $userIds, array $payload): void
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', is_array($userIds) ? $userIds : [$userIds]))));
+        if (empty($userIds)) {
+            return;
+        }
+
+        try {
+            $body = json_encode([
+                'user_id' => $userIds,
+                'payload' => $payload
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($body === false) {
+                return;
+            }
+
+            $url = 'http://127.0.0.1:8081/broadcast';
+            if (function_exists('curl_init')) {
+                $ch = curl_init($url);
+                if ($ch !== false) {
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                    if (defined('CURLOPT_CONNECTTIMEOUT_MS')) {
+                        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 250);
+                    }
+                    if (defined('CURLOPT_TIMEOUT_MS')) {
+                        curl_setopt($ch, CURLOPT_TIMEOUT_MS, 1000);
+                    } else {
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 1);
+                    }
+                    curl_exec($ch);
+                    curl_close($ch);
+
+                    return;
+                }
+            }
+
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => "Content-Type: application/json\r\n",
+                    'content' => $body,
+                    'timeout' => 1,
+                    'ignore_errors' => true,
+                ],
+            ]);
+            @file_get_contents($url, false, $context);
+        } catch (\Throwable $e) {
+            // Ignore broadcast errors
+        }
     }
 }

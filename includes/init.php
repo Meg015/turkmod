@@ -366,7 +366,7 @@ if (!$skipSessionBootstrap && session_status() === PHP_SESSION_NONE) {
     }
     session_cache_limiter(''); // Prevent PHP from sending default session cache headers
     session_start();
-    
+
     // Session fixation koruması için login işlemlerinde
     // session_regenerate_id(true) çağrılmalı (auth modülünde yapılacak)
 }
@@ -464,7 +464,7 @@ if (!function_exists('buildContentSecurityPolicy')) {
             'style-src-attr' => ["'unsafe-inline'"],
             'font-src' => ["'self'", 'data:'],
             'img-src' => ["'self'", 'data:', 'https:'],
-            'connect-src' => ["'self'", 'https://cdn.jsdelivr.net', 'https://cdn.quilljs.com', 'https:'],
+            'connect-src' => ["'self'", 'ws:', 'wss:', 'https://cdn.jsdelivr.net', 'https://cdn.quilljs.com', 'https:'],
             'frame-src' => ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
             'media-src' => ["'self'", 'https:', 'data:'],
         ];
@@ -3007,7 +3007,7 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
             $shouldNoindex = true;
         }
     }
-    
+
     // Pagination check
     $page = 1;
     if (isset($_GET['page']) && is_numeric($_GET['page'])) {
@@ -3579,6 +3579,6 @@ function sanitizeInput(?string $input): string
     if ($input === null) {
         return "";
     }
-    
+
     return htmlspecialchars(trim($input), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
