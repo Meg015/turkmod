@@ -2633,6 +2633,21 @@ final class PublicThemeRenderer
             ];
         }
 
+        $footerCopyright = (string) ($settings['footer_copyright'] ?? '&copy; {current_year}. <a href="{base_url}/index.php" class="site-footer-brand-link">{site_name}</a> - Tüm hakları saklıdır.');
+        $footerCopyright = str_replace(['{current_year}', '{base_url}', '{site_name}'], [date('Y'), rtrim($baseUri, '/'), htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8')], $footerCopyright);
+
+        $footerNavLinksRaw = (string) ($settings['footer_nav_links'] ?? "Ana sayfa|{base_url}/index.php\nKategoriler|{base_url}/kategoriler\nEtkinlikler|{base_url}/events\nMod Yükle|{base_url}/upload-topic.php");
+        $footerNavItems = [];
+        foreach (explode("\n", str_replace("\r", "", $footerNavLinksRaw)) as $line) {
+            $parts = explode('|', $line);
+            if (count($parts) >= 2) {
+                $label = trim($parts[0]);
+                $url = trim($parts[1]);
+                $url = str_replace('{base_url}', rtrim($baseUri, '/'), $url);
+                $footerNavItems[] = ['label' => $label, 'url' => $url];
+            }
+        }
+
         return [
             'site_name' => $siteName,
             'site_description' => $siteDescription,
@@ -2641,6 +2656,8 @@ final class PublicThemeRenderer
             'recent_comments' => $recentComments,
             'popular_topics' => $popularTopics,
             'tag_cloud_items' => $tagCloudItems,
+            'footer_copyright' => $footerCopyright,
+            'footer_nav_items' => $footerNavItems,
         ];
     }
 
