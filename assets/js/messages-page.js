@@ -661,7 +661,7 @@
         initWebSocket();
 
         // Fallback polling if WebSocket fails (e.g. wss:// to plain ws:// server)
-        var fallbackPollIntervalMs = 8000;
+        var fallbackPollIntervalMs = 2000;
         setInterval(function() {
             if (document.visibilityState !== "visible") {
                 return;
