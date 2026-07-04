@@ -754,7 +754,8 @@ final class MessageService
                 UPDATE message_thread_participants
                 SET last_read_message_id = :last_read_message_id,
                     last_read_at = {$nowSql},
-                    updated_at = {$nowSql}
+                    updated_at = {$nowSql},
+                    typing_at = NULL
                 WHERE thread_id = :thread_id
                   AND user_id = :user_id
             ");
