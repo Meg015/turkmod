@@ -120,6 +120,17 @@ try {
                 if (!$schemaReady) {
                     sendValidationError($schemaUnavailableMessage);
                 }
+
+                $clientKey = 'api_messages_' . ($_SERVER['REMOTE_ADDR'] ?? 'guest');
+                $settings = function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : [];
+                $messagesRateLimit = max(1, (int)($settings['api_messages_rate_limit'] ?? 60));
+                $messagesRateWindow = max(1, (int)($settings['api_messages_rate_window'] ?? 1));
+                
+                if (!checkRateLimit($clientKey, $messagesRateLimit, $messagesRateWindow)) {
+                    sendRateLimitError(max(60, $messagesRateWindow * 60));
+                }
+                incrementRateLimit($clientKey, $messagesRateWindow);
+
                 $threadId = max(0, (int) ($_POST['thread_id'] ?? 0));
                 $body = (string) ($_POST['body'] ?? '');
 

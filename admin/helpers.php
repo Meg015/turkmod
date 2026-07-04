@@ -1016,6 +1016,8 @@ function adminSettingDefinitions(): array
         'search_rate_window'     => ['label' => 'Arama Rate Limit Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Site arama istek limitinin sifirlanacagi sure.'],
         'api_topics_rate_limit'  => ['label' => 'Konu API Rate Limit', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Konu listeleme API icin dakika basina istek sayisi.'],
         'api_topics_rate_window' => ['label' => 'Konu API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Konu API limitinin sifirlanacagi sure.'],
+        'api_messages_rate_limit' => ['label' => 'Mesaj Gönderme Limiti', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit'],
+        'api_messages_rate_window' => ['label' => 'Mesaj Gönderme Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit'],
         'api_leaderboard_rate_limit' => ['label' => 'Leaderboard API Rate Limit', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Leaderboard ve kullanici sira API istek limiti.'],
         'api_leaderboard_rate_window' => ['label' => 'Leaderboard API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Leaderboard API limitinin sifirlanacagi sure.'],
         'api_analytics_rate_limit' => ['label' => 'Analitik Tracking Rate Limit', 'type' => 'number', 'default' => '120', 'section' => 'rate_limit', 'tooltip' => 'Analitik tracking API istek limiti.'],
