@@ -162,6 +162,16 @@ try {
                 }
                 sendSuccess('OK', ['ok' => true]);
 
+            case 'stop_typing':
+                if (!$schemaReady) {
+                    sendValidationError($schemaUnavailableMessage);
+                }
+                $threadId = max(0, (int) ($_POST['thread_id'] ?? 0));
+                if ($threadId > 0) {
+                    $service->clearTypingStatus($pdo, $threadId, $userId);
+                }
+                sendSuccess('OK', ['ok' => true]);
+
             case 'delete':
                 if (!$schemaReady) {
                     sendValidationError($schemaUnavailableMessage);

@@ -264,6 +264,7 @@
 
             var typingTimeout = null;
             var lastTypingSent = 0;
+            var stopTypingTimer = null;
 
             composerTextarea.addEventListener("input", function() {
                 if (this.value.trim().length > 0) {
@@ -281,6 +282,32 @@
                             headers: { "X-Requested-With": "XMLHttpRequest" }
                         }).catch(function(){});
                     }
+
+                    clearTimeout(stopTypingTimer);
+                    stopTypingTimer = setTimeout(function() {
+                        var fdStop = new FormData();
+                        fdStop.append("action", "stop_typing");
+                        fdStop.append("_token", csrfToken);
+                        fdStop.append("thread_id", activeThreadId);
+                        fetch(apiUrl, {
+                            method: "POST",
+                            body: fdStop,
+                            headers: { "X-Requested-With": "XMLHttpRequest" }
+                        }).catch(function(){});
+                        lastTypingSent = 0;
+                    }, 1500);
+                } else {
+                    clearTimeout(stopTypingTimer);
+                    var fdStop = new FormData();
+                    fdStop.append("action", "stop_typing");
+                    fdStop.append("_token", csrfToken);
+                    fdStop.append("thread_id", activeThreadId);
+                    fetch(apiUrl, {
+                        method: "POST",
+                        body: fdStop,
+                        headers: { "X-Requested-With": "XMLHttpRequest" }
+                    }).catch(function(){});
+                    lastTypingSent = 0;
                 }
             });
         }
@@ -641,6 +668,12 @@
                                             renderStream();
                                         }
                                     }, 4000);
+                                }
+                            } else if (data.type === 'stop_typing') {
+                                if (data.user_id !== currentUserId && activeThreadData) {
+                                    activeThreadData.is_typing_now = false;
+                                    clearTimeout(window.typingTimer);
+                                    renderStream();
                                 }
                             } else if (data.type === 'new_message' || data.type === 'edit_message' || data.type === 'delete_message') {
                                 pollThread(false);

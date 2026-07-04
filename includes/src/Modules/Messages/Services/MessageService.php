@@ -1090,6 +1090,31 @@ final class MessageService
         ]);
     }
 
+    public function clearTypingStatus(PDO $pdo, int $threadId, int $userId): void
+    {
+        if ($threadId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
+            return;
+        }
+
+        $update = $pdo->prepare("
+            UPDATE message_thread_participants
+            SET typing_at = NULL
+            WHERE thread_id = :thread_id
+              AND user_id = :user_id
+        ");
+        $update->execute([
+            'thread_id' => $threadId,
+            'user_id' => $userId,
+        ]);
+
+        $participants = $this->getThreadParticipants($pdo, $threadId);
+        $this->broadcastToWebSocket($participants, [
+            'type' => 'stop_typing',
+            'thread_id' => $threadId,
+            'user_id' => $userId
+        ]);
+    }
+
     public function deleteMessage(PDO $pdo, int $messageId, int $userId): array
     {
         if ($messageId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
