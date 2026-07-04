@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = filter_var($_POST['email'] ?? '', FILTER_SANITIZE_EMAIL);
     $groupId = (int)($_POST['group_id'] ?? ($user['group_id'] ?? 0));
     $status = $_POST['status'] ?? 'active';
-    
+
     $avatar = sanitizeInput($_POST['avatar'] ?? '');
     $bio = sanitizeInput($_POST['bio'] ?? '');
     $website = sanitizeInput($_POST['website'] ?? '');
@@ -84,12 +84,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $github = sanitizeInput($_POST['social_github'] ?? '');
     $twitter = sanitizeInput($_POST['social_twitter'] ?? '');
     $discord = sanitizeInput($_POST['social_discord'] ?? '');
-    
+
     $publicProfile = isset($_POST['public_profile']) ? 1 : 0;
     $publicTopics = isset($_POST['public_show_topics']) ? 1 : 0;
     $publicComments = isset($_POST['public_show_comments']) ? 1 : 0;
     $publicSocials = isset($_POST['public_show_socials']) ? 1 : 0;
-    
+
     $isBanned = isset($_POST['is_banned']) ? 1 : 0;
     $banReason = sanitizeInput($_POST['ban_reason'] ?? '');
 
@@ -117,13 +117,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = reset($formErrors);
         $messageType = "error";
     } else {
-        $updateSql = "UPDATE users SET 
+        $updateSql = "UPDATE users SET
                         name = ?, email = ?, status = ?,
                         avatar = ?, bio = ?, website = ?, location = ?,
                         social_github = ?, social_twitter = ?, social_discord = ?,
                         public_profile = ?, public_show_topics = ?, public_show_comments = ?, public_show_socials = ?,
                         is_banned = ?, ban_reason = ?, updated_at = NOW()";
-        
+
         $params = [
             $name, $email, $status,
             $avatar, $bio, $website, $location,
@@ -141,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = $policyError;
                 $messageType = "error";
             } else {
-                $updateSql .= ", password = ?";
+                $updateSql .= ", password = ?, password_changed_at = NOW(), remember_token = NULL";
                 $params[] = password_hash($password, PASSWORD_DEFAULT);
             }
         }
@@ -153,10 +153,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $updateStmt = $pdo->prepare($updateSql);
                 $updateStmt->execute($params);
-                
+
                 $message = "Kullanıcı bilgileri başarıyla güncellendi.";
                 $messageType = "success";
-                
+
                 // Log the activity
                 if (function_exists('logActivity')) {
                     logActivity($pdo, 'admin_updated_user', 'user', $userId, ['admin_id' => $_SESSION["_auth_user_id"]]);
@@ -245,7 +245,7 @@ require_once __DIR__ . "/header.php";
 
     <form method="post" action="user-edit.php?id=<?= $userId ?>" class="ui-admin-form ui-admin-grid-editor ui-grid">
         <?= csrf_field() ?>
-        
+
         <div class="ui-admin-column-stack">
             <!-- Temel Bilgiler -->
             <div class="ui-admin-premium-card ui-card">
@@ -258,7 +258,7 @@ require_once __DIR__ . "/header.php";
                         <input type="text" name="name" class="ui-admin-input" value="<?= htmlspecialchars($user['name']) ?>" required aria-invalid="<?= isset($formErrors['name']) ? 'true' : 'false' ?>" aria-describedby="user-edit-name-error">
                         <?php if (isset($formErrors['name'])): ?><small class="ui-admin-form-error" id="user-edit-name-error"><?= htmlspecialchars($formErrors['name']) ?></small><?php endif; ?>
                     </div>
-                    
+
                     <div class="ui-admin-form-group">
                         <label class="ui-admin-form-label">Email Adresi <span class="ui-admin-required">*</span></label>
                         <input type="email" name="email" class="ui-admin-input" value="<?= htmlspecialchars($user['email']) ?>" required aria-invalid="<?= isset($formErrors['email']) ? 'true' : 'false' ?>" aria-describedby="user-edit-email-error">
@@ -305,12 +305,12 @@ require_once __DIR__ . "/header.php";
                         <label class="ui-admin-form-label"><i class="bi bi-github"></i> GitHub</label>
                         <input type="text" name="social_github" class="ui-admin-input" value="<?= htmlspecialchars($user['social_github'] ?? '') ?>">
                     </div>
-                    
+
                     <div class="ui-admin-form-group">
                         <label class="ui-admin-form-label"><i class="bi bi-twitter-x"></i> Twitter</label>
                         <input type="text" name="social_twitter" class="ui-admin-input" value="<?= htmlspecialchars($user['social_twitter'] ?? '') ?>">
                     </div>
-                    
+
                     <div class="ui-admin-form-group">
                         <label class="ui-admin-form-label"><i class="bi bi-discord"></i> Discord</label>
                         <input type="text" name="social_discord" class="ui-admin-input" value="<?= htmlspecialchars($user['social_discord'] ?? '') ?>">
@@ -354,7 +354,7 @@ require_once __DIR__ . "/header.php";
                 </div>
                 <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
                     <p class="ui-admin-form-help ui-admin-mb-md">Gruptan gelen yetkileri bu kullanıcı için ezebilirsiniz (İzin ver/Engelle).</p>
-                    
+
                     <div class="user-permission-override-groups">
                         <?php foreach ($permissionGroups as $prefix => $items): ?>
                             <details class="ui-admin-mb-sm ui-card" style="padding: 8px 12px; background: rgba(0,0,0,0.02);">
@@ -363,8 +363,8 @@ require_once __DIR__ . "/header.php";
                                 </summary>
                                 <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
                                     <?php foreach ($items as $permissionKey => $permissionLabel): ?>
-                                        <?php 
-                                        $currentOverride = $userOverridesMap[$permissionKey] ?? null; 
+                                        <?php
+                                        $currentOverride = $userOverridesMap[$permissionKey] ?? null;
                                         $selectedVal = $currentOverride === null ? 'default' : ($currentOverride === 1 ? 'grant' : 'deny');
                                         ?>
                                         <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed rgba(0,0,0,0.1);">
@@ -427,7 +427,7 @@ require_once __DIR__ . "/header.php";
                     </div>
                 </div>
             </div>
-            
+
             <div class="ui-admin-form-group">
                 <label class="ui-admin-form-label">Değişiklik Gerekçesi <span class="ui-admin-muted">(grup/durum/ban değişiminde denetim kaydına yazılır)</span></label>
                 <input type="text" name="edit_reason" class="ui-admin-input" placeholder="Örn: Spam nedeniyle düşürüldü, talep üzerine yükseltildi...">

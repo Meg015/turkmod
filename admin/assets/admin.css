@@ -12616,3 +12616,44 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     align-items: center !important;
     gap: 0.3rem !important;
 }
+
+/* Kullanici duzenle modal - sifre alani toggle butonu */
+.user-password-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.user-password-field .ui-admin-form-control {
+    padding-right: 2.75rem;
+    width: 100%;
+}
+
+.user-password-toggle {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.375rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ui-admin-text-dim, #94a3b8);
+    border-radius: 4px;
+    transition: color 0.15s ease, background 0.15s ease;
+    line-height: 1;
+}
+
+.user-password-toggle:hover,
+.user-password-toggle:focus-visible {
+    color: var(--ui-admin-primary, #8b1538);
+    background: color-mix(in srgb, var(--ui-admin-primary, #8b1538) 12%, transparent);
+}
+
+.user-password-toggle i {
+    font-size: 1.1rem;
+    pointer-events: none;
+}

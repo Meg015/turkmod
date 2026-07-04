@@ -1,4 +1,6 @@
 @charset "UTF-8";
+@namespace "http://www.sitemaps.org/schemas/sitemap/0.9";
+@namespace image "http://www.google.com/schemas/sitemap-image/1.1";
 
 sitemapindex,
 urlset {
@@ -39,7 +41,7 @@ urlset > url > loc {
 
 sitemapindex > sitemap > loc::before,
 urlset > url > loc::before,
-urlset > url > image\:loc::before {
+urlset > url > image|loc::before {
     display: inline-block;
     color: #64748b;
     font-size: 11px;
@@ -79,25 +81,27 @@ urlset > url > priority::before {
     content: "Priority\00a0";
 }
 
-urlset > url > image\:image {
+urlset > url > image|image {
     display: block;
-    margin-top: 8px;
+    margin-top: 12px;
+    padding-left: 14px;
+    border-left: 3px solid #e2e8f0;
 }
 
-urlset > url > image\:image > image\:loc,
-urlset > url > image\:image > image\:caption {
+urlset > url > image|image > image|loc,
+urlset > url > image|image > image|caption {
     display: block;
     margin: 0 0 4px;
     color: #475569;
     word-break: break-word;
 }
 
-urlset > url > image\:image > image\:loc {
+urlset > url > image|image > image|loc {
     color: #0b57d0;
     font-weight: 600;
 }
 
-urlset > url > image\:image > image\:loc::before {
+urlset > url > image|image > image|loc::before {
     content: "Image\00a0";
     display: inline-block;
     color: #64748b;
@@ -108,7 +112,7 @@ urlset > url > image\:image > image\:loc::before {
     vertical-align: top;
 }
 
-urlset > url > image\:image > image\:caption::before {
+urlset > url > image|image > image|caption::before {
     content: "Caption\00a0";
     display: inline-block;
     color: #64748b;

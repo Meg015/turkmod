@@ -490,22 +490,8 @@ function adminSettingDefinitions(): array
         'header_topbar_bg'       => ['label' => 'Üst Çubuk Arka Plan',       'type' => 'color',  'default' => '#0f172a',  'section' => 'lay_header'],
 
         // -- Footer Ayarlari -----------------------------------
-        'footer_layout'          => ['label' => 'Footer Düzeni',             'type' => 'select', 'default' => 'simple',   'section' => 'lay_footer', 'options' => ['simple' => 'Basit', 'columns' => 'Kolonlu', 'centered' => 'Ortalı']],
-        'footer_brand_text'      => ['label' => 'Footer Marka Metni',        'type' => 'string', 'default' => 'İçerik Topic', 'section' => 'lay_footer'],
-        'footer_description'     => ['label' => 'Footer Açıklama',           'type' => 'text',   'default' => 'Topluluk dosyaları, güncellemeler, araçlar ve eklentiler.', 'section' => 'lay_footer'],
-        'footer_copyright'       => ['label' => 'Telif Hakkı Metni',         'type' => 'string', 'default' => '', 'section' => 'lay_footer'],
-        'footer_show_social'     => ['label' => 'Sosyal Medya Linkleri',     'type' => 'bool',   'default' => '1',        'section' => 'lay_footer'],
-        'footer_show_categories' => ['label' => 'Kategori Listesi',          'type' => 'bool',   'default' => '0',        'section' => 'lay_footer'],
-        'footer_show_pages'      => ['label' => 'Sayfa Linkleri',            'type' => 'bool',   'default' => '0',        'section' => 'lay_footer'],
-        'footer_column1_title'   => ['label' => 'Kolon 1 Başlık',            'type' => 'string', 'default' => 'Hakkımızda', 'section' => 'lay_footer'],
-        'footer_column1_content' => ['label' => 'Kolon 1 İçerik',            'type' => 'text',   'default' => '',         'section' => 'lay_footer'],
-        'footer_column2_title'   => ['label' => 'Kolon 2 Başlık',            'type' => 'string', 'default' => 'Hızlı Linkler', 'section' => 'lay_footer'],
-        'footer_column2_links'   => ['label' => 'Kolon 2 Linkler (satır başına: Başlık|URL)', 'type' => 'text', 'default' => '', 'section' => 'lay_footer'],
-        'footer_column3_title'   => ['label' => 'Kolon 3 Başlık',            'type' => 'string', 'default' => 'İletişim', 'section' => 'lay_footer'],
-        'footer_column3_content' => ['label' => 'Kolon 3 İçerik',            'type' => 'text',   'default' => '',         'section' => 'lay_footer'],
-        'footer_bg_color'        => ['label' => 'Arka Plan Rengi',           'type' => 'color',  'default' => '#1a2332',  'section' => 'lay_footer'],
-        'footer_text_color'      => ['label' => 'Yazı Rengi',                'type' => 'color',  'default' => '#94a3b8',  'section' => 'lay_footer'],
-        'footer_custom_css'      => ['label' => 'Footer Ozel CSS',           'type' => 'text',   'default' => '',         'section' => 'lay_footer'],
+        'footer_nav_links'       => ['label' => 'Footer Linkleri (satır başına: Başlık|URL)', 'type' => 'text', 'default' => "Ana sayfa|{base_url}/index.php\nKategoriler|{base_url}/kategoriler\nEtkinlikler|{base_url}/events\nMod Yükle|{base_url}/upload-topic.php", 'section' => 'lay_footer'],
+        'footer_copyright_text'  => ['label' => 'Telif Hakkı Metni', 'type' => 'string', 'default' => '&copy; {current_year}. <a href="{base_url}/index.php" class="site-footer-brand-link">{site_name}</a> - Tüm hakları saklıdır.', 'section' => 'lay_footer'],
 
         // -- Sidebar Ayarlari ----------------------------------
         // Genel Sidebar Ayarları
@@ -513,7 +499,7 @@ function adminSettingDefinitions(): array
         'sidebar_position'       => ['label' => 'Sidebar Konumu',            'type' => 'select', 'default' => 'right',    'section' => 'lay_sidebar', 'options' => ['right' => 'Sağ', 'left' => 'Sol']],
         'sidebar_width'          => ['label' => 'Sidebar Genişligi (px)',    'type' => 'number', 'default' => '330',      'section' => 'lay_sidebar'],
         'sidebar_builder_config' => ['label' => 'Sidebar Builder JSON',      'type' => 'text',   'default' => '',         'section' => 'lay_sidebar'],
-        
+
         // Anasayfa Sidebar
         'sidebar_home_sticky'    => ['label' => 'Anasayfa: Kayan Sidebar',    'type' => 'bool',   'default' => '1',        'section' => 'lay_sidebar'],
         'sidebar_home_template'  => ['label' => 'Anasayfa Sidebar Şablonu',  'type' => 'select', 'default' => 'default',  'section' => 'lay_sidebar', 'options' => ['default' => 'Varsayılan', 'minimal' => 'Minimal', 'full' => 'Tam', 'custom' => 'Ozel']],
@@ -521,7 +507,7 @@ function adminSettingDefinitions(): array
         'sidebar_home_categories'=> ['label' => 'Anasayfa: Kategori Bulutu', 'type' => 'bool',   'default' => '1',        'section' => 'lay_sidebar'],
         'sidebar_home_stats'     => ['label' => 'Anasayfa: Site İstatistikleri', 'type' => 'bool', 'default' => '1',      'section' => 'lay_sidebar'],
         'sidebar_home_custom'    => ['label' => 'Anasayfa: Özel Widget',     'type' => 'text',   'default' => '',         'section' => 'lay_sidebar'],
-        
+
         // Konu Detay Sidebar
         'sidebar_topic_sticky'   => ['label' => 'Konu Detay: Kayan Sidebar',  'type' => 'bool', 'default' => '1',       'section' => 'lay_sidebar'],
         'sidebar_topic_template' => ['label' => 'Konu Sidebar Şablonu',      'type' => 'select', 'default' => 'default',  'section' => 'lay_sidebar', 'options' => ['default' => 'Varsayılan', 'minimal' => 'Minimal', 'related' => 'Benzer İçerikler', 'custom' => 'Ozel']],
@@ -530,7 +516,7 @@ function adminSettingDefinitions(): array
         'sidebar_topic_categories'=> ['label' => 'Konu: Kategori Bulutu',    'type' => 'bool',   'default' => '1',        'section' => 'lay_sidebar'],
         'sidebar_topic_author'   => ['label' => 'Konu: Yazar Bilgisi',       'type' => 'bool',   'default' => '1',        'section' => 'lay_sidebar'],
         'sidebar_topic_custom'   => ['label' => 'Konu: Özel Widget',         'type' => 'text',   'default' => '',         'section' => 'lay_sidebar'],
-        
+
         // Kategori Sidebar
         'sidebar_category_sticky'=> ['label' => 'Kategori: Kayan Sidebar',    'type' => 'bool',   'default' => '1',        'section' => 'lay_sidebar'],
         'sidebar_category_template' => ['label' => 'Kategori Sidebar Şablonu', 'type' => 'select', 'default' => 'default', 'section' => 'lay_sidebar', 'options' => ['default' => 'Varsayılan', 'minimal' => 'Minimal', 'navigation' => 'Navigasyon', 'custom' => 'Ozel']],
@@ -538,7 +524,7 @@ function adminSettingDefinitions(): array
         'sidebar_category_popular'=> ['label' => 'Kategori: Popüler İçerikler', 'type' => 'bool', 'default' => '1',       'section' => 'lay_sidebar'],
         'sidebar_category_stats' => ['label' => 'Kategori: Kategori İstatistikleri', 'type' => 'bool', 'default' => '1',   'section' => 'lay_sidebar'],
         'sidebar_category_custom'=> ['label' => 'Kategori: Özel Widget',     'type' => 'text',   'default' => '',         'section' => 'lay_sidebar'],
-        
+
         // Arama Sidebar
         'sidebar_search_sticky'  => ['label' => 'Arama: Kayan Sidebar',      'type' => 'bool',   'default' => '1',        'section' => 'lay_sidebar'],
         'sidebar_search_template'=> ['label' => 'Arama Sidebar Şablonu',     'type' => 'select', 'default' => 'default',  'section' => 'lay_sidebar', 'options' => ['default' => 'Varsayılan', 'minimal' => 'Minimal', 'filters' => 'Filtreler', 'custom' => 'Ozel']],
@@ -546,7 +532,7 @@ function adminSettingDefinitions(): array
         'sidebar_search_categories'=> ['label' => 'Arama: Kategori Listesi', 'type' => 'bool',   'default' => '1',        'section' => 'lay_sidebar'],
         'sidebar_search_popular' => ['label' => 'Arama: Popüler Aramalar',   'type' => 'bool',   'default' => '1',        'section' => 'lay_sidebar'],
         'sidebar_search_custom'  => ['label' => 'Arama: Özel Widget',        'type' => 'text',   'default' => '',         'section' => 'lay_sidebar'],
-        
+
         // Genel Widget Ayarları
         'sidebar_popular_count'  => ['label' => 'Popüler İçerik Sayısı',     'type' => 'number', 'default' => '6',        'section' => 'lay_sidebar'],
         'sidebar_popular_sort'   => ['label' => 'Popüler Sıralama',          'type' => 'select', 'default' => 'downloads','section' => 'lay_sidebar', 'options' => ['downloads' => 'Indirme', 'views' => 'Görüntülenme', 'date' => 'Tarih']],
@@ -562,20 +548,7 @@ function adminSettingDefinitions(): array
         'menu_cta_color'         => ['label' => 'CTA Buton Rengi',           'type' => 'color',  'default' => '#8b1538',  'section' => 'lay_menu'],
         'menu_cta_icon'          => ['label' => 'CTA Buton İkonu',           'type' => 'string', 'default' => 'bi-cloud-arrow-up', 'section' => 'lay_menu'],
 
-        'footer_brand_icon'      => ['label' => 'Footer Marka Ikonu (harf)', 'type' => 'string', 'default' => 'M',        'section' => 'lay_footer'],
-        'footer_column1_enabled' => ['label' => 'Kolon 1 Goster',            'type' => 'bool',   'default' => '1',        'section' => 'lay_footer'],
-        'footer_column2_enabled' => ['label' => 'Kolon 2 Goster',            'type' => 'bool',   'default' => '1',        'section' => 'lay_footer'],
-        'footer_column3_enabled' => ['label' => 'Kolon 3 Goster',            'type' => 'bool',   'default' => '1',        'section' => 'lay_footer'],
-        'footer_show_newsletter' => ['label' => 'Bulten Formu Goster',       'type' => 'bool',   'default' => '0',        'section' => 'lay_footer'],
-        'footer_newsletter_title' => ['label' => 'Bulten Basligi',            'type' => 'string', 'default' => 'Guncel Kal', 'section' => 'lay_footer'],
-        'footer_newsletter_text' => ['label' => 'Bulten Aciklamasi',          'type' => 'text',   'default' => 'Yeni iceriklerden haberdar ol', 'section' => 'lay_footer'],
-        'footer_newsletter_placeholder' => ['label' => 'Bulten Placeholder',  'type' => 'string', 'default' => 'E-posta adresin', 'section' => 'lay_footer'],
-        'footer_newsletter_button_icon' => ['label' => 'Bulten Buton Ikonu',  'type' => 'string', 'default' => 'bi-arrow-right', 'section' => 'lay_footer'],
-        'footer_show_meta'       => ['label' => 'Alt Meta Bilgileri Goster',  'type' => 'bool',   'default' => '1',        'section' => 'lay_footer'],
-        'footer_meta_left_icon'  => ['label' => 'Meta 1 Ikon',               'type' => 'string', 'default' => 'bi-shield-check', 'section' => 'lay_footer'],
-        'footer_meta_left_text'  => ['label' => 'Meta 1 Metin',              'type' => 'string', 'default' => 'Guvenli',  'section' => 'lay_footer'],
-        'footer_meta_right_icon' => ['label' => 'Meta 2 Ikon',               'type' => 'string', 'default' => 'bi-heart-fill', 'section' => 'lay_footer'],
-        'footer_meta_right_text' => ['label' => 'Meta 2 Metin',              'type' => 'string', 'default' => 'Topluluk', 'section' => 'lay_footer'],
+
 
         // -- Moderasyon -----------------------------------------
         'banned_words'              => ['label' => 'Yasakli Kelimeler (satır başına bir)', 'type' => 'text', 'default' => '', 'section' => 'moderation'],
@@ -600,8 +573,8 @@ function adminSettingDefinitions(): array
         // -- Gelişmiş Yorum Özellikleri ----------------------
         'comment_reactions_enabled'  => ['label' => 'Reaksiyon Sistemi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Kullanıcıların yorumlara emoji reaksiyonları (👍 ❤️ 😂) eklemesine izin verir.'],
         'comment_reactions_types'    => [
-            'label' => 'Aktif Reaksiyonlar', 
-            'type' => 'multicheck', 
+            'label' => 'Aktif Reaksiyonlar',
+            'type' => 'multicheck',
             'options' => [
                 'like' => 'Beğen (👍)',
                 'love' => 'Muhteşem (❤️)',
@@ -610,8 +583,8 @@ function adminSettingDefinitions(): array
                 'sad' => 'Üzgün (😢)',
                 'angry' => 'Kızgın (😡)'
             ],
-            'default' => 'like,love,laugh,wow,sad,angry', 
-            'section' => 'comments', 
+            'default' => 'like,love,laugh,wow,sad,angry',
+            'section' => 'comments',
             'tooltip' => 'Aktif etmek istediğiniz reaksiyonları seçin.'
         ],
         'comment_markdown_enabled'   => ['label' => 'Markdown Desteği', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yorumlarda **kalın**, *italik*, `kod` gibi markdown formatlamaya izin verir.'],

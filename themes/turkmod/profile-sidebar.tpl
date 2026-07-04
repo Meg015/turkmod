@@ -46,8 +46,10 @@
                 {if profile.can_report}
                     <button type="button" class="profile-sidebar-social-link profile-sidebar-report-action" data-user-report-modal-open title="Kullanıcıyı Şikayet Et" aria-label="Kullanıcıyı Şikayet Et"><i class="bi bi-flag" aria-hidden="true"></i></button>
                 {/if}
-                {if profile.can_message && profile.message_url}
-                    <a href="{profile.message_url}" class="profile-sidebar-social-link profile-sidebar-message-action" title="Mesaj Gonder" aria-label="Mesaj Gonder"><i class="bi bi-chat-left-text" aria-hidden="true"></i></a>
+                {if profile.can_message}
+                    {if profile.message_url}
+                        <a href="{profile.message_url}" class="profile-sidebar-social-link profile-sidebar-message-action" title="Mesaj Gonder" aria-label="Mesaj Gonder"><i class="bi bi-chat-left-text" aria-hidden="true"></i></a>
+                    {/if}
                 {/if}
             </div>
         {/if}
