@@ -491,7 +491,7 @@ function adminSettingDefinitions(): array
 
         // -- Footer Ayarlari -----------------------------------
         'footer_nav_links'       => ['label' => 'Footer Linkleri (satır başına: Başlık|URL)', 'type' => 'text', 'default' => "Ana sayfa|{base_url}/index.php\nKategoriler|{base_url}/kategoriler\nEtkinlikler|{base_url}/events\nMod Yükle|{base_url}/upload-topic.php", 'section' => 'lay_footer'],
-        'footer_copyright_text'  => ['label' => 'Telif Hakkı Metni', 'type' => 'string', 'default' => '&copy; {current_year}. <a href="{base_url}/index.php" class="site-footer-brand-link">{site_name}</a> - Tüm hakları saklıdır.', 'section' => 'lay_footer'],
+        'footer_copyright'  => ['label' => 'Telif Hakkı Metni', 'type' => 'string', 'default' => '&copy; {current_year}. <a href="{base_url}/index.php" class="site-footer-brand-link">{site_name}</a> - Tüm hakları saklıdır.', 'section' => 'lay_footer'],
 
         // -- Sidebar Ayarlari ----------------------------------
         // Genel Sidebar Ayarları
