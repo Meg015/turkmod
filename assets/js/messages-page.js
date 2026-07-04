@@ -509,6 +509,12 @@
                             composerTextarea.style.height = "auto";
                             composerTextarea.focus();
                         }
+                        // Mesaj gönderilince "yazıyor..." göstergesini hemen temizle
+                        if (activeThreadData) {
+                            activeThreadData.is_typing_now = false;
+                        }
+                        clearTimeout(window.typingTimer);
+                        lastTypingSent = 0;
                         pollThread(true);
                     } else if (typeof window.showToast === "function") {
                         window.showToast(data.message || "Mesaj gonderilemedi", "error");
@@ -546,7 +552,13 @@
                     }
 
                     activeThreadData = data.thread;
+                    var prevCount = threadMessages.length;
                     mergeMessages(data.messages);
+                    // Yeni mesaj geldiyse "yazıyor..." göstergesini temizle
+                    if (threadMessages.length > prevCount) {
+                        activeThreadData.is_typing_now = false;
+                        clearTimeout(window.typingTimer);
+                    }
                     renderStream();
 
                     if (stream && (wasAtBottom || forceScroll)) {
