@@ -1,4 +1,4 @@
-﻿@charset "UTF-8";
+@charset "UTF-8";
 
 /* TurkMod TurkMod - Bundled CSS */
 
@@ -143904,16 +143904,6 @@ html[data-public-theme="turkmod"] .sidebar-right > .row {
 }
 
 
-
-html[data-public-theme="turkmod"] .site-main--focus .layout.grid--focus {
-
-  width: min(var(--t-focus-width), 100%);
-
-  margin-right: auto;
-
-  margin-left: auto;
-
-}
 
 
 
