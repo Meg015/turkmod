@@ -105,7 +105,13 @@ if (!function_exists('seoGetProfileStructuredData')) {
             $personSchema['image'] = $avatar;
         }
 
-        $orgName = $settings['schema_organization_name'] ?? ($settings['site_name'] ?? 'İçerik Topic');
+        $orgName = trim((string) ($settings['schema_organization_name'] ?? ''));
+        if ($orgName === '') {
+            $orgName = trim((string) ($settings['site_name'] ?? ''));
+        }
+        if ($orgName === '') {
+            $orgName = trim((string) ($GLOBALS['envConfig']['APP_NAME'] ?? 'İçerik Topic'));
+        }
         if ($orgName !== '') {
             $personSchema['memberOf'] = [
                 '@type' => 'Organization',

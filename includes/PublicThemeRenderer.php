@@ -1681,6 +1681,13 @@ final class PublicThemeRenderer
             return '';
         }
 
+        if (function_exists('getBreadcrumbStructuredData')) {
+            $schemaItems = array_map(function($item) {
+                return ['name' => $item['label'], 'url' => $item['url']];
+            }, $breadcrumbItems);
+            $innerHtml .= "\n" . getBreadcrumbStructuredData($schemaItems, null);
+        }
+
         return $themeManager->render('partials.breadcrumb', [
             'breadcrumbs_html' => $innerHtml,
             'breadcrumb_items' => $breadcrumbItems,
@@ -2065,6 +2072,12 @@ final class PublicThemeRenderer
         }
         $seoPageTitle = trim((string) ($pageVars['seoPageTitle'] ?? $pageVars['seo_page_title'] ?? ''));
         $seoPageTitleIsFinal = !empty($pageVars['seoPageTitleIsFinal'] ?? $pageVars['seo_page_title_is_final'] ?? $pageVars['pageTitleIsFinal'] ?? false);
+        $seoTemplateContext = [];
+        if (isset($pageVars['seoTemplateContext']) && is_array($pageVars['seoTemplateContext'])) {
+            $seoTemplateContext = $pageVars['seoTemplateContext'];
+        } elseif (isset($pageVars['seo_template_context']) && is_array($pageVars['seo_template_context'])) {
+            $seoTemplateContext = $pageVars['seo_template_context'];
+        }
         if ($seoPageTitle === '') {
             $seoPageTitle = $pageTitle;
         }
@@ -2079,7 +2092,7 @@ final class PublicThemeRenderer
                     'title' => $seoPageTitle,
                     'description' => $metaDescription,
                 ],
-                [],
+                $seoTemplateContext,
                 $settings
             );
             if (!empty($resolvedPageMeta['title_is_final'])) {

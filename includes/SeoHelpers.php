@@ -37,7 +37,10 @@ if (!function_exists('getSeoMeta')) {
             ? seoSettings()
             : (function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : []);
 
-        $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
+        $siteName = trim((string) ($settings['site_name'] ?? ''));
+        if ($siteName === '') {
+            $siteName = trim((string) ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
+        }
         $titleIsFinal = !empty($GLOBALS['_seo_public_page_title_is_final']);
         $skipPublicPresets = !empty($GLOBALS['_seo_skip_public_page_presets']);
 
@@ -286,7 +289,10 @@ if (!function_exists('getWebsiteStructuredData')) {
         $settings = function_exists('seoSettings')
             ? seoSettings()
             : (function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : []);
-        $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
+        $siteName = trim((string) ($settings['site_name'] ?? ''));
+        if ($siteName === '') {
+            $siteName = trim((string) ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
+        }
         $baseUrl = getBaseUrl();
         
         $data = [

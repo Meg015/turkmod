@@ -140,27 +140,44 @@ final class TopicSitemapPage implements Handler
         $staticLastmod = $this->now();
         $body = '';
 
-        if (function_exists('seoPublicPageShouldAppearInSitemap') && seoPublicPageShouldAppearInSitemap('home', $settings)) {
-            $body .= $this->renderUrlEntry(
-                $this->canonicalUrl('/', $settings, $canonicalBase),
-                $staticLastmod,
-                'daily',
-                (string) ($settings['sitemap_priority_home'] ?? '1.0'),
-            );
-        }
-
-        if ((string) ($settings['sitemap_include_categories'] ?? '1') !== '1') {
-            return $body;
-        }
-
-        if (function_exists('seoPublicPageShouldAppearInSitemap') && seoPublicPageShouldAppearInSitemap('category_list', $settings)) {
-            $changefreq = (string) ($settings['sitemap_changefreq'] ?? 'weekly');
-            $body .= $this->renderUrlEntry(
-                $this->canonicalUrl($this->categoryListPath(), $settings, $canonicalBase),
-                $staticLastmod,
-                $changefreq,
-                '0.8',
-            );
+        if (function_exists('seoPublicPageCatalog') && function_exists('seoPublicPageShouldAppearInSitemap') && function_exists('seoPublicPageSitemapPriority')) {
+            $catalog = seoPublicPageCatalog($settings);
+            $dynamicKeys = ['topic', 'category', 'profile', 'public_profile', 'search'];
+            
+            foreach ($catalog as $key => $meta) {
+                if (in_array($key, $dynamicKeys, true)) {
+                    continue;
+                }
+                
+                if (seoPublicPageShouldAppearInSitemap($key, $settings)) {
+                    // Get clean path for canonical
+                    $rawPath = (string) ($meta['path'] ?? '');
+                    if ($key === 'home' || str_contains($rawPath, 'index.php')) {
+                        $path = '/';
+                    } elseif ($key === 'category_list') {
+                        $path = $this->categoryListPath();
+                    } else {
+                        $path = (string) parse_url($rawPath, PHP_URL_PATH);
+                        $baseUri = (string) parse_url($canonicalBase, PHP_URL_PATH);
+                        if ($baseUri !== '' && $baseUri !== '/' && str_starts_with($path, $baseUri)) {
+                            $path = substr($path, strlen($baseUri));
+                        }
+                    }
+                    
+                    $priority = seoPublicPageSitemapPriority($key, $settings);
+                    $changefreq = (string) ($settings['sitemap_changefreq'] ?? 'weekly');
+                    if ($key === 'home') {
+                        $changefreq = 'daily';
+                    }
+                    
+                    $body .= $this->renderUrlEntry(
+                        $this->canonicalUrl($path, $settings, $canonicalBase),
+                        $staticLastmod,
+                        $changefreq,
+                        $priority
+                    );
+                }
+            }
         }
 
         foreach ($this->resolveCategoryTree() as $node) {

@@ -15,7 +15,7 @@ if (!function_exists('seoPublicPageLockedNoindexKeys')) {
      */
     function seoPublicPageLockedNoindexKeys(): array
     {
-        return ['login', 'register', 'forgot_password', 'reset_password'];
+        return [];
     }
 }
 
@@ -232,7 +232,10 @@ if (!function_exists('seoPublicPageCatalog')) {
     {
         $settings = is_array($settings) ? $settings : [];
         $baseUri = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
-        $siteName = (string) ($settings['site_name'] ?? ($GLOBALS['envConfig']['APP_NAME'] ?? 'İçerik Topic'));
+        $siteName = trim((string) ($settings['site_name'] ?? ''));
+        if ($siteName === '') {
+            $siteName = trim((string) ($GLOBALS['envConfig']['APP_NAME'] ?? 'İçerik Topic'));
+        }
         $siteDescription = trim((string) ($settings['site_description'] ?? $settings['footer_description'] ?? $settings['footer_text'] ?? ''));
         if ($siteDescription === '') {
             $siteDescription = 'Topluluk içerikleri, modlar ve rehberler.';
@@ -254,9 +257,9 @@ if (!function_exists('seoPublicPageCatalog')) {
                 'label' => 'Arama Sonuçları',
                 'path' => $baseUri . '/?q=ornek',
                 'summary' => 'Arama sonuçları için ayrı başlık ve açıklama.',
-                'placeholders' => ['query', 'page_title', 'page_description', 'site_name'],
+                'placeholders' => ['query', 'page_title', 'page_description', 'site_name', 'page_suffix'],
                 'default_noindex' => true,
-                'placeholder_title' => '{{query}} arama sonuçları | {{site_name}}',
+                'placeholder_title' => '{{query}} arama sonuçları{{page_suffix}} | {{site_name}}',
                 'placeholder_description' => '{{query}} için arama sonuçları.',
             ],
             'category_list' => [
@@ -264,9 +267,9 @@ if (!function_exists('seoPublicPageCatalog')) {
                 'label' => 'Kategori Listesi',
                 'path' => seoPublicPageRoutePath('category_list', '', $settings),
                 'summary' => 'Kategorilerin genel liste sayfası.',
-                'placeholders' => ['page_title', 'page_description', 'site_name'],
+                'placeholders' => ['page_title', 'page_description', 'site_name', 'page_suffix'],
                 'default_noindex' => false,
-                'placeholder_title' => '{{page_title}} | {{site_name}}',
+                'placeholder_title' => '{{page_title}}{{page_suffix}} | {{site_name}}',
                 'placeholder_description' => '{{page_description}}',
             ],
             'category' => [
@@ -274,20 +277,20 @@ if (!function_exists('seoPublicPageCatalog')) {
                 'label' => 'Kategori Sayfası',
                 'path' => seoPublicPageRoutePath('category', 'ornek-kategori', $settings),
                 'summary' => 'Kategori detay sayfaları için şablon.',
-                'placeholders' => ['category', 'parent', 'count', 'page_title', 'page_description', 'site_name'],
+                'placeholders' => ['child_category', 'parent_category', 'category_description', 'site_name', 'page_suffix'],
                 'default_noindex' => false,
-                'placeholder_title' => '{{page_title}} | {{site_name}}',
-                'placeholder_description' => '{{page_description}}',
+                'placeholder_title' => '{{child_category}}{{page_suffix}} | {{site_name}}',
+                'placeholder_description' => '{{category_description}}',
             ],
             'topic' => [
                 'group' => 'core',
                 'label' => 'Konu Sayfası',
                 'path' => seoPublicPageRoutePath('topic', (string) ((string) ($settings['route_topic_id_suffix'] ?? '1') === '1' ? 'ornek-konu-123' : 'ornek-konu'), $settings),
                 'summary' => 'Konu detay sayfaları için şablon.',
-                'placeholders' => ['title', 'category', 'author', 'excerpt', 'page_title', 'page_description', 'site_name'],
+                'placeholders' => ['title', 'category', 'author', 'topic_description', 'site_name'],
                 'default_noindex' => false,
-                'placeholder_title' => '{{page_title}} | {{site_name}}',
-                'placeholder_description' => '{{page_description}}',
+                'placeholder_title' => '{{title}} | {{site_name}}',
+                'placeholder_description' => '{{topic_description}}',
             ],
             'profile' => [
                 'group' => 'core',
@@ -334,10 +337,10 @@ if (!function_exists('seoPublicPageCatalog')) {
                 'label' => 'Çıkış',
                 'path' => seoPublicPageStaticUrl('logout', '', $settings),
                 'summary' => 'Oturum kapatma işlemi.',
-                'placeholders' => ['page_title', 'site_name'],
+                'placeholders' => ['page_title', 'page_description', 'site_name'],
                 'default_noindex' => true,
                 'placeholder_title' => '{{page_title}} | {{site_name}}',
-                'placeholder_description' => '',
+                'placeholder_description' => '{{page_description}}',
             ],
             'forgot_password' => [
                 'group' => 'account',
@@ -384,9 +387,9 @@ if (!function_exists('seoPublicPageCatalog')) {
                 'label' => 'Liderlik Tablosu',
                 'path' => seoPublicPageStaticUrl('leaderboard', '', $settings),
                 'summary' => 'Liderlik sayfası için meta ayarları.',
-                'placeholders' => ['page_title', 'page_description', 'site_name'],
+                'placeholders' => ['page_title', 'page_description', 'site_name', 'page_suffix'],
                 'default_noindex' => true,
-                'placeholder_title' => '{{page_title}} | {{site_name}}',
+                'placeholder_title' => '{{page_title}}{{page_suffix}} | {{site_name}}',
                 'placeholder_description' => '{{page_description}}',
             ],
             'ban_appeals' => [
@@ -447,6 +450,16 @@ if (!function_exists('seoPublicPageCatalog')) {
                 'placeholders' => ['page_title', 'page_description', 'site_name'],
                 'default_noindex' => true,
                 'placeholder_title' => '{{page_title}} | {{site_name}}',
+                'placeholder_description' => '{{page_description}}',
+            ],
+            'error_404' => [
+                'group' => 'utility',
+                'label' => '404 Hata Sayfası',
+                'path' => seoPublicPageStaticUrl('404', '', $settings),
+                'summary' => 'Bulunamayan sayfalar için meta ayarları.',
+                'placeholders' => ['page_title', 'page_description', 'site_name'],
+                'default_noindex' => true,
+                'placeholder_title' => 'Sayfa Bulunamadı | {{site_name}}',
                 'placeholder_description' => '{{page_description}}',
             ],
             'events.wheel' => [
@@ -520,7 +533,7 @@ if (!function_exists('seoPublicPageGroups')) {
                 'title' => 'Araçlar',
                 'description' => 'Bildirim, mesaj, iletişim ve yükleme sayfaları.',
                 'icon' => 'bi-wrench-adjustable-circle',
-                'pages' => array_intersect_key($catalog, array_flip(['notifications', 'messages', 'leaderboard', 'ban_appeals', 'contact', 'upload_topic', 'edit_topic', 'download'])),
+                'pages' => array_intersect_key($catalog, array_flip(['notifications', 'messages', 'leaderboard', 'ban_appeals', 'contact', 'upload_topic', 'edit_topic', 'download', 'error_404'])),
             ],
             'events' => [
                 'title' => 'Etkinlikler',
@@ -580,6 +593,16 @@ if (!function_exists('seoPublicPagePresetsNormalize')) {
             if ($noindex !== $defaultNoindex) {
                 $page['noindex'] = $noindex ? '1' : '0';
             }
+            
+            $sitemapInclude = seoPublicPageBoolValue($entry['sitemap_include'] ?? null, true);
+            if (!$sitemapInclude) {
+                $page['sitemap_include'] = '0';
+            }
+            
+            $sitemapPriority = trim((string) ($entry['sitemap_priority'] ?? ''));
+            if ($sitemapPriority !== '' && is_numeric($sitemapPriority)) {
+                $page['sitemap_priority'] = $sitemapPriority;
+            }
 
             if ($page !== []) {
                 $normalized[$pageKey] = $page;
@@ -629,11 +652,23 @@ if (!function_exists('seoPublicPagePresetForKey')) {
         $stored = seoPublicPagePresetsFromSettings($settings);
         $defaultNoindex = !empty($catalog[$pageKey]['default_noindex']);
 
+        $defaultPriority = [
+            'home' => '1.0',
+            'category_list' => '0.9',
+            'search' => '0.8', 'category' => '0.8', 'topic' => '0.8', 'profile' => '0.8', 'public_profile' => '0.8',
+            'leaderboard' => '0.7', 'contact' => '0.7',
+            'events' => '0.6', 'events.wheel' => '0.6', 'events.raffle' => '0.6', 'events.rewards' => '0.6', 'events.tasks' => '0.6',
+            'login' => '0.3', 'register' => '0.3', 'forgot_password' => '0.3', 'reset_password' => '0.3',
+            'error_404' => '0.1', 'ban_appeals' => '0.1', 'upload_topic' => '0.1', 'edit_topic' => '0.1', 'download' => '0.1'
+        ][$pageKey] ?? '0.5';
+
         $preset = [
             'title' => '',
             'description' => '',
             'image' => '',
             'noindex' => $defaultNoindex ? '1' : '0',
+            'sitemap_include' => '1',
+            'sitemap_priority' => $defaultPriority,
         ];
 
         if (isset($stored[$pageKey]) && is_array($stored[$pageKey])) {
@@ -644,6 +679,8 @@ if (!function_exists('seoPublicPagePresetForKey')) {
         $preset['description'] = trim((string) ($preset['description'] ?? ''));
         $preset['image'] = trim((string) ($preset['image'] ?? ''));
         $preset['noindex'] = seoPublicPageBoolValue($preset['noindex'] ?? null, $defaultNoindex) ? '1' : '0';
+        $preset['sitemap_include'] = seoPublicPageBoolValue($preset['sitemap_include'] ?? null, true) ? '1' : '0';
+        $preset['sitemap_priority'] = trim((string) ($preset['sitemap_priority'] ?? $defaultPriority));
 
         return $preset;
     }
@@ -810,7 +847,10 @@ if (!function_exists('seoPublicPageTemplateVars')) {
     function seoPublicPageTemplateVars(string $pageKey, array $context = [], ?array $settings = null): array
     {
         $settings = function_exists('seoSettings') ? seoSettings($settings) : (is_array($settings) ? $settings : []);
-        $siteName = (string) ($settings['site_name'] ?? ($GLOBALS['envConfig']['APP_NAME'] ?? 'İçerik Topic'));
+        $siteName = trim((string) ($settings['site_name'] ?? ''));
+        if ($siteName === '') {
+            $siteName = trim((string) ($GLOBALS['envConfig']['APP_NAME'] ?? 'İçerik Topic'));
+        }
         $siteDescription = trim((string) ($settings['site_description'] ?? $settings['footer_description'] ?? $settings['footer_text'] ?? ''));
         if ($siteDescription === '') {
             $siteDescription = 'Topluluk içerikleri, modlar ve rehberler.';
@@ -821,13 +861,19 @@ if (!function_exists('seoPublicPageTemplateVars')) {
             'site_description' => $siteDescription,
             'page_title' => trim((string) ($context['page_title'] ?? '')),
             'page_description' => trim((string) ($context['page_description'] ?? '')),
+            'category_description' => trim((string) ($context['category_description'] ?? '')),
+            'topic_description' => trim((string) ($context['topic_description'] ?? '')),
             'query' => trim((string) ($context['query'] ?? ($_GET['q'] ?? $_GET['search'] ?? ''))),
             'title' => trim((string) ($context['title'] ?? '')),
             'category' => trim((string) ($context['category'] ?? '')),
+            'child_category' => trim((string) ($context['child_category'] ?? '')),
             'parent' => trim((string) ($context['parent'] ?? '')),
+            'parent_category' => trim((string) ($context['parent_category'] ?? '')),
             'count' => (string) (int) ($context['count'] ?? 0),
             'author' => trim((string) ($context['author'] ?? '')),
             'excerpt' => trim((string) ($context['excerpt'] ?? '')),
+            'page_number' => (isset($_GET['page']) && is_numeric($_GET['page']) && (int)$_GET['page'] > 1) ? (string) (int)$_GET['page'] : '',
+            'page_suffix' => (isset($_GET['page']) && is_numeric($_GET['page']) && (int)$_GET['page'] > 1) ? ' - Sayfa ' . (int)$_GET['page'] : '',
             'username' => trim((string) ($context['username'] ?? '')),
             'topics' => (string) (int) ($context['topics'] ?? 0),
             'comments' => (string) (int) ($context['comments'] ?? 0),
@@ -842,6 +888,9 @@ if (!function_exists('seoPublicPageTemplateVars')) {
         }
         if ($vars['category'] === '' && $vars['title'] !== '') {
             $vars['category'] = (string) $vars['title'];
+        }
+        if ($vars['child_category'] === '' && $vars['title'] !== '') {
+            $vars['child_category'] = (string) $vars['title'];
         }
         if ($vars['username'] === '' && $vars['title'] !== '') {
             $vars['username'] = (string) $vars['title'];
@@ -964,7 +1013,14 @@ if (!function_exists('seoPublicPageShouldAppearInSitemap')) {
             return false;
         }
 
-        return !seoPublicPageIsNoindex($pageKey, $settings);
+        return !seoPublicPageIsNoindex($pageKey, $settings) && (seoPublicPagePresetForKey($pageKey, $settings)['sitemap_include'] ?? '1') === '1';
+    }
+}
+
+if (!function_exists('seoPublicPageSitemapPriority')) {
+    function seoPublicPageSitemapPriority(string $pageKey, ?array $settings = null): string
+    {
+        return seoPublicPagePresetForKey($pageKey, $settings)['sitemap_priority'] ?? '0.5';
     }
 }
 

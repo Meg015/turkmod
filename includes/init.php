@@ -2848,7 +2848,12 @@ function seoCanonicalUrl(?string $path = null, ?array $settings = null): string
         $path = rtrim($path, "/");
     }
 
-    return $base . $path;
+    $url = $base . $path;
+    if (isset($_GET['page']) && is_numeric($_GET['page']) && (int)$_GET['page'] > 1) {
+        $url .= (str_contains($url, '?') ? '&' : '?') . 'page=' . (int)$_GET['page'];
+    }
+    
+    return $url;
 }
 
 function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?string $pageKey = null): string

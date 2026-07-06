@@ -153,6 +153,34 @@ $_seoPageKey = function_exists('seoPublicPageResolveKey')
     : (isset($pageKey) ? (string) $pageKey : '');
 $_seoPageTitle = trim((string) ($seoPageTitle ?? $pageTitle));
 $_seoPageTitleIsFinal = !empty($seoPageTitleIsFinal ?? $pageTitleIsFinal ?? false);
+$_seoTemplateContext = isset($seoTemplateContext) && is_array($seoTemplateContext)
+    ? $seoTemplateContext
+    : [];
+if ($_seoPageKey === 'category') {
+    $_categoryTemplateValue = trim((string) ($_seoTemplateContext['category'] ?? ($categoryName ?? '')));
+    $_parentCategoryName = trim((string) ($categoryParentName ?? ''));
+    $_parentTemplateValue = trim((string) ($_seoTemplateContext['parent'] ?? ''));
+
+    if ($_parentTemplateValue === '') {
+        if ($_parentCategoryName !== '' && $_categoryTemplateValue !== '') {
+            $_parentTemplateValue = $_parentCategoryName . ' › ' . $_categoryTemplateValue;
+        } elseif ($_categoryTemplateValue !== '') {
+            $_parentTemplateValue = $_categoryTemplateValue;
+        } elseif ($_parentCategoryName !== '') {
+            $_parentTemplateValue = $_parentCategoryName;
+        }
+    }
+
+    if ($_categoryTemplateValue !== '') {
+        $_seoTemplateContext['category'] = $_categoryTemplateValue;
+    }
+    if ($_parentTemplateValue !== '') {
+        $_seoTemplateContext['parent'] = $_parentTemplateValue;
+    }
+    if (!array_key_exists('count', $_seoTemplateContext) && isset($total)) {
+        $_seoTemplateContext['count'] = (string) (int) $total;
+    }
+}
 if ($_seoPageTitle === '') {
     $_seoPageTitle = $pageTitle;
 }
@@ -167,7 +195,7 @@ if (
             'title' => $_seoPageTitle,
             'description' => $metaDescription,
         ],
-        [],
+        $_seoTemplateContext,
         $_lay
     );
     if (!empty($_resolvedSeoTitleMeta['title_is_final'])) {
@@ -187,6 +215,9 @@ $publicHeaderVars['seoPageTitleIsFinal'] = $_seoPageTitleIsFinal;
 $publicHeaderVars['pageTitleIsFinal'] = $_seoPageTitleIsFinal;
 $publicHeaderVars['page_key'] = $_seoPageKey;
 $publicHeaderVars['current_request_uri'] = $_currentRequestUri;
+if ($_seoTemplateContext !== []) {
+    $publicHeaderVars['seoTemplateContext'] = $_seoTemplateContext;
+}
 if (isset($seoMetaTags) && (string) $seoMetaTags !== '') {
     $publicHeaderVars['seoMetaTags'] = (string) $seoMetaTags;
 }

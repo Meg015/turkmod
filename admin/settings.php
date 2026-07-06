@@ -1152,6 +1152,22 @@ require_once __DIR__ . '/header.php';
                                                                             </div>
                                                                         <?php endif; ?>
                                                                     </div>
+
+                                                                    <div class="seo-public-page-field seo-public-page-field-wide" style="display: flex; gap: 1.5rem; align-items: center; padding-top: 0.5rem; border-top: 1px dashed var(--admin-border);">
+                                                                        <label class="ui-admin-switch seo-public-page-switch mb-0">
+                                                                            <input type="checkbox" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][sitemap_include]" value="1" <?= ($preset['sitemap_include'] ?? '1') === '1' ? 'checked' : '' ?>>
+                                                                            <span class="ui-admin-switch-label">Sitemap'e Ekle</span>
+                                                                        </label>
+                                                                        
+                                                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                                            <label class="ui-admin-form-label mb-0" for="<?= htmlspecialchars($fieldIdBase . '-priority') ?>">Öncelik (Priority):</label>
+                                                                            <select id="<?= htmlspecialchars($fieldIdBase . '-priority') ?>" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][sitemap_priority]" class="ui-admin-form-select" style="width: auto;">
+                                                                                <?php foreach (['1.0', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1'] as $p): ?>
+                                                                                    <option value="<?= $p ?>" <?= ($preset['sitemap_priority'] ?? '0.5') === $p ? 'selected' : '' ?>><?= $p ?></option>
+                                                                                <?php endforeach; ?>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </section>
                                                         <?php endforeach; ?>
