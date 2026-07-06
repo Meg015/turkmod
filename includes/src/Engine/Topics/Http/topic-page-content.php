@@ -12,7 +12,8 @@ if ($cacheEnabled && empty($_SESSION['_auth_user_id'])) {
     header("Pragma: no-cache");
     header("Expires: 0");
 }
-require_once $projectRoot . "/includes/src/Engine/Seo/Legacy/legacy-redirect-helpers.php";
+require_once $projectRoot . "/includes/src/Engine/Seo/Legacy/legacy-redirect-helpers.php";
+require_once $projectRoot . "/includes/src/Engine/Seo/Legacy/helpers.php";
 
 $id = (int) ($_GET["id"] ?? 0);
 $slug = trim($_GET["slug"] ?? "");

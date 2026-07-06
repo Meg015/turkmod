@@ -182,15 +182,29 @@ if (!function_exists('seoGenerateTopicMeta')) {
             $title = $siteName;
         }
 
-        $descriptionSource = trim((string) ($topic['meta_description'] ?? ''));
-        if ($descriptionSource === '') {
-            $descriptionSource = trim((string) ($topic['topic_descriptions'] ?? ($topic['description'] ?? '')));
+        // Always generate description directly from content, ignoring the potentially outdated meta_description field
+        $descHtml = (string) ($topic['topic_descriptions'] ?? ($topic['description'] ?? ''));
+        if (function_exists('topicDescriptionWithoutRepeatedTitle')) {
+            $descHtml = topicDescriptionWithoutRepeatedTitle($descHtml, (string) ($topic['title'] ?? ''));
         }
+        $descriptionSource = $descHtml;
+        
+        $descriptionSource = html_entity_decode($descriptionSource, ENT_QUOTES, 'UTF-8');
         $description = trim(preg_replace('/\s+/u', ' ', strip_tags($descriptionSource)) ?? '');
 
         $maxLength = (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160));
         if ($description !== '' && mb_strlen($description, 'UTF-8') > $maxLength) {
-            $description = mb_substr($description, 0, $maxLength - 3, 'UTF-8') . '...';
+            $truncated = mb_substr($description, 0, $maxLength - 3, 'UTF-8');
+            if (preg_match('/.*[.!?]/us', $truncated, $matches) && mb_strlen($matches[0], 'UTF-8') > 50) {
+                $description = rtrim($matches[0], '.,!?;: ') . '...';
+            } else {
+                $lastSpacePos = mb_strrpos($truncated, ' ', 0, 'UTF-8');
+                if ($lastSpacePos !== false) {
+                    $truncated = mb_substr($truncated, 0, $lastSpacePos, 'UTF-8');
+                }
+                $truncated = preg_replace('/\s*[\(\[][^\)\]]*$/u', '', $truncated);
+                $description = rtrim($truncated, '.,!?;: -') . '...';
+            }
         }
 
         $ogImage = trim((string) ($topic['primary_media_path'] ?? ''));
