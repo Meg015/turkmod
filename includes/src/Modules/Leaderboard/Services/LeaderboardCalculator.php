@@ -128,6 +128,15 @@ final class LeaderboardCalculator
         )";
     }
 
+    public function buildBannedExclusionClause(bool $excludeBanned): string
+    {
+        if (!$excludeBanned) {
+            return '';
+        }
+
+        return ' AND (u.is_banned = 0 OR u.is_banned IS NULL)';
+    }
+
     /**
      * @param array<int,array<string,mixed>> $data
      * @return array<int,array<string,mixed>>
@@ -167,6 +176,7 @@ final class LeaderboardCalculator
         bool $excludeAdmins,
     ): array {
         $adminClause = $this->buildAdminExclusionClause($excludeAdmins);
+        $bannedClause = $this->buildBannedExclusionClause((bool) $this->getSetting($pdo, 'leaderboard_exclude_banned', true));
         $metricSql = match ($category) {
             'daily_login' => "(SELECT COUNT(*) FROM activity_logs a
                 WHERE a.actor_id = u.id
@@ -193,6 +203,7 @@ final class LeaderboardCalculator
                 FROM users u
                 WHERE u.status = 'active'
                 {$adminClause}
+                {$bannedClause}
             ) counted_users
             WHERE metric_count > 0
         ";
@@ -215,6 +226,7 @@ final class LeaderboardCalculator
                 FROM users u
                 WHERE u.status = 'active'
                 {$adminClause}
+                {$bannedClause}
             ) counted_users
             WHERE score > 0
             ORDER BY score DESC, user_id ASC

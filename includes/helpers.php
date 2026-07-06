@@ -974,6 +974,7 @@ if (! function_exists('avatarImageHtml')) {
         $extraClass = trim((string) ($options['class'] ?? ''));
         $classAttr = trim('ui-avatar-img ' . $extraClass);
         $alt = (string) ($options['alt'] ?? $name);
+        $title = (string) ($options['title'] ?? $alt);
         $loading = trim((string) ($options['loading'] ?? 'lazy'));
         if (!in_array($loading, ['lazy', 'eager', 'auto'], true)) {
             $loading = 'lazy';
@@ -992,6 +993,7 @@ if (! function_exists('avatarImageHtml')) {
         return '<img class="' . htmlspecialchars($classAttr, ENT_QUOTES, 'UTF-8') . '"'
             . ' src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"'
             . ' alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '"'
+            . ' title="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '"'
             . ' loading="' . htmlspecialchars($loading, ENT_QUOTES, 'UTF-8') . '"'
             . ' decoding="' . htmlspecialchars($decoding, ENT_QUOTES, 'UTF-8') . '"'
             . ' fetchpriority="' . htmlspecialchars($fetchpriority, ENT_QUOTES, 'UTF-8') . '"'
@@ -1015,6 +1017,7 @@ if (! function_exists('defaultAvatarHtml')) {
         $tag = preg_replace('/[^a-z0-9]/', '', strtolower((string) ($options['tag'] ?? 'span'))) ?: 'span';
         $baseUri = isset($options['base_uri']) ? (string) $options['base_uri'] : null;
         $alt = (string) ($options['alt'] ?? $name);
+        $title = (string) ($options['title'] ?? $alt);
         $loading = trim((string) ($options['loading'] ?? 'lazy'));
         if (!in_array($loading, ['lazy', 'eager', 'auto'], true)) {
             $loading = 'lazy';
@@ -1035,6 +1038,7 @@ if (! function_exists('defaultAvatarHtml')) {
             . ' data-ui-avatar-default>'
             . '<img src="' . htmlspecialchars($fallbackUrl, ENT_QUOTES, 'UTF-8') . '"'
             . ' alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '" data-ui-avatar-img'
+            . ' title="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '"'
             . ' decoding="' . htmlspecialchars($decoding, ENT_QUOTES, 'UTF-8') . '"'
             . ' fetchpriority="' . htmlspecialchars($fetchpriority, ENT_QUOTES, 'UTF-8') . '"'
             . ' loading="' . htmlspecialchars($loading, ENT_QUOTES, 'UTF-8') . '"'

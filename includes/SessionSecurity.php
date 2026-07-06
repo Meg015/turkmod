@@ -39,7 +39,7 @@ class SessionSecurity
             ini_set('session.use_only_cookies', '1');
             ini_set('session.cookie_httponly', '1');
             ini_set('session.cookie_secure', '1');
-            ini_set('session.cookie_samesite', 'Strict');
+            ini_set('session.cookie_samesite', 'Lax');
             ini_set('session.gc_maxlifetime', (string)self::SESSION_TIMEOUT);
             ini_set('session.sid_length', '48');
             ini_set('session.sid_bits_per_character', '6');

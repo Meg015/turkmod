@@ -160,14 +160,22 @@ if (!function_exists('incrementRateLimit')) {
         coreRateLimitRememberWindow($key, $window);
 
         $limiter = coreRateLimiter();
+        $mirrorLegacyTable = true;
         if ($limiter instanceof \App\Core\Security\RateLimiter) {
             try {
                 $limiter->hit($key, coreRateLimitWindowSeconds($window));
-
-                return;
+                // Database backend already persists into request_rate_limits.
+                // For file backend we still mirror to DB so admin/rate-limits stays observable.
+                if ($limiter instanceof \App\Core\Security\DatabaseRateLimiter) {
+                    $mirrorLegacyTable = false;
+                }
             } catch (Throwable $exception) {
                 coreRateLimitLog($exception, ['fn' => 'incrementRateLimit', 'key' => $key]);
             }
+        }
+
+        if (!$mirrorLegacyTable) {
+            return;
         }
 
         $pdo = ($pdo ?? null) instanceof PDO

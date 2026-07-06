@@ -36,6 +36,12 @@ final class ProfileSitemapPage implements Handler
         $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
+        if (function_exists('seoPublicPageShouldAppearInSitemap') && !seoPublicPageShouldAppearInSitemap('public_profile', $settings)) {
+            $body .= '</urlset>' . "\n";
+
+            return $this->xmlResponse($body, $latestLastmod);
+        }
+
         if ((string) ($settings['sitemap_enabled'] ?? '1') === '1') {
             $body .= "\n";
             foreach ($this->resolveProfiles($this->resolvePage($request), $maxUrlsPerSitemap) as $profile) {

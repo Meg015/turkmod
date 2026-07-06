@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'Åifremi Unuttum';
+$pageTitle = 'Şifremi Unuttum';
 $auth_error = $errorMsg;
 $auth_success = $successMsg;
 $auth_csrf_token = csrf_token();
@@ -98,12 +98,12 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
 
 <?= renderPublicBreadcrumb([
     ['label' => 'Ana Sayfa', 'url' => $baseUri . '/index.php'],
-    ['label' => 'Åifremi Unuttum'],
+    ['label' => 'Şifremi Unuttum'],
 ], 'auth-breadcrumb') ?>
 
 <div class="auth-wrapper auth-screen auth-screen-forgot ui-panel">
     <section class="auth-stage auth-stage-compact" aria-labelledby="forgotTitle">
-        <aside class="auth-visual" aria-label="Åifre sıfırlama bilgileri">
+        <aside class="auth-visual" aria-label="Şifre sıfırlama bilgileri">
             <span class="auth-kicker">Hesap kurtarma</span>
             <h2>Hesabına güvenli şekilde geri dön.</h2>
             <p>E-posta adresini doğrulayalım, ardından sana geçici ve güvenli bir şifre sıfırlama bağlantısı gönderelim.</p>
@@ -117,8 +117,8 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
         <div class="auth-box ui-panel">
             <div class="auth-header ui-panel__head">
                 <span class="auth-header-icon"><i class="bi bi-key" aria-hidden="true"></i></span>
-                <span class="auth-eyebrow">Åifre yenileme</span>
-                <h1 id="forgotTitle">Åifremi Unuttum</h1>
+                <span class="auth-eyebrow">Şifre yenileme</span>
+                <h1 id="forgotTitle">Şifremi Unuttum</h1>
                 <p>E-posta adresini gir, şifre sıfırlama bağlantısını gönderelim.</p>
             </div>
 

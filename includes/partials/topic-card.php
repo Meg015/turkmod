@@ -58,6 +58,11 @@ if (function_exists('seoGenerateImageAlt')) {
 } else {
     $_cardImageAlt = $_cardTitle . ' kapak görseli';
 }
+if (function_exists('seoGenerateImageTitle')) {
+    $_cardImageTitle = seoGenerateImageTitle('topic-card', $_cardTitle, $_seoSettings);
+} else {
+    $_cardImageTitle = $_cardImageAlt;
+}
 $_cardThemeManager = $GLOBALS["themeManager"] ?? null;
 if ($_cardThemeManager instanceof ThemeManager && $_cardThemeManager->usesPublicRenderer()) {
     $_cardImage = (string) ($_cardHero ?? "");
@@ -72,6 +77,7 @@ if ($_cardThemeManager instanceof ThemeManager && $_cardThemeManager->usesPublic
             "url" => $_cardHref,
             "image" => $_cardImage,
             "image_alt" => $_cardImageAlt,
+            "image_title" => $_cardImageTitle,
             "title" => $_cardTitle,
             "category" => $_cardCategory,
             "category_url" => categoryUrl($_cardCategorySlug, $_cardCategoryParentSlug),
@@ -92,11 +98,11 @@ if ($_cardThemeManager instanceof ThemeManager && $_cardThemeManager->usesPublic
         <?php if ($_cardHero && strpos((string) $_cardHero, "http") === 0): ?>
             <img src="<?= htmlspecialchars(
                 (string) $_cardHero,
-            ) ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
+            ) ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
         <?php elseif ($_cardHero): ?>
-            <img src="<?= htmlspecialchars($baseUri . '/' . ltrim((string) $_cardHero, '/'), ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
+            <img src="<?= htmlspecialchars($baseUri . '/' . ltrim((string) $_cardHero, '/'), ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
         <?php else: ?>
-            <img class="topic-list-fallback-image" src="<?= htmlspecialchars($baseUri . '/assets/' . $_cardCover, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
+            <img class="topic-list-fallback-image" src="<?= htmlspecialchars($baseUri . '/assets/' . $_cardCover, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
         <?php endif; ?>
     </a>
     <div class="card__body topic-list-body ui-panel__body">

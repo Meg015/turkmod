@@ -31,6 +31,7 @@ function loginRedirectForAuthenticatedUser(bool $isAdminUser, string $requestedR
 }
 
 $requestedRedirect = loginSafeRedirect((string) ($_GET['redirect'] ?? $_POST['redirect'] ?? ''), $baseUri . '/index.php');
+$appDebug = isset($appDebug) ? (bool) $appDebug : ((defined('APP_DEBUG') && APP_DEBUG) ? true : false);
 $loginUrl = function_exists('routePublicStaticUrl')
     ? routePublicStaticUrl('login')
     : ($baseUri . '/giris');
@@ -238,7 +239,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                     </span>
                 </div>
                 <div class="form-group auth-field">
-                    <label for="password">Ã…Âifre</label>
+                    <label for="password">Şifre</label>
                     <span class="auth-input-shell ui-section">
                         <i class="bi bi-lock" aria-hidden="true"></i>
                         <input id="password" name="password" type="password" required aria-required="true" autocomplete="current-password">
@@ -262,7 +263,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             </form>
 
             <div class="auth-footer-actions">
-                <a class="btn-auth-link" href="<?= htmlspecialchars($forgotPasswordUrl, ENT_QUOTES, 'UTF-8') ?>">Åifremi unuttum</a>
+                <a class="btn-auth-link" href="<?= htmlspecialchars($forgotPasswordUrl, ENT_QUOTES, 'UTF-8') ?>">Şifremi unuttum</a>
                 <p class="form-options">Hesabın yok mu? <a href="<?= htmlspecialchars($registerUrl, ENT_QUOTES, 'UTF-8') ?>">Kayıt Ol</a></p>
             </div>
 

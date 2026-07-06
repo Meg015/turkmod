@@ -58,7 +58,7 @@
 <div class="profile-topics-grid ui-grid">
 {loop profile.topics}
 <article class="profile-topic-card profile-public-topic-card ui-card">
-{if item.image}<img class="profile-topic-card__image" src="{item.image}" alt="{if item.image_alt}{item.image_alt}{else}{item.title} kapak görseli{/if}" width="800" height="450" loading="lazy" decoding="async">{/if}
+{if item.image}<img class="profile-topic-card__image" src="{item.image}" alt="{if item.image_alt}{item.image_alt}{else}{item.title} kapak görseli{/if}" title="{item.image_title}" width="800" height="450" loading="lazy" decoding="async">{/if}
 <div class="profile-topic-rank">{item.rank}</div>
 <a href="{item.url}" class="profile-topic-link">
 <h3 class="profile-topic-title">{item.title}</h3>

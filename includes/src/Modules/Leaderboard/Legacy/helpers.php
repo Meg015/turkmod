@@ -58,9 +58,9 @@ function leaderboardGetPeriodDates(string $period): array
     return leaderboardServiceInstance()->getPeriodDates($period);
 }
 
-function leaderboardGetData(PDO $pdo, string $category, string $period, int $limit = 50, int $offset = 0): array
+function leaderboardGetData(PDO $pdo, string $category, string $period, int $limit = 50, int $offset = 0, ?string $search = null): array
 {
-    return leaderboardServiceInstance()->getData($pdo, $category, $period, $limit, $offset);
+    return leaderboardServiceInstance()->getData($pdo, $category, $period, $limit, $offset, $search);
 }
 
 function leaderboardGetUserRank(PDO $pdo, int $userId, ?string $category = null, ?string $period = null): array

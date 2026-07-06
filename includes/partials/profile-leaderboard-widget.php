@@ -23,33 +23,37 @@ if (($settings['leaderboard_enabled'] ?? '1') !== '1') {
 $categories = leaderboardGetCategories();
 $userRanks = [];
 $period = 'weekly';
+$profileLimit = max(1, (int) ($settings['leaderboard_profile_limit'] ?? 10));
 
 try {
     foreach ($categories as $categoryKey => $categoryInfo) {
-        $leaderboardData = leaderboardGetData($pdo, $categoryKey, $period, 1000, 0);
-        $allUsers = $leaderboardData['data'] ?? [];
+        $rankBundle = leaderboardGetUserRank($pdo, (int) $userId, $categoryKey, $period);
+        $rankData = $rankBundle['ranks'][$categoryKey][$period] ?? null;
 
-        $userRank = null;
-        $userScore = 0;
-        $totalUsers = count($allUsers);
-
-        foreach ($allUsers as $index => $user) {
-            if ((int)($user['user_id'] ?? 0) === (int)$userId) {
-                $userRank = $index + 1;
-                $userScore = (int)($user['count'] ?? $user['score'] ?? 0);
-                break;
-            }
+        if (!is_array($rankData)) {
+            continue;
         }
 
-        if ($userRank !== null) {
-            $percentile = $totalUsers > 0 ? (($totalUsers - $userRank + 1) / $totalUsers) * 100 : 0;
-            $userRanks[$categoryKey] = [
-                'rank' => $userRank,
-                'score' => $userScore,
-                'total' => $totalUsers,
-                'percentile' => $percentile,
-            ];
+        $userRanks[$categoryKey] = [
+            'category' => $categoryInfo,
+            'rank' => (int) ($rankData['rank'] ?? 0),
+            'score' => (int) ($rankData['count'] ?? 0),
+            'total' => (int) ($rankData['total_users'] ?? 0),
+            'percentile' => round((float) ($rankData['percentile'] ?? 0), 1),
+        ];
+    }
+
+    uasort($userRanks, static function (array $left, array $right): int {
+        $rankCompare = $left['rank'] <=> $right['rank'];
+        if ($rankCompare !== 0) {
+            return $rankCompare;
         }
+
+        return $right['score'] <=> $left['score'];
+    });
+
+    if (count($userRanks) > $profileLimit) {
+        $userRanks = array_slice($userRanks, 0, $profileLimit, true);
     }
 } catch (Throwable $e) {
     appLogException($e, ['source' => 'profile-leaderboard-widget.php']);

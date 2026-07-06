@@ -397,6 +397,187 @@ function routerHandleLegacyRoute(array $segments): void
     }
 }
 
+function routerHandleLegacyPageSuffixRoute(array $segments): void
+{
+    global $settings;
+
+    if (
+        count($segments) !== 3 ||
+        !preg_match('/^(.+)\.([0-9]+)$/', $segments[1], $legacyMatch) ||
+        !preg_match('/^page-([1-9][0-9]*)$/', $segments[2], $pageMatch)
+    ) {
+        return;
+    }
+
+    $legacyType = match ($segments[0]) {
+        'konu' => 'topic',
+        'forums' => 'category',
+        default => '',
+    };
+
+    if ($legacyType === '') {
+        return;
+    }
+
+    $pdo = $GLOBALS['pdo'] ?? null;
+    $page = max(1, (int) $pageMatch[1]);
+    $queryParams = [];
+    parse_str((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY), $queryParams);
+
+    if ($legacyType === 'topic') {
+        $topic = $pdo instanceof PDO ? getTopic($pdo, (int) $legacyMatch[2]) : null;
+        if (is_array($topic) && !empty($topic['slug'])) {
+            $redirect = function_exists('topicUrlForRow')
+                ? topicUrlForRow($topic)
+                : topicUrl((string) $topic['slug'], (int) ($topic['id'] ?? 0));
+
+            unset($queryParams['page']);
+            if ($queryParams !== []) {
+                $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($queryParams);
+            }
+
+            header('Location: ' . $redirect, true, 301);
+            exit;
+        }
+
+        if (function_exists('legacyRedirectResolve')) {
+            $seoRedirect = legacyRedirectResolve($pdo instanceof PDO ? $pdo : null, '/' . $segments[0] . '/' . $segments[1] . '/');
+            if (!empty($seoRedirect['redirect']) && !empty($seoRedirect['target_url'])) {
+                $redirect = (string) $seoRedirect['target_url'];
+
+                unset($queryParams['page']);
+                if ($queryParams !== []) {
+                    $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($queryParams);
+                }
+
+                header('Location: ' . $redirect, true, 301);
+                exit;
+            }
+        }
+
+        return;
+    }
+
+    if (!($pdo instanceof PDO)) {
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT cat.slug, parent.slug AS parent_slug
+             FROM categories cat
+             LEFT JOIN categories parent ON parent.id = cat.parent_id
+             WHERE cat.id = :id AND cat.deleted_at IS NULL
+             LIMIT 1',
+        );
+        $stmt->execute(['id' => (int) $legacyMatch[2]]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $row = false;
+    }
+
+    if (is_array($row) && !empty($row['slug'])) {
+        $redirect = categoryUrl((string) $row['slug'], (string) ($row['parent_slug'] ?? ''));
+        $perPage = (int) (($settings['items_per_page'] ?? CATEGORY_TOPICS_PER_PAGE) ?: CATEGORY_TOPICS_PER_PAGE);
+        $totalResult = function_exists('getTopicsByCategorySlug')
+            ? getTopicsByCategorySlug($pdo, (string) $row['slug'], 1, $perPage)
+            : ['total' => 0];
+        $totalPages = max(1, (int) ceil((int) ($totalResult['total'] ?? 0) / max(1, $perPage)));
+        $page = min($page, $totalPages);
+        if ($page > 1) {
+            $queryParams['page'] = $page;
+        } else {
+            unset($queryParams['page']);
+        }
+
+        if ($queryParams !== []) {
+            $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($queryParams);
+        }
+
+        header('Location: ' . $redirect, true, 301);
+        exit;
+    }
+
+    if (function_exists('legacyRedirectResolve')) {
+        $seoRedirect = legacyRedirectResolve($pdo, '/' . $segments[0] . '/' . $segments[1] . '/');
+        if (!empty($seoRedirect['redirect']) && !empty($seoRedirect['target_url'])) {
+            $redirect = (string) $seoRedirect['target_url'];
+            if ($page > 1) {
+                $queryParams['page'] = $page;
+            } else {
+                unset($queryParams['page']);
+            }
+            if ($queryParams !== []) {
+                $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($queryParams);
+            }
+
+            header('Location: ' . $redirect, true, 301);
+            exit;
+        }
+    }
+}
+
+function routerHandleGotoPostRoute(array $segments): void
+{
+    if (count($segments) !== 2 || $segments[0] !== 'goto' || $segments[1] !== 'post') {
+        return;
+    }
+
+    $commentId = (int) ($_GET['id'] ?? 0);
+    if ($commentId <= 0) {
+        return;
+    }
+
+    $pdo = $GLOBALS['pdo'] ?? null;
+    if (!($pdo instanceof PDO)) {
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT c.id AS comment_id, c.topic_id, t.slug
+             FROM comments c
+             INNER JOIN topics t ON t.id = c.topic_id
+             WHERE c.id = :id
+               AND c.deleted_at IS NULL
+               AND c.status = "approved"
+               AND t.deleted_at IS NULL
+               AND t.status = "published"
+             LIMIT 1',
+        );
+        $stmt->execute(['id' => $commentId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $row = false;
+    }
+
+    if (!is_array($row) || empty($row['slug'])) {
+        return;
+    }
+
+    $redirect = topicUrl((string) $row['slug'], (int) $row['topic_id']) . '#comment-' . (int) $row['comment_id'];
+    header('Location: ' . $redirect, true, 301);
+    exit;
+}
+
+function routerHandleLegacyStyleVariationRoute(array $segments): void
+{
+    if (count($segments) < 2) {
+        return;
+    }
+
+    if (strtolower((string) $segments[0]) !== 'misc' || strtolower((string) $segments[1]) !== 'style-variation') {
+        return;
+    }
+
+    $base = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
+    $redirect = $base === '' ? '/' : ($base . '/');
+
+    header('X-Robots-Tag: noindex, nofollow', true);
+    header('Location: ' . $redirect, true, 301);
+    exit;
+}
+
 function routerHandleDynamicContentRoute(array $segments, ?PDO $pdo): void
 {
     $hasNestedSlug = isset($segments[2]) && (string) $segments[2] !== '';
@@ -448,6 +629,9 @@ routerHandleSitemapRoute($cleanRoute, $settings);
 routerHandleEventsRoute($segments);
 routerHandleStaticRoute($cleanRoute);
 routerHandleLegacyPhpRoute($cleanRoute);
+routerHandleLegacyPageSuffixRoute($segments);
+routerHandleGotoPostRoute($segments);
+routerHandleLegacyStyleVariationRoute($segments);
 routerHandleLegacyRoute($segments);
 routerHandleDynamicContentRoute($segments, $pdo);
 

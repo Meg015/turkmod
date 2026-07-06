@@ -40,6 +40,7 @@ $menuRouteMap = [
 
     // Günlükler (alt sekmeler sayfa içinde render edilir, sidebar tek link)
     'admin/logs.php'                    => 'logs',
+    'admin/application-logs.php'        => 'logs',
     'admin/action-log.php'              => 'logs',
     'admin/rate-limits.php'             => 'logs',
 

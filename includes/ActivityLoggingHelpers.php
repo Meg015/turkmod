@@ -64,6 +64,25 @@ if (!function_exists('logActivity')) {
 
         try {
             $actorId = $_SESSION['_auth_user_id'] ?? null;
+            $actorId = is_numeric($actorId) ? (int) $actorId : null;
+            if ($actorId !== null && $actorId > 0) {
+                static $activityActorExistsCache = [];
+                if (!array_key_exists($actorId, $activityActorExistsCache)) {
+                    try {
+                        $actorCheck = $pdo->prepare('SELECT id FROM users WHERE id = :id LIMIT 1');
+                        $actorCheck->execute(['id' => $actorId]);
+                        $activityActorExistsCache[$actorId] = (bool) $actorCheck->fetchColumn();
+                    } catch (Throwable) {
+                        $activityActorExistsCache[$actorId] = false;
+                    }
+                }
+
+                if (!$activityActorExistsCache[$actorId]) {
+                    $actorId = null;
+                }
+            } else {
+                $actorId = null;
+            }
 
             $stmt = $pdo->prepare("
                 INSERT INTO activity_logs (actor_id, subject_type, subject_id, action, properties, created_at)

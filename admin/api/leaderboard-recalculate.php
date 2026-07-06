@@ -32,12 +32,14 @@ if (!$category || !$period) {
     sendValidationError('Both category and period parameters are required');
 }
 
-$validCategories = ['downloads', 'active', 'helpful', 'rising_star', 'quality'];
+$validCategories = function_exists('leaderboardGetValidCategories')
+    ? leaderboardGetValidCategories()
+    : ['daily_login', 'topics', 'comments'];
 if (!in_array($category, $validCategories, true)) {
     sendError('invalid_category', 'Category must be one of: ' . implode(', ', $validCategories), 422);
 }
 
-$validPeriods = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
+    $validPeriods = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'all_time'];
 if (!in_array($period, $validPeriods, true)) {
     sendError('invalid_period', 'Period must be one of: ' . implode(', ', $validPeriods), 422);
 }

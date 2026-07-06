@@ -10,6 +10,7 @@ declare(strict_types=1);
  */
 
 // Load all SEO modules
+require_once dirname(__DIR__, 4) . '/SeoPublicPages.php';
 require_once __DIR__ . '/meta-tags.php';
 require_once __DIR__ . '/structured-data.php';
 require_once __DIR__ . '/pagination.php';

@@ -416,7 +416,11 @@ if (!function_exists('adminActionLabel')) {
             'unban_revert'         => 'Yasak Kaldırma (Geri Alındı)',
             'restrict'             => 'Kısıtlama',
             'delete'               => 'Silme',
+            'activity_logs_cleared' => 'Aktivite Logları Temizlendi',
+            'application_logs_cleared' => 'Uygulama Loglari Temizlendi',
+            'rate_limit_records_deleted' => 'Rate Limit Kayıtları Temizlendi',
         ];
         return $map[$actionType] ?? $actionType;
     }
 }
+

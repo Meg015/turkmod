@@ -1,0 +1,99 @@
+/* TurkMod mobile polish overrides */
+
+@media (max-width: 767.98px) {
+  html[data-public-theme="turkmod"] .sidebar-left,
+  html[data-public-theme="turkmod"] .sidebar-right {
+    display: block !important;
+  }
+
+  html[data-public-theme="turkmod"] .sidebar-toggle,
+  html[data-public-theme="turkmod"] .sidebar-overlay,
+  html[data-public-theme="turkmod"] body:has(.ui-theme-auth) .sidebar-toggle,
+  html[data-public-theme="turkmod"] body.public-page-login .sidebar-toggle,
+  html[data-public-theme="turkmod"] body.public-page-register .sidebar-toggle,
+  html[data-public-theme="turkmod"] body.public-page-forgot-password .sidebar-toggle,
+  html[data-public-theme="turkmod"] body.public-page-reset-password .sidebar-toggle,
+  html[data-public-theme="turkmod"] body.public-page-topic .sidebar-toggle {
+    display: none !important;
+  }
+
+  html[data-public-theme="turkmod"] body.public-page-topic .container {
+    padding-inline: 10px !important;
+  }
+
+  html[data-public-theme="turkmod"] body.public-page-topic .content-area {
+    padding-inline-end: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  html[data-public-theme="turkmod"] .site-header .container {
+    align-items: center !important;
+    gap: 8px !important;
+    padding-inline: 12px !important;
+    justify-content: flex-start !important;
+    flex-wrap: nowrap !important;
+  }
+
+  html[data-public-theme="turkmod"] .header-right {
+    order: 1 !important;
+    margin-left: 0 !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+  }
+
+  html[data-public-theme="turkmod"] .site-header .navbar-toggler {
+    order: 2 !important;
+    margin-left: auto !important;
+    flex: 0 0 auto !important;
+  }
+
+  html[data-public-theme="turkmod"] .header-auth-actions {
+    gap: 4px !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+  }
+
+  html[data-public-theme="turkmod"] .header-auth-link {
+    min-height: 34px !important;
+    padding: 0.34rem 0.5rem !important;
+    font-size: 0.7rem !important;
+    gap: 0.3rem !important;
+  }
+
+  html[data-public-theme="turkmod"] .header-auth-link i {
+    font-size: 0.85rem !important;
+  }
+
+  html[data-public-theme="turkmod"] .header-auth-link span {
+    white-space: nowrap !important;
+  }
+
+  html[data-public-theme="turkmod"] .theme-toggle {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+  }
+
+  html[data-public-theme="turkmod"] .theme-toggle i {
+    font-size: 0.9rem !important;
+  }
+
+  html[data-public-theme="turkmod"] body.public-page-topic .content-area {
+    padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  html[data-public-theme="turkmod"] .ui-theme-topic-card.topic-card .ui-theme-topic-card__action {
+    align-self: center !important;
+    justify-self: center !important;
+    margin-inline: auto !important;
+  }
+}

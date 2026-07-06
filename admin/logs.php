@@ -23,11 +23,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 if ($postAction === 'clear_all') {
                     $deleted = logsClearAll($pdo);
+                    if (function_exists('adminAuditLogger')) {
+                        adminAuditLogger()->logAction(
+                            $pdo,
+                            'activity_logs_cleared',
+                            'settings',
+                            0,
+                            'Aktivite logları tamamen temizlendi',
+                            [],
+                            ['scope' => 'all', 'deleted' => $deleted],
+                            false
+                        );
+                    }
                     flash('success', 'Tebrikler, ' . $deleted . ' adet kayıt hiçbir kalıntı bırakılmadan temizlendi ve sayaçlar sıfırlandı!');
                 } else {
                     $days = max(7, (int)($_POST['days'] ?? 90));
                     $deleted = logsClearOld($pdo, $days);
                     logActivity($pdo, 'activity_logs_cleared', 'logs', null, ['action' => $postAction, 'deleted' => $deleted, 'days' => $days]);
+                    if (function_exists('adminAuditLogger')) {
+                        adminAuditLogger()->logAction(
+                            $pdo,
+                            'activity_logs_cleared',
+                            'settings',
+                            0,
+                            'Aktivite logları kısmi temizlendi',
+                            [],
+                            ['scope' => 'old', 'deleted' => $deleted, 'days' => $days],
+                            false
+                        );
+                    }
                     flash('success', $deleted . ' eski log kaydı silindi.');
                 }
             } catch (Throwable $e) {

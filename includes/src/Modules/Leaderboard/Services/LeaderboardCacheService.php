@@ -48,6 +48,9 @@ final class LeaderboardCacheService
                 'daily' => 900,
                 'weekly' => 3600,
                 'monthly' => 21600,
+                'quarterly' => 43200,
+                'yearly' => 86400,
+                'all_time' => 86400,
             ];
             $ttl = $defaultTtls[$period] ?? 3600;
         }
@@ -77,8 +80,11 @@ final class LeaderboardCacheService
     /**
      * @return array{data:array<int,array<string,mixed>>,total:int,is_cached:bool,calculated_at?:string,period_range?:array{start:string,end:string}}
      */
-    public function readCache(PDO $pdo, string $category, string $period, int $limit, int $offset): array
+    public function readCache(PDO $pdo, string $category, string $period, int $limit, int $offset, ?string $search = null): array
     {
+        $searchTerm = trim((string) ($search ?? ''));
+        $searchValue = $searchTerm !== '' ? $searchTerm : null;
+
         try {
             $stmt = $pdo->prepare("
                 SELECT period_start
@@ -98,40 +104,81 @@ final class LeaderboardCacheService
         }
 
         try {
-            $countStmt = $pdo->prepare("
-                SELECT COUNT(*) as total
-                FROM leaderboard_cache
-                WHERE category = ? AND period = ? AND period_start = ?
-            ");
-            $countStmt->execute([$category, $period, $latestPeriodStart]);
+            if ($searchValue !== null) {
+                $searchPattern = '%' . strtr($searchValue, [
+                    '\\' => '\\\\',
+                    '%' => '\%',
+                    '_' => '\_',
+                ]) . '%';
+
+                $countStmt = $pdo->prepare("
+                    SELECT COUNT(*) as total
+                    FROM leaderboard_cache lc
+                    INNER JOIN users u ON u.id = lc.user_id
+                    WHERE lc.category = ? AND lc.period = ? AND lc.period_start = ?
+                      AND u.name LIKE ? ESCAPE '\\'
+                ");
+                $countStmt->execute([$category, $period, $latestPeriodStart, $searchPattern]);
+            } else {
+                $countStmt = $pdo->prepare("
+                    SELECT COUNT(*) as total
+                    FROM leaderboard_cache
+                    WHERE category = ? AND period = ? AND period_start = ?
+                ");
+                $countStmt->execute([$category, $period, $latestPeriodStart]);
+            }
             $total = (int) $countStmt->fetchColumn();
         } catch (Throwable) {
             return ['data' => [], 'total' => 0, 'is_cached' => false];
         }
 
-        if ($total === 0) {
-            return ['data' => [], 'total' => 0, 'is_cached' => false];
-        }
-
         try {
-            $stmt = $pdo->prepare("
-                SELECT
-                    lc.rank,
-                    lc.user_id,
-                    u.name as username,
-                    u.avatar,
-                    lc.score,
-                    lc.metadata,
-                    lc.calculated_at,
-                    lc.period_start,
-                    lc.period_end
-                FROM leaderboard_cache lc
-                JOIN users u ON u.id = lc.user_id
-                WHERE lc.category = ? AND lc.period = ? AND lc.period_start = ?
-                ORDER BY lc.rank ASC
-                LIMIT ? OFFSET ?
-            ");
-            $stmt->execute([$category, $period, $latestPeriodStart, $limit, $offset]);
+            if ($searchValue !== null) {
+                $searchPattern = '%' . strtr($searchValue, [
+                    '\\' => '\\\\',
+                    '%' => '\%',
+                    '_' => '\_',
+                ]) . '%';
+
+                $stmt = $pdo->prepare("
+                    SELECT
+                        lc.rank,
+                        lc.user_id,
+                        u.name as username,
+                        u.avatar,
+                        lc.score,
+                        lc.metadata,
+                        lc.calculated_at,
+                        lc.period_start,
+                        lc.period_end
+                    FROM leaderboard_cache lc
+                    JOIN users u ON u.id = lc.user_id
+                    WHERE lc.category = ? AND lc.period = ? AND lc.period_start = ?
+                      AND u.name LIKE ? ESCAPE '\\'
+                    ORDER BY lc.rank ASC
+                    LIMIT ? OFFSET ?
+                ");
+                $stmt->execute([$category, $period, $latestPeriodStart, $searchPattern, $limit, $offset]);
+            } else {
+                $stmt = $pdo->prepare("
+                    SELECT
+                        lc.rank,
+                        lc.user_id,
+                        u.name as username,
+                        u.avatar,
+                        lc.score,
+                        lc.metadata,
+                        lc.calculated_at,
+                        lc.period_start,
+                        lc.period_end
+                    FROM leaderboard_cache lc
+                    JOIN users u ON u.id = lc.user_id
+                    WHERE lc.category = ? AND lc.period = ? AND lc.period_start = ?
+                    ORDER BY lc.rank ASC
+                    LIMIT ? OFFSET ?
+                ");
+                $stmt->execute([$category, $period, $latestPeriodStart, $limit, $offset]);
+            }
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable) {
             return ['data' => [], 'total' => 0, 'is_cached' => false];
@@ -185,6 +232,93 @@ final class LeaderboardCacheService
                 'end' => $periodEnd,
             ],
         ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    public function findUserRank(PDO $pdo, string $category, string $period, int $userId): ?array
+    {
+        try {
+            $snapshotStmt = $pdo->prepare("
+                SELECT period_start
+                FROM leaderboard_cache
+                WHERE category = ? AND period = ?
+                ORDER BY period_start DESC
+                LIMIT 1
+            ");
+            $snapshotStmt->execute([$category, $period]);
+            $latestPeriodStart = $snapshotStmt->fetchColumn();
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (!$latestPeriodStart) {
+            return null;
+        }
+
+        try {
+            $countStmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM leaderboard_cache
+                WHERE category = ? AND period = ? AND period_start = ?
+            ");
+            $countStmt->execute([$category, $period, $latestPeriodStart]);
+            $totalUsers = (int) $countStmt->fetchColumn();
+        } catch (Throwable) {
+            $totalUsers = 0;
+        }
+
+        try {
+            $stmt = $pdo->prepare("
+                SELECT
+                    lc.rank,
+                    lc.user_id,
+                    u.name as username,
+                    u.avatar,
+                    lc.score,
+                    lc.metadata,
+                    lc.calculated_at,
+                    lc.period_start,
+                    lc.period_end
+                FROM leaderboard_cache lc
+                JOIN users u ON u.id = lc.user_id
+                WHERE lc.category = ? AND lc.period = ? AND lc.period_start = ? AND lc.user_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$category, $period, $latestPeriodStart, $userId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (!$row) {
+            return null;
+        }
+
+        $row['metadata'] = json_decode((string) ($row['metadata'] ?? '{}'), true);
+        if (!is_array($row['metadata'])) {
+            $row['metadata'] = [];
+        }
+
+        $row['score'] = (float) ($row['score'] ?? 0);
+        $row['count'] = (int) ($row['score'] ?? 0);
+        $row['user_id'] = (int) ($row['user_id'] ?? 0);
+        $row['rank'] = (int) ($row['rank'] ?? 0);
+        $row['total_users'] = $totalUsers;
+
+        $previousRanks = $this->getPreviousPeriodRanks($pdo, $category, $period, (string) $latestPeriodStart);
+        $previousRank = isset($previousRanks[$userId]) ? (int) $previousRanks[$userId] : null;
+        $row['previous_rank'] = $previousRank;
+        $row['change'] = $previousRank !== null ? $previousRank - (int) $row['rank'] : 0;
+
+        if ($this->service instanceof LeaderboardService) {
+            $row = $this->service->decorateRow($row);
+        }
+
+        unset($row['calculated_at'], $row['period_start'], $row['period_end']);
+
+        return $row;
     }
 
     /**

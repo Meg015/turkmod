@@ -5,7 +5,7 @@
 </div>
 </section>
 <header class="ui-theme-topic-hero" aria-label="{topic.title}">
-{if topic.image}<img class="ui-theme-topic-hero__image" src="{topic.image}" alt="{if topic.image_alt}{topic.image_alt}{else}{topic.title} kapak görseli{/if}" width="1200" height="675" loading="eager" fetchpriority="high" decoding="async">{/if}
+{if topic.image}<img class="ui-theme-topic-hero__image" src="{topic.image}" alt="{if topic.image_alt}{topic.image_alt}{else}{topic.title} kapak görseli{/if}" title="{topic.image_title}" width="1200" height="675" loading="eager" fetchpriority="high" decoding="async">{/if}
 </header>
 {if topic.show_toolbar}<section class="ui-theme-topic-toolbar" aria-label="Konu bilgileri ve islemler">
 <div class="ui-theme-topic-toolbar__meta">

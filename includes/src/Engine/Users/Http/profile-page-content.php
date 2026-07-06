@@ -116,7 +116,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $_POST["new_password_confirm"] ?? "",
             );
             if ($pwErr === "") {
-                $pwSuccess = "Åifreniz başarıyla değiştirildi.";
+                $pwSuccess = "Şifreniz başarıyla değiştirildi.";
                 logActivity($pdo, "password_changed", "user", $userId);
             } else {
                 $pwError = $pwErr;
@@ -1315,7 +1315,7 @@ require_once $projectRoot . "/includes/public-header.php";
                     </div>
                     <div class="profile-avatar-upload-copy">
                         <div class="profile-upload-title">Fotoğraf Yükle</div>
-                        <div class="profile-small-muted">JPG, PNG, WebP Â· Maks 2 MB</div>
+                        <div class="profile-small-muted">JPG, PNG, WebP · Maks 2 MB</div>
                         <span class="profile-avatar-upload-action"><i class="bi bi-upload"></i><span data-avatar-action-text>Dosya seç</span></span>
                         <span class="profile-avatar-selected" data-avatar-selected>Henüz yeni dosya seçilmedi.</span>
                     </div>
@@ -1348,7 +1348,7 @@ require_once $projectRoot . "/includes/public-header.php";
                 </div>
                 <div><strong>Konu:</strong> <?= $stats[
                     "topics"
-                ] ?> Â· <strong>Yorum:</strong> <?= $stats["comments"] ?></div>
+                ] ?> · <strong>Yorum:</strong> <?= $stats["comments"] ?></div>
             </div>
         </section>
     </div>
@@ -1362,7 +1362,7 @@ require_once $projectRoot . "/includes/public-header.php";
 <div class="row g-4 mb-4">
     <div class="col-lg-6">
         <section class="ui-card profile-section h-100 mb-0 ui-section">
-        <div class="profile-section-title"><i class="bi bi-key"></i>Åifre Değiştir</div>
+        <div class="profile-section-title"><i class="bi bi-key"></i>Şifre Değiştir</div>
         <?php if ($pwSuccess): ?>
             <div class="ui-admin-alert ui-admin-alert-success profile-alert-sm ui-alert ui-alert--success"><?= htmlspecialchars(
                 $pwSuccess,
@@ -1377,19 +1377,19 @@ require_once $projectRoot . "/includes/public-header.php";
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="change_password">
             <div class="profile-form-group">
-                <label for="pw_current">Mevcut Åifre</label>
+                <label for="pw_current">Mevcut Şifre</label>
                 <input type="password" id="pw_current" name="current_password" required autocomplete="current-password">
             </div>
             <div class="profile-form-group">
-                <label for="pw_new">Yeni Åifre</label>
+                <label for="pw_new">Yeni Şifre</label>
                 <input type="password" id="pw_new" name="new_password" required minlength="<?= $passwordMinLength ?>" autocomplete="new-password" data-password-strength data-password-confirm="#pw_confirm" data-password-require-uppercase="<?= $passwordPolicy["require_uppercase"] ? "1" : "0" ?>" data-password-require-numbers="<?= $passwordPolicy["require_numbers"] ? "1" : "0" ?>" data-password-require-special="<?= $passwordPolicy["require_special"] ? "1" : "0" ?>">
                 <small class="profile-form-hint"><?= htmlspecialchars($passwordPolicyHint) ?></small>
             </div>
             <div class="profile-form-group">
-                <label for="pw_confirm">Yeni Åifre (Tekrar)</label>
+                <label for="pw_confirm">Yeni Şifre (Tekrar)</label>
                 <input type="password" id="pw_confirm" name="new_password_confirm" required minlength="<?= $passwordMinLength ?>" autocomplete="new-password">
             </div>
-            <button type="submit" class="ui-admin-btn ui-admin-btn-warning fw-bold"><i class="bi bi-shield-check me-1"></i>Åifreyi Güncelle</button>
+            <button type="submit" class="ui-admin-btn ui-admin-btn-warning fw-bold"><i class="bi bi-shield-check me-1"></i>Şifreyi Güncelle</button>
         </form>
         </section>
     </div>
@@ -1403,7 +1403,7 @@ require_once $projectRoot . "/includes/public-header.php";
                 </div>
                 <div class="profile-check-row">
                     <i class="bi bi-check-circle-fill" class="profile-success-icon"></i>
-                    <span>Åifre: bcrypt ile hashlenmiş</span>
+                    <span>Şifre: bcrypt ile hashlenmiş</span>
                 </div>
                 <div class="profile-check-row">
                     <?php if (!empty($user["email_verified_at"])): ?>
@@ -1425,7 +1425,7 @@ require_once $projectRoot . "/includes/public-header.php";
                 </div>
                 <div>
                     <strong>Son etkinlik</strong>
-                    <span><?= !empty($_SESSION["_auth_last_activity"]) ? date("d.m.Y H:i", (int) $_SESSION["_auth_last_activity"]) : "Åimdi" ?></span>
+                    <span><?= !empty($_SESSION["_auth_last_activity"]) ? date("d.m.Y H:i", (int) $_SESSION["_auth_last_activity"]) : "Şimdi" ?></span>
                 </div>
                 <div>
                     <strong>Oturum modu</strong>

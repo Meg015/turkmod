@@ -23374,23 +23374,23 @@ html[data-public-theme="turkmod"] .topic-info-row strong[data-info-value] {
 
 
 
-/* â”€â”€â”€ YORUM METNİ: Kelimeler alt alta dizilme düzeltmesi â”€â”€â”€ */
+/* --- YORUM METNİ: Kelimeler alt alta dizilme düzeltmesi --- */
 
 
 
-/* â”€â”€â”€ ALINTIYLA CEVAP FORMU: Sıkışık görünüm düzeltmesi â”€â”€â”€ */
+/* --- ALINTIYLA CEVAP FORMU: Sıkışık görünüm düzeltmesi --- */
 
 
 
-/* â”€â”€â”€ YORUM ITEM GRID OVERRIDE: pro-comments.css block layout korunur â”€â”€â”€ */
+/* --- YORUM ITEM GRID OVERRIDE: pro-comments.css block layout korunur --- */
 
 
 
-/* â”€â”€â”€ YORUM İKONLARI: Buton içi ikonlar görünür yapılır â”€â”€â”€ */
+/* --- YORUM İKONLARI: Buton içi ikonlar görünür yapılır --- */
 
 
 
-/* â”€â”€â”€ YENİ GÖRSEL VE ETKİLEŞİM İYİLEŞTİRMELERİ â”€â”€â”€ */
+/* --- YENİ GÖRSEL VE ETKİLEŞİM İYİLEŞTİRMELERİ --- */
 
 
 
@@ -23803,4 +23803,61 @@ html[data-public-theme="turkmod"] .header-auth-actions {
 
 html[data-public-theme="turkmod"] .header-auth-link {
   white-space: nowrap;
+}
+
+/* Sidebar summary rows: keep compact cards from collapsing on narrow shells. */
+html[data-public-theme="turkmod"] .sidebar-right > .row > * {
+  flex: 0 0 100%;
+  max-width: 100%;
+  width: 100%;
+}
+
+html[data-public-theme="turkmod"] .sidebar-right .mini-topic,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-theme-topic-mini,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-panel__body > a.comment-item {
+  width: 100%;
+  min-width: 0;
+}
+
+html[data-public-theme="turkmod"] .sidebar-right .mini-topic,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-theme-topic-mini {
+  align-items: flex-start;
+}
+
+html[data-public-theme="turkmod"] .sidebar-right .mini-topic > span,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-theme-topic-mini > span,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-panel__body > a.comment-item > .min-w-0 {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+html[data-public-theme="turkmod"] .sidebar-right .mini-topic img,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-theme-topic-mini img {
+  flex: 0 0 auto;
+}
+
+html[data-public-theme="turkmod"] .sidebar-right .mini-topic strong,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-theme-topic-mini strong,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-panel__body > a.comment-item strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+html[data-public-theme="turkmod"] .sidebar-right .mini-topic small,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-theme-topic-mini small,
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .ui-panel__body > a.comment-item small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .comment-excerpt {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }

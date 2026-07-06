@@ -145,6 +145,12 @@
             overlay.addEventListener("click", closeSidebar);
         }
 
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape") {
+                closeSidebar();
+            }
+        });
+
         document.querySelectorAll(".admin-menu-group-toggle").forEach(function (toggle) {
             toggle.addEventListener("click", function () {
                 var expanded = this.getAttribute("aria-expanded") === "true";

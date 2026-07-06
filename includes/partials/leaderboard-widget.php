@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Leaderboard Sidebar Widget
  * Shows top 5 users in selected category/period
@@ -38,7 +38,6 @@ if (empty($topUsers)) {
     return;
 }
 
-$medals = ['ğş¥‡', 'ğş¥ˆ', 'ğş¥‰'];
 ?>
 
 <div class="widget leaderboard-widget" id="leaderboard-widget">
@@ -76,6 +75,7 @@ $medals = ['ğş¥‡', 'ğş¥ˆ', 'ğş¥‰'];
                     : ($baseUri . '/profil/' . rawurlencode((string) $userId)))), ENT_QUOTES, 'UTF-8');
 
                 $avatarUrl = htmlspecialchars((string)($user['avatar_url'] ?? $avatarFallback), ENT_QUOTES, 'UTF-8');
+                $medals = ['🥇', '🥈', '🥉'];
                 ?>
                 <div class="leaderboard-item">
                     <div class="leaderboard-rank">
@@ -103,3 +103,4 @@ $medals = ['ğş¥‡', 'ğş¥ˆ', 'ğş¥‰'];
 </div>
 
 
+

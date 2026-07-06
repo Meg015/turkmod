@@ -100,7 +100,9 @@ $_publicSettingAsset = static function (string $url) use ($baseUri): string {
 $_faviconHref = $_publicSettingAsset($_faviconUrl);
 $_logoSrc = $_publicSettingAsset($_logoUrl);
 if ($_themeAssetIsolated && $_themeManager instanceof ThemeManager) {
-    $_faviconHref = $_themeManager->assetUrl($_activePublicTheme, "images/favicon.ico");
+    if ($_faviconHref === "") {
+        $_faviconHref = asset_url("assets/favicon.svg", $baseUri);
+    }
 }
 
 // Menü ayarları
@@ -146,6 +148,91 @@ if (!$_hSticky) {
 }
 $_publicCssBundle = __DIR__ . "/../assets/dist/public.min.css";
 $_publicJsBundle = __DIR__ . "/../assets/dist/public.min.js";
+$_seoPageKey = function_exists('seoPublicPageResolveKey')
+    ? seoPublicPageResolveKey($_currentRequestUri, $_lay, isset($pageKey) ? (string) $pageKey : null)
+    : (isset($pageKey) ? (string) $pageKey : '');
+$_seoPageTitle = trim((string) ($seoPageTitle ?? $pageTitle));
+$_seoPageTitleIsFinal = !empty($seoPageTitleIsFinal ?? $pageTitleIsFinal ?? false);
+if ($_seoPageTitle === '') {
+    $_seoPageTitle = $pageTitle;
+}
+if (
+    !$_seoPageTitleIsFinal
+    && $_seoPageKey !== ''
+    && function_exists('seoPublicPageMeta')
+) {
+    $_resolvedSeoTitleMeta = seoPublicPageMeta(
+        $_seoPageKey,
+        [
+            'title' => $_seoPageTitle,
+            'description' => $metaDescription,
+        ],
+        [],
+        $_lay
+    );
+    if (!empty($_resolvedSeoTitleMeta['title_is_final'])) {
+        $_seoPageTitle = (string) ($_resolvedSeoTitleMeta['title'] ?? $_seoPageTitle);
+        $_seoPageTitleIsFinal = true;
+    }
+}
+$_resolvedSeoTitle = $_seoPageTitleIsFinal
+    ? $_seoPageTitle
+    : ($_seoPageTitle !== '' ? $_seoPageTitle . ' - ' . $appName : $appName);
+
+$publicHeaderVars = isset($publicHeaderVars) && is_array($publicHeaderVars)
+    ? $publicHeaderVars
+    : [];
+$publicHeaderVars['seoPageTitle'] = $_seoPageTitle;
+$publicHeaderVars['seoPageTitleIsFinal'] = $_seoPageTitleIsFinal;
+$publicHeaderVars['pageTitleIsFinal'] = $_seoPageTitleIsFinal;
+$publicHeaderVars['page_key'] = $_seoPageKey;
+$publicHeaderVars['current_request_uri'] = $_currentRequestUri;
+if (isset($seoMetaTags) && (string) $seoMetaTags !== '') {
+    $publicHeaderVars['seoMetaTags'] = (string) $seoMetaTags;
+}
+if (isset($seoPaginationTags) && (string) $seoPaginationTags !== '') {
+    $publicHeaderVars['seoPaginationTags'] = (string) $seoPaginationTags;
+}
+if (isset($seoStructuredData) && (string) $seoStructuredData !== '') {
+    $publicHeaderVars['seoStructuredData'] = (string) $seoStructuredData;
+}
+if (isset($topic) && is_array($topic)) {
+    $publicHeaderVars['topic'] = $topic;
+}
+if (isset($categoryId)) {
+    $publicHeaderVars['categoryId'] = $categoryId;
+}
+if (isset($items)) {
+    $publicHeaderVars['items'] = $items;
+}
+foreach ([
+    'auth_error',
+    'auth_success',
+    'auth_show_onboarding',
+    'auth_redirect',
+    'auth_csrf_token',
+    'auth_demo_visible',
+    'auth_login_identifier_mode',
+    'auth_login_label',
+    'auth_login_placeholder',
+    'auth_login_type',
+    'auth_login_autocomplete',
+    'auth_login_icon',
+    'auth_login_remember_label',
+    'auth_allow_registration',
+    'auth_name_value',
+    'auth_email_value',
+    'auth_password_min_length',
+    'auth_password_policy_hint',
+    'auth_password_require_uppercase',
+    'auth_password_require_numbers',
+    'auth_password_require_special',
+    'auth_reset_action',
+] as $authVarKey) {
+    if (isset($$authVarKey)) {
+        $publicHeaderVars[$authVarKey] = $$authVarKey;
+    }
+}
 
 if ($_isAuthPage && function_exists('sendNoStoreHeaders')) {
     sendNoStoreHeaders();
@@ -174,9 +261,7 @@ if (
         "public_categories_tree" => $publicCategoriesTree,
         "sidebar_items" => $sidebarItems ?? [],
         "recent_comments" => $recentComments ?? [],
-        "page_vars" => isset($publicThemePageVars) && is_array($publicThemePageVars)
-            ? $publicThemePageVars
-            : get_defined_vars(),
+        "page_vars" => $publicHeaderVars,
     ])
 ) {
     return;
@@ -202,7 +287,7 @@ try {
     echo '(function(){var d=document.documentElement,m=d.getAttribute("data-theme-mode")||"auto",t=m==="dark"?"dark":"light";if(m==="auto"&&window.matchMedia){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}d.setAttribute("data-theme",t);d.setAttribute("data-bs-theme",t);d.setAttribute("data-theme-mode",m==="light"||m==="dark"||m==="auto"?m:"auto");})();';
 }
 ?></script>
-    <title><?= htmlspecialchars($pageTitle) ?> - <?= htmlspecialchars($appName) ?></title>
+    <title><?= htmlspecialchars($_resolvedSeoTitle) ?></title>
     <!-- SEO Meta Tags -->
 <?php if (isset($seoMetaTags)): ?>
     <?= $seoMetaTags ?>
@@ -215,7 +300,7 @@ try {
     <?= $seoPaginationTags ?>
 <?php endif; ?>
     <?php
-$robotsMeta = seoRobotsMeta($_lay, null, isset($pageKey) ? (string) $pageKey : null);
+$robotsMeta = seoRobotsMeta($_lay, null, $_seoPageKey);
 $indexDraftTopics = function_exists('seoIndexToggleValue')
     ? seoIndexToggleValue($_lay, 'index_draft_topics', '0', 'noindex_draft_topics')
     : (((string) ($_lay['noindex_draft_topics'] ?? '1')) === '1' ? '0' : '1');
@@ -640,7 +725,7 @@ $_profileAvatarUrl = function_exists('defaultAvatarUrl') ? defaultAvatarUrl($bas
                                         Kayıt Ol
                                     </a>
                                 </div>
-                                <a class="auth-popover-forgot" href="<?= htmlspecialchars($_forgotPasswordHref) ?>">Åifremi unuttum</a>
+                                <a class="auth-popover-forgot" href="<?= htmlspecialchars($_forgotPasswordHref) ?>">Şifremi unuttum</a>
                             </div>
                         </div>
                     <?php endif; ?>

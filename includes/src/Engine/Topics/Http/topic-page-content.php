@@ -337,10 +337,13 @@ $imageMap = [
     "Development" => "topic-code.svg",
     "Operations" => "topic-server.svg",
 ];
-$cover = $imageMap[$category] ?? "topic-pack.svg";
-$topicHeroImageAlt = function_exists("seoGenerateImageAlt")
-    ? seoGenerateImageAlt("topic-hero", (string) ($topic["title"] ?? "Konu"), $settings)
-    : (string) ($topic["title"] ?? "Konu") . " kapak görseli";
+$cover = $imageMap[$category] ?? "topic-pack.svg";
+$topicHeroImageAlt = function_exists("seoGenerateImageAlt")
+    ? seoGenerateImageAlt("topic-hero", (string) ($topic["title"] ?? "Konu"), $settings)
+    : (string) ($topic["title"] ?? "Konu") . " kapak görseli";
+$topicHeroImageTitle = function_exists("seoGenerateImageTitle")
+    ? seoGenerateImageTitle("topic-hero", (string) ($topic["title"] ?? "Konu"), $settings)
+    : $topicHeroImageAlt;
 
 $favoritesCount = getTopicFavoriteCount($pdo, (int) ($topic["id"] ?? 0));
 $isFavorited = $isLoggedIn
@@ -398,12 +401,12 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                     strpos($heroImage, "http") === 0
                         ? $heroImage
                         : $baseUri . "/" . ltrim($heroImage, "/"),
-                ) ?>" alt="<?= htmlspecialchars($topicHeroImageAlt) ?>" loading="eager" fetchpriority="high" decoding="async" width="1200" height="675">
-            <?php else: ?>
-                <img src="<?= htmlspecialchars(asset_url("assets/" . $cover, $baseUri)) ?>" data-cover="<?= htmlspecialchars(
-    $cover,
-) ?>" alt="<?= htmlspecialchars($topicHeroImageAlt) ?>" loading="eager" fetchpriority="high" decoding="async" width="1200" height="675">
-            <?php endif; ?>
+                ) ?>" alt="<?= htmlspecialchars($topicHeroImageAlt) ?>" title="<?= htmlspecialchars($topicHeroImageTitle) ?>" loading="eager" fetchpriority="high" decoding="async" width="1200" height="675">
+            <?php else: ?>
+                <img src="<?= htmlspecialchars(asset_url("assets/" . $cover, $baseUri)) ?>" data-cover="<?= htmlspecialchars(
+    $cover,
+) ?>" alt="<?= htmlspecialchars($topicHeroImageAlt) ?>" title="<?= htmlspecialchars($topicHeroImageTitle) ?>" loading="eager" fetchpriority="high" decoding="async" width="1200" height="675">
+            <?php endif; ?>
         </div>
 
         <section class="topic-section topic-descriptions ui-section" aria-labelledby="desc-heading">
@@ -496,9 +499,9 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                                     $slide["type"] === "image" ||
                                     $slide["type"] === "youtube"
                                 ): ?>
-                                    <img src="<?= htmlspecialchars(
-                                        $slide["thumb"],
-                                    ) ?>" alt="" loading="lazy" decoding="async" width="90" height="60">
+                                    <img src="<?= htmlspecialchars(
+                                        $slide["thumb"],
+                                    ) ?>" alt="" title="Galeri gorseli <?= $idx + 1 ?>" loading="lazy" decoding="async" width="90" height="60">
                                 <?php else: ?>
                                     <i class="bi bi-play-circle-fill"></i>
                                 <?php endif; ?>
@@ -938,11 +941,11 @@ $defaultAvatarUrl = function_exists('defaultAvatarUrl')
                     if (function_exists('avatarImageHtml')):
                         echo avatarImageHtml((string) ($_SESSION["_auth_user_name"] ?? "U"), $currentUserAvatar, ['base_uri' => $baseUri, 'width' => 40, 'height' => 40]);
                     elseif (!empty($currentUserAvatar)):
-                ?><img src="<?= htmlspecialchars($currentUserAvatar) ?>" alt="<?= htmlspecialchars($_SESSION["_auth_user_name"] ?? "U") ?>" width="40" height="40" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($defaultAvatarUrl) ?>"><?php
-                    else:
-                ?><img src="<?= htmlspecialchars($defaultAvatarUrl) ?>" alt="<?= htmlspecialchars($_SESSION["_auth_user_name"] ?? "U") ?>" width="40" height="40" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($defaultAvatarUrl) ?>"><?php
-                    endif;
-                ?></div>
+                ?><img src="<?= htmlspecialchars($currentUserAvatar) ?>" alt="<?= htmlspecialchars($_SESSION["_auth_user_name"] ?? "U") ?>" title="<?= htmlspecialchars($_SESSION["_auth_user_name"] ?? "U") ?>" width="40" height="40" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($defaultAvatarUrl) ?>"><?php
+                    else:
+                ?><img src="<?= htmlspecialchars($defaultAvatarUrl) ?>" alt="<?= htmlspecialchars($_SESSION["_auth_user_name"] ?? "U") ?>" title="<?= htmlspecialchars($_SESSION["_auth_user_name"] ?? "U") ?>" width="40" height="40" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($defaultAvatarUrl) ?>"><?php
+                    endif;
+                ?></div>
                 <div class="ui-comment-form-body ui-panel__body">
                     <textarea id="tcInput" class="ui-comment-textarea" placeholder="Düşüncelerini paylaş..." maxlength="<?= COMMENT_MAX_LENGTH ?>" rows="1"></textarea>
                     <div class="ui-comment-form-actions is-hidden" id="tcActions">

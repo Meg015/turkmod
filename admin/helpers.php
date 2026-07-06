@@ -143,6 +143,12 @@ function adminRenderLogsSubtabs(string $active): void
             'icon' => 'bi-journal-text',
             'permission' => 'logs.view',
         ],
+        'application' => [
+            'label' => 'Uygulama Loglari',
+            'href' => '/admin/application-logs.php',
+            'icon' => 'bi-journal-code',
+            'permission' => 'logs.view',
+        ],
         'action' => [
             'label' => 'İşlem Günlüğü',
             'href' => '/admin/action-log.php',
@@ -200,7 +206,7 @@ function adminSettingDefinitions(): array
         // -- SEO ------------------------------------------------
         'default_meta_title'       => ['label' => 'Varsayılan Meta Başlık',       'type' => 'string', 'default' => 'İçerik Topic',                                     'section' => 'seo', 'tooltip' => 'Sayfalarda özel başlık yoksa kullanılacak varsayılan meta başlık'],
         'default_meta_description' => ['label' => 'Varsayılan Meta Açıklama',     'type' => 'text',   'default' => 'Güncel topluluk içerikleri, modlar ve rehberler.',    'section' => 'seo', 'tooltip' => 'Sayfalarda özel açıklama yoksa kullanılacak varsayılan meta description'],
-        'allow_indexing'           => ['label' => 'Tum Sayfalar Indexlensin (Genel)',      'type' => 'bool',   'default' => '1',                                                  'section' => 'seo', 'tooltip' => 'Kapatildiginda tum sayfalara noindex uygulanir'],
+        'allow_indexing'           => ['label' => 'Genel İndeks İzni',                      'type' => 'bool',   'default' => '1',                                                  'section' => 'seo', 'tooltip' => 'Kapalıysa tüm site noindex olur'],
         'canonical_base_url'       => ['label' => 'Canonical Ana URL',            'type' => 'string', 'default' => '',                               'section' => 'seo', 'tooltip' => 'Canonical URL\'ler için kullanılacak temel URL (boş bırakılırsa otomatik tespit edilir)'],
         'meta_title_suffix'        => ['label' => 'Meta Başlık Soneki',           'type' => 'string', 'default' => '',                                                   'section' => 'seo', 'tooltip' => 'Tüm sayfa başlıklarının sonuna eklenecek site adı eki (örn: "Başlık - Site Adı")'],
         'meta_description_max_length' => ['label' => 'Meta Açıklama Maks. Karakter', 'type' => 'number', 'default' => '160',                                             'section' => 'seo', 'tooltip' => 'Meta açıklamaların maksimum karakter uzunluğu (Google için 155-160 önerilir)'],
@@ -227,7 +233,7 @@ function adminSettingDefinitions(): array
         'robots_enabled'           => ['label' => 'Robots.txt Aktif',           'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Dinamik robots.txt dosyası oluşturma ve sunma özelliğini aktif eder'],
         'robots_disallow_admin'    => ['label' => 'Robots: /admin/ Engelle',    'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Admin panelini arama motorlarından gizler (güvenlik için önerilir)'],
         'robots_disallow_includes' => ['label' => 'Robots: /includes/ Engelle', 'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'PHP include dosyalarını arama motorlarından gizler (önerilir)'],
-        'robots_disallow_uploads'  => ['label' => 'Robots: /uploads/ Engelle',  'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Yükleme klasörünü arama motorlarından gizler (dosya indekslenmesini önler)'],
+        'robots_disallow_uploads'  => ['label' => 'Robots: /uploads/ Engelle',  'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Yükleme klasörünü arama motorlarından gizler; image sitemap içinden de dışlanır'],
         'robots_disallow_database' => ['label' => 'Robots: /database/ Engelle', 'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Veritabanı klasörünü arama motorlarından gizler (güvenlik için önerilir)'],
         'robots_crawl_delay'       => ['label' => 'Robots Crawl Delay (sn)',    'type' => 'number', 'default' => '0',                                                    'section' => 'seo', 'tooltip' => 'Botların istekler arasında beklemesi gereken süre (0=sınırsız, sunucu yükünü azaltır)'],
         'robots_custom_rules'      => ['label' => 'Robots Özel Kurallar',       'type' => 'text',   'default' => '',                                                     'section' => 'seo', 'tooltip' => 'Robots.txt\'e eklenecek özel kurallar (her satır bir kural)'],
@@ -238,19 +244,12 @@ function adminSettingDefinitions(): array
         'schema_breadcrumbs'       => ['label' => 'Breadcrumb Schema',          'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Breadcrumb yapısal verisi ekler (Google arama sonuçlarında breadcrumb gösterir)'],
 
         // Meta Tags Settings
-        'category_meta_template' => [
-            'label' => 'Kategori Meta Şablonu',
+        'seo_public_page_presets_json' => [
+            'label' => 'Public Sayfa SEO Presetleri JSON',
             'type' => 'text',
-            'default' => '{{category}} kategorisindeki modlar | {{site_name}}',
+            'default' => '',
             'section' => 'seo',
-            'tooltip' => 'Kategori sayfaları için meta başlık şablonu. Değişkenler: {{category}}, {{parent}}, {{count}}, {{site_name}}'
-        ],
-        'profile_meta_template' => [
-            'label' => 'Profil Meta Şablonu',
-            'type' => 'text',
-            'default' => '{{username}} profili ve paylaşımları | {{site_name}}',
-            'section' => 'seo',
-            'tooltip' => 'Profil sayfaları için meta başlık şablonu. Değişkenler: {{username}}, {{topics}}, {{comments}}, {{views}}, {{downloads}}, {{site_name}}'
+            'tooltip' => 'Public sayfa presetleri yapılandırılmış arayüzden otomatik oluşturulur.'
         ],
         'default_og_image' => [
             'label' => 'Varsayılan OG Image',
@@ -347,6 +346,34 @@ function adminSettingDefinitions(): array
             'section' => 'seo',
             'tooltip' => 'Alt text minimum karakter sayısı. Daha kısa olanlar fallback ile değiştirilir.'
         ],
+        'image_title_auto_generate' => [
+            'label' => 'Otomatik Title Text',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'seo',
+            'tooltip' => 'Görseller için otomatik olarak SEO dostu title text oluşturur'
+        ],
+        'image_title_template' => [
+            'label' => 'Title Text Şablonu',
+            'type' => 'text',
+            'default' => '{{title}} - {{category}} modu',
+            'section' => 'seo',
+            'tooltip' => 'Görseller için title text şablonu. Değişkenler: {{title}}, {{category}}, {{username}}, {{context}}'
+        ],
+        'image_title_fallback' => [
+            'label' => 'Title Text Fallback',
+            'type' => 'string',
+            'default' => 'İçerik görseli',
+            'section' => 'seo',
+            'tooltip' => 'Şablon uygulanamadığında kullanılacak varsayılan title text'
+        ],
+        'image_title_min_length' => [
+            'label' => 'Minimum Title Text Uzunluğu',
+            'type' => 'number',
+            'default' => '10',
+            'section' => 'seo',
+            'tooltip' => 'Title text minimum karakter sayısı. Daha kısa olanlar fallback ile değiştirilir.'
+        ],
 
         // Sitemap Settings
         'sitemap_route_enabled' => [
@@ -399,13 +426,6 @@ function adminSettingDefinitions(): array
             'default' => '0',
             'section' => 'seo',
             'tooltip' => 'Arama sonuç sayfalarının indekslenmesi (genellikle kapalı tutulur, duplicate content önler)'
-        ],
-        'index_tag_pages' => [
-            'label' => 'Etiket Sayfalari Indexlensin',
-            'type' => 'bool',
-            'default' => '1',
-            'section' => 'seo',
-            'tooltip' => 'Etiket sayfalarının arama motorları tarafından indekslenmesine izin verir'
         ],
         'index_archive_pages' => [
             'label' => 'Arsiv Sayfalari Indexlensin',
@@ -1058,6 +1078,9 @@ function adminSettingDefinitions(): array
         'leaderboard_cache_ttl_daily'   => ['label' => 'Günlük Cache TTL (saniye)',       'type' => 'number', 'default' => '900',   'section' => 'leaderboard', 'tooltip' => 'Günlük liderlik tablosu cache süresi (varsayılan: 15 dakika)'],
         'leaderboard_cache_ttl_weekly'  => ['label' => 'Haftalık Cache TTL (saniye)',     'type' => 'number', 'default' => '3600',  'section' => 'leaderboard', 'tooltip' => 'Haftalık liderlik tablosu cache süresi (varsayılan: 1 saat)'],
         'leaderboard_cache_ttl_monthly' => ['label' => 'Aylık Cache TTL (saniye)',        'type' => 'number', 'default' => '21600', 'section' => 'leaderboard', 'tooltip' => 'Aylık liderlik tablosu cache süresi (varsayılan: 6 saat)'],
+        'leaderboard_cache_ttl_quarterly' => ['label' => 'Quarterly Cache TTL (seconds)', 'type' => 'number', 'default' => '43200', 'section' => 'leaderboard', 'tooltip' => 'Cache lifetime for quarterly leaderboard snapshots'],
+        'leaderboard_cache_ttl_yearly' => ['label' => 'Yearly Cache TTL (seconds)', 'type' => 'number', 'default' => '86400', 'section' => 'leaderboard', 'tooltip' => 'Cache lifetime for yearly leaderboard snapshots'],
+        'leaderboard_cache_ttl_all_time' => ['label' => 'All Time Cache TTL (seconds)', 'type' => 'number', 'default' => '86400', 'section' => 'leaderboard', 'tooltip' => 'Cache lifetime for all-time leaderboard snapshots'],
         'leaderboard_min_topics'        => ['label' => 'Minimum Mod Sayısı',              'type' => 'number', 'default' => '1',     'section' => 'leaderboard', 'tooltip' => 'Liderlik tablosunda görünmek için gereken minimum mod sayısı'],
         'leaderboard_exclude_admins'    => ['label' => 'Adminleri Hariç Tut',             'type' => 'bool',   'default' => '1',     'section' => 'leaderboard', 'tooltip' => 'Admin kullanıcıları liderlik tablosundan hariç tut'],
         'leaderboard_show_sidebar'      => ['label' => 'Ana Sayfada Göster',              'type' => 'bool',   'default' => '1',     'section' => 'leaderboard', 'tooltip' => 'Ana sayfa sidebar\'ında liderlik tablosu widget\'ını göster'],
@@ -2255,6 +2278,10 @@ function adminNormalizeSettingValue(string $key, string $value, array $definitio
         return 'tr';
     }
 
+    if ($key === 'seo_public_page_presets_json' && function_exists('seoPublicPagePresetsJson')) {
+        return seoPublicPagePresetsJson($value);
+    }
+
     if ($key === 'sidebar_builder_config' && trim($value) !== '' && function_exists('sidebarBuilderSanitizeConfigJson')) {
         return sidebarBuilderSanitizeConfigJson($value);
     }
@@ -2501,6 +2528,11 @@ function saveAdminSettings(?PDO $pdo, array $input): void
 
     $definitions = adminSettingDefinitions();
     $input['site_language'] = 'tr';
+    if (isset($input['seo_public_pages']) && is_array($input['seo_public_pages']) && function_exists('seoPublicPagePresetsJson')) {
+        $input['seo_public_page_presets_json'] = seoPublicPagePresetsJson($input['seo_public_pages']);
+    } elseif (array_key_exists('seo_public_page_presets_json', $input) && function_exists('seoPublicPagePresetsJson')) {
+        $input['seo_public_page_presets_json'] = seoPublicPagePresetsJson($input['seo_public_page_presets_json']);
+    }
     if (array_key_exists('meta_description_max_length', $input)) {
         $input['meta_description_length'] = $input['meta_description_max_length'];
     }
@@ -2792,3 +2824,7 @@ function categoryHasTopics(?PDO $pdo, int $id): bool
     $stmt->execute([$id]);
     return (int)$stmt->fetchColumn() > 0;
 }
+
+
+
+

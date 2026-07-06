@@ -33,9 +33,9 @@ function leaderboardIsCacheStale(PDO $pdo, string $category, string $period): bo
     return leaderboardCacheServiceInstance()->isCacheStale($pdo, $category, $period);
 }
 
-function leaderboardReadCache(PDO $pdo, string $category, string $period, int $limit, int $offset): array
+function leaderboardReadCache(PDO $pdo, string $category, string $period, int $limit, int $offset, ?string $search = null): array
 {
-    return leaderboardCacheServiceInstance()->readCache($pdo, $category, $period, $limit, $offset);
+    return leaderboardCacheServiceInstance()->readCache($pdo, $category, $period, $limit, $offset, $search);
 }
 
 function getPreviousPeriodRanks(PDO $pdo, string $category, string $period, string $currentPeriodStart): array

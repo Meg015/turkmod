@@ -36,7 +36,9 @@
     },
     "assets": {
         "css": [
-            "css/bundle.min.css"
+            "css/bundle.min.css",
+            "css/mobile-fixes.css",
+            "css/layout-grid-fix.css"
         ],
         "js": [
             "js/bundle.min.js"
@@ -137,12 +139,12 @@
             },
             "topic_card": {
                 "template": "topic-card.tpl",
-                "safe_variables": ["topic.url", "topic.image", "topic.image_alt", "topic.title", "topic.category", "topic.category_url", "topic.date", "topic.excerpt", "topic.views", "topic.likes", "topic.comments_count", "topic.author", "topic.author_url"],
+                "safe_variables": ["topic.url", "topic.image", "topic.image_alt", "topic.image_title", "topic.title", "topic.category", "topic.category_url", "topic.date", "topic.excerpt", "topic.views", "topic.likes", "topic.comments_count", "topic.author", "topic.author_url"],
                 "raw_slots": []
             },
             "topic": {
                 "template": "topic.tpl",
-                "safe_variables": ["topic.id", "topic.url", "topic.image", "topic.image_alt", "topic.title", "topic.category", "topic.category_url", "topic.date", "topic.views", "topic.comments_count", "topic.can_edit", "topic.edit_url", "topic.tags", "topic.related_topics"],
+                "safe_variables": ["topic.id", "topic.url", "topic.image", "topic.image_alt", "topic.image_title", "topic.title", "topic.category", "topic.category_url", "topic.date", "topic.views", "topic.comments_count", "topic.can_edit", "topic.edit_url", "topic.tags", "topic.related_topics"],
                 "raw_slots": ["topic.description_html"],
                 "notes": "Topic sections are rendered from structured topic.* arrays; sanitized rich text remains raw by design."
             },

@@ -3789,6 +3789,7 @@ class MobileSidebar {
     init() {
         // Sadece mobil cihazlarda çalıştır
         if (window.innerWidth > 768) return;
+        if (document.documentElement.getAttribute('data-public-theme') === 'turkmod') return;
 
         this.createToggleButton();
         this.createOverlay();
@@ -5269,13 +5270,18 @@ e.init();
 
     function formatLabel(template, seconds) {
       return String(template || "")
+        .replace(/\{+\s*missing:\s*seconds\s*\}+/gi, "{{seconds}}")
+        .replace(/\(\(\s*missing:\s*seconds\s*\)\)/gi, "({{seconds}})")
+        .replace(/\(\s*missing:\s*seconds\s*\)/gi, "{{seconds}}")
+        .replace(/\bmissing:\s*seconds\b/gi, "{{seconds}}")
         .replace(/\{\{\{\s*seconds\s*\}\}\}/g, String(seconds))
         .replace(/\{\{\s*\}\}/g, String(seconds))
         .replace(/\{\{\s*seconds\s*\}\}/g, String(seconds))
         .replace(/\{\s*seconds\s*\}/g, String(seconds))
         .replace(/\{+\s*seconds\s*\}+/g, String(seconds))
         .replace(/\{+\s*\}+/g, String(seconds))
-        .replace(/\{\s*\}/g, String(seconds));
+        .replace(/\{\s*\}/g, String(seconds))
+        .replace(/\(\(\s*(\d+)\s*\)\)/g, "($1)");
     }
 
     function go() {

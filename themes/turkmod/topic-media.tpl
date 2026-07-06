@@ -13,7 +13,7 @@
 <div class="topic-carousel-thumbs" aria-label="Galeri onizlemeleri">
 {loop topic.media_slides}
 <button type="button" class="ui-comment-thumb {item.active_class}" data-idx="{item.index}" aria-label="Galeri gorseli {item.number}" {item.current_attr}>
-{if item.has_thumb}<img src="{item.thumb}" alt="" width="320" height="180" loading="lazy" decoding="async">{else}<i class="bi bi-play-circle-fill" aria-hidden="true"></i>{/if}
+{if item.has_thumb}<img src="{item.thumb}" alt="" title="Galeri gorseli {item.number}" width="320" height="180" loading="lazy" decoding="async">{else}<i class="bi bi-play-circle-fill" aria-hidden="true"></i>{/if}
 </button>
 {/loop}
 </div>

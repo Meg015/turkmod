@@ -2,14 +2,21 @@
 
 declare(strict_types=1);
 
-if (!function_exists('seoGenerateImageAlt')) {
-    function seoGenerateImageAlt(string $context, string $title, array $settings): string
+if (!function_exists('seoGenerateImageText')) {
+    function seoGenerateImageText(string $variant, string $context, string $title, array $settings): string
     {
-        if (($settings['image_alt_auto_generate'] ?? '1') !== '1') {
-            return $settings['image_alt_fallback'] ?? 'İçerik görseli';
+        $variant = $variant === 'title' ? 'title' : 'alt';
+        $autoKey = $variant === 'title' ? 'image_title_auto_generate' : 'image_alt_auto_generate';
+        $templateKey = $variant === 'title' ? 'image_title_template' : 'image_alt_template';
+        $fallbackKey = $variant === 'title' ? 'image_title_fallback' : 'image_alt_fallback';
+        $minLengthKey = $variant === 'title' ? 'image_title_min_length' : 'image_alt_min_length';
+        $fallback = (string) ($settings[$fallbackKey] ?? 'İçerik görseli');
+
+        if (($settings[$autoKey] ?? '1') !== '1') {
+            return $fallback;
         }
 
-        $template = seoGetImageAltTemplate($context, $settings);
+        $template = seoGetImageTextTemplate($variant, $context, $settings);
 
         // Get category if available (from global or passed data)
         $category = '';
@@ -17,46 +24,46 @@ if (!function_exists('seoGenerateImageAlt')) {
             $category = $GLOBALS['_cardCategory'];
         }
 
-        $alt = seoApplyTemplate($template, [
+        $text = seoApplyTemplate($template, [
             'title' => $title,
             'category' => $category,
+            'username' => (string) ($GLOBALS['_cardAuthor'] ?? ''),
             'context' => $context
         ]);
 
-        $alt = seoSanitizeImageAlt($alt);
+        $text = seoSanitizeImageText($text);
 
-        if (!seoValidateImageAlt($alt, $settings)) {
-            return $settings['image_alt_fallback'] ?? 'İçerik görseli';
+        if (!seoValidateImageText($text, (int) ($settings[$minLengthKey] ?? 10))) {
+            return $fallback;
         }
 
-        return $alt;
+        return $text;
     }
 }
 
-if (!function_exists('seoGetImageAltTemplate')) {
-    function seoGetImageAltTemplate(string $context, array $settings): string
+if (!function_exists('seoGetImageTextTemplate')) {
+    function seoGetImageTextTemplate(string $variant, string $context, array $settings): string
     {
+        $templateKey = $variant === 'title' ? 'image_title_template' : 'image_alt_template';
         $templates = [
-            'topic-card' => $settings['image_alt_template'] ?? '{{title}} - {{category}} modu',
+            'topic-card' => $settings[$templateKey] ?? '{{title}} - {{category}} modu',
             'topic-hero' => '{{title}} kapak görseli',
             'avatar' => '{{username}} profil fotoğrafı',
-            'category-icon' => '{{category}} kategorisi'
+            'category-icon' => '{{category}} kategorisi',
         ];
 
         return $templates[$context] ?? '{{title}}';
     }
 }
 
-if (!function_exists('seoValidateImageAlt')) {
-    function seoValidateImageAlt(string $alt, array $settings): bool
+if (!function_exists('seoValidateImageText')) {
+    function seoValidateImageText(string $text, int $minLength): bool
     {
-        $minLength = (int) ($settings['image_alt_min_length'] ?? 10);
-
-        if (trim($alt) === '') {
+        if (trim($text) === '') {
             return false;
         }
 
-        if (mb_strlen($alt, 'UTF-8') < $minLength) {
+        if (mb_strlen($text, 'UTF-8') < $minLength) {
             return false;
         }
 
@@ -64,18 +71,32 @@ if (!function_exists('seoValidateImageAlt')) {
     }
 }
 
-if (!function_exists('seoSanitizeImageAlt')) {
-    function seoSanitizeImageAlt(string $alt): string
+if (!function_exists('seoSanitizeImageText')) {
+    function seoSanitizeImageText(string $text): string
     {
         // Remove HTML tags
-        $alt = strip_tags($alt);
+        $text = strip_tags($text);
 
         // Remove extra whitespace
-        $alt = preg_replace('/\s+/', ' ', $alt);
+        $text = preg_replace('/\s+/', ' ', $text);
 
         // Trim
-        $alt = trim($alt);
+        $text = trim($text);
 
-        return $alt;
+        return $text;
+    }
+}
+
+if (!function_exists('seoGenerateImageAlt')) {
+    function seoGenerateImageAlt(string $context, string $title, array $settings): string
+    {
+        return seoGenerateImageText('alt', $context, $title, $settings);
+    }
+}
+
+if (!function_exists('seoGenerateImageTitle')) {
+    function seoGenerateImageTitle(string $context, string $title, array $settings): string
+    {
+        return seoGenerateImageText('title', $context, $title, $settings);
     }
 }

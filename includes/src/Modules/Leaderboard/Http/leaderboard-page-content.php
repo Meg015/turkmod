@@ -80,10 +80,10 @@ if ($leaderboard_disabled) {
 // Get parameters
 $category = $_GET['category'] ?? 'daily_login';
 $period = $_GET['period'] ?? 'daily';
-$page = max(1, (int)($_GET['page'] ?? 1));
-$search = trim($_GET['search'] ?? '');
+$requestedPage = max(1, (int)($_GET['page'] ?? 1));
+$search = trim((string) ($_GET['search'] ?? ''));
 $perPage = 50;
-$offset = ($page - 1) * $perPage;
+$offset = 0;
 
 // Validate category
 $validCategories = leaderboardGetValidCategories();
@@ -101,40 +101,55 @@ $categories = leaderboardGetCategories();
 
 // Period names
 $periods = [
-    'daily' => 'GÃƒÂ¼nlÃƒÂ¼k',
-    'weekly' => 'HaftalÃ„Â±k',
-    'monthly' => 'AylÃ„Â±k',
-    'quarterly' => '3 AylÃ„Â±k',
-    'yearly' => 'YÃ„Â±llÃ„Â±k',
-    'all_time' => 'TÃƒÂ¼m Zamanlar'
+    'daily' => 'Günlük',
+    'weekly' => 'Haftalık',
+    'monthly' => 'Aylık',
+    'quarterly' => 'Çeyreklik',
+    'yearly' => 'Yıllık',
+    'all_time' => 'Tüm Zamanlar'
 ];
 $leaderboardBaseUrl = function_exists('routePublicStaticUrl')
     ? routePublicStaticUrl('leaderboard')
     : ($baseUri . '/leaderboard.php');
 
 try {
-    $leaderboardData = leaderboardGetData($pdo, $category, $period, $perPage, $offset);
-    $users = $leaderboardData['data'] ?? [];
-    $total = $leaderboardData['total'] ?? 0;
+    $fetchLimit = $perPage;
+    $fetchOffset = ($requestedPage - 1) * $perPage;
+    $leaderboardData = leaderboardGetData($pdo, $category, $period, $fetchLimit, $fetchOffset, $search !== '' ? $search : null);
+    $allUsers = $leaderboardData['data'] ?? [];
+    $total = (int) ($leaderboardData['total'] ?? 0);
     $isCached = $leaderboardData['is_cached'] ?? false;
 } catch (Throwable $e) {
     appLogException($e, ['source' => 'leaderboard.php']);
-    $users = [];
+    $allUsers = [];
     $total = 0;
     $isCached = false;
 }
 
-// Filter by search if provided
-if ($search !== '' && !empty($users)) {
-    $users = array_filter($users, function($user) use ($search) {
-        $username = $user['username'] ?? '';
-        return stripos($username, $search) !== false;
-    });
-    $total = count($users);
+$totalPages = max(1, (int) ceil($total / $perPage));
+$page = min($requestedPage, $totalPages);
+$offset = ($page - 1) * $perPage;
+$shouldRefetch = $page !== $requestedPage;
+
+if ($shouldRefetch) {
+    try {
+        $leaderboardData = leaderboardGetData($pdo, $category, $period, $perPage, $offset, $search !== '' ? $search : null);
+        $allUsers = $leaderboardData['data'] ?? [];
+        $total = (int) ($leaderboardData['total'] ?? 0);
+        $isCached = $leaderboardData['is_cached'] ?? false;
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        $page = min($requestedPage, $totalPages);
+        $offset = ($page - 1) * $perPage;
+    } catch (Throwable $e) {
+        appLogException($e, ['source' => 'leaderboard.php']);
+        $allUsers = [];
+        $total = 0;
+        $isCached = false;
+    }
 }
 
-$totalPages = ceil($total / $perPage);
-$medals = ['Ã„Å¸Ã…Å¸Ã‚Â¥ââ‚¬Â¡', 'Ã„Å¸Ã…Å¸Ã‚Â¥Ã‹â€ ', 'Ã„Å¸Ã…Å¸Ã‚Â¥ââ‚¬Â°'];
+$users = $allUsers;
+$medals = ['🥇', '🥈', '🥉'];
 
 $leaderboard_description = (string) ($categories[$category]['desc'] ?? '');
 $leaderboard_is_cached = (bool) $isCached;
@@ -177,10 +192,10 @@ foreach ($users as $index => $user) {
         continue;
     }
 
-    $rank = $offset + $index + 1;
     $row = function_exists('leaderboardDecorateRow')
         ? leaderboardDecorateRow($user, $baseUri)
         : $user;
+    $rank = (int) ($row['rank'] ?? ($offset + $index + 1));
     $userId = (int) ($row['user_id'] ?? 0);
     $avatarUrl = (string) ($row['avatar_url'] ?? $fallbackAvatarUrl);
     $hasAvatar = $avatarUrl !== $fallbackAvatarUrl;
@@ -189,7 +204,7 @@ foreach ($users as $index => $user) {
     $rankChange = (int) ($row['rank_change'] ?? $row['change'] ?? 0);
     $metadata = isset($row['metadata']) && is_array($row['metadata']) ? $row['metadata'] : [];
     $metricKey = $categories[$category]['metadata_key'] ?? null;
-    $metricLabel = (string) ($categories[$category]['metadata_label'] ?? 'Sayi');
+    $metricLabel = (string) ($categories[$category]['metadata_label'] ?? 'Sayı');
     $metricValue = $metricKey && isset($metadata[$metricKey]) ? number_format((int) $metadata[$metricKey]) : '';
     $isCurrentUser = $isLoggedIn && $userId === (int) ($_SESSION['_auth_user_id'] ?? 0);
 
@@ -221,30 +236,30 @@ foreach ($users as $index => $user) {
 $users = $leaderboard_rows;
 $leaderboard_has_rows = $leaderboard_rows !== [];
 $leaderboard_empty_message = $search !== ''
-    ? 'Aramanizla eslesen kullanici bulunamadi.'
-    : 'Bu kategori icin henuz siralama verisi bulunmuyor.';
+    ? 'Aramanızla eşleşen kullanıcı bulunamadı.'
+    : 'Bu kategori için henüz sıralama verisi bulunmuyor.';
 $leaderboard_avatar_fallback = $fallbackAvatarUrl;
 $leaderboard_search_clear_url = $leaderboardBaseUrl . '?' . http_build_query([
     'category' => $category,
     'period' => $period,
 ]);
 $leaderboard_empty_title = $search !== ''
-    ? 'Arama sonucu bulunamadi'
-    : 'Siralama henuz olusmadi';
+    ? 'Arama sonucu bulunamadı'
+    : 'Sıralama henüz oluşmadı';
 $leaderboard_empty_description = $search !== ''
-    ? 'Filtreyi degistirerek tekrar deneyebilir veya aramayi temizleyerek tum kullanicilari gorebilirsiniz.'
-    : 'Bu kategori ve donem icin henuz puanlanan uye yok. Ilk hareket geldiginde tablo otomatik olusur.';
+    ? 'Filtreyi değiştirerek tekrar deneyebilir veya aramayı temizleyerek tüm kullanıcıları görebilirsiniz.'
+    : 'Bu kategori ve dönem için henüz puanlanan üye yok. İlk hareket geldiğinde tablo otomatik oluşur.';
 $leaderboard_empty_primary_url = $search !== ''
     ? $leaderboard_search_clear_url
     : routePublicStaticUrl('upload_topic');
 $leaderboard_empty_primary_label = $search !== ''
-    ? 'Aramayi Temizle'
-    : 'Ilk Icerigi Yukle';
+    ? 'Aramayı Temizle'
+    : 'İlk İçeriği Yükle';
 $leaderboard_empty_secondary_url = function_exists('categoryListUrl')
     ? categoryListUrl()
     : (rtrim((string) $baseUri, '/') . '/kategoriler');
-$leaderboard_empty_secondary_label = 'Kategorileri Kesfet';
-$leaderboard_empty_period_label = (string) ($periods[$period] ?? 'Secili donem');
+$leaderboard_empty_secondary_label = 'Kategorileri Keşfet';
+$leaderboard_empty_period_label = (string) ($periods[$period] ?? 'Seçili dönem');
 $leaderboard_empty_category_label = (string) ($categories[$category]['name'] ?? 'Genel');
 $leaderboard_total_pages = (int) $totalPages;
 $leaderboard_current_page = (int) $page;
@@ -303,13 +318,13 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                     <!-- Header -->
                     <div class="leaderboard-header">
                         <div class="leaderboard-title">
-                            <span class="leaderboard-eyebrow">Topluluk SÃ„Â±ralamasÃ„Â±</span>
+                            <span class="leaderboard-eyebrow">Topluluk Sıralaması</span>
                             <h1><i class="bi bi-trophy"></i> Lider Tablosu</h1>
                             <p><?= htmlspecialchars($categories[$category]['desc']) ?></p>
                         </div>
                         <?php if ($isCached): ?>
                             <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert--info ui-admin-alert-spaced" role="status">
-                                <i class="bi bi-lightning-charge"></i> Ãƒ–nbellekten hÃ„Â±zlÃ„Â± yÃƒÂ¼klendi
+                                <i class="bi bi-lightning-charge"></i> Önbellekten hızlı yüklendi
                             </div>
                         <?php endif; ?>
                     </div>
@@ -344,7 +359,7 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                                     <i class="bi bi-search"></i>
                                     <input type="text"
                                            name="search"
-                                           placeholder="KullanÃ„Â±cÃ„Â± ara..."
+                                           placeholder="Kullanıcı ara..."
                                            value="<?= htmlspecialchars($search) ?>"
                                            class="search-input">
                                     <?php if ($search): ?>
@@ -365,7 +380,7 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                                 <span class="leaderboard-empty-state__icon"><i class="bi bi-graph-down-arrow"></i></span>
                             </div>
                             <div class="leaderboard-empty-state__content">
-                                <span class="leaderboard-empty-state__eyebrow">Siralama boslugu</span>
+                                <span class="leaderboard-empty-state__eyebrow">Henüz sıralama yok</span>
                                 <h3 id="leaderboardEmptyTitle"><?= htmlspecialchars($leaderboard_empty_title, ENT_QUOTES, 'UTF-8') ?></h3>
                                 <p><?= htmlspecialchars($leaderboard_empty_description, ENT_QUOTES, 'UTF-8') ?></p>
                                 <div class="leaderboard-empty-state__context">
@@ -373,9 +388,9 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                                     <span><i class="bi bi-calendar3"></i> <?= htmlspecialchars($leaderboard_empty_period_label, ENT_QUOTES, 'UTF-8') ?></span>
                                 </div>
                                 <ul class="leaderboard-empty-state__tips">
-                                    <li><i class="bi bi-check2-circle"></i> Farkli donem secerek karsilastirma yapabilirsiniz.</li>
-                                    <li><i class="bi bi-check2-circle"></i> Liste olustugunda ilk 3 uye burada rozetle gosterilir.</li>
-                                    <li><i class="bi bi-check2-circle"></i> Kategori gecisleri ve arama filtreleri korunur.</li>
+                                    <li><i class="bi bi-check2-circle"></i> Farklı dönem seçerek karşılaştırma yapabilirsiniz.</li>
+                                    <li><i class="bi bi-check2-circle"></i> Liste oluştuğunda ilk 3 üye burada rozetle gösterilir.</li>
+                                    <li><i class="bi bi-check2-circle"></i> Kategori geçişleri ve arama filtreleri korunur.</li>
                                 </ul>
                                 <div class="leaderboard-empty-state__actions">
                                     <a class="leaderboard-empty-state__btn is-primary" href="<?= htmlspecialchars($leaderboard_empty_primary_url, ENT_QUOTES, 'UTF-8') ?>">
@@ -394,10 +409,10 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                             <table class="leaderboard-table">
                                 <thead>
                                     <tr>
-                                        <th class="col-rank">SÃ„Â±ra</th>
-                                        <th class="col-user">KullanÃ„Â±cÃ„Â±</th>
-                                        <th class="col-score">SayÃ„Â±</th>
-                                        <th class="col-change">DeÃ„Å¸iÃ…Å¸im</th>
+                                        <th class="col-rank">Sıra</th>
+                                        <th class="col-user">Kullanıcı</th>
+                                        <th class="col-score">Sayı</th>
+                                        <th class="col-change">Değişim</th>
                                         <th class="col-metadata">Detaylar</th>
                                     </tr>
                                 </thead>
@@ -411,7 +426,7 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                                         $rankChange = (int)($user['rank_change'] ?? $user['change'] ?? 0);
                                         $metadata = $user['metadata'] ?? [];
                                         $metricKey = $categories[$category]['metadata_key'] ?? null;
-                                        $metricLabel = $categories[$category]['metadata_label'] ?? 'SayÃ„Â±';
+                                        $metricLabel = $categories[$category]['metadata_label'] ?? 'Sayı';
 
                                         // Highlight current user
                                         $isCurrentUser = $isLoggedIn && $userId === (int)$_SESSION['_auth_user_id'];
@@ -485,7 +500,7 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                             <div class="pagination">
                                 <button <?= $page <= 1 ? 'disabled' : '' ?>
                                         data-leaderboard-href="?category=<?= $category ?>&period=<?= $period ?>&page=<?= $page - 1 ?><?= $search ? '&search=' . urlencode($search) : '' ?>"
-                                        aria-label="Ãƒ–nceki sayfa">
+                                        aria-label="Önceki sayfa">
                                     <i class="bi bi-chevron-left"></i>
                                 </button>
 
@@ -539,3 +554,5 @@ $leaderboardScriptUrl = rtrim($baseUri, '/') . '/assets/js/leaderboard.js?v=' . 
 <?php require_once $leaderboardProjectRoot . '/includes/public-footer.php'; ?>
 
 
+
+

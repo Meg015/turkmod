@@ -51,6 +51,10 @@ final class ImageSitemapPage implements Handler
         $body .= '        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
 
         foreach ($this->resolveTopics($settings, $this->resolvePage($request), $maxUrlsPerSitemap) as $topic) {
+            if (function_exists('seoTopicShouldAppearInSitemap') && !seoTopicShouldAppearInSitemap($topic, $settings)) {
+                continue;
+            }
+
             $images = $this->collectImages($topic, $settings, $canonicalBase, $maxImages);
             if ($images === []) {
                 continue;
@@ -155,9 +159,14 @@ final class ImageSitemapPage implements Handler
             return [];
         }
 
-        $statuses = (string) ($settings['sitemap_exclude_drafts'] ?? '1') === '1'
-            ? ['published']
-            : ['published', 'draft'];
+        $statuses = function_exists('seoSitemapTopicStatuses')
+            ? seoSitemapTopicStatuses($settings)
+            : ((string) ($settings['sitemap_exclude_drafts'] ?? '1') === '1'
+                ? ['published']
+                : ['published', 'draft']);
+        if ($statuses === []) {
+            return [];
+        }
         $statusPlaceholders = implode(', ', array_fill(0, count($statuses), '?'));
         $offset = ($page - 1) * $maxUrlsPerSitemap;
 
@@ -217,7 +226,7 @@ final class ImageSitemapPage implements Handler
 
         if ((string) ($settings['image_sitemap_hero'] ?? '1') === '1') {
             $hero = $this->primaryMediaPath($topic);
-            if ($hero !== '') {
+            if ($hero !== '' && $this->shouldIncludeImagePath($hero, $settings)) {
                 $appendImage(
                     filter_var($hero, FILTER_VALIDATE_URL) ? $hero : $this->canonicalUrl($hero, $settings, $canonicalBase),
                     $title . ' - kapak görseli',
@@ -227,7 +236,7 @@ final class ImageSitemapPage implements Handler
 
         if ((string) ($settings['image_sitemap_inline'] ?? '1') === '1') {
             foreach ($this->mediaGallery((int) ($topic['id'] ?? 0)) as $line) {
-                if ($line !== '' && preg_match('/\.(jpg|jpeg|png|gif|webp|svg)$/i', $line) === 1) {
+                if ($line !== '' && preg_match('/\.(jpg|jpeg|png|gif|webp|svg)$/i', $line) === 1 && $this->shouldIncludeImagePath($line, $settings)) {
                     $appendImage(
                         filter_var($line, FILTER_VALIDATE_URL) ? $line : $this->canonicalUrl($line, $settings, $canonicalBase),
                         $title . ' - ' . basename($line),
@@ -239,7 +248,7 @@ final class ImageSitemapPage implements Handler
         if ((string) ($settings['image_sitemap_media'] ?? '1') === '1') {
             foreach ($this->mediaFiles((int) ($topic['id'] ?? 0), max(1, $maxImages - count($images))) as $mediaFile) {
                 $filePath = trim((string) ($mediaFile['path'] ?? ''));
-                if ($filePath === '') {
+                if ($filePath === '' || !$this->shouldIncludeImagePath($filePath, $settings)) {
                     continue;
                 }
 
@@ -251,6 +260,38 @@ final class ImageSitemapPage implements Handler
         }
 
         return $images;
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     */
+    private function shouldIncludeImagePath(string $path, array $settings): bool
+    {
+        if ((string) ($settings['robots_disallow_uploads'] ?? '1') !== '1') {
+            return true;
+        }
+
+        return !$this->isUploadsPath($path);
+    }
+
+    private function isUploadsPath(string $path): bool
+    {
+        $path = trim(str_replace('\\', '/', $path));
+        if ($path === '') {
+            return false;
+        }
+
+        if (function_exists('topicResolveLocalUploadPath')) {
+            return topicResolveLocalUploadPath($path, (string) ($GLOBALS['baseUri'] ?? '')) !== null;
+        }
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            $path = (string) parse_url($path, PHP_URL_PATH);
+        }
+
+        $normalized = ltrim(str_replace('\\', '/', $path), '/');
+
+        return str_starts_with($normalized, 'uploads/');
     }
 
     /**

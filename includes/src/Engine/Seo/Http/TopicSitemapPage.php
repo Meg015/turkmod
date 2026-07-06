@@ -32,6 +32,23 @@ final class TopicSitemapPage implements Handler
         $settings = $this->settings ?? $this->resolveSettings();
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
         $page = $this->resolvePage($request);
+
+        if (function_exists('seoIndexToggleValue')) {
+            if (seoIndexToggleValue($settings, 'allow_indexing', '1') !== '1') {
+                return $this->xmlResponse(
+                    '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+                    . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>' . "\n",
+                    $this->now(),
+                );
+            }
+        } elseif ((string) ($settings['allow_indexing'] ?? '1') !== '1') {
+            return $this->xmlResponse(
+                '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+                . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>' . "\n",
+                $this->now(),
+            );
+        }
+
         $maxUrlsPerSitemap = max(1, min(50000, (int) ($settings['sitemap_max_urls'] ?? 1000)));
         $latestLastmod = null;
 
@@ -121,24 +138,30 @@ final class TopicSitemapPage implements Handler
     private function renderStaticEntries(array $settings, string $canonicalBase): string
     {
         $staticLastmod = $this->now();
-        $body = $this->renderUrlEntry(
-            $this->canonicalUrl('/', $settings, $canonicalBase),
-            $staticLastmod,
-            'daily',
-            (string) ($settings['sitemap_priority_home'] ?? '1.0'),
-        );
+        $body = '';
+
+        if (function_exists('seoPublicPageShouldAppearInSitemap') && seoPublicPageShouldAppearInSitemap('home', $settings)) {
+            $body .= $this->renderUrlEntry(
+                $this->canonicalUrl('/', $settings, $canonicalBase),
+                $staticLastmod,
+                'daily',
+                (string) ($settings['sitemap_priority_home'] ?? '1.0'),
+            );
+        }
 
         if ((string) ($settings['sitemap_include_categories'] ?? '1') !== '1') {
             return $body;
         }
 
-        $changefreq = (string) ($settings['sitemap_changefreq'] ?? 'weekly');
-        $body .= $this->renderUrlEntry(
-            $this->canonicalUrl($this->categoryListPath(), $settings, $canonicalBase),
-            $staticLastmod,
-            $changefreq,
-            '0.8',
-        );
+        if (function_exists('seoPublicPageShouldAppearInSitemap') && seoPublicPageShouldAppearInSitemap('category_list', $settings)) {
+            $changefreq = (string) ($settings['sitemap_changefreq'] ?? 'weekly');
+            $body .= $this->renderUrlEntry(
+                $this->canonicalUrl($this->categoryListPath(), $settings, $canonicalBase),
+                $staticLastmod,
+                $changefreq,
+                '0.8',
+            );
+        }
 
         foreach ($this->resolveCategoryTree() as $node) {
             $body .= $this->renderCategoryNode($node, '', $settings, $canonicalBase, $staticLastmod);
@@ -175,7 +198,7 @@ final class TopicSitemapPage implements Handler
     private function renderCategoryNode(array $node, string $parentSlug, array $settings, string $canonicalBase, string $lastmod): string
     {
         $slug = (string) ($node['slug'] ?? '');
-        if ($slug === '') {
+        if ($slug === '' || (function_exists('seoCategoryShouldAppearInSitemap') && !seoCategoryShouldAppearInSitemap($node, $settings))) {
             return '';
         }
 
@@ -221,9 +244,14 @@ final class TopicSitemapPage implements Handler
             return [];
         }
 
-        $statuses = (string) ($settings['sitemap_exclude_drafts'] ?? '1') === '1'
-            ? ['published']
-            : ['published', 'draft'];
+        $statuses = function_exists('seoSitemapTopicStatuses')
+            ? seoSitemapTopicStatuses($settings)
+            : ((string) ($settings['sitemap_exclude_drafts'] ?? '1') === '1'
+                ? ['published']
+                : ['published', 'draft']);
+        if ($statuses === []) {
+            return [];
+        }
         $statusPlaceholders = implode(', ', array_fill(0, count($statuses), '?'));
         $offset = ($page - 1) * $maxUrlsPerSitemap;
 

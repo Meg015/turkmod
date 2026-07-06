@@ -5,9 +5,9 @@
 <a class="header__logo" href="{base_url}/index.php" aria-label="{site_name}">
 <span class="header__logo-mark" aria-hidden="true">
 {if logo_url}
-<img class="header__logo-img" src="{logo_url}" alt="">
+<img class="header__logo-img" src="{logo_url}" alt="" title="{site_name}">
 {else}
-<img class="header__logo-img" src="{base_url}/themes/turkmod/images/logo-sample.svg" alt="">
+<img class="header__logo-img" src="{base_url}/themes/turkmod/images/logo-sample.svg" alt="" title="{site_name}">
 {/if}
 </span>
 <span class="header__logo-text">{site_name}</span>

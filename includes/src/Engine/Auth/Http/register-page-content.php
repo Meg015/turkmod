@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errorMsg = 'Isim en az 2 karakter olmalidir.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errorMsg = 'Gecerli bir e-posta adresi girin.';
-        } elseif (($policyError = validatePasswordPolicy($password, $settings, 'Ã…Âifre')) !== '') {
+        } elseif (($policyError = validatePasswordPolicy($password, $settings, 'Şifre')) !== '') {
             $errorMsg = $policyError;
         } elseif ($password !== $passwordConfirm) {
             $errorMsg = 'Sifreler eslesmiyor.';
@@ -195,7 +195,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                     </span>
                 </div>
                 <div class="form-group auth-field">
-                    <label for="password">Ã…Âifre</label>
+                    <label for="password">Şifre</label>
                     <span class="auth-input-shell ui-section">
                         <i class="bi bi-lock" aria-hidden="true"></i>
                         <input id="password" name="password" type="password" required minlength="<?= (int) $passwordMinLength ?>" aria-required="true" autocomplete="new-password" data-password-strength data-password-confirm="#password_confirm" data-password-require-uppercase="<?= $passwordPolicy['require_uppercase'] ? '1' : '0' ?>" data-password-require-numbers="<?= $passwordPolicy['require_numbers'] ? '1' : '0' ?>" data-password-require-special="<?= $passwordPolicy['require_special'] ? '1' : '0' ?>">
@@ -203,7 +203,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                     <small><?= htmlspecialchars($passwordPolicyHint) ?></small>
                 </div>
                 <div class="form-group auth-field">
-                    <label for="password_confirm">Ã…Âifre Tekrar</label>
+                    <label for="password_confirm">Şifre Tekrar</label>
                     <span class="auth-input-shell ui-section">
                         <i class="bi bi-shield-lock" aria-hidden="true"></i>
                         <input id="password_confirm" name="password_confirm" type="password" required minlength="<?= (int) $passwordMinLength ?>" aria-required="true" autocomplete="new-password">

@@ -2,9 +2,9 @@
     <div class="profile-sidebar-card profile-sidebar-card--hero ui-card">
         <div class="profile-sidebar-avatar profile-sidebar-avatar--hero">
             {if profile.has_avatar}
-                <img src="{profile.avatar}" alt="{profile.name}" width="56" height="56" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="{profile.avatar_fallback}">
+                <img src="{profile.avatar}" alt="{profile.name}" title="{profile.name}" width="56" height="56" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="{profile.avatar_fallback}">
             {else}
-                <img src="{profile.avatar_fallback}" alt="{profile.name}" width="56" height="56" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="{profile.avatar_fallback}">
+                <img src="{profile.avatar_fallback}" alt="{profile.name}" title="{profile.name}" width="56" height="56" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="{profile.avatar_fallback}">
             {/if}
         </div>
 

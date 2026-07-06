@@ -517,8 +517,11 @@ final class PublicThemeRenderer
         }
 
         $imageAlt = function_exists('seoGenerateImageAlt')
-            ? seoGenerateImageAlt('topic-hero', $title, $settings)
+            ? seoGenerateImageAlt('topic-card', $title, $settings)
             : $title . ' kapak gorseli';
+        $imageTitle = function_exists('seoGenerateImageTitle')
+            ? seoGenerateImageTitle('topic-card', $title, $settings)
+            : $imageAlt;
 
         return [
             'url' => $href,
@@ -526,6 +529,7 @@ final class PublicThemeRenderer
             'image_srcset' => $imageSrcset,
             'image_sizes' => $imageSizes,
             'image_alt' => $imageAlt,
+            'image_title' => $imageTitle,
             'image_loading' => $isLcpCandidate ? 'eager' : 'lazy',
             'image_decoding' => $isLcpCandidate ? 'sync' : 'async',
             'image_fetchpriority' => $isLcpCandidate ? 'high' : '',
@@ -584,9 +588,14 @@ final class PublicThemeRenderer
         if ($footerData === []) {
             $footerData = self::buildFooterData($context);
         }
-        $sidebarRightVars = self::arrayValue($state, 'sidebar_right_vars');
-
         $vars = self::arrayValue($state, 'vars');
+        $sidebarRightVars = self::arrayValue($state, 'sidebar_right_vars');
+        $baseUri = rtrim((string) ($vars['base_url'] ?? ($context['base_uri'] ?? '')), '/');
+        $sidebarRuntimeVars = [
+            'user_avatar_fallback' => function_exists('defaultAvatarUrl')
+                ? defaultAvatarUrl($baseUri)
+                : $baseUri . '/assets/images/noavatar-neon-helmet.svg',
+        ];
         $pageKey = (string) ($vars['page_key'] ?? '');
         $dropInlineScripts = in_array($pageKey, ['profile', 'public_profile', 'upload_topic', 'edit_topic'], true);
         $fragments = self::extractAssetFragments($capturedContent, $themeManager->isAssetIsolated(), $dropInlineScripts);
@@ -601,7 +610,7 @@ final class PublicThemeRenderer
         $vars['head'] = trim((string) ($vars['head'] ?? '') . "\n" . $fragments['head']);
         $vars['scripts'] = trim((string) ($vars['scripts'] ?? '') . "\n" . $fragments['scripts']);
         $vars['sidebar_right'] = !empty($GLOBALS['_public_theme_show_right_sidebar'])
-            ? $themeManager->render('partials.sidebar_right', array_merge($footerData, $sidebarRightVars), ['sidebar_widget.html'])
+            ? $themeManager->render('partials.sidebar_right', array_merge($footerData, $sidebarRightVars, $sidebarRuntimeVars), ['sidebar_widget.html'])
             : '';
         $vars['footer'] = trim($themeManager->render('footer', $footerData) . "\n" . self::renderToastContainer($context) . "\n" . self::renderPopupAnnouncement($context));
 
@@ -1383,7 +1392,7 @@ final class PublicThemeRenderer
                     $current = $index === 0 ? ' aria-current="true"' : '';
                     $html .= '<button type="button" class="ui-comment-thumb' . $active . '" data-idx="' . $index . '" aria-label="Galeri görseli ' . ($index + 1) . '"' . $current . '>';
                     if (($slide['type'] ?? '') === 'image' || ($slide['type'] ?? '') === 'youtube') {
-                        $html .= '<img src="' . htmlspecialchars((string) ($slide['thumb'] ?? ''), ENT_QUOTES, 'UTF-8') . '" alt="" loading="lazy" decoding="async" width="90" height="60">';
+                        $html .= '<img src="' . htmlspecialchars((string) ($slide['thumb'] ?? ''), ENT_QUOTES, 'UTF-8') . '" alt="" title="Galeri görseli ' . ($index + 1) . '" loading="lazy" decoding="async" width="90" height="60">';
                     } else {
                         $html .= '<i class="bi bi-play-circle-fill" aria-hidden="true"></i>';
                     }
@@ -1573,7 +1582,7 @@ final class PublicThemeRenderer
         if ($isLoggedIn) {
             $avatarHtml = function_exists('avatarImageHtml')
                 ? avatarImageHtml($userName !== '' ? $userName : 'U', $avatar, ['base_uri' => $baseUri, 'width' => 48, 'height' => 48])
-                : '<img src="' . htmlspecialchars($avatar !== '' ? $avatar : $avatarFallback, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($userName !== '' ? $userName : 'U', ENT_QUOTES, 'UTF-8') . '" width="48" height="48" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="' . htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8') . '">';
+                : '<img src="' . htmlspecialchars($avatar !== '' ? $avatar : $avatarFallback, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($userName !== '' ? $userName : 'U', ENT_QUOTES, 'UTF-8') . '" title="' . htmlspecialchars($userName !== '' ? $userName : 'U', ENT_QUOTES, 'UTF-8') . '" width="48" height="48" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="' . htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8') . '">';
             $form = '<div class="ui-comment-form-wrap" id="tcFormWrap"><div class="ui-comment-form-avatar">' . $avatarHtml . '</div><div class="ui-comment-form-body ui-panel__body"><textarea id="tcInput" class="ui-comment-textarea" placeholder="Düşüncelerini paylaş..." maxlength="' . $maxLength . '" rows="1"></textarea><div class="ui-comment-form-actions is-hidden" id="tcActions"><span class="ui-comment-char-count"><span id="tcCharCount">0</span>/' . $maxLength . '</span><div class="ui-comment-form-btns"><button type="button" class="ui-comment-btn-cancel" id="tcCancel">İptal</button><button type="button" class="ui-comment-btn-submit" id="tcSubmit" disabled>Gönder</button></div></div></div></div>';
         } else {
             $form = '<div class="ui-comment-login-prompt">Yorum yapmak için <a href="' . htmlspecialchars((function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : (rtrim($baseUri, '/') . '/giris')), ENT_QUOTES, 'UTF-8') . '">giriş yapın</a>.</div>';
@@ -1886,6 +1895,9 @@ final class PublicThemeRenderer
             'url' => $topicUrl,
             'image' => $image,
             'image_alt' => $title,
+            'image_title' => function_exists('seoGenerateImageTitle')
+                ? seoGenerateImageTitle('topic-hero', $title, $settings)
+                : $title . ' kapak gorseli',
             'title' => $title,
             'category' => $category,
             'category_url' => $categorySlug !== '' && function_exists('categoryUrl') ? categoryUrl($categorySlug, $categoryParentSlug) : '#',
@@ -2047,12 +2059,43 @@ final class PublicThemeRenderer
         $metaDescription = (string) ($context['meta_description'] ?? 'Topluluk dosyalari, guncellemeler ve modlar.');
         $themeMode = (string) ($context['theme_mode'] ?? 'auto');
         $faviconUrl = trim((string) ($settings['favicon_url'] ?? ''));
+        $seoPageKey = (string) ($context['page_key'] ?? '');
+        if (function_exists('seoPublicPageResolveKey')) {
+            $seoPageKey = seoPublicPageResolveKey((string) ($context['current_request_uri'] ?? ''), $settings, $seoPageKey !== '' ? $seoPageKey : null);
+        }
+        $seoPageTitle = trim((string) ($pageVars['seoPageTitle'] ?? $pageVars['seo_page_title'] ?? ''));
+        $seoPageTitleIsFinal = !empty($pageVars['seoPageTitleIsFinal'] ?? $pageVars['seo_page_title_is_final'] ?? $pageVars['pageTitleIsFinal'] ?? false);
+        if ($seoPageTitle === '') {
+            $seoPageTitle = $pageTitle;
+        }
+        if (
+            !$seoPageTitleIsFinal
+            && $seoPageKey !== ''
+            && function_exists('seoPublicPageMeta')
+        ) {
+            $resolvedPageMeta = seoPublicPageMeta(
+                $seoPageKey,
+                [
+                    'title' => $seoPageTitle,
+                    'description' => $metaDescription,
+                ],
+                [],
+                $settings
+            );
+            if (!empty($resolvedPageMeta['title_is_final'])) {
+                $seoPageTitle = (string) ($resolvedPageMeta['title'] ?? $seoPageTitle);
+                $seoPageTitleIsFinal = true;
+            }
+        }
+        $resolvedTitle = $seoPageTitleIsFinal
+            ? $seoPageTitle
+            : ($seoPageTitle !== '' ? $seoPageTitle . ' - ' . $siteName : $siteName);
 
         $head = [];
         $head[] = '<meta charset="UTF-8">';
         $head[] = '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
         $head[] = self::themeModeScript($baseUri);
-        $head[] = '<title>' . htmlspecialchars($pageTitle . ' - ' . $siteName, ENT_QUOTES, 'UTF-8') . '</title>';
+        $head[] = '<title>' . htmlspecialchars($resolvedTitle, ENT_QUOTES, 'UTF-8') . '</title>';
 
         if (isset($pageVars['seoMetaTags']) && (string) $pageVars['seoMetaTags'] !== '') {
             $head[] = (string) $pageVars['seoMetaTags'];
@@ -2064,7 +2107,7 @@ final class PublicThemeRenderer
             $head[] = (string) $pageVars['seoPaginationTags'];
         }
 
-        $robotsMeta = function_exists('seoRobotsMeta') ? seoRobotsMeta($settings, null, (string) ($context['page_key'] ?? '')) : 'index, follow';
+        $robotsMeta = function_exists('seoRobotsMeta') ? seoRobotsMeta($settings, null, $seoPageKey) : 'index, follow';
         $indexDraftTopics = function_exists('seoIndexToggleValue')
             ? seoIndexToggleValue($settings, 'index_draft_topics', '0', 'noindex_draft_topics')
             : (((string) ($settings['noindex_draft_topics'] ?? '1')) === '1' ? '0' : '1');
@@ -3232,6 +3275,9 @@ final class PublicThemeRenderer
 
             if (trim((string) ($topic['image_alt'] ?? '')) === '') {
                 $topic['image_alt'] = (string) ($topic['title'] ?? 'Konu') . ' kapak gorseli';
+            }
+            if (trim((string) ($topic['image_title'] ?? '')) === '') {
+                $topic['image_title'] = (string) ($topic['title'] ?? 'Konu') . ' kapak gorseli';
             }
 
             $topics[$index] = $topic;

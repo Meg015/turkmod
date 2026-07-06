@@ -15,6 +15,9 @@ $actionLabels = [
     'unban'         => 'Yasak Kaldırma',
     'restrict'      => 'Kısıtlama',
     'delete'        => 'Silme',
+    'activity_logs_cleared' => 'Aktivite Logları Temizlendi',
+    'application_logs_cleared' => 'Uygulama Loglari Temizlendi',
+    'rate_limit_records_deleted' => 'Rate Limit Kayıtları Temizlendi',
 ];
 
 $filterAction = trim((string) ($_GET['action_type'] ?? ''));
@@ -487,3 +490,4 @@ require_once __DIR__ . '/header.php';
 <script src="<?= asset_url('admin/assets/action-log-page.js', $baseUri) ?>" defer></script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
+

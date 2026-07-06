@@ -786,6 +786,7 @@ class MobileSidebar {
     init() {
         // Sadece mobil cihazlarda çalıştır
         if (window.innerWidth > 768) return;
+        if (document.documentElement.getAttribute('data-public-theme') === 'turkmod') return;
 
         this.createToggleButton();
         this.createOverlay();

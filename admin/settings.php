@@ -194,7 +194,7 @@ $seoGroups = [
     'seo-tab-meta' => [
         'title' => 'Meta & Canonical',
         'icon' => 'bi-card-text',
-        'description' => 'Sayfa başlıkları, açıklamalar ve canonical URL davranışı.',
+        'description' => 'Site geneli meta varsayılanları ve canonical URL davranışı.',
         'keys' => [
             'default_meta_title',
             'meta_title_suffix',
@@ -202,9 +202,13 @@ $seoGroups = [
             'meta_description_max_length',
             'canonical_base_url',
             'canonical_trailing_slash',
-            'category_meta_template',
-            'profile_meta_template',
         ],
+    ],
+    'seo-tab-public-pages' => [
+        'title' => 'Public Sayfalar',
+        'icon' => 'bi-window-stack',
+        'description' => 'Tüm public sayfaların meta başlığını, açıklamasını, görselini ve noindex davranışını tek ekrandan yönetin.',
+        'keys' => [],
     ],
     'seo-tab-social' => [
         'title' => 'Sosyal Medya & Analitik',
@@ -217,26 +221,6 @@ $seoGroups = [
             'twitter_handle',
             'google_analytics_id',
             'google_site_verification',
-        ],
-    ],
-    'seo-tab-index' => [
-        'title' => 'İndeksleme & Sayfalama',
-        'icon' => 'bi-eye-slash',
-        'description' => 'Sayfa tiplerine göre indeksleme davranışı ve sayfalama stratejisi.',
-        'keys' => [
-            'allow_indexing',
-            'index_homepage',
-            'index_categories',
-            'index_topics',
-            'index_tag_pages',
-            'index_archive_pages',
-            'index_profiles',
-            'index_search_results',
-            'index_empty_categories',
-            'index_draft_topics',
-            'index_paginated_pages',
-            'pagination_strategy',
-            'pagination_max_pages_index',
         ],
     ],
     'seo-tab-sitemap' => [
@@ -264,8 +248,9 @@ $seoGroups = [
     'seo-tab-robots' => [
         'title' => 'Robots.txt',
         'icon' => 'bi-robot',
-        'description' => 'Robots.txt ayarları ve crawl delay politikalarını yönetin.',
+        'description' => 'Robots.txt ayarları, crawl delay politikaları ve global indeks kilidini yönetin.',
         'keys' => [
+            'allow_indexing',
             'robots_enabled',
             'robots_disallow_admin',
             'robots_disallow_includes',
@@ -293,12 +278,16 @@ $seoGroups = [
     'seo-tab-image-seo' => [
         'title' => 'Görsel SEO',
         'icon' => 'bi-image',
-        'description' => 'Görsel alt metni otomatik oluşturma ve şablonları.',
+        'description' => 'Görsel alt ve title metnini otomatik oluşturma ve şablonları.',
         'keys' => [
             'image_alt_auto_generate',
             'image_alt_template',
             'image_alt_fallback',
             'image_alt_min_length',
+            'image_title_auto_generate',
+            'image_title_template',
+            'image_title_fallback',
+            'image_title_min_length',
         ],
     ],
 ];
@@ -588,6 +577,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 
 $settings = getAdminSettings($pdo);
+$seoPublicPageGroups = function_exists('seoPublicPageGroups')
+    ? seoPublicPageGroups($settings)
+    : [];
 $adminPublicBaseUrl = function_exists('appPublicBaseUrl')
     ? rtrim(appPublicBaseUrl(true, (string) ($baseUri ?? ''), is_array($envConfig ?? null) ? $envConfig : []), '/')
     : rtrim((string) ($baseUri ?? ''), '/');
@@ -1011,7 +1003,172 @@ require_once __DIR__ . '/header.php';
                                         <?php if (!empty($seoGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($seoGroup['description'])) ?></div>
                                         <?php endif; ?>
-                                    <?php if ($seoTabId === 'seo-tab-sitemap'): ?>
+                                    <?php if ($seoTabId === 'seo-tab-public-pages'): ?>
+                                        <?php
+                                        $publicPageGroups = is_array($seoPublicPageGroups) ? $seoPublicPageGroups : [];
+                                        $publicPageCount = 0;
+                                        foreach ($publicPageGroups as $publicPageGroup) {
+                                            $publicPageCount += !empty($publicPageGroup['pages']) && is_array($publicPageGroup['pages'])
+                                                ? count($publicPageGroup['pages'])
+                                                : 0;
+                                        }
+                                        ?>
+                                        <div class="admin-section-block ui-section seo-public-pages-intro">
+                                            <div class="admin-inline-head ui-panel__head">
+                                                <i class="bi bi-window-stack"></i>
+                                                <span class="admin-inline-title">Public Sayfa Presetleri</span>
+                                            </div>
+                                            <div class="admin-section-desc">
+                                                Başlık ve açıklama alanları boş bırakılırsa sayfa kendi varsayılan SEO katmanını kullanır. Noindex anahtarı, o sayfanın arama motorlarına açık olup olmadığını belirler.
+                                            </div>
+                                            <div class="seo-public-pages-token-row">
+                                                <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-files"></i><?= (int) $publicPageCount ?> sayfa</span>
+                                                <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-tag"></i>{{page_title}}</span>
+                                                <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-tag"></i>{{site_name}}</span>
+                                                <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-tag"></i>{{page_description}}</span>
+                                            </div>
+                                        </div>
+
+                                        <?php if (!empty($publicPageGroups) && function_exists('seoPublicPagePresetForKey')): ?>
+                                            <?php foreach ($publicPageGroups as $groupKey => $group): ?>
+                                                <?php
+                                                $groupPages = !empty($group['pages']) && is_array($group['pages']) ? $group['pages'] : [];
+                                                $groupConfigured = 0;
+                                                foreach ($groupPages as $pageKey => $pageMeta) {
+                                                    $preset = seoPublicPagePresetForKey((string) $pageKey, $settings);
+                                                    $defaultNoindex = !empty($pageMeta['default_noindex']);
+                                                    $isCustomized = $preset['title'] !== ''
+                                                        || $preset['description'] !== ''
+                                                        || $preset['image'] !== ''
+                                                        || (($preset['noindex'] === '1') !== $defaultNoindex);
+                                                    if ($isCustomized) {
+                                                        $groupConfigured++;
+                                                    }
+                                                }
+                                                ?>
+                                                <div class="admin-section-block ui-section seo-public-pages-group">
+                                                    <div class="admin-inline-head ui-panel__head seo-public-pages-group-head">
+                                                        <div class="seo-public-pages-group-meta">
+                                                            <span class="admin-inline-title"><?= htmlspecialchars((string) ($group['title'] ?? $groupKey)) ?></span>
+                                                            <?php if (!empty($group['description'])): ?>
+                                                                <span class="seo-public-pages-group-desc"><?= htmlspecialchars((string) $group['description']) ?></span>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                        <div class="seo-public-pages-group-badges">
+                                                            <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-list-ul"></i><?= count($groupPages) ?> sayfa</span>
+                                                            <span class="ui-admin-badge <?= $groupConfigured > 0 ? 'ui-admin-badge-primary' : 'ui-admin-badge-secondary' ?>">
+                                                                <i class="bi <?= $groupConfigured > 0 ? 'bi-sliders' : 'bi-check2-circle' ?>"></i>
+                                                                <?= $groupConfigured > 0 ? $groupConfigured . ' özel' : 'Varsayılan' ?>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="seo-public-pages-grid">
+                                                        <?php foreach ($groupPages as $pageKey => $pageMeta): ?>
+                                                            <?php
+                                                            $preset = seoPublicPagePresetForKey((string) $pageKey, $settings);
+                                                            $defaultNoindex = !empty($pageMeta['default_noindex']);
+                                                            $isCustomized = $preset['title'] !== ''
+                                                                || $preset['description'] !== ''
+                                                                || $preset['image'] !== ''
+                                                                || (($preset['noindex'] === '1') !== $defaultNoindex);
+                                                            $pageLabel = (string) ($pageMeta['label'] ?? $pageKey);
+                                                            $pageSummary = trim((string) ($pageMeta['summary'] ?? ''));
+                                                            $pagePath = trim((string) ($pageMeta['path'] ?? ''));
+                                                            $placeholders = array_values(array_filter(array_map(static fn ($value): string => trim((string) $value), (array) ($pageMeta['placeholders'] ?? []))));
+                                                            $fieldIdBase = 'seo-public-' . preg_replace('~[^a-zA-Z0-9_-]+~', '-', (string) $pageKey);
+                                                            $isNoindexLocked = function_exists('seoPublicPageIsNoindexLocked') ? seoPublicPageIsNoindexLocked((string) $pageKey) : false;
+                                                            ?>
+                                                            <section class="seo-public-page-card">
+                                                                <div class="seo-public-page-card-head">
+                                                                    <div class="seo-public-page-title">
+                                                                        <strong><?= htmlspecialchars($pageLabel) ?></strong>
+                                                                        <span><?= htmlspecialchars((string) $pageKey) ?></span>
+                                                                    </div>
+                                                                    <div class="seo-public-page-head-badges">
+                                                                        <span class="ui-admin-badge <?= $preset['noindex'] === '1' ? 'ui-admin-badge-warning' : 'ui-admin-badge-success' ?>">
+                                                                            <i class="bi <?= $preset['noindex'] === '1' ? 'bi-eye-slash' : 'bi-eye' ?>"></i>
+                                                                            <?= $preset['noindex'] === '1' ? 'Noindex' : 'Index' ?>
+                                                                        </span>
+                                                                        <?php if ($isNoindexLocked): ?>
+                                                                            <span class="ui-admin-badge ui-admin-badge-muted">
+                                                                                <i class="bi bi-lock-fill"></i>
+                                                                                Kilitli
+                                                                            </span>
+                                                                        <?php endif; ?>
+                                                                        <span class="ui-admin-badge <?= $isCustomized ? 'ui-admin-badge-primary' : 'ui-admin-badge-muted' ?>">
+                                                                            <i class="bi <?= $isCustomized ? 'bi-sliders' : 'bi-check2' ?>"></i>
+                                                                            <?= $isCustomized ? 'Özel' : 'Varsayılan' ?>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <?php if ($pagePath !== ''): ?>
+                                                                    <div class="seo-public-page-path-row">
+                                                                        <span class="seo-public-page-path"><?= htmlspecialchars($pagePath) ?></span>
+                                                                        <a href="<?= htmlspecialchars($pagePath) ?>" target="_blank" rel="noopener noreferrer" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Sayfayı aç">
+                                                                            <i class="bi bi-box-arrow-up-right"></i>
+                                                                        </a>
+                                                                    </div>
+                                                                <?php endif; ?>
+
+                                                                <?php if ($pageSummary !== ''): ?>
+                                                                    <div class="seo-public-page-summary"><?= htmlspecialchars($pageSummary) ?></div>
+                                                                <?php endif; ?>
+
+                                                                <?php if (!empty($placeholders)): ?>
+                                                                    <div class="seo-public-page-placeholders">
+                                                                        <?php foreach ($placeholders as $placeholder): ?>
+                                                                            <code><?= htmlspecialchars('{{' . $placeholder . '}}') ?></code>
+                                                                        <?php endforeach; ?>
+                                                                    </div>
+                                                                <?php endif; ?>
+
+                                                                <div class="seo-public-page-fields">
+                                                                    <div class="seo-public-page-field seo-public-page-field-wide">
+                                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($fieldIdBase . '-title') ?>">Meta Başlık</label>
+                                                                        <input id="<?= htmlspecialchars($fieldIdBase . '-title') ?>" type="text" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][title]" class="ui-admin-form-control" value="<?= htmlspecialchars((string) ($preset['title'] ?? '')) ?>" placeholder="<?= htmlspecialchars((string) ($pageMeta['placeholder_title'] ?? '')) ?>">
+                                                                    </div>
+
+                                                                    <div class="seo-public-page-field seo-public-page-field-wide">
+                                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($fieldIdBase . '-description') ?>">Meta Açıklama</label>
+                                                                        <textarea id="<?= htmlspecialchars($fieldIdBase . '-description') ?>" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][description]" rows="3" class="ui-admin-form-control"><?= htmlspecialchars((string) ($preset['description'] ?? '')) ?></textarea>
+                                                                    </div>
+
+                                                                    <div class="seo-public-page-field seo-public-page-field-wide">
+                                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($fieldIdBase . '-image') ?>">OG Görseli</label>
+                                                                        <input id="<?= htmlspecialchars($fieldIdBase . '-image') ?>" type="text" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][image]" class="ui-admin-form-control" value="<?= htmlspecialchars((string) ($preset['image'] ?? '')) ?>" placeholder="https://...">
+                                                                    </div>
+
+                                                                    <div class="seo-public-page-field seo-public-page-field-wide">
+                                                                        <label class="ui-admin-switch seo-public-page-switch">
+                                                                            <input type="checkbox" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][noindex]" value="1" <?= ($preset['noindex'] ?? '0') === '1' ? 'checked' : '' ?><?= $isNoindexLocked ? ' disabled aria-disabled="true"' : '' ?>>
+                                                                            <span class="ui-admin-switch-label">Arama motorlarından gizle</span>
+                                                                        </label>
+                                                                        <?php if ($isNoindexLocked): ?>
+                                                                            <div class="small text-muted mt-2 d-flex align-items-center gap-1">
+                                                                                <i class="bi bi-lock-fill"></i>
+                                                                                Bu sayfanın noindex durumu sistem tarafından kilitlidir.
+                                                                            </div>
+                                                                        <?php endif; ?>
+                                                                    </div>
+                                                                </div>
+                                                            </section>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <div class="admin-divider-block">
+                                                <div class="admin-inline-head ui-panel__head">
+                                                    <i class="bi bi-exclamation-triangle"></i>Public sayfa kataloğu hazır değil
+                                                </div>
+                                                <div class="admin-section-desc">
+                                                    Public sayfa presetleri şu anda yüklenemedi. Lütfen SEO yardımcılarının ve route kataloğunun doğru yüklendiğini kontrol edin.
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+                                    <?php elseif ($seoTabId === 'seo-tab-sitemap'): ?>
                                         <!-- Sitemap Routing Ayarları -->
                                         <div class="admin-section-block ui-section">
                                             <div class="admin-inline-head ui-panel__head">
@@ -1246,14 +1403,15 @@ require_once __DIR__ . '/header.php';
 
                                     <?php else: ?>
                                         <!-- Diğer SEO Alt Sekmeleri -->
-                                        <?php if ($seoTabId === 'seo-tab-index'): ?>
+                                        <?php if (false && $seoTabId === 'seo-tab-index'): ?>
                                             <div class="admin-divider-block">
                                                 <div class="admin-inline-head ui-panel__head">
                                                     <i class="bi bi-info-circle"></i>İndeksleme Notları
                                                 </div>
                                                 <div class="admin-section-desc">
-                                                    Güvenlik odaklı sayfalar (giriş, kayıt, bildirimler, mesajlar, konu yükleme, konu düzenleme, çıkış) sistem tarafında noindex kalır.
-                                                    Bu sekme; arama, arşiv, etiket, profil ve sayfa tiplerine ait gerçek indeksleme kontrolünü yönetir.
+                                                    Giriş, kayıt ve parola akışları sistem tarafında noindex olarak kilitlidir.
+                                                    Bu sekme; ar?iv ve sayfalama gibi teknik indeksleme kurallar?n? y?netir.
+                                                    Public sayfaların meta ve noindex ayarları yeni "Public Sayfalar" sekmesindedir.
                                                 </div>
                                             </div>
                                         <?php endif; ?>

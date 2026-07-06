@@ -72,6 +72,7 @@ require_once __DIR__ . "/ErrorHandler.php";
 require_once __DIR__ . "/ThemeManager.php";
 require_once __DIR__ . "/TemplateRenderer.php";
 require_once __DIR__ . "/PublicThemeRenderer.php";
+require_once __DIR__ . "/SeoPublicPages.php";
 require_once __DIR__ . "/ThemeConverter.php";
 require_once __DIR__ . "/SessionSecurity.php";
 require_once __DIR__ . "/UploadSecurity.php";
@@ -356,7 +357,7 @@ if (!$skipSessionBootstrap) {
 
 if (!$skipSessionBootstrap && session_status() === PHP_SESSION_NONE) {
     ini_set("session.cookie_httponly", "1");
-    ini_set("session.cookie_samesite", "Strict");
+    ini_set("session.cookie_samesite", "Lax");
     ini_set("session.use_strict_mode", "1");
     $isHttps =
         (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off") ||
@@ -803,16 +804,19 @@ if ($pdo && empty($_SESSION["_auth_user_id"]) && function_exists('authAttemptRem
 // Auth check helper
 $isLoggedIn = !empty($_SESSION["_auth_user_id"]);
 if ($isLoggedIn) {
-    $sessionTimeout = (int)($adminSettingsGlobal['session_timeout_minutes'] ?? 120);
-    if (!empty($_SESSION['_auth_remember_session'])) {
-        $sessionTimeout = max($sessionTimeout, (int)($adminSettingsGlobal['remember_session_timeout_minutes'] ?? 43200));
-    }
-    $lastActivity = $_SESSION['_auth_last_activity'] ?? time();
-    if ($sessionTimeout > 0 && (time() - $lastActivity) > ($sessionTimeout * 60)) {
-        logoutUser($pdo);
-        $isLoggedIn = false;
-    } else {
+    $isRememberSession = !empty($_SESSION['_auth_remember_session']);
+    if ($isRememberSession) {
+        // "Remember me" sessions should remain active until explicit logout/security invalidation.
         $_SESSION['_auth_last_activity'] = time();
+    } else {
+        $sessionTimeout = (int)($adminSettingsGlobal['session_timeout_minutes'] ?? 120);
+        $lastActivity = $_SESSION['_auth_last_activity'] ?? time();
+        if ($sessionTimeout > 0 && (time() - $lastActivity) > ($sessionTimeout * 60)) {
+            logoutUser($pdo);
+            $isLoggedIn = false;
+        } else {
+            $_SESSION['_auth_last_activity'] = time();
+        }
     }
 }
 
@@ -1276,31 +1280,31 @@ function routePublicRouteCatalog(): array
 
     $staticRouteDefs = [
         "login" => [
-            "label" => "Giris",
+            "label" => "Giriş",
             "target" => \App\Engine\Auth\Http\LoginPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
         ],
         "register" => [
-            "label" => "Kayit",
+            "label" => "Kayıt",
             "target" => \App\Engine\Auth\Http\RegisterPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
         ],
         "logout" => [
-            "label" => "Cikis",
+            "label" => "Çıkış",
             "target" => \App\Engine\Auth\Http\LogoutAction::class,
-            "kind" => "Islem",
+            "kind" => "İşlem",
             "dispatch" => "handler",
         ],
         "forgot_password" => [
-            "label" => "Sifremi Unuttum",
+            "label" => "Şifremi Unuttum",
             "target" => \App\Engine\Auth\Http\ForgotPasswordPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
         ],
         "reset_password" => [
-            "label" => "Sifre Sifirla",
+            "label" => "Şifre Sıfırla",
             "target" => \App\Engine\Auth\Http\ResetPasswordPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
@@ -1324,33 +1328,33 @@ function routePublicRouteCatalog(): array
             "dispatch" => "handler",
         ],
         "ban_appeals" => [
-            "label" => "Ban Itiraz",
+            "label" => "Ban İtiraz",
             "target" => \App\Modules\BanAppeals\Http\BanAppealsPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
         ],
         "contact" => [
-            "label" => "Iletisim",
+            "label" => "İletişim",
             "target" => \App\Modules\Contact\Http\ContactPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
         ],
         "upload_topic" => [
-            "label" => "Konu Yukle",
+            "label" => "Konu Yükle",
             "target" => \App\Modules\TopicWorkflow\Http\CreateTopicPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
         ],
         "edit_topic" => [
-            "label" => "Konu Duzenle",
+            "label" => "Konu Düzenle",
             "target" => \App\Modules\TopicWorkflow\Http\EditTopicPage::class,
             "kind" => "Sayfa",
             "dispatch" => "handler",
         ],
         "download" => [
-            "label" => "Indir",
+            "label" => "İndir",
             "target" => \App\Modules\TopicWorkflow\Http\DownloadAction::class,
-            "kind" => "Islem",
+            "kind" => "İşlem",
             "dispatch" => "handler",
         ],
     ];
@@ -1382,11 +1386,11 @@ function routePublicRouteCatalog(): array
     $eventsBasePath = trim((string) ($paths["events"] ?? "events"), "/");
     $eventsAliases = routePublicStaticPathAliases("events", null, $paths);
     $eventPages = [
-        "" => ["label" => "Etkinlikler", "target" => "includes/src/Modules/Events/Pages/index.php", "kind" => "Modul", "dispatch" => "events"],
-        "wheel" => ["label" => "Cark", "target" => "includes/src/Modules/Events/Pages/wheel.php", "kind" => "Modul", "dispatch" => "events"],
-        "raffle" => ["label" => "Cekilis", "target" => "includes/src/Modules/Events/Pages/raffle.php", "kind" => "Modul", "dispatch" => "events"],
-        "rewards" => ["label" => "Oduller", "target" => "includes/src/Modules/Events/Pages/rewards.php", "kind" => "Modul", "dispatch" => "events"],
-        "tasks" => ["label" => "Gorevler", "target" => "includes/src/Modules/Events/Pages/tasks.php", "kind" => "Modul", "dispatch" => "events"],
+        "" => ["label" => "Etkinlikler", "target" => "includes/src/Modules/Events/Pages/index.php", "kind" => "Modül", "dispatch" => "events"],
+        "wheel" => ["label" => "Çark", "target" => "includes/src/Modules/Events/Pages/wheel.php", "kind" => "Modül", "dispatch" => "events"],
+        "raffle" => ["label" => "Çekiliş", "target" => "includes/src/Modules/Events/Pages/raffle.php", "kind" => "Modül", "dispatch" => "events"],
+        "rewards" => ["label" => "Ödüller", "target" => "includes/src/Modules/Events/Pages/rewards.php", "kind" => "Modül", "dispatch" => "events"],
+        "tasks" => ["label" => "Görevler", "target" => "includes/src/Modules/Events/Pages/tasks.php", "kind" => "Modül", "dispatch" => "events"],
     ];
 
     foreach ($eventPages as $suffix => $meta) {
@@ -1426,12 +1430,12 @@ function routePublicRouteCatalog(): array
         }
     }
 
-    $routes["sitemap.xml"] = ["label" => "Sitemap", "target" => \App\Engine\Seo\Http\SitemapIndexPage::class, "kind" => "Sistem", "dispatch" => "handler"];
-    $routes["topic-sitemap.xml"] = ["label" => "Konu Sitemap", "target" => \App\Engine\Seo\Http\TopicSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
-    $routes["profile-sitemap.xml"] = ["label" => "Profil Sitemap", "target" => \App\Engine\Seo\Http\ProfileSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
-    $routes["image-sitemap.xml"] = ["label" => "Gorsel Sitemap", "target" => \App\Engine\Seo\Http\ImageSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
+    $routes["sitemap.xml"] = ["label" => "Site Haritası", "target" => \App\Engine\Seo\Http\SitemapIndexPage::class, "kind" => "Sistem", "dispatch" => "handler"];
+    $routes["topic-sitemap.xml"] = ["label" => "Konu Site Haritası", "target" => \App\Engine\Seo\Http\TopicSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
+    $routes["profile-sitemap.xml"] = ["label" => "Profil Site Haritası", "target" => \App\Engine\Seo\Http\ProfileSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
+    $routes["image-sitemap.xml"] = ["label" => "Görsel Site Haritası", "target" => \App\Engine\Seo\Http\ImageSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
     $routes["robots.txt"] = ["label" => "Robots", "target" => \App\Engine\Seo\Http\RobotsPage::class, "kind" => "Sistem", "dispatch" => "handler"];
-    $routes["health"] = ["label" => "Health", "target" => \App\Engine\Seo\Http\HealthCheckPage::class, "kind" => "Sistem", "dispatch" => "handler"];
+    $routes["health"] = ["label" => "Sağlık", "target" => \App\Engine\Seo\Http\HealthCheckPage::class, "kind" => "Sistem", "dispatch" => "handler"];
 
     return $routes;
 }
@@ -2604,15 +2608,41 @@ function getSeoMeta(
     $settings = seoSettings();
     $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
 
-    // Apply meta_title_suffix if set
-    $titleSuffix = $settings['meta_title_suffix'] ?? '';
-    if (!empty($titleSuffix) && !str_contains($title, $titleSuffix)) {
-        $title = $title . ' ' . $titleSuffix;
+    $titleIsFinal = !empty($GLOBALS['_seo_public_page_title_is_final']);
+    $skipPublicPresets = !empty($GLOBALS['_seo_skip_public_page_presets']);
+    if (
+        !$skipPublicPresets
+        && function_exists('seoPublicPageResolveKey')
+        && function_exists('seoPublicPageMeta')
+    ) {
+        $resolvedPageKey = seoPublicPageResolveKey((string) ($_SERVER['REQUEST_URI'] ?? '/'), $settings, null);
+        if ($resolvedPageKey !== '') {
+            $resolvedMeta = seoPublicPageMeta(
+                $resolvedPageKey,
+                [
+                    'title' => $title,
+                    'description' => $description,
+                    'image' => $image,
+                ],
+                [],
+                $settings
+            );
+            $title = (string) ($resolvedMeta['title'] ?? $title);
+            $description = (string) ($resolvedMeta['description'] ?? $description);
+            $image = (string) ($resolvedMeta['image'] ?? $image);
+            $titleIsFinal = !empty($resolvedMeta['title_is_final']);
+        }
     }
 
     // Use default_meta_title if title is empty
     if (empty(trim($title))) {
         $title = $settings['default_meta_title'] ?? $siteName;
+    }
+
+    // Apply meta_title_suffix if set
+    $titleSuffix = (string) ($settings['meta_title_suffix'] ?? '');
+    if (!$titleIsFinal && $titleSuffix !== '' && !str_contains($title, $titleSuffix)) {
+        $title = $title . ' ' . $titleSuffix;
     }
 
     // Use default_meta_description if description is empty
@@ -2832,174 +2862,24 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
 
     $requestUri = $requestUri ?? (string) ($_SERVER["REQUEST_URI"] ?? "");
     $path = (string) parse_url($requestUri, PHP_URL_PATH);
-    $query = (string) parse_url($requestUri, PHP_URL_QUERY);
-    $normalizedPath = "/" . trim(rawurldecode($path), "/");
-    $normalizedPath = $normalizedPath === "/" ? "/" : rtrim($normalizedPath, "/");
-    $basename = basename($normalizedPath);
+    $basename = basename($path);
     $pageKey = trim((string) $pageKey);
 
-    // Determine page type and check specific index settings
-    $shouldNoindex = false;
-    $focusPageKeys = [
-        "download",
-        "events",
-        "profile",
-        "upload_topic",
-        "edit_topic",
-        "notifications",
-        "messages",
-        "login",
-        "register",
-        "forgot_password",
-        "reset_password",
-    ];
-    $publicStaticPaths = routePublicStaticPathSettings($GLOBALS["pdo"] ?? null);
-    $focusPaths = [
-        "/download.php",
-        "/logout.php",
-        "/login.php",
-        "/register.php",
-        "/forgot-password.php",
-        "/reset-password.php",
-        "/upload-topic.php",
-        "/edit-topic.php",
-        "/notifications.php",
-        "/messages.php",
-    ];
-    $focusPublicRouteKeys = [
-        "download",
-        "logout",
-        "login",
-        "register",
-        "forgot_password",
-        "reset_password",
-        "upload_topic",
-        "edit_topic",
-        "notifications",
-        "messages",
-    ];
-    foreach ($focusPublicRouteKeys as $routeKey) {
-        foreach (routePublicStaticPathAliases($routeKey, null, $publicStaticPaths) as $aliasPath) {
-            $focusPaths[] = "/" . ltrim((string) $aliasPath, "/");
-        }
+    if ($pageKey === '' && function_exists('seoPublicPageResolveKey')) {
+        $pageKey = seoPublicPageResolveKey($requestUri, $settings, null);
     }
-    $focusPaths = array_values(array_unique($focusPaths));
 
-    $routeSettings = routeFriendlySettings();
-    $routePrefixes = routePrefixSettings($GLOBALS["pdo"] ?? null);
-    $profilePrefixes = routePrefixAliases("profile", $routeSettings, $routePrefixes);
-    if ($profilePrefixes === []) {
-        $profilePrefixes = ["profil"];
-    }
-    $profilePattern = implode(
-        "|",
-        array_map(
-            static fn(string $prefix): string => preg_quote($prefix, "~"),
-            $profilePrefixes,
-        ),
-    );
-
-    $topicPrefixes = routePrefixAliases("topic", $routeSettings, $routePrefixes);
-    if ($topicPrefixes === []) {
-        $topicPrefixes = ["konu"];
-    }
-    $topicPattern = implode(
-        "|",
-        array_map(
-            static fn(string $prefix): string => preg_quote($prefix, "~"),
-            $topicPrefixes,
-        ),
-    );
-
-    $categoryPrefixes = routePrefixAliases("category", $routeSettings, $routePrefixes);
-    if ($categoryPrefixes === []) {
-        $categoryPrefixes = ["kategori"];
-    }
-    $categoryPattern = implode(
-        "|",
-        array_map(
-            static fn(string $prefix): string => preg_quote($prefix, "~"),
-            $categoryPrefixes,
-        ),
-    );
-
-    $eventsPrefixes = routePublicStaticPathAliases("events", null, $publicStaticPaths);
-    if ($eventsPrefixes === []) {
-        $eventsPrefixes = ["events"];
-    }
-    $eventsPattern = implode(
-        "|",
-        array_map(
-            static fn(string $prefix): string => preg_quote($prefix, "~"),
-            $eventsPrefixes,
-        ),
-    );
-
-    if ($pageKey !== "" && in_array($pageKey, $focusPageKeys, true)) {
+    // Public page preset + hard security rules
+    $shouldNoindex = function_exists('seoPublicPageIsNoindex')
+        ? seoPublicPageIsNoindex($pageKey, $settings)
+        : false;
+    if (in_array($pageKey, ['login', 'register', 'forgot_password', 'reset_password'], true)) {
         $shouldNoindex = true;
     }
 
-    // Homepage check
-    if ($path === '/' || $path === '' || basename($path) === 'index.php') {
-        if ((string) ($settings["index_homepage"] ?? "1") !== "1") {
-            $shouldNoindex = true;
-        }
-    }
-
-    $indexSearchResults = seoIndexToggleValue($settings, 'index_search_results', '0', 'robots_noindex_search');
-    $indexProfiles = seoIndexToggleValue($settings, 'index_profiles', '1', 'robots_noindex_profiles');
-
-    // Search results check
-    if ($query !== "" && (str_contains($query, "q=") || str_contains($query, "search="))) {
-        if ($indexSearchResults !== '1') {
-            $shouldNoindex = true;
-        }
-    }
-
-    $isPublicProfilePath = $pageKey === "public_profile"
-        || $basename === "public-profile.php"
-        || preg_match("~^/(?:" . $profilePattern . ")/[^/]+$~", $normalizedPath) === 1;
-    $isPrivateProfilePath = !$isPublicProfilePath && (
-        $pageKey === "profile"
-        || $basename === "profile.php"
-        || preg_match("~^/(?:" . $profilePattern . ")$~", $normalizedPath) === 1
-    );
-
-    if ($isPrivateProfilePath || $isPublicProfilePath) {
-        if ($indexProfiles !== '1') {
-            $shouldNoindex = true;
-        }
-    }
-
-    if ($pageKey !== "public_profile") {
-        if (in_array($normalizedPath, $focusPaths, true)) {
-            $shouldNoindex = true;
-        }
-        if (preg_match("~^/(?:" . $eventsPattern . ")(?:/|$)~", $normalizedPath) === 1) {
-            $shouldNoindex = true;
-        }
-    }
-
-    // Topic pages check (konu/topic in URL)
-    if (preg_match("~/(?:" . $topicPattern . ")(?:/|$)~", $path) === 1) {
-        if ((string) ($settings["index_topics"] ?? "1") !== "1") {
-            $shouldNoindex = true;
-        }
-    }
-
-    // Category pages check (kategori/category in URL)
-    if (preg_match("~/(?:" . $categoryPattern . ")(?:/|$)~", $path) === 1) {
-        if ((string) ($settings["index_categories"] ?? "1") !== "1") {
-            $shouldNoindex = true;
-        }
-    }
-
-    // Tag pages check
-    if (preg_match('~/(etiket|tag)(/|$)~', $path) === 1) {
-        if ((string) ($settings["index_tag_pages"] ?? "1") !== "1") {
-            $shouldNoindex = true;
-        }
-    }
+    // Public page catalog now owns homepage, search, topic, category and profile rules.
+    // Legacy index_* toggles remain in storage for compatibility, but the page preset
+    // layer is the source of truth for these public routes.
 
     // Archive pages check
     if (preg_match('~/(arsiv|archive)(/|$)~', $path) === 1) {
@@ -3063,9 +2943,6 @@ function buildRobotsTxt(?array $settings = null, ?string $canonicalBase = null):
         "robots_disallow_uploads" => "/uploads/",
     ];
     foreach ($rules as $key => $path) {
-        if ($key === "robots_disallow_uploads" && (string) ($settings["image_sitemap_enabled"] ?? "1") === "1") {
-            continue;
-        }
         if ((string) ($settings[$key] ?? "0") === "1") {
             $lines[] = "Disallow: " . $path;
         }

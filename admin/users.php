@@ -577,7 +577,7 @@ require_once __DIR__ . '/header.php';
                             <label class="ui-admin-form-label">Yeni şifre</label>
                             <div class="user-password-field">
                                 <input type="password" name="password" id="editUserPassword" class="ui-admin-form-control" autocomplete="new-password" minlength="6">
-                                <button type="button" class="user-password-toggle" id="editPasswordToggle" data-edit-password-toggle aria-label="Åifreyi göster" aria-pressed="false">
+                                <button type="button" class="user-password-toggle" id="editPasswordToggle" data-edit-password-toggle aria-label="Şifreyi göster" aria-pressed="false">
                                     <i class="bi bi-eye"></i>
                                 </button>
                             </div>
@@ -699,11 +699,11 @@ require_once __DIR__ . '/header.php';
                         <select name="restrict_types[]" id="restrictTypes" class="ui-admin-form-select ui-admin-select-auto" multiple size="7" required>
                             <option value="profile">Profil Düzenleme</option>
                             <option value="events">Etkinlik Kullanımı</option>
-                            <option value="all">ğŸš« Tüm İşlemler (En ciddi kısıtlama)</option>
-                            <option value="comment">ğŸ’¬ Yorum Yapma</option>
-                            <option value="topic">ğŸ“ Konu Oluşturma</option>
-                            <option value="upload">ğŸ“¤ Dosya Yükleme</option>
-                            <option value="download">ğŸ“¥ İndirme</option>
+                            <option value="all">🚫 Tüm İşlemler (En ciddi kısıtlama)</option>
+                            <option value="comment">💬 Yorum Yapma</option>
+                            <option value="topic">📝 Konu Oluşturma</option>
+                            <option value="upload">📤 Dosya Yükleme</option>
+                            <option value="download">📥 İndirme</option>
                         </select>
                         <small class="ui-admin-help-block">
                             <i class="bi bi-info-circle"></i> Ctrl/Cmd tuşu ile birden fazla seçim yapabilirsiniz

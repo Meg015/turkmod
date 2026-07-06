@@ -74,7 +74,7 @@ function healthRuntimeLogSummary(string $root): array
             'files' => 0,
             'critical' => 0,
             'errors' => 0,
-            'latest' => 'storage/logs bulunamadı',
+            'latest' => 'storage/logs bulunamadi',
         ];
     }
 
@@ -92,20 +92,45 @@ function healthRuntimeLogSummary(string $root): array
         'files' => count($files),
         'critical' => 0,
         'errors' => 0,
-        'latest' => 'son kayıt yok',
+        'latest' => 'son kayit yok',
     ];
+    $latestTs = 0;
 
     foreach ($files as $file) {
         foreach (healthTailLines($file, 250) as $line) {
-            if (preg_match('~critical|fatal|exception|uncaught|undefined function|stack trace~i', $line) === 1) {
-                $summary['critical']++;
-                $summary['latest'] = basename($file) . ': ' . mb_substr(trim($line), 0, 160);
+            $trimmed = trim($line);
+            if ($trimmed === '') {
                 continue;
             }
 
-            if (preg_match('~error|warning|sqlstate|activity logging failed~i', $line) === 1) {
+            if (preg_match('~^(?:stack trace:|#\d+\s|[-]{3,})~i', $trimmed) === 1) {
+                continue;
+            }
+
+            $timestamp = null;
+            if (preg_match('/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $trimmed, $matches) === 1) {
+                $timestamp = strtotime($matches[1]) ?: null;
+            }
+            $timestamp ??= filemtime($file) ?: null;
+            if ($timestamp === null) {
+                continue;
+            }
+
+            $isCritical = preg_match('~critical|fatal|exception|uncaught|undefined function~i', $trimmed) === 1;
+            $isError = preg_match('~error|warning|sqlstate|activity logging failed~i', $trimmed) === 1;
+            if (!$isCritical && !$isError) {
+                continue;
+            }
+
+            if ($isCritical) {
+                $summary['critical']++;
+            } else {
                 $summary['errors']++;
-                $summary['latest'] = basename($file) . ': ' . mb_substr(trim($line), 0, 160);
+            }
+
+            if ($timestamp > $latestTs) {
+                $latestTs = $timestamp;
+                $summary['latest'] = basename($file) . ': ' . mb_substr($trimmed, 0, 160);
             }
         }
     }

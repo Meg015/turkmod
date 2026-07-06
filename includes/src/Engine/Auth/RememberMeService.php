@@ -10,6 +10,9 @@ use Throwable;
 
 final class RememberMeService
 {
+    // 10 years: practically permanent for "remember me" while remaining timestamp-safe.
+    private const PERSISTENT_REMEMBER_LIFETIME_SECONDS = 315360000;
+
     private Closure $settingsResolver;
 
     private Closure $columnExists;
@@ -85,7 +88,9 @@ final class RememberMeService
         }
 
         $minutes = (int) ($settings['remember_session_timeout_minutes'] ?? 43200);
-        return max(1, $minutes) * 60;
+        $configuredLifetime = max(1, $minutes) * 60;
+
+        return max(self::PERSISTENT_REMEMBER_LIFETIME_SECONDS, $configuredLifetime);
     }
 
     /**
@@ -99,8 +104,10 @@ final class RememberMeService
             'path' => (string) ($params['path'] ?? '/'),
             'secure' => (bool) ($params['secure'] ?? false),
             'httponly' => true,
-            'samesite' => (string) ($params['samesite'] ?? 'Strict'),
         ];
+
+        $sameSite = trim((string) ($params['samesite'] ?? ''));
+        $options['samesite'] = $sameSite !== '' ? $sameSite : 'Lax';
 
         $domain = (string) ($params['domain'] ?? '');
         if ($domain !== '') {

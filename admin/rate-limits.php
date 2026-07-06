@@ -74,34 +74,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $action = (string)($_POST['action'] ?? '');
+    $auditAction = static function (string $scope, int $deleted) use ($pdo): void {
+        if (!$pdo || !function_exists('adminAuditLogger')) {
+            return;
+        }
+
+        $scopeLabels = [
+            'single' => 'Tek kayıt silme',
+            'selected' => 'Toplu kayıt silme',
+            'login' => 'Login kilitlerini temizleme',
+            'expired' => 'Süresi dolanları temizleme',
+            'all' => 'Tümünü temizleme',
+        ];
+        $scopeLabel = $scopeLabels[$scope] ?? $scope;
+        adminAuditLogger()->logAction(
+            $pdo,
+            'rate_limit_records_deleted',
+            'settings',
+            0,
+            'Rate limit kaydı temizleme: ' . $scopeLabel,
+            [],
+            ['scope' => $scope, 'deleted' => $deleted],
+            false
+        );
+    };
 
     try {
         if ($action === 'delete_one') {
             $deleted = rateLimitDeleteByIds($pdo, [(int)($_POST['id'] ?? 0)]);
-            if ($deleted > 0) logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted]);
+            if ($deleted > 0) {
+                logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted]);
+                $auditAction('single', $deleted);
+            }
             flash($deleted > 0 ? 'success' : 'error', $deleted > 0 ? 'Rate limit kaydı silindi.' : 'Silinecek kayıt bulunamadı.');
         } elseif ($action === 'delete_selected') {
             $deleted = rateLimitDeleteByIds($pdo, (array)($_POST['rate_ids'] ?? []));
-            if ($deleted > 0) logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted]);
+            if ($deleted > 0) {
+                logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted]);
+                $auditAction('selected', $deleted);
+            }
             flash($deleted > 0 ? 'success' : 'error', $deleted > 0 ? $deleted . ' rate limit kaydı silindi.' : 'Lütfen en az bir kayıt seçin.');
         } elseif ($action === 'clear_login') {
             $stmt = $pdo->prepare("DELETE FROM request_rate_limits WHERE LEFT(rate_key, 6) = 'login_'");
             $stmt->execute();
             $deleted = $stmt->rowCount();
-            if ($deleted > 0) logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted, 'scope' => 'login']);
+            if ($deleted > 0) {
+                logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted, 'scope' => 'login']);
+                $auditAction('login', $deleted);
+            }
             flash('success', $deleted . ' login rate limit kaydı silindi.');
         } elseif ($action === 'clear_expired') {
             $stmt = $pdo->prepare('DELETE FROM request_rate_limits WHERE expires_at <= NOW()');
             $stmt->execute();
             $deleted = $stmt->rowCount();
             if (function_exists('appLog')) appLog($pdo, 'info', 'maintenance', 'rate_limit_cleanup', ['action' => 'clear_expired', 'deleted' => $deleted]);
-            if ($deleted > 0) logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted, 'scope' => 'expired']);
+            if ($deleted > 0) {
+                logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted, 'scope' => 'expired']);
+                $auditAction('expired', $deleted);
+            }
             flash('success', $deleted . ' süresi dolmuş kayıt silindi.');
         } elseif ($action === 'clear_all') {
             $stmt = $pdo->prepare('DELETE FROM request_rate_limits');
             $stmt->execute();
             $deleted = $stmt->rowCount();
-            if ($deleted > 0) logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted, 'scope' => 'all']);
+            if ($deleted > 0) {
+                logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted, 'scope' => 'all']);
+                $auditAction('all', $deleted);
+            }
             flash('success', $deleted . ' rate limit kaydı silindi.');
         }
     } catch (Throwable $e) {

@@ -1,0 +1,28 @@
+/* Public shell grid stabilization for pages with both sidebars enabled. */
+@media (min-width: 1200px) {
+  html[data-public-theme="turkmod"] body.has-left-sidebar.has-right-sidebar .grid:not(.grid--focus) {
+    grid-template-columns: 276px minmax(0, 1fr) 276px !important;
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  html[data-public-theme="turkmod"] body.has-left-sidebar.has-right-sidebar .grid:not(.grid--focus) {
+    grid-template-columns: 240px minmax(0, 1fr) 240px !important;
+  }
+}
+
+@media (min-width: 992px) {
+  html[data-public-theme="turkmod"] body.has-left-sidebar.has-right-sidebar .grid:not(.grid--focus) > .sidebar-left,
+  html[data-public-theme="turkmod"] body.has-left-sidebar.has-right-sidebar .grid:not(.grid--focus) > aside.sidebar-left {
+    grid-column: 1 !important;
+  }
+
+  html[data-public-theme="turkmod"] body.has-left-sidebar.has-right-sidebar .grid:not(.grid--focus) > .content-area {
+    grid-column: 2 !important;
+  }
+
+  html[data-public-theme="turkmod"] body.has-left-sidebar.has-right-sidebar .grid:not(.grid--focus) > .sidebar-right,
+  html[data-public-theme="turkmod"] body.has-left-sidebar.has-right-sidebar .grid:not(.grid--focus) > aside.sidebar-right {
+    grid-column: 3 !important;
+  }
+}

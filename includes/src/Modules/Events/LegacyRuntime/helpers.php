@@ -948,7 +948,7 @@ if (!function_exists('eventsNormalizeWheelRewardInput')) {
             $errors['value'] = 'Ödül değeri gerekli.';
         }
         if ($data['probability'] <= 0) {
-            $errors['probability'] = 'Åans yüzdesi 0’dan büyük olmalı.';
+            $errors['probability'] = 'Şans yüzdesi 0’dan büyük olmalı.';
         }
 
         return ['valid' => $errors === [], 'errors' => $errors, 'data' => $data];
@@ -1030,7 +1030,7 @@ if (!function_exists('eventsNormalizePrizePoolItemInput')) {
             $errors['quantity'] = 'Havuz öğesi stoğu 0’dan büyük olmalı.';
         }
         if ($data['weight'] <= 0) {
-            $errors['weight'] = 'Åans yüzdesi 0’dan büyük olmalı.';
+            $errors['weight'] = 'Şans yüzdesi 0’dan büyük olmalı.';
         }
 
         return ['valid' => $errors === [], 'errors' => $errors, 'data' => $data];

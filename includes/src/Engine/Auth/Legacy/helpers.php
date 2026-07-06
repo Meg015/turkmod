@@ -201,14 +201,14 @@ if (!function_exists('authenticateUser')) {
             }
 
             if (!password_verify($password, $user['password'])) {
-                return ['success' => false, 'error' => 'Åifre hatalı'];
+                return ['success' => false, 'error' => 'Şifre hatalı'];
             }
 
             $expiryDays = (int)($settings['password_expiry_days'] ?? 0);
             if ($expiryDays > 0) {
                 $changedAt = !empty($user['password_changed_at']) ? strtotime($user['password_changed_at']) : time();
                 if ((time() - $changedAt) > ($expiryDays * 86400)) {
-                    throw new Exception('ban:Åifrenizin geçerlilik süresi dolmuş. Lütfen şifrenizi sıfırlayın.');
+                    throw new Exception('ban:Şifrenizin geçerlilik süresi dolmuş. Lütfen şifrenizi sıfırlayın.');
                 }
             }
 

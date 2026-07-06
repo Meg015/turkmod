@@ -17,6 +17,9 @@ final class MessageService
     /** @var array<int,bool> */
     private array $schemaReadyByConnection = [];
 
+    /** @var array<int,bool> */
+    private array $typingColumnByConnection = [];
+
     public function __construct(
         private ?MessageSchemaService $schema = null,
         ?callable $notificationDispatcher = null,
@@ -78,7 +81,10 @@ final class MessageService
             return null;
         }
 
-        $stmt = $pdo->prepare("
+        $typingSelect = $this->participantTypingSelectSql($pdo, 'other_p');
+
+        try {
+            $stmt = $pdo->prepare("
             SELECT
                 t.id AS thread_id,
                 t.thread_key,
@@ -88,7 +94,7 @@ final class MessageService
                 self_p.last_read_message_id AS self_last_read_message_id,
                 other_p.user_id AS with_user_id,
                 other_p.last_read_message_id AS with_last_read_message_id,
-                other_p.typing_at AS with_typing_at,
+                {$typingSelect} AS with_typing_at,
                 other_p.last_read_at AS with_last_read_at,
                 u.name AS with_user_name,
                 u.avatar AS with_user_avatar,
@@ -111,12 +117,19 @@ final class MessageService
               AND t.id = :thread_id
             LIMIT 1
         ");
-        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
-        $stmt->bindValue(':user_id_unread', $userId, PDO::PARAM_INT);
-        $stmt->bindValue(':thread_id', $threadId, PDO::PARAM_INT);
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!is_array($row)) {
+            $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+            $stmt->bindValue(':user_id_unread', $userId, PDO::PARAM_INT);
+            $stmt->bindValue(':thread_id', $threadId, PDO::PARAM_INT);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($row)) {
+                return null;
+            }
+        } catch (Throwable $exception) {
+            if (function_exists('appLogException')) {
+                appLogException($exception, ['source' => 'MessageService::threadForUser', 'thread_id' => $threadId, 'user_id' => $userId]);
+            }
+
             return null;
         }
 
@@ -137,7 +150,10 @@ final class MessageService
         }
         $limit = max(1, min(100, $limit));
 
-        $stmt = $pdo->prepare("
+        $typingSelect = $this->participantTypingSelectSql($pdo, 'other_p');
+
+        try {
+            $stmt = $pdo->prepare("
             SELECT
                 t.id AS thread_id,
                 t.thread_key,
@@ -147,7 +163,7 @@ final class MessageService
                 self_p.last_read_message_id AS self_last_read_message_id,
                 other_p.user_id AS with_user_id,
                 other_p.last_read_message_id AS with_last_read_message_id,
-                other_p.typing_at AS with_typing_at,
+                {$typingSelect} AS with_typing_at,
                 other_p.last_read_at AS with_last_read_at,
                 u.name AS with_user_name,
                 u.avatar AS with_user_avatar,
@@ -170,11 +186,18 @@ final class MessageService
             ORDER BY COALESCE(t.last_message_at, t.created_at) DESC, t.id DESC
             LIMIT :limit
         ");
-        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
-        $stmt->bindValue(':user_id_unread', $userId, PDO::PARAM_INT);
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+            $stmt->bindValue(':user_id_unread', $userId, PDO::PARAM_INT);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $exception) {
+            if (function_exists('appLogException')) {
+                appLogException($exception, ['source' => 'MessageService::listThreads', 'user_id' => $userId]);
+            }
+
+            return [];
+        }
 
         $threads = [];
         foreach ($rows as $row) {
@@ -750,12 +773,12 @@ final class MessageService
 
             $this->ensureParticipants($pdo, $threadId, $senderUserId, $targetUserId);
 
+            $typingResetSql = $this->participantTypingColumnExists($pdo) ? ",\n                    typing_at = NULL" : '';
             $updateSenderCursor = $pdo->prepare("
                 UPDATE message_thread_participants
                 SET last_read_message_id = :last_read_message_id,
                     last_read_at = {$nowSql},
-                    updated_at = {$nowSql},
-                    typing_at = NULL
+                    updated_at = {$nowSql}{$typingResetSql}
                 WHERE thread_id = :thread_id
                   AND user_id = :user_id
             ");
@@ -1060,13 +1083,12 @@ final class MessageService
         return $this->schema->tableExists($pdo, 'message_threads')
             && $this->schema->tableExists($pdo, 'message_thread_participants')
             && $this->schema->tableExists($pdo, 'message_messages')
-            && $this->schema->columnExists($pdo, 'message_thread_participants', 'typing_at')
             && $this->schema->columnExists($pdo, 'message_messages', 'is_deleted');
     }
 
     public function updateTypingStatus(PDO $pdo, int $threadId, int $userId): void
     {
-        if ($threadId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
+        if ($threadId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo) || !$this->participantTypingColumnExists($pdo)) {
             return;
         }
 
@@ -1092,7 +1114,7 @@ final class MessageService
 
     public function clearTypingStatus(PDO $pdo, int $threadId, int $userId): void
     {
-        if ($threadId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
+        if ($threadId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo) || !$this->participantTypingColumnExists($pdo)) {
             return;
         }
 
@@ -1327,5 +1349,23 @@ final class MessageService
         } catch (\Throwable $e) {
             // Ignore broadcast errors
         }
+    }
+
+    private function participantTypingSelectSql(PDO $pdo, string $alias = 'other_p'): string
+    {
+        $safeAlias = preg_replace('/[^a-zA-Z0-9_]/', '', $alias);
+        $safeAlias = $safeAlias !== '' ? $safeAlias : 'other_p';
+
+        return $this->participantTypingColumnExists($pdo) ? ($safeAlias . '.typing_at') : 'NULL';
+    }
+
+    private function participantTypingColumnExists(PDO $pdo): bool
+    {
+        $key = spl_object_id($pdo);
+        if (!array_key_exists($key, $this->typingColumnByConnection)) {
+            $this->typingColumnByConnection[$key] = $this->schema->columnExists($pdo, 'message_thread_participants', 'typing_at');
+        }
+
+        return $this->typingColumnByConnection[$key];
     }
 }

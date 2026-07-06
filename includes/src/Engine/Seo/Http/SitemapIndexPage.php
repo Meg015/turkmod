@@ -33,6 +33,22 @@ final class SitemapIndexPage implements Handler
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
         $now = $this->now();
 
+        if (function_exists('seoIndexToggleValue')) {
+            if (seoIndexToggleValue($settings, 'allow_indexing', '1') !== '1') {
+                return $this->xmlResponse(
+                    '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+                    . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' . "\n",
+                    $now,
+                );
+            }
+        } elseif ((string) ($settings['allow_indexing'] ?? '1') !== '1') {
+            return $this->xmlResponse(
+                '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+                . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' . "\n",
+                $now,
+            );
+        }
+
         if ((string) ($settings['sitemap_enabled'] ?? '1') !== '1') {
             return $this->xmlResponse(
                 '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
@@ -122,51 +138,57 @@ final class SitemapIndexPage implements Handler
             return $statistics;
         }
 
-        $statuses = (string) ($settings['sitemap_exclude_drafts'] ?? '1') === '1'
-            ? ['published']
-            : ['published', 'draft'];
-        $statusPlaceholders = implode(', ', array_fill(0, count($statuses), '?'));
+        $statuses = function_exists('seoSitemapTopicStatuses')
+            ? seoSitemapTopicStatuses($settings)
+            : ((string) ($settings['sitemap_exclude_drafts'] ?? '1') === '1'
+                ? ['published']
+                : ['published', 'draft']);
+        $statusPlaceholders = $statuses !== [] ? implode(', ', array_fill(0, count($statuses), '?')) : '';
         $imageEnabled = (string) ($settings['image_sitemap_enabled'] ?? '1') === '1';
 
         try {
-            $topicLastmod = $this->fetchOne(
-                $pdo,
-                'SELECT MAX(COALESCE(updated_at, published_at, created_at)) AS last_mod FROM topics WHERE status IN ('
-                    . $statusPlaceholders
-                    . ') AND deleted_at IS NULL',
-                $statuses,
-            );
-            if ($topicLastmod !== null && $topicLastmod !== '') {
-                $statistics['topic_lastmod'] = date('Y-m-d\TH:i:sP', strtotime($topicLastmod));
-                $statistics['image_lastmod'] = $statistics['topic_lastmod'];
-            }
+            if ($statuses !== []) {
+                $topicLastmod = $this->fetchOne(
+                    $pdo,
+                    'SELECT MAX(COALESCE(updated_at, published_at, created_at)) AS last_mod FROM topics WHERE status IN ('
+                        . $statusPlaceholders
+                        . ') AND deleted_at IS NULL',
+                    $statuses,
+                );
+                if ($topicLastmod !== null && $topicLastmod !== '') {
+                    $statistics['topic_lastmod'] = date('Y-m-d\TH:i:sP', strtotime($topicLastmod));
+                    $statistics['image_lastmod'] = $statistics['topic_lastmod'];
+                }
 
-            $statistics['total_topics'] = (int) $this->fetchColumn(
-                $pdo,
-                'SELECT COUNT(*) FROM topics WHERE status IN ('
-                    . $statusPlaceholders
-                    . ') AND deleted_at IS NULL AND slug IS NOT NULL',
-                $statuses,
-            );
-
-            if ($imageEnabled) {
-                $statistics['total_topics_with_images'] = (int) $this->fetchColumn(
+                $statistics['total_topics'] = (int) $this->fetchColumn(
                     $pdo,
                     'SELECT COUNT(*) FROM topics WHERE status IN ('
                         . $statusPlaceholders
-                        . ") AND deleted_at IS NULL AND slug IS NOT NULL AND (primary_media_file_id IS NOT NULL OR id IN (SELECT DISTINCT topic_id FROM media_files WHERE type = 'image' OR mime_type LIKE 'image/%'))",
+                        . ') AND deleted_at IS NULL AND slug IS NOT NULL',
                     $statuses,
                 );
+
+                if ($imageEnabled) {
+                    $statistics['total_topics_with_images'] = (int) $this->fetchColumn(
+                        $pdo,
+                        'SELECT COUNT(*) FROM topics WHERE status IN ('
+                            . $statusPlaceholders
+                            . ") AND deleted_at IS NULL AND slug IS NOT NULL AND (primary_media_file_id IS NOT NULL OR id IN (SELECT DISTINCT topic_id FROM media_files WHERE type = 'image' OR mime_type LIKE 'image/%'))",
+                        $statuses,
+                    );
+                }
             }
 
-            $profileStatement = $pdo->prepare("SELECT MAX(COALESCE(updated_at, created_at)) AS last_mod, COUNT(*) AS total_profiles FROM users WHERE status = 'active' AND public_profile = 1 AND deleted_at IS NULL AND (is_banned = 0 OR is_banned IS NULL) AND name IS NOT NULL AND TRIM(name) <> ''");
-            $profileStatement->execute();
-            $profileRow = $profileStatement->fetch(PDO::FETCH_ASSOC);
-            if (is_array($profileRow)) {
-                if (!empty($profileRow['last_mod'])) {
-                    $statistics['profile_lastmod'] = date('Y-m-d\TH:i:sP', strtotime((string) $profileRow['last_mod']));
+            if (function_exists('seoPublicPageShouldAppearInSitemap') && seoPublicPageShouldAppearInSitemap('public_profile', $settings)) {
+                $profileStatement = $pdo->prepare("SELECT MAX(COALESCE(updated_at, created_at)) AS last_mod, COUNT(*) AS total_profiles FROM users WHERE status = 'active' AND public_profile = 1 AND deleted_at IS NULL AND (is_banned = 0 OR is_banned IS NULL) AND name IS NOT NULL AND TRIM(name) <> ''");
+                $profileStatement->execute();
+                $profileRow = $profileStatement->fetch(PDO::FETCH_ASSOC);
+                if (is_array($profileRow)) {
+                    if (!empty($profileRow['last_mod'])) {
+                        $statistics['profile_lastmod'] = date('Y-m-d\TH:i:sP', strtotime((string) $profileRow['last_mod']));
+                    }
+                    $statistics['total_public_profiles'] = (int) ($profileRow['total_profiles'] ?? 0);
                 }
-                $statistics['total_public_profiles'] = (int) ($profileRow['total_profiles'] ?? 0);
             }
         } catch (Throwable $exception) {
             if (function_exists('appLogException')) {
@@ -232,7 +254,7 @@ final class SitemapIndexPage implements Handler
 
         $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $body .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-        $body .= $this->renderSitemapEntries($canonicalBase, 'topic-sitemap', $statistics['topic_lastmod'], $statistics['total_topics'], $maxUrlsPerSitemap);
+        $body .= $this->renderSitemapEntries($canonicalBase, 'topic-sitemap', $statistics['topic_lastmod'], $statistics['total_topics'], $maxUrlsPerSitemap, true);
         $body .= $this->renderSitemapEntries($canonicalBase, 'profile-sitemap', $statistics['profile_lastmod'], $statistics['total_public_profiles'], $maxUrlsPerSitemap);
         if ($imageEnabled) {
             $body .= $this->renderSitemapEntries($canonicalBase, 'image-sitemap', $statistics['image_lastmod'], $statistics['total_topics_with_images'], $maxUrlsPerSitemap);
@@ -248,7 +270,12 @@ final class SitemapIndexPage implements Handler
         string $lastmod,
         int $total,
         int $maxUrlsPerSitemap,
+        bool $forceFirstPage = false,
     ): string {
+        if ($total <= 0 && !$forceFirstPage) {
+            return '';
+        }
+
         $pages = max(1, (int) ceil($total / $maxUrlsPerSitemap));
         $body = '';
 

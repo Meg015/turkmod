@@ -32,8 +32,7 @@ if (!function_exists('seoGenerateCategoryMeta')) {
             $description = trim((string) ($category['description'] ?? ''));
         }
         if ($description === '') {
-            $template = $settings['category_meta_template'] ?? '{{category}} kategorisindeki modlar | {{site_name}}';
-            $description = seoApplyTemplate($template, [
+            $description = seoApplyTemplate('{{category}} kategorisindeki modlar | {{site_name}}', [
                 'category' => $categoryName,
                 'parent' => $parentName,
                 'count' => $topicCount,
@@ -58,6 +57,28 @@ if (!function_exists('seoGenerateCategoryMeta')) {
             $canonicalUrl = categoryUrl((string) ($category['slug'] ?? ''), (string) ($category['parent_slug'] ?? ''));
         }
 
+        if (function_exists('seoPublicPageMetaTags')) {
+            return seoPublicPageMetaTags(
+                'category',
+                [
+                    'title' => $title,
+                    'description' => $description,
+                    'image' => $ogImage,
+                ],
+                [
+                    'category' => $categoryName,
+                    'parent' => $parentName,
+                    'count' => $topicCount,
+                    'page_title' => $title,
+                    'page_description' => $description,
+                ],
+                $settings,
+                $canonicalUrl,
+                $includeCanonical,
+                'website'
+            );
+        }
+
         return getSeoMeta($title, $description, $canonicalUrl, $ogImage, $includeCanonical, 'website');
     }
 }
@@ -75,8 +96,7 @@ if (!function_exists('seoGenerateProfileMeta')) {
         $downloads = (int) ($stats['downloads'] ?? 0);
         $bio = trim((string) ($user['bio'] ?? ''));
 
-        $template = $settings['profile_meta_template'] ?? '{{username}} profili ve paylaşımları | {{site_name}}';
-        $description = $bio !== '' ? $bio : seoApplyTemplate($template, [
+        $description = $bio !== '' ? $bio : seoApplyTemplate('{{username}} profili ve paylaşımları | {{site_name}}', [
             'username' => $username,
             'topics' => $topics,
             'comments' => $comments,
@@ -105,6 +125,30 @@ if (!function_exists('seoGenerateProfileMeta')) {
         }
 
         $title = $username !== '' ? $username . ' Profili' : 'Profil';
+
+        if (function_exists('seoPublicPageMetaTags')) {
+            return seoPublicPageMetaTags(
+                'public_profile',
+                [
+                    'title' => $title,
+                    'description' => $description,
+                    'image' => $ogImage,
+                ],
+                [
+                    'username' => $username,
+                    'topics' => $topics,
+                    'comments' => $comments,
+                    'views' => $views,
+                    'downloads' => $downloads,
+                    'page_title' => $title,
+                    'page_description' => $description,
+                ],
+                $settings,
+                $canonicalUrl,
+                $includeCanonical,
+                'profile'
+            );
+        }
 
         return getSeoMeta($title, $description, $canonicalUrl, $ogImage, $includeCanonical, 'profile');
     }
@@ -153,6 +197,29 @@ if (!function_exists('seoGenerateTopicMeta')) {
             $slug = (string) ($topic['slug'] ?? '');
             $id = (int) ($topic['id'] ?? 0);
             $canonicalUrl = function_exists('topicUrl') ? topicUrl($slug, $id > 0 ? $id : null) : '';
+        }
+
+        if (function_exists('seoPublicPageMetaTags')) {
+            return seoPublicPageMetaTags(
+                'topic',
+                [
+                    'title' => $title,
+                    'description' => $description,
+                    'image' => $ogImage,
+                ],
+                [
+                    'title' => $title,
+                    'category' => (string) ($topic['category'] ?? ''),
+                    'author' => (string) ($topic['author'] ?? ''),
+                    'excerpt' => (string) ($topic['excerpt'] ?? ''),
+                    'page_title' => $title,
+                    'page_description' => $description,
+                ],
+                $settings,
+                $canonicalUrl,
+                $includeCanonical,
+                'article'
+            );
         }
 
         return getSeoMeta($title, $description, $canonicalUrl, $ogImage, $includeCanonical, 'article');

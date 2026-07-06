@@ -446,7 +446,7 @@ if (!in_array($action, $schemaSkipActions, true)) {
 try {
     switch ($action) {
 
-        // â”€â”€ Site CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // --- Site CRUD ---
         case 'save_site':
             $id = (int)($_POST['site_id'] ?? 0) ?: null;
             $siteId = saveScraperSite($pdo, $_POST, $id);
@@ -469,7 +469,7 @@ try {
             echo json_encode(['success' => (bool)$site, 'site' => $site]);
             break;
 
-        // â”€â”€ Category Mapping CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // --- Category Mapping CRUD ---
         case 'save_mapping':
             $data = $_POST;
             if (empty($data['remote_category_name']) && !empty($data['remote_category_url'])) {
@@ -495,7 +495,7 @@ try {
             echo json_encode(['success' => true, 'message' => 'Eşleme silindi.']);
             break;
 
-        // â”€â”€ Scrape Operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // -- Scrape Operations ---------------------------------
         case 'discover_urls':
             $siteId = (int)($_POST['site_id'] ?? 0);
             $mappingId = (int)($_POST['mapping_id'] ?? 0);
@@ -960,7 +960,7 @@ try {
             echo json_encode(['success' => true, 'job_id' => $jobId, 'processed' => $processed, 'failed' => $failed, 'imported' => $imported, 'skipped' => $skipped, 'warnings' => $warnings]);
             break;
 
-        // â”€â”€ Import Operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // -- Import Operations ---------------------------------
         case 'publish_import':
             $importId = (int)($_POST['import_id'] ?? 0);
             $categoryId = (int)($_POST['category_id'] ?? 0);
@@ -1103,19 +1103,19 @@ try {
             echo json_encode(['success' => (bool)$import, 'import' => $import]);
             break;
 
-        // â”€â”€ Bot Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // -- Bot Settings --------------------------------------
         case 'save_bot_settings':
             saveScraperBotSettings($pdo, $_POST);
             echo json_encode(['success' => true, 'message' => 'Bot ayarları kaydedildi.']);
             break;
 
-        // â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // -- Stats ---------------------------------------------
         case 'get_stats':
             $stats = getScraperStats($pdo);
             echo json_encode(['success' => true, 'stats' => $stats]);
             break;
 
-        // â”€â”€ Test Connection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // -- Test Connection -----------------------------------
         case 'test_connection':
             $url = trim($_POST['url'] ?? '');
             if (!$url) {

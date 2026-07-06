@@ -88,7 +88,7 @@
                                 <td class="col-user">
                                     <div class="user-cell">
                                         <a href="{leaderboard_row.profile_url}">
-                                            <img src="{leaderboard_row.avatar_url}" alt="{leaderboard_row.username}" class="user-avatar" width="30" height="30" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="{leaderboard_avatar_fallback}">
+                                            <img src="{leaderboard_row.avatar_url}" alt="{leaderboard_row.username}" title="{leaderboard_row.username}" class="user-avatar" width="30" height="30" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="{leaderboard_avatar_fallback}">
                                         </a>
                                         <div class="user-info">
                                             <a href="{leaderboard_row.profile_url}" class="user-name">{leaderboard_row.username}</a>

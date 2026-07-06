@@ -3,9 +3,9 @@
 declare(strict_types=1);
 /**
  * AJAX Comment API
- * GET  ?topic_id=X           â†’ list comments
- * POST {topic_id, body}      â†’ add comment
- * POST {action=delete, id}   â†’ delete comment (admin/owner)
+ * GET  ?topic_id=X           → list comments
+ * POST {topic_id, body}      → add comment
+ * POST {action=delete, id}   → delete comment (admin/owner)
  */
 require_once __DIR__ . '/../includes/init.php';
 require_once __DIR__ . '/../includes/notifications.php';
@@ -111,7 +111,7 @@ function filterBannedWords(string $text, array $words): bool
     return false;
 }
 
-// â”€â”€â”€ GET: List comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── GET: List comments ───────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (($_GET['action'] ?? '') === 'mention_search') {
         if (!$mentionsEnabled || !$isLoggedIn) {
@@ -539,7 +539,7 @@ function detectSpam(string $body, PDO $pdo, int $userId): bool
     return false;
 }
 
-// â”€â”€â”€ POST: Add / Delete / Edit comment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── POST: Add / Delete / Edit comment ────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$pdo) {
         jsonResponse(503, ['error' => 'Veritabanı bağlantısı şu anda kullanılamıyor.']);
@@ -561,7 +561,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         jsonResponse(403, ['error' => 'Güvenlik doğrulaması başarısız. Sayfayı yenileyin.']);
     }
 
-    // â”€â”€ Delete â”€â”€
+    // ── Delete ──
     if ($action === 'delete') {
         if (!$isLoggedIn) jsonResponse(401, ['error' => 'Giriş yapmalısınız.']);
         $deleteRateKey = 'comment_delete_' . (int)$_SESSION['_auth_user_id'];
@@ -595,7 +595,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // â”€â”€ Edit â”€â”€
+    // ── Edit ──
     if ($action === 'edit') {
         if (!$isLoggedIn) jsonResponse(401, ['error' => 'Giriş yapmalısınız.']);
         $commentId = (int)($input['id'] ?? 0);
@@ -642,7 +642,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // â”€â”€ Add â”€â”€ (only if action is not set or is 'add')
+    // ── Add ── (only if action is not set or is 'add')
     if ($action !== 'delete' && $action !== 'edit' && $action !== 'react' && $action !== 'report') {
         if (!$allowComments) jsonResponse(403, ['error' => 'Yorumlar kapatılmış.']);
         if (!$isLoggedIn && !$guestComments) jsonResponse(401, ['error' => 'Yorum yapmak için giriş yapmalısınız.']);
@@ -901,7 +901,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } // End of Add comment block
 }
 
-// â”€â”€â”€ POST: React to comment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── POST: React to comment ────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'react') {
     if (!$reactionsEnabled) jsonResponse(403, ['error' => 'Reaksiyon sistemi kapalı.']);
     if (!$isLoggedIn) jsonResponse(401, ['error' => 'Reaksiyon eklemek için giriş yapmalısınız.']);
@@ -990,9 +990,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'react
     }
 }
 
-// â”€â”€â”€ POST: Report comment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── POST: Report comment ────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'report') {
-    if (!$isLoggedIn) jsonResponse(401, ['error' => 'Åikayet etmek için giriş yapmalısınız.']);
+    if (!$isLoggedIn) jsonResponse(401, ['error' => 'Şikayet etmek için giriş yapmalısınız.']);
 
     $commentId = (int)($input['comment_id'] ?? 0);
     $reason = trim((string)($input['reason'] ?? ''));
@@ -1072,7 +1072,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'repor
             }
 
         } catch (Throwable $e) {
-            jsonResponse(500, ['error' => 'Åikayet kaydedilemedi.']);
+            jsonResponse(500, ['error' => 'Şikayet kaydedilemedi.']);
         }
 
         // Log activity
@@ -1084,15 +1084,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'repor
 
         jsonResponse(200, [
             'success' => true,
-            'message' => 'Åikayetiniz alındı. En kısa sürede incelenecek.',
+            'message' => 'Şikayetiniz alındı. En kısa sürede incelenecek.',
             '_token' => csrf_token(),
         ]);
     } catch (Throwable $e) {
-        jsonResponse(500, ['error' => 'Åikayet işlenemedi.']);
+        jsonResponse(500, ['error' => 'Şikayet işlenemedi.']);
     }
 }
 
-// â”€â”€â”€ GET: Edit history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── GET: Edit history ─────────────────────────────────────────
 jsonResponse(405, ['error' => 'Geçersiz istek metodu.']);
 
 

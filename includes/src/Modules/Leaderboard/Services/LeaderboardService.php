@@ -43,16 +43,15 @@ final class LeaderboardService
             'leaderboard_cache_ttl_daily' => '900',
             'leaderboard_cache_ttl_weekly' => '3600',
             'leaderboard_cache_ttl_monthly' => '21600',
-            'leaderboard_min_topics' => '1',
+            'leaderboard_cache_ttl_quarterly' => '43200',
+            'leaderboard_cache_ttl_yearly' => '86400',
+            'leaderboard_cache_ttl_all_time' => '86400',
             'leaderboard_exclude_admins' => '1',
             'leaderboard_show_sidebar' => '1',
             'leaderboard_sidebar_limit' => '5',
             'leaderboard_show_profile' => '1',
             'leaderboard_profile_limit' => '10',
-            'leaderboard_min_downloads' => '0',
-            'leaderboard_min_views' => '0',
             'leaderboard_exclude_banned' => '1',
-            'leaderboard_reset_frequency' => 'never',
         ];
 
         $this->settingsCache = $defaults;
@@ -88,23 +87,23 @@ final class LeaderboardService
     {
         return [
             'daily_login' => [
-                'name' => 'Gunluk Giris',
+                'name' => 'Günlük Giriş',
                 'icon' => 'bi-box-arrow-in-right',
-                'desc' => 'Secili donemde en cok giris yapan kullanicilar',
+                'desc' => 'Seçili dönemde en çok giriş yapan kullanıcılar',
                 'metadata_key' => 'daily_logins',
-                'metadata_label' => 'Giris',
+                'metadata_label' => 'Giriş',
             ],
             'topics' => [
-                'name' => 'Konu Sayisi',
+                'name' => 'Konu Sayısı',
                 'icon' => 'bi-file-earmark-text',
-                'desc' => 'Secili donemde en cok konu yayinlayan kullanicilar',
+                'desc' => 'Seçili dönemde en çok konu yayımlayan kullanıcılar',
                 'metadata_key' => 'topics',
                 'metadata_label' => 'Konu',
             ],
             'comments' => [
-                'name' => 'Yorum Sayisi',
+                'name' => 'Yorum Sayısı',
                 'icon' => 'bi-chat-left-text',
-                'desc' => 'Secili donemde en cok onayli yorum yapan kullanicilar',
+                'desc' => 'Seçili dönemde en çok onaylı yorum yapan kullanıcılar',
                 'metadata_key' => 'comments',
                 'metadata_label' => 'Yorum',
             ],
@@ -129,7 +128,7 @@ final class LeaderboardService
             return '#';
         }
 
-        $displayName = (string) ($row['username'] ?? $row['name'] ?? $row['author'] ?? 'uye');
+        $displayName = (string) ($row['username'] ?? $row['name'] ?? $row['author'] ?? 'üye');
         if (function_exists('publicProfileUrl')) {
             return publicProfileUrl([
                 'id' => $userId,
@@ -253,7 +252,7 @@ final class LeaderboardService
     /**
      * @return array{data:array<int,array<string,mixed>>,total:int,is_cached:bool}
      */
-    public function getData(PDO $pdo, string $category, string $period, int $limit = 50, int $offset = 0): array
+    public function getData(PDO $pdo, string $category, string $period, int $limit = 50, int $offset = 0, ?string $search = null): array
     {
         $settings = $this->getSettings($pdo);
         if (($settings['leaderboard_enabled'] ?? '1') !== '1') {
@@ -262,29 +261,62 @@ final class LeaderboardService
 
         $calculator = $this->calculator ?? new LeaderboardCalculator($this);
         $cache = $this->cacheService ?? new LeaderboardCacheService($this, $calculator);
+        $searchTerm = trim((string) ($search ?? ''));
+        $searchValue = $searchTerm !== '' ? $searchTerm : null;
 
-        if ($period === 'all_time' && in_array($category, $this->getValidCategories(), true)) {
-            $periodDates = $this->getPeriodDates($period);
+        $cachedData = $cache->readCache($pdo, $category, $period, $limit, $offset, $searchValue);
+        if (($cachedData['is_cached'] ?? false) === true) {
+            if ($cache->isCacheStale($pdo, $category, $period)) {
+                try {
+                    $cache->recalculate($pdo, $category, $period, false);
+                } catch (Throwable) {
+                }
+
+                $cachedData = $cache->readCache($pdo, $category, $period, $limit, $offset, $searchValue);
+            }
+
+            return $cachedData;
+        }
+
+        try {
+            $cache->recalculate($pdo, $category, $period, false);
+        } catch (Throwable) {
+        }
+
+        $cachedData = $cache->readCache($pdo, $category, $period, $limit, $offset, $searchValue);
+        if (($cachedData['total'] ?? 0) > 0 || ($cachedData['is_cached'] ?? false)) {
+            return $cachedData;
+        }
+
+        $periodDates = $this->getPeriodDates($period);
+        if ($searchValue !== null) {
             $data = $calculator->calculatePeriod(
                 $pdo,
                 $category,
                 $period,
                 $periodDates['start'],
                 $periodDates['end'],
-                $limit,
-                $offset,
+                999999,
+                0,
             );
-            $data['is_cached'] = false;
 
-            return $data;
+            $filteredRows = array_values(array_filter(
+                $data['data'] ?? [],
+                static function (array $row) use ($searchValue): bool {
+                    $username = (string) ($row['username'] ?? '');
+                    return stripos($username, $searchValue) !== false;
+                },
+            ));
+
+            $filteredTotal = count($filteredRows);
+
+            return [
+                'data' => array_slice($filteredRows, $offset, $limit),
+                'total' => $filteredTotal,
+                'is_cached' => false,
+            ];
         }
 
-        $cachedData = $cache->readCache($pdo, $category, $period, $limit, $offset);
-        if (($cachedData['total'] ?? 0) > 0 || ($cachedData['is_cached'] ?? false)) {
-            return $cachedData;
-        }
-
-        $periodDates = $this->getPeriodDates($period);
         $data = $calculator->calculatePeriod(
             $pdo,
             $category,
@@ -312,19 +344,18 @@ final class LeaderboardService
         $categories = $category ? [$category] : $this->getValidCategories();
         $periods = $period ? [$period] : ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'all_time'];
         $ranks = [];
+        $cache = $this->cacheService ?? new LeaderboardCacheService($this, $this->calculator ?? new LeaderboardCalculator($this));
 
         foreach ($categories as $categoryKey) {
             foreach ($periods as $periodKey) {
-                $data = $this->getData($pdo, (string) $categoryKey, (string) $periodKey, 999999, 0);
-                $userRank = null;
-                $totalUsers = count($data['data']);
-
-                foreach ($data['data'] as $entry) {
-                    if ((int) ($entry['user_id'] ?? 0) === $userId) {
-                        $userRank = $entry;
-                        break;
+                if ($cache->isCacheStale($pdo, (string) $categoryKey, (string) $periodKey)) {
+                    try {
+                        $cache->recalculate($pdo, (string) $categoryKey, (string) $periodKey, false);
+                    } catch (Throwable) {
                     }
                 }
+
+                $userRank = $cache->findUserRank($pdo, (string) $categoryKey, (string) $periodKey, $userId);
 
                 if ($userRank === null) {
                     continue;
@@ -332,6 +363,7 @@ final class LeaderboardService
 
                 $rank = (int) ($userRank['rank'] ?? 0);
                 $count = (int) ($userRank['score'] ?? $userRank['count'] ?? 0);
+                $totalUsers = (int) ($userRank['total_users'] ?? 0);
                 $ranks[(string) $categoryKey][(string) $periodKey] = [
                     'rank' => $rank,
                     'count' => $count,

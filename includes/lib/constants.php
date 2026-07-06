@@ -45,8 +45,12 @@ define('CACHE_POPULAR_TOPICS_TTL', 300);  // 5 dakika
 define('CACHE_SETTINGS_TTL', 600);  // 10 dakika
 
 // Asset Versioning
-define('ASSET_VERSION_METHOD', 'filemtime');  // 'filemtime' veya 'git_hash' veya 'manual'
-define('ASSET_VERSION_MANUAL', '1.0.0');  // Manuel versiyon numarası
+if (!defined('ASSET_VERSION_METHOD')) {
+    define('ASSET_VERSION_METHOD', 'filemtime');  // 'filemtime' veya 'git_hash' veya 'manual'
+}
+if (!defined('ASSET_VERSION_MANUAL')) {
+    define('ASSET_VERSION_MANUAL', '1.0.0');  // Manuel versiyon numarasi
+}
 
 // Marka / UI varsayilan degerleri (admin_settings uzerinden runtime'da override edilir)
 define('BRAND_DEFAULT_ACCENT', '#8b1538');     // Varsayilan marka vurgu rengi

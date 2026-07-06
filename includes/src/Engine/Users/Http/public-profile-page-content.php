@@ -162,8 +162,11 @@ foreach ($userTopics as $index => $topic) {
     }
     $topicTitle = (string) ($topic['title'] ?? 'Konu');
     $topicImageAlt = function_exists('seoGenerateImageAlt')
-        ? seoGenerateImageAlt('topic-hero', $topicTitle, $settings)
+        ? seoGenerateImageAlt('topic-card', $topicTitle, $settings)
         : $topicTitle . ' kapak görseli';
+    $topicImageTitle = function_exists('seoGenerateImageTitle')
+        ? seoGenerateImageTitle('topic-card', $topicTitle, $settings)
+        : $topicImageAlt;
     $heroImage = (string) ($topic['hero_image'] ?? '');
     $heroImageUrl = function_exists('uiUrlValue') ? uiUrlValue($heroImage, $baseUri) : '';
     $profile_topics[] = [
@@ -226,7 +229,7 @@ require_once $projectRoot . '/includes/public-header.php';
         <div class="topic-report-backdrop" data-user-report-modal-close data-ui-modal-close></div>
         <div class="topic-report-dialog ui-panel">
             <div class="topic-report-header ui-panel__head">
-                <h2 id="user-report-heading"><i class="bi bi-flag"></i> Kullanıcıyı Åikayet Et</h2>
+                <h2 id="user-report-heading"><i class="bi bi-flag"></i> Kullanıcıyı Şikayet Et</h2>
                 <button type="button" class="topic-report-close" data-user-report-modal-close data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
             </div>
             <?php if ($canReportProfile): ?>
@@ -248,7 +251,7 @@ require_once $projectRoot . '/includes/public-header.php';
                         <textarea name="details" rows="3" maxlength="1000" placeholder="Ek bilgi varsa yazın"></textarea>
                     </label>
                 </div>
-                <button type="submit" class="topic-report-submit"><i class="bi bi-send"></i> Åikayet Gönder</button>
+                <button type="submit" class="topic-report-submit"><i class="bi bi-send"></i> Şikayet Gönder</button>
                 <div class="topic-report-feedback" aria-live="polite"></div>
             </form>
             <?php else: ?>
@@ -299,7 +302,7 @@ require_once $projectRoot . '/includes/public-header.php';
                 <?php foreach ($profile_topics as $topic): ?>
                     <article class="profile-topic-card profile-public-topic-card ui-card">
                         <?php if (!empty($topic['image'])): ?>
-                            <img class="profile-topic-card__image" src="<?= htmlspecialchars((string) $topic['image'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) ($topic['image_alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" width="640" height="360" loading="lazy" decoding="async">
+        <img class="profile-topic-card__image" src="<?= htmlspecialchars((string) $topic['image'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) ($topic['image_alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars((string) ($topic['image_title'] ?? $topicImageTitle), ENT_QUOTES, 'UTF-8') ?>" width="640" height="360" loading="lazy" decoding="async">
                         <?php endif; ?>
                         <div class="profile-topic-rank"><?= htmlspecialchars((string) ($topic['rank'] ?? '')) ?></div>
                         <a href="<?= htmlspecialchars((string) ($topic['url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>" class="profile-topic-link">

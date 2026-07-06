@@ -32,9 +32,9 @@ stay as thin compatibility wrappers only.
 
 ## Permissions
 
-- `reports.view` â€” view topic reports and user complaints (admin). Sourced from `module.php` via `usersModulePermissionCatalog()`.
-- `reports.manage` â€” moderate topic reports and user complaints (admin). Sourced from `module.php`.
-- `reports.create` â€” create topic reports and user complaints (default: true). Declared in `module.php`; enforcement at public API is deferred until the permission system supports module-declared defaults.
+- `reports.view` - view topic reports and user complaints (admin). Sourced from `module.php` via `usersModulePermissionCatalog()`.
+- `reports.manage` - moderate topic reports and user complaints (admin). Sourced from `module.php`.
+- `reports.create` - create topic reports and user complaints (default: true). Declared in `module.php`; enforcement at public API is deferred until the permission system supports module-declared defaults.
 - Permission aliases: `reports.view` is accepted when `reports.manage` is held (via `usersPermissionAliases()`).
 
 ## Migration Rules
@@ -44,4 +44,3 @@ stay as thin compatibility wrappers only.
 - API entrypoints (`api/reports.php`, `api/user-reports.php`) must remain thin wrappers with rate limiting and CSRF.
 - `admin/complaints-reports.php` is a known thick endpoint (546 lines) that will be further thinned in later phases.
 - Report permissions are the single source of truth from `module.php`; the hardcoded catalog entries were removed in Phase 9.7.
-

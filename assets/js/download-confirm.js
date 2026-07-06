@@ -15,13 +15,18 @@
 
     const formatLabel = function(template, seconds) {
         return String(template || '')
+            .replace(/\{+\s*missing:\s*seconds\s*\}+/gi, '{{seconds}}')
+            .replace(/\(\(\s*missing:\s*seconds\s*\)\)/gi, '({{seconds}})')
+            .replace(/\(\s*missing:\s*seconds\s*\)/gi, '{{seconds}}')
+            .replace(/\bmissing:\s*seconds\b/gi, '{{seconds}}')
             .replace(/\{\{\{\s*seconds\s*\}\}\}/g, String(seconds))
             .replace(/\{\{\s*\}\}/g, String(seconds))
             .replace(/\{\{\s*seconds\s*\}\}/g, String(seconds))
             .replace(/\{\s*seconds\s*\}/g, String(seconds))
             .replace(/\{+\s*seconds\s*\}+/g, String(seconds))
             .replace(/\{+\s*\}+/g, String(seconds))
-            .replace(/\{\s*\}/g, String(seconds));
+            .replace(/\{\s*\}/g, String(seconds))
+            .replace(/\(\(\s*(\d+)\s*\)\)/g, '($1)');
     };
 
     const go = function() {

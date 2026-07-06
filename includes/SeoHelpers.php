@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/SeoPublicPages.php';
+
 /**
  * SEO Helper Functions
  * Meta Tags, Open Graph, Twitter Cards, Structured Data
@@ -16,8 +18,8 @@ if (!function_exists('getSeoMeta')) {
      * @param string $description Meta description (will be truncated to 160 chars for Turkish)
      * @param string|null $url Canonical URL
      * @param string|null $image OG image URL
-     * @param string $type OG type (website, article, etc.)
-     * @param array|null $extra Additional meta tags
+     * @param bool $includeCanonical Whether to emit the canonical link tag
+     * @param string|null $ogType OG type (website, article, etc.)
      * @return string HTML meta tags
      */
     function getSeoMeta(
@@ -25,8 +27,8 @@ if (!function_exists('getSeoMeta')) {
         string $description,
         ?string $url = null,
         ?string $image = null,
-        string $type = 'website',
-        ?array $extra = null
+        bool $includeCanonical = true,
+        ?string $ogType = null
     ): string {
         global $baseUri, $envConfig, $pdo;
 
@@ -36,16 +38,42 @@ if (!function_exists('getSeoMeta')) {
             : (function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : []);
 
         $siteName = (string) ($settings['site_name'] ?? ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
+        $titleIsFinal = !empty($GLOBALS['_seo_public_page_title_is_final']);
+        $skipPublicPresets = !empty($GLOBALS['_seo_skip_public_page_presets']);
 
-        // Apply meta_title_suffix if set
-        $titleSuffix = $settings['meta_title_suffix'] ?? '';
-        if (!empty($titleSuffix) && !str_contains($title, $titleSuffix)) {
-            $title = $title . ' ' . $titleSuffix;
+        if (
+            !$skipPublicPresets
+            && function_exists('seoPublicPageResolveKey')
+            && function_exists('seoPublicPageMeta')
+        ) {
+            $resolvedPageKey = seoPublicPageResolveKey((string) ($_SERVER['REQUEST_URI'] ?? '/'), $settings, null);
+            if ($resolvedPageKey !== '') {
+                $resolvedMeta = seoPublicPageMeta(
+                    $resolvedPageKey,
+                    [
+                        'title' => $title,
+                        'description' => $description,
+                        'image' => (string) ($image ?? ''),
+                    ],
+                    [],
+                    $settings
+                );
+                $title = (string) ($resolvedMeta['title'] ?? $title);
+                $description = (string) ($resolvedMeta['description'] ?? $description);
+                $image = (string) ($resolvedMeta['image'] ?? $image);
+                $titleIsFinal = !empty($resolvedMeta['title_is_final']);
+            }
         }
 
         // Use default_meta_title if title is empty
         if (empty(trim($title))) {
             $title = $settings['default_meta_title'] ?? $siteName;
+        }
+
+        // Apply meta_title_suffix if set
+        $titleSuffix = (string) ($settings['meta_title_suffix'] ?? '');
+        if (!$titleIsFinal && $titleSuffix !== '' && !str_contains($title, $titleSuffix)) {
+            $title = $title . ' ' . $titleSuffix;
         }
 
         // Use default_meta_description if description is empty
@@ -99,11 +127,11 @@ if (!function_exists('getSeoMeta')) {
             $description = mb_substr($description, 0, $maxLength - 3, 'UTF-8') . '...';
         }
 
-        // Use og_type from settings
-        $ogType = $settings['og_type'] ?? $type;
-
         // Use twitter_card from settings
         $twitterCard = $settings['twitter_card'] ?? 'summary_large_image';
+
+        // Use og_type from the caller when provided, otherwise fall back to settings/defaults.
+        $ogType = $ogType ?? ($settings['og_type'] ?? ($image !== '' ? 'article' : 'website'));
 
         $title = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
         $description = htmlspecialchars($description, ENT_QUOTES, 'UTF-8');
@@ -141,26 +169,8 @@ HTML;
             $meta .= "\n    <meta name=\"twitter:site\" content=\"@{$twitterHandle}\">";
         }
 
-        $meta .= "\n    \n    <!-- Canonical URL -->\n    <link rel=\"canonical\" href=\"{$url}\">";
-
-        // Extra meta tags
-        if ($extra) {
-            if (isset($extra['author'])) {
-                $author = htmlspecialchars($extra['author'], ENT_QUOTES, 'UTF-8');
-                $meta .= "\n    <meta name=\"author\" content=\"{$author}\">";
-            }
-            if (isset($extra['keywords'])) {
-                $keywords = htmlspecialchars($extra['keywords'], ENT_QUOTES, 'UTF-8');
-                $meta .= "\n    <meta name=\"keywords\" content=\"{$keywords}\">";
-            }
-            if (isset($extra['published_time'])) {
-                $time = htmlspecialchars($extra['published_time'], ENT_QUOTES, 'UTF-8');
-                $meta .= "\n    <meta property=\"article:published_time\" content=\"{$time}\">";
-            }
-            if (isset($extra['modified_time'])) {
-                $time = htmlspecialchars($extra['modified_time'], ENT_QUOTES, 'UTF-8');
-                $meta .= "\n    <meta property=\"article:modified_time\" content=\"{$time}\">";
-            }
+        if ($includeCanonical) {
+            $meta .= "\n    \n    <!-- Canonical URL -->\n    <link rel=\"canonical\" href=\"{$url}\">";
         }
 
         return $meta;
@@ -383,6 +393,7 @@ if (!function_exists('generateSitemap')) {
      * Generate XML sitemap
      */
     function generateSitemap(PDO $pdo): string {
+        $settings = function_exists('seoSettings') ? seoSettings() : [];
         $baseUrl = getBaseUrl();
         $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
         $xml .= "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
@@ -405,24 +416,67 @@ if (!function_exists('generateSitemap')) {
             $xml .= "  </url>\n";
         };
 
-        $appendUrl(rtrim($baseUrl, '/') . '/', null, 'daily', '1.0');
-
-        $stmt = $pdo->query("
-            SELECT id, slug, updated_at
-            FROM topics
-            WHERE status = 'published'
-            ORDER BY updated_at DESC, id DESC
-            LIMIT 5000
-        ");
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $url = topicUrlForRow($row);
-            $lastmod = !empty($row['updated_at']) ? date('Y-m-d\TH:i:sP', strtotime((string) $row['updated_at']) ?: time()) : null;
-            $appendUrl($url, $lastmod, 'weekly', '0.8');
+        if (!function_exists('seoPublicPageShouldAppearInSitemap') || seoPublicPageShouldAppearInSitemap('home', $settings)) {
+            $appendUrl(rtrim($baseUrl, '/') . '/', null, 'daily', '1.0');
         }
 
-        $stmt = $pdo->query("SELECT slug FROM categories WHERE parent_id IS NULL ORDER BY name ASC, id ASC");
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $appendUrl(categoryUrl((string) $row['slug']), null, 'weekly', '0.7');
+        $topicStatuses = function_exists('seoSitemapTopicStatuses') ? seoSitemapTopicStatuses($settings) : ['published'];
+        if ($topicStatuses !== []) {
+            $statusPlaceholders = implode(', ', array_fill(0, count($topicStatuses), '?'));
+            $stmt = $pdo->prepare("
+                SELECT id, slug, updated_at
+                FROM topics
+                WHERE status IN ($statusPlaceholders)
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 5000
+            ");
+            $stmt->execute($topicStatuses);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                if (function_exists('seoTopicShouldAppearInSitemap') && !seoTopicShouldAppearInSitemap($row, $settings)) {
+                    continue;
+                }
+
+                $url = topicUrlForRow($row);
+                $lastmod = !empty($row['updated_at']) ? date('Y-m-d\TH:i:sP', strtotime((string) $row['updated_at']) ?: time()) : null;
+                $appendUrl($url, $lastmod, 'weekly', '0.8');
+            }
+        }
+
+        if (function_exists('getPublicCategoriesTree')) {
+            $appendCategoryNode = null;
+            $appendCategoryNode = static function (array $node) use (&$appendCategoryNode, &$appendUrl, $settings): void {
+                if (!empty($node['slug']) && (!function_exists('seoCategoryShouldAppearInSitemap') || seoCategoryShouldAppearInSitemap($node, $settings))) {
+                    $appendUrl(categoryUrl((string) $node['slug']), null, 'weekly', '0.7');
+                }
+
+                foreach (($node['children'] ?? []) as $child) {
+                    if (is_array($child)) {
+                        $appendCategoryNode($child);
+                    }
+                }
+            };
+
+            foreach (getPublicCategoriesTree($pdo) as $node) {
+                if (is_array($node)) {
+                    $appendCategoryNode($node);
+                }
+            }
+        } else {
+            $stmt = $pdo->query("
+                SELECT cat.slug, COUNT(t.id) AS topic_count
+                FROM categories cat
+                LEFT JOIN topics t ON t.category_id = cat.id AND t.status = 'published' AND t.deleted_at IS NULL
+                WHERE cat.parent_id IS NULL AND cat.status = 'active' AND cat.deleted_at IS NULL
+                GROUP BY cat.id, cat.slug, cat.name, cat.display_order
+                ORDER BY cat.name ASC, cat.id ASC
+            ");
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                if (function_exists('seoCategoryShouldAppearInSitemap') && !seoCategoryShouldAppearInSitemap($row, $settings)) {
+                    continue;
+                }
+
+                $appendUrl(categoryUrl((string) $row['slug']), null, 'weekly', '0.7');
+            }
         }
 
         $xml .= "</urlset>\n";
@@ -430,5 +484,57 @@ if (!function_exists('generateSitemap')) {
         $xml = function_exists('decorateSitemapXml') ? decorateSitemapXml($xml) : $xml;
 
         return formatSitemapXml($xml);
+    }
+}
+
+if (!function_exists('seoGenerateSitemapOutput')) {
+    function seoGenerateSitemapOutput(string $type, ?array $settings = null): string
+    {
+        $settings = function_exists('seoSettings')
+            ? seoSettings($settings)
+            : (is_array($settings) ? $settings : []);
+
+        $normalizedType = strtolower(trim($type));
+        $requestUri = match ($normalizedType) {
+            'sitemap', 'sitemap.xml', 'index' => '/sitemap.xml',
+            'topic', 'topic-sitemap', 'topic-sitemap.xml' => '/topic-sitemap.xml',
+            'profile', 'profile-sitemap', 'profile-sitemap.xml' => '/profile-sitemap.xml',
+            'image', 'image-sitemap', 'image-sitemap.xml' => '/image-sitemap.xml',
+            default => '/' . ltrim($normalizedType, '/'),
+        };
+
+        $request = new \App\Core\Http\Request(
+            'GET',
+            $requestUri,
+            [],
+            [],
+            '',
+            ['REQUEST_URI' => $requestUri]
+        );
+        $pdo = $GLOBALS['pdo'] ?? null;
+        $handler = match (true) {
+            str_starts_with($normalizedType, 'profile') => new \App\Engine\Seo\Http\ProfileSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
+            str_starts_with($normalizedType, 'image') => new \App\Engine\Seo\Http\ImageSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
+            str_starts_with($normalizedType, 'topic') => new \App\Engine\Seo\Http\TopicSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
+            default => new \App\Engine\Seo\Http\SitemapIndexPage($settings, null, $pdo instanceof PDO ? $pdo : null),
+        };
+
+        $response = $handler->handle($request);
+
+        return $response instanceof \App\Core\Http\Response
+            ? $response->getBody()
+            : (string) $response;
+    }
+}
+
+if (!function_exists('seoWriteSitemapCache')) {
+    function seoWriteSitemapCache(string $cacheFile, string $output): void
+    {
+        $directory = dirname($cacheFile);
+        if (!is_dir($directory)) {
+            @mkdir($directory, 0775, true);
+        }
+
+        file_put_contents($cacheFile, $output, LOCK_EX);
     }
 }

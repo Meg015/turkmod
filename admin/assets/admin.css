@@ -1974,13 +1974,22 @@ button.admin-profile-menu-item {
    ============================================================ */
 @media (max-width: 991px) {
     .admin-sidebar {
-        transform: translateX(-100%);
+        left: 0;
+        width: min(86vw, 320px);
+        max-width: 320px;
+        display: none;
+        transform: none !important;
+        transition: none !important;
     }
-    
-    .admin-sidebar.open {
-        transform: translateX(0);
+
+    body.is-admin-sidebar-open .admin-sidebar {
+        display: flex !important;
+        left: 0 !important;
+        width: min(86vw, 320px) !important;
+        max-width: 320px !important;
+        transform: none !important;
     }
-    
+
     .admin-main {
         margin-left: 0;
     }
@@ -2428,6 +2437,144 @@ input[type="checkbox"], input[type="radio"] {
     font-size: 0.88rem;
     color: var(--ui-admin-text-secondary, #6c757d);
     line-height: 1.6;
+}
+
+.seo-public-pages-intro,
+.seo-public-pages-group {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.seo-public-pages-token-row,
+.seo-public-pages-group-badges,
+.seo-public-page-head-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.seo-public-pages-group-head {
+    justify-content: space-between;
+    gap: 0.9rem;
+}
+
+.seo-public-pages-group-meta {
+    display: grid;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.seo-public-pages-group-desc {
+    color: var(--ui-admin-text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.seo-public-pages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 1rem;
+}
+
+.seo-public-page-card {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--radius-md);
+    background: var(--ui-admin-surface);
+    box-shadow: var(--shadow-xs);
+}
+
+.seo-public-page-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.8rem;
+    align-items: flex-start;
+}
+
+.seo-public-page-title {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.seo-public-page-title strong {
+    color: var(--ui-admin-text);
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.seo-public-page-title span {
+    color: var(--ui-admin-text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: inherit;
+}
+
+.seo-public-page-path-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.seo-public-page-path {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: 8px;
+    background: var(--ui-admin-surface-alt);
+    color: var(--ui-admin-text-secondary);
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.seo-public-page-summary {
+    color: var(--ui-admin-text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.seo-public-page-placeholders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.seo-public-page-placeholders code {
+    padding: 0.2rem 0.4rem;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: 999px;
+    background: var(--ui-admin-surface-alt);
+    color: var(--ui-admin-text-secondary);
+    font-size: 0.72rem;
+}
+
+.seo-public-page-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.seo-public-page-field-wide {
+    grid-column: 1 / -1;
+}
+
+.seo-public-page-switch {
+    margin-top: 0.15rem;
+}
+
+@media (max-width: 980px) {
+    .seo-public-pages-grid,
+    .seo-public-page-fields {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* SEO panel code editor */
@@ -8895,6 +9042,36 @@ input[type="checkbox"]:checked ~ .cover-action-bar-content .state-restore { disp
     }
 }
 
+/* Source: admin/application-logs.php */
+.application-logs-summary { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.application-logs-actions {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+    gap:.35rem;
+}
+.application-logs-actions .logs-clear-form { margin:0; }
+.application-logs-old-form {
+    display:flex;
+    align-items:center;
+    gap:.35rem;
+}
+.application-logs-days-input {
+    width:92px;
+    min-width:92px;
+}
+@media (max-width: 640px) {
+    .application-logs-actions { width:100%; }
+    .application-logs-actions .logs-clear-form,
+    .application-logs-old-form,
+    .application-logs-days-input {
+        width:100%;
+        max-width:none;
+        min-width:0;
+    }
+}
+
 /* Source: admin/queue.php */
 .queue-page { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
 .queue-samples { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
@@ -9262,6 +9439,56 @@ input[type="checkbox"]:checked ~ .cover-action-bar-content .state-restore { disp
 .leaderboard-settings-intro {
     margin-bottom:var(--leaderboard-section-gap) !important;
     padding-bottom:var(--leaderboard-section-gap) !important;
+}
+.leaderboard-activity-bulk-bar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:var(--space-3);
+    flex-wrap:wrap;
+    margin-bottom:var(--leaderboard-section-gap);
+    padding:var(--space-3);
+    border:1px solid var(--ui-admin-border);
+    border-radius:var(--radius-card);
+    background:var(--ui-admin-surface);
+}
+.leaderboard-activity-bulk-bar.is-active {
+    border-color:color-mix(in srgb, var(--ui-admin-primary) 28%, var(--ui-admin-border));
+    background:color-mix(in srgb, var(--ui-admin-primary) 6%, var(--ui-admin-surface));
+}
+.leaderboard-activity-bulk-copy {
+    display:grid;
+    gap:.12rem;
+    min-width:0;
+}
+.leaderboard-activity-bulk-copy strong {
+    color:var(--ui-admin-text);
+    font-size:.92rem;
+    font-weight:700;
+}
+.leaderboard-activity-bulk-copy span {
+    color:var(--ui-admin-text-muted);
+    font-size:.8rem;
+}
+.leaderboard-activity-bulk-actions {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:.65rem;
+    flex-wrap:wrap;
+}
+.leaderboard-activity-bulk-actions .ui-admin-check-inline {
+    white-space:nowrap;
+}
+.leaderboard-activity-check-cell {
+    width:52px;
+    text-align:center;
+}
+.leaderboard-activity-row-checkbox {
+    width:1rem;
+    height:1rem;
+    margin:0;
+    accent-color:var(--ui-admin-primary);
 }
 @media (max-width:1100px) {
     .leaderboard-admin-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }

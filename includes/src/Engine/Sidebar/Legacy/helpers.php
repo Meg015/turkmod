@@ -947,6 +947,78 @@ if (!function_exists('sidebarBuilderWidgetTemplateVars')) {
                 break;
         }
 
+        if (is_array($base['items'] ?? null)) {
+            if (in_array($type, ['community_activity', 'site_stats'], true)) {
+                $base['items'] = array_values(array_map(static function ($row): array {
+                    $item = is_array($row) ? $row : [];
+                    return [
+                        'icon' => (string) ($item['icon'] ?? 'bi-dot'),
+                        'value' => (string) ($item['value'] ?? '0'),
+                        'label' => (string) ($item['label'] ?? ''),
+                    ] + $item;
+                }, $base['items']));
+            } elseif (in_array($type, ['tag_cloud', 'trending_tags', 'navigation_menu'], true)) {
+                $base['items'] = array_values(array_map(static function ($row): array {
+                    $item = is_array($row) ? $row : [];
+                    return [
+                        'label' => (string) ($item['label'] ?? ($item['name'] ?? '')),
+                        'url' => (string) ($item['url'] ?? '#'),
+                        'icon' => (string) ($item['icon'] ?? ''),
+                        'count' => (string) ($item['count'] ?? ''),
+                    ] + $item;
+                }, $base['items']));
+            } elseif ($type === 'category_showcase') {
+                $base['items'] = array_values(array_map(static function ($row): array {
+                    $item = is_array($row) ? $row : [];
+                    return [
+                        'icon' => (string) ($item['icon'] ?? 'bi-folder2-open'),
+                        'label' => (string) ($item['label'] ?? ($item['name'] ?? '')),
+                        'count' => (string) ($item['count'] ?? ''),
+                        'url' => (string) ($item['url'] ?? '#'),
+                    ] + $item;
+                }, $base['items']));
+            }
+
+            // The template renderer resolves loops before conditionals in debug mode.
+            // Keep a complete minimal key-set on every sidebar item so inactive
+            // widget blocks do not emit noisy "TPL Missing Variable: item.*" logs.
+            $base['items'] = array_values(array_map(static function ($row): array {
+                $item = is_array($row) ? $row : ['value' => $row];
+                $title = (string) ($item['title'] ?? ($item['name'] ?? ($item['label'] ?? '')));
+                $label = (string) ($item['label'] ?? ($item['name'] ?? $title));
+                $value = (string) ($item['value'] ?? ($item['score'] ?? ($item['count'] ?? ($item['meta'] ?? ''))));
+                $name = (string) ($item['name'] ?? ($item['label'] ?? $title));
+
+                return [
+                    'url' => (string) ($item['url'] ?? '#'),
+                    'icon' => (string) ($item['icon'] ?? ''),
+                    'label' => $label,
+                    'value' => $value,
+                    'count' => (string) ($item['count'] ?? ''),
+                    'rank' => (string) ($item['rank'] ?? ''),
+                    'name' => $name,
+                    'score' => (string) ($item['score'] ?? $value),
+                    'title' => $title,
+                    'meta' => (string) ($item['meta'] ?? $value),
+                    'image' => (string) ($item['image'] ?? ''),
+                    'avatar' => (string) ($item['avatar'] ?? ''),
+                    'author' => (string) ($item['author'] ?? $name),
+                    'excerpt' => (string) ($item['excerpt'] ?? ''),
+                    'date' => (string) ($item['date'] ?? ''),
+                    'category' => (string) ($item['category'] ?? ''),
+                ] + $item;
+            }, $base['items']));
+        }
+
+        if ($type === 'poll_cta' && is_array($base['options'] ?? null)) {
+            $base['options'] = array_values(array_map(static function ($row): array {
+                $item = is_array($row) ? $row : [];
+                return [
+                    'label' => (string) ($item['label'] ?? ''),
+                ] + $item;
+            }, $base['options']));
+        }
+
         return $base;
     }
 }

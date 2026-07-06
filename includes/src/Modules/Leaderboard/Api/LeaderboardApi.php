@@ -43,6 +43,7 @@ final class LeaderboardApi implements Handler
         $period = $query['period'] ?? null;
         $limit = array_key_exists('limit', $query) ? (int) $query['limit'] : 50;
         $offset = array_key_exists('offset', $query) ? (int) $query['offset'] : 0;
+        $search = isset($query['search']) ? trim((string) $query['search']) : '';
 
         if (!$category || !$period) {
             return new JsonResponse([
@@ -77,7 +78,7 @@ final class LeaderboardApi implements Handler
         $offset = max(0, $offset);
 
         try {
-            $data = leaderboardGetData($pdo, $categoryValue, $periodValue, $limit, $offset);
+            $data = leaderboardGetData($pdo, $categoryValue, $periodValue, $limit, $offset, $search !== '' ? $search : null);
             $periodDates = leaderboardGetPeriodDates($periodValue);
 
             $rows = isset($data['data']) && is_array($data['data']) ? $data['data'] : [];
@@ -96,7 +97,7 @@ final class LeaderboardApi implements Handler
                 'total' => (int) ($data['total'] ?? 0),
                 'limit' => $limit,
                 'offset' => $offset,
-                'calculated_at' => date('Y-m-d H:i:s'),
+                'calculated_at' => (string) ($data['calculated_at'] ?? date('Y-m-d H:i:s')),
                 'is_cached' => (bool) ($data['is_cached'] ?? false),
                 'period_range' => [
                     'start' => (string) ($periodDates['start_date'] ?? ''),
