@@ -142,29 +142,42 @@ final class NotFoundPage implements Handler
             $envConfig = $GLOBALS['envConfig'] ?? [];
             $_lay = $GLOBALS['_lay'] ?? null;
             $pageTitle = '404 - Sayfa Bulunamadı';
+            $pageKey = 'not_found';
+            $pageCssFiles = ['assets/css/not-found.css'];
 
             ob_start();
             require $rootPath . '/includes/public-header.php';
             ?>
 
-<div class="topic-404-page" role="main">
-    <div class="topic-404-content ui-section">
-        <div class="topic-404-icon" aria-hidden="true">
-            <i class="bi bi-exclamation-triangle"></i>
-        </div>
-        <h1>404</h1>
-        <h2>Sayfa Bulunamadı</h2>
-        <p>Aradığınız sayfa mevcut değil, taşınmış veya silinmiş olabilir.</p>
-        <div class="topic-404-actions">
-            <a href="<?= $baseUri ?>/index.php" class="topic-primary-link">
-                <i class="bi bi-house me-2" aria-hidden="true"></i>Ana Sayfaya Dön
-            </a>
-            <a href="<?= $baseUri ?>/category.php" class="topic-secondary-link">
-                <i class="bi bi-folder2 me-2" aria-hidden="true"></i>Kategorilere Göz At
-            </a>
+<main class="not-found-shell">
+    <div class="not-found-container ui-container">
+        <div class="not-found-card">
+            <div class="not-found-visual">
+                <div class="not-found-glitch" data-text="404">404</div>
+                <div class="not-found-decor-circle-1"></div>
+                <div class="not-found-decor-circle-2"></div>
+            </div>
+            
+            <div class="not-found-content">
+                <h1 class="not-found-title">Sayfa Bulunamadı</h1>
+                <p class="not-found-desc">
+                    Görünüşe göre uzayın derinliklerinde kaybolduk. Aradığın sayfa taşınmış, silinmiş veya hiç var olmamış olabilir.
+                </p>
+                
+                <div class="not-found-actions">
+                    <a href="<?= htmlspecialchars($baseUri) ?>/index.php" class="not-found-btn not-found-btn--primary">
+                        <i class="bi bi-rocket-takeoff" aria-hidden="true"></i>
+                        <span>Ana Sayfaya Dön</span>
+                    </a>
+                    <a href="<?= function_exists('categoryListUrl') ? htmlspecialchars(categoryListUrl()) : htmlspecialchars($baseUri . '/kategoriler') ?>" class="not-found-btn not-found-btn--secondary">
+                        <i class="bi bi-grid" aria-hidden="true"></i>
+                        <span>İçerikleri Keşfet</span>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
-</div>
+</main>
 
             <?php
             require $rootPath . '/includes/public-footer.php';

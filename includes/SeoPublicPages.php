@@ -886,6 +886,9 @@ if (!function_exists('seoPublicPageTemplateVars')) {
         if ($vars['title'] === '' && $vars['page_title'] !== '') {
             $vars['title'] = (string) $vars['page_title'];
         }
+        if ($vars['page_title'] === '' && $vars['title'] !== '') {
+            $vars['page_title'] = (string) $vars['title'];
+        }
         if ($vars['category'] === '' && $vars['title'] !== '') {
             $vars['category'] = (string) $vars['title'];
         }

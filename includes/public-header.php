@@ -236,6 +236,7 @@ if (isset($categoryId)) {
 if (isset($items)) {
     $publicHeaderVars['items'] = $items;
 }
+$publicHeaderVars['pageCssFiles'] = $_pageCssFiles;
 $authVars = [
     'auth_error',
     'auth_success',

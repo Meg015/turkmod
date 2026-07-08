@@ -32,14 +32,14 @@ body.public-page-contact .site-main--focus .page-wrap {
 .contact-frame {
     position: relative;
     display: grid;
-    gap: 1.15rem;
+    gap: 1.85rem;
     width: 100%;
-    padding: clamp(1rem, 1.6vw, 1.35rem);
-    padding-top: clamp(1.7rem, 3vw, 2.35rem);
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    padding-top: clamp(2.2rem, 4vw, 3.2rem);
     border: 1px solid color-mix(in srgb, var(--border, #d8dee8) 84%, #ffffff);
-    border-radius: 14px;
+    border-radius: 16px;
     background: linear-gradient(180deg, rgba(255, 255, 255, .98) 0%, rgba(249, 251, 253, .98) 100%);
-    box-shadow: 0 18px 42px rgba(15, 23, 42, .08);
+    box-shadow: 0 20px 48px rgba(15, 23, 42, .08);
     overflow: hidden;
 }
 
@@ -123,8 +123,10 @@ body.public-page-contact .contact-frame :is(.contact-hero p, .contact-side-text,
 .contact-form-card,
 .contact-side-card {
     min-width: 0;
+    padding: clamp(1.5rem, 2.5vw, 2rem);
     border-color: color-mix(in srgb, var(--border, #d8dee8) 90%, #ffffff);
     background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+    border-radius: 12px;
 }
 
 .contact-form-card {
@@ -137,10 +139,11 @@ body.public-page-contact .contact-frame :is(.contact-hero p, .contact-side-text,
 }
 
 .contact-note {
-    margin: .35rem 0 0;
-    gap: .85rem;
-    padding: 1.34rem 1.2rem 1.16rem;
-    line-height: 1.6;
+    margin: .35rem 0 .5rem;
+    gap: 1rem;
+    padding: 1.5rem 1.4rem;
+    line-height: 1.65;
+    border-radius: 8px;
 }
 
 .contact-note > div {
@@ -279,7 +282,7 @@ body.public-page-contact .contact-frame :is(.contact-hero p, .contact-side-text,
 
 .contact-side-list {
     display: grid;
-    gap: .7rem;
+    gap: 1rem;
 }
 
 .contact-side-item {
@@ -329,12 +332,17 @@ body.public-page-contact .contact-frame :is(.contact-hero p, .contact-side-text,
     }
 
     .contact-layout {
-        gap: .9rem;
+        gap: 1.25rem;
     }
 
     .contact-frame {
-        padding: 1rem;
-        padding-top: 1.42rem;
+        padding: 1.5rem;
+        padding-top: 2rem;
+    }
+    
+    .contact-form-card,
+    .contact-side-card {
+        padding: 1.25rem;
     }
 
 }
@@ -345,7 +353,8 @@ body.public-page-contact .contact-frame :is(.contact-hero p, .contact-side-text,
     }
 
     .contact-frame {
-        padding-top: 1.28rem;
+        padding: 1.15rem;
+        padding-top: 1.5rem;
     }
 
     .contact-hero-meta {
