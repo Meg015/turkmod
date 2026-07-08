@@ -14,7 +14,7 @@ $isMember = $isLoggedIn && $currentUserId > 0;
 $memberUser = $isMember && $pdo instanceof PDO && function_exists('usersGetById')
     ? usersGetById($pdo, $currentUserId)
     : null;
-$memberName = trim((string) ($memberUser['name'] ?? ($_SESSION['_auth_user_name'] ?? '')));
+$memberName = trim((string) ($memberUser['username'] ?? ($_SESSION['_auth_user_name'] ?? '')));
 $memberEmail = trim((string) ($memberUser['email'] ?? ($_SESSION['_auth_user_email'] ?? '')));
 $memberFallbackName = trim((string) ($_SESSION['_auth_user_name'] ?? ''));
 $memberFallbackEmail = trim((string) ($_SESSION['_auth_user_email'] ?? ''));

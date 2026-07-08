@@ -132,7 +132,7 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                 <input type="hidden" name="user_id" value="<?= $userId > 0 ? (int) $userId : '' ?>">
                 <div class="ui-admin-filter-grow">
                     <label class="ui-admin-form-label">Ara</label>
-                    <input type="text" name="q" class="ui-admin-form-control" placeholder="Ad, e-posta, kullanıcı ID, admin veya IP..." value="<?= htmlspecialchars($q) ?>">
+                    <input type="text" name="q" class="ui-admin-form-control" placeholder="Kullanici adi, e-posta, kullanici ID, admin veya IP..." value="<?= htmlspecialchars($q) ?>">
                 </div>
                 <div class="ui-admin-filter-sm">
                     <label class="ui-admin-form-label">Grup</label>
@@ -186,10 +186,10 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                 <div class="user-activity-selected-main">
                     <div class="ui-admin-user-line">
                         <div class="user-avatar-badge default-avatar">
-                            <?= function_exists('avatarImageHtml') ? avatarImageHtml((string) $selectedUser['name'], (string) ($selectedUser['avatar'] ?? ''), ['alt' => '']) : '' ?>
+                            <?= function_exists('avatarImageHtml') ? avatarImageHtml((string) ($selectedUser['username'] ?? ''), (string) ($selectedUser['avatar'] ?? ''), ['alt' => '']) : '' ?>
                         </div>
                         <div>
-                            <strong><?= htmlspecialchars((string) $selectedUser['name']) ?></strong>
+                            <strong><?= htmlspecialchars((string) ($selectedUser['username'] ?? 'Kullanici')) ?></strong>
                             <span><?= htmlspecialchars((string) $selectedUser['email']) ?> · #<?= (int) $selectedUser['id'] ?></span>
                         </div>
                     </div>
@@ -234,6 +234,9 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                             }
                         }
                         $subjectNames = ['topic' => [], 'user' => [], 'comment' => [], 'category' => []];
+                        $userSubjectSelect = (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username'))
+                            ? "username AS display_name"
+                            : "name AS display_name";
                         try {
                             if (!empty($subjectIds['topic'])) {
                                 $tIds = implode(',', $subjectIds['topic']);
@@ -242,8 +245,8 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                             }
                             if (!empty($subjectIds['user'])) {
                                 $uIds = implode(',', $subjectIds['user']);
-                                $uStmt = $pdo->query("SELECT id, name FROM users WHERE id IN ($uIds)");
-                                foreach ($uStmt->fetchAll(PDO::FETCH_ASSOC) as $row) $subjectNames['user'][$row['id']] = $row['name'];
+                                $uStmt = $pdo->query("SELECT id, {$userSubjectSelect} FROM users WHERE id IN ($uIds)");
+                                foreach ($uStmt->fetchAll(PDO::FETCH_ASSOC) as $row) $subjectNames['user'][$row['id']] = $row['display_name'];
                             }
                             if (!empty($subjectIds['comment'])) {
                                 $cIds = implode(',', $subjectIds['comment']);
@@ -442,7 +445,7 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                     <select name="scope" class="ui-admin-form-select" required>
                         <option value="older_than_30_days">30 Günden Eski Kayıtları Sil</option>
                         <?php if ($userId > 0 && $selectedUser): ?>
-                            <option value="user">Sadece Bu Kullanıcının Kayıtlarını Sil (<?= htmlspecialchars((string) $selectedUser['name']) ?>)</option>
+                            <option value="user">Sadece Bu Kullanıcının Kayıtlarını Sil (<?= htmlspecialchars((string) ($selectedUser['username'] ?? 'Kullanici')) ?>)</option>
                         <?php endif; ?>
                         <option value="all">Tüm Sistemin Loglarını Sil (Tehlikeli)</option>
                     </select>

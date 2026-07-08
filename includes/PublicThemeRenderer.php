@@ -643,7 +643,31 @@ final class PublicThemeRenderer
         $pageTitle = (string) ($layoutVars['page_title'] ?? $context['page_title'] ?? 'TurkMod');
         $profileVars = self::profileTemplateVars($pageVars, (string) ($layoutVars['base_url'] ?? ''), $pageKey);
         $usesStructuredUploadForm = in_array($pageKey, ['upload_topic', 'edit_topic'], true);
-        $baseVars = array_replace($pageVars, [
+        $authTemplateDefaults = [
+            'auth_error' => '',
+            'auth_success' => '',
+            'auth_show_onboarding' => '',
+            'auth_redirect' => '',
+            'auth_csrf_token' => '',
+            'auth_demo_visible' => '',
+            'auth_login_identifier_mode' => '',
+            'auth_login_label' => '',
+            'auth_login_placeholder' => '',
+            'auth_login_type' => '',
+            'auth_login_autocomplete' => '',
+            'auth_login_icon' => '',
+            'auth_login_remember_label' => '',
+            'auth_allow_registration' => '',
+            'auth_username_value' => '',
+            'auth_email_value' => '',
+            'auth_password_min_length' => '',
+            'auth_password_policy_hint' => '',
+            'auth_password_require_uppercase' => '',
+            'auth_password_require_numbers' => '',
+            'auth_password_require_special' => '',
+            'auth_reset_action' => '',
+        ];
+        $baseVars = array_replace($authTemplateDefaults, $pageVars, [
             'site_name' => (string) ($layoutVars['site_name'] ?? 'TurkMod'),
             'site_description' => (string) ($layoutVars['site_description'] ?? ''),
             'base_url' => (string) ($layoutVars['base_url'] ?? ''),
@@ -965,21 +989,21 @@ final class PublicThemeRenderer
             }
         }
 
-        $readyText = trim((string) ($settings['download_ready_text'] ?? 'Indirmek icin tiklayiniz')) ?: 'Indirmek icin tiklayiniz';
-        $waitText = trim((string) ($settings['download_wait_text'] ?? 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz')) ?: 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz';
-        $doneText = trim((string) ($settings['download_done_text'] ?? 'Indirme linkiniz hazir, indirmek icin tiklayin')) ?: 'Indirme linkiniz hazir, indirmek icin tiklayin';
+        $readyText = trim((string) ($settings['download_ready_text'] ?? 'İndirmek için tıklayınız')) ?: 'İndirmek için tıklayınız';
+        $waitText = trim((string) ($settings['download_wait_text'] ?? 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz')) ?: 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz';
+        $doneText = trim((string) ($settings['download_done_text'] ?? 'İndirme linkiniz hazır, indirmek için tıklayın')) ?: 'İndirme linkiniz hazır, indirmek için tıklayın';
         $topicId = (int) ($topic['id'] ?? 0);
         $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
         $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
         $downloadAuthApi = rtrim($baseUri, '/') . '/api/auth-popup.php';
         $downloadLoginUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris');
         $downloadRegisterUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('register') : ($baseUri . '/kayit');
-        $downloadLockButtonText = trim((string) ($settings['download_access_locked_button_text'] ?? 'Kilidi Ac')) ?: 'Kilidi Ac';
+        $downloadLockButtonText = trim((string) ($settings['download_access_locked_button_text'] ?? 'Kilidi Aç')) ?: 'Kilidi Aç';
         $downloadCommentCtaLabel = trim((string) ($settings['download_access_comment_cta_label'] ?? 'Yorumlara Git')) ?: 'Yorumlara Git';
-        $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'Indirme linklerini acmak icin giris yapin')) ?: 'Indirme linklerini acmak icin giris yapin';
-        $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giris Yap')) ?: 'Giris Yap';
-        $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayit Ol')) ?: 'Kayit Ol';
-        $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.')) ?: 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.';
+        $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'İndirme linklerini açmak için giriş yapın')) ?: 'İndirme linklerini açmak için giriş yapın';
+        $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giriş Yap')) ?: 'Giriş Yap';
+        $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayıt Ol')) ?: 'Kayıt Ol';
+        $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum başarıyla açıldı. Kilitli indirme kartları güncelleniyor.')) ?: 'Oturum başarıyla açıldı. Kilitli indirme kartları güncelleniyor.';
         $downloadOpenAuthPopup = (string) ($settings['download_access_open_auth_popup'] ?? '1') === '1';
         $downloadFocusCommentForm = (string) ($settings['download_access_focus_comment_form'] ?? '1') === '1';
         $downloadUnlockAfterAuth = (string) ($settings['download_access_unlock_after_auth'] ?? '1') === '1';
@@ -993,8 +1017,8 @@ final class PublicThemeRenderer
         $downloadLockMessage = trim((string) ($downloadAccessState['message'] ?? ''));
         if ($downloadLockMessage === '') {
             $downloadLockMessage = $downloadLockReason === 'comment_required'
-                ? 'Indirme linklerini gormek icin once yorum yapmaniz gerekir.'
-                : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz gerekir.';
+                ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
+                : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.';
         }
         $downloadCommentTarget = function_exists('topicUrl')
             ? topicUrl((string) ($topic['slug'] ?? ''), $topicId) . '#comments-heading'
@@ -1047,7 +1071,7 @@ final class PublicThemeRenderer
             $rows[] = [
                 'href' => $downloadLocked ? '#' : $href,
                 'download_href' => $href,
-                'name' => trim((string) ($link['name'] ?? '')) ?: 'Indirme Linki',
+                'name' => trim((string) ($link['name'] ?? '')) ?: 'İndirme Linki',
                 'host' => (string) (parse_url($url, PHP_URL_HOST) ?: $url),
                 'show_count' => $showCounts,
                 'count' => number_format((int) ($link['download_count'] ?? 0), 0, ',', '.'),
@@ -1158,7 +1182,7 @@ final class PublicThemeRenderer
         if ($pdo instanceof PDO && $topicId > 0 && $categoryId > 0) {
             try {
                 $statement = $pdo->prepare(
-                    "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, parent.slug AS parent_slug, u.name AS author, u.id AS author_id
+                    "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, parent.slug AS parent_slug, u.username AS author, u.id AS author_id
                      FROM topics t
                      LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                      LEFT JOIN categories cat ON cat.id = t.category_id
@@ -1768,7 +1792,7 @@ final class PublicThemeRenderer
         }
 
         if ($pageKey === 'download') {
-            $items[] = ['label' => 'Indirme'];
+            $items[] = ['label' => 'İndirme'];
             return $items;
         }
 
@@ -1779,7 +1803,7 @@ final class PublicThemeRenderer
 
         if ($pageKey === 'public_profile') {
             $items[] = ['label' => 'Profil'];
-            $profileName = trim((string) ($pageVars['profileUser']['name'] ?? $pageTitle));
+            $profileName = trim((string) ($pageVars['profileUser']['username'] ?? $pageTitle));
             if ($profileName !== '') {
                 $items[] = ['label' => $profileName];
             }
@@ -1840,12 +1864,12 @@ final class PublicThemeRenderer
     private static function labelForPageKey(string $pageKey): string
     {
         return match ($pageKey) {
-            'login' => 'Giris',
-            'register' => 'Kayit',
-            'forgot_password' => 'Sifremi Unuttum',
-            'reset_password' => 'Yeni Sifre',
-            'upload_topic' => 'Icerik Yukle',
-            'edit_topic' => 'Icerik Duzenle',
+            'login' => 'Giriş',
+            'register' => 'Kayıt',
+            'forgot_password' => 'Şifremi Unuttum',
+            'reset_password' => 'Yeni Şifre',
+            'upload_topic' => 'İçerik Yükle',
+            'edit_topic' => 'İçerik Düzenle',
             'notifications' => 'Bildirimler',
             'messages' => 'Mesajlar',
             'leaderboard' => 'Liderlik',
@@ -2190,7 +2214,7 @@ final class PublicThemeRenderer
                     $leanThemeCssAvailable = $preferLeanThemeCss
                         && preg_match('/^[a-z0-9_-]+$/', $activeThemeId) === 1
                         && is_file($leanThemeCssPath);
-                    // Critical CSS (render-blocking) — design tokens, shell layout, ui-foundation
+                    // Critical CSS (render-blocking) - design tokens, shell layout, ui-foundation
                     $publicCssPath = __DIR__ . '/../assets/dist/public.min.css';
                     if ($skipRootPublicCssForLeanListing) {
                         // Lean turkmod listing pages already include shared shell/foundation CSS in the theme bundle.
@@ -2218,7 +2242,7 @@ final class PublicThemeRenderer
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/ui-foundation.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     }
 
-                    // Theme CSS — load normally so CSP cannot leave it stuck in print media.
+                    // Theme CSS - load normally so CSP cannot leave it stuck in print media.
                     // Prefer dist bundle ONLY if active theme is default. Always load active theme's own CSS asset tags.
                     $themeMinCssPath = __DIR__ . '/../assets/dist/theme.min.css';
                     if ($activeThemeId === 'default' && is_file($themeMinCssPath)) {
@@ -2287,7 +2311,7 @@ final class PublicThemeRenderer
 
     private static function themeModeScript(string $baseUri): string
     {
-        // Inline theme-mode-init — zero HTTP requests, executes immediately
+        // Inline theme-mode-init - zero HTTP requests, executes immediately
         $initPath = __DIR__ . '/../assets/js/theme-mode-init.js';
         $code = @file_get_contents($initPath);
         if ($code !== false && $code !== '') {
@@ -2397,6 +2421,7 @@ final class PublicThemeRenderer
         }
 
         return [
+            'username' => $name,
             'name' => $name,
             'url' => $url,
             'count' => (string) number_format($count, 0, ',', '.'),
@@ -2638,7 +2663,7 @@ final class PublicThemeRenderer
         } elseif ($pdo instanceof PDO) {
             try {
                 $stmt = $pdo->query(
-                    "SELECT c.body, c.created_at, t.id AS topic_id, t.title, t.slug, u.name AS author, u.avatar AS user_avatar
+                    "SELECT c.body, c.created_at, t.id AS topic_id, t.title, t.slug, u.username AS author, u.avatar AS user_avatar
                      FROM comments c
                      INNER JOIN topics t ON t.id = c.topic_id
                      LEFT JOIN users u ON u.id = c.user_id
@@ -3149,7 +3174,7 @@ final class PublicThemeRenderer
         $isProfilePage = in_array($pageKey, ['profile', 'public_profile'], true);
         if ($isProfilePage && $user === []) {
             return [
-                'name' => (string) ($pageVars['pageTitle'] ?? 'Kullanici'),
+                'name' => (string) ($pageVars['pageTitle'] ?? 'Kullanıcı'),
                 'bio' => '',
                 'avatar' => '',
                 'has_avatar' => false,
@@ -3190,7 +3215,7 @@ final class PublicThemeRenderer
             return $profileContext;
         }
 
-        $name = (string) ($pageVars['profile_name'] ?? $pageVars['profile_private_name'] ?? $user['name'] ?? $_SESSION['_auth_user_name'] ?? 'Kullanici');
+        $username = (string) ($pageVars['profile_username'] ?? $pageVars['profile_name'] ?? $pageVars['profile_private_username'] ?? $pageVars['profile_private_name'] ?? $user['username'] ?? $_SESSION['_auth_user_name'] ?? 'Kullanici');
         $avatar = (string) ($pageVars['profile_avatar_url'] ?? $pageVars['profile_private_avatar'] ?? $pageVars['avatarUrl'] ?? '');
         $avatarFallback = function_exists('defaultAvatarUrl')
             ? defaultAvatarUrl($baseUri)
@@ -3206,7 +3231,8 @@ final class PublicThemeRenderer
 
         $profile = [
             'id' => (int) ($user['id'] ?? $pageVars['profileUserId'] ?? 0),
-            'name' => $name,
+            'username' => $username,
+            'name' => $username,
             'email' => (string) ($pageVars['profile_private_email'] ?? $user['email'] ?? ''),
             'bio' => (string) ($pageVars['profile_bio'] ?? $pageVars['profile_private_bio'] ?? $user['bio'] ?? ''),
             'avatar' => $avatar,
@@ -3220,7 +3246,7 @@ final class PublicThemeRenderer
             'group_slug' => self::safeClassToken($groupSlug, 'member'),
             'status_label' => self::profileStatusLabel($user),
             'status_badge_class' => self::profileStatusBadgeClass($user),
-            'initials' => (string) ($pageVars['profile_initials'] ?? $pageVars['profile_private_initials'] ?? self::initial($name)),
+            'initials' => (string) ($pageVars['profile_initials'] ?? $pageVars['profile_private_initials'] ?? self::initial($username)),
             'location' => $location,
             'has_location' => trim($location) !== '',
             'member_since' => (string) ($pageVars['profile_member_since'] ?? (function_exists('profileMemberSince') ? profileMemberSince($createdAt) : self::formatDate($createdAt))),
@@ -3475,7 +3501,7 @@ final class PublicThemeRenderer
                 ['class' => 'stat-info', 'icon' => 'bi-file-earmark-text', 'value' => number_format((int) ($stats['topics'] ?? $totalTopics), 0, ',', '.'), 'label' => 'Konu'],
                 ['class' => '', 'icon' => 'bi-chat-dots', 'value' => number_format((int) ($stats['comments'] ?? $totalComments), 0, ',', '.'), 'label' => 'Yorum'],
                 ['class' => 'stat-success', 'icon' => 'bi-eye', 'value' => number_format((int) ($stats['views'] ?? 0), 0, ',', '.'), 'label' => 'Görüntülenme'],
-                ['class' => 'stat-warning', 'icon' => 'bi-download', 'value' => number_format((int) ($stats['downloads'] ?? 0), 0, ',', '.'), 'label' => 'Indirme'],
+                ['class' => 'stat-warning', 'icon' => 'bi-download', 'value' => number_format((int) ($stats['downloads'] ?? 0), 0, ',', '.'), 'label' => 'İndirme'],
             ],
             'social_links' => $socialLinks,
             'has_social_links' => $socialLinks !== [],
@@ -3525,7 +3551,7 @@ final class PublicThemeRenderer
             'password_require_special' => !empty($pageVars['profile_password_require_special']),
             'security_checks' => [
                 ['icon' => 'bi-check-circle-fill', 'class' => 'profile-success-icon', 'label' => 'Guvenli oturum cerezleri'],
-                ['icon' => 'bi-check-circle-fill', 'class' => 'profile-success-icon', 'label' => 'Sifre bcrypt ile hashlenmis'],
+                ['icon' => 'bi-check-circle-fill', 'class' => 'profile-success-icon', 'label' => 'Şifre bcrypt ile hashlenmiş'],
                 ['icon' => !empty($user['email_verified_at']) ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill', 'class' => !empty($user['email_verified_at']) ? 'profile-success-icon' : 'profile-warning-icon', 'label' => !empty($user['email_verified_at']) ? 'E-posta dogrulanmis' : 'E-posta dogrulanmamis'],
             ],
             'session_info' => [
@@ -3998,5 +4024,8 @@ final class PublicThemeRenderer
         return mb_strtoupper(mb_substr($value, 0, 1, 'UTF-8'), 'UTF-8');
     }
 }
+
+
+
 
 

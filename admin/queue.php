@@ -56,7 +56,7 @@ if ($pdo) {
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
     try {
         $samples['ban_appeals'] = $pdo->query(
-            "SELECT ba.id, ba.message, ba.created_at, u.name AS user_name
+            "SELECT ba.id, ba.message, ba.created_at, u.username AS user_name
              FROM ban_appeals ba
              LEFT JOIN users u ON ba.user_id = u.id
              WHERE ba.status IN ('open','reviewing')
@@ -65,7 +65,7 @@ if ($pdo) {
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
     try {
         $samples['pending_comments'] = $pdo->query(
-            "SELECT c.id, c.body, c.created_at, u.name AS author_name, t.title AS topic_title, t.id AS topic_id
+            "SELECT c.id, c.body, c.created_at, u.username AS author_name, t.title AS topic_title, t.id AS topic_id
              FROM comments c
              LEFT JOIN users u ON c.user_id = u.id
              LEFT JOIN topics t ON c.topic_id = t.id
@@ -75,7 +75,7 @@ if ($pdo) {
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
     try {
         $samples['user_reports'] = $pdo->query(
-            "SELECT ur.id, ur.reason, ur.created_at, u.name AS reported_name
+            "SELECT ur.id, ur.reason, ur.created_at, u.username AS reported_name
              FROM user_reports ur
              LEFT JOIN users u ON ur.reported_user_id = u.id
              WHERE ur.status IN ('open','reviewing')

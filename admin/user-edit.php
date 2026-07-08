@@ -31,6 +31,8 @@ if (function_exists('usersDecorateUserWithPrimaryGroup')) {
     $user = usersDecorateUserWithPrimaryGroup($pdo, $user);
 }
 
+$displayUsername = (string) ($user['username'] ?? '');
+
 $groups = function_exists('usersGetGroups') ? usersGetGroups($pdo, false) : [];
 $validGroupIds = array_map('intval', array_column($groups, 'id'));
 
@@ -72,7 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
 
     // Prepare data
-    $name = sanitizeInput($_POST['name'] ?? '');
+    $rawUsername = sanitizeInput($_POST['username'] ?? '');
+    $username = function_exists('usersValidateUsernameInput')
+        ? usersValidateUsernameInput($rawUsername)
+        : trim((string) $rawUsername);
     $email = filter_var($_POST['email'] ?? '', FILTER_SANITIZE_EMAIL);
     $groupId = (int)($_POST['group_id'] ?? ($user['group_id'] ?? 0));
     $status = $_POST['status'] ?? 'active';
@@ -100,8 +105,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $prevBanReason = (string)($user['ban_reason'] ?? '');
     $editReason = trim((string)($_POST['edit_reason'] ?? ''));
 
-    if ($name === '') {
-        $formErrors['name'] = "İsim alanı zorunludur.";
+    if ($username === '') {
+        $formErrors['username'] = "Kullanici adi 3-30 karakter olmali ve sadece harf, rakam, _ veya - icermelidir.";
     }
     if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         $formErrors['email'] = "Geçerli bir email adresi girin.";
@@ -118,14 +123,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = "error";
     } else {
         $updateSql = "UPDATE users SET
-                        name = ?, email = ?, status = ?,
+                        username = ?, email = ?, status = ?,
                         avatar = ?, bio = ?, website = ?, location = ?,
                         social_github = ?, social_twitter = ?, social_discord = ?,
                         public_profile = ?, public_show_topics = ?, public_show_comments = ?, public_show_socials = ?,
                         is_banned = ?, ban_reason = ?, updated_at = NOW()";
 
         $params = [
-            $name, $email, $status,
+            $username, $email, $status,
             $avatar, $bio, $website, $location,
             $github, $twitter, $discord,
             $publicProfile, $publicTopics, $publicComments, $publicSocials,
@@ -160,6 +165,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Log the activity
                 if (function_exists('logActivity')) {
                     logActivity($pdo, 'admin_updated_user', 'user', $userId, ['admin_id' => $_SESSION["_auth_user_id"]]);
+                }
+                if (function_exists('invalidatePublicContentCache')) {
+                    invalidatePublicContentCache();
                 }
 
                 if (function_exists('usersSyncUserGroups')) {
@@ -211,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (PDOException $e) {
                 // Handle duplicate email error
                 if ($e->getCode() == 23000) {
-                    $message = "Bu email adresi başka bir kullanıcı tarafından kullanılıyor.";
+                    $message = "Bu email adresi veya kullanici adi baska bir kullanici tarafindan kullaniliyor.";
                     $messageType = "error";
                 } else {
                     $message = 'Bir hata oluştu: ' . safeErrorMessage($e);
@@ -223,13 +231,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$displayUsername = (string) ($user['username'] ?? $displayUsername);
+
 require_once __DIR__ . "/header.php";
 ?>
 
 <div class="ui-admin-container ui-container">
     <div class="ui-admin-page-hero">
         <div>
-            <h1 class="ui-admin-page-title"><i class="bi bi-person-lines-fill"></i> Kullanıcı Düzenle: <?= htmlspecialchars($user['name']) ?></h1>
+            <h1 class="ui-admin-page-title"><i class="bi bi-person-lines-fill"></i> Kullanıcı Düzenle: <?= htmlspecialchars($displayUsername) ?></h1>
             <p class="ui-admin-page-subtitle">Kullanıcı profili, grupları, sosyal bağlantıları ve gizlilik ayarlarını yönetin.</p>
         </div>
         <div class="ui-admin-hero-actions">
@@ -255,8 +265,8 @@ require_once __DIR__ . "/header.php";
                 <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
                     <div class="ui-admin-form-group">
                         <label class="ui-admin-form-label">Kullanıcı Adı <span class="ui-admin-required">*</span></label>
-                        <input type="text" name="name" class="ui-admin-input" value="<?= htmlspecialchars($user['name']) ?>" required aria-invalid="<?= isset($formErrors['name']) ? 'true' : 'false' ?>" aria-describedby="user-edit-name-error">
-                        <?php if (isset($formErrors['name'])): ?><small class="ui-admin-form-error" id="user-edit-name-error"><?= htmlspecialchars($formErrors['name']) ?></small><?php endif; ?>
+                        <input type="text" name="username" class="ui-admin-input" value="<?= htmlspecialchars((string) ($user['username'] ?? '')) ?>" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" aria-invalid="<?= isset($formErrors['username']) ? 'true' : 'false' ?>" aria-describedby="user-edit-username-error">
+                        <?php if (isset($formErrors['username'])): ?><small class="ui-admin-form-error" id="user-edit-username-error"><?= htmlspecialchars($formErrors['username']) ?></small><?php endif; ?>
                     </div>
 
                     <div class="ui-admin-form-group">
@@ -442,3 +452,4 @@ require_once __DIR__ . "/header.php";
     </form>
 </div>
 <?php require_once __DIR__ . "/footer.php"; ?>
+

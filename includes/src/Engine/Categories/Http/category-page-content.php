@@ -7,6 +7,7 @@ $cacheEnabled = ($settings['cache_enabled'] ?? '1') === '1';
 if ($cacheEnabled && empty($_SESSION['_auth_user_id'])) {
     $ttl = (int)($settings['cache_ttl'] ?? 3600);
     header("Cache-Control: public, max-age={$ttl}, must-revalidate");
+    header('Vary: Accept-Encoding, Cookie');
 } else {
     header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
     header("Pragma: no-cache");

@@ -143,7 +143,8 @@ try {
 sendSuccess('Kullanici detaylari basariyla getirildi.', [
     'data' => [
         'id' => $userInfo['id'],
-        'name' => $userInfo['name'],
+        'username' => (string) ($userInfo['username'] ?? ''),
+        'name' => (string) ($userInfo['username'] ?? ''),
         'email' => $userInfo['email'],
         'avatar' => $userInfo['avatar'],
         'group_id' => $userInfo['group_id'] ?? null,

@@ -84,6 +84,7 @@ final class LeaderboardCacheService
     {
         $searchTerm = trim((string) ($search ?? ''));
         $searchValue = $searchTerm !== '' ? $searchTerm : null;
+        $userNameExpr = $this->userNameExpression($pdo, 'u');
 
         try {
             $stmt = $pdo->prepare("
@@ -116,7 +117,7 @@ final class LeaderboardCacheService
                     FROM leaderboard_cache lc
                     INNER JOIN users u ON u.id = lc.user_id
                     WHERE lc.category = ? AND lc.period = ? AND lc.period_start = ?
-                      AND u.name LIKE ? ESCAPE '\\'
+                      AND {$userNameExpr} LIKE ? ESCAPE '\\'
                 ");
                 $countStmt->execute([$category, $period, $latestPeriodStart, $searchPattern]);
             } else {
@@ -144,7 +145,7 @@ final class LeaderboardCacheService
                     SELECT
                         lc.rank,
                         lc.user_id,
-                        u.name as username,
+                        {$userNameExpr} as username,
                         u.avatar,
                         lc.score,
                         lc.metadata,
@@ -154,7 +155,7 @@ final class LeaderboardCacheService
                     FROM leaderboard_cache lc
                     JOIN users u ON u.id = lc.user_id
                     WHERE lc.category = ? AND lc.period = ? AND lc.period_start = ?
-                      AND u.name LIKE ? ESCAPE '\\'
+                      AND {$userNameExpr} LIKE ? ESCAPE '\\'
                     ORDER BY lc.rank ASC
                     LIMIT ? OFFSET ?
                 ");
@@ -164,7 +165,7 @@ final class LeaderboardCacheService
                     SELECT
                         lc.rank,
                         lc.user_id,
-                        u.name as username,
+                        {$userNameExpr} as username,
                         u.avatar,
                         lc.score,
                         lc.metadata,
@@ -239,6 +240,7 @@ final class LeaderboardCacheService
      */
     public function findUserRank(PDO $pdo, string $category, string $period, int $userId): ?array
     {
+        $userNameExpr = $this->userNameExpression($pdo, 'u');
         try {
             $snapshotStmt = $pdo->prepare("
                 SELECT period_start
@@ -274,7 +276,7 @@ final class LeaderboardCacheService
                 SELECT
                     lc.rank,
                     lc.user_id,
-                    u.name as username,
+                    {$userNameExpr} as username,
                     u.avatar,
                     lc.score,
                     lc.metadata,
@@ -319,6 +321,31 @@ final class LeaderboardCacheService
         unset($row['calculated_at'], $row['period_start'], $row['period_end']);
 
         return $row;
+    }
+
+    private function userHasUsernameColumn(PDO $pdo): bool
+    {
+        static $cache = [];
+        $key = spl_object_id($pdo);
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+
+        try {
+            $stmt = $pdo->query("SHOW COLUMNS FROM users LIKE 'username'");
+            $cache[$key] = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Throwable) {
+            $cache[$key] = false;
+        }
+
+        return $cache[$key];
+    }
+
+    private function userNameExpression(PDO $pdo, string $alias = 'u'): string
+    {
+        return $this->userHasUsernameColumn($pdo)
+            ? "COALESCE(NULLIF({$alias}.username, ''), CONCAT('user-', {$alias}.id))"
+            : "CONCAT('user-', {$alias}.id)";
     }
 
     /**

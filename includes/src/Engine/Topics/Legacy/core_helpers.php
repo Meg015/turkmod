@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+if (!function_exists('topicSearchNormalizeText')) {
 function topicSearchNormalizeText(string $value): string
 {
     $value = mb_strtolower(strip_tags($value), "UTF-8");
@@ -102,7 +103,7 @@ function getTopicsFallbackSearch(
 
     try {
         // Son yayinlardan aday alip toleransli metin skoru uygula.
-        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.name AS author
+        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
                 FROM topics t
                 LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                 LEFT JOIN categories cat ON t.category_id = cat.id
@@ -244,7 +245,7 @@ function getTopics(
         $total = (int) $countStmt->fetchColumn();
 
         // Fetch items
-        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.name AS author
+        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
                 FROM topics t
                 LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                 LEFT JOIN categories cat ON t.category_id = cat.id
@@ -311,7 +312,7 @@ function getTopic(?PDO $pdo, int $id): ?array
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.name AS author
+        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
                                FROM topics t
                                LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                                LEFT JOIN categories cat ON t.category_id = cat.id
@@ -382,7 +383,7 @@ function getTopicsByCategorySlug(
         $total = (int) $countStmt->fetchColumn();
 
         // Fetch sql
-        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.name AS author
+        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
                 FROM topics t
                 LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                 INNER JOIN categories cat ON t.category_id = cat.id
@@ -433,7 +434,7 @@ function getTopicComments(?PDO $pdo, int $topicId): array
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT c.*, u.name AS author
+        $stmt = $pdo->prepare("SELECT c.*, u.username AS author
                                FROM comments c
                                LEFT JOIN users u ON c.user_id = u.id
                                WHERE c.topic_id = :topic_id AND c.status = 'approved' AND c.deleted_at IS NULL
@@ -443,4 +444,6 @@ function getTopicComments(?PDO $pdo, int $topicId): array
     } catch (Throwable $e) {
         return [];
     }
+}
+
 }

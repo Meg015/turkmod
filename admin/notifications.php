@@ -490,7 +490,7 @@ if ($pdo && $tab === 'history') {
         $page = min($page, $totalPages);
         $offset = ($page - 1) * $perPage;
 
-        $stmt = $pdo->prepare("SELECT n.*, u.name AS target_username FROM notifications n LEFT JOIN users u ON n.user_id = u.id ORDER BY n.created_at DESC LIMIT ? OFFSET ?");
+        $stmt = $pdo->prepare("SELECT n.*, u.username AS target_username FROM notifications n LEFT JOIN users u ON n.user_id = u.id ORDER BY n.created_at DESC LIMIT ? OFFSET ?");
         $stmt->bindValue(1, $perPage, PDO::PARAM_INT);
         $stmt->bindValue(2, $offset, PDO::PARAM_INT);
         $stmt->execute();
@@ -526,7 +526,7 @@ if ($pdo && $tab === 'logs') {
         }
 
         if ($logFilters['q'] !== '') {
-            $where[] = "(n.title LIKE ? OR n.message LIKE ? OR n.event_key LIKE ? OR u.name LIKE ? OR u.email LIKE ? OR q.recipient_email LIKE ? OR q.subject LIKE ?)";
+            $where[] = "(n.title LIKE ? OR n.message LIKE ? OR n.event_key LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR q.recipient_email LIKE ? OR q.subject LIKE ?)";
             $search = '%' . $logFilters['q'] . '%';
             array_push($params, $search, $search, $search, $search, $search, $search, $search);
         }
@@ -556,9 +556,9 @@ if ($pdo && $tab === 'logs') {
         $stmt = $pdo->prepare("
             SELECT
                 n.*,
-                u.name AS target_username,
+                u.username AS target_username,
                 u.email AS target_email,
-                actor.name AS actor_username,
+                actor.username AS actor_username,
                 COALESCE(r.read_count, 0) AS read_count,
                 r.last_read_at,
                 q.id AS email_queue_id,

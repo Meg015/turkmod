@@ -112,14 +112,14 @@ try {
         : ['locked' => false, 'reason' => 'none', 'message' => ''];
     if (!empty($downloadAccessState['locked'])) {
         http_response_code(403);
-        $pageTitle = 'Indirme Kilitli';
+        $pageTitle = 'İndirme Kilitli';
         $download_has_alert = true;
         $download_alert_class = 'ui-admin-alert ui-admin-alert-warning ui-alert ui-alert--warning';
         $download_alert_message = trim((string) ($downloadAccessState['message'] ?? ''));
         if ($download_alert_message === '') {
             $download_alert_message = (string) ($downloadAccessState['reason'] ?? '') === 'comment_required'
-                ? 'Indirme linklerini gormek icin once yorum yapmaniz gerekir.'
-                : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz gerekir.';
+                ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
+                : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.';
         }
         $topicHref = topicUrl((string) ($link['topic_slug'] ?? ''), $downloadTopicId);
         $loginHref = function_exists('routePublicStaticUrl')
@@ -136,7 +136,7 @@ try {
         echo '<div class="' . htmlspecialchars($download_alert_class, ENT_QUOTES, 'UTF-8') . '" role="alert">' . htmlspecialchars($download_alert_message, ENT_QUOTES, 'UTF-8') . '</div>';
         echo '<div class="download-lock-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">';
         if ((string) ($downloadAccessState['reason'] ?? '') === 'auth_required') {
-            echo '<a class="ui-admin-btn ui-admin-btn-primary" href="' . htmlspecialchars($loginHref, ENT_QUOTES, 'UTF-8') . '">Giris Yap / Kayit Ol</a>';
+            echo '<a class="ui-admin-btn ui-admin-btn-primary" href="' . htmlspecialchars($loginHref, ENT_QUOTES, 'UTF-8') . '">Giriş Yap / Kayıt Ol</a>';
         } else {
             echo '<a class="ui-admin-btn ui-admin-btn-primary" href="' . htmlspecialchars($topicHref . '#comments-heading', ENT_QUOTES, 'UTF-8') . '">Yorumlara Git</a>';
         }

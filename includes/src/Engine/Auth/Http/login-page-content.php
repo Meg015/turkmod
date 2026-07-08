@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $authResult['user'];
         resetRateLimit($rateLimitKey);
         $_SESSION['_auth_user_id'] = $user['id'];
-        $_SESSION['_auth_user_name'] = $user['name'];
+        $_SESSION['_auth_user_name'] = (string) ($user['username'] ?? '');
         $_SESSION['_auth_role_id'] = (int) ($user['role_id'] ?? 0);
         $_SESSION['_auth_role_slug'] = (string) ($user['role_slug'] ?? '');
         if (!empty($_POST['remember_session']) && $pdo instanceof PDO) {
@@ -277,3 +277,4 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>
 
 
+

@@ -29,6 +29,10 @@ $passwordPolicy = passwordPolicyConfig($settings);
 $passwordMinLength = (int) $passwordPolicy['min_length'];
 $passwordPolicyHint = passwordPolicyHint($settings);
 
+if ($pdo && function_exists('usersEnsureUsernameSchema')) {
+    usersEnsureUsernameSchema($pdo);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $regRateKey = 'register_' . getRealIp();
     if (!$allowRegistration) {
@@ -40,27 +44,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!verify_csrf_token($_POST['_token'] ?? '')) {
         $errorMsg = 'Güvenlik doğrulaması başarısız.';
     } else {
-        $name = trim($_POST['name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $passwordConfirm = $_POST['password_confirm'] ?? '';
+        $usernameRaw = trim((string) ($_POST['username'] ?? ''));
+        $username = function_exists('usersValidateUsernameInput')
+            ? usersValidateUsernameInput($usernameRaw)
+            : '';
+        $email = trim((string) ($_POST['email'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+        $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
 
-        if ($name === '' || mb_strlen($name) < 2) {
-            $errorMsg = 'Isim en az 2 karakter olmalidir.';
+        if ($username === '') {
+            $errorMsg = 'Kullanıcı adı 3-30 karakter olmalı ve sadece harf, rakam, _ veya - içermelidir.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errorMsg = 'Gecerli bir e-posta adresi girin.';
+            $errorMsg = 'Geçerli bir e-posta adresi girin.';
         } elseif (($policyError = validatePasswordPolicy($password, $settings, 'Şifre')) !== '') {
             $errorMsg = $policyError;
         } elseif ($password !== $passwordConfirm) {
-            $errorMsg = 'Sifreler eslesmiyor.';
+            $errorMsg = 'Şifreler eslesmiyor.';
         } else {
             if ($pdo) {
                 try {
                     $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE email = :email');
                     $stmt->execute(['email' => $email]);
                     if ((int) $stmt->fetchColumn() > 0) {
-                        $errorMsg = 'Bu e-posta adresi zaten kayitli.';
-                    } else {
+                        $errorMsg = 'Bu e-posta adresi zaten kayıtlı.';
+                    }
+
+                    if ($errorMsg === '') {
+                        $usernameCheckSql = 'SELECT COUNT(*) FROM users WHERE username = :username';
+                        $usernameStmt = $pdo->prepare($usernameCheckSql);
+                        $usernameStmt->execute(['username' => $username]);
+                        if ((int) $usernameStmt->fetchColumn() > 0) {
+                            $errorMsg = 'Bu kullanıcı adı zaten kayıtlı.';
+                        }
+                    }
+
+                    if ($errorMsg === '') {
                         $memberRoleId = 3;
                         $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1');
                         $roleStmt->execute(['slug' => 'member']);
@@ -71,17 +89,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         incrementRateLimit($regRateKey, $registerRateWindow);
                         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                        $stmt = $pdo->prepare("INSERT INTO users (role_id, name, email, password, status, created_at, updated_at) VALUES (:role_id, :name, :email, :password, 'active', NOW(), NOW())");
-                        $stmt->execute([
-                            'role_id' => $memberRoleId,
-                            'name' => $name,
+
+                        $insertColumns = ['username', 'email', 'password'];
+                        $insertValues = [':username', ':email', ':password'];
+                        $insertParams = [
+                            'username' => $username,
                             'email' => $email,
                             'password' => $hashedPassword,
-                        ]);
+                        ];
+                        if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'role_id')) {
+                            $insertColumns[] = 'role_id';
+                            $insertValues[] = ':role_id';
+                            $insertParams['role_id'] = $memberRoleId;
+                        }
+                        if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'status')) {
+                            $insertColumns[] = 'status';
+                            $insertValues[] = ':status';
+                            $insertParams['status'] = 'active';
+                        }
+                        if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'created_at')) {
+                            $insertColumns[] = 'created_at';
+                            $insertValues[] = 'NOW()';
+                        }
+                        if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'updated_at')) {
+                            $insertColumns[] = 'updated_at';
+                            $insertValues[] = 'NOW()';
+                        }
+
+                        $quotedColumns = array_map(static fn (string $column): string => '`' . $column . '`', $insertColumns);
+                        $insertSql = 'INSERT INTO users (' . implode(', ', $quotedColumns) . ') VALUES (' . implode(', ', $insertValues) . ')';
+                        $stmt = $pdo->prepare($insertSql);
+                        $stmt->execute($insertParams);
 
                         $newUserId = (int) $pdo->lastInsertId();
 
-                        // Grup Entegrasyonu: Yeni kayıt olan kullanıcıyı varsayılan gruba ata
                         if (function_exists('usersSyncUserGroups') && function_exists('usersDefaultGroupId')) {
                             $defaultGroupId = usersDefaultGroupId($pdo);
                             if ($defaultGroupId > 0) {
@@ -112,15 +153,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'dedupe_key' => 'user_registered:user:' . $newUserId,
                             ]);
                         }
-                        flash('success', 'Hesabiniz olusturuldu. Simdi giris yapabilirsiniz.');
+                        flash('success', 'Hesabınız oluşturuldu. Şimdi giriş yapabilirsiniz.');
                         header('Location: ' . $loginUrl . '?registered=1');
                         exit;
                     }
                 } catch (Throwable $e) {
-                    $errorMsg = safeErrorMessage($e, 'Kayit sirasinda bir hata olustu.');
+                    $errorMsg = safeErrorMessage($e, 'Kayıt sırasında bir hata oluştu.');
                 }
             } else {
-                $errorMsg = 'Veritabani baglantisi kurulamadi.';
+                $errorMsg = 'Veritabanı bağlantısı kurulamadı.';
             }
         }
     }
@@ -131,7 +172,7 @@ $auth_error = $errorMsg;
 $auth_success = $successMsg;
 $auth_csrf_token = csrf_token();
 $auth_allow_registration = $allowRegistration;
-$auth_name_value = (string) ($_POST['name'] ?? '');
+$auth_username_value = (string) ($_POST['username'] ?? '');
 $auth_email_value = (string) ($_POST['email'] ?? '');
 $auth_password_min_length = $passwordMinLength;
 $auth_password_policy_hint = $passwordPolicyHint;
@@ -154,12 +195,12 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
     <section class="auth-stage" aria-labelledby="registerTitle">
         <aside class="auth-visual" aria-label="Kayıt avantajları">
             <span class="auth-kicker">Yeni üyelik</span>
-            <h2>Topluluğa katıl, içeriklerini görünür hale getir.</h2>
-            <p>Kendi modlarını yayınla, profilini oluştur ve topluluk içindeki tüm etkileşimlerini güvenle sakla.</p>
+            <h2>Topluluğa katıl, iceriklerini gorunur hale getir.</h2>
+            <p>Kendi modlarini yayinla, profilini olustur ve topluluk icindeki tum etkilesimlerini guvenle sakla.</p>
             <div class="auth-benefits">
-                <span><i class="bi bi-upload" aria-hidden="true"></i> İçerik yayınlama</span>
-                <span><i class="bi bi-person-badge" aria-hidden="true"></i> Profil yönetimi</span>
-                <span><i class="bi bi-lightning-charge" aria-hidden="true"></i> Hızlı başlangıç</span>
+                <span><i class="bi bi-upload" aria-hidden="true"></i> Icerik yayinlama</span>
+                <span><i class="bi bi-person-badge" aria-hidden="true"></i> Profil yonetimi</span>
+                <span><i class="bi bi-lightning-charge" aria-hidden="true"></i> Hizli baslangic</span>
             </div>
         </aside>
 
@@ -168,7 +209,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                 <span class="auth-header-icon"><i class="bi bi-person-plus" aria-hidden="true"></i></span>
                 <span class="auth-eyebrow">Hesabını oluştur</span>
                 <h1 id="registerTitle">Kayıt Ol</h1>
-                <p>Topluluğa katıl ve kendi içeriklerini yayınlamaya başla.</p>
+                <p>Topluluğa katıl ve kendi iceriklerini yayinlamaya basla.</p>
             </div>
 
             <?php if ($errorMsg): ?>
@@ -181,10 +222,10 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             <form class="auth-form" method="post" action="<?= htmlspecialchars($registerUrl, ENT_QUOTES, 'UTF-8') ?>" novalidate>
                 <?= csrf_field() ?>
                 <div class="form-group auth-field">
-                    <label for="name">İsim</label>
+                    <label for="username">Kullanıcı Adı</label>
                     <span class="auth-input-shell ui-section">
                         <i class="bi bi-person" aria-hidden="true"></i>
-                        <input id="name" name="name" type="text" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>" required minlength="2" maxlength="255" aria-required="true" autocomplete="name">
+                        <input id="username" name="username" type="text" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" aria-required="true" autocomplete="username">
                     </span>
                 </div>
                 <div class="form-group auth-field">
@@ -223,5 +264,4 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
 </div>
 
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>
-
-
+

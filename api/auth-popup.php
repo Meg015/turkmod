@@ -16,6 +16,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 $pdo = requireDatabaseConnection($pdo ?? null);
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
+if (function_exists('usersEnsureUsernameSchema')) {
+    usersEnsureUsernameSchema($pdo);
+}
 
 $rawInput = file_get_contents('php://input') ?: '';
 $payload = [];
@@ -56,7 +59,8 @@ $respondAuthSuccess = static function (array $user, string $message) use ($redir
             'logged_in' => true,
             'user' => [
                 'id' => (int) ($user['id'] ?? 0),
-                'name' => (string) ($user['name'] ?? ''),
+                'username' => (string) ($user['username'] ?? ''),
+                'name' => (string) ($user['username'] ?? ''),
                 'email' => (string) ($user['email'] ?? ''),
                 'role_id' => (int) ($user['role_id'] ?? 0),
                 'role_slug' => (string) ($user['role_slug'] ?? ''),
@@ -71,6 +75,7 @@ try {
         if (!empty($_SESSION['_auth_user_id'])) {
             $existingUser = [
                 'id' => (int) ($_SESSION['_auth_user_id'] ?? 0),
+                'username' => (string) ($_SESSION['_auth_user_name'] ?? ''),
                 'name' => (string) ($_SESSION['_auth_user_name'] ?? ''),
                 'email' => (string) ($_SESSION['_auth_user_email'] ?? ''),
                 'role_id' => (int) ($_SESSION['_auth_role_id'] ?? 0),
@@ -151,6 +156,7 @@ try {
         if (!empty($_SESSION['_auth_user_id'])) {
             $existingUser = [
                 'id' => (int) ($_SESSION['_auth_user_id'] ?? 0),
+                'username' => (string) ($_SESSION['_auth_user_name'] ?? ''),
                 'name' => (string) ($_SESSION['_auth_user_name'] ?? ''),
                 'email' => (string) ($_SESSION['_auth_user_email'] ?? ''),
                 'role_id' => (int) ($_SESSION['_auth_role_id'] ?? 0),
@@ -173,13 +179,16 @@ try {
             sendError('rate_limit', "Cok fazla kayit denemesi. Lutfen {$minutes} dakika sonra tekrar deneyin.", 429, ['retry_after' => $remaining]);
         }
 
-        $name = trim((string) ($payload['name'] ?? ''));
+        $usernameRaw = trim((string) ($payload['username'] ?? ''));
+        $username = function_exists('usersValidateUsernameInput')
+            ? usersValidateUsernameInput($usernameRaw)
+            : '';
         $email = trim((string) ($payload['email'] ?? ''));
         $password = (string) ($payload['password'] ?? '');
         $passwordConfirm = (string) ($payload['password_confirm'] ?? '');
 
-        if ($name === '' || mb_strlen($name) < 2) {
-            sendValidationError('Kayit bilgileri gecersiz.', ['name' => 'Isim en az 2 karakter olmalidir.']);
+        if ($username === '') {
+            sendValidationError('Kayit bilgileri gecersiz.', ['username' => 'Kullanici adi 3-30 karakter olmali ve sadece harf, rakam, _ veya - icermelidir.']);
         }
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             sendValidationError('Kayit bilgileri gecersiz.', ['email' => 'Gecerli bir e-posta adresi girin.']);
@@ -200,6 +209,13 @@ try {
         $emailStmt->execute(['email' => $email]);
         if ((int) $emailStmt->fetchColumn() > 0) {
             sendValidationError('Kayit bilgileri gecersiz.', ['email' => 'Bu e-posta adresi zaten kayitli.']);
+        }
+
+        $usernameCheckSql = 'SELECT COUNT(*) FROM users WHERE username = :username';
+        $usernameStmt = $pdo->prepare($usernameCheckSql);
+        $usernameStmt->execute(['username' => $username]);
+        if ((int) $usernameStmt->fetchColumn() > 0) {
+            sendValidationError('Kayit bilgileri gecersiz.', ['username' => 'Bu kullanici adi zaten kayitli.']);
         }
 
         incrementRateLimit($regRateKey, $registerRateWindow);
@@ -232,7 +248,7 @@ try {
             }
         }
 
-        if (empty($userColumns['name']) || empty($userColumns['email']) || empty($userColumns['password'])) {
+        if (empty($userColumns['username']) || empty($userColumns['email']) || empty($userColumns['password'])) {
             sendError('registration_unavailable', 'Kayit semasi eksik oldugu icin kayit islemi tamamlanamadi.', 500);
         }
 
@@ -248,7 +264,7 @@ try {
         if (!empty($userColumns['role_id'])) {
             $pushParam('role_id', ':role_id', $memberRoleId);
         }
-        $pushParam('name', ':name', $name);
+        $pushParam('username', ':username', $username);
         $pushParam('email', ':email', $email);
         $pushParam('password', ':password', password_hash($password, PASSWORD_DEFAULT));
         if (!empty($userColumns['status'])) {
@@ -287,7 +303,8 @@ try {
             ]);
         }
 
-        $freshUserStmt = $pdo->prepare('SELECT id, name, email, status, password_changed_at FROM users WHERE id = :id LIMIT 1');
+        $freshUserSql = 'SELECT id, username, email, status, password_changed_at FROM users WHERE id = :id LIMIT 1';
+        $freshUserStmt = $pdo->prepare($freshUserSql);
         $freshUserStmt->execute(['id' => $newUserId]);
         $freshUser = $freshUserStmt->fetch(PDO::FETCH_ASSOC);
         if (!is_array($freshUser) || !$freshUser) {

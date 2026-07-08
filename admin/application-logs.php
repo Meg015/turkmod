@@ -161,7 +161,7 @@ $dateTo = $normalizeDate($_GET['date_to'] ?? '');
 $page = max(1, (int) ($_GET['page'] ?? 1));
 
 $logs = ['items' => [], 'total' => 0, 'page' => 1, 'perPage' => 50];
-$stats = ['total' => 0, 'errors_24h' => 0, 'errors_7d' => 0, 'channels' => 0];
+$stats = ['total' => 0, 'total_24h' => 0, 'total_7d' => 0, 'channels' => 0, 'errors_24h' => 0, 'errors_7d' => 0];
 $levels = [];
 $channels = [];
 
@@ -169,6 +169,12 @@ if ($pdo) {
     try {
         $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, 50, $dateFrom, $dateTo);
         $stats = appLogsGetStats($pdo);
+        if (!isset($stats['total_24h'])) {
+            $stats['total_24h'] = (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn();
+        }
+        if (!isset($stats['total_7d'])) {
+            $stats['total_7d'] = (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
+        }
         $levels = appLogsGetLevels($pdo);
         $channels = appLogsGetChannels($pdo);
     } catch (Throwable $e) {
@@ -205,18 +211,27 @@ require_once __DIR__ . '/header.php';
 <?php adminRenderLogsSubtabs('application'); ?>
 
 <div class="logs-page application-logs-page">
+    <div class="ui-admin-alert ui-admin-alert-info ui-alert">
+        <i class="bi bi-info-circle"></i>
+        <div>
+            <strong>Hata merkezi guncellendi:</strong>
+            Sistem kaynakli hatalari tek noktadan takip etmek icin
+            <a href="<?= htmlspecialchars(rtrim((string) $baseUri, '/') . '/admin/system-health.php?tab=logs', ENT_QUOTES, 'UTF-8') ?>">Sistem Sagligi > Loglar & Hatalar</a>
+            sekmesini kullanin.
+        </div>
+    </div>
     <div class="admin-stat-grid logs-summary application-logs-summary ui-grid">
         <div class="admin-stat-card stat-info logs-stat ui-card">
             <div class="stat-icon"><i class="bi bi-journal-code"></i></div>
             <div class="stat-content"><span class="stat-label">Toplam Kayit</span><span class="stat-value"><?= number_format((int) ($stats['total'] ?? 0)) ?></span></div>
         </div>
-        <div class="admin-stat-card stat-danger logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-exclamation-octagon"></i></div>
-            <div class="stat-content"><span class="stat-label">Error/Critical (24s)</span><span class="stat-value"><?= number_format((int) ($stats['errors_24h'] ?? 0)) ?></span></div>
+        <div class="admin-stat-card stat-success logs-stat ui-card">
+            <div class="stat-icon"><i class="bi bi-clock"></i></div>
+            <div class="stat-content"><span class="stat-label">Kayit (24s)</span><span class="stat-value"><?= number_format((int) ($stats['total_24h'] ?? 0)) ?></span></div>
         </div>
-        <div class="admin-stat-card stat-warning logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
-            <div class="stat-content"><span class="stat-label">Error/Critical (7g)</span><span class="stat-value"><?= number_format((int) ($stats['errors_7d'] ?? 0)) ?></span></div>
+        <div class="admin-stat-card stat-info logs-stat ui-card">
+            <div class="stat-icon"><i class="bi bi-calendar-week"></i></div>
+            <div class="stat-content"><span class="stat-label">Kayit (7g)</span><span class="stat-value"><?= number_format((int) ($stats['total_7d'] ?? 0)) ?></span></div>
         </div>
         <div class="admin-stat-card stat-success logs-stat ui-card">
             <div class="stat-icon"><i class="bi bi-diagram-3"></i></div>

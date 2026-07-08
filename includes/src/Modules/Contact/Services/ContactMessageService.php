@@ -172,7 +172,7 @@ final class ContactMessageService
                 SELECT m.*,
                        c.name AS category_name,
                        c.icon AS category_icon,
-                       u.name AS member_name,
+                       u.username AS member_name,
                        u.email AS member_email,
                        {$replyAdminSelect}
                 FROM contact_messages m
@@ -221,7 +221,7 @@ final class ContactMessageService
                 SELECT m.*,
                        c.name AS category_name,
                        c.icon AS category_icon,
-                       u.name AS member_name,
+                       u.username AS member_name,
                        u.email AS member_email,
                        {$replyAdminSelect}
                 FROM contact_messages m
@@ -309,7 +309,7 @@ final class ContactMessageService
                 return ['success' => false, 'message' => 'Uye bilgileri bulunamadi.', 'id' => 0, 'mail_sent' => false, 'mail_error' => '', 'status' => 'new'];
             }
 
-            $memberName = trim((string) ($member['name'] ?? ''));
+            $memberName = trim((string) ($member['username'] ?? ''));
             $memberEmail = trim((string) ($member['email'] ?? ''));
             $name = $memberName;
             $email = $memberEmail;

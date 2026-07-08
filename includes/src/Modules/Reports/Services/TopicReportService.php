@@ -148,7 +148,7 @@ final class TopicReportService
         }
         $query = trim((string) ($filters['q'] ?? ''));
         if ($query !== '') {
-            $where[] = '(t.title LIKE :q_title OR reporter.name LIKE :q_reporter_name OR reporter.email LIKE :q_reporter_email OR r.details LIKE :q_details)';
+            $where[] = '(t.title LIKE :q_title OR reporter.username LIKE :q_reporter_name OR reporter.email LIKE :q_reporter_email OR r.details LIKE :q_details)';
             $queryTerm = '%' . $query . '%';
             $params['q_title'] = $queryTerm;
             $params['q_reporter_name'] = $queryTerm;
@@ -161,7 +161,7 @@ final class TopicReportService
         $sql = "SELECT r.*,
                        t.title AS topic_title,
                        t.slug AS topic_slug,
-                       reporter.name AS reporter_name,
+                       reporter.username AS reporter_name,
                        reporter.email AS reporter_email
                 FROM topic_reports r
                 LEFT JOIN topics t ON t.id = r.topic_id
@@ -194,7 +194,7 @@ final class TopicReportService
 
         $this->schema->ensureTopicReportEvents($pdo);
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $pdo->prepare("SELECT e.*, u.name AS actor_name
+        $stmt = $pdo->prepare("SELECT e.*, u.username AS actor_name
                                FROM topic_report_events e
                                LEFT JOIN users u ON u.id = e.actor_id
                                WHERE e.report_id IN ({$placeholders})

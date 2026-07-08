@@ -93,6 +93,9 @@ $userStats = [];
 
 // $ready false olsa bile verileri çekmeye çalış
 try {
+    $userNameExpr = (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username'))
+        ? "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))"
+        : "CONCAT('user-', u.id)";
     // Sayfalama
     $page = max(1, (int)($_GET['page'] ?? 1));
     $perPage = 10;
@@ -112,7 +115,7 @@ try {
             wr.name AS reward_name,
             wr.type AS reward_type,
             wr.value AS reward_value,
-            u.name AS username,
+            {$userNameExpr} AS username,
             u.email
         FROM events_wheel_spins ws
         JOIN events_wheel_rewards wr ON wr.id = ws.reward_id
@@ -127,7 +130,7 @@ try {
     $statsStmt = $pdo->query("
         SELECT
             u.id,
-            u.name AS username,
+            {$userNameExpr} AS username,
             u.email,
             COUNT(ws.id) as spin_count,
             MAX(ws.created_at) as last_spin

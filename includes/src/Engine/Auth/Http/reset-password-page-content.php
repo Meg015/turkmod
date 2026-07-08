@@ -41,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!checkRateLimit($resetRateKey, $passwordResetRateLimit, $passwordResetRateWindow)) {
         $remaining = getRateLimitRemainingSeconds($resetRateKey, $passwordResetRateWindow);
         $minutes = (int) ceil($remaining / 60);
-        $errorMsg = "Cok fazla istek. Lutfen {$minutes} dakika sonra tekrar deneyin.";
+        $errorMsg = "Çok fazla istek. Lütfen {$minutes} dakika sonra tekrar deneyin.";
     } elseif (!verify_csrf_token($_POST['_token'] ?? '')) {
-        $errorMsg = 'Guvenlik dogrulamasi basarisiz.';
+        $errorMsg = 'Güvenlik doğrulaması başarısız.';
     } else {
         incrementRateLimit($resetRateKey, $passwordResetRateWindow);
         $password = $_POST['password'] ?? '';
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (($policyError = validatePasswordPolicy($password, null, 'Şifre')) !== '') {
             $errorMsg = $policyError;
         } elseif ($password !== $passwordConfirm) {
-            $errorMsg = 'Sifreler eslesmiyor.';
+            $errorMsg = 'Şifreler eşleşmiyor.';
         } elseif ($pdo) {
             try {
                 $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email AND password_reset_token = :token AND password_reset_expires_at IS NOT NULL AND password_reset_expires_at >= NOW() LIMIT 1');
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user = $stmt->fetch();
 
                 if (!$user) {
-                    $errorMsg = 'Sifre sifirlama baglantisi gecersiz veya suresi dolmus.';
+                    $errorMsg = 'Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş.';
                 } else {
                     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                     $pdo->prepare('UPDATE users SET password = :password, password_changed_at = NOW(), password_reset_token = NULL, password_reset_expires_at = NULL, remember_token = NULL, updated_at = NOW() WHERE id = :id')
@@ -71,18 +71,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     logActivity($pdo, 'password_reset', 'user', (int) $user['id']);
                     resetRateLimit($resetRateKey);
-                    $successMsg = 'Sifreniz basariyla degistirildi. Simdi giris yapabilirsiniz.';
+                    $successMsg = 'Şifreniz başarıyla değiştirildi. Şimdi giriş yapabilirsiniz.';
                 }
             } catch (Throwable $e) {
-                $errorMsg = safeErrorMessage($e, 'Islem sirasinda bir hata olustu.');
+                $errorMsg = safeErrorMessage($e, 'İşlem sırasında bir hata oluştu.');
             }
         } else {
-            $errorMsg = 'Veritabani baglantisi kurulamadi.';
+            $errorMsg = 'Veritabanı bağlantısı kurulamadı.';
         }
     }
 }
 
-$pageTitle = 'Sifre Sifirla';
+$pageTitle = 'Şifre Sıfırla';
 $auth_error = $errorMsg;
 $auth_success = $successMsg;
 $auth_csrf_token = csrf_token();
@@ -103,8 +103,8 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
     <div class="auth-box ui-panel">
         <div class="auth-header ui-panel__head">
             <i class="bi bi-lock" aria-hidden="true"></i>
-            <h1>Sifre Sifirla</h1>
-            <p>Yeni sifreni belirle ve hesabina tekrar eris.</p>
+            <h1>Şifre Sıfırla</h1>
+            <p>Yeni şifreni belirle ve hesabına tekrar eriş.</p>
         </div>
 
         <?php if ($errorMsg): ?>
@@ -112,24 +112,24 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
         <?php endif; ?>
         <?php if ($successMsg): ?>
             <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success" role="alert"><?= htmlspecialchars($successMsg) ?></div>
-            <p class="form-options"><a href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Giris Yap</a></p>
+            <p class="form-options"><a href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Giriş Yap</a></p>
         <?php else: ?>
             <form class="auth-form" method="post" action="<?= htmlspecialchars($auth_reset_action, ENT_QUOTES, 'UTF-8') ?>" novalidate>
                 <?= csrf_field() ?>
                 <div class="form-group">
-                    <label for="password">Yeni Sifre</label>
+                    <label for="password">Yeni Şifre</label>
                     <input id="password" name="password" type="password" required minlength="<?= $passwordMinLength ?>" aria-required="true" autocomplete="new-password" data-password-strength data-password-confirm="#password_confirm" data-password-require-uppercase="<?= $passwordPolicy['require_uppercase'] ? '1' : '0' ?>" data-password-require-numbers="<?= $passwordPolicy['require_numbers'] ? '1' : '0' ?>" data-password-require-special="<?= $passwordPolicy['require_special'] ? '1' : '0' ?>">
                     <small><?= htmlspecialchars($passwordPolicyHint) ?></small>
                 </div>
                 <div class="form-group">
-                    <label for="password_confirm">Yeni Sifre Tekrar</label>
+                    <label for="password_confirm">Yeni Şifre Tekrar</label>
                     <input id="password_confirm" name="password_confirm" type="password" required minlength="<?= $passwordMinLength ?>" aria-required="true" autocomplete="new-password">
                 </div>
-                <button class="btn-auth" type="submit">Sifreyi Degistir</button>
+                <button class="btn-auth" type="submit">Şifreyi Değiştir</button>
             </form>
         <?php endif; ?>
 
-        <p class="form-options"><a href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Giris sayfasina don</a></p>
+        <p class="form-options"><a href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Giriş sayfasına dön</a></p>
     </div>
 </div>
 

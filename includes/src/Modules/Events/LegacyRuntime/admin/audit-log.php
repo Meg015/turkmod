@@ -107,7 +107,7 @@ if ($auditReady) {
 
         $offset = ($currentPage - 1) * $perPage;
         
-        $stmtRows = $pdo->prepare("SELECT l.*, u.name AS user_name FROM events_audit_log l LEFT JOIN users u ON u.id = l.user_id WHERE $whereSql ORDER BY l.id DESC LIMIT $perPage OFFSET $offset");
+        $stmtRows = $pdo->prepare("SELECT l.*, u.username AS user_name FROM events_audit_log l LEFT JOIN users u ON u.id = l.user_id WHERE $whereSql ORDER BY l.id DESC LIMIT $perPage OFFSET $offset");
         $stmtRows->execute($whereParams);
         $rows = $stmtRows->fetchAll(PDO::FETCH_ASSOC) ?: [];
         
@@ -143,10 +143,10 @@ if ($auditReady) {
                     $q = $pdo->query("SELECT id, name FROM events_prize_pool_items WHERE id IN ($idList)")->fetchAll(PDO::FETCH_KEY_PAIR);
                     foreach ($q as $id => $val) $subjectNames[$st][$id] = $val;
                 } elseif ($st === 'user' || $st === 'users') {
-                    $q = $pdo->query("SELECT id, name FROM users WHERE id IN ($idList)")->fetchAll(PDO::FETCH_KEY_PAIR);
+                    $q = $pdo->query("SELECT id, username FROM users WHERE id IN ($idList)")->fetchAll(PDO::FETCH_KEY_PAIR);
                     foreach ($q as $id => $val) $subjectNames[$st][$id] = $val;
                 } elseif ($st === 'user_reward') {
-                    $q = $pdo->query("SELECT ur.id, u.name FROM events_user_rewards ur LEFT JOIN users u ON u.id = ur.user_id WHERE ur.id IN ($idList)")->fetchAll(PDO::FETCH_KEY_PAIR);
+                    $q = $pdo->query("SELECT ur.id, u.username FROM events_user_rewards ur LEFT JOIN users u ON u.id = ur.user_id WHERE ur.id IN ($idList)")->fetchAll(PDO::FETCH_KEY_PAIR);
                     foreach ($q as $id => $val) $subjectNames[$st][$id] = $val;
                 }
             } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }

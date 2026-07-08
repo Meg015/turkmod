@@ -182,12 +182,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'check_usage') {
     }
     
     // Kullanıcılar
-    $stmt = $pdo->prepare("SELECT id, name FROM users WHERE avatar LIKE ? OR avatar LIKE ? LIMIT 5");
+    $stmt = $pdo->prepare("SELECT id, username FROM users WHERE avatar LIKE ? OR avatar LIKE ? LIMIT 5");
     $stmt->execute([$likeUrl, $likeFilename]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $user) {
         $key = 'user_' . $user['id'];
         if (!isset($added[$key])) {
-            $usages[] = ['type' => 'user', 'name' => 'Kullanıcı Profil: ' . $user['name'], 'link' => 'users.php?edit=' . $user['id']];
+            $usages[] = ['type' => 'user', 'name' => 'Kullanıcı Profil: ' . (string) ($user['username'] ?? ''), 'link' => 'users.php?edit=' . $user['id']];
             $added[$key] = true;
         }
     }

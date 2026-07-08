@@ -7662,11 +7662,11 @@ body:has(.topic-layout) #main-content {
 
     display: grid;
 
-    grid-template-columns: 28px minmax(0, 0.72fr) minmax(0, 1fr);
+    grid-template-columns: 28px 118px minmax(0, 1fr);
 
     gap: 8px;
 
-    align-items: center;
+    align-items: start;
 
     min-height: 44px;
 
@@ -7716,6 +7716,8 @@ a.topic-info-row:hover {
 
     border-radius: var(--radius-md);
 
+    align-self: center;
+
 }
 
 
@@ -7729,6 +7731,8 @@ a.topic-info-row:hover {
     font-size: 0.76rem;
 
     font-weight: 600;
+
+    white-space: nowrap;
 
 }
 
@@ -7746,11 +7750,15 @@ a.topic-info-row:hover {
 
     font-weight: 700;
 
-    text-align: right;
+    text-align: left;
 
     text-overflow: ellipsis;
 
     white-space: nowrap;
+
+    align-self: start;
+
+    margin-top: -1px;
 
 }
 
@@ -23861,3 +23869,4 @@ html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .comment-excerpt {
   word-break: break-word;
   hyphens: auto;
 }
+

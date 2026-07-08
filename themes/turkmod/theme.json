@@ -150,7 +150,7 @@
             },
             "profile": {
                 "template": "userinfo.tpl",
-                "safe_variables": ["profile.name", "profile.bio", "profile.avatar", "profile.avatar_fallback", "profile.cover", "profile.is_public", "profile.is_private", "profile.role", "profile.initials", "profile.location", "profile.member_since", "profile.tenure", "profile.created_at", "profile.page_summary", "profile.pagination_groups", "profile.topics_pagination_groups", "profile.comments_pagination_groups", "profile.favorites_pagination_groups", "profile.reports_pagination_groups", "profile.activity_pagination_groups"],
+                "safe_variables": ["profile.username", "profile.bio", "profile.avatar", "profile.avatar_fallback", "profile.cover", "profile.is_public", "profile.is_private", "profile.role", "profile.initials", "profile.location", "profile.member_since", "profile.tenure", "profile.created_at", "profile.page_summary", "profile.pagination_groups", "profile.topics_pagination_groups", "profile.comments_pagination_groups", "profile.favorites_pagination_groups", "profile.reports_pagination_groups", "profile.activity_pagination_groups"],
                 "raw_slots": ["content"],
                 "notes": "Profile/public profile body and pagination are structured TPL; content is fallback only."
             },

@@ -261,7 +261,7 @@
 <div class="profile-section-title"><i class="bi bi-person-gear" aria-hidden="true"></i>Profil Bilgileri</div>
 <form method="post" action="{base_url}/profile.php?tab=settings">
 <input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="update_profile">
-<div class="profile-form-row"><div class="profile-form-group"><label for="pf_name">Ad Soyad</label><input type="text" id="pf_name" name="name" value="{profile.name}" required minlength="2" maxlength="255"></div><div class="profile-form-group"><label>E-posta <span class="profile-form-hint">(değiştirilemez)</span></label><input type="email" value="{profile.email}" disabled class="profile-disabled-input"></div></div>
+<div class="profile-form-row"><div class="profile-form-group"><label for="pf_username">Kullanici Adi</label><input type="text" id="pf_username" name="username" value="{profile.username}" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" autocomplete="username"></div><div class="profile-form-group"><label>E-posta <span class="profile-form-hint">(degistirilemez)</span></label><input type="email" value="{profile.email}" disabled class="profile-disabled-input"></div></div>
 <div class="profile-form-group"><label for="pf_bio">Hakkımda</label><textarea id="pf_bio" name="bio" rows="3" maxlength="500" placeholder="Kendinizi kısaca tanıtın...">{profile.bio}</textarea></div>
 <div class="profile-form-group"><label for="pf_location"><i class="bi bi-geo-alt me-1" aria-hidden="true"></i>Konum</label><input type="text" id="pf_location" name="location" value="{profile.location}" placeholder="İstanbul, Türkiye" maxlength="255"></div>
 <div class="profile-section-title profile-section-title-offset"><i class="bi bi-share" aria-hidden="true"></i>Sosyal Bağlantılar</div>
@@ -314,3 +314,5 @@
 </section>
 {/if}
 </div>
+
+

@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 require_once __DIR__ . '/init.php';
 adminRequirePermission('settings.view', 'Ayarlari goruntulemek icin gerekli izin hesabiniza tanimlanmamis.');
@@ -32,7 +31,7 @@ $sections = [
 $sectionDescriptions = [
     'user_system' => 'Kayıt erişimi, oturum süreleri ve şifre politikalarını tek merkezden yönetin.',
     'route_filters' => 'Konu ve kategori URL on eklerini yönetin. Örnek: /konu/slug-id yerine /topic/slug-id veya /kategori/slug yerine /category/slug kullanabilirsiniz.',
-    'rate_limit' => 'Kötüye kullanımı önlemek için farklı işlemler için rate limit (hız sınırı) ayarlarını yapılandırın. Her işlem için maksimum deneme sayısı ve zaman penceresi belirleyebilirsiniz.',
+    'rate_limit' => 'Her satirda iki ana alan vardir: Limit ve Pencere (dakika). Limit, pencere suresinde izin verilen maksimum istek sayisini; pencere ise sayacin ne zaman sifirlanacagini belirler.',
     'leaderboard' => 'Liderlik tablosu sistemi ayarlarını yönetin. Cache süreleri, minimum gereksinimler ve görünürlük seçeneklerini yapılandırın.',
     'performance' => 'Önbellekleme, GZIP sıkıştırma, CDN, lazy loading ve minifikasyon gibi performans optimizasyonlarını yönetin.',
     'social_features' => 'Sosyal medya bağlantıları ve kullanıcı etkileşimiyle ilgili sosyal özellikleri tek merkezden yönetin.',
@@ -51,24 +50,18 @@ $cronGroups = [
         'description' => 'Arka plan görevleri için temel çalışma kuralları ve güvenlik ayarları.',
         'keys' => ['cron_enabled', 'cron_secret_key', 'cron_health_scan_interval', 'cron_batch_size']
     ],
-    'cron-tab-health' => [
-        'title' => 'Sistem Sağlığı',
-        'icon' => 'bi-heart-pulse',
-        'description' => 'Cron görevlerinin düzgün çalışıp çalışmadığını kontrol eden gerçek zamanlı sağlık monitörü.',
-        'keys' => []
-    ],
-    'cron-tab-logs' => [
-        'title' => 'Cron Logları',
-        'icon' => 'bi-card-list',
-        'description' => 'Arka planda çalışan cron görevlerinin geçmişi ve detaylı hata kayıtları.',
-        'keys' => []
-    ],
     'cron-tab-endpoints' => [
-        'title' => 'Görev Yöneticisi',
+        'title' => 'Gorev Yoneticisi',
         'icon' => 'bi-terminal',
-        'description' => 'Sunucunuzda (cPanel, Plesk, Terminal) ayarlamanız gereken komutlar.',
+        'description' => 'Cron komutlarini tek listede gorun, kopyalayin ve manuel tetikleyin.',
         'keys' => []
-    ]
+    ],
+    'cron-tab-health' => [
+        'title' => 'Saglik Durumu',
+        'icon' => 'bi-heart-pulse',
+        'description' => 'Cron gorevlerinin son calisma durumu ve tazeligini tek ekranda izleyin.',
+        'keys' => []
+    ],
 ];
 
 $routeFilterGroups = [
@@ -459,9 +452,9 @@ $userSystemGroups = [
 
 $rateLimitGroups = [
     'rate-tab-auth' => [
-        'title' => 'Giriş & Üyelik',
+        'title' => 'Giris ve Hesap Guvenligi',
         'icon' => 'bi-person-lock',
-        'description' => 'Giriş, kayıt ve şifre sıfırlama denemeleri için güvenlik limitleri.',
+        'description' => 'Giris, kayit ve sifre sifirlama denemeleri icin IP bazli guvenlik limitleri.',
         'keys' => [
             'login_rate_limit',
             'login_rate_window',
@@ -472,14 +465,16 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-search-api' => [
-        'title' => 'Arama & API',
+        'title' => 'Arama ve Veri API',
         'icon' => 'bi-braces',
-        'description' => 'Genel arama ve konu API uçları için istek limitleri.',
+        'description' => 'Arama, konu listeleme, mesaj, leaderboard ve analitik API istek limitleri.',
         'keys' => [
             'search_rate_limit',
             'search_rate_window',
             'api_topics_rate_limit',
             'api_topics_rate_window',
+            'api_messages_rate_limit',
+            'api_messages_rate_window',
             'api_leaderboard_rate_limit',
             'api_leaderboard_rate_window',
             'api_analytics_rate_limit',
@@ -487,9 +482,9 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-interactions' => [
-        'title' => 'Etkileşimler',
+        'title' => 'Etkilesim ve Sikayet',
         'icon' => 'bi-hand-thumbs-up',
-        'description' => 'Favori, konu şikayeti ve indirme sayacı istek limitleri.',
+        'description' => 'Favori, konu sikayet ve indirme sayaci istekleri icin limitler.',
         'keys' => [
             'api_favorite_rate_limit',
             'api_favorite_rate_window',
@@ -502,9 +497,9 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-user-reports' => [
-        'title' => 'Kullanici Sikayetleri',
+        'title' => 'Kullanici Sikayet',
         'icon' => 'bi-person-exclamation',
-        'description' => 'Kullanici sikayeti API ve gonderim limitleri.',
+        'description' => 'Kullanici sikayeti listeleme ve gonderim limitleri.',
         'keys' => [
             'api_user_reports_rate_limit',
             'api_user_reports_rate_window',
@@ -513,9 +508,9 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-comments' => [
-        'title' => 'Yorumlar',
+        'title' => 'Yorum Akisi',
         'icon' => 'bi-chat-left-text',
-        'description' => 'Yorum gönderme, mention arama ve yorum işlem limitleri.',
+        'description' => 'Yorum gonderme, mention arama, duzenleme, reaksiyon ve sikayet limitleri.',
         'keys' => [
             'comment_rate_minutes',
             'comment_rate_max',
@@ -531,9 +526,9 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-submissions' => [
-        'title' => 'Gönderimler',
+        'title' => 'Mod Gonderimleri',
         'icon' => 'bi-cloud-arrow-up',
-        'description' => 'Kullanıcı mod gönderim sıklığı limitleri.',
+        'description' => 'Kullanici mod gonderim sikligi icin saatlik ve gunluk limitler.',
         'keys' => [
             'user_upload_hourly_limit',
             'user_upload_daily_limit',
@@ -541,14 +536,266 @@ $rateLimitGroups = [
     ],
 ];
 
+if (!function_exists('settingsCronTaskCatalog')) {
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    function settingsCronTaskCatalog(string $adminPublicBaseUrl, array $settings): array
+    {
+        $baseUrl = rtrim($adminPublicBaseUrl, '/');
+        $secret = trim((string) ($settings['cron_secret_key'] ?? ''));
+
+        $scriptPath = static function (string $filename): string {
+            $path = realpath(__DIR__ . '/../cron/' . $filename);
+            if (is_string($path) && $path !== '') {
+                return $path;
+            }
+
+            return str_replace('\\', '/', __DIR__ . '/../cron/' . $filename);
+        };
+
+        $buildUrl = static function (string $path, array $extraQuery = []) use ($baseUrl, $secret): string {
+            $url = $baseUrl . '/' . ltrim($path, '/');
+            $query = $extraQuery;
+            if ($secret !== '') {
+                $query['secret'] = $secret;
+            }
+            if ($query !== []) {
+                $url .= '?' . http_build_query($query);
+            }
+
+            return $url;
+        };
+
+        return [
+            'topic_health_scan' => [
+                'job_key' => 'topic_health_scan',
+                'group' => 'Sistem ve Veri',
+                'title' => 'Konu Sagligi Taramasi',
+                'description' => 'Kirik veya eksik icerik sinyallerini tarar.',
+                'icon' => 'bi-heart-pulse',
+                'schedule' => '* * * * *',
+                'schedule_label' => 'Her 1 dakika',
+                'cli' => 'php ' . $scriptPath('topic-health-scan.php') . ' --limit=50',
+                'url' => $buildUrl('/cron/topic-health-scan.php', ['limit' => '50']),
+            ],
+            'notification_email_queue' => [
+                'job_key' => 'notification_email_queue',
+                'group' => 'Sistem ve Veri',
+                'title' => 'Bildirim E-posta Kuyrugu',
+                'description' => 'Bildirim mail kuyrugunu sirayla gonderir.',
+                'icon' => 'bi-envelope',
+                'schedule' => '* * * * *',
+                'schedule_label' => 'Her 1 dakika',
+                'cli' => 'php ' . $scriptPath('send-notification-email-queue.php') . ' --limit=25',
+                'url' => $buildUrl('/cron/send-notification-email-queue.php', ['limit' => '25']),
+            ],
+            'rate_limits_cleanup' => [
+                'job_key' => 'rate_limits_cleanup',
+                'group' => 'Sistem ve Veri',
+                'title' => 'Rate Limit Expired Temizligi',
+                'description' => 'Suresi dolan request_rate_limits kayitlarini siler.',
+                'icon' => 'bi-speedometer2',
+                'schedule' => '*/15 * * * *',
+                'schedule_label' => 'Her 15 dakika',
+                'cli' => 'php ' . $scriptPath('cleanup-expired-rate-limits.php'),
+                'url' => $buildUrl('/cron/cleanup-expired-rate-limits.php'),
+            ],
+            'leaderboard_cache_daily' => [
+                'job_key' => 'leaderboard_cache',
+                'group' => 'Sistem ve Veri',
+                'title' => 'Liderlik Onbellek Guncelleme',
+                'description' => 'Liderlik onbellek hesaplamalarini yeniler.',
+                'icon' => 'bi-trophy',
+                'schedule' => '*/15 * * * *',
+                'schedule_label' => 'Her 15 dakika (daily ornegi)',
+                'cli' => 'php ' . $scriptPath('update-leaderboard-cache.php') . ' --period=daily',
+                'url' => $buildUrl('/cron/update-leaderboard-cache.php', ['period' => 'daily']),
+            ],
+            'events_master' => [
+                'job_key' => 'events_master',
+                'group' => 'Sistem ve Veri',
+                'title' => 'Etkinlik Master Cron',
+                'description' => 'Etkinlik cleanup, odul gecerlilik ve kuyruk islerini yonetir.',
+                'icon' => 'bi-calendar-event',
+                'schedule' => '* * * * *',
+                'schedule_label' => 'Her 1 dakika',
+                'cli' => 'php ' . $scriptPath('events-master.php'),
+                'url' => $buildUrl('/cron/events-master.php'),
+            ],
+        ];
+    }
+}
+
+if (!function_exists('settingsCronTriggerByUrl')) {
+    /**
+     * @return array{ok:bool,status_code:int,output:string,error:string}
+     */
+    function settingsCronTriggerByUrl(string $url, int $timeoutSeconds = 20): array
+    {
+        $result = [
+            'ok' => false,
+            'status_code' => 0,
+            'output' => '',
+            'error' => '',
+        ];
+
+        if ($url === '') {
+            $result['error'] = 'Cron URL bos.';
+            return $result;
+        }
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            if ($ch === false) {
+                $result['error'] = 'cURL baslatilamadi.';
+                return $result;
+            }
+
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                CURLOPT_TIMEOUT => max(5, $timeoutSeconds),
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_USERAGENT => 'yenidosyalar-admin-cron-trigger/1.0',
+            ]);
+
+            $raw = curl_exec($ch);
+            $result['status_code'] = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            if ($raw === false) {
+                $result['error'] = (string) curl_error($ch);
+                curl_close($ch);
+                return $result;
+            }
+
+            $result['output'] = trim((string) $raw);
+            curl_close($ch);
+        } else {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'timeout' => max(5, $timeoutSeconds),
+                    'ignore_errors' => true,
+                    'header' => "User-Agent: yenidosyalar-admin-cron-trigger/1.0\r\n",
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                ],
+            ]);
+            $raw = @file_get_contents($url, false, $context);
+            $headers = $http_response_header ?? [];
+            if (is_array($headers)) {
+                foreach ($headers as $headerLine) {
+                    if (preg_match('~^HTTP/\S+\s+(\d{3})~', (string) $headerLine, $matches) === 1) {
+                        $result['status_code'] = (int) $matches[1];
+                    }
+                }
+            }
+
+            if ($raw === false) {
+                $result['error'] = 'URL tetiklenemedi.';
+                return $result;
+            }
+            $result['output'] = trim((string) $raw);
+        }
+
+        $result['ok'] = $result['status_code'] >= 200 && $result['status_code'] < 300;
+        if (!$result['ok'] && $result['error'] === '') {
+            $result['error'] = 'HTTP ' . $result['status_code'] . ' dondu.';
+        }
+
+        return $result;
+    }
+}
+
+if (!function_exists('settingsCronRunSnapshots')) {
+    /**
+     * @param array<int,string> $jobKeys
+     * @return array<string,array{found:bool,status:string,created_at:?string,level:string,message:string,context:array<string,mixed>}>
+     */
+    function settingsCronRunSnapshots(?PDO $pdo, array $jobKeys): array
+    {
+        $snapshots = [];
+        foreach ($jobKeys as $jobKey) {
+            $normalized = trim((string) $jobKey);
+            if ($normalized === '') {
+                continue;
+            }
+            $snapshots[$normalized] = [
+                'found' => false,
+                'status' => 'missing',
+                'created_at' => null,
+                'level' => 'info',
+                'message' => '',
+                'context' => [],
+            ];
+        }
+
+        if (!$pdo instanceof PDO || $snapshots === []) {
+            return $snapshots;
+        }
+
+        try {
+            $stmt = $pdo->query("SELECT level, message, context_json, created_at FROM application_logs WHERE channel = 'cron' ORDER BY id DESC LIMIT 1000");
+            $rows = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+        } catch (Throwable $e) {
+            return $snapshots;
+        }
+
+        $remaining = count($snapshots);
+        foreach ($rows as $row) {
+            $context = json_decode((string) ($row['context_json'] ?? ''), true);
+            if (!is_array($context)) {
+                $context = [];
+            }
+            $message = (string) ($row['message'] ?? '');
+            $jobKey = trim((string) ($context['job_key'] ?? ''));
+            if ($jobKey === '' && str_starts_with($message, 'cron_run:')) {
+                $jobKey = substr($message, 9);
+            }
+            if (!isset($snapshots[$jobKey]) || !empty($snapshots[$jobKey]['found'])) {
+                continue;
+            }
+
+            $status = strtolower(trim((string) ($context['status'] ?? '')));
+            if ($status === '') {
+                $status = match ((string) ($row['level'] ?? 'info')) {
+                    'error' => 'error',
+                    'warning' => 'warning',
+                    default => 'success',
+                };
+            }
+
+            $snapshots[$jobKey] = [
+                'found' => true,
+                'status' => $status,
+                'created_at' => (string) ($row['created_at'] ?? null),
+                'level' => (string) ($row['level'] ?? 'info'),
+                'message' => $message,
+                'context' => $context,
+            ];
+
+            $remaining--;
+            if ($remaining <= 0) {
+                break;
+            }
+        }
+
+        return $snapshots;
+    }
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $isAjax = !empty($_POST['ajax']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
-    
+
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
         if ($isAjax) {
             sendCsrfError();
         }
-        flash('error', 'Güvenlik hatası.');
+        flash('error', 'Guvenlik hatasi.');
         header('Location: settings.php');
         exit;
     }
@@ -556,15 +803,109 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         adminDenyAction('Ayarlari kaydetmek icin gerekli izin hesabiniza tanimlanmamis.', 'settings.php');
     }
 
+    $postAction = trim((string) ($_POST['action'] ?? 'save_settings'));
+    if ($postAction === 'trigger_cron') {
+        $currentSettings = getAdminSettings($pdo);
+        $cronSecret = trim((string) ($currentSettings['cron_secret_key'] ?? ''));
+        if ($cronSecret === '') {
+            $message = 'Cron tetikleme icin once cron_secret_key tanimlanmalidir.';
+            if ($isAjax) {
+                sendError('cron_secret_missing', $message, 422);
+            }
+            flash('error', $message);
+            header('Location: settings.php#cron');
+            exit;
+        }
+        $triggerBaseUrl = function_exists('appPublicBaseUrl')
+            ? rtrim(appPublicBaseUrl(true, (string) ($baseUri ?? ''), is_array($envConfig ?? null) ? $envConfig : []), '/')
+            : rtrim((string) ($baseUri ?? ''), '/');
+        $triggerBaseUrl = $triggerBaseUrl !== '' ? $triggerBaseUrl : rtrim((string) ($baseUri ?? ''), '/');
+        $triggerCatalog = settingsCronTaskCatalog($triggerBaseUrl, $currentSettings);
+        $taskKey = trim((string) ($_POST['cron_task'] ?? ''));
+
+        if ($taskKey === '' || !isset($triggerCatalog[$taskKey])) {
+            if ($isAjax) {
+                sendError('cron_task_missing', 'Gecerli bir cron gorevi secilmedi.', 422);
+            }
+            flash('error', 'Gecerli bir cron gorevi secilmedi.');
+            header('Location: settings.php#cron');
+            exit;
+        }
+
+        $task = $triggerCatalog[$taskKey];
+        $triggerResult = settingsCronTriggerByUrl((string) ($task['url'] ?? ''));
+        $resultTone = !empty($triggerResult['ok']) ? 'success' : 'error';
+        $outputPreview = mb_substr(trim((string) ($triggerResult['output'] ?? '')), 0, 280, 'UTF-8');
+        $errorMessage = trim((string) ($triggerResult['error'] ?? ''));
+        $statusCode = (int) ($triggerResult['status_code'] ?? 0);
+
+        if (function_exists('logActivity')) {
+            logActivity($pdo, 'cron_manual_triggered', 'settings', null, [
+                'task_key' => $taskKey,
+                'job_key' => (string) ($task['job_key'] ?? ''),
+                'status' => $resultTone,
+                'status_code' => $statusCode,
+                'error' => $errorMessage,
+            ]);
+        }
+
+        if (function_exists('adminAuditLogger')) {
+            adminAuditLogger()->logAction(
+                $pdo,
+                'cron_manual_triggered',
+                'settings',
+                0,
+                'Cron gorevi manuel tetiklendi',
+                [],
+                [
+                    'task_key' => $taskKey,
+                    'job_key' => (string) ($task['job_key'] ?? ''),
+                    'status' => $resultTone,
+                    'status_code' => $statusCode,
+                ],
+                false
+            );
+        }
+
+        if (!empty($triggerResult['ok'])) {
+            $message = 'Cron gorevi tetiklendi: ' . (string) ($task['title'] ?? $taskKey);
+            if ($outputPreview !== '') {
+                $message .= ' | Cikti: ' . $outputPreview;
+            }
+
+            if ($isAjax) {
+                sendSuccess($message);
+            }
+
+            flash('success', $message);
+        } else {
+            $message = 'Cron tetikleme basarisiz: ' . (string) ($task['title'] ?? $taskKey) . ' (HTTP ' . $statusCode . ')';
+            if ($errorMessage !== '') {
+                $message .= ' | Hata: ' . $errorMessage;
+            } elseif ($outputPreview !== '') {
+                $message .= ' | Cikti: ' . $outputPreview;
+            }
+
+            if ($isAjax) {
+                sendError('cron_trigger_failed', $message, 500);
+            }
+
+            flash('error', $message);
+        }
+
+        header('Location: settings.php#cron');
+        exit;
+    }
+
     try {
         saveAdminSettings($pdo, $_POST);
         $activeTab = $_POST['_active_tab'] ?? 'general';
         logActivity($pdo, 'settings_updated', 'settings', null, ['active_tab' => $activeTab]);
-        
+
         if ($isAjax) {
-            sendSuccess('Ayarlar başarıyla kaydedildi.', ['activeTab' => $activeTab]);
+            sendSuccess('Ayarlar basariyla kaydedildi.', ['activeTab' => $activeTab]);
         }
-        
+
         flash('success', 'Ayarlar kaydedildi.');
         header('Location: settings.php#' . $activeTab);
         exit;
@@ -584,6 +925,90 @@ $adminPublicBaseUrl = function_exists('appPublicBaseUrl')
     ? rtrim(appPublicBaseUrl(true, (string) ($baseUri ?? ''), is_array($envConfig ?? null) ? $envConfig : []), '/')
     : rtrim((string) ($baseUri ?? ''), '/');
 $adminPublicBaseUrl = $adminPublicBaseUrl !== '' ? $adminPublicBaseUrl : rtrim((string) ($baseUri ?? ''), '/');
+$cronTaskCatalog = settingsCronTaskCatalog($adminPublicBaseUrl, $settings);
+$cronTaskGroups = [];
+foreach ($cronTaskCatalog as $taskKey => $taskMeta) {
+    $groupName = trim((string) ($taskMeta['group'] ?? 'Diger'));
+    if (!isset($cronTaskGroups[$groupName])) {
+        $cronTaskGroups[$groupName] = [];
+    }
+    $taskMeta['task_key'] = $taskKey;
+    $cronTaskGroups[$groupName][] = $taskMeta;
+}
+$cronJobKeys = array_values(array_unique(array_filter(array_map(
+    static fn (array $task): string => trim((string) ($task['job_key'] ?? '')),
+    array_values($cronTaskCatalog)
+))));
+$cronRunSnapshots = settingsCronRunSnapshots($pdo, $cronJobKeys);
+$cronStatusLabel = static function (string $status): string {
+    return match (strtolower(trim($status))) {
+        'success' => 'Basarili',
+        'warning' => 'Uyari',
+        'error' => 'Hata',
+        'skipped' => 'Atlandi',
+        'missing' => 'Yok',
+        default => strtoupper($status),
+    };
+};
+$cronStatusBadgeClass = static function (string $status): string {
+    return match (strtolower(trim($status))) {
+        'success' => 'bg-success',
+        'warning' => 'bg-warning text-dark',
+        'error' => 'bg-danger',
+        'skipped' => 'bg-secondary',
+        default => 'bg-secondary',
+    };
+};
+$cronAgeLabel = static function (?string $createdAt): string {
+    if (!$createdAt) {
+        return '-';
+    }
+    $timestamp = strtotime($createdAt);
+    if ($timestamp === false) {
+        return '-';
+    }
+    $seconds = max(0, time() - $timestamp);
+    if ($seconds < 120) {
+        return 'az once';
+    }
+    if ($seconds < 3600) {
+        return (int) floor($seconds / 60) . ' dk once';
+    }
+    if ($seconds < 86400) {
+        return (int) floor($seconds / 3600) . ' saat once';
+    }
+
+    return (int) floor($seconds / 86400) . ' gun once';
+};
+$cronHealthRows = [];
+$cronHealthOkCount = 0;
+$cronLatestAt = null;
+foreach ($cronTaskCatalog as $taskKey => $taskMeta) {
+    $jobKey = trim((string) ($taskMeta['job_key'] ?? ''));
+    $run = $cronRunSnapshots[$jobKey] ?? ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []];
+    $status = (string) ($run['status'] ?? 'missing');
+    $createdAt = isset($run['created_at']) ? (string) $run['created_at'] : null;
+    $isHealthy = in_array($status, ['success'], true) && $createdAt !== null;
+    if ($isHealthy) {
+        $cronHealthOkCount++;
+    }
+    if ($createdAt !== null) {
+        $ts = strtotime($createdAt);
+        if ($ts !== false && ($cronLatestAt === null || $ts > strtotime((string) $cronLatestAt))) {
+            $cronLatestAt = $createdAt;
+        }
+    }
+    $cronHealthRows[] = [
+        'task_key' => $taskKey,
+        'title' => (string) ($taskMeta['title'] ?? $taskKey),
+        'job_key' => $jobKey,
+        'schedule_label' => (string) ($taskMeta['schedule_label'] ?? ''),
+        'status' => $status,
+        'created_at' => $createdAt,
+        'healthy' => $isHealthy,
+    ];
+}
+$cronHealthTotal = count($cronHealthRows);
 $settingsGdLoaded = extension_loaded('gd');
 $settingsGdInfo = $settingsGdLoaded ? gd_info() : [];
 $settingsWebpSupport = $settingsGdLoaded && !empty($settingsGdInfo['WebP Support']);
@@ -756,195 +1181,132 @@ require_once __DIR__ . '/header.php';
                                         <?php endif; ?>
 
                                         <?php if ($cronTabId === 'cron-tab-endpoints'): ?>
-                                            <div class="admin-section-block ui-section">
-                                                <div class="admin-inline-head ui-panel__head">
-                                                    <i class="bi bi-info-circle text-primary"></i>
-                                                    <span class="admin-inline-title">Nasıl Çalışır?</span>
-                                                </div>
-                                                <div class="alert alert-info border-info d-flex gap-3">
-                                                    <i class="bi bi-info-square-fill fs-4 mt-1"></i>
-                                                    <div>
-                                                        Arka plan görevlerinin otomatik çalışabilmesi için sunucunuzda (cPanel/Plesk veya Crontab) aşağıdaki komutlardan birini tanımlamanız gerekmektedir. <b>CLI komutu</b> daha performanslıdır. Eğer sunucunuz CLI komutu desteklemiyorsa <b>URL Adresi (Wget)</b> yöntemini kullanabilirsiniz.
-                                                    </div>
-                                                </div>
-                                            </div>
+    <div class="alert alert-info border-info d-flex gap-3 align-items-start">
+        <i class="bi bi-info-square-fill fs-4 mt-1"></i>
+        <div>
+            <strong>Gorev yonetimi:</strong> Her cron gorevi icin CLI komutu, URL endpoint'i ve manuel tetikleme aksiyonu tek kartta sunulur.
+            CPanel/Plesk tarafinda CLI zamanlayici kullanmaniz onerilir.
+        </div>
+    </div>
 
-                                            <div class="admin-divider-block mt-4">
-                                                <div class="admin-inline-head ui-panel__head"><i class="bi bi-heart-pulse text-danger"></i> Sistem ve Veri Tarama Görevleri</div>
-                                                <div class="admin-settings-grid-sm ui-grid">
-                                                    <div>
-                                                        <label class="ui-admin-form-label fw-bold">Konu Sağlığı Taraması (Health Scan)</label>
-                                                        <div class="admin-inline-control">
-                                                            <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="php <?= realpath(__DIR__.'/../cron/topic-health-scan.php') ?>" readonly data-ui-select-on-focus>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                                        </div>
-                                                        <small class="text-muted d-block mt-2">Önerilen: <code>* * * * *</code> (Her dakika). Hatalı veya kırık içerikleri tespit eder.</small>
-                                                    </div>
-                                                    <div>
-                                                        <label class="ui-admin-form-label fw-bold">URL ile Tetikleme</label>
-                                                        <div class="admin-inline-control">
-                                                            <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/cron/topic-health-scan.php?secret=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" readonly data-ui-select-on-focus>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                                            <a href="<?= htmlspecialchars($adminPublicBaseUrl) ?>/cron/topic-health-scan.php?secret=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Test Et"><i class="bi bi-box-arrow-up-right"></i></a>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div class="mt-3">
-                                                        <label class="ui-admin-form-label fw-bold">Bildirim E-posta Kuyruğu (Notification Emails)</label>
-                                                        <div class="admin-inline-control">
-                                                            <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="php <?= realpath(__DIR__.'/../cron/send-notification-email-queue.php') ?>" readonly data-ui-select-on-focus>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                                        </div>
-                                                        <small class="text-muted d-block mt-2">Önerilen: <code>* * * * *</code> (Her dakika). Bildirim maillerini sırayla gönderir.</small>
-                                                    </div>
-                                                    <div class="mt-3">
-                                                        <label class="ui-admin-form-label fw-bold">URL ile Tetikleme</label>
-                                                        <div class="admin-inline-control">
-                                                            <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/cron/send-notification-email-queue.php?secret=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" readonly data-ui-select-on-focus>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                                            <a href="<?= htmlspecialchars($adminPublicBaseUrl) ?>/cron/send-notification-email-queue.php?secret=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Test Et"><i class="bi bi-box-arrow-up-right"></i></a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+    <?php foreach ($cronTaskGroups as $groupName => $groupTasks): ?>
+        <div class="admin-divider-block mt-4">
+            <div class="admin-inline-head ui-panel__head">
+                <i class="bi bi-folder2-open text-primary"></i>
+                <?= htmlspecialchars((string) $groupName) ?> Gorevleri
+            </div>
+            <div class="cron-task-grid ui-grid">
+                <?php foreach ($groupTasks as $task): ?>
+                    <?php
+                    $taskKey = (string) ($task['task_key'] ?? '');
+                    $jobKey = (string) ($task['job_key'] ?? '');
+                    $run = $cronRunSnapshots[$jobKey] ?? ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []];
+                    $runStatus = (string) ($run['status'] ?? 'missing');
+                    $runBadge = $cronStatusBadgeClass($runStatus);
+                    $runAtRaw = isset($run['created_at']) ? (string) $run['created_at'] : null;
+                    $runAt = $runAtRaw ? date('d.m.Y H:i:s', strtotime($runAtRaw) ?: time()) : '-';
+                    $runAgo = $cronAgeLabel($runAtRaw);
+                    ?>
+                    <article class="cron-task-card ui-surface">
+                        <div class="cron-task-head">
+                            <div class="cron-task-title-wrap">
+                                <h4><?= htmlspecialchars((string) ($task['title'] ?? $taskKey)) ?></h4>
+                                <small><?= htmlspecialchars((string) ($task['description'] ?? '')) ?></small>
+                            </div>
+                            <span class="badge <?= htmlspecialchars($runBadge) ?>"><?= htmlspecialchars($cronStatusLabel($runStatus)) ?></span>
+                        </div>
 
-                                            <div class="admin-divider-block mt-4">
-                                                <div class="admin-inline-head ui-panel__head"><i class="bi bi-trophy text-warning"></i> Liderlik Tablosu Görevleri</div>
-                                                <div class="admin-settings-grid-sm ui-grid">
-                                                    <div>
-                                                        <label class="ui-admin-form-label fw-bold">Liderlik Ön Bellek Yenileme (Günlük Örnek)</label>
-                                                        <div class="admin-inline-control">
-                                                            <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="php <?= realpath(__DIR__.'/../cron/update-leaderboard-cache.php') ?> --period=daily" readonly data-ui-select-on-focus>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                                        </div>
-                                                        <small class="text-muted d-block mt-2">Önerilen: <code>*/15 * * * *</code> (15 dakikada bir). Periyot <code>daily, weekly, monthly, quarterly, yearly</code> olabilir.</small>
-                                                    </div>
-                                                    <div>
-                                                        <label class="ui-admin-form-label fw-bold">URL ile Tetikleme (Günlük periyot)</label>
-                                                        <div class="admin-inline-control">
-                                                            <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/cron/update-leaderboard-cache.php?period=daily&secret=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" readonly data-ui-select-on-focus>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                                            <a href="<?= htmlspecialchars($adminPublicBaseUrl) ?>/cron/update-leaderboard-cache.php?period=daily&secret=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Test Et"><i class="bi bi-box-arrow-up-right"></i></a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                        <div class="cron-task-meta">
+                            <span><strong>Plan:</strong> <?= htmlspecialchars((string) ($task['schedule'] ?? '-')) ?></span>
+                            <span><strong>Oneri:</strong> <?= htmlspecialchars((string) ($task['schedule_label'] ?? '-')) ?></span>
+                            <span><strong>Son Calisma:</strong> <?= htmlspecialchars($runAt) ?> (<?= htmlspecialchars($runAgo) ?>)</span>
+                        </div>
 
-                                            <div class="admin-divider-block mt-4">
-                                                <div class="admin-inline-head ui-panel__head"><i class="bi bi-calendar-event text-success"></i> Etkinlik Sistemi Görevleri</div>
-                                                <div class="admin-settings-grid-sm ui-grid">
-                                                    <div>
-                                                        <label class="ui-admin-form-label fw-bold">Etkinlik Sistemi Ana Görevi (Master Cron)</label>
-                                                        <div class="admin-inline-control">
-                                                            <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="php <?= realpath(__DIR__.'/../cron/events-master.php') ?>" readonly data-ui-select-on-focus>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                                        </div>
-                                                        <small class="text-muted d-block mt-2">Önerilen: <code>* * * * *</code> (Her dakika). Tüm etkinlik işlemlerini (Log temizleme, çekiliş sonuçlandırma, ödül iptalleri ve mailler) tek başına sırasıyla yönetir.</small>
-                                                    </div>
-                                                    <div>
-                                                        <label class="ui-admin-form-label fw-bold">URL ile Tetikleme</label>
-                                                        <div class="admin-inline-control">
-                                                            <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/cron/events-master.php?secret=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" readonly data-ui-select-on-focus>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                                            <a href="<?= htmlspecialchars($adminPublicBaseUrl) ?>/cron/events-master.php?secret=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Test Et"><i class="bi bi-box-arrow-up-right"></i></a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                        <div class="cron-task-command-row">
+                            <label class="ui-admin-form-label fw-bold">CLI Komutu</label>
+                            <div class="admin-inline-control">
+                                <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['cli'] ?? '')) ?>" readonly data-ui-select-on-focus>
+                                <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
+                            </div>
+                        </div>
 
-                                        <?php elseif ($cronTabId === 'cron-tab-health'): ?>
-                                            <?php
-                                            $latestCron = null;
-                                            if (isset($pdo)) {
-                                                try {
-                                                    $stmt = $pdo->query("SELECT created_at FROM application_logs WHERE channel = 'cron' ORDER BY id DESC LIMIT 1");
-                                                    $latestCron = $stmt->fetchColumn();
-                                                } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-                                            }
-                                            $isHealthy = false;
-                                            $minutesAgo = -1;
-                                            if ($latestCron) {
-                                                $timeDiff = time() - strtotime($latestCron);
-                                                $minutesAgo = max(0, floor($timeDiff / 60));
-                                                $isHealthy = $timeDiff < 3600; // 1 saat
-                                            }
-                                            ?>
-                                            <div class="alert <?= $isHealthy ? 'alert-success border-success' : 'alert-danger border-danger' ?> d-flex gap-3 align-items-center mt-3">
-                                                <i class="bi <?= $isHealthy ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-danger' ?> fs-1"></i>
-                                                <div>
-                                                    <h5 class="alert-heading mb-1 fw-bold"><?= $isHealthy ? 'Sistem Sağlıklı: Cron Aktif' : 'Uyarı: Cron Çalışmıyor Olabilir' ?></h5>
-                                                    <p class="mb-0">
-                                                        <?php if ($latestCron): ?>
-                                                            Son cron görevi <strong><?= $minutesAgo ?> dakika önce</strong> (<?= date('d.m.Y H:i:s', strtotime($latestCron)) ?>) çalıştı.
-                                                        <?php else: ?>
-                                                            Sistemde henüz kaydedilmiş bir cron logu bulunmuyor.
-                                                        <?php endif; ?>
-                                                    </p>
-                                                    <?php if (!$isHealthy): ?>
-                                                        <hr>
-                                                        <p class="mb-0 small">
-                                                            <strong>Not:</strong> CPanel veya sunucunuzdaki Cron ayarlarını kontrol ediniz. Eğer son 1 saattir hiçbir görev çalışmadıysa Master Cron komutlarınız tetiklenmiyor olabilir.
-                                                        </p>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
+                        <div class="cron-task-command-row">
+                            <label class="ui-admin-form-label fw-bold">URL Endpoint</label>
+                            <div class="admin-inline-control">
+                                <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" readonly data-ui-select-on-focus>
+                                <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
+                                <a href="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Endpoint Ac"><i class="bi bi-box-arrow-up-right"></i></a>
+                            </div>
+                        </div>
 
-                                        <?php elseif ($cronTabId === 'cron-tab-logs'): ?>
-                                            <?php
-                                            $cronLogs = [];
-                                            if (isset($pdo)) {
-                                                try {
-                                                    $stmt = $pdo->query("SELECT * FROM application_logs WHERE channel = 'cron' ORDER BY id DESC LIMIT 50");
-                                                    $cronLogs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                                } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-                                            }
-                                            ?>
-                                            <?php if (empty($cronLogs)): ?>
-                                                <div class="alert alert-warning border-warning mt-3">Henüz kaydedilmiş bir cron logu bulunamadı.</div>
-                                            <?php else: ?>
-                                                <div class="table-responsive mt-3">
-                                                    <table class="ui-admin-table w-100">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Tarih</th>
-                                                                <th>Seviye</th>
-                                                                <th>Mesaj</th>
-                                                                <th>Bağlam (Job/SAPI)</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            <?php foreach ($cronLogs as $log): ?>
-                                                                <?php 
-                                                                $ctx = json_decode($log['context_json'] ?? '{}', true); 
-                                                                $badgeClass = match($log['level']) {
-                                                                    'error' => 'bg-danger',
-                                                                    'warning' => 'bg-warning text-dark',
-                                                                    'success' => 'bg-success',
-                                                                    default => 'bg-secondary'
-                                                                };
-                                                                ?>
-                                                                <tr>
-                                                                    <td class="text-nowrap text-muted ui-admin-width-date"><?= date('d.m.Y H:i:s', strtotime($log['created_at'])) ?></td>
-                                                                    <td class="ui-admin-width-action">
-                                                                        <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars(strtoupper($log['level'])) ?></span>
-                                                                    </td>
-                                                                    <td><strong><?= htmlspecialchars($log['message']) ?></strong></td>
-                                                                    <td class="text-muted small">
-                                                                        <?php if(!empty($ctx['job_key'])): ?>
-                                                                            <span class="badge bg-light text-dark border">Job: <?= htmlspecialchars($ctx['job_key']) ?></span>
-                                                                        <?php endif; ?>
-                                                                        <?php if(!empty($ctx['sapi'])): ?>
-                                                                            <span class="badge bg-light text-dark border">Yöntem: <?= htmlspecialchars($ctx['sapi']) ?></span>
-                                                                        <?php endif; ?>
-                                                                    </td>
-                                                                </tr>
-                                                            <?php endforeach; ?>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            <?php endif; ?>
+                        <div class="cron-task-actions">
+                            <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm" form="cron-trigger-<?= htmlspecialchars($taskKey) ?>">
+                                <i class="bi bi-play-fill"></i> Tetikle
+                            </button>
+                            <a href="logs.php?view=cron&cron_job=<?= urlencode($jobKey) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">
+                                <i class="bi bi-card-list"></i> Cron Loglari
+                            </a>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endforeach; ?>
 
-                                        <?php else: ?>
+<?php elseif ($cronTabId === 'cron-tab-health'): ?>
+    <?php
+    $healthTone = $cronHealthTotal > 0 && $cronHealthOkCount === $cronHealthTotal ? 'success' : ($cronHealthOkCount > 0 ? 'warning' : 'danger');
+    $healthTitle = $healthTone === 'success'
+        ? 'Tum cron gorevleri saglikli gorunuyor'
+        : ($healthTone === 'warning' ? 'Bazi cron gorevleri kontrol edilmeli' : 'Cron gorevlerinde acil kontrol gerekiyor');
+    ?>
+    <div class="alert alert-<?= htmlspecialchars($healthTone) ?> border-<?= htmlspecialchars($healthTone) ?> d-flex gap-3 align-items-start mt-2">
+        <i class="bi <?= $healthTone === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' ?> fs-4"></i>
+        <div>
+            <strong><?= htmlspecialchars($healthTitle) ?></strong><br>
+            Toplam <?= (int) $cronHealthTotal ?> gorevden <?= (int) $cronHealthOkCount ?> tanesi son kaydina gore basarili.
+            <?php if ($cronLatestAt): ?>
+                Son cron hareketi: <?= htmlspecialchars(date('d.m.Y H:i:s', strtotime((string) $cronLatestAt) ?: time())) ?>.
+            <?php else: ?>
+                Henuz cron kaydi gorunmuyor.
+            <?php endif; ?>
+            <br><a href="logs.php?view=cron">Cron loglarini ac</a>
+        </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+        <table class="ui-admin-table w-100">
+            <thead>
+                <tr>
+                    <th>Gorev</th>
+                    <th>Job Key</th>
+                    <th>Plan</th>
+                    <th>Durum</th>
+                    <th>Son Calisma</th>
+                    <th>Log</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($cronHealthRows as $healthRow): ?>
+                    <?php
+                    $rowStatus = (string) ($healthRow['status'] ?? 'missing');
+                    $rowBadge = $cronStatusBadgeClass($rowStatus);
+                    $rowAtRaw = isset($healthRow['created_at']) ? (string) $healthRow['created_at'] : null;
+                    $rowAt = $rowAtRaw ? date('d.m.Y H:i:s', strtotime($rowAtRaw) ?: time()) : '-';
+                    ?>
+                    <tr>
+                        <td><?= htmlspecialchars((string) ($healthRow['title'] ?? '')) ?></td>
+                        <td><code><?= htmlspecialchars((string) ($healthRow['job_key'] ?? '')) ?></code></td>
+                        <td><?= htmlspecialchars((string) ($healthRow['schedule_label'] ?? '-')) ?></td>
+                        <td><span class="badge <?= htmlspecialchars($rowBadge) ?>"><?= htmlspecialchars($cronStatusLabel($rowStatus)) ?></span></td>
+                        <td><?= htmlspecialchars($rowAt) ?><?php if ($rowAtRaw): ?> <small>(<?= htmlspecialchars($cronAgeLabel($rowAtRaw)) ?>)</small><?php endif; ?></td>
+                        <td><a href="logs.php?view=cron&cron_job=<?= urlencode((string) ($healthRow['job_key'] ?? '')) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Ac</a></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+<?php else: ?>
                                             <div class="admin-settings-grid ui-grid">
                                                 <?php foreach (($cronGroup['keys'] ?? []) as $key): ?>
                                                     <?php if (!isset($definitions[$key])) { continue; } ?>
@@ -1576,6 +1938,15 @@ require_once __DIR__ . '/header.php';
                                 </div>
                             <?php $userSystemFirst = false; endforeach; ?>
                         <?php elseif ($id === 'rate_limit'): ?>
+                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
+                                <i class="bi bi-info-circle"></i>
+                                <div>
+                                    <strong>Hizli Kullanim:</strong>
+                                    Limit, pencere suresi icinde izin verilen maksimum istek sayisidir.
+                                    Pencere (dakika), bu sayacin ne kadar sure sonra sifirlanacagini belirler.
+                                    Ornek: Limit 5 + Pencere 15 = 15 dakikada en fazla 5 istek.
+                                </div>
+                            </div>
                             <div class="rate-limit-subtabs">
                                 <?php $rateFirst = true; foreach ($rateLimitGroups as $rateTabId => $rateGroup): ?>
                                     <button type="button" class="rate-limit-subtab-btn<?= $rateFirst ? ' active' : '' ?>" data-rate-tab="<?= htmlspecialchars($rateTabId) ?>">
@@ -2014,6 +2385,14 @@ require_once __DIR__ . '/header.php';
         </button>
     </div>
 </form>
+
+<?php foreach ($cronTaskCatalog as $cronTaskKey => $cronTaskMeta): ?>
+    <form method="post" action="settings.php#cron" id="cron-trigger-<?= htmlspecialchars((string) $cronTaskKey) ?>" class="ui-admin-hidden">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="trigger_cron">
+        <input type="hidden" name="cron_task" value="<?= htmlspecialchars((string) $cronTaskKey) ?>">
+    </form>
+<?php endforeach; ?>
 
 <script src="<?= asset_url('admin/assets/settings-page-main.js', $baseUri) ?>" defer></script>
 

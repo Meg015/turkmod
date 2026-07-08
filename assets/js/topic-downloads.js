@@ -346,7 +346,7 @@
                 '<button type="button" class="topic-download-auth-submit" data-download-auth-submit="login">' + state.authLoginLabel + '</button>' +
             '</div>' +
             '<div class="topic-download-auth-pane" data-download-auth-pane="register" hidden>' +
-                '<label><span>Isim</span><input type="text" name="name" autocomplete="name"></label>' +
+                '<label><span>Kullanici adi</span><input type="text" name="username" autocomplete="username"></label>' +
                 '<label><span>E-posta</span><input type="email" name="email" autocomplete="email"></label>' +
                 '<label><span>Sifre</span><input type="password" name="password" autocomplete="new-password"></label>' +
                 '<label><span>Sifre tekrar</span><input type="password" name="password_confirm" autocomplete="new-password"></label>' +
@@ -481,7 +481,7 @@
             payload.password = modalFieldValue(state.modal, 'login', 'password');
             payload.remember_session = modalFieldValue(state.modal, 'login', 'remember_session') === '1' ? 1 : 0;
         } else {
-            payload.name = modalFieldValue(state.modal, 'register', 'name');
+            payload.username = modalFieldValue(state.modal, 'register', 'username');
             payload.email = modalFieldValue(state.modal, 'register', 'email');
             payload.password = modalFieldValue(state.modal, 'register', 'password');
             payload.password_confirm = modalFieldValue(state.modal, 'register', 'password_confirm');
@@ -496,8 +496,8 @@
             setModalFeedback(state, 'Sifre zorunludur.', 'warning');
             return;
         }
-        if (action === 'register' && !payload.name) {
-            setModalFeedback(state, 'Isim zorunludur.', 'warning');
+        if (action === 'register' && !payload.username) {
+            setModalFeedback(state, 'Kullanici adi zorunludur.', 'warning');
             return;
         }
         if (action === 'register' && !payload.email) {

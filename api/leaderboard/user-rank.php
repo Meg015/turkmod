@@ -54,7 +54,7 @@ if ($period !== null) {
 
 try {
     // Check if user exists
-    $stmt = $pdo->prepare("SELECT name FROM users WHERE id = ? AND status = 'active'");
+    $stmt = $pdo->prepare("SELECT username FROM users WHERE id = ? AND status = 'active'");
     $stmt->execute([$userId]);
     $user = $stmt->fetch();
 
@@ -67,7 +67,7 @@ try {
 
     sendSuccess('OK', [
         'user_id' => $userId,
-        'username' => $user['name'],
+        'username' => (string) ($user['username'] ?? ''),
         'ranks' => $rankData['ranks'],
     ]);
 } catch (Throwable $e) {

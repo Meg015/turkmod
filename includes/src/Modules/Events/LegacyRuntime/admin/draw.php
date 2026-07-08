@@ -34,8 +34,8 @@ if ($ready) {
                 $ongoingCandidates[] = $raffle;
             }
         }
-        $recentDraws = $pdo->query("SELECT d.*, r.name AS raffle_name, r.start_date, r.end_date, u.name AS drawn_by_name,
-                (SELECT GROUP_CONCAT(wu.name SEPARATOR ', ') FROM events_raffle_winners w LEFT JOIN users wu ON wu.id = w.user_id WHERE w.draw_id = d.id) AS winner_names
+        $recentDraws = $pdo->query("SELECT d.*, r.name AS raffle_name, r.start_date, r.end_date, u.username AS drawn_by_name,
+                (SELECT GROUP_CONCAT(wu.username SEPARATOR ', ') FROM events_raffle_winners w LEFT JOIN users wu ON wu.id = w.user_id WHERE w.draw_id = d.id) AS winner_names
             FROM events_raffle_draws d
             LEFT JOIN events_raffles r ON r.id = d.raffle_id
             LEFT JOIN users u ON u.id = d.drawn_by

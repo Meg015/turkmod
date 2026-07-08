@@ -142353,13 +142353,13 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row {
 
   display: grid !important;
 
-  grid-template-columns: 30px max-content minmax(0, max-content);
+  grid-template-columns: 30px 118px minmax(0, 1fr);
 
   gap: 8px;
 
   justify-content: start;
 
-  align-items: center;
+  align-items: start;
 
   min-height: 54px;
 
@@ -142405,6 +142405,8 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row i {
 
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--t-primary) 16%, transparent);
 
+  align-self: center;
+
 }
 
 
@@ -142419,9 +142421,9 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row span {
 
   font-weight: 700 !important;
 
-  line-height: 1.1;
-
   text-transform: uppercase;
+
+  white-space: nowrap;
 
 }
 
@@ -142448,6 +142450,8 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row strong 
   line-height: 1.18;
 
   overflow-wrap: anywhere;
+
+  text-align: left;
 
 }
 
@@ -143715,7 +143719,7 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .ui-comment-empty-stat
 
   html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row {
 
-    grid-template-columns: 30px max-content minmax(0, max-content);
+    grid-template-columns: 30px 118px minmax(0, 1fr);
 
     min-height: 52px;
 
@@ -158466,6 +158470,7 @@ html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .comment-excerpt {
   word-break: break-word;
   hyphens: auto;
 }
+
 
 
 

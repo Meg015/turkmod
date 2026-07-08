@@ -59,6 +59,14 @@ try {
 
     $total = adminQualityCountScannableTopics($pdo);
     if ($total === 0) {
+        if (function_exists('recordCronRun')) {
+            recordCronRun($pdo, 'topic_health_scan', 'skipped', [
+                'reason' => 'no_scannable_topics',
+                'limit' => $limit,
+                'offset' => $offset,
+                'total' => 0,
+            ]);
+        }
         echo "No topics require a health scan at this moment.\n";
         exit(0);
     }
@@ -84,10 +92,25 @@ try {
         ]);
         echo "All scannable topics are up to date.\n";
     }
+
+    if (function_exists('recordCronRun')) {
+        recordCronRun($pdo, 'topic_health_scan', 'success', [
+            'total' => $total,
+            'processed_batch' => $processed,
+            'limit' => $limit,
+            'offset' => $offset,
+            'remaining' => max(0, $total - ($offset + $processed)),
+        ]);
+    }
     
     exit(0);
 } catch (Throwable $e) {
     fwrite(STDERR, "Topic health scan failed: " . $e->getMessage() . "\n");
+    if (function_exists('recordCronRun')) {
+        recordCronRun($pdo ?? null, 'topic_health_scan', 'error', [
+            'error' => $e->getMessage(),
+        ]);
+    }
     if (function_exists('appLogException')) {
         appLogException($e, ['source' => 'cron/topic-health-scan.php']);
     }

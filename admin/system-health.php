@@ -168,6 +168,235 @@ function healthTailLines(string $file, int $lineLimit = 250, int $byteLimit = 26
     return array_slice($lines, -$lineLimit);
 }
 
+function healthRuntimeLogLevel(string $line): ?string
+{
+    if (preg_match('~critical|fatal|exception|uncaught|undefined function~i', $line) === 1) {
+        return 'critical';
+    }
+    if (preg_match('~error|warning|sqlstate|activity logging failed~i', $line) === 1) {
+        return 'error';
+    }
+
+    return null;
+}
+
+function healthRuntimeLogEntries(string $root, int $limit = 40): array
+{
+    $logDir = $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs';
+    if (!is_dir($logDir)) {
+        return [];
+    }
+
+    $files = [];
+    foreach (['critical-*.log', 'error-*.log', 'app-*.log', 'api_*.log'] as $pattern) {
+        foreach (glob($logDir . DIRECTORY_SEPARATOR . $pattern) ?: [] as $file) {
+            $files[$file] = $file;
+        }
+    }
+    if ($files === []) {
+        return [];
+    }
+
+    usort($files, static fn (string $a, string $b): int => (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0));
+    $entries = [];
+
+    foreach (array_slice($files, 0, 10) as $file) {
+        $fileMtime = filemtime($file) ?: null;
+        foreach (healthTailLines($file, 360) as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') {
+                continue;
+            }
+            if (preg_match('~^(?:stack trace:|#\d+\s|[-]{3,})~i', $trimmed) === 1) {
+                continue;
+            }
+
+            $level = healthRuntimeLogLevel($trimmed);
+            if ($level === null) {
+                continue;
+            }
+
+            $timestamp = null;
+            $message = $trimmed;
+            $decoded = json_decode($trimmed, true);
+            if (is_array($decoded)) {
+                $timestamp = strtotime((string) ($decoded['ts'] ?? $decoded['time'] ?? '')) ?: null;
+                $message = trim((string) ($decoded['msg'] ?? $decoded['message'] ?? $trimmed));
+            } elseif (preg_match('/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $trimmed, $matches) === 1) {
+                $timestamp = strtotime($matches[1]) ?: null;
+            } elseif (preg_match('/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/', $trimmed, $matches) === 1) {
+                $timestamp = strtotime($matches[1]) ?: null;
+            }
+
+            $timestamp ??= $fileMtime;
+            if ($timestamp === null) {
+                continue;
+            }
+
+            $entries[] = [
+                'timestamp' => (int) $timestamp,
+                'level' => $level,
+                'file' => basename($file),
+                'message' => mb_substr($message !== '' ? $message : $trimmed, 0, 240, 'UTF-8'),
+            ];
+        }
+    }
+
+    usort($entries, static fn (array $a, array $b): int => ((int) $b['timestamp']) <=> ((int) $a['timestamp']));
+    if (count($entries) > $limit) {
+        $entries = array_slice($entries, 0, $limit);
+    }
+
+    return $entries;
+}
+
+function healthApplicationErrorLevels(): array
+{
+    return ['emergency', 'alert', 'critical', 'error', 'warning'];
+}
+
+function healthApplicationErrorTone(string $level): string
+{
+    $normalized = strtolower(trim($level));
+    if (in_array($normalized, ['emergency', 'alert', 'critical', 'error'], true)) {
+        return 'bad';
+    }
+
+    return 'warn';
+}
+
+function healthApplicationErrorContext(?string $contextJson): string
+{
+    $raw = trim((string) $contextJson);
+    if ($raw === '') {
+        return '';
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded) || $decoded === []) {
+        return mb_substr($raw, 0, 220, 'UTF-8');
+    }
+
+    $parts = [];
+    foreach (['file', 'line', 'url', 'route', 'method', 'request_id', 'code'] as $key) {
+        if (array_key_exists($key, $decoded) && is_scalar($decoded[$key])) {
+            $parts[] = $key . '=' . (string) $decoded[$key];
+        }
+        if (count($parts) >= 3) {
+            break;
+        }
+    }
+
+    if ($parts === []) {
+        foreach ($decoded as $key => $value) {
+            if (is_scalar($value)) {
+                $parts[] = (string) $key . '=' . (string) $value;
+            }
+            if (count($parts) >= 3) {
+                break;
+            }
+        }
+    }
+
+    return mb_substr(implode(' | ', $parts), 0, 220, 'UTF-8');
+}
+
+function healthApplicationErrorChannels(?PDO $pdo): array
+{
+    if (!$pdo || !healthTableExists($pdo, 'application_logs')) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->query("
+            SELECT DISTINCT channel
+            FROM application_logs
+            WHERE level IN ('emergency','alert','critical','error','warning')
+              AND channel IS NOT NULL
+              AND channel <> ''
+            ORDER BY channel ASC
+        ");
+        return $stmt ? ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: []) : [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function healthApplicationErrorFeed(
+    ?PDO $pdo,
+    string $search = '',
+    string $level = '',
+    string $channel = '',
+    int $page = 1,
+    int $perPage = 20
+): array {
+    $safePage = max(1, $page);
+    $safePerPage = max(10, min(100, $perPage));
+    $result = ['total' => 0, 'page' => $safePage, 'perPage' => $safePerPage, 'items' => []];
+    if (!$pdo || !healthTableExists($pdo, 'application_logs')) {
+        return $result;
+    }
+
+    $allowedLevels = healthApplicationErrorLevels();
+    $normalizedLevel = strtolower(trim($level));
+    if ($normalizedLevel !== '' && !in_array($normalizedLevel, $allowedLevels, true)) {
+        $normalizedLevel = '';
+    }
+
+    $where = ["level IN ('emergency','alert','critical','error','warning')"];
+    $params = [];
+
+    if ($search !== '') {
+        $where[] = "(message LIKE :search OR channel LIKE :search OR ip_address LIKE :search)";
+        $params['search'] = '%' . $search . '%';
+    }
+    if ($normalizedLevel !== '') {
+        $where[] = 'level = :level';
+        $params['level'] = $normalizedLevel;
+    }
+    if ($channel !== '') {
+        $where[] = 'channel = :channel';
+        $params['channel'] = $channel;
+    }
+
+    $whereSql = implode(' AND ', $where);
+    $offset = ($safePage - 1) * $safePerPage;
+
+    try {
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM application_logs WHERE {$whereSql}");
+        foreach ($params as $key => $value) {
+            $countStmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
+        }
+        $countStmt->execute();
+        $result['total'] = (int) $countStmt->fetchColumn();
+
+        $stmt = $pdo->prepare("
+            SELECT id, level, channel, message, context_json, ip_address, created_at
+            FROM application_logs
+            WHERE {$whereSql}
+            ORDER BY created_at DESC, id DESC
+            LIMIT :limit
+            OFFSET :offset
+        ");
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limit', $safePerPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $result['items'] = array_map(static function (array $row): array {
+            $row['context_excerpt'] = healthApplicationErrorContext((string) ($row['context_json'] ?? ''));
+            return $row;
+        }, $items);
+    } catch (Throwable $e) {
+        return $result;
+    }
+
+    return $result;
+}
+
 function healthTableExists(?PDO $pdo, string $table): bool
 {
     if (!$pdo || $table === '') {
@@ -515,6 +744,14 @@ $sections = [
 
 $activeTab = (string) ($_GET['tab'] ?? 'overview');
 $activeTab = array_key_exists($activeTab, $sections) ? $activeTab : 'overview';
+$logsSubtabs = [
+    'summary' => ['Loglar & Hatalar', 'bi-journal-text'],
+    'center' => ['Hata Merkezi', 'bi-exclamation-octagon'],
+];
+$logsView = (string) ($_GET['logs_view'] ?? 'summary');
+if (!array_key_exists($logsView, $logsSubtabs)) {
+    $logsView = 'summary';
+}
 
 $envConfig = $envConfig ?? [];
 $appEnv = strtolower((string) ($envConfig['APP_ENV'] ?? 'local'));
@@ -566,6 +803,51 @@ if ($loadQueueSection) {
 $runtimeLogSummary = $loadLogSection
     ? healthRuntimeLogSummary($root)
     : ['files' => 0, 'critical' => 0, 'errors' => 0, 'latest' => 'canlı hızlı görünümde log özeti atlandı'];
+$logSearch = trim((string) ($_GET['log_q'] ?? ''));
+$logLevel = strtolower(trim((string) ($_GET['log_level'] ?? '')));
+$logChannel = trim((string) ($_GET['log_channel'] ?? ''));
+$runtimePage = max(1, (int) ($_GET['runtime_page'] ?? 1));
+$appPage = max(1, (int) ($_GET['app_page'] ?? 1));
+$runtimePerPage = 15;
+$appPerPage = 20;
+$logAllowedLevels = healthApplicationErrorLevels();
+if ($logLevel !== '' && !in_array($logLevel, $logAllowedLevels, true)) {
+    $logLevel = '';
+}
+$runtimeLogEntries = $loadLogSection ? healthRuntimeLogEntries($root, 45) : [];
+$runtimeTotalRows = count($runtimeLogEntries);
+$runtimeTotalPages = max(1, (int) ceil($runtimeTotalRows / max(1, $runtimePerPage)));
+$runtimePage = min($runtimePage, $runtimeTotalPages);
+$runtimeOffset = ($runtimePage - 1) * $runtimePerPage;
+$runtimePageItems = array_slice($runtimeLogEntries, $runtimeOffset, $runtimePerPage);
+$applicationErrorChannels = $loadLogSection ? healthApplicationErrorChannels($pdo) : [];
+if ($logChannel !== '' && !in_array($logChannel, $applicationErrorChannels, true)) {
+    $applicationErrorChannels[] = $logChannel;
+    sort($applicationErrorChannels);
+}
+$applicationErrorFeed = $loadLogSection
+    ? healthApplicationErrorFeed($pdo, $logSearch, $logLevel, $logChannel, $appPage, $appPerPage)
+    : ['total' => 0, 'page' => 1, 'perPage' => $appPerPage, 'items' => []];
+$appTotalRows = max(0, (int) ($applicationErrorFeed['total'] ?? 0));
+$appCurrentPerPage = max(1, (int) ($applicationErrorFeed['perPage'] ?? $appPerPage));
+$appTotalPages = max(1, (int) ceil($appTotalRows / $appCurrentPerPage));
+if ($loadLogSection && $appPage > $appTotalPages) {
+    $appPage = $appTotalPages;
+    $applicationErrorFeed = healthApplicationErrorFeed($pdo, $logSearch, $logLevel, $logChannel, $appPage, $appCurrentPerPage);
+}
+$logHasFilters = $logSearch !== '' || $logLevel !== '' || $logChannel !== '';
+$logsSubtabBaseParams = ['tab' => 'logs'];
+$logsSummaryUrl = 'system-health.php?' . http_build_query($logsSubtabBaseParams + ['logs_view' => 'summary']);
+$logsCenterBaseParams = array_filter([
+    'tab' => 'logs',
+    'logs_view' => 'center',
+    'log_q' => $logSearch,
+    'log_level' => $logLevel,
+    'log_channel' => $logChannel,
+], static fn ($value): bool => $value !== '' && $value !== null);
+$logsCenterUrl = 'system-health.php?' . http_build_query($logsCenterBaseParams);
+$runtimePageBase = 'system-health.php?' . http_build_query($logsCenterBaseParams + ['app_page' => $appPage]) . '&runtime_page=';
+$appPageBase = 'system-health.php?' . http_build_query($logsCenterBaseParams + ['runtime_page' => $runtimePage]) . '&app_page=';
 $coreTables = ['users', 'user_groups', 'user_group_members', 'user_group_permissions', 'categories', 'topics', 'media_files', 'admin_settings', 'activity_logs', 'application_logs', 'request_rate_limits'];
 $missingCoreTables = [];
 foreach ($coreTables as $table) {
@@ -638,6 +920,7 @@ $rateLimitHelperReady = function_exists('checkRateLimit')
 $cronScriptPaths = [
     'Bildirim e-posta' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'send-notification-email-queue.php',
     'Liderlik cache' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'update-leaderboard-cache.php',
+    'Rate limit cleanup' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'cleanup-expired-rate-limits.php',
     'Etkinlik Ana Cron' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'events-master.php',
 ];
 $missingCronScripts = [];
@@ -650,11 +933,13 @@ $cronRuns = $loadQueueSection
     ? [
         'notification_email_queue' => healthCronLastRun($pdo, 'notification_email_queue'),
         'leaderboard_cache' => healthCronLastRun($pdo, 'leaderboard_cache'),
+        'rate_limits_cleanup' => healthCronLastRun($pdo, 'rate_limits_cleanup'),
         'events_master' => healthCronLastRun($pdo, 'events_master'),
     ]
     : [
         'notification_email_queue' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
         'leaderboard_cache' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
+        'rate_limits_cleanup' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
         'events_master' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
     ];
 
@@ -708,10 +993,10 @@ $checks = [
     healthRow('database', 'Legacy rate_limits kullanımı', $loadDatabaseSection ? $legacyRateLimitRows === 0 : true, $loadDatabaseSection ? ($legacyRateLimitRows === 0 ? 'aktif eski kayıt yok' : $legacyRateLimitRows . ' eski tablo kaydı var; runtime request_rate_limits ile izlenmeli') : 'canlı hızlı görünümde sayım atlandı', $loadDatabaseSection ? 'warning' : 'info', $baseUri . '/admin/rate-limits.php', 'İzle'),
 
     healthRow('logs', 'Runtime kritik loglar', (int) $runtimeLogSummary['critical'] === 0, (int) $runtimeLogSummary['critical'] === 0 ? 'son kayıtlarda kritik hata yok' : $runtimeLogSummary['critical'] . ' kritik sinyal; son: ' . $runtimeLogSummary['latest']),
-    healthRow('logs', 'Runtime hata logları', (int) $runtimeLogSummary['errors'] === 0, (int) $runtimeLogSummary['errors'] === 0 ? $runtimeLogSummary['files'] . ' log dosyası tarandı' : $runtimeLogSummary['errors'] . ' hata/uyarı sinyali; son: ' . $runtimeLogSummary['latest'], 'warning', $baseUri . '/admin/logs.php', 'Loglar'),
-    healthRow('logs', 'Uygulama hataları 24s', $appErrors24h === 0, $appErrors24h . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/logs.php', 'Loglar'),
-    healthRow('logs', 'Uygulama hataları 7g', $appErrors7d === 0, $appErrors7d . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/logs.php', 'Loglar'),
-    healthRow('logs', 'Son uygulama logu', true, $latestAppLog, 'info', $baseUri . '/admin/logs.php', 'Loglar'),
+    healthRow('logs', 'Runtime hata logları', (int) $runtimeLogSummary['errors'] === 0, (int) $runtimeLogSummary['errors'] === 0 ? $runtimeLogSummary['files'] . ' log dosyası tarandı' : $runtimeLogSummary['errors'] . ' hata/uyarı sinyali; son: ' . $runtimeLogSummary['latest'], 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
+    healthRow('logs', 'Uygulama hataları 24s', $appErrors24h === 0, $appErrors24h . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
+    healthRow('logs', 'Uygulama hataları 7g', $appErrors7d === 0, $appErrors7d . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
+    healthRow('logs', 'Son uygulama logu', true, $latestAppLog, 'info', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
     healthRow('logs', 'Bugünkü aktivite', true, $activityToday . ' işlem kaydı', 'info', $baseUri . '/admin/action-log.php', 'İşlem Günlüğü'),
 
     healthRow('queues', 'E-posta kuyruğu', $emailFailed === 0, $emailQueued . ' bekleyen/işlenen, ' . $emailFailed . ' başarısız', 'warning', $baseUri . '/admin/notifications.php?tab=logs', 'Bildirimler'),
@@ -720,6 +1005,7 @@ $checks = [
     healthRow('queues', 'Son e-posta hatası', $emailFailed === 0, $latestFailedEmail, 'warning', $baseUri . '/admin/notifications.php?tab=logs&email=failed', 'Hatalılar'),
     healthRow('queues', 'Bildirim e-posta cron', healthCronIsFresh($cronRuns['notification_email_queue'], 30, $notificationEmailEnabled), $notificationEmailEnabled ? healthCronDetail($cronRuns['notification_email_queue'], 'cron kaydı yok; worker çalışmıyor olabilir') : 'e-posta kuyruğu kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/notifications.php', 'Bildirimler'),
     healthRow('queues', 'Liderlik cron', healthCronIsFresh($cronRuns['leaderboard_cache'], 1440, true), healthCronDetail($cronRuns['leaderboard_cache'], 'son 24 saat için cron kaydı yok'), 'warning', $baseUri . '/admin/leaderboard.php', 'Liderlik'),
+    healthRow('queues', 'Rate limit cleanup cron', healthCronIsFresh($cronRuns['rate_limits_cleanup'], 180, true), healthCronDetail($cronRuns['rate_limits_cleanup'], 'son 3 saat içinde cron kaydı yok; expired rate limit kayıtları birikiyor olabilir'), 'warning', $baseUri . '/admin/rate-limits.php?status=expired', 'Temizle'),
     healthRow('queues', 'Etkinlik e-posta kuyruğu', $eventsEmailFailed === 0, $eventsEmailPending . ' bekleyen, ' . $eventsEmailFailed . ' hatalı', 'warning', $baseUri . '/admin/events.php?tab=settings', 'Etkinlikler'),
     healthRow('queues', 'Etkinlik Ana Cron', healthCronIsFresh($cronRuns['events_master'], 30, $eventsSystemEnabled), $eventsSystemEnabled ? healthCronDetail($cronRuns['events_master'], 'son 30 dakika içinde cron kaydı yok; master cron çalışmıyor olabilir') : 'events sistemi kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/events.php', 'Etkinlikler'),
 
@@ -836,6 +1122,20 @@ require_once __DIR__ . '/header.php';
         <?php endforeach; ?>
     </nav>
 
+    <?php if ($activeTab === 'logs'): ?>
+    <nav class="site-subtabs health-log-subtabs" aria-label="Loglar ve hatalar alt sekmeleri">
+        <a class="site-subtab-link logs-subtab-link <?= $logsView === 'summary' ? 'active' : '' ?>" href="<?= htmlspecialchars($logsSummaryUrl, ENT_QUOTES, 'UTF-8') ?>">
+            <i class="bi bi-journal-text"></i>
+            <span>Loglar & Hatalar</span>
+        </a>
+        <a class="site-subtab-link logs-subtab-link <?= $logsView === 'center' ? 'active' : '' ?>" href="<?= htmlspecialchars($logsCenterUrl, ENT_QUOTES, 'UTF-8') ?>">
+            <i class="bi bi-exclamation-octagon"></i>
+            <span>Hata Merkezi</span>
+        </a>
+    </nav>
+    <?php endif; ?>
+
+    <?php if ($activeTab !== 'logs' || $logsView === 'summary'): ?>
     <section class="admin-card health-panel ui-panel">
         <div class="health-panel-head">
             <div>
@@ -883,6 +1183,205 @@ require_once __DIR__ . '/header.php';
             </div>
         <?php endif; ?>
     </section>
+    <?php endif; ?>
+
+    <?php if ($activeTab === 'logs' && $logsView === 'center'): ?>
+    <section class="admin-card health-log-center ui-panel">
+        <div class="health-panel-head">
+            <div>
+                <h2>Hata Merkezi</h2>
+                <p>Runtime ve uygulama hatalarini tek ekranda izleyin, filtreleyin ve aksiyon alin.</p>
+            </div>
+            <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="<?= htmlspecialchars((string) $baseUri . '/admin/application-logs.php', ENT_QUOTES, 'UTF-8') ?>">
+                <i class="bi bi-journal-code"></i> Tum Uygulama Loglari
+            </a>
+        </div>
+
+        <div class="health-log-center-body">
+            <div class="admin-stat-grid health-log-summary ui-grid">
+                <div class="admin-stat-card stat-danger health-log-stat ui-card">
+                    <div class="stat-icon"><i class="bi bi-exclamation-octagon"></i></div>
+                    <div class="stat-content"><span class="stat-label">Runtime Critical</span><span class="stat-value"><?= number_format((int) ($runtimeLogSummary['critical'] ?? 0)) ?></span></div>
+                </div>
+                <div class="admin-stat-card stat-warning health-log-stat ui-card">
+                    <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                    <div class="stat-content"><span class="stat-label">Runtime Error</span><span class="stat-value"><?= number_format((int) ($runtimeLogSummary['errors'] ?? 0)) ?></span></div>
+                </div>
+                <div class="admin-stat-card stat-danger health-log-stat ui-card">
+                    <div class="stat-icon"><i class="bi bi-calendar2-day"></i></div>
+                    <div class="stat-content"><span class="stat-label">Uygulama Hata (24s)</span><span class="stat-value"><?= number_format((int) $appErrors24h) ?></span></div>
+                </div>
+                <div class="admin-stat-card stat-warning health-log-stat ui-card">
+                    <div class="stat-icon"><i class="bi bi-calendar2-week"></i></div>
+                    <div class="stat-content"><span class="stat-label">Uygulama Hata (7g)</span><span class="stat-value"><?= number_format((int) $appErrors7d) ?></span></div>
+                </div>
+            </div>
+
+            <div class="admin-card ui-panel health-log-filter-panel">
+                <div class="card-header logs-toolbar-head ui-panel__head">
+                    <form method="get" action="system-health.php" class="logs-filter-form health-log-filter-form">
+                        <input type="hidden" name="tab" value="logs">
+                        <input type="hidden" name="logs_view" value="center">
+                        <input type="text" name="log_q" class="ui-admin-form-control" placeholder="Mesaj, kanal veya IP ara..." value="<?= htmlspecialchars($logSearch, ENT_QUOTES, 'UTF-8') ?>">
+                        <select name="log_level" class="ui-admin-form-select">
+                            <option value="">Tum Seviyeler</option>
+                            <?php foreach ($logAllowedLevels as $levelOption): ?>
+                                <option value="<?= htmlspecialchars((string) $levelOption, ENT_QUOTES, 'UTF-8') ?>" <?= $logLevel === (string) $levelOption ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars(strtoupper((string) $levelOption), ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <select name="log_channel" class="ui-admin-form-select">
+                            <option value="">Tum Kanallar</option>
+                            <?php foreach ($applicationErrorChannels as $channelOption): ?>
+                                <option value="<?= htmlspecialchars((string) $channelOption, ENT_QUOTES, 'UTF-8') ?>" <?= $logChannel === (string) $channelOption ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars((string) $channelOption, ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-search"></i> Filtrele</button>
+                        <?php if ($logHasFilters): ?>
+                            <a href="system-health.php?tab=logs&logs_view=center" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Temizle</a>
+                        <?php endif; ?>
+                    </form>
+                </div>
+            </div>
+
+            <div class="health-log-grid">
+                <article class="admin-card ui-panel health-log-block">
+                    <div class="card-header ui-panel__head health-log-block-head">
+                        <h3><i class="bi bi-activity"></i> Runtime Hata Akisi</h3>
+                        <span class="ui-admin-badge ui-admin-badge-muted"><?= number_format(count($runtimeLogEntries), 0, ',', '.') ?> kayit</span>
+                    </div>
+                    <div class="health-log-table-wrap">
+                        <table class="health-table health-log-table">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Seviye</th>
+                                    <th>Dosya</th>
+                                    <th>Mesaj</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if ($runtimeTotalRows === 0): ?>
+                                    <tr>
+                                        <td colspan="4" class="health-log-empty">Runtime log dosyalarinda hata sinyali bulunmadi.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($runtimePageItems as $runtimeRow): ?>
+                                        <?php
+                                        $runtimeTone = ((string) ($runtimeRow['level'] ?? '') === 'critical') ? 'bad' : 'warn';
+                                        $runtimeLevel = strtoupper((string) ($runtimeRow['level'] ?? 'error'));
+                                        $runtimeTs = (int) ($runtimeRow['timestamp'] ?? 0);
+                                        ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($runtimeTs > 0 ? date('d.m.Y H:i:s', $runtimeTs) : '-', ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><span class="health-badge <?= htmlspecialchars($runtimeTone, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($runtimeLevel, ENT_QUOTES, 'UTF-8') ?></span></td>
+                                            <td class="health-log-file"><?= htmlspecialchars((string) ($runtimeRow['file'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td class="health-log-message"><?= htmlspecialchars((string) ($runtimeRow['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php if ($runtimeTotalPages > 1): ?>
+                        <div class="pagination-wrapper">
+                            <div class="pagination">
+                                <?php if ($runtimePage > 1): ?>
+                                    <a href="<?= htmlspecialchars($runtimePageBase . ($runtimePage - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki"><i class="bi bi-chevron-left"></i></a>
+                                <?php endif; ?>
+
+                                <?php for ($i = max(1, $runtimePage - 2); $i <= min($runtimeTotalPages, $runtimePage + 2); $i++): ?>
+                                    <a href="<?= htmlspecialchars($runtimePageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $runtimePage ? 'active' : '' ?>"><?= $i ?></a>
+                                <?php endfor; ?>
+
+                                <?php if ($runtimePage < $runtimeTotalPages): ?>
+                                    <a href="<?= htmlspecialchars($runtimePageBase . ($runtimePage + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </article>
+
+                <article class="admin-card ui-panel health-log-block">
+                    <div class="card-header ui-panel__head health-log-block-head">
+                        <h3><i class="bi bi-journal-code"></i> Uygulama Hata Kayitlari</h3>
+                        <span class="ui-admin-badge ui-admin-badge-muted">
+                            <?= number_format((int) ($applicationErrorFeed['total'] ?? 0), 0, ',', '.') ?> toplam
+                            <?php if ((int) ($applicationErrorFeed['total'] ?? 0) > count($applicationErrorFeed['items'] ?? [])): ?>
+                                / <?= number_format(count($applicationErrorFeed['items'] ?? []), 0, ',', '.') ?> gosterim
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <div class="health-log-table-wrap">
+                        <table class="health-table health-log-table">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Seviye</th>
+                                    <th>Kanal</th>
+                                    <th>Mesaj</th>
+                                    <th>Detay</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($applicationErrorFeed['items'])): ?>
+                                    <tr>
+                                        <td colspan="5" class="health-log-empty">Filtreye uyan uygulama hata kaydi yok.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($applicationErrorFeed['items'] as $appRow): ?>
+                                        <?php
+                                        $appLevel = (string) ($appRow['level'] ?? '');
+                                        $appTone = healthApplicationErrorTone($appLevel);
+                                        $appDateRaw = (string) ($appRow['created_at'] ?? '');
+                                        $appDate = $appDateRaw !== '' ? (strtotime($appDateRaw) ?: null) : null;
+                                        $contextExcerpt = trim((string) ($appRow['context_excerpt'] ?? ''));
+                                        $ipAddress = trim((string) ($appRow['ip_address'] ?? ''));
+                                        ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($appDate !== null ? date('d.m.Y H:i:s', $appDate) : '-', ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><span class="health-badge <?= htmlspecialchars($appTone, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($appLevel !== '' ? $appLevel : 'log'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                                            <td><?= htmlspecialchars((string) ($appRow['channel'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td class="health-log-message"><?= htmlspecialchars((string) ($appRow['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td class="health-log-detail-cell">
+                                                <?php if ($contextExcerpt !== ''): ?>
+                                                    <div class="health-log-context"><?= htmlspecialchars($contextExcerpt, ENT_QUOTES, 'UTF-8') ?></div>
+                                                <?php endif; ?>
+                                                <?php if ($ipAddress !== ''): ?>
+                                                    <div class="health-log-ip">IP: <?= htmlspecialchars($ipAddress, ENT_QUOTES, 'UTF-8') ?></div>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php if ($appTotalPages > 1): ?>
+                        <div class="pagination-wrapper">
+                            <div class="pagination">
+                                <?php if ($appPage > 1): ?>
+                                    <a href="<?= htmlspecialchars($appPageBase . ($appPage - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki"><i class="bi bi-chevron-left"></i></a>
+                                <?php endif; ?>
+
+                                <?php for ($i = max(1, $appPage - 2); $i <= min($appTotalPages, $appPage + 2); $i++): ?>
+                                    <a href="<?= htmlspecialchars($appPageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $appPage ? 'active' : '' ?>"><?= $i ?></a>
+                                <?php endfor; ?>
+
+                                <?php if ($appPage < $appTotalPages): ?>
+                                    <a href="<?= htmlspecialchars($appPageBase . ($appPage + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </article>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

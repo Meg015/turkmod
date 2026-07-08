@@ -276,7 +276,7 @@ if ($pdo) {
             "SELECT t.id, t.title, t.slug, t.status, t.created_at, t.updated_at, t.published_at, t.deleted_at, t.moderation_flags,
                     (SELECT MIN(tdl.id) FROM topic_download_links tdl WHERE tdl.topic_id = t.id) AS first_download_link_id,
                     cat.name AS category,
-                    u.name AS author_name,
+                    u.username AS author_name,
                     pm.path AS cover_image
              FROM topics t
              LEFT JOIN categories cat ON t.category_id = cat.id

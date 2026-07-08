@@ -875,18 +875,47 @@ function addPrevDownloadRow(name = '', url = '') {
     container.appendChild(row);
 }
 
+function ensureCenteredPreviewHtml(html = '') {
+    const raw = String(html || '');
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    if (/^\s*<div[^>]*\b(?:scraper-content-centered|content-align-center|ql-align-center)\b[^>]*>/i.test(trimmed)) {
+        return raw;
+    }
+    return `<div class="scraper-content-centered ql-align-center content-align-center" style="text-align:center;">${raw}</div>`;
+}
+
+function forcePreviewQuillCenter(quill) {
+    if (!quill || typeof quill.getLength !== 'function') return;
+    try {
+        const length = Math.max(1, quill.getLength() || 1);
+        if (typeof quill.formatLine === 'function') {
+            quill.formatLine(0, length, 'align', 'center', 'silent');
+        } else if (typeof quill.formatText === 'function') {
+            quill.formatText(0, length, 'align', 'center', 'silent');
+        }
+        if (typeof quill.format === 'function') quill.format('align', 'center', 'silent');
+    } catch (_unusedQuillCenterError) {
+        // no-op
+    }
+}
+
 function getPreviewEditorHtml() {
     const contentEl = document.getElementById('prevContentEdit');
     if (!contentEl) return '';
     if (contentEl.quillInstance && contentEl.quillInstance.root) {
-        return contentEl.quillInstance.root.innerHTML || '';
+        forcePreviewQuillCenter(contentEl.quillInstance);
+        if (typeof contentEl.quillInstance.update === 'function') {
+            contentEl.quillInstance.update('silent');
+        }
+        return ensureCenteredPreviewHtml(contentEl.quillInstance.root.innerHTML || '');
     }
-    return contentEl.innerHTML || contentEl.value || '';
+    return ensureCenteredPreviewHtml(contentEl.innerHTML || contentEl.value || '');
 }
 
 function setPreviewQuillHtml(quill, html = '') {
     if (!quill || !quill.root) return;
-    const safeHtml = String(html || '');
+    const safeHtml = ensureCenteredPreviewHtml(html);
     const trimmedHtml = safeHtml.trim();
 
     try {
@@ -923,6 +952,7 @@ function setPreviewQuillHtml(quill, html = '') {
         quill.root.innerHTML = safeHtml;
     }
 
+    forcePreviewQuillCenter(quill);
     if (typeof quill.update === 'function') {
         quill.update('silent');
     }
@@ -1054,12 +1084,7 @@ function populatePreviewModal(imp) {
         translationErrors.innerHTML = renderTranslationErrors(imp.translation_errors || []);
     }
 
-    let content = getPreviewContentValue(imp);
-
-    // Center content by default if not already explicitly styled
-    if (content && !content.includes('text-align: center') && !content.includes('ql-align-center') && !content.includes('text-align:center')) {
-        content = `<div class="scraper-content-centered">${content}</div>`;
-    }
+    let content = ensureCenteredPreviewHtml(getPreviewContentValue(imp));
 
     // Download links
     let downloads = [];

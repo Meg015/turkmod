@@ -48,11 +48,6 @@ if (!function_exists('seoGenerateCategoryMeta')) {
             ]);
         }
 
-        $maxLength = (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160));
-        if (mb_strlen($description, 'UTF-8') > $maxLength) {
-            $description = mb_substr($description, 0, $maxLength - 3, 'UTF-8') . '...';
-        }
-
         $ogImage = trim((string) ($settings['default_og_image'] ?? ''));
         if ($ogImage === '' || $ogImage === '/assets/og-default.jpg') {
             $activeThemeManager = $GLOBALS['themeManager'] ?? null;
@@ -100,7 +95,7 @@ if (!function_exists('seoGenerateProfileMeta')) {
         if ($siteName === '') {
             $siteName = trim((string) ($envConfig['APP_NAME'] ?? 'İçerik Topic'));
         }
-        $username = trim((string) ($user['name'] ?? ''));
+        $username = trim((string) ($user['username'] ?? ''));
         $topics = (int) ($stats['topics'] ?? 0);
         $comments = (int) ($stats['comments'] ?? 0);
         $views = (int) ($stats['views'] ?? 0);
@@ -115,11 +110,6 @@ if (!function_exists('seoGenerateProfileMeta')) {
             'downloads' => $downloads,
             'site_name' => $siteName,
         ]);
-
-        $maxLength = (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160));
-        if (mb_strlen($description, 'UTF-8') > $maxLength) {
-            $description = mb_substr($description, 0, $maxLength - 3, 'UTF-8') . '...';
-        }
 
         $ogImage = !empty($user['avatar'])
             ? profileAvatarUrl($baseUri, (string) $user['avatar'])
@@ -191,21 +181,6 @@ if (!function_exists('seoGenerateTopicMeta')) {
         
         $descriptionSource = html_entity_decode($descriptionSource, ENT_QUOTES, 'UTF-8');
         $description = trim(preg_replace('/\s+/u', ' ', strip_tags($descriptionSource)) ?? '');
-
-        $maxLength = (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160));
-        if ($description !== '' && mb_strlen($description, 'UTF-8') > $maxLength) {
-            $truncated = mb_substr($description, 0, $maxLength - 3, 'UTF-8');
-            if (preg_match('/.*[.!?]/us', $truncated, $matches) && mb_strlen($matches[0], 'UTF-8') > 50) {
-                $description = rtrim($matches[0], '.,!?;: ') . '...';
-            } else {
-                $lastSpacePos = mb_strrpos($truncated, ' ', 0, 'UTF-8');
-                if ($lastSpacePos !== false) {
-                    $truncated = mb_substr($truncated, 0, $lastSpacePos, 'UTF-8');
-                }
-                $truncated = preg_replace('/\s*[\(\[][^\)\]]*$/u', '', $truncated);
-                $description = rtrim($truncated, '.,!?;: -') . '...';
-            }
-        }
 
         $ogImage = trim((string) ($topic['primary_media_path'] ?? ''));
         if ($ogImage === '') {

@@ -149,7 +149,7 @@ final class UserReportService
         }
         $query = trim((string) ($filters['q'] ?? ''));
         if ($query !== '') {
-            $where[] = '(reported.name LIKE :q_reported_name OR reported.email LIKE :q_reported_email OR reporter.name LIKE :q_reporter_name OR reporter.email LIKE :q_reporter_email OR r.details LIKE :q_details)';
+            $where[] = '(reported.username LIKE :q_reported_name OR reported.email LIKE :q_reported_email OR reporter.username LIKE :q_reporter_name OR reporter.email LIKE :q_reporter_email OR r.details LIKE :q_details)';
             $queryTerm = '%' . $query . '%';
             $params['q_reported_name'] = $queryTerm;
             $params['q_reported_email'] = $queryTerm;
@@ -161,9 +161,9 @@ final class UserReportService
         $whereSql = $where !== [] ? 'WHERE ' . implode(' AND ', $where) : '';
 
         $sql = "SELECT r.*,
-                       reported.name AS reported_user_name,
+                       reported.username AS reported_user_name,
                        reported.email AS reported_user_email,
-                       reporter.name AS reporter_name,
+                       reporter.username AS reporter_name,
                        reporter.email AS reporter_email
                 FROM user_reports r
                 LEFT JOIN users reported ON reported.id = r.reported_user_id
@@ -196,7 +196,7 @@ final class UserReportService
 
         $this->schema->ensureUserReportEvents($pdo);
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $pdo->prepare("SELECT e.*, u.name AS actor_name
+        $stmt = $pdo->prepare("SELECT e.*, u.username AS actor_name
                                FROM user_report_events e
                                LEFT JOIN users u ON u.id = e.actor_id
                                WHERE e.report_id IN ({$placeholders})

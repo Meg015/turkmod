@@ -5814,6 +5814,68 @@ html[data-theme="dark"] {
     display: block;
 }
 
+.cron-task-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 0.9rem;
+    margin-top: 0.85rem;
+}
+
+.cron-task-card {
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--radius-lg);
+    background: var(--ui-admin-surface);
+    padding: 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.cron-task-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.cron-task-title-wrap h4 {
+    margin: 0;
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: var(--ui-admin-text);
+}
+
+.cron-task-title-wrap small {
+    display: block;
+    margin-top: 0.18rem;
+    color: var(--ui-admin-text-secondary);
+    line-height: 1.45;
+}
+
+.cron-task-meta {
+    display: grid;
+    gap: 0.18rem;
+    color: var(--ui-admin-text-secondary);
+    font-size: 0.82rem;
+}
+
+.cron-task-command-row {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.cron-task-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+@media (max-width: 768px) {
+    .cron-task-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .comments-subtab-btn {
     display: inline-flex !important;
     align-items: center !important;
@@ -9380,8 +9442,41 @@ input[type="checkbox"]:checked ~ .cover-action-bar-content .state-restore { disp
 .health-detail { color:var(--ui-admin-text-secondary); word-break:break-word; line-height:1.45; }
 .health-action { white-space:nowrap; text-align:right; }
 .health-empty { min-height:220px; }
-@media(max-width:1320px){.health-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.health-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:760px){.health-tabs,.health-summary{grid-template-columns:1fr}.health-panel-head{display:grid}.health-stat.admin-stat-card{height:auto;min-height:96px;max-height:none}}
+.health-log-center { overflow:hidden; }
+.health-log-center-body { display:grid; gap:var(--health-section-gap); padding:.95rem 1rem 1.05rem; }
+.health-log-summary { grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--health-section-gap); margin-bottom:0 !important; }
+.health-log-stat.admin-stat-card { min-height:98px; max-height:unset; height:auto; }
+.health-log-filter-panel { margin:0 !important; }
+.health-log-filter-form { display:flex; flex-wrap:wrap; gap:.55rem; width:100%; }
+.health-log-filter-form .ui-admin-form-control,
+.health-log-filter-form .ui-admin-form-select { flex:1 1 180px; min-width:150px; }
+.health-log-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--health-section-gap); align-items:start; }
+.health-log-block { margin:0 !important; overflow:hidden; }
+.health-log-block-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+.health-log-block-head h3 { margin:0; display:flex; align-items:center; gap:.45rem; font-size:.95rem; }
+.health-log-table-wrap { overflow:auto; }
+.health-log-table { min-width:640px; }
+.health-log-file { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.78rem; color:var(--ui-admin-text-secondary); white-space:nowrap; }
+.health-log-message { min-width:240px; color:var(--ui-admin-text); line-height:1.45; word-break:break-word; }
+.health-log-detail-cell { min-width:220px; }
+.health-log-context { color:var(--ui-admin-text-secondary); font-size:.78rem; line-height:1.4; word-break:break-word; }
+.health-log-ip { margin-top:.2rem; color:var(--ui-admin-text-muted); font-size:.74rem; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+.health-log-empty { text-align:center; color:var(--ui-admin-text-secondary); }
+@media(max-width:1320px){
+    .health-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .health-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .health-log-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .health-log-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+    .health-tabs,.health-summary,.health-log-summary{grid-template-columns:1fr}
+    .health-panel-head{display:grid}
+    .health-stat.admin-stat-card{height:auto;min-height:96px;max-height:none}
+    .health-log-center-body{padding:.85rem}
+    .health-log-filter-form .ui-admin-form-control,
+    .health-log-filter-form .ui-admin-form-select,
+    .health-log-filter-form .ui-admin-btn{flex:1 1 100%;width:100%}
+}
 
 /* Source: admin/leaderboard.php */
 :root { --leaderboard-section-gap: .75rem; }

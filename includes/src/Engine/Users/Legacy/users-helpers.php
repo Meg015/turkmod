@@ -1,6 +1,6 @@
 <?php
 /**
- * Users Module — İş mantığı fonksiyonları
+ * Users Module - is mantigi fonksiyonlari
  */
 
 declare(strict_types=1);
@@ -190,6 +190,230 @@ function usersDefaultGroupPermissions(string $slug): array
         'comments.view',
         'comments.create',
     ];
+}
+
+function usersUsernamePattern(): string
+{
+    return '/^[A-Za-z0-9_-]{3,30}$/';
+}
+
+function usersNormalizeUsername(string $username, int $fallbackUserId = 0): string
+{
+    $username = trim($username);
+    if ($username === '' && $fallbackUserId > 0) {
+        $username = 'user' . $fallbackUserId;
+    }
+    if ($username === '') {
+        $username = 'user';
+    }
+
+    if (function_exists('slugify')) {
+        $username = (string) slugify($username);
+    } else {
+        $username = strtolower($username);
+        $username = preg_replace('/[^a-z0-9]+/i', '-', $username) ?: '';
+        $username = trim($username, '-');
+    }
+
+    $username = str_replace('-', '_', $username);
+    $username = preg_replace('/[^A-Za-z0-9_]/', '', $username) ?: '';
+    $username = trim($username, '_');
+    $username = strtolower($username);
+
+    if ($username === '' && $fallbackUserId > 0) {
+        $username = 'user' . $fallbackUserId;
+    } elseif ($username === '') {
+        $username = 'user';
+    }
+
+    if (strlen($username) < 3) {
+        $username = str_pad($username, 3, '0');
+    }
+    if (strlen($username) > 30) {
+        $username = substr($username, 0, 30);
+    }
+
+    return $username;
+}
+
+function usersValidateUsernameInput(string $username): string
+{
+    $username = trim($username);
+    if ($username === '') {
+        return '';
+    }
+
+    if (function_exists('validateUsername')) {
+        $validated = validateUsername($username);
+        if ($validated !== null) {
+            return strtolower($validated);
+        }
+    }
+
+    return preg_match(usersUsernamePattern(), $username) === 1
+        ? strtolower($username)
+        : '';
+}
+
+function usersResolveUniqueUsername(PDO $pdo, string $seed, int $excludeUserId = 0): string
+{
+    $candidate = usersNormalizeUsername($seed, $excludeUserId);
+    $base = $candidate;
+    $suffix = 2;
+    $column = 'username';
+
+    while (true) {
+        $sql = "SELECT id FROM users WHERE {$column} = :candidate";
+        if ($excludeUserId > 0) {
+            $sql .= " AND id <> :exclude_id";
+        }
+        $sql .= " LIMIT 1";
+
+        $stmt = $pdo->prepare($sql);
+        $params = ['candidate' => $candidate];
+        if ($excludeUserId > 0) {
+            $params['exclude_id'] = $excludeUserId;
+        }
+        $stmt->execute($params);
+        if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+            return $candidate;
+        }
+
+        $suffixText = (string) $suffix;
+        $trimmedBase = substr($base, 0, max(1, 30 - strlen($suffixText)));
+        $candidate = $trimmedBase . $suffixText;
+        $suffix++;
+    }
+}
+
+function usersBackfillUsernameColumn(PDO $pdo): void
+{
+    if (!usersColumnExists($pdo, 'users', 'username')) {
+        return;
+    }
+
+    $stmt = $pdo->query("SELECT id, username FROM users ORDER BY id ASC");
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if ($rows === []) {
+        return;
+    }
+
+    $used = [];
+    $updates = [];
+    foreach ($rows as $row) {
+        $userId = (int) ($row['id'] ?? 0);
+        if ($userId <= 0) {
+            continue;
+        }
+
+        $rawUsername = trim((string) ($row['username'] ?? ''));
+        $base = $rawUsername;
+        if ($base === '' || preg_match(usersUsernamePattern(), $base) !== 1) {
+            $base = usersNormalizeUsername($rawUsername, $userId);
+        } else {
+            $base = strtolower($base);
+        }
+
+        $candidate = $base;
+        $suffix = 2;
+        while (isset($used[$candidate])) {
+            $suffixText = (string) $suffix;
+            $trimmedBase = substr($base, 0, max(1, 30 - strlen($suffixText)));
+            $candidate = $trimmedBase . $suffixText;
+            $suffix++;
+        }
+        $used[$candidate] = true;
+
+        if ($rawUsername !== $candidate) {
+            $updates[] = [
+                'id' => $userId,
+                'username' => $candidate,
+            ];
+        }
+    }
+
+    if ($updates === []) {
+        return;
+    }
+
+    $startedTx = false;
+    if (!$pdo->inTransaction()) {
+        $pdo->beginTransaction();
+        $startedTx = true;
+    }
+
+    try {
+        $updateStmt = $pdo->prepare("UPDATE users SET username = :username WHERE id = :id");
+        foreach ($updates as $update) {
+            $updateStmt->execute($update);
+        }
+        if ($startedTx) {
+            $pdo->commit();
+        }
+    } catch (Throwable $e) {
+        if ($startedTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        if (function_exists('appLogException')) {
+            appLogException($e, ['source' => 'usersBackfillUsernameColumn']);
+        }
+    }
+}
+
+function usersEnsureUsernameSchema(PDO $pdo): void
+{
+    static $done = [];
+    $key = spl_object_id($pdo);
+    if (!empty($done[$key])) {
+        return;
+    }
+    $done[$key] = true;
+
+    if (!usersTableExists($pdo, 'users')) {
+        return;
+    }
+
+    $runtimeAllowed = !function_exists('runtimeSchemaUpdatesAllowed') || runtimeSchemaUpdatesAllowed();
+    $hasUsernameColumn = usersColumnExists($pdo, 'users', 'username');
+
+    if (!$hasUsernameColumn && $runtimeAllowed) {
+        try {
+            if (usersIsSqlite($pdo)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN username TEXT NULL");
+            } else {
+                $pdo->exec("ALTER TABLE users ADD COLUMN username VARCHAR(30) NULL");
+            }
+        } catch (Throwable $e) {
+            if (function_exists('appLogException')) {
+                appLogException($e, ['source' => 'usersEnsureUsernameSchema.add_column']);
+            }
+        }
+        $hasUsernameColumn = usersColumnExists($pdo, 'users', 'username');
+    }
+
+    if (!$hasUsernameColumn) {
+        return;
+    }
+
+    if (!$runtimeAllowed) {
+        return;
+    }
+
+    usersBackfillUsernameColumn($pdo);
+
+    if (!usersIndexExists($pdo, 'users', 'users_username_unique')) {
+        try {
+            if (usersIsSqlite($pdo)) {
+                $pdo->exec("CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users (username)");
+            } else {
+                $pdo->exec("ALTER TABLE users ADD UNIQUE KEY users_username_unique (username)");
+            }
+        } catch (Throwable $e) {
+            if (function_exists('appLogException')) {
+                appLogException($e, ['source' => 'usersEnsureUsernameSchema.add_index']);
+            }
+        }
+    }
 }
 
 function usersEnsureGroupSchema(PDO $pdo): void
@@ -1213,7 +1437,7 @@ function usersUserHasGroupPermission(PDO $pdo, int $userId, string $permission):
     try {
         $aliases = usersPermissionAliases($permission);
 
-        // 1. Bireysel yetki ezme (override) kontrolleri (Grup yetkilerinden önce değerlendirilir)
+        // 1. Bireysel yetki ezme (override) kontrolleri (Grup yetkilerinden once degerlendirilir)
         $overrideStmt = $pdo->prepare("SELECT permission_key, permission_value 
             FROM user_group_permission_overrides 
             WHERE user_id = ? AND (permission_key = '*' OR permission_key IN (" . implode(',', array_fill(0, count($aliases), '?')) . "))");
@@ -1365,7 +1589,7 @@ function usersGetGroupHistory(PDO $pdo, int $userId, int $limit = 50): array
 
     try {
         usersEnsureGroupSchema($pdo);
-        $stmt = $pdo->prepare("SELECT l.*, actor.name AS changed_by_name
+        $stmt = $pdo->prepare("SELECT l.*, actor.username AS changed_by_name
             FROM user_group_logs l
             LEFT JOIN users actor ON actor.id = l.changed_by
             WHERE l.user_id = ?
@@ -1423,10 +1647,13 @@ function usersBuildListFilters(string $search = '', string $filterGroup = '', st
 {
     $where = ['1=1'];
     $params = [];
+    $searchNameExpr = ($pdo && usersColumnExists($pdo, 'users', 'username'))
+        ? "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))"
+        : "CONCAT('user-', u.id)";
 
     if ($search !== '') {
         $searchIpLike = '%' . $search . '%';
-        $where[] = '(u.name LIKE :search_name OR u.email LIKE :search_email OR u.location LIKE :search_location OR u.last_login_ip LIKE :search_ip OR EXISTS (SELECT 1 FROM security_events se WHERE se.user_id = u.id AND se.ip_address LIKE :search_security_ip)' . (ctype_digit($search) ? ' OR u.id = :search_id' : '') . ')';
+        $where[] = '(' . $searchNameExpr . ' LIKE :search_name OR u.email LIKE :search_email OR u.location LIKE :search_location OR u.last_login_ip LIKE :search_ip OR EXISTS (SELECT 1 FROM security_events se WHERE se.user_id = u.id AND se.ip_address LIKE :search_security_ip)' . (ctype_digit($search) ? ' OR u.id = :search_id' : '') . ')';
         $searchTerm = '%' . $search . '%';
         $params['search_name'] = $searchTerm;
         $params['search_email'] = $searchTerm;
@@ -1521,7 +1748,14 @@ function usersGetById(PDO $pdo, int $userId): ?array
 
 function usersUpdateProfile(PDO $pdo, int $userId, array $data, int $currentUserId, array $validGroupIds): string
 {
-    $name = trim((string) ($data['name'] ?? ''));
+    if (function_exists('usersEnsureUsernameSchema')) {
+        usersEnsureUsernameSchema($pdo);
+    }
+
+    $usernameRaw = trim((string) ($data['username'] ?? ''));
+    $username = function_exists('usersValidateUsernameInput')
+        ? usersValidateUsernameInput($usernameRaw)
+        : '';
     $email = trim((string) ($data['email'] ?? ''));
     $groupId = (int) ($data['group_id'] ?? 0);
     $status = trim((string) ($data['status'] ?? 'active'));
@@ -1533,23 +1767,26 @@ function usersUpdateProfile(PDO $pdo, int $userId, array $data, int $currentUser
     $discord = trim((string) ($data['social_discord'] ?? ''));
     $password = (string) ($data['password'] ?? '');
 
-    if ($name === '' || $email === '') {
-        return 'Ad ve e-posta zorunludur.';
+    if ($username === '' || $email === '') {
+        return 'Kullanici adi ve e-posta zorunludur.';
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return 'Geçerli bir e-posta adresi girin.';
+        return 'Gecerli bir e-posta adresi girin.';
+    }
+    if ($username === '') {
+        return 'Kullanici adi 3-30 karakter olmali ve sadece harf, rakam, _ veya - icermelidir.';
     }
     if (!in_array($groupId, $validGroupIds, false)) {
         return 'Gecersiz grup.';
     }
     if (!in_array($status, ['active', 'inactive'], true)) {
-        return 'Geçersiz durum.';
+        return 'Gecersiz durum.';
     }
     if ($userId === $currentUserId && !usersGroupGrantsAdmin($pdo, $groupId)) {
         return 'Kendi admin grubunuzu kaldiramazsiniz.';
     }
     if ($password !== '') {
-        $policyError = validatePasswordPolicy($password, null, 'Şifre');
+        $policyError = validatePasswordPolicy($password, null, 'Sifre');
         if ($policyError !== '') {
             return $policyError;
         }
@@ -1558,10 +1795,18 @@ function usersUpdateProfile(PDO $pdo, int $userId, array $data, int $currentUser
     $existsStmt = $pdo->prepare('SELECT id FROM users WHERE email = :email AND id <> :id LIMIT 1');
     $existsStmt->execute(['email' => $email, 'id' => $userId]);
     if ($existsStmt->fetch()) {
-        return 'Bu e-posta adresi başka bir kullanıcıda kayıtlı.';
+        return 'Bu e-posta adresi baska bir kullanicida kayitli.';
     }
-$sql = "UPDATE users
-            SET name = :name,
+
+    $usernameExistsSql = 'SELECT id FROM users WHERE username = :username AND id <> :id LIMIT 1';
+    $usernameExistsStmt = $pdo->prepare($usernameExistsSql);
+    $usernameExistsStmt->execute(['username' => $username, 'id' => $userId]);
+    if ($usernameExistsStmt->fetch()) {
+        return 'Bu kullanici adi baska bir kullanicida kayitli.';
+    }
+
+    $sql = "UPDATE users
+            SET username = :username,
                 email = :email,
                 status = :status,
                 bio = :bio,
@@ -1572,7 +1817,7 @@ $sql = "UPDATE users
                 social_discord = :discord,
                 updated_at = NOW()";
     $params = [
-        'name' => $name,
+        'username' => $username,
         'email' => $email,
         'status' => $status,
         'bio' => $bio !== '' ? $bio : null,
@@ -1583,7 +1828,6 @@ $sql = "UPDATE users
         'discord' => $discord !== '' ? $discord : null,
         'id' => $userId,
     ];
-
     if ($password !== '') {
         $sql .= ', password = :password, password_changed_at = NOW(), remember_token = NULL';
         $params['password'] = password_hash($password, PASSWORD_DEFAULT);
@@ -1592,6 +1836,9 @@ $sql = "UPDATE users
     $sql .= ' WHERE id = :id';
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+    if (function_exists('invalidatePublicContentCache')) {
+        invalidatePublicContentCache();
+    }
 
     if (usersGroupsAvailable($pdo) || !empty($GLOBALS['_users_group_schema_ready_' . spl_object_id($pdo)])) {
         $groupError = usersSyncUserGroups($pdo, $userId, [$groupId], $currentUserId, 'admin_profile_group_update');
@@ -1607,11 +1854,11 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
 {
     $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds), static fn(int $id): bool => $id > 0)));
     if (empty($userIds)) {
-        return 'Toplu işlem için en az bir kullanıcı seçin.';
+        return 'Toplu islem icin en az bir kullanici secin.';
     }
 
     if (in_array($currentUserId, $userIds, true) && in_array($action, ['ban', 'deactivate', 'delete'], true)) {
-        return 'Kendi hesabınıza bu toplu işlemi uygulayamazsınız.';
+        return 'Kendi hesabiniza bu toplu islemi uygulayamazsiniz.';
     }
 
     switch ($action) {
@@ -1671,7 +1918,7 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
             return '';
     }
 
-    return 'Geçersiz toplu işlem.';
+    return 'Gecersiz toplu islem.';
 }
 
 function usersGetRestrictionTypes(): array
@@ -1680,7 +1927,7 @@ function usersGetRestrictionTypes(): array
         'all' => 'Tum Islemler',
         'comment' => 'Yorum',
         'topic' => 'Konu',
-        'upload' => 'Yükleme',
+        'upload' => 'Yukleme',
         'message' => 'Mesaj',
         'download' => 'Indirme',
         'profile' => 'Profil',
@@ -1782,7 +2029,7 @@ function usersGetRestrictionsForUsers(PDO $pdo, array $userIds, bool $onlyActive
     }
 
     $placeholders = implode(',', array_fill(0, count($userIds), '?'));
-    $sql = "SELECT r.*, u.name AS admin_name
+    $sql = "SELECT r.*, u.username AS admin_name
             FROM user_restrictions r
             LEFT JOIN users u ON u.id = r.admin_id
             WHERE r.user_id IN ({$placeholders})";
@@ -1822,9 +2069,12 @@ function usersGetBannedList(PDO $pdo, string $search = ''): array
 {
     $where = ['u.is_banned = 1'];
     $params = [];
+    $searchNameExpr = usersColumnExists($pdo, 'users', 'username')
+        ? "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))"
+        : "CONCAT('user-', u.id)";
 
     if ($search !== '') {
-        $where[] = '(u.name LIKE :search_name OR u.email LIKE :search_email)';
+        $where[] = '(' . $searchNameExpr . ' LIKE :search_name OR u.email LIKE :search_email)';
         $searchTerm = '%' . $search . '%';
         $params['search_name'] = $searchTerm;
         $params['search_email'] = $searchTerm;
@@ -1848,9 +2098,12 @@ function usersGetRestrictedList(PDO $pdo, string $search = ''): array
     usersPruneExpiredRestrictions($pdo);
     $where = ['EXISTS (SELECT 1 FROM user_restrictions WHERE user_id = u.id AND (expires_at IS NULL OR expires_at > NOW()))'];
     $params = [];
+    $searchNameExpr = usersColumnExists($pdo, 'users', 'username')
+        ? "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))"
+        : "CONCAT('user-', u.id)";
 
     if ($search !== '') {
-        $where[] = '(u.name LIKE :search_name OR u.email LIKE :search_email)';
+        $where[] = '(' . $searchNameExpr . ' LIKE :search_name OR u.email LIKE :search_email)';
         $searchTerm = '%' . $search . '%';
         $params['search_name'] = $searchTerm;
         $params['search_email'] = $searchTerm;
@@ -1872,12 +2125,12 @@ function usersGetRestrictedList(PDO $pdo, string $search = ''): array
 function usersGetRestrictionTypeLabel(string $type): string
 {
     return match($type) {
-        'all' => 'Tüm İşlemler',
+        'all' => 'Tum Islemler',
         'comment' => 'Yorum Yapma',
-        'topic' => 'Konu Oluşturma',
-        'upload' => 'Dosya Yükleme',
-        'download' => 'İndirme',
-        'message' => 'Mesaj Gönderme',
+        'topic' => 'Konu Olusturma',
+        'upload' => 'Dosya Yukleme',
+        'download' => 'Indirme',
+        'message' => 'Mesaj Gonderme',
         'profile' => 'Profil Duzenleme',
         'events' => 'Etkinlik Kullanimi',
         default => ucfirst($type)
@@ -1981,7 +2234,7 @@ function usersGetAdminNotes(PDO $pdo, int $userId, int $limit = 20): array
 {
     try {
         usersEnsureAdminNotesTable($pdo);
-        $stmt = $pdo->prepare("SELECT n.*, a.name AS admin_name, a.email AS admin_email
+        $stmt = $pdo->prepare("SELECT n.*, a.username AS admin_name, a.email AS admin_email
             FROM user_admin_notes n
             LEFT JOIN users a ON a.id = n.admin_id
             WHERE n.user_id = ?
@@ -2106,3 +2359,5 @@ function usersRestrictedPathAllowed(string $path): bool
 {
     return \App\Engine\Users\BanCheck::restrictedPathAllowed($path);
 }
+
+

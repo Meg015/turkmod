@@ -10,7 +10,7 @@
             <input type="hidden" name="tab" value="restricted">
             <div class="ui-admin-filter-grow">
                 <label class="ui-admin-form-label">Ara</label>
-                <input type="text" name="q" class="ui-admin-form-control" placeholder="Ad veya e-posta..." value="<?= htmlspecialchars($search) ?>">
+                <input type="text" name="q" class="ui-admin-form-control" placeholder="Kullanici adi veya e-posta..." value="<?= htmlspecialchars($search) ?>">
             </div>
             <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-search"></i> Ara</button>
             <?php if ($search): ?>
@@ -45,6 +45,7 @@
                 <tbody>
                     <?php foreach ($restrictedUsers as $user):
                         $userId = (int) $user['id'];
+                        $displayUsername = (string) ($user['username'] ?? '');
                         $restrictions = $restrictedUserRestrictionsMap[$userId] ?? [];
                         $restrictionCount = count($restrictions);
                     ?>
@@ -53,10 +54,10 @@
                         <td>
                             <div class="ui-admin-user-line">
                                 <div class="user-avatar-badge default-avatar">
-                                    <?= function_exists('avatarImageHtml') ? avatarImageHtml((string) $user['name'], (string) ($user['avatar'] ?? ''), ['alt' => '']) : '' ?>
+                                    <?= function_exists('avatarImageHtml') ? avatarImageHtml($displayUsername, (string) ($user['avatar'] ?? ''), ['alt' => '']) : '' ?>
                                 </div>
                                 <div>
-                                    <strong class="ui-admin-user-name"><?= htmlspecialchars((string) $user['name']) ?></strong>
+                                    <strong class="ui-admin-user-name"><?= htmlspecialchars($displayUsername) ?></strong>
                                     <span class="ui-admin-user-email-md"><?= htmlspecialchars((string) $user['email']) ?></span>
                                 </div>
                             </div>
@@ -105,7 +106,8 @@
                                 <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" title="Düzenle" 
                                     data-user-edit-open 
                                     data-user-id="<?= $userId ?>"
-                                    data-user-name="<?= htmlspecialchars((string) $user['name']) ?>"
+                                    data-user-name="<?= htmlspecialchars($displayUsername) ?>"
+                                    data-user-username="<?= htmlspecialchars($displayUsername) ?>"
                                     data-user-email="<?= htmlspecialchars((string) $user['email']) ?>"
                                     data-user-group="<?= (int) $user['group_id'] ?>"
                                     data-user-status="<?= htmlspecialchars((string) $user['status']) ?>"
@@ -118,7 +120,7 @@
                                 >
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-warning" data-user-restrict="<?= $userId ?>" data-user-name="<?= htmlspecialchars((string) $user['name'], ENT_QUOTES) ?>" title="Kısıtlama Ekle">
+                                <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-warning" data-user-restrict="<?= $userId ?>" data-user-name="<?= htmlspecialchars($displayUsername, ENT_QUOTES) ?>" title="Kısıtlama Ekle">
                                     <i class="bi bi-plus-circle"></i>
                                 </button>
                                 <form method="post" class="ui-admin-inline-form" data-admin-confirm="Bu kullanıcının tüm kısıtlamalarını kaldırmak istediğinizden emin misiniz?" data-admin-confirm-title="Tüm kısıtlamalar kaldırılsın mı?" data-admin-confirm-ok="Kaldır" data-admin-confirm-tone="danger">

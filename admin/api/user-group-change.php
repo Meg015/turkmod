@@ -29,7 +29,11 @@ if (trim($reason) === '') {
     sendValidationError('Grup degisimi icin gerekce zorunludur.');
 }
 
-$userStmt = $pdo->prepare("SELECT id, name, email FROM users WHERE id = ? LIMIT 1");
+$hasUsernameColumn = function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username');
+$userIdentitySelect = $hasUsernameColumn
+    ? "username AS username"
+    : "name AS username";
+$userStmt = $pdo->prepare("SELECT id, {$userIdentitySelect}, email FROM users WHERE id = ? LIMIT 1");
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch(PDO::FETCH_ASSOC);
 if (!$user) {
@@ -64,7 +68,7 @@ logActivity($pdo, "user_group_changed", "user", $userId, [
 sendSuccess('Kullanici grubu basariyla guncellendi.', [
     'data' => [
         'user_id' => $userId,
-        'user_name' => $user['name'],
+        'user_name' => $user['username'],
         'old_group_ids' => $oldGroupIds,
         'new_group_id' => $newGroupId,
         'new_group' => $group['name'],

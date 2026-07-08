@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 /**
@@ -149,6 +148,12 @@ function adminRenderLogsSubtabs(string $active): void
             'icon' => 'bi-journal-code',
             'permission' => 'logs.view',
         ],
+        'cron' => [
+            'label' => 'Cron Loglari',
+            'href' => '/admin/logs.php?view=cron',
+            'icon' => 'bi-card-list',
+            'permission' => 'logs.view',
+        ],
         'action' => [
             'label' => 'İşlem Günlüğü',
             'href' => '/admin/action-log.php',
@@ -204,12 +209,7 @@ function adminSettingDefinitions(): array
         'site_description'       => ['label' => 'Site Açıklaması',       'type' => 'text',   'default' => 'Topluluk içerikleri ve paylaşım platformu.',     'section' => 'general'],
 
         // -- SEO ------------------------------------------------
-        'default_meta_title'       => ['label' => 'Varsayılan Meta Başlık',       'type' => 'string', 'default' => 'İçerik Topic',                                     'section' => 'seo', 'tooltip' => 'Sayfalarda özel başlık yoksa kullanılacak varsayılan meta başlık'],
-        'default_meta_description' => ['label' => 'Varsayılan Meta Açıklama',     'type' => 'text',   'default' => 'Güncel topluluk içerikleri, modlar ve rehberler.',    'section' => 'seo', 'tooltip' => 'Sayfalarda özel açıklama yoksa kullanılacak varsayılan meta description'],
-        'allow_indexing'           => ['label' => 'Genel İndeks İzni',                      'type' => 'bool',   'default' => '1',                                                  'section' => 'seo', 'tooltip' => 'Kapalıysa tüm site noindex olur'],
         'canonical_base_url'       => ['label' => 'Canonical Ana URL',            'type' => 'string', 'default' => '',                               'section' => 'seo', 'tooltip' => 'Canonical URL\'ler için kullanılacak temel URL (boş bırakılırsa otomatik tespit edilir)'],
-        'meta_title_suffix'        => ['label' => 'Meta Başlık Soneki',           'type' => 'string', 'default' => '',                                                   'section' => 'seo', 'tooltip' => 'Tüm sayfa başlıklarının sonuna eklenecek site adı eki (örn: "Başlık - Site Adı")'],
-        'meta_description_max_length' => ['label' => 'Meta Açıklama Maks. Karakter', 'type' => 'number', 'default' => '160',                                             'section' => 'seo', 'tooltip' => 'Meta açıklamaların maksimum karakter uzunluğu (Google için 155-160 önerilir)'],
         'canonical_trailing_slash' => ['label' => 'Canonical Sonda Slash Kullan', 'type' => 'bool',   'default' => '0',                                                  'section' => 'seo', 'tooltip' => 'Canonical URL\'lerin sonuna "/" ekler (örn: /sayfa/ yerine /sayfa)'],
         'og_image'                 => ['label' => 'Open Graph Görsel URL',        'type' => 'string', 'default' => '',                                                   'section' => 'seo', 'tooltip' => 'Sosyal medyada paylaşımlarda kullanılacak varsayılan Open Graph görseli (1200x630px)'],
         'og_type'                  => ['label' => 'Open Graph Türü',              'type' => 'select', 'default' => 'website', 'section' => 'seo', 'options' => ['website' => 'Website', 'article' => 'Article', 'blog' => 'Blog'], 'tooltip' => 'Open Graph içerik türü (website: genel site, article: makale, blog: blog yazısı)'],
@@ -258,14 +258,6 @@ function adminSettingDefinitions(): array
             'section' => 'seo',
             'tooltip' => 'Sayfalarda özel görsel yoksa kullanılacak varsayılan Open Graph görseli (1200x630px önerilir)'
         ],
-        'meta_description_length' => [
-            'label' => 'Meta Description Uzunluk Limiti',
-            'type' => 'number',
-            'default' => '160',
-            'section' => 'seo',
-            'tooltip' => 'Meta açıklamaların maksimum karakter uzunluğu. Google için 155-160 karakter önerilir.'
-        ],
-
         // Structured Data Settings
         'structured_data_category' => [
             'label' => 'Kategori Structured Data',
@@ -585,9 +577,9 @@ function adminSettingDefinitions(): array
         'comment_min_length'        => ['label' => 'Min. Yorum Uzunlugu',         'type' => 'number', 'default' => '1', 'section' => 'comments'],
         'comment_per_page'          => ['label' => 'Sayfa Basina Yorum',          'type' => 'number', 'default' => '50', 'section' => 'comments'],
         'comment_sort_order'        => ['label' => 'Yorum Siralama',              'type' => 'select', 'default' => 'asc', 'section' => 'comments', 'options' => ['asc' => 'Eskiden yeniye', 'desc' => 'Yeniden eskiye']],
-        'comment_rate_minutes'      => ['label' => 'Yorum Rate Limit Penceresi (dk)',      'type' => 'number', 'default' => '5', 'section' => 'rate_limit'],
-        'comment_rate_max'          => ['label' => 'Yorum Rate Limit Maksimum',      'type' => 'number', 'default' => '5', 'section' => 'rate_limit'],
-        'comment_rate_admin_bypass' => ['label' => 'Adminler Yorum Rate Limit Disinda Tutulsun', 'type' => 'bool', 'default' => '1', 'section' => 'rate_limit'],
+        'comment_rate_minutes'      => ['label' => 'Yorum Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Yorum sayaci bu sure sonunda sifirlanir. Ornek: 5 dakika.'],
+        'comment_rate_max'          => ['label' => 'Yorum Gonderim Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Bir kullanici pencere suresi icinde en fazla kac yorum gonderebilir.'],
+        'comment_rate_admin_bypass' => ['label' => 'Adminler Yorum Limitinden Muaf', 'type' => 'bool', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Aciksa admin hesaplari yorum gonderim limitine takilmaz.'],
         'comment_realtime_poll'     => ['label' => 'Canli Yorum Yoklama (sn, 0=kapali)', 'type' => 'number', 'default' => '15', 'section' => 'comments'],
 
         // -- Gelişmiş Yorum Özellikleri ----------------------
@@ -773,8 +765,8 @@ function adminSettingDefinitions(): array
         'user_upload_allow_video_url' => ['label' => 'Video URL Alanina Izin Ver', 'type' => 'bool', 'default' => '1', 'section' => 'user_uploads', 'group' => 'Video ve Linkler', 'tooltip' => 'Kullanici formunda tanitim videosu URL alani gorunsun ve kaydedilebilsin.'],
         'user_upload_allowed_video_hosts' => ['label' => 'Izinli Video Saglayicilari', 'type' => 'string', 'default' => 'youtube.com,youtu.be,vimeo.com', 'section' => 'user_uploads', 'group' => 'Video ve Linkler', 'tooltip' => 'Virgul ile ayirin. Bos birakilirsa tum video URLleri kabul edilir.'],
         'user_upload_max_size_mb' => ['label' => 'Maks. Dosya Boyutu (MB)', 'type' => 'number', 'default' => '50', 'section' => 'user_uploads', 'group' => 'Limitler', 'tooltip' => 'Opsiyonel mod dosyasi/ek dosya yuklemesi icin izin verilen maksimum boyut.'],
-        'user_upload_hourly_limit' => ['label' => 'Saatlik Mod Gonderim Limiti', 'type' => 'number', 'default' => '0', 'section' => 'rate_limit', 'group' => 'Gonderimler', 'tooltip' => '0 sinirsiz anlamina gelir.'],
-        'user_upload_daily_limit' => ['label' => 'Gunluk Mod Gonderim Limiti', 'type' => 'number', 'default' => '0', 'section' => 'rate_limit', 'group' => 'Gonderimler', 'tooltip' => '0 sinirsiz anlamina gelir.'],
+        'user_upload_hourly_limit' => ['label' => 'Saatlik Mod Gonderim Limiti', 'type' => 'number', 'default' => '0', 'section' => 'rate_limit', 'group' => 'Gonderimler', 'tooltip' => 'Bir kullanici 1 saat icinde en fazla kac mod gonderebilir. 0 = sinirsiz.'],
+        'user_upload_daily_limit' => ['label' => 'Gunluk Mod Gonderim Limiti', 'type' => 'number', 'default' => '0', 'section' => 'rate_limit', 'group' => 'Gonderimler', 'tooltip' => 'Bir kullanici 24 saat icinde en fazla kac mod gonderebilir. 0 = sinirsiz.'],
         'user_upload_block_duplicate_titles' => ['label' => 'Ayni Baslikla Tekrar Gonderimi Engelle', 'type' => 'bool', 'default' => '1', 'section' => 'content_moderation', 'group' => 'Kalite', 'tooltip' => 'Ayni kullanicinin ayni baslikla tekrar mod gondermesini engeller.'],
         'user_upload_default_content_align' => ['label' => 'Varsayilan Aciklama Hizasi', 'type' => 'select', 'default' => 'center', 'section' => 'user_uploads', 'group' => 'Form Davranışı', 'options' => ['left' => 'Sol', 'center' => 'Orta', 'right' => 'Sag'], 'tooltip' => 'Kullanici aciklama metni icin varsayilan hizalamayi belirler.'],
         'user_upload_submission_notice' => ['label' => 'Gonderim Sonrasi Bilgilendirme Metni', 'type' => 'text', 'default' => 'Onay durumunu Profil > Konularim menusunden takip edebilirsiniz.', 'section' => 'user_uploads', 'group' => 'Form Davranışı', 'tooltip' => 'Basarili gonderimden sonra kullaniciya gosterilecek takip/bilgilendirme metni.'],
@@ -1026,42 +1018,42 @@ function adminSettingDefinitions(): array
         'maintenance_message'    => ['label' => 'Bakim Mesaji',              'type' => 'text',   'default' => 'Site bakim modundadir, lutfen daha sonra tekrar deneyin.', 'section' => 'general'],
 
         // -- Rate Limit -----------------------------------------
-        'register_rate_limit'    => ['label' => 'Kayit Rate Limit (deneme)',           'type' => 'number', 'default' => '3',        'section' => 'rate_limit', 'tooltip' => 'Aynı IP adresinden belirtilen süre içinde yapılabilecek maksimum kayıt sayısı.'],
-        'register_rate_window'   => ['label' => 'Kayit Rate Limit Penceresi (dakika)', 'type' => 'number', 'default' => '60',       'section' => 'rate_limit', 'tooltip' => 'Kayıt limitinin sıfırlanacağı süre (dakika).'],
-        'login_rate_limit'       => ['label' => 'Giriş Rate Limit (deneme)',            'type' => 'number', 'default' => '5',        'section' => 'rate_limit', 'tooltip' => 'Aynı IP adresinden belirtilen süre içinde yapılabilecek maksimum başarısız giriş sayısı.'],
-        'login_rate_window'      => ['label' => 'Giris Rate Limit Penceresi (dakika)', 'type' => 'number', 'default' => '15',       'section' => 'rate_limit', 'tooltip' => 'Giris deneme limitinin sifirlanacagi sure.'],
-        'password_reset_rate_limit' => ['label' => 'Sifre Sifirlama Rate Limit (istek)', 'type' => 'number', 'default' => '3', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresinden yapilabilecek sifre sifirlama istegi sayisi.'],
-        'password_reset_rate_window' => ['label' => 'Sifre Sifirlama Penceresi (dakika)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Sifre sifirlama limitinin sifirlanacagi sure.'],
-        'search_rate_limit'      => ['label' => 'Arama Rate Limit',                    'type' => 'number', 'default' => '30',       'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresinden yapılabilecek arama isteği sayısı.'],
-        'search_rate_window'     => ['label' => 'Arama Rate Limit Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Site arama istek limitinin sifirlanacagi sure.'],
-        'api_topics_rate_limit'  => ['label' => 'Konu API Rate Limit', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Konu listeleme API icin dakika basina istek sayisi.'],
-        'api_topics_rate_window' => ['label' => 'Konu API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Konu API limitinin sifirlanacagi sure.'],
-        'api_messages_rate_limit' => ['label' => 'Mesaj Gönderme Limiti', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit'],
-        'api_messages_rate_window' => ['label' => 'Mesaj Gönderme Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit'],
-        'api_leaderboard_rate_limit' => ['label' => 'Leaderboard API Rate Limit', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Leaderboard ve kullanici sira API istek limiti.'],
-        'api_leaderboard_rate_window' => ['label' => 'Leaderboard API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Leaderboard API limitinin sifirlanacagi sure.'],
-        'api_analytics_rate_limit' => ['label' => 'Analitik Tracking Rate Limit', 'type' => 'number', 'default' => '120', 'section' => 'rate_limit', 'tooltip' => 'Analitik tracking API istek limiti.'],
-        'api_analytics_rate_window' => ['label' => 'Analitik Tracking Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Analitik tracking limitinin sifirlanacagi sure.'],
-        'api_favorite_rate_limit' => ['label' => 'Favori API Rate Limit', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Favori ekleme/cikarma API istek limiti.'],
-        'api_favorite_rate_window' => ['label' => 'Favori API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Favori API limitinin sifirlanacagi sure.'],
-        'api_reports_rate_limit' => ['label' => 'Konu Sikayet API Rate Limit', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayet API genel istek limiti.'],
-        'api_reports_rate_window' => ['label' => 'Konu Sikayet API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayet API genel limitinin sifirlanacagi sure.'],
-        'api_report_submit_rate_limit' => ['label' => 'Konu Sikayet Gonderim Limiti', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Oturum basina konu sikayeti gonderim limiti.'],
-        'api_report_submit_rate_window' => ['label' => 'Konu Sikayet Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayeti gonderim limitinin sifirlanacagi sure.'],
-        'api_user_reports_rate_limit' => ['label' => 'Kullanici Sikayet API Rate Limit', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayet API genel istek limiti.'],
-        'api_user_reports_rate_window' => ['label' => 'Kullanici Sikayet API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayet API genel limitinin sifirlanacagi sure.'],
-        'api_user_report_submit_rate_limit' => ['label' => 'Kullanici Sikayet Gonderim Limiti', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Oturum basina kullanici sikayeti gonderim limiti.'],
-        'api_user_report_submit_rate_window' => ['label' => 'Kullanici Sikayet Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayeti gonderim limitinin sifirlanacagi sure.'],
-        'download_count_rate_limit' => ['label' => 'Indirme Sayac Rate Limit', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP icin bir indirme linkinin kac kez sayilacagi.'],
-        'download_count_rate_window' => ['label' => 'Indirme Sayac Penceresi (dakika)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Ayni indirme linki tekrar sayilmadan once beklenen sure.'],
-        'comment_mention_rate_max' => ['label' => 'Mention Arama Rate Limit', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Yorum mention arama icin maksimum istek sayisi.'],
-        'comment_mention_rate_window' => ['label' => 'Mention Arama Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Mention arama limitinin sifirlanacagi sure.'],
-        'comment_edit_rate_max'  => ['label' => 'Yorum Islem Rate Limit', 'type' => 'number', 'default' => '20', 'section' => 'rate_limit', 'tooltip' => 'Yorum silme/duzenleme islemleri icin maksimum istek sayisi.'],
-        'comment_edit_rate_window' => ['label' => 'Yorum Islem Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Yorum islem limitinin sifirlanacagi sure.'],
-        'comment_reaction_rate_max' => ['label' => 'Yorum Reaksiyon Rate Limit', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Yorum reaksiyon islemleri icin maksimum istek sayisi.'],
-        'comment_reaction_rate_window' => ['label' => 'Yorum Reaksiyon Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Yorum reaksiyon limitinin sifirlanacagi sure.'],
-        'comment_report_rate_max' => ['label' => 'Yorum Sikayet Rate Limit', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Yorum sikayet islemleri icin maksimum istek sayisi.'],
-        'comment_report_rate_window' => ['label' => 'Yorum Sikayet Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Yorum sikayet limitinin sifirlanacagi sure.'],
+        'register_rate_limit'    => ['label' => 'Kayit Deneme Limiti (pencere basina)', 'type' => 'number', 'default' => '3', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi, kayit penceresi icinde en fazla bu kadar kayit istegi gonderebilir.'],
+        'register_rate_window'   => ['label' => 'Kayit Penceresi (dakika)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Kayit deneme sayacinin kac dakikada sifirlanacagini belirler.'],
+        'login_rate_limit'       => ['label' => 'Basarisiz Giris Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi, giris penceresi icinde en fazla bu kadar basarisiz giris deneyebilir.'],
+        'login_rate_window'      => ['label' => 'Giris Penceresi (dakika)', 'type' => 'number', 'default' => '15', 'section' => 'rate_limit', 'tooltip' => 'Basarisiz giris sayacinin kac dakikada sifirlanacagini belirler.'],
+        'password_reset_rate_limit' => ['label' => 'Sifre Sifirlama Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '3', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi pencere suresi icinde en fazla bu kadar sifre sifirlama istegi gonderebilir.'],
+        'password_reset_rate_window' => ['label' => 'Sifre Sifirlama Penceresi (dakika)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Sifre sifirlama istek sayacinin kac dakikada sifirlanacagini belirler.'],
+        'search_rate_limit'      => ['label' => 'Site Arama Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi pencere suresi icinde en fazla bu kadar arama istegi gonderebilir.'],
+        'search_rate_window'     => ['label' => 'Site Arama Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Arama istek sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_topics_rate_limit'  => ['label' => 'Konu API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Konu listeleme API uclari icin pencere suresi icindeki maksimum istek sayisi.'],
+        'api_topics_rate_window' => ['label' => 'Konu API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Konu API istek sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_messages_rate_limit' => ['label' => 'Mesaj API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Mesaj API uclari icin pencere suresi icindeki maksimum istek sayisi.'],
+        'api_messages_rate_window' => ['label' => 'Mesaj API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Mesaj API istek sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_leaderboard_rate_limit' => ['label' => 'Leaderboard API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Leaderboard ve kullanici siralama API uclari icin maksimum istek sayisi.'],
+        'api_leaderboard_rate_window' => ['label' => 'Leaderboard API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Leaderboard API istek sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_analytics_rate_limit' => ['label' => 'Analitik API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '120', 'section' => 'rate_limit', 'tooltip' => 'Analitik/track API uclari icin pencere suresi icindeki maksimum istek sayisi.'],
+        'api_analytics_rate_window' => ['label' => 'Analitik API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Analitik API istek sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_favorite_rate_limit' => ['label' => 'Favori API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Favori ekleme ve cikarma API istekleri icin maksimum sayi.'],
+        'api_favorite_rate_window' => ['label' => 'Favori API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Favori API istek sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_reports_rate_limit' => ['label' => 'Konu Sikayet API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayet listeleme/okuma API istekleri icin maksimum sayi.'],
+        'api_reports_rate_window' => ['label' => 'Konu Sikayet API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayet API sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_report_submit_rate_limit' => ['label' => 'Konu Sikayet Gonderim Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Bir oturum penceresi icinde en fazla kac konu sikayeti gonderebilir.'],
+        'api_report_submit_rate_window' => ['label' => 'Konu Sikayet Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayet gonderim sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_user_reports_rate_limit' => ['label' => 'Kullanici Sikayet API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayet listeleme/okuma API istekleri icin maksimum sayi.'],
+        'api_user_reports_rate_window' => ['label' => 'Kullanici Sikayet API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayet API sayacinin kac dakikada sifirlanacagini belirler.'],
+        'api_user_report_submit_rate_limit' => ['label' => 'Kullanici Sikayet Gonderim Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Bir oturum penceresi icinde en fazla kac kullanici sikayeti gonderebilir.'],
+        'api_user_report_submit_rate_window' => ['label' => 'Kullanici Sikayet Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayet gonderim sayacinin kac dakikada sifirlanacagini belirler.'],
+        'download_count_rate_limit' => ['label' => 'Indirme Sayaci Yazma Limiti (pencere basina)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi ayni indirme kaydi icin pencere suresi icinde en fazla kac kez sayaca yazabilir.'],
+        'download_count_rate_window' => ['label' => 'Indirme Sayaci Penceresi (dakika)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Indirme sayaci ayni IP icin bu sure sonunda tekrar artabilir.'],
+        'comment_mention_rate_max' => ['label' => 'Mention Arama Limiti (pencere basina)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Yorum mention arama istekleri icin maksimum sayi.'],
+        'comment_mention_rate_window' => ['label' => 'Mention Arama Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Mention arama istek sayacinin kac dakikada sifirlanacagini belirler.'],
+        'comment_edit_rate_max'  => ['label' => 'Yorum Duzenleme/Silme Limiti (pencere basina)', 'type' => 'number', 'default' => '20', 'section' => 'rate_limit', 'tooltip' => 'Yorum duzenleme ve silme istekleri icin maksimum sayi.'],
+        'comment_edit_rate_window' => ['label' => 'Yorum Duzenleme/Silme Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Yorum duzenleme/silme sayacinin kac dakikada sifirlanacagini belirler.'],
+        'comment_reaction_rate_max' => ['label' => 'Yorum Reaksiyon Limiti (pencere basina)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Yorum reaksiyon (like vb.) istekleri icin maksimum sayi.'],
+        'comment_reaction_rate_window' => ['label' => 'Yorum Reaksiyon Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Yorum reaksiyon sayacinin kac dakikada sifirlanacagini belirler.'],
+        'comment_report_rate_max' => ['label' => 'Yorum Sikayet Gonderim Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Yorum sikayet gonderim istekleri icin maksimum sayi.'],
+        'comment_report_rate_window' => ['label' => 'Yorum Sikayet Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Yorum sikayet sayacinin kac dakikada sifirlanacagini belirler.'],
 
         // -- Sosyal Medya ---------------------------------------
         'social_facebook'        => ['label' => 'Facebook URL',   'type' => 'string', 'default' => '', 'section' => 'social_features'],
@@ -1894,6 +1886,7 @@ function ensureAdminSchema(?PDO $pdo): void
 
     // Ensure users table has required account/profile/security columns
     $userColumns = [
+        'username' => "VARCHAR(30) NULL",
         'status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
         'is_banned' => "TINYINT(1) NOT NULL DEFAULT 0",
         'banned_at' => "TIMESTAMP NULL",
@@ -1917,6 +1910,10 @@ function ensureAdminSchema(?PDO $pdo): void
         if (!adminColumnExists($pdo, 'users', $name)) {
             $pdo->exec("ALTER TABLE users ADD COLUMN {$name} {$definition}");
         }
+    }
+
+    if (function_exists('usersEnsureUsernameSchema')) {
+        usersEnsureUsernameSchema($pdo);
     }
 
     if (function_exists('usersEnsureBanAppealSchema')) {
@@ -2063,7 +2060,7 @@ function topicRevisionPrune(PDO $pdo, int $topicId, int $limit = 50): void
 
 function topicRevisionList(PDO $pdo, int $topicId): array
 {
-    $stmt = $pdo->prepare("SELECT tr.*, u.name AS actor_name, u.email AS actor_email
+    $stmt = $pdo->prepare("SELECT tr.*, u.username AS actor_name, u.email AS actor_email
                            FROM topic_revisions tr
                            LEFT JOIN users u ON u.id = tr.actor_user_id
                            WHERE tr.topic_id = ?
@@ -2074,7 +2071,7 @@ function topicRevisionList(PDO $pdo, int $topicId): array
 
 function topicRevisionFind(PDO $pdo, int $revisionId): ?array
 {
-    $stmt = $pdo->prepare("SELECT tr.*, t.title AS current_title, u.name AS actor_name, u.email AS actor_email
+    $stmt = $pdo->prepare("SELECT tr.*, t.title AS current_title, u.username AS actor_name, u.email AS actor_email
                            FROM topic_revisions tr
                            LEFT JOIN topics t ON t.id = tr.topic_id
                            LEFT JOIN users u ON u.id = tr.actor_user_id
@@ -2300,7 +2297,6 @@ function adminNormalizeSettingValue(string $key, string $value, array $definitio
 function adminApplySettingAliases(array $settings, array $definitions): array
 {
     $pairs = [
-        'meta_description_max_length' => 'meta_description_length',
         'og_image' => 'default_og_image',
     ];
 
@@ -2362,6 +2358,20 @@ function adminApplySettingAliases(array $settings, array $definitions): array
     return $settings;
 }
 
+if (!function_exists('adminLegacySeoSettingDefinitions')) {
+    function adminLegacySeoSettingDefinitions(): array
+    {
+        return [
+            'default_meta_title' => ['type' => 'string', 'default' => '', 'section' => 'seo'],
+            'default_meta_description' => ['type' => 'text', 'default' => '', 'section' => 'seo'],
+            'meta_title_suffix' => ['type' => 'string', 'default' => '', 'section' => 'seo'],
+            'meta_description_max_length' => ['type' => 'number', 'default' => '160', 'section' => 'seo'],
+            'meta_description_length' => ['type' => 'number', 'default' => '160', 'section' => 'seo'],
+            'allow_indexing' => ['type' => 'bool', 'default' => '1', 'section' => 'seo'],
+        ];
+    }
+}
+
 function adminNormalizeLegacyTopicStatuses(?PDO $pdo): void
 {
     static $ran = false;
@@ -2370,20 +2380,64 @@ function adminNormalizeLegacyTopicStatuses(?PDO $pdo): void
     }
     $ran = true;
 
+    $changed = false;
     try {
-        $pdo->exec("UPDATE topics SET status = 'draft' WHERE status = 'pending'");
+        $affected = $pdo->exec("UPDATE topics SET status = 'draft' WHERE status = 'pending'");
+        if ($affected !== false && $affected > 0) {
+            $changed = true;
+        }
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
 
     try {
-        $pdo->exec("UPDATE topics SET status = 'published', published_at = COALESCE(published_at, created_at, NOW()) WHERE status = 'archived'");
+        $affected = $pdo->exec("UPDATE topics SET status = 'published', published_at = COALESCE(published_at, created_at, NOW()) WHERE status = 'archived'");
+        if ($affected !== false && $affected > 0) {
+            $changed = true;
+        }
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
+
+    if ($changed && function_exists('invalidatePublicContentCache')) {
+        invalidatePublicContentCache();
+    }
+}
+
+function adminProcessLegacySeoSetting(string $key, string $value, array $legacySeoDefinitions, array &$settings): bool
+{
+    if (array_key_exists($key, $legacySeoDefinitions)) {
+        $settings[$key] = adminNormalizeSettingValue(
+            $key,
+            $value,
+            $legacySeoDefinitions[$key]
+        );
+        return true;
+    }
+    return false;
+}
+
+function adminProcessActiveThemeSetting(string $key, string $value, array $definitions, array &$settings): bool
+{
+    if ($key === 'active_public_theme' && array_key_exists('theme_active_id', $settings)) {
+        $settings['theme_active_id'] = adminNormalizeSettingValue(
+            'theme_active_id',
+            $value,
+            $definitions['theme_active_id']
+        );
+        return true;
+    }
+    return false;
 }
 
 function getAdminSettings(?PDO $pdo): array
 {
     // Static cache: aynı request içinde tekrar sorgu atmayı önler
     static $cache = null;
-    if ($cache !== null && empty($GLOBALS['_admin_settings_cache_invalid'])) {
+
+    // Invalidation flag varsa static cache'i sıfırla
+    if (!empty($GLOBALS['_admin_settings_cache_invalid'])) {
+        $cache = null;
+        unset($GLOBALS['_admin_settings_cache_invalid']);
+    }
+
+    if ($cache !== null) {
         return $cache;
     }
     unset($GLOBALS['_admin_settings_cache_invalid']);
@@ -2432,15 +2486,14 @@ function getAdminSettings(?PDO $pdo): array
     }
 
     try {
-        $legacyRows = $pdo->query("SELECT `key`, value FROM settings")->fetchAll();
-        foreach ($legacyRows as $row) {
+        $legacyStmt = $pdo->query("SELECT `key`, value FROM settings");
+        $legacySeoDefinitions = adminLegacySeoSettingDefinitions();
+        while ($row = $legacyStmt->fetch(PDO::FETCH_ASSOC)) {
             $key = (string)$row['key'];
-            if ($key === 'active_public_theme' && array_key_exists('theme_active_id', $settings)) {
-                $settings['theme_active_id'] = adminNormalizeSettingValue(
-                    'theme_active_id',
-                    (string)($row['value'] ?? ''),
-                    $definitions['theme_active_id']
-                );
+            if (adminProcessActiveThemeSetting($key, (string)($row['value'] ?? ''), $definitions, $settings)) {
+                continue;
+            }
+            if (adminProcessLegacySeoSetting($key, (string)($row['value'] ?? ''), $legacySeoDefinitions, $settings)) {
                 continue;
             }
             if (array_key_exists($key, $settings)) {
@@ -2450,15 +2503,14 @@ function getAdminSettings(?PDO $pdo): array
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
 
     try {
-        $rows = $pdo->query("SELECT setting_key, setting_value FROM admin_settings")->fetchAll();
-        foreach ($rows as $row) {
+        $stmt = $pdo->query("SELECT setting_key, setting_value FROM admin_settings");
+        $legacySeoDefinitions = $legacySeoDefinitions ?? adminLegacySeoSettingDefinitions();
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $key = (string)$row['setting_key'];
-            if ($key === 'active_public_theme' && array_key_exists('theme_active_id', $settings)) {
-                $settings['theme_active_id'] = adminNormalizeSettingValue(
-                    'theme_active_id',
-                    (string)($row['setting_value'] ?? ''),
-                    $definitions['theme_active_id']
-                );
+            if (adminProcessActiveThemeSetting($key, (string)($row['setting_value'] ?? ''), $definitions, $settings)) {
+                continue;
+            }
+            if (adminProcessLegacySeoSetting($key, (string)($row['setting_value'] ?? ''), $legacySeoDefinitions, $settings)) {
                 continue;
             }
             if (array_key_exists($key, $settings)) {
@@ -2532,9 +2584,6 @@ function saveAdminSettings(?PDO $pdo, array $input): void
         $input['seo_public_page_presets_json'] = seoPublicPagePresetsJson($input['seo_public_pages']);
     } elseif (array_key_exists('seo_public_page_presets_json', $input) && function_exists('seoPublicPagePresetsJson')) {
         $input['seo_public_page_presets_json'] = seoPublicPagePresetsJson($input['seo_public_page_presets_json']);
-    }
-    if (array_key_exists('meta_description_max_length', $input)) {
-        $input['meta_description_length'] = $input['meta_description_max_length'];
     }
     if (array_key_exists('og_image', $input)) {
         $input['default_og_image'] = $input['og_image'];

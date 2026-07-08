@@ -44,11 +44,11 @@ final class NotificationEmailQueueService
         return $stats;
     }
 
-    /** @return array{id:int,name:string,email:string,status:string}|null */
+    /** @return array{id:int,username:string,name:string,email:string,status:string}|null */
     public function recipient(PDO $pdo, int $userId): ?array
     {
         try {
-            $stmt = $pdo->prepare('SELECT id, name, email, status FROM users WHERE id = ? LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, username, email, status FROM users WHERE id = ? LIMIT 1');
             $stmt->execute([$userId]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$user) {
@@ -62,7 +62,8 @@ final class NotificationEmailQueueService
 
             return [
                 'id' => (int) $user['id'],
-                'name' => (string) ($user['name'] ?? ''),
+                'username' => (string) ($user['username'] ?? ''),
+                'name' => (string) ($user['username'] ?? ''),
                 'email' => $email,
                 'status' => (string) ($user['status'] ?? ''),
             ];

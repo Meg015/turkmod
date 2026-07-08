@@ -99,7 +99,7 @@ final class BanAppealService
     {
         try {
             $this->schema->ensureMessages($pdo);
-            $stmt = $pdo->prepare('SELECT m.*, u.name AS sender_name, u.email AS sender_email
+            $stmt = $pdo->prepare('SELECT m.*, u.username AS sender_name, u.email AS sender_email
                 FROM ban_appeal_messages m
                 LEFT JOIN users u ON u.id = m.sender_user_id
                 WHERE m.appeal_id = ?
@@ -197,7 +197,7 @@ final class BanAppealService
         }
 
         $whereStr = $where !== [] ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $pdo->prepare("SELECT ba.*, u.name AS user_name, u.email AS user_email
+        $stmt = $pdo->prepare("SELECT ba.*, u.username AS user_name, u.email AS user_email
             FROM ban_appeals ba
             LEFT JOIN users u ON u.id = ba.user_id
             {$whereStr}

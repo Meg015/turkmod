@@ -370,7 +370,7 @@ if (!function_exists('userActivityList')) {
 
             $q = trim((string) ($filters['q'] ?? ''));
             if ($q !== '') {
-                $where .= " AND (u.name LIKE :q_name OR u.email LIKE :q_email OR actor.name LIKE :q_actor OR e.ip_address LIKE :q_ip";
+                $where .= " AND (u.username LIKE :q_name OR u.email LIKE :q_email OR actor.username LIKE :q_actor OR e.ip_address LIKE :q_ip";
                 $params['q_name'] = '%' . $q . '%';
                 $params['q_email'] = '%' . $q . '%';
                 $params['q_actor'] = '%' . $q . '%';
@@ -383,7 +383,7 @@ if (!function_exists('userActivityList')) {
                 $where .= ')';
             }
 
-            $stmt = $pdo->prepare("SELECT e.*, u.name AS user_name, u.email AS user_email, actor.name AS actor_name, actor.email AS actor_email
+            $stmt = $pdo->prepare("SELECT e.*, u.username AS user_name, u.email AS user_email, actor.username AS actor_name, actor.email AS actor_email
                 FROM user_activity_events e
                 LEFT JOIN users u ON u.id = e.user_id
                 LEFT JOIN users actor ON actor.id = e.actor_user_id
@@ -415,7 +415,7 @@ if (!function_exists('userActivityCount')) {
 
             $q = trim((string) ($filters['q'] ?? ''));
             if ($q !== '') {
-                $where .= " AND (u.name LIKE :q_name OR u.email LIKE :q_email OR actor.name LIKE :q_actor OR e.ip_address LIKE :q_ip";
+                $where .= " AND (u.username LIKE :q_name OR u.email LIKE :q_email OR actor.username LIKE :q_actor OR e.ip_address LIKE :q_ip";
                 $params['q_name'] = '%' . $q . '%';
                 $params['q_email'] = '%' . $q . '%';
                 $params['q_actor'] = '%' . $q . '%';
@@ -510,7 +510,7 @@ if (!function_exists('userActivitySecuritySummary')) {
                 $params['date_to'] = date('Y-m-d H:i:s', strtotime((string) $filters['date_to'] . ' +1 day'));
             }
 
-            $stmt = $pdo->prepare("SELECT se.*, u.name AS user_name, u.email AS user_email
+            $stmt = $pdo->prepare("SELECT se.*, u.username AS user_name, u.email AS user_email
                 FROM security_events se
                 LEFT JOIN users u ON u.id = se.user_id
                 WHERE " . implode(' AND ', $where) . "

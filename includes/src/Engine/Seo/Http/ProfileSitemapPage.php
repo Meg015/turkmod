@@ -146,14 +146,14 @@ final class ProfileSitemapPage implements Handler
 
         try {
             $statement = $pdo->prepare(
-                "SELECT id, name, updated_at, created_at
+                "SELECT id, username, updated_at, created_at
                  FROM users
                  WHERE status = 'active'
                    AND public_profile = 1
                    AND deleted_at IS NULL
                    AND (is_banned = 0 OR is_banned IS NULL)
-                   AND name IS NOT NULL
-                   AND TRIM(name) <> ''
+                   AND username IS NOT NULL
+                   AND TRIM(username) <> ''
                  ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
                  LIMIT :limit OFFSET :offset",
             );
@@ -181,12 +181,15 @@ final class ProfileSitemapPage implements Handler
     private function profileUrl(array $profile, array $settings, string $canonicalBase): string
     {
         if (function_exists('publicProfileUrl')) {
-            return $this->canonicalUrl(publicProfileUrl($profile), $settings, $canonicalBase);
+            return $this->canonicalUrl(publicProfileUrl([
+                'id' => (int) ($profile['id'] ?? 0),
+                'username' => (string) ($profile['username'] ?? ''),
+            ]), $settings, $canonicalBase);
         }
 
         $id = (int) ($profile['id'] ?? 0);
-        $name = (string) ($profile['name'] ?? 'uye');
-        $slug = $id . '-' . trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($name)), '-');
+        $username = (string) ($profile['username'] ?? 'uye');
+        $slug = $id . '-' . trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($username)), '-');
 
         return $this->canonicalUrl('/profil/' . $slug, $settings, $canonicalBase);
     }

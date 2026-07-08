@@ -60,8 +60,8 @@
 {if logged_in}
 <li class="nav-item d-lg-none"><a class="nav-link" href="{base_url}/profile.php">Hesabim</a></li>
 {else}
-<li class="nav-item d-lg-none"><a class="nav-link" href="{base_url}/giris">Giris</a></li>
-<li class="nav-item d-lg-none"><a class="nav-link" href="{base_url}/kayit">Kayit Ol</a></li>
+<li class="nav-item d-lg-none"><a class="nav-link" href="{base_url}/giris">Giriş</a></li>
+<li class="nav-item d-lg-none"><a class="nav-link" href="{base_url}/kayit">Kayıt Ol</a></li>
 {/if}
 </ul>
 </div>

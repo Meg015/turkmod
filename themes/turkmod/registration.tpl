@@ -17,10 +17,10 @@
                         <input type="hidden" name="_token" value="{auth_csrf_token}">
 
                         <div class="auth-field ui-field ui-theme-auth-field">
-                            <label class="ui-label" for="name">Adın</label>
+                            <label class="ui-label" for="username">Kullanıcı Adı</label>
                             <span class="auth-input-shell ui-theme-auth-input">
                                 <i class="bi bi-person" aria-hidden="true"></i>
-                                <input class="ui-input" id="name" name="name" type="text" value="{auth_name_value}" placeholder="Adın Soyadın" required minlength="2" maxlength="255" aria-required="true" autocomplete="name">
+                                <input class="ui-input" id="username" name="username" type="text" value="{auth_username_value}" placeholder="kullanici_adi" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" aria-required="true" autocomplete="username">
                             </span>
                         </div>
 
@@ -100,3 +100,4 @@
         </section>
     </div>
 </div>
+

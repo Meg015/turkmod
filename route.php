@@ -17,6 +17,14 @@ if ($uri !== null && $uri !== '/') {
     }
 }
 
+$statelessSeoRoutePath = strtolower(rawurldecode((string) ($uri ?? '')));
+if (
+    $statelessSeoRoutePath !== ''
+    && preg_match('~(?:^|/)(?:robots\.txt|sitemap\.xml|(?:topic|profile|image)-sitemap(?:-\d+)?\.xml|favicon\.ico|xmlrpc\.php)$~i', $statelessSeoRoutePath) === 1
+) {
+    $GLOBALS['_skip_session_bootstrap'] = true;
+}
+
 require_once __DIR__ . '/includes/init.php';
 
 function routerNotFound(): void

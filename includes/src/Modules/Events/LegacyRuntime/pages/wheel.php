@@ -59,8 +59,11 @@ if ($pdo && eventsTablesReady($pdo)) {
 
 $recentWinners = [];
 if ($pdo && eventsTablesReady($pdo)) {
+    $winnerNameExpr = (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username'))
+        ? "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))"
+        : "CONCAT('user-', u.id)";
     try {
-        $recentWinners = $pdo->query("SELECT ur.reward_name, u.name AS username FROM events_user_rewards ur JOIN users u ON u.id = ur.user_id WHERE ur.source_type = 'wheel' ORDER BY ur.id DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $recentWinners = $pdo->query("SELECT ur.reward_name, {$winnerNameExpr} AS username FROM events_user_rewards ur JOIN users u ON u.id = ur.user_id WHERE ur.source_type = 'wheel' ORDER BY ur.id DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
 }
 

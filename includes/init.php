@@ -324,6 +324,8 @@ if (!$skipSessionBootstrap) {
     $requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     $sessionCookieName = session_name();
     $hasSessionCookie = $sessionCookieName !== '' && isset($_COOKIE[$sessionCookieName]);
+    $rememberCookieName = 'tm_remember';
+    $hasRememberCookie = $rememberCookieName !== '' && isset($_COOKIE[$rememberCookieName]);
     $requestPathForSession = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
     $requestPathForSession = str_replace('\\', '/', $requestPathForSession);
     $baseUriForSession = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
@@ -343,6 +345,7 @@ if (!$skipSessionBootstrap) {
     // Keep truly anonymous first-hit listing requests stateless to reduce TTFB and avoid unnecessary session cookies.
     $isStatelessHomeRequest = in_array($requestMethod, ['GET', 'HEAD'], true)
         && !$hasSessionCookie
+        && !$hasRememberCookie
         && ($requestPathForSession === '/' || $requestPathForSession === '/index.php');
     if ($isStatelessHomeRequest) {
         $skipSessionBootstrap = true;
@@ -797,7 +800,7 @@ if ($pdo && ($envConfig["APP_AUTO_SEED"] ?? "false") === "true") {
 // Auth helpers are needed before the global auth/session gate.
 require_once __DIR__ . "/src/Engine/Auth/Legacy/helpers.php";
 
-if ($pdo && empty($_SESSION["_auth_user_id"]) && function_exists('authAttemptRememberLogin')) {
+if (!$skipSessionBootstrap && $pdo && empty($_SESSION["_auth_user_id"]) && function_exists('authAttemptRememberLogin')) {
     authAttemptRememberLogin($pdo, $adminSettingsGlobal);
 }
 
@@ -812,7 +815,7 @@ if ($isLoggedIn) {
         $sessionTimeout = (int)($adminSettingsGlobal['session_timeout_minutes'] ?? 120);
         $lastActivity = $_SESSION['_auth_last_activity'] ?? time();
         if ($sessionTimeout > 0 && (time() - $lastActivity) > ($sessionTimeout * 60)) {
-            logoutUser($pdo);
+            logoutUser($pdo, false);
             $isLoggedIn = false;
         } else {
             $_SESSION['_auth_last_activity'] = time();
@@ -826,7 +829,7 @@ $sessionRefreshInterval = 300; // 5 minutes
 $lastSessionRefresh = (int) ($_SESSION['_auth_last_session_refresh'] ?? 0);
 if ($pdo && $isLoggedIn && function_exists('refreshAuthenticatedSession') && (time() - $lastSessionRefresh) >= $sessionRefreshInterval) {
     if (!refreshAuthenticatedSession($pdo)) {
-        logoutUser($pdo);
+        logoutUser($pdo, false);
         $isLoggedIn = false;
     } else {
         $_SESSION['_auth_last_session_refresh'] = time();
@@ -2304,10 +2307,10 @@ function categoryUrlForRow(?PDO $pdo, array $row): string
     return categoryUrl($slug, $parentSlugCache[$parentId]);
 }
 
-function publicProfileSlug(int $userId, string $name): string
+function publicProfileSlug(int $userId, string $username): string
 {
-    $nameSlug = slugify($name);
-    return $userId . ($nameSlug !== "" ? "-" . $nameSlug : "");
+    $usernameSlug = slugify($username);
+    return $userId . ($usernameSlug !== "" ? "-" . $usernameSlug : "");
 }
 
 function publicProfileIdFromSlug(string $slug): int
@@ -2323,13 +2326,13 @@ function publicProfileUrl(array $user): string
 {
     $id =
         (int) ($user["id"] ?? ($user["author_id"] ?? ($user["user_id"] ?? 0)));
-    $name = (string) ($user["name"] ?? ($user["author"] ?? "uye"));
+    $username = (string) ($user["username"] ?? ($user["name"] ?? ($user["author"] ?? "uye")));
 
     if ($id <= 0) {
         return "#";
     }
 
-    return routeCanonicalPath("profile", publicProfileSlug($id, $name));
+    return routeCanonicalPath("profile", publicProfileSlug($id, $username));
 }
 
 /**
@@ -2455,7 +2458,7 @@ function getDeletedTopics(?PDO $pdo): array
     }
 
     try {
-        $stmt = $pdo->query("SELECT t.*, cat.name AS category, u.name AS author
+        $stmt = $pdo->query("SELECT t.*, cat.name AS category, u.username AS author
                              FROM topics t
                              LEFT JOIN categories cat ON t.category_id = cat.id
                              LEFT JOIN users u ON t.author_id = u.id
@@ -2634,26 +2637,34 @@ function getSeoMeta(
         }
     }
 
-    // Use default_meta_title if title is empty
     if (empty(trim($title))) {
-        $title = $settings['default_meta_title'] ?? $siteName;
+        $legacyTitle = trim((string) ($settings['default_meta_title'] ?? ''));
+        $title = $legacyTitle !== '' ? $legacyTitle : $siteName;
     }
 
-    // Apply meta_title_suffix if set
-    $titleSuffix = (string) ($settings['meta_title_suffix'] ?? '');
+    $titleSuffix = trim((string) ($settings['meta_title_suffix'] ?? ''));
     if (!$titleIsFinal && $titleSuffix !== '' && !str_contains($title, $titleSuffix)) {
-        $title = $title . ' ' . $titleSuffix;
+        $title .= ' ' . $titleSuffix;
     }
 
-    // Use default_meta_description if description is empty
     if (empty(trim($description))) {
-        $description = $settings['default_meta_description'] ?? '';
+        $description = seoDescriptionFallback($settings);
     }
 
-    // Use meta_description_max_length from settings
-    $maxLength = (int)($settings['meta_description_max_length'] ?? 160);
+    $maxLength = max(3, (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160)));
     if (mb_strlen($description, 'UTF-8') > $maxLength) {
-        $description = mb_substr($description, 0, $maxLength - 3, 'UTF-8') . '...';
+        $truncated = mb_substr($description, 0, $maxLength - 3, 'UTF-8');
+        $lastSentenceEnd = max(
+            mb_strrpos($truncated, '. ', -1, 'UTF-8') ?: -1,
+            mb_strrpos($truncated, '! ', -1, 'UTF-8') ?: -1,
+            mb_strrpos($truncated, '? ', -1, 'UTF-8') ?: -1
+        );
+        if ($lastSentenceEnd > 0) {
+            $description = mb_substr($truncated, 0, $lastSentenceEnd + 1, 'UTF-8');
+        } else {
+            $lastSpace = mb_strrpos($truncated, ' ', -1, 'UTF-8');
+            $description = ($lastSpace > 0 ? mb_substr($truncated, 0, $lastSpace, 'UTF-8') : $truncated) . '...';
+        }
     }
 
     $fullUrl = seoCanonicalUrl($url !== "" ? $url : null, $settings);
@@ -2738,6 +2749,17 @@ function getSeoMeta(
 
     return $html;
 }
+}
+
+function seoDescriptionFallback(array $settings, string $default = ''): string
+{
+    return trim((string) (
+        $settings['default_meta_description']
+        ?? $settings['site_description']
+        ?? $settings['footer_description']
+        ?? $settings['footer_text']
+        ?? $default
+    ));
 }
 
 function seoSettings(?array $settings = null): array
@@ -2860,7 +2882,6 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
 {
     $settings = seoSettings($settings);
 
-    // Global indexing check
     if (seoIndexToggleValue($settings, 'allow_indexing', '1') !== '1') {
         return "noindex, nofollow";
     }
@@ -3032,7 +3053,7 @@ function getWebsiteStructuredDataJson(?array $settings = null): string
     $settings = seoSettings($settings);
     $baseUrl = seoCanonicalUrl("/", $settings);
     $siteName = (string) ($settings["site_name"] ?? ($envConfig["APP_NAME"] ?? "Mod Portal"));
-    $description = (string) ($settings["default_meta_description"] ?? "Güncel modlar, eklentiler ve topluluk içerikleri.");
+    $description = seoDescriptionFallback($settings, "Güncel modlar, eklentiler ve topluluk içerikleri.");
 
     $data = [
         "@context" => "https://schema.org",

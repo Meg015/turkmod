@@ -71,7 +71,7 @@
 
                 <aside class="ui-theme-auth-support" aria-label="TurkMod hesap avantajları">
                     <span class="ui-theme-auth-eyebrow">TurkMod hesabı</span>
-                    <h2>Topluluk deneyimin tek yerde</h2>
+                    <h2>Topluluk deneyimi tek yerde</h2>
                     <ul class="ui-theme-auth-benefits">
                         <li>
                             <span class="ui-theme-auth-benefit-icon"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i></span>
@@ -95,3 +95,4 @@
         </section>
     </div>
 </div>
+

@@ -10,7 +10,7 @@ use Throwable;
 final class ContactMailService
 {
     /**
-     * @return list<array{id:int,name:string,email:string}>
+     * @return list<array{id:int,username:string,name:string,email:string}>
      */
     public function adminRecipients(PDO $pdo): array
     {
@@ -20,7 +20,7 @@ final class ContactMailService
             }
 
             $stmt = $pdo->query("
-                SELECT DISTINCT u.id, u.name, u.email
+                SELECT DISTINCT u.id, u.username, u.email
                 FROM users u
                 INNER JOIN user_group_members ugm ON ugm.user_id = u.id
                 INNER JOIN user_groups g ON g.id = ugm.group_id AND g.is_active = 1
@@ -30,7 +30,7 @@ final class ContactMailService
                   AND u.status = 'active'
                   AND (u.is_banned = 0 OR u.is_banned IS NULL)
                   AND (g.slug = 'admin' OR p.permission_key IS NOT NULL)
-                ORDER BY u.name ASC, u.id ASC
+                ORDER BY u.username ASC, u.id ASC
             ");
 
             $recipients = [];
@@ -42,7 +42,8 @@ final class ContactMailService
 
                 $recipients[] = [
                     'id' => (int) ($row['id'] ?? 0),
-                    'name' => trim((string) ($row['name'] ?? '')),
+                    'username' => trim((string) ($row['username'] ?? '')),
+                    'name' => trim((string) ($row['username'] ?? '')),
                     'email' => $email,
                 ];
             }

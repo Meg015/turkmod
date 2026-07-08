@@ -54,7 +54,7 @@ if ($pdo) {
 
         $activityStmt = $pdo->query(
             "SELECT a.action, a.subject_type, a.subject_id, a.properties, a.created_at,
-                    u.name AS actor_name, t.title AS topic_title
+                    u.username AS actor_name, t.title AS topic_title
              FROM activity_logs a
              LEFT JOIN users u ON a.actor_id = u.id
              LEFT JOIN topics t ON a.subject_type = 'topic' AND a.subject_id = t.id

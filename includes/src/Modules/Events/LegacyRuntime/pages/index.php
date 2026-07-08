@@ -25,7 +25,7 @@ if ($userId > 0 && $pdo instanceof PDO) {
 $userProfile = [];
 if ($userId > 0 && $pdo instanceof PDO) {
     try {
-        $stmt = $pdo->prepare("SELECT name, avatar FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT username, avatar FROM users WHERE id = ?");
         $stmt->execute([$userId]);
         $userProfile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
@@ -174,7 +174,7 @@ require dirname(__DIR__, 6) . '/includes/public-header.php';
                                     <img src="<?= htmlspecialchars($eventsAvatarUrl) ?>" alt="Avatar" class="ui-events-profile-avatar" width="52" height="52" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($eventsAvatarFallback) ?>">
                                 </div>
                                 <div class="ui-events-profile-minimal-meta">
-                                    <h3 class="ui-events-profile-name"><?= e((string)($userProfile['name'] ?? 'Kullanıcı')) ?></h3>
+                                    <h3 class="ui-events-profile-name"><?= e((string)($userProfile['username'] ?? 'Kullanıcı')) ?></h3>
                                     <p class="ui-events-profile-minimal-subtitle">Etkinlik hesabın aktif. Güncel durumun aşağıda.</p>
                                 </div>
                             </header>

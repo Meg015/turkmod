@@ -31,7 +31,11 @@ if (trim($reason) === '') {
     sendValidationError('Durum değişimi için gerekçe zorunludur.');
 }
 
-$userStmt = $pdo->prepare("SELECT id, name, email, status FROM users WHERE id = ? LIMIT 1");
+$hasUsernameColumn = function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username');
+$userIdentitySelect = $hasUsernameColumn
+    ? "username AS username"
+    : "name AS username";
+$userStmt = $pdo->prepare("SELECT id, {$userIdentitySelect}, email, status FROM users WHERE id = ? LIMIT 1");
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch(PDO::FETCH_ASSOC);
 if (!$user) {
@@ -57,7 +61,7 @@ adminAuditLogger()->logAction($pdo, 'status_change', 'user', $userId, $reason,
 sendSuccess('Kullanıcı durumu başarıyla güncellendi.', [
     'data' => [
         'user_id' => $userId,
-        'user_name' => $user['name'],
+        'user_name' => $user['username'],
         'old_status' => $user['status'],
         'new_status' => $newStatus,
         'changed_by' => $currentUserId,

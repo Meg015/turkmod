@@ -737,7 +737,7 @@ class ScraperEngine
     public function downloadImage(string $imageUrl, string $siteSlug, string $topicSlug, ?int $sequence = null): ?string
     {
         $dir = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/\\');
-        $appBasePath = dirname(__DIR__, 4);
+        $appBasePath = dirname(__DIR__, 5);
 
         $datePath = date('Y/m');
         $saveDir = $appBasePath . '/' . rtrim($this->imageSavePath, '/') . '/' . $datePath;
@@ -763,10 +763,19 @@ class ScraperEngine
 
         // Verify resolved path is within saveDir to prevent symlink attacks
         $realSaveDir = realpath($saveDir);
-        $realFullPath = realpath(dirname($fullPath)) . '/' . basename($fullPath);
+        $realTargetDir = realpath(dirname($fullPath));
+        if ($realSaveDir === false || $realTargetDir === false) {
+            return null;
+        }
+
+        $normalizePath = static function (string $path): string {
+            return rtrim(str_replace('\\', '/', $path), '/');
+        };
+        $normalizedSaveDir = $normalizePath($realSaveDir);
+        $normalizedTargetDir = $normalizePath($realTargetDir);
         if (
-            $realSaveDir === false ||
-            ($realFullPath !== $realSaveDir && !str_starts_with($realFullPath, $realSaveDir . DIRECTORY_SEPARATOR))
+            $normalizedTargetDir !== $normalizedSaveDir &&
+            !str_starts_with($normalizedTargetDir . '/', $normalizedSaveDir . '/')
         ) {
             return null;
         }
@@ -960,7 +969,7 @@ class ScraperEngine
             'author_topic' => $authorDetection !== '',
             'topic_version' => $versionDetection !== '',
         ];
-        $result = $this->applySiteCustomization($result, $settings);
+        $result = $this->applySiteCustomization($result, $settings, $botSettings);
 
         // Download images
         $topicSlug = slugify($result['title']) ?: 'topic-' . time();
@@ -1645,7 +1654,7 @@ class ScraperEngine
         return $value;
     }
 
-    private function applySiteCustomization(array $result, array $settings): array
+    private function applySiteCustomization(array $result, array $settings, array $botSettings = []): array
     {
         $removeRules = [];
         foreach (($settings['remove_texts'] ?? []) as $rule) {
@@ -1684,7 +1693,7 @@ class ScraperEngine
         ];
 
         if (trim((string)($result['author_topic'] ?? '')) === '') {
-            $result['author_topic'] = $this->detectAuthorFromContent((string)$result['content'], $settings, []);
+            $result['author_topic'] = $this->detectAuthorFromContent((string)$result['content'], $settings, $botSettings);
             if ((string)$result['author_topic'] !== '') {
                 $result['detection_meta']['author_topic'] = true;
             }
@@ -1695,8 +1704,105 @@ class ScraperEngine
                 $result['detection_meta']['topic_version'] = true;
             }
         }
+
+        $result['content'] = $this->stripDetectedAuthorLinesFromContent((string)($result['content'] ?? ''), $settings, $botSettings);
  
         return $result;
+    }
+
+    private function getAuthorDetectionLabels(array $settings, array $botSettings): array
+    {
+        $labelsRaw = (string)($settings['detect_author_labels'] ?? ($botSettings['bot_detect_author_labels'] ?? 'author,authors,credit,credits'));
+        $labels = array_values(array_filter(array_map(static function ($label): string {
+            $normalized = trim((string)$label);
+            if ($normalized === '') {
+                return '';
+            }
+
+            if (function_exists('mb_strtolower')) {
+                return mb_strtolower($normalized, 'UTF-8');
+            }
+
+            return strtolower($normalized);
+        }, preg_split('/[,\n]+/', $labelsRaw) ?: []), static fn(string $label): bool => $label !== ''));
+
+        return array_values(array_unique($labels));
+    }
+
+    private function stripDetectedAuthorLinesFromContent(string $content, array $settings, array $botSettings): string
+    {
+        $content = trim((string)$content);
+        if ($content === '') {
+            return '';
+        }
+
+        $enabled = $this->resolveBooleanSetting($settings['detect_author_enabled'] ?? null, $botSettings['bot_detect_author_enabled'] ?? '1');
+        if (!$enabled) {
+            return $content;
+        }
+
+        $labels = $this->getAuthorDetectionLabels($settings, $botSettings);
+        if (empty($labels)) {
+            return $content;
+        }
+
+        $escapedLabels = array_map(static fn(string $label): string => preg_quote($label, '/'), $labels);
+        $linePattern = '/^\s*(?:[-*]+\s*)?(?:' . implode('|', $escapedLabels) . ')\s*[:\-–—]\s*(.{1,180})\s*$/imu';
+        $cleaned = preg_replace('/\x{00a0}/u', ' ', $content) ?? $content;
+
+        if (class_exists('DOMDocument')) {
+            $doc = new DOMDocument('1.0', 'UTF-8');
+            libxml_use_internal_errors(true);
+            $wrapped = '<div id="scraper-author-strip-root">' . $cleaned . '</div>';
+            $loaded = $doc->loadHTML('<?xml encoding="UTF-8">' . $wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+            libxml_clear_errors();
+            if ($loaded) {
+                $root = $doc->getElementById('scraper-author-strip-root');
+                if ($root instanceof DOMElement) {
+                    $xpath = new DOMXPath($doc);
+                    $nodes = $xpath->query('.//*[self::p or self::div or self::li or self::span or self::strong or self::b]', $root);
+                    if ($nodes instanceof DOMNodeList) {
+                        for ($index = $nodes->length - 1; $index >= 0; $index--) {
+                            $node = $nodes->item($index);
+                            if (!$node instanceof DOMElement || !$node->parentNode) {
+                                continue;
+                            }
+
+                            foreach (['img', 'iframe', 'video', 'audio', 'table', 'ul', 'ol', 'pre', 'blockquote', 'code'] as $tag) {
+                                if ($node->getElementsByTagName($tag)->length > 0) {
+                                    continue 2;
+                                }
+                            }
+
+                            $text = html_entity_decode((string)($node->textContent ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                            $text = preg_replace('/\x{00a0}/u', ' ', $text) ?? $text;
+                            $text = preg_replace('/[\t ]+/u', ' ', $text) ?? $text;
+                            $text = trim($text);
+                            if ($text !== '' && preg_match($linePattern, $text) === 1) {
+                                $node->parentNode->removeChild($node);
+                            }
+                        }
+                    }
+
+                    $rebuilt = '';
+                    foreach ($root->childNodes as $child) {
+                        $rebuilt .= $doc->saveHTML($child);
+                    }
+                    $cleaned = $rebuilt;
+                }
+            }
+        }
+
+        $tagPattern = '(?:p|div|li|span|strong|b)';
+        $labelPattern = '(?:' . implode('|', $escapedLabels) . ')';
+        $cleaned = preg_replace(
+            '~<(' . $tagPattern . ')(?:\s[^>]*)?>\s*(?:[-*]+\s*)?' . $labelPattern . '\s*[:\-–—]\s*[^<]{1,180}\s*</\1>~iu',
+            '',
+            $cleaned
+        ) ?? $cleaned;
+        $cleaned = preg_replace('~(?:<br\s*/?>\s*){2,}~i', '<br>', $cleaned) ?? $cleaned;
+
+        return trim($cleaned);
     }
 
     private function detectAuthorFromContent(string $content, array $settings, array $botSettings): string
@@ -1706,10 +1812,7 @@ class ScraperEngine
             return '';
         }
 
-        $labelsRaw = (string)($settings['detect_author_labels'] ?? ($botSettings['bot_detect_author_labels'] ?? 'author,authors,credit,credits'));
-        $labels = array_values(array_filter(array_map(static function ($label) {
-            return trim((string)$label);
-        }, preg_split('/[,\n]+/', $labelsRaw) ?: [])));
+        $labels = $this->getAuthorDetectionLabels($settings, $botSettings);
         if (empty($labels)) {
             return '';
         }
@@ -1720,10 +1823,10 @@ class ScraperEngine
         }
 
         $escapedLabels = array_map(static fn(string $label): string => preg_quote($label, '/'), $labels);
-        $pattern = '/(?:^|\n|\r|[\-ï¿½ï¿½ï¿½?\*]|\s)(' . implode('|', $escapedLabels) . ')\s*[:\-ï¿½ï¿½]\s*(.{2,160})/iu';
+        $pattern = '/^\s*(?:[-*]+\s*)?(?:' . implode('|', $escapedLabels) . ')\s*[:\-–—]\s*(.{2,160})\s*$/imu';
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                $candidate = $this->sanitizeDetectedAuthor($match[2] ?? '');
+                $candidate = $this->sanitizeDetectedAuthor($match[1] ?? '');
                 if ($candidate !== '') {
                     return $candidate;
                 }
@@ -1965,3 +2068,4 @@ class ScraperEngine
         return '<div class="content-align-' . $align . '">' . $html . '</div>';
     }
 }
+

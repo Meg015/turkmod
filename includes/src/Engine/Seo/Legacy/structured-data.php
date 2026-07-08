@@ -78,7 +78,7 @@ if (!function_exists('seoGetProfileStructuredData')) {
 
         global $baseUri;
 
-        $username = $user['name'] ?? '';
+        $username = $user['username'] ?? '';
         $avatar = !empty($user['avatar']) ? profileAvatarUrl($baseUri ?? '', (string) $user['avatar']) : '';
         $profileUrl = seoCanonicalUrl(publicProfileUrl($user), $settings);
 

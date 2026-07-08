@@ -33,6 +33,13 @@ function profileGetUser(PDO $pdo, int $userId): ?array
     return $user ?: null;
 }
 
+function profileUserDisplayNameExpr(PDO $pdo, string $alias = 'u'): string
+{
+    return function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username')
+        ? "COALESCE(NULLIF({$alias}.username, ''), CONCAT('user-', {$alias}.id))"
+        : "CONCAT('user-', {$alias}.id)";
+}
+
 function profileEnsureColumns(PDO $pdo): void
 {
     // Profile columns are defined in database/schema.sql. This remains as a
@@ -226,8 +233,30 @@ function profileNormalizeSocialHandle(?string $handle): string
 
 function profileUpdate(PDO $pdo, int $userId, array $data): void
 {
+    if (function_exists('usersEnsureUsernameSchema')) {
+        usersEnsureUsernameSchema($pdo);
+    }
+
+    $usernameRaw = trim((string) ($data['username'] ?? ''));
+    $username = function_exists('usersValidateUsernameInput')
+        ? usersValidateUsernameInput($usernameRaw)
+        : '';
+    if ($username === '') {
+        throw new RuntimeException('Kullanici adi 3-30 karakter olmali ve sadece harf, rakam, _ veya - icermelidir.');
+    }
+
+    $usernameCheckSql = "SELECT id FROM users WHERE username = :username AND id <> :id LIMIT 1";
+    $usernameStmt = $pdo->prepare($usernameCheckSql);
+    $usernameStmt->execute([
+        'username' => $username,
+        'id' => $userId,
+    ]);
+    if ($usernameStmt->fetch()) {
+        throw new RuntimeException('Bu kullanici adi zaten kayitli.');
+    }
+
     $stmt = $pdo->prepare("UPDATE users SET
-        name = :name,
+        username = :username,
         bio = :bio,
         website = :website,
         location = :location,
@@ -240,8 +269,8 @@ function profileUpdate(PDO $pdo, int $userId, array $data): void
         public_show_socials = :public_show_socials,
         updated_at = NOW()
         WHERE id = :id");
-    $stmt->execute([
-        'name'    => $data['name'],
+    $params = [
+        'username'=> $username,
         'bio'     => $data['bio'],
         'website' => profileNormalizeExternalUrl($data['website'] ?? ''),
         'location'=> $data['location'],
@@ -253,7 +282,8 @@ function profileUpdate(PDO $pdo, int $userId, array $data): void
         'public_show_comments' => !empty($data['public_show_comments']) ? 1 : 0,
         'public_show_socials' => !empty($data['public_show_socials']) ? 1 : 0,
         'id'      => $userId,
-    ]);
+    ];
+    $stmt->execute($params);
 }
 
 function profileChangePassword(PDO $pdo, int $userId, string $currentPassword, string $newPassword, ?string $newPasswordConfirm = null): string
@@ -276,7 +306,7 @@ function profileChangePassword(PDO $pdo, int $userId, string $currentPassword, s
     }
 
     $hash = password_hash($newPassword, PASSWORD_DEFAULT);
-    $pdo->prepare("UPDATE users SET password = :pw, updated_at = NOW() WHERE id = :id")
+    $pdo->prepare("UPDATE users SET password = :pw, password_changed_at = NOW(), remember_token = NULL, updated_at = NOW() WHERE id = :id")
         ->execute(['pw' => $hash, 'id' => $userId]);
     return '';
 }
@@ -303,14 +333,18 @@ function profileUploadAvatar(PDO $pdo, int $userId, array $file, string $uploadB
     finfo_close($finfo);
     if (!str_starts_with($mime, 'image/')) return 'Geçersiz dosya türü.';
 
-    $stmt = $pdo->prepare("SELECT name, avatar FROM users WHERE id = :id LIMIT 1");
+    $stmt = $pdo->prepare("SELECT username, avatar FROM users WHERE id = :id LIMIT 1");
     $stmt->execute(['id' => $userId]);
     $user = $stmt->fetch();
     if (!$user) {
         return 'Kullanıcı bulunamadı.';
     }
 
-    $profileSlug = profileSlugify((string)($user['name'] ?? 'profil')) ?: ('profil-' . $userId);
+    $profileIdentity = trim((string) ($user['username'] ?? ''));
+    if ($profileIdentity === '') {
+        $profileIdentity = 'profil-' . $userId;
+    }
+    $profileSlug = profileSlugify($profileIdentity) ?: ('profil-' . $userId);
     $relativeDir = 'uploads/profil/profil-' . $userId . '-' . $profileSlug;
     $dir = rtrim($uploadBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, str_replace('uploads/', '', $relativeDir));
     if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
@@ -326,7 +360,7 @@ function profileUploadAvatar(PDO $pdo, int $userId, array $file, string $uploadB
     }
 
     $fileName = function_exists('uploadProfileAvatarFilename')
-        ? uploadProfileAvatarFilename($userId, (string)($user['name'] ?? 'profil'), $ext)
+        ? uploadProfileAvatarFilename($userId, $profileIdentity, $ext)
         : 'user-' . $userId . '-' . $profileSlug . '-avatar.' . $ext;
     $fileName = function_exists('uploadAvailableFilename')
         ? uploadAvailableFilename($dir, $fileName)
@@ -342,6 +376,9 @@ function profileUploadAvatar(PDO $pdo, int $userId, array $file, string $uploadB
         ->execute(['avatar' => $relPath, 'id' => $userId]);
     if (function_exists('invalidateUserAvatarCache')) {
         invalidateUserAvatarCache();
+    }
+    if (function_exists('invalidatePublicContentCache')) {
+        invalidatePublicContentCache();
     }
     if (is_file(dirname(__DIR__, 3) . '/Modules/Events/init.php')) {
         require_once dirname(__DIR__, 3) . '/Modules/Events/init.php';
@@ -1098,8 +1135,9 @@ function profileGetFavorites(PDO $pdo, int $userId, int $limit = 50, int $offset
     ensureTopicFavoritesTable($pdo);
 
     try {
+        $authorExpr = profileUserDisplayNameExpr($pdo, 'u');
         $stmt = $pdo->prepare("SELECT t.id, t.title, t.slug, t.view_count, t.download_count,
-                                      cat.name AS category, cat.slug AS category_slug, u.name AS author, f.created_at AS favorited_at
+                                      cat.name AS category, cat.slug AS category_slug, {$authorExpr} AS author, f.created_at AS favorited_at
                                FROM topic_favorites f
                                INNER JOIN topics t ON t.id = f.topic_id AND t.deleted_at IS NULL
                                LEFT JOIN categories cat ON t.category_id = cat.id
@@ -1279,6 +1317,7 @@ function profileGetActivity(PDO $pdo, int $userId, int $limit = 15, int $offset 
     try {
         $condition = profileActivityFilterCondition($filter, 'a');
         $where = "a.actor_id = :uid" . ($condition !== '' ? " AND ({$condition})" : '');
+        $subjectUserExpr = profileUserDisplayNameExpr($pdo, 'subject_user');
         $stmt = $pdo->prepare("SELECT a.*,
                                       topic.id AS activity_topic_id,
                                       topic.title AS activity_topic_title,
@@ -1288,7 +1327,7 @@ function profileGetActivity(PDO $pdo, int $userId, int $limit = 15, int $offset 
                                       comment_topic.id AS activity_comment_topic_id,
                                       comment_topic.title AS activity_comment_topic_title,
                                       comment_topic.slug AS activity_comment_topic_slug,
-                                      subject_user.name AS activity_subject_user_name
+                                      {$subjectUserExpr} AS activity_subject_user_name
                                FROM activity_logs a
                                LEFT JOIN topics topic ON a.subject_type = 'topic' AND a.subject_id = topic.id
                                LEFT JOIN comments comment_row ON a.subject_type = 'comment' AND a.subject_id = comment_row.id

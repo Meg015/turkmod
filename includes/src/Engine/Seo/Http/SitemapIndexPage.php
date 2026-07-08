@@ -180,7 +180,7 @@ final class SitemapIndexPage implements Handler
             }
 
             if (function_exists('seoPublicPageShouldAppearInSitemap') && seoPublicPageShouldAppearInSitemap('public_profile', $settings)) {
-                $profileStatement = $pdo->prepare("SELECT MAX(COALESCE(updated_at, created_at)) AS last_mod, COUNT(*) AS total_profiles FROM users WHERE status = 'active' AND public_profile = 1 AND deleted_at IS NULL AND (is_banned = 0 OR is_banned IS NULL) AND name IS NOT NULL AND TRIM(name) <> ''");
+                $profileStatement = $pdo->prepare("SELECT MAX(COALESCE(updated_at, created_at)) AS last_mod, COUNT(*) AS total_profiles FROM users WHERE status = 'active' AND public_profile = 1 AND deleted_at IS NULL AND (is_banned = 0 OR is_banned IS NULL) AND username IS NOT NULL AND TRIM(username) <> ''");
                 $profileStatement->execute();
                 $profileRow = $profileStatement->fetch(PDO::FETCH_ASSOC);
                 if (is_array($profileRow)) {

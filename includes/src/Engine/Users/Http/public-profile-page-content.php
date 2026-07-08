@@ -8,20 +8,26 @@ require_once $projectRoot . '/includes/src/Engine/Seo/Legacy/helpers.php';
 
 $profileSlug = trim((string) ($_GET['profile'] ?? $_GET['slug'] ?? ''));
 $profileUserId = publicProfileIdFromSlug($profileSlug);
+if ($pdo && function_exists('usersEnsureUsernameSchema')) {
+    usersEnsureUsernameSchema($pdo);
+}
+$profileLookupColumn = (function_exists('usersColumnExists') && $pdo && usersColumnExists($pdo, 'users', 'username'))
+    ? 'username'
+    : 'name';
 
 if ($profileUserId <= 0 && $pdo && $profileSlug !== '') {
     try {
-        $fallbackStmt = $pdo->prepare("SELECT id FROM users WHERE deleted_at IS NULL AND status = 'active' AND public_profile = 1 AND name = :name LIMIT 1");
-        $fallbackStmt->execute(['name' => $profileSlug]);
+        $fallbackStmt = $pdo->prepare("SELECT id FROM users WHERE deleted_at IS NULL AND status = 'active' AND public_profile = 1 AND {$profileLookupColumn} = :profile_lookup LIMIT 1");
+        $fallbackStmt->execute(['profile_lookup' => $profileSlug]);
         $profileUserId = (int) ($fallbackStmt->fetchColumn() ?: 0);
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
 }
 
 if (!$pdo || $profileUserId <= 0) {
     http_response_code(404);
-    $pageTitle = 'Profil Bulunamadı';
+    $pageTitle = 'Profil Bulunamadi';
     require_once $projectRoot . '/includes/public-header.php';
-    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">Kullanıcı profili bulunamadı.</div>';
+    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">Kullanici profili bulunamadi.</div>';
     require_once $projectRoot . '/includes/public-footer.php';
     exit;
 }
@@ -31,14 +37,18 @@ $user = profileGetUser($pdo, $profileUserId);
 
 if (!$user || (string) ($user['status'] ?? 'active') !== 'active' || !empty($user['is_banned']) || (int) ($user['public_profile'] ?? 1) !== 1) {
     http_response_code(404);
-    $pageTitle = 'Profil Bulunamadı';
+    $pageTitle = 'Profil Bulunamadi';
     require_once $projectRoot . '/includes/public-header.php';
-    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">Kullanıcı profili bulunamadı.</div>';
+    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">Kullanici profili bulunamadi.</div>';
     require_once $projectRoot . '/includes/public-footer.php';
     exit;
 }
 
-$canonicalSlug = publicProfileSlug((int) $user['id'], (string) $user['name']);
+$profileUsername = trim((string) ($user['username'] ?? ''));
+if ($profileUsername === '') {
+    $profileUsername = 'kullanici';
+}
+$canonicalSlug = publicProfileSlug((int) $user['id'], $profileUsername);
 if ($profileSlug !== $canonicalSlug || routeRequestNeedsCanonicalRedirect('profile', $canonicalSlug)) {
     header('Location: ' . publicProfileUrl($user), true, 301);
     exit;
@@ -71,10 +81,10 @@ $profileContext = profileBuildProfileContext($user, [
     'view_count' => $viewCount,
     'download_count' => $downloadCount,
     'stat_labels' => [
-        'topics' => 'Yayın',
+        'topics' => 'Yayin',
         'comments' => 'Yorum',
-        'views' => 'Görüntülenme',
-        'downloads' => 'İndirme',
+        'views' => 'Goruntulenme',
+        'downloads' => 'Indirme',
     ],
     'can_report' => $canReportProfile,
     'can_message' => $canMessageProfile,
@@ -92,8 +102,8 @@ $profilePageUrl = $profileCurrentPage > 1
 $userTopics = $showTopics ? profileGetTopics($pdo, (int) $user['id'], $topicsPerPage, $profileTopicOffset) : [];
 $publicCollections = $showTopics ? profileGetPublicCollections($pdo, (int) $user['id'], 6) : [];
 $paginationHtml = $showTopics ? renderPagination($publishedTopicCount, $profileCurrentPage, $topicsPerPage, $profileBaseUrl) : '';
-$pageTitle = (string) $user['name'] . ' Profili';
-$metaDescription = (string) $user['name'] . ' profilini, paylaştığı modları ve topluluk istatistiklerini inceleyin.';
+$pageTitle = $profileUsername . ' Profili';
+$metaDescription = $profileUsername . ' profilini, paylastigi modlari ve topluluk istatistiklerini inceleyin.';
 
 // SEO Integration
 $settings = getAdminSettings($pdo);
@@ -120,7 +130,8 @@ if ($profileCurrentPage > 1 || $profileTotalPages > 1) {
 
 $profile_is_public = true;
 $profile_is_private = false;
-$profile_name = (string) ($profileContext['name'] ?? '');
+$profile_username = (string) ($profileContext['username'] ?? '');
+$profile_name = $profile_username;
 $profile_email = (string) ($profileContext['email'] ?? '');
 $profile_bio = (string) ($profileContext['bio'] ?? '');
 $profile_avatar_url = (string) ($profileContext['avatar_url'] ?? '');
@@ -163,7 +174,7 @@ foreach ($userTopics as $index => $topic) {
     $topicTitle = (string) ($topic['title'] ?? 'Konu');
     $topicImageAlt = function_exists('seoGenerateImageAlt')
         ? seoGenerateImageAlt('topic-card', $topicTitle, $settings)
-        : $topicTitle . ' kapak görseli';
+        : $topicTitle . ' kapak gorseli';
     $topicImageTitle = function_exists('seoGenerateImageTitle')
         ? seoGenerateImageTitle('topic-card', $topicTitle, $settings)
         : $topicImageAlt;
@@ -219,7 +230,7 @@ require_once $projectRoot . '/includes/public-header.php';
         <i class="bi bi-chevron-right"></i>
         <a href="<?= $baseUri ?>/profil">Profiller</a>
         <i class="bi bi-chevron-right"></i>
-        <span><?= htmlspecialchars((string) $user['name']) ?></span>
+        <span><?= htmlspecialchars($profileUsername) ?></span>
     </nav>
 </div>
 <?php endif; ?>
@@ -229,7 +240,7 @@ require_once $projectRoot . '/includes/public-header.php';
         <div class="topic-report-backdrop" data-user-report-modal-close data-ui-modal-close></div>
         <div class="topic-report-dialog ui-panel">
             <div class="topic-report-header ui-panel__head">
-                <h2 id="user-report-heading"><i class="bi bi-flag"></i> Kullanıcıyı Şikayet Et</h2>
+                <h2 id="user-report-heading"><i class="bi bi-flag"></i> Kullaniciyi Sikayet Et</h2>
                 <button type="button" class="topic-report-close" data-user-report-modal-close data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
             </div>
             <?php if ($canReportProfile): ?>
@@ -248,37 +259,37 @@ require_once $projectRoot . '/includes/public-header.php';
                     </label>
                     <label>
                         <span>Detay</span>
-                        <textarea name="details" rows="3" maxlength="1000" placeholder="Ek bilgi varsa yazın"></textarea>
+                        <textarea name="details" rows="3" maxlength="1000" placeholder="Ek bilgi varsa yazin"></textarea>
                     </label>
                 </div>
-                <button type="submit" class="topic-report-submit"><i class="bi bi-send"></i> Şikayet Gönder</button>
+                <button type="submit" class="topic-report-submit"><i class="bi bi-send"></i> Sikayet Gonder</button>
                 <div class="topic-report-feedback" aria-live="polite"></div>
             </form>
             <?php else: ?>
             <div class="topic-report-login">
                 <i class="bi bi-shield-exclamation"></i>
-                <span>Kullanıcı şikayeti göndermek için giriş yapmalısınız.</span>
-                <a href="<?= htmlspecialchars(function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris'), ENT_QUOTES, 'UTF-8') ?>">Giriş yap</a>
+                <span>Kullanici sikayeti gondermek icin giris yapmalisiniz.</span>
+                <a href="<?= htmlspecialchars(function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris'), ENT_QUOTES, 'UTF-8') ?>">Giris yap</a>
             </div>
             <?php endif; ?>
         </div>
     </div>
 
-    <!-- 2 Sütunlu Layout -->
+    <!-- 2 Sutunlu Layout -->
 
     <div class="profile-two-column-layout ui-section">
-        <!-- Sol Sütun (Ana İçerik) -->
+        <!-- Sol Sutun (Ana Icerik) -->
         <div class="profile-main-content ui-section">
     <section class="profile-section profile-topics profile-public-topics ui-card ui-section" id="profile-topics">
         <div class="profile-section-head ui-panel__head">
             <div>
-                <span class="profile-section-kicker">Yayın arşivi</span>
+                <span class="profile-section-kicker">Yayin arsivi</span>
                 <h2 class="profile-section-title">
                     <i class="bi bi-file-earmark-text"></i>
-                    Yayınlanan Konular
+                    Yayinlanan Konular
                 </h2>
             </div>
-            <span class="profile-count"><?= number_format($publishedTopicCount) ?> içerik</span>
+            <span class="profile-count"><?= number_format($publishedTopicCount) ?> icerik</span>
         </div>
 
         <?php if ($profileTotalPages > 1): ?>
@@ -290,12 +301,12 @@ require_once $projectRoot . '/includes/public-header.php';
         <?php if (!$showTopics): ?>
             <div class="profile-empty ui-empty">
                 <i class="bi bi-lock"></i>
-                <p>Bu kullanıcı konularını gizlemiş.</p>
+                <p>Bu kullanici konularini gizlemis.</p>
             </div>
         <?php elseif (empty($userTopics)): ?>
             <div class="profile-empty ui-empty">
                 <i class="bi bi-journal-x"></i>
-                <p>Bu kullanıcı henüz yayınlanmış konu paylaşmadı.</p>
+                <p>Bu kullanici henuz yayinlanmis konu paylasmadi.</p>
             </div>
         <?php else: ?>
             <div class="profile-topics-grid ui-grid">
@@ -371,7 +382,7 @@ require_once $projectRoot . '/includes/public-header.php';
     <?php endif; ?>
         </div><!-- .profile-main-content -->
 
-        <!-- Sağ Sütun (Sidebar - Kullanıcı Bilgileri) -->
+        <!-- Sag Sutun (Sidebar - Kullanici Bilgileri) -->
         <?php
         $profileSidebar = profileBuildSidebarData($user, [
             'base_uri' => $baseUri,
@@ -398,4 +409,5 @@ require_once $projectRoot . '/includes/public-header.php';
 <script src="<?= asset_url('assets/js/public-profile-report.js', $baseUri) ?>" defer></script>
 
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>
+
 

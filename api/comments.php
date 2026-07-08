@@ -111,6 +111,31 @@ function filterBannedWords(string $text, array $words): bool
     return false;
 }
 
+function _commentsUsersHasUsername(PDO $pdo): bool
+{
+    static $cache = [];
+    $key = spl_object_id($pdo);
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM users LIKE 'username'");
+        $cache[$key] = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable) {
+        $cache[$key] = false;
+    }
+
+    return $cache[$key];
+}
+
+function _commentsUserNameExpr(PDO $pdo, string $alias = 'u'): string
+{
+    return _commentsUsersHasUsername($pdo)
+        ? "COALESCE(NULLIF({$alias}.username, ''), CONCAT('user-', {$alias}.id))"
+        : "CONCAT('user-', {$alias}.id)";
+}
+
 // ─── GET: List comments ───────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (($_GET['action'] ?? '') === 'mention_search') {
@@ -132,11 +157,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         try {
+            $mentionNameExpr = _commentsUserNameExpr($pdo, 'users');
             $stmt = $pdo->prepare(
-                "SELECT id, name FROM users
+                "SELECT id, {$mentionNameExpr} AS username FROM users
                  WHERE deleted_at IS NULL
-                   AND name LIKE :query
-                 ORDER BY CASE WHEN name LIKE :prefix THEN 0 ELSE 1 END, name ASC
+                   AND {$mentionNameExpr} LIKE :query
+                 ORDER BY CASE WHEN {$mentionNameExpr} LIKE :prefix THEN 0 ELSE 1 END, {$mentionNameExpr} ASC
                  LIMIT 8"
             );
             $stmt->execute([
@@ -144,9 +170,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'prefix' => $query . '%',
             ]);
             $users = array_map(static function (array $row): array {
+                $username = (string)($row['username'] ?? '');
                 return [
                     'id' => (int)($row['id'] ?? 0),
-                    'name' => (string)($row['name'] ?? ''),
+                    'username' => $username,
+                    'name' => $username,
                 ];
             }, $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
 
@@ -176,7 +204,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 jsonResponse(403, ['error' => 'Bu gecmisi gorme yetkiniz yok.']);
             }
 
-            $stmt = $pdo->prepare("SELECT h.id, h.old_body, h.new_body, h.edit_reason, h.created_at, u.name as editor_name
+            $editorNameExpr = _commentsUserNameExpr($pdo, 'u');
+            $stmt = $pdo->prepare("SELECT h.id, h.old_body, h.new_body, h.edit_reason, h.created_at, {$editorNameExpr} as editor_name
                                    FROM comment_edit_history h
                                    LEFT JOIN users u ON h.user_id = u.id
                                    WHERE h.comment_id = ?
@@ -249,10 +278,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         // Fetch all comments for this topic (flat)
         // Use cached schema check instead of per-request SHOW COLUMNS
         $hasNewColumns = _commentsSchemaHas($pdo, 'is_edited');
+        $authorNameExpr = _commentsUserNameExpr($pdo, 'u');
 
         $selectCols = $hasNewColumns
-            ? "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, u.name AS author, u.avatar, COALESCE(ug.name, '') AS group_name"
-            : "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, u.name AS author, u.avatar, COALESCE(ug.name, '') AS group_name";
+            ? "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name"
+            : "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name";
 
         // Add sorting by likes-dislikes if popular, liked, or disliked
         if ($orderByPopular) {
@@ -296,13 +326,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Fetch ALL REPLIES for the entire topic
         $sqlReplies = $hasNewColumns
-            ? "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, u.name AS author, u.avatar, COALESCE(ug.name, '') AS group_name
+            ? "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name
                FROM comments c LEFT JOIN users u ON c.user_id = u.id
                LEFT JOIN user_group_members ugm ON ugm.user_id = u.id AND ugm.is_primary = 1
                LEFT JOIN user_groups ug ON ug.id = ugm.group_id
                WHERE c.topic_id = :tid AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NOT NULL
                ORDER BY c.created_at ASC"
-            : "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, u.name AS author, u.avatar, COALESCE(ug.name, '') AS group_name
+            : "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name
                FROM comments c LEFT JOIN users u ON c.user_id = u.id
                LEFT JOIN user_group_members ugm ON ugm.user_id = u.id AND ugm.is_primary = 1
                LEFT JOIN user_groups ug ON ug.id = ugm.group_id
@@ -469,9 +499,15 @@ function parseMentions(string $body, PDO $pdo): array
     $placeholders = implode(',', array_fill(0, count($usernames), '?'));
 
     try {
-        $stmt = $pdo->prepare("SELECT id, name FROM users WHERE name IN ($placeholders) AND deleted_at IS NULL LIMIT 10");
+        $lookupColumn = (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username'))
+            ? 'username'
+            : 'name';
+        $selectName = $lookupColumn === 'username'
+            ? "username"
+            : 'name';
+        $stmt = $pdo->prepare("SELECT id, {$selectName} AS mention_name FROM users WHERE {$lookupColumn} IN ($placeholders) AND deleted_at IS NULL LIMIT 10");
         $stmt->execute($usernames);
-        return $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // [id => name]
+        return $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // [id => mention_name]
     } catch (Throwable $e) {
         return [];
     }
@@ -588,6 +624,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (function_exists('eventsReverseActivityPoints') && (int)$row['user_id'] > 0 && (string)$row['status'] === 'approved') {
                 eventsReverseActivityPoints($pdo, (int)$row['user_id'], 'comment_created', 'comment', $commentId, 'comment_deleted');
             }
+            if (function_exists('invalidatePublicContentCache')) {
+                invalidatePublicContentCache();
+            }
 
             jsonResponse(200, ['success' => true, 'message' => 'Yorum silindi.', '_token' => csrf_token()]);
         } catch (Throwable $e) {
@@ -634,6 +673,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("UPDATE comments SET body = ?, is_edited = 1, edited_at = NOW(), updated_at = NOW() WHERE id = ?")->execute([$body, $commentId]);
             } else {
                 $pdo->prepare("UPDATE comments SET body = ?, updated_at = NOW() WHERE id = ?")->execute([$body, $commentId]);
+            }
+            if (function_exists('invalidatePublicContentCache')) {
+                invalidatePublicContentCache();
             }
 
             jsonResponse(200, ['success' => true, 'body' => $body, 'is_edited' => true, '_token' => csrf_token()]);
@@ -882,7 +924,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         logActivity($pdo, 'comment_created', 'comment', $newId, ['topic_id' => $topicId]);
 
         // Fetch the newly created comment
-        $newStmt = $pdo->prepare("SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, u.name AS author, u.avatar
+        $newAuthorExpr = _commentsUserNameExpr($pdo, 'u');
+        $newStmt = $pdo->prepare("SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$newAuthorExpr} AS author, u.avatar
                                   FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?");
         $newStmt->execute([$newId]);
         $newComment = $newStmt->fetch(PDO::FETCH_ASSOC);

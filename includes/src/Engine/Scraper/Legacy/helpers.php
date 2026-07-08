@@ -834,12 +834,260 @@ function deleteScraperImport(?PDO $pdo, int $id): bool
     } catch (Throwable $e) { return false; }
 }
 
+function scraperStripAuthorMetadataLines(string $content, array $labels): string
+{
+    $content = trim((string)$content);
+    if ($content === '') {
+        return '';
+    }
+
+    $normalizedLabels = array_values(array_filter(array_map(static function ($label): string {
+        $value = trim((string)$label);
+        if ($value === '') {
+            return '';
+        }
+        if (function_exists('mb_strtolower')) {
+            return mb_strtolower($value, 'UTF-8');
+        }
+        return strtolower($value);
+    }, $labels), static fn(string $label): bool => $label !== ''));
+    $normalizedLabels = array_values(array_unique($normalizedLabels));
+    if (empty($normalizedLabels)) {
+        return $content;
+    }
+
+    $escapedLabels = array_map(static fn(string $label): string => preg_quote($label, '/'), $normalizedLabels);
+    $linePattern = '/^\s*(?:[-*]+\s*)?(?:' . implode('|', $escapedLabels) . ')\s*[:\-–—]\s*(.{1,180})\s*$/imu';
+    $cleaned = preg_replace('/\x{00a0}/u', ' ', $content) ?? $content;
+
+    if (class_exists('DOMDocument')) {
+        $doc = new DOMDocument('1.0', 'UTF-8');
+        libxml_use_internal_errors(true);
+        $wrapped = '<div id="scraper-author-strip-root">' . $cleaned . '</div>';
+        $loaded = $doc->loadHTML('<?xml encoding="UTF-8">' . $wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        if ($loaded) {
+            $root = $doc->getElementById('scraper-author-strip-root');
+            if ($root instanceof DOMElement) {
+                $xpath = new DOMXPath($doc);
+                $nodes = $xpath->query('.//*[self::p or self::div or self::li or self::span or self::strong or self::b]', $root);
+                if ($nodes instanceof DOMNodeList) {
+                    for ($index = $nodes->length - 1; $index >= 0; $index--) {
+                        $node = $nodes->item($index);
+                        if (!$node instanceof DOMElement || !$node->parentNode) {
+                            continue;
+                        }
+
+                        foreach (['img', 'iframe', 'video', 'audio', 'table', 'ul', 'ol', 'pre', 'blockquote', 'code'] as $tag) {
+                            if ($node->getElementsByTagName($tag)->length > 0) {
+                                continue 2;
+                            }
+                        }
+
+                        $text = html_entity_decode((string)($node->textContent ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        $text = preg_replace('/\x{00a0}/u', ' ', $text) ?? $text;
+                        $text = preg_replace('/[\t ]+/u', ' ', $text) ?? $text;
+                        $text = trim($text);
+                        if ($text !== '' && preg_match($linePattern, $text) === 1) {
+                            $node->parentNode->removeChild($node);
+                        }
+                    }
+                }
+
+                $rebuilt = '';
+                foreach ($root->childNodes as $child) {
+                    $rebuilt .= $doc->saveHTML($child);
+                }
+                $cleaned = $rebuilt;
+            }
+        }
+    }
+
+    $tagPattern = '(?:p|div|li|span|strong|b)';
+    $labelPattern = '(?:' . implode('|', $escapedLabels) . ')';
+    $cleaned = preg_replace(
+        '~<(' . $tagPattern . ')(?:\s[^>]*)?>\s*(?:[-*]+\s*)?' . $labelPattern . '\s*[:\-–—]\s*[^<]{1,180}\s*</\1>~iu',
+        '',
+        $cleaned
+    ) ?? $cleaned;
+    $cleaned = preg_replace('~(?:<br\s*/?>\s*){2,}~i', '<br>', $cleaned) ?? $cleaned;
+
+    return trim($cleaned);
+}
+
+function scraperNormalizePublishContent(string $content): string
+{
+    $content = trim((string)$content);
+    if ($content === '') {
+        return '';
+    }
+
+    $shouldForceCenter = preg_match('~(?:content-align-center|ql-align-center|scraper-content-centered|text-align\s*:\s*center)~i', $content) === 1;
+    $content = preg_replace('/\x{00a0}/u', ' ', $content) ?? $content;
+
+    if (!class_exists('DOMDocument')) {
+        $content = preg_replace('~<p[^>]*>\s*(?:&nbsp;|\xC2\xA0|\s|<br\s*/?>)*</p>~iu', '', $content) ?? $content;
+        $content = preg_replace('~<div[^>]*>\s*(?:&nbsp;|\xC2\xA0|\s|<br\s*/?>)*</div>~iu', '', $content) ?? $content;
+        $content = preg_replace('~(<(?:p|div)[^>]*>)\s*(?:<br\s*/?>\s*)+~iu', '$1', $content) ?? $content;
+        $content = preg_replace('~(?:<br\s*/?>\s*)+(</(?:p|div)>)~iu', '$1', $content) ?? $content;
+        $content = preg_replace('~(?:<br\s*/?>\s*){2,}~i', '<br>', $content) ?? $content;
+        $content = preg_replace('~^\s*(?:<br\s*/?>\s*)+~i', '', $content) ?? $content;
+        $content = preg_replace('~(?:<br\s*/?>\s*)+\s*$~i', '', $content) ?? $content;
+        if ($shouldForceCenter) {
+            $content = preg_replace_callback(
+                '~<p([^>]*)>~iu',
+                static function (array $matches): string {
+                    $attrs = $matches[1] ?? '';
+                    if (preg_match('~\bstyle\s*=\s*(["\'])(.*?)\1~iu', $attrs, $styleMatch) === 1) {
+                        $style = preg_replace('~(?:^|;)\s*text-align\s*:[^;]*~iu', '', $styleMatch[2] ?? '') ?? ($styleMatch[2] ?? '');
+                        $style = trim((string)$style, " ;\t\n\r\0\x0B");
+                        $style = $style === '' ? 'text-align:center' : ($style . '; text-align:center');
+                        return preg_replace(
+                            '~\bstyle\s*=\s*(["\'])(.*?)\1~iu',
+                            'style="' . $style . '"',
+                            $matches[0],
+                            1
+                        ) ?? $matches[0];
+                    }
+                    return '<p' . $attrs . ' style="text-align:center">';
+                },
+                $content
+            ) ?? $content;
+        }
+        return trim($content);
+    }
+
+    $doc = new DOMDocument('1.0', 'UTF-8');
+    libxml_use_internal_errors(true);
+    $wrapped = '<div id="scraper-normalize-root">' . $content . '</div>';
+    $loaded = $doc->loadHTML('<?xml encoding="UTF-8">' . $wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    if (!$loaded) {
+        return trim($content);
+    }
+
+    $root = $doc->getElementById('scraper-normalize-root');
+    if (!$root instanceof DOMElement) {
+        return trim($content);
+    }
+
+    $normalizeText = static function (string $value): string {
+        $decoded = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $decoded = str_replace("\xC2\xA0", ' ', $decoded);
+        $decoded = preg_replace('/[\s\p{Zs}]+/u', ' ', $decoded) ?? $decoded;
+        return trim($decoded);
+    };
+    $hasRichContent = static function (DOMElement $element): bool {
+        foreach (['img', 'iframe', 'video', 'audio', 'table', 'ul', 'ol', 'li', 'pre', 'blockquote', 'code', 'hr'] as $tag) {
+            if ($element->getElementsByTagName($tag)->length > 0) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    $xpath = new DOMXPath($doc);
+    $nodes = $xpath->query('.//*[self::p or self::div or self::span]', $root);
+    if ($nodes instanceof DOMNodeList) {
+        for ($index = $nodes->length - 1; $index >= 0; $index--) {
+            $node = $nodes->item($index);
+            if (!$node instanceof DOMElement || !$node->parentNode) {
+                continue;
+            }
+
+            $text = $normalizeText($node->textContent ?? '');
+            $hasMeaningfulChildren = false;
+            foreach (iterator_to_array($node->childNodes) as $child) {
+                if ($child instanceof DOMElement && strtolower($child->tagName) !== 'br') {
+                    $hasMeaningfulChildren = true;
+                    break;
+                }
+            }
+
+            if ($text === '' && !$hasMeaningfulChildren && !$hasRichContent($node)) {
+                $node->parentNode->removeChild($node);
+            }
+        }
+    }
+
+    $trimBreakEdges = static function (DOMElement $element) use (&$trimBreakEdges): void {
+        while ($element->firstChild instanceof DOMText && trim((string)$element->firstChild->textContent) === '') {
+            $element->removeChild($element->firstChild);
+        }
+        while ($element->firstChild instanceof DOMElement && strtolower($element->firstChild->tagName) === 'br') {
+            $element->removeChild($element->firstChild);
+        }
+
+        while ($element->lastChild instanceof DOMText && trim((string)$element->lastChild->textContent) === '') {
+            $element->removeChild($element->lastChild);
+        }
+        while ($element->lastChild instanceof DOMElement && strtolower($element->lastChild->tagName) === 'br') {
+            $element->removeChild($element->lastChild);
+        }
+
+        foreach (iterator_to_array($element->childNodes) as $child) {
+            if ($child instanceof DOMElement && in_array(strtolower($child->tagName), ['p', 'div'], true)) {
+                $trimBreakEdges($child);
+            }
+        }
+    };
+    $trimBreakEdges($root);
+
+    $paragraphs = $xpath->query('.//p', $root);
+    if ($paragraphs instanceof DOMNodeList) {
+        foreach (iterator_to_array($paragraphs) as $paragraph) {
+            if (!$paragraph instanceof DOMElement) {
+                continue;
+            }
+
+            $style = trim((string)$paragraph->getAttribute('style'));
+            $rules = [];
+            if ($style !== '') {
+                foreach (array_filter(array_map('trim', explode(';', $style))) as $declaration) {
+                    $parts = explode(':', $declaration, 2);
+                    if (count($parts) !== 2) {
+                        continue;
+                    }
+                    $property = strtolower(trim($parts[0]));
+                    if (str_starts_with($property, 'margin') || ($shouldForceCenter && $property === 'text-align')) {
+                        continue;
+                    }
+                    $rules[] = $property . ':' . trim($parts[1]);
+                }
+            }
+            $rules[] = 'margin:0';
+            if ($shouldForceCenter) {
+                $rules[] = 'text-align:center';
+            }
+            $paragraph->setAttribute('style', implode('; ', array_values(array_unique($rules))));
+        }
+    }
+
+    $normalized = '';
+    foreach ($root->childNodes as $child) {
+        $normalized .= $doc->saveHTML($child);
+    }
+
+    $normalized = preg_replace('~</p>\s*(?:<br\s*/?>\s*)+<p~i', '</p><p', $normalized) ?? $normalized;
+    $normalized = preg_replace('~(<(?:p|div)[^>]*>)\s*(?:<br\s*/?>\s*)+~iu', '$1', $normalized) ?? $normalized;
+    $normalized = preg_replace('~(?:<br\s*/?>\s*)+(</(?:p|div)>)~iu', '$1', $normalized) ?? $normalized;
+    $normalized = preg_replace('~(?:<br\s*/?>\s*){2,}~i', '<br>', $normalized) ?? $normalized;
+    $normalized = preg_replace('~^\s*(?:<br\s*/?>\s*)+~i', '', $normalized) ?? $normalized;
+    $normalized = preg_replace('~(?:<br\s*/?>\s*)+\s*$~i', '', $normalized) ?? $normalized;
+
+    return trim($normalized);
+}
+
 function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string $publishStatus = 'draft')
 {
-    if (!$pdo) return false;
+    if (!$pdo) {
+        return false;
+    }
 
     $import = getScraperImport($pdo, $importId);
-    if (!$import) return false;
+    if (!$import) {
+        return false;
+    }
 
     if (($import['status'] ?? '') === 'imported' && (int)($import['topic_id'] ?? 0) > 0) {
         try {
@@ -849,18 +1097,117 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
             if ($existingSlug !== '') {
                 return $existingSlug;
             }
-        } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
+        } catch (Throwable $e) {
+            error_log('[silent-catch] ' . $e->getMessage());
+        }
     }
 
-    $title = $import['translated_title'] ?: $import['source_title'] ?: 'İçerik #' . $importId;
-    $content = $import['translated_content'] ?: $import['source_content'] ?: '';
+    $title = $import['translated_title'] ?: $import['source_title'] ?: ('İçerik #' . $importId);
     $slug = generateUniqueSlug($pdo, $title, 'topics');
     $downloadLinks = $import['source_download_links'] ?? '';
-    $images = $import['downloaded_images'] ?: $import['source_images'] ?: '';
-    $imageLines = array_values(array_filter(array_map('trim', explode("\n", $images))));
     $botSettings = getScraperBotSettings($pdo);
     $site = getScraperSite($pdo, (int)$import['bot_site_id']);
     $siteSettings = json_decode($site['settings'] ?? '{}', true) ?: [];
+    $authorLabelsRaw = (string)($siteSettings['detect_author_labels'] ?? ($botSettings['bot_detect_author_labels'] ?? 'author,authors,credit,credits'));
+    $authorLabels = array_values(array_filter(array_map(static fn($label): string => trim((string)$label), preg_split('/[,\n]+/', $authorLabelsRaw) ?: []), static fn(string $label): bool => $label !== ''));
+    $contentRaw = (string)($import['translated_content'] ?: $import['source_content'] ?: '');
+    $content = scraperNormalizePublishContent(scraperStripAuthorMetadataLines($contentRaw, $authorLabels));
+    $siteSlug = trim((string)($site['slug'] ?? ''));
+    if ($siteSlug === '') {
+        $siteSlug = 'site-' . (int)$import['bot_site_id'];
+    }
+    $siteSlug = preg_replace('/[^a-z0-9_-]+/i', '-', strtolower($siteSlug)) ?: ('site-' . (int)$import['bot_site_id']);
+    $downloadImages = ((string)($botSettings['bot_download_images'] ?? '1') === '1');
+    $sourceScheme = (string)(parse_url((string)($import['source_url'] ?? ''), PHP_URL_SCHEME) ?: 'https');
+
+    $images = $import['downloaded_images'] ?: $import['source_images'] ?: '';
+    $imageLines = array_values(array_unique(array_filter(array_map('trim', explode("\n", $images)))));
+    $resolveProxyImageUrl = static function (string $path): string {
+        $trimmed = trim($path);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        if (preg_match('~(?:^|/)(?:api/)?scraper-image\.php(?:\?|$)~i', $trimmed) === 1) {
+            $query = (string)(parse_url($trimmed, PHP_URL_QUERY) ?? '');
+            if ($query !== '') {
+                parse_str($query, $params);
+                if (!empty($params['url']) && is_string($params['url'])) {
+                    $decoded = trim((string)$params['url']);
+                    if ($decoded !== '') {
+                        return $decoded;
+                    }
+                }
+            }
+        }
+
+        return $trimmed;
+    };
+    $normalizeRemoteUrl = static function (string $url, string $fallbackScheme): string {
+        $value = trim($url);
+        if ($value === '') {
+            return '';
+        }
+        if (str_starts_with($value, '//')) {
+            return $fallbackScheme . ':' . $value;
+        }
+        return $value;
+    };
+
+    $mediaItems = [];
+    $downloadCache = [];
+    $engine = null;
+    $topicSlugForMedia = $slug !== '' ? $slug : (slugify($title) ?: ('topic-' . $importId));
+
+    foreach ($imageLines as $index => $imagePath) {
+        $resolvedImagePath = $resolveProxyImageUrl((string)$imagePath);
+        if ($resolvedImagePath === '' || preg_match('~^data:image/~i', $resolvedImagePath) === 1) {
+            continue;
+        }
+
+        $remoteUrl = $normalizeRemoteUrl($resolvedImagePath, $sourceScheme);
+        $isRemote = preg_match('~^https?://~i', $remoteUrl) === 1;
+
+        if ($isRemote && $downloadImages) {
+            if (!array_key_exists($remoteUrl, $downloadCache)) {
+                if (!$engine instanceof ScraperEngine) {
+                    $engine = new ScraperEngine($botSettings);
+                }
+                $downloadCache[$remoteUrl] = $engine->downloadImage($remoteUrl, $siteSlug, $topicSlugForMedia, $index + 1);
+            }
+
+            $localPath = trim((string)($downloadCache[$remoteUrl] ?? ''));
+            if ($localPath !== '') {
+                $mediaItems[] = [
+                    'path' => $localPath,
+                    'disk' => 'local',
+                    'mime_type' => null,
+                ];
+                continue;
+            }
+        }
+
+        if ($isRemote) {
+            $mediaItems[] = [
+                'path' => $remoteUrl,
+                'disk' => 'remote',
+                'mime_type' => 'image/remote',
+            ];
+            continue;
+        }
+
+        $mediaItems[] = [
+            'path' => $resolvedImagePath,
+            'disk' => 'local',
+            'mime_type' => null,
+        ];
+    }
+
+    $storedImageLines = implode("\n", array_values(array_filter(array_map(
+        static fn(array $item): string => trim((string)($item['path'] ?? '')),
+        $mediaItems
+    ))));
+
     $siteAuthorId = (int)($siteSettings['site_default_author_id'] ?? 0);
     $authorId = $siteAuthorId ?: ((int)($_SESSION['_auth_user_id'] ?? 0) ?: max(1, (int)($botSettings['bot_default_author_id'] ?? 1)));
     $publishDateMode = $botSettings['bot_publish_date_mode'] ?? 'now';
@@ -874,7 +1221,10 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
 
         $stmt = $pdo->prepare("INSERT INTO topics (category_id, author_id, title, slug, author_topic, topic_version, topic_descriptions, topic_download_links, status, created_at, published_at) VALUES (?,?,?,?,?,?,?,?,?,NOW(),?)");
         $stmt->execute([
-            $categoryId, $authorId, $title, $slug,
+            $categoryId,
+            $authorId,
+            $title,
+            $slug,
             ($import['author_topic'] ?? '') ?: null,
             ($import['topic_version'] ?? '') ?: null,
             $content,
@@ -885,13 +1235,25 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
         $topicId = (int)$pdo->lastInsertId();
 
         $primaryMediaId = null;
-        foreach ($imageLines as $index => $imagePath) {
-            $stmtMedia = $pdo->prepare("INSERT INTO media_files (topic_id, user_id, type, disk, path, original_name, mime_type, size, display_order, is_primary, created_at, updated_at)
-                                        VALUES (?, NULL, 'image', 'local', ?, ?, NULL, NULL, ?, ?, NOW(), NOW())");
+        $stmtMedia = $pdo->prepare("INSERT INTO media_files (topic_id, user_id, type, disk, path, original_name, mime_type, size, display_order, is_primary, created_at, updated_at)
+                                    VALUES (?, NULL, 'image', ?, ?, ?, ?, NULL, ?, ?, NOW(), NOW())");
+        foreach ($mediaItems as $index => $mediaItem) {
+            $imagePath = trim((string)($mediaItem['path'] ?? ''));
+            if ($imagePath === '') {
+                continue;
+            }
+            $disk = ((string)($mediaItem['disk'] ?? 'local') === 'remote') ? 'remote' : 'local';
+            $mimeType = $mediaItem['mime_type'] ?? null;
+            $originalName = basename(parse_url($imagePath, PHP_URL_PATH) ?: $imagePath);
+            if ($originalName === '') {
+                $originalName = 'image-' . ($index + 1);
+            }
             $stmtMedia->execute([
                 $topicId,
+                $disk,
                 $imagePath,
-                basename($imagePath),
+                $originalName,
+                $mimeType,
                 $index,
                 $index === 0 ? 1 : 0,
             ]);
@@ -908,14 +1270,21 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
             syncTopicDownloadLinks($pdo, $topicId, $downloadLinks);
         }
 
-        $pdo->prepare("UPDATE bot_imports SET topic_id=?, status='imported', updated_at=NOW() WHERE id=?")->execute([$topicId, $importId]);
+        $pdo->prepare("UPDATE bot_imports SET topic_id=?, status='imported', downloaded_images=?, images_count=?, updated_at=NOW() WHERE id=?")->execute([
+            $topicId,
+            $storedImageLines !== '' ? $storedImageLines : null,
+            count($mediaItems),
+            $importId,
+        ]);
         $pdo->prepare("UPDATE bot_sites SET total_imports = total_imports + 1 WHERE id = ?")->execute([$import['bot_site_id']]);
 
         $pdo->commit();
         logActivity($pdo, 'bot_import_published', 'topic', $topicId, ['import_id' => $importId, 'source' => $import['source_url']]);
         return $slug;
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         error_log("Scraper Import Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
         return false;
     }

@@ -6,6 +6,7 @@ $GLOBALS['_cache_control_set'] = true;
 
 require_once __DIR__ . "/includes/init.php";
 
+$pdo = $pdo ?? null;
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 $usesThemeRenderer = function_exists('usesPublicThemeRenderer')
     && usesPublicThemeRenderer()
@@ -53,12 +54,13 @@ $canUseAnonHomeFullPageCache = $usesThemeRenderer
 $anonHomeFullPageCacheKey = '';
 $baseHomeCacheTtl = max(60, (int) ($settings['cache_ttl'] ?? 300));
 $anonHomeFullPageCacheTtl = max(300, min(1800, $baseHomeCacheTtl * 3));
+$publicContentCacheTags = function_exists('publicContentCacheTags') ? publicContentCacheTags() : [];
 
 if ($cacheEnabled && $isAnonymousVisitor && $isDefaultHomeRequest) {
     $ttl = max(60, (int) ($settings['cache_ttl'] ?? 300));
     $staleWhileRevalidate = max($ttl, min(86400, $ttl * 12));
     header("Cache-Control: public, max-age={$ttl}, stale-while-revalidate={$staleWhileRevalidate}");
-    header('Vary: Accept-Encoding');
+    header('Vary: Accept-Encoding, Cookie');
 } else {
     header("Cache-Control: private, no-cache, max-age=0, must-revalidate");
     header("Pragma: no-cache");
@@ -135,7 +137,7 @@ if ($canUseAnonHomeFullPageCache && $cache) {
     $themeSignature = $themeManager instanceof ThemeManager
         ? $themeManager->themeSignature($activeThemeId)
         : '';
-    $anonHomeFullPageCacheKey = 'homepage_default_full_html_v9:' . hash(
+    $anonHomeFullPageHash = hash(
         'sha256',
         implode('|', [
             $activeThemeId,
@@ -144,6 +146,9 @@ if ($canUseAnonHomeFullPageCache && $cache) {
             $settingsSignature,
         ])
     );
+    $anonHomeFullPageCacheKey = function_exists('publicContentCacheKey')
+        ? publicContentCacheKey('homepage_default_full_html_v10:' . $anonHomeFullPageHash)
+        : 'homepage_default_full_html_v10:' . $anonHomeFullPageHash;
     $cachedFullPageHtml = $cache->get($anonHomeFullPageCacheKey);
     if (is_string($cachedFullPageHtml) && $cachedFullPageHtml !== '') {
         header('X-Page-Cache: hit');
@@ -155,12 +160,12 @@ if ($canUseAnonHomeFullPageCache && $cache) {
 $result = null;
 $isDefaultHome = $isDefaultHomeRequest;
 if ($isDefaultHome && $cache) {
-    $result = $cache->get('homepage_default_topics');
+    $result = $cache->get(publicContentCacheKey('homepage_default_topics_v2'));
 }
 if (!is_array($result)) {
     $result = getTopics($pdo, $page, $perPage, $search, $sort, $categoryFilter);
     if ($isDefaultHome && $cache && is_array($result)) {
-        $cache->set('homepage_default_topics', $result, 300);
+        $cache->set(publicContentCacheKey('homepage_default_topics_v2'), $result, 300, $publicContentCacheTags);
     }
 }
 $items = $result["items"];
@@ -169,7 +174,7 @@ $total = $result["total"];
 // Popüler modlar (indirme sayısına göre) - N+1 query önlendi, görseller tek sorguda
 $sidebarItems = null;
 if ($cache) {
-    $sidebarItems = $cache->get('homepage_sidebar_items');
+    $sidebarItems = $cache->get(publicContentCacheKey('homepage_sidebar_items_v2'));
 }
 if (!is_array($sidebarItems)) {
     $sidebarItems = [];
@@ -186,7 +191,7 @@ if (!is_array($sidebarItems)) {
             $stmt->execute([SIDEBAR_POPULAR_LIMIT]);
             $sidebarItems = $stmt->fetchAll() ?: [];
             if ($cache && !empty($sidebarItems)) {
-                $cache->set('homepage_sidebar_items', $sidebarItems, 300);
+                $cache->set(publicContentCacheKey('homepage_sidebar_items_v2'), $sidebarItems, 300, $publicContentCacheTags);
             }
         } catch (Throwable $e) {
             appLogException($e, ["source" => "index.php sidebarItems"]);
@@ -197,7 +202,7 @@ if (!is_array($sidebarItems)) {
 // Kategoriler (public-header.php'den önce lazım)
 $publicCategories = [];
 $publicCategoriesTree = [];
-$publicCategoriesBundle = $cache ? $cache->get('homepage_public_categories_bundle') : null;
+$publicCategoriesBundle = $cache ? $cache->get(publicContentCacheKey('homepage_public_categories_bundle_v2')) : null;
 if (
     is_array($publicCategoriesBundle)
     && isset($publicCategoriesBundle['categories'], $publicCategoriesBundle['tree'])
@@ -212,10 +217,10 @@ if (
         ? getPublicCategoriesTree($pdo)
         : [];
     if ($cache) {
-        $cache->set('homepage_public_categories_bundle', [
+        $cache->set(publicContentCacheKey('homepage_public_categories_bundle_v2'), [
             'categories' => $publicCategories,
             'tree' => $publicCategoriesTree,
-        ], 600);
+        ], 600, $publicContentCacheTags);
     }
 }
 
@@ -230,7 +235,7 @@ $siteStats = [
 
 $statsCache = null;
 if ($cache) {
-    $statsCache = $cache->get('homepage_site_stats_category_counts');
+    $statsCache = $cache->get(publicContentCacheKey('homepage_site_stats_category_counts_v2'));
 }
 
 if (is_array($statsCache) && isset($statsCache['categoryCounts'], $statsCache['siteStats'])) {
@@ -270,13 +275,13 @@ if (is_array($statsCache) && isset($statsCache['categoryCounts'], $statsCache['s
             $siteStats["comments"] = (int) ($commentStmt ? $commentStmt->fetchColumn() : 0);
 
             if ($cache) {
-                $cache->set('homepage_site_stats_category_counts', [
+                $cache->set(publicContentCacheKey('homepage_site_stats_category_counts_v2'), [
                     'categoryCounts' => $categoryCounts,
                     'siteStats' => [
                         'downloads' => $siteStats['downloads'],
                         'comments' => $siteStats['comments'],
                     ],
-                ], 300);
+                ], 300, $publicContentCacheTags);
             }
         } catch (Throwable $e) {
             appLogException($e, ["source" => "index.php categoryCounts+siteStats"]);
@@ -287,14 +292,17 @@ if (is_array($statsCache) && isset($statsCache['categoryCounts'], $statsCache['s
 // Son yorumlar
 $recentComments = null;
 if ($cache) {
-    $recentComments = $cache->get('homepage_recent_comments');
+    $recentComments = $cache->get(publicContentCacheKey('homepage_recent_comments_v2'));
 }
 if (!is_array($recentComments)) {
     $recentComments = [];
     if ($pdo) {
+        $commentAuthorExpr = (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username'))
+            ? "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))"
+            : "CONCAT('user-', u.id)";
         try {
             $stmt = $pdo->query(
-                "SELECT c.body AS content, c.created_at, u.name AS username, u.avatar AS user_avatar, c.topic_id, t.slug AS topic_slug
+                "SELECT c.body AS content, c.created_at, {$commentAuthorExpr} AS username, u.avatar AS user_avatar, c.topic_id, t.slug AS topic_slug
                  FROM comments c
                  LEFT JOIN users u ON u.id = c.user_id
                  INNER JOIN topics t ON t.id = c.topic_id
@@ -305,7 +313,7 @@ if (!is_array($recentComments)) {
             );
             $recentComments = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
             if ($cache && is_array($recentComments)) {
-                $cache->set('homepage_recent_comments', $recentComments, 300);
+                $cache->set(publicContentCacheKey('homepage_recent_comments_v2'), $recentComments, 300, $publicContentCacheTags);
             }
         } catch (Throwable $e) {
             appLogException($e, ["source" => "index.php recentComments"]);
@@ -425,7 +433,7 @@ if ($usesThemeRenderer) {
     if ($captureThemeHomeOutput) {
         $fullPageHtml = ob_get_clean();
         if (is_string($fullPageHtml) && $fullPageHtml !== '') {
-            $cache->set($anonHomeFullPageCacheKey, $fullPageHtml, $anonHomeFullPageCacheTtl);
+            $cache->set($anonHomeFullPageCacheKey, $fullPageHtml, $anonHomeFullPageCacheTtl, $publicContentCacheTags);
             header('X-Page-Cache: miss');
             echo $fullPageHtml;
         } else {
@@ -897,4 +905,4 @@ if ($usesThemeRenderer) {
 <script src="<?= asset_url('assets/js/home-widgets.js', $baseUri) ?>" defer></script>
 
 <?php require_once __DIR__ . "/includes/public-footer.php"; ?>
-
+

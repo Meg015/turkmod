@@ -12,7 +12,7 @@
             <input type="hidden" name="tab" value="users">
             <div class="ui-admin-filter-grow">
                 <label class="ui-admin-form-label">Ara</label>
-                <input type="text" name="q" class="ui-admin-form-control" placeholder="Ad, e-posta, ID, IP veya konum..." value="<?= htmlspecialchars($search) ?>">
+                <input type="text" name="q" class="ui-admin-form-control" placeholder="Kullanici adi, e-posta, ID, IP veya konum..." value="<?= htmlspecialchars($search) ?>">
             </div>
             <div class="ui-admin-filter-sm">
                 <label class="ui-admin-form-label">Grup</label>
@@ -70,6 +70,7 @@
                 <tbody>
                     <?php foreach ($users as $user):
                         $userId = (int) $user['id'];
+                        $displayUsername = (string) ($user['username'] ?? '');
                         $isSelf = $userId === $currentUserId;
                         $isBanned = (int) ($user['is_banned'] ?? 0) === 1;
                         $hasRestrictions = !empty($user['restrictions']);
@@ -80,10 +81,10 @@
                         <td>
                             <div class="ui-admin-user-line-sm">
                                 <div class="user-avatar-badge default-avatar">
-                                    <?= function_exists('avatarImageHtml') ? avatarImageHtml((string) $user['name'], (string) ($user['avatar'] ?? ''), ['alt' => '']) : '' ?>
+                                    <?= function_exists('avatarImageHtml') ? avatarImageHtml($displayUsername, (string) ($user['avatar'] ?? ''), ['alt' => '']) : '' ?>
                                 </div>
                                 <div class="ui-admin-user-copy">
-                                    <strong class="ui-admin-user-name"><?= htmlspecialchars((string) $user['name']) ?></strong>
+                                    <strong class="ui-admin-user-name"><?= htmlspecialchars($displayUsername) ?></strong>
                                     <span class="ui-admin-user-email"><?= htmlspecialchars((string) $user['email']) ?></span>
                                     <?php if ($isSelf): ?>
                                         <span class="user-self-badge ui-admin-mt-xs"><i class="bi bi-person-fill"></i> Siz</span>
@@ -141,13 +142,14 @@
                                 </a>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" data-admin-note-open
                                     data-user-id="<?= $userId ?>"
-                                    data-user-name="<?= htmlspecialchars((string) ($user['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-user-name="<?= htmlspecialchars($displayUsername, ENT_QUOTES, 'UTF-8') ?>"
                                     title="Admin Notu">
                                     <i class="bi bi-journal-plus"></i>
                                 </button>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" data-user-edit-open
                                     data-user-id="<?= $userId ?>"
-                                    data-user-name="<?= htmlspecialchars((string) ($user['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-user-name="<?= htmlspecialchars($displayUsername, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-user-username="<?= htmlspecialchars($displayUsername, ENT_QUOTES, 'UTF-8') ?>"
                                     data-user-email="<?= htmlspecialchars((string) ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-user-group="<?= (int) ($user['group_id'] ?? 0) ?>"
                                     data-user-status="<?= htmlspecialchars((string) ($user['status'] ?? 'active'), ENT_QUOTES, 'UTF-8') ?>"
@@ -175,11 +177,11 @@
                                                 <i class="bi bi-check-circle"></i>
                                             </button>
                                         <?php else: ?>
-                                            <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger" data-user-ban="<?= $userId ?>" data-user-name="<?= htmlspecialchars((string) $user['name'], ENT_QUOTES) ?>" title="Banla">
+                                            <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger" data-user-ban="<?= $userId ?>" data-user-name="<?= htmlspecialchars($displayUsername, ENT_QUOTES) ?>" title="Banla">
                                                 <i class="bi bi-slash-circle"></i>
                                             </button>
                                         <?php endif; ?>
-                                        <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-warning" data-user-restrict="<?= $userId ?>" data-user-name="<?= htmlspecialchars((string) $user['name'], ENT_QUOTES) ?>" title="Kısıtla">
+                                        <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-warning" data-user-restrict="<?= $userId ?>" data-user-name="<?= htmlspecialchars($displayUsername, ENT_QUOTES) ?>" title="Kısıtla">
                                             <i class="bi bi-shield-exclamation"></i>
                                         </button>
                                     
@@ -227,3 +229,5 @@
         <?php endif; ?>
     </div>
 <?php endif; ?>
+
+

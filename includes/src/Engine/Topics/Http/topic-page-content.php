@@ -5,8 +5,9 @@ declare(strict_types=1);
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 $cacheEnabled = ($settings['cache_enabled'] ?? '1') === '1';
 if ($cacheEnabled && empty($_SESSION['_auth_user_id'])) {
-    $ttl = (int)($settings['cache_ttl'] ?? 3600);
-    header("Cache-Control: public, max-age={$ttl}, must-revalidate");
+    $ttl = (int)($settings['cache_ttl'] ?? 3600);
+    header("Cache-Control: public, max-age={$ttl}, must-revalidate");
+    header('Vary: Accept-Encoding, Cookie');
 } else {
     header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
     header("Pragma: no-cache");
@@ -25,7 +26,7 @@ $lookupTopicBySlug = static function (string $lookupSlug) use ($pdo): ?array {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.name AS author
+        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
                                FROM topics t
                                LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                                LEFT JOIN categories cat ON t.category_id = cat.id
@@ -232,7 +233,7 @@ if (!empty($topic["topic_version"])) {
 
 if ($pdo && !empty($topic["id"])) {
     try {
-        $stmtComments = $pdo->prepare("SELECT c.id, c.body, c.created_at, u.name AS author FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.topic_id = ? AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NULL ORDER BY c.created_at ASC LIMIT 10");
+        $stmtComments = $pdo->prepare("SELECT c.id, c.body, c.created_at, u.username AS author FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.topic_id = ? AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NULL ORDER BY c.created_at ASC LIMIT 10");
         $stmtComments->execute([(int) $topic["id"]]);
         
         $totalCommentsStmt = $pdo->prepare("SELECT COUNT(id) FROM comments WHERE topic_id = ? AND status = 'approved' AND deleted_at IS NULL");
@@ -664,9 +665,9 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         <?php
         $downloadLinks = getTopicDownloadLinks($pdo, (int) $topic['id']);
         $downloadCountdownSeconds = max(0, (int) ($settings['download_countdown_seconds'] ?? 5));
-        $downloadReadyText = trim((string) ($settings['download_ready_text'] ?? 'Indirmek icin tiklayiniz')) ?: 'Indirmek icin tiklayiniz';
-        $downloadWaitText = trim((string) ($settings['download_wait_text'] ?? 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz')) ?: 'Indirme linkiniz kontrol ediliyor, lutfen bekleyiniz';
-        $downloadDoneText = trim((string) ($settings['download_done_text'] ?? 'Indirme linkiniz hazir, indirmek icin tiklayin')) ?: 'Indirme linkiniz hazir, indirmek icin tiklayin';
+        $downloadReadyText = trim((string) ($settings['download_ready_text'] ?? 'İndirmek için tıklayınız')) ?: 'İndirmek için tıklayınız';
+        $downloadWaitText = trim((string) ($settings['download_wait_text'] ?? 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz')) ?: 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz';
+        $downloadDoneText = trim((string) ($settings['download_done_text'] ?? 'İndirme linkiniz hazır, indirmek için tıklayın')) ?: 'İndirme linkiniz hazır, indirmek için tıklayın';
         $downloadShowCounts = (string) ($settings['download_show_counts'] ?? '1') === '1';
 
         $downloadAccessState = function_exists('topicDownloadAccessState')
@@ -681,9 +682,9 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $downloadFocusCommentForm = (string) ($settings['download_access_focus_comment_form'] ?? '1') === '1';
         $downloadUnlockAfterAuth = (string) ($settings['download_access_unlock_after_auth'] ?? '1') === '1';
         $downloadUnlockAfterComment = (string) ($settings['download_access_unlock_after_comment'] ?? '1') === '1';
-        $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'Indirme linklerini acmak icin giris yapin')) ?: 'Indirme linklerini acmak icin giris yapin';
-        $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giris Yap')) ?: 'Giris Yap';
-        $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayit Ol')) ?: 'Kayit Ol';
+        $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'İndirme linklerini açmak için giriş yapın')) ?: 'İndirme linklerini açmak için giriş yapın';
+        $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giriş Yap')) ?: 'Giriş Yap';
+        $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayıt Ol')) ?: 'Kayıt Ol';
         $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.')) ?: 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.';
         $downloadLoginUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris');
         $downloadRegisterUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('register') : ($baseUri . '/kayit');
@@ -693,8 +694,8 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $downloadSectionLockMessage = $downloadLockMessage !== ''
             ? $downloadLockMessage
             : ($downloadLockReason === 'comment_required'
-                ? 'Indirme linklerini gormek icin once yorum yapmaniz gerekir.'
-                : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz gerekir.');
+                ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
+                : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.');
         $downloadTopicUrl = function_exists('topicUrl')
             ? topicUrl((string) ($topic['slug'] ?? ''), $downloadTopicId)
             : ($baseUri . '/topic.php?id=' . $downloadTopicId);
@@ -705,13 +706,13 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
 
         <section class="topic-section topic-downloads topic-download-links ui-section" aria-labelledby="dl-heading">
 
-            <h2 id="dl-heading">Indirme Baglantilari</h2>
+            <h2 id="dl-heading">İndirme Bağlantıları</h2>
 
             <div class="topic-dl-trust" role="note">
 
                 <i class="bi bi-shield-check" aria-hidden="true"></i>
 
-                <span>Indirme baglantisi acilmadan once kisa bir guvenlik beklemesi uygulanir. Hedef alan adini kontrol edip dis baglanti onay ekranindan devam edebilirsiniz.</span>
+                <span>İndirme bağlantısı açılmadan önce kısa bir güvenlik beklemesi uygulanır. Hedef alan adını kontrol edip dış bağlantı onay ekranından devam edebilirsiniz.</span>
 
             </div>
 
@@ -787,7 +788,7 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                             $dlName = mb_convert_encoding($dlName, 'UTF-8', 'ISO-8859-9');
                         }
                         if ($dlName === '') {
-                            $dlName = 'Indirme Linki';
+                $dlName = 'İndirme Linki';
                         }
                         $dlUrl = trim((string) ($dl['url'] ?? ''));
                         $dlCount = (int) ($dl['download_count'] ?? 0);

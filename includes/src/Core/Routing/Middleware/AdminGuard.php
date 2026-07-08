@@ -33,7 +33,7 @@ final class AdminGuard implements Middleware
 
         if (function_exists('refreshAuthenticatedSession') && !refreshAuthenticatedSession($pdo ?? null)) {
             if (function_exists('logoutUser')) {
-                logoutUser($pdo ?? null);
+                logoutUser($pdo ?? null, false);
             }
 
             return new RedirectResponse($loginUrl);

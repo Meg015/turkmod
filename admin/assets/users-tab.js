@@ -147,7 +147,7 @@ function openUserEditModal(trigger) {
     };
 
     setValue('editUserId', trigger.dataset.userId);
-    setValue('editUserName', trigger.dataset.userName);
+    setValue('editUsername', trigger.dataset.userUsername || trigger.dataset.userName);
     setValue('editUserEmail', trigger.dataset.userEmail);
     setValue('editUserGroup', trigger.dataset.userGroup);
     setValue('editUserStatus', trigger.dataset.userStatus || 'active');
@@ -163,7 +163,7 @@ function openUserEditModal(trigger) {
     if (preview) preview.textContent = trigger.dataset.userEmail || '';
 
     openAdminManagedModal(modal, {
-        initialFocus: '#editUserName',
+        initialFocus: '#editUsername',
         returnFocus: trigger,
         onClose: function () {
             const password = document.getElementById('editUserPassword');

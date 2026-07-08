@@ -57,9 +57,15 @@ final class SessionUserContext
         $user['role_slug'] = $roleSlug;
         $user['role_name'] = $roleName !== '' ? $roleName : ($roleSlug !== '' ? $roleSlug : 'member');
 
+        $sessionUsername = trim((string) ($user['username'] ?? ''));
+        if ($sessionUsername === '') {
+            $sessionUsername = 'user' . $userId;
+        }
+        $user['username'] = $sessionUsername;
+
         $now = (int) ($this->timeResolver)();
         $_SESSION['_auth_user_id'] = $userId;
-        $_SESSION['_auth_user_name'] = (string) ($user['name'] ?? '');
+        $_SESSION['_auth_user_name'] = $sessionUsername;
         $_SESSION['_auth_user_email'] = (string) ($user['email'] ?? '');
         $_SESSION['_auth_login_time'] = $now;
         $_SESSION['_auth_last_activity'] = $now;
@@ -87,7 +93,10 @@ final class SessionUserContext
             return false;
         }
 
-        $stmt = $pdo->prepare("SELECT id, name, email, status, password_changed_at
+        if (function_exists('usersEnsureUsernameSchema')) {
+            usersEnsureUsernameSchema($pdo);
+        }
+        $stmt = $pdo->prepare("SELECT id, username, email, status, password_changed_at
                                FROM users
                                WHERE id = ? AND deleted_at IS NULL
                                LIMIT 1");
@@ -105,7 +114,11 @@ final class SessionUserContext
             return false;
         }
 
-        $_SESSION['_auth_user_name'] = (string) $user['name'];
+        $sessionUsername = trim((string) ($user['username'] ?? ''));
+        if ($sessionUsername === '') {
+            $sessionUsername = 'user' . $userId;
+        }
+        $_SESSION['_auth_user_name'] = $sessionUsername;
         $_SESSION['_auth_user_email'] = (string) $user['email'];
 
         $previousRoleId = (int) ($_SESSION['_auth_role_id'] ?? 0);

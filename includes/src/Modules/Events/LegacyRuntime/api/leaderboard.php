@@ -20,7 +20,7 @@ $orderExpr = match ($sortBy) {
     default => 'total_spins DESC',
 };
 
-$stmt = $pdo->query("SELECT u.id AS user_id, u.name,
+$stmt = $pdo->query("SELECT u.id AS user_id, u.username AS username,
         COUNT(DISTINCT s.id) AS total_spins,
         COUNT(DISTINCT ur.id) AS total_wins,
         SUM(CASE WHEN ur.reward_type = 'points' THEN CAST(ur.reward_value AS UNSIGNED) ELSE 0 END) AS total_points
@@ -28,7 +28,7 @@ $stmt = $pdo->query("SELECT u.id AS user_id, u.name,
     LEFT JOIN events_wheel_spins s ON s.user_id = u.id
     LEFT JOIN events_user_rewards ur ON ur.user_id = u.id
     WHERE u.deleted_at IS NULL
-    GROUP BY u.id, u.name
+    GROUP BY u.id, u.username
     ORDER BY {$orderExpr}, u.id ASC
     LIMIT 50");
 

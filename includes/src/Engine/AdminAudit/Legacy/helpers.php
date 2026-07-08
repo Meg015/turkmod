@@ -205,7 +205,7 @@ if (!function_exists('adminGetActionLog')) {
             }
 
             $sql = "SELECT l.*,
-                           actor.name AS actor_name,
+                           actor.username AS actor_name,
                            target.name AS target_name
                     FROM admin_action_log l
                     LEFT JOIN users actor ON actor.id = l.actor_id

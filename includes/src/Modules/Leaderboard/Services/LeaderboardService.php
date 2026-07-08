@@ -87,23 +87,23 @@ final class LeaderboardService
     {
         return [
             'daily_login' => [
-                'name' => 'Günlük Giriş',
+                'name' => 'Gunluk Giris',
                 'icon' => 'bi-box-arrow-in-right',
-                'desc' => 'Seçili dönemde en çok giriş yapan kullanıcılar',
+                'desc' => 'Secili donemde en cok giris yapan kullanicilar',
                 'metadata_key' => 'daily_logins',
-                'metadata_label' => 'Giriş',
+                'metadata_label' => 'Giris',
             ],
             'topics' => [
-                'name' => 'Konu Sayısı',
+                'name' => 'Konu Sayisi',
                 'icon' => 'bi-file-earmark-text',
-                'desc' => 'Seçili dönemde en çok konu yayımlayan kullanıcılar',
+                'desc' => 'Secili donemde en cok konu yayimlayan kullanicilar',
                 'metadata_key' => 'topics',
                 'metadata_label' => 'Konu',
             ],
             'comments' => [
-                'name' => 'Yorum Sayısı',
+                'name' => 'Yorum Sayisi',
                 'icon' => 'bi-chat-left-text',
-                'desc' => 'Seçili dönemde en çok onaylı yorum yapan kullanıcılar',
+                'desc' => 'Secili donemde en cok onayli yorum yapan kullanicilar',
                 'metadata_key' => 'comments',
                 'metadata_label' => 'Yorum',
             ],
@@ -128,11 +128,11 @@ final class LeaderboardService
             return '#';
         }
 
-        $displayName = (string) ($row['username'] ?? $row['name'] ?? $row['author'] ?? 'üye');
+        $displayName = (string) ($row['username'] ?? $row['author'] ?? 'uye');
         if (function_exists('publicProfileUrl')) {
             return publicProfileUrl([
                 'id' => $userId,
-                'name' => $displayName,
+                'username' => $displayName,
             ]);
         }
 
@@ -178,8 +178,8 @@ final class LeaderboardService
      */
     public function decorateRow(array $row, ?string $baseUri = null): array
     {
-        if (!isset($row['username']) && isset($row['name'])) {
-            $row['username'] = (string) $row['name'];
+        if (!isset($row['username']) && isset($row['author'])) {
+            $row['username'] = (string) $row['author'];
         }
 
         if (!isset($row['avatar_path']) && isset($row['avatar'])) {
@@ -378,3 +378,5 @@ final class LeaderboardService
         return ['ranks' => $ranks];
     }
 }
+
+

@@ -24,7 +24,7 @@ $lookupTopicBySlug = static function (string $lookupSlug) use ($pdo): ?array {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.name AS author
+        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
                                FROM topics t
                                LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                                LEFT JOIN categories cat ON t.category_id = cat.id
@@ -231,7 +231,7 @@ if (!empty($topic["topic_version"])) {
 
 if ($pdo && !empty($topic["id"])) {
     try {
-        $stmtComments = $pdo->prepare("SELECT c.id, c.body, c.created_at, u.name AS author FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.topic_id = ? AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NULL ORDER BY c.created_at ASC LIMIT 10");
+        $stmtComments = $pdo->prepare("SELECT c.id, c.body, c.created_at, u.username AS author FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.topic_id = ? AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NULL ORDER BY c.created_at ASC LIMIT 10");
         $stmtComments->execute([(int) $topic["id"]]);
         
         $totalCommentsStmt = $pdo->prepare("SELECT COUNT(id) FROM comments WHERE topic_id = ? AND status = 'approved' AND deleted_at IS NULL");
@@ -721,7 +721,7 @@ $lookupTopicBySlug = static function (string $lookupSlug) use ($pdo): ?array {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.name AS author
+        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
                                FROM topics t
                                LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                                LEFT JOIN categories cat ON t.category_id = cat.id
@@ -928,7 +928,7 @@ if (!empty($topic["topic_version"])) {
 
 if ($pdo && !empty($topic["id"])) {
     try {
-        $stmtComments = $pdo->prepare("SELECT c.id, c.body, c.created_at, u.name AS author FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.topic_id = ? AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NULL ORDER BY c.created_at ASC LIMIT 10");
+        $stmtComments = $pdo->prepare("SELECT c.id, c.body, c.created_at, u.username AS author FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.topic_id = ? AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NULL ORDER BY c.created_at ASC LIMIT 10");
         $stmtComments->execute([(int) $topic["id"]]);
         
         $totalCommentsStmt = $pdo->prepare("SELECT COUNT(id) FROM comments WHERE topic_id = ? AND status = 'approved' AND deleted_at IS NULL");

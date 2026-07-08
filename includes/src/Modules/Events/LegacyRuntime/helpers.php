@@ -1436,7 +1436,7 @@ if (!function_exists('eventsPendingRewardRows')) {
 
         try {
             $limit = max(1, min(500, $limit));
-            $stmt = $pdo->prepare("SELECT ur.*, u.name AS user_name, u.email AS user_email
+            $stmt = $pdo->prepare("SELECT ur.*, u.username AS user_name, u.email AS user_email
                 FROM events_user_rewards ur
                 LEFT JOIN users u ON u.id = ur.user_id
                 WHERE ur.status = 'pending'
@@ -1772,7 +1772,7 @@ if (!function_exists('eventsDrawnRafflesWithWinners')) {
             $stmt = $pdo->prepare("SELECT r.*,
                     d.created_at AS draw_date_actual,
                     (SELECT COUNT(*) FROM events_raffle_entries e WHERE e.raffle_id = r.id) AS entry_count,
-                    (SELECT GROUP_CONCAT(u.name SEPARATOR ', ') 
+                    (SELECT GROUP_CONCAT(u.username SEPARATOR ', ') 
                      FROM events_raffle_winners w 
                      LEFT JOIN users u ON u.id = w.user_id 
                      WHERE w.raffle_id = r.id) AS winner_names

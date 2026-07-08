@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($result['ok']) && function_exists('adminLogAction')) {
                     adminAuditLogger()->logAction($pdo, 'group_save', 'user_group', $targetGroupId, 'Kullanici grubu kaydedildi', [], [
                         'group_id' => $targetGroupId,
-                        'name' => (string)($_POST['name'] ?? ''),
+                        'group_name' => (string)($_POST['name'] ?? ''),
                     ], false);
                 }
                 $respond(!empty($result['ok']), (string)($result['message'] ?? 'Grup kaydedilemedi.'), ['group_id' => $targetGroupId]);
@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = usersUpdateProfile($pdo, $userId, $_POST, $currentUserId, $validGroupIds);
                 if ($error === '' && function_exists('userActivityLog')) {
                     userActivityLog($pdo, $userId, 'admin_user_updated', 'admin', 'user', $userId, 'Admin kullanici bilgilerini guncelledi', [
-                        'fields' => array_values(array_intersect(array_keys($_POST), ['name', 'email', 'group_id', 'status', 'bio', 'website', 'location', 'social_github', 'social_twitter', 'social_discord'])),
+                        'fields' => array_values(array_intersect(array_keys($_POST), ['username', 'email', 'group_id', 'status', 'bio', 'website', 'location', 'social_github', 'social_twitter', 'social_discord'])),
                     ], $currentUserId);
                 }
                 $respond($error === '', $error === '' ? 'Kullanıcı bilgileri güncellendi.' : $error);
@@ -525,8 +525,8 @@ require_once __DIR__ . '/header.php';
                     <p class="user-edit-section-title">Hesap Bilgileri</p>
                     <div class="user-edit-grid ui-admin-mb-md ui-grid">
                         <div>
-                            <label class="ui-admin-form-label">Ad Soyad</label>
-                            <input type="text" name="name" id="editUserName" class="ui-admin-form-control" value="<?= htmlspecialchars((string) ($editUser['name'] ?? '')) ?>" required>
+                            <label class="ui-admin-form-label">Kullanici Adi</label>
+                            <input type="text" name="username" id="editUsername" class="ui-admin-form-control" value="<?= htmlspecialchars((string) ($editUser['username'] ?? '')) ?>" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_-]{3,30}">
                         </div>
                         <div>
                             <label class="ui-admin-form-label">E-posta</label>
@@ -746,7 +746,7 @@ require_once __DIR__ . '/header.php';
             <div class="media-modal-header ui-panel__head">
                 <h3 class="ui-admin-modal-title">
                     <i class="bi bi-shield-exclamation"></i>
-                    <?= htmlspecialchars((string) ($restrictedUser['name'] ?? 'Kullanıcı')) ?> - Kısıtlamalar
+                    <?= htmlspecialchars((string) ($restrictedUser['username'] ?? 'Kullanici')) ?> - Kısıtlamalar
                 </h3>
                 <a href="users.php?tab=<?= htmlspecialchars($activeTab) ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost">&times;</a>
             </div>

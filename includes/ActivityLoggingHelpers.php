@@ -47,6 +47,108 @@ if (!function_exists('appLog')) {
     }
 }
 
+if (!function_exists('publicContentCacheNamespace')) {
+    function publicContentCacheNamespace(): string
+    {
+        return 'public-content-v1';
+    }
+}
+
+if (!function_exists('publicContentCacheTag')) {
+    function publicContentCacheTag(): string
+    {
+        return 'public-content';
+    }
+}
+
+if (!function_exists('publicContentCacheTags')) {
+    /**
+     * @return array<int,string>
+     */
+    function publicContentCacheTags(): array
+    {
+        return [publicContentCacheTag()];
+    }
+}
+
+if (!function_exists('publicContentCacheKey')) {
+    function publicContentCacheKey(string $key): string
+    {
+        $key = trim($key);
+        return publicContentCacheNamespace() . ':' . ($key !== '' ? $key : 'default');
+    }
+}
+
+if (!function_exists('publicContentCacheActionShouldInvalidate')) {
+    function publicContentCacheActionShouldInvalidate(string $action): bool
+    {
+        $action = trim($action);
+        if ($action === '' || $action === 'topic_viewed') {
+            return false;
+        }
+
+        static $actions = [
+            'category_created',
+            'category_updated',
+            'category_deleted',
+            'profile_updated',
+            'avatar_updated',
+            'profile_avatar_uploaded',
+            'comment_created',
+            'comment_updated',
+            'comment_deleted',
+            'comment_restored',
+            'comment_approved',
+            'comment_rejected',
+            'admin_updated_user',
+            'admin_user_updated',
+            'settings_updated',
+            'topic_approved',
+            'topic_created',
+            'topic_deleted',
+            'topic_deleted_permanently',
+            'topic_moderated',
+            'topic_revision_restored',
+            'topic_restored',
+            'topic_settings_updated',
+            'topic_updated',
+            'topic_uploaded',
+            'topic_user_edited',
+            'bot_import_published',
+        ];
+
+        if (in_array($action, $actions, true)) {
+            return true;
+        }
+
+        return str_starts_with($action, 'topic_bulk_');
+    }
+}
+
+if (!function_exists('invalidatePublicContentCache')) {
+    function invalidatePublicContentCache(): bool
+    {
+        try {
+            if (!class_exists(\App\Core\Bootstrap\Boot::class)) {
+                return false;
+            }
+
+            $cache = \App\Core\Bootstrap\Boot::container(dirname(__DIR__))->get(\App\Core\Cache\TaggableCache::class);
+            if (!$cache instanceof \App\Core\Cache\TaggableCache) {
+                return false;
+            }
+
+            return $cache->invalidateTag(publicContentCacheTag());
+        } catch (Throwable $e) {
+            if (function_exists('appLogException')) {
+                appLogException($e, ['source' => 'invalidatePublicContentCache']);
+            }
+
+            return false;
+        }
+    }
+}
+
 if (!function_exists('logActivity')) {
     /**
      * Kullanıcı aktivitesini logla
@@ -133,6 +235,10 @@ if (!function_exists('logActivity')) {
                     $properties,
                     $actorIdInt
                 );
+            }
+
+            if (publicContentCacheActionShouldInvalidate($action)) {
+                invalidatePublicContentCache();
             }
         } catch (Throwable $e) {
             if (function_exists('appLog')) {

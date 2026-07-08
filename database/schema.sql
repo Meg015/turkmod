@@ -736,7 +736,7 @@ CREATE TABLE `leaderboard_cache` (
   `period` varchar(20) NOT NULL COMMENT 'daily, weekly, monthly, quarterly, yearly',
   `rank` int(10) unsigned NOT NULL,
   `score` decimal(15,2) NOT NULL,
-  `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Detaylı metrikler' CHECK (json_valid(`metadata`)),
+  `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'DetaylÄ± metrikler' CHECK (json_valid(`metadata`)),
   `calculated_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `period_start` date NOT NULL,
   `period_end` date NOT NULL,
@@ -1435,7 +1435,7 @@ CREATE TABLE `user_settings` (
 
 CREATE TABLE `users` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
+  `username` varchar(30) NOT NULL,
   `email` varchar(255) NOT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
   `email_verification_token` varchar(255) DEFAULT NULL,
@@ -1467,13 +1467,14 @@ CREATE TABLE `users` (
   `public_show_topics` tinyint(1) NOT NULL DEFAULT 1,
   `public_show_comments` tinyint(1) NOT NULL DEFAULT 0,
   `public_show_socials` tinyint(1) NOT NULL DEFAULT 1,
-  `total_downloads` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'Tüm modların toplam indirme',
-  `total_topics` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'Yüklenen mod sayısı',
-  `total_comments` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'Yapılan yorum sayısı',
-  `helpful_count` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'Alınan helpful reaksiyon',
-  `last_activity_at` timestamp NULL DEFAULT NULL COMMENT 'Son aktivite zamanı',
+  `total_downloads` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'Tum modlarin toplam indirme',
+  `total_topics` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'Yuklenen mod sayisi',
+  `total_comments` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'Yapilan yorum sayisi',
+  `helpful_count` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'Alinan helpful reaksiyon',
+  `last_activity_at` timestamp NULL DEFAULT NULL COMMENT 'Son aktivite zamani',
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `users_username_unique` (`username`),
   KEY `users_status_index` (`status`),
   KEY `users_password_reset_expires_index` (`password_reset_expires_at`),
   KEY `users_deleted_at_index` (`deleted_at`),
@@ -1485,4 +1486,5 @@ CREATE TABLE `users` (
   KEY `idx_users_banned_at` (`is_banned`,`banned_at`),
   KEY `idx_users_status_banned` (`status`,`is_banned`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5101 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 

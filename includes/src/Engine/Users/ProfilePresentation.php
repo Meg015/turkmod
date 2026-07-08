@@ -186,7 +186,7 @@ final class ProfilePresentation
     public function profileContext(array $user, array $options = []): array
     {
         $base = $this->sidebarData($user, $options);
-        $name = (string) ($base['name'] ?? $options['name'] ?? $user['name'] ?? 'Kullanıcı');
+        $username = (string) ($base['username'] ?? $options['username'] ?? $user['username'] ?? 'Kullanici');
         $groupName = (string) ($base['group_name'] ?? $this->groupName($user));
         $groupSlug = (string) ($base['group_slug'] ?? $this->groupSlug($user));
         $avatar = (string) ($base['avatar'] ?? '');
@@ -202,7 +202,9 @@ final class ProfilePresentation
             'cover' => (string) ($options['cover'] ?? ($user['cover'] ?? $user['cover_image'] ?? '')),
             'avatar_url' => $avatar,
             'has_avatar' => !empty($base['has_avatar']),
-            'initials' => (string) ($base['initials'] ?? $this->initials($name)),
+            'username' => $username,
+            'name' => $username,
+            'initials' => (string) ($base['initials'] ?? $this->initials($username)),
             'group' => $groupName,
             'group_name' => $groupName,
             'group_slug' => $groupSlug,
@@ -351,13 +353,15 @@ final class ProfilePresentation
                 isset($options['stat_labels']) && is_array($options['stat_labels']) ? $options['stat_labels'] : []
             );
         }
+        $username = (string) ($user['username'] ?? $options['username'] ?? 'Kullanici');
 
         return [
-            'name' => (string) ($user['name'] ?? $options['name'] ?? 'Kullanıcı'),
+            'username' => $username,
+            'name' => $username,
             'avatar' => $avatar,
             'avatar_fallback' => $avatarFallback,
             'has_avatar' => $avatar !== '' && $avatar !== $avatarFallback,
-            'initials' => $this->initials((string) ($user['name'] ?? $options['name'] ?? 'Kullanıcı')),
+            'initials' => $this->initials($username),
             'group' => $groupName,
             'group_name' => $groupName,
             'group_slug' => $groupSlug,

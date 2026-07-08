@@ -1569,7 +1569,7 @@ if (!function_exists('sidebarBuilderLeaderboardItems')) {
             return [];
         }
         try {
-            $stmt = $pdo->prepare("SELECT id, name, total_downloads, total_topics FROM users WHERE status='active' AND deleted_at IS NULL ORDER BY total_downloads DESC, total_topics DESC, id ASC LIMIT :lim");
+            $stmt = $pdo->prepare("SELECT id, username, total_downloads, total_topics FROM users WHERE status='active' AND deleted_at IS NULL ORDER BY total_downloads DESC, total_topics DESC, id ASC LIMIT :lim");
             $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -1578,13 +1578,13 @@ if (!function_exists('sidebarBuilderLeaderboardItems')) {
         }
         $items = [];
         foreach ($rows as $index => $row) {
-            $name = (string) ($row['name'] ?? 'Uye');
+            $name = (string) ($row['username'] ?? 'Uye');
             $items[] = [
                 'rank' => (string) ($index + 1),
                 'name' => $name,
                 'initial' => mb_substr($name, 0, 1),
                 'score' => number_format((int) ($row['total_downloads'] ?? 0), 0, ',', '.'),
-                'url' => function_exists('publicProfileUrl') ? publicProfileUrl(['id' => (int) ($row['id'] ?? 0), 'name' => $name]) : '#',
+                'url' => function_exists('publicProfileUrl') ? publicProfileUrl(['id' => (int) ($row['id'] ?? 0), 'username' => $name]) : '#',
             ];
         }
         return $items;

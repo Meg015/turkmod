@@ -163,7 +163,7 @@ if (!function_exists('authenticateUser')) {
 
         $identifier = trim($identifier);
         if ($identifier === '' || $password === '') {
-            return ['success' => false, 'error' => 'Giris bilgisi ve sifre zorunludur'];
+            return ['success' => false, 'error' => 'Giriş bilgisi ve şifre zorunludur'];
         }
 
         try {
@@ -172,15 +172,18 @@ if (!function_exists('authenticateUser')) {
                 ? $loginIdentifierMode
                 : authNormalizeLoginIdentifierMode($settings);
 
-            $sql = "SELECT id, name, email, password, status, password_changed_at
+            if (function_exists('usersEnsureUsernameSchema')) {
+                usersEnsureUsernameSchema($pdo);
+            }
+            $sql = "SELECT id, username, email, password, status, password_changed_at
                     FROM users
                     WHERE deleted_at IS NULL";
             $params = [];
             if ($mode === 'username') {
-                $sql .= " AND name = ?";
+                $sql .= " AND username = ?";
                 $params[] = $identifier;
             } elseif ($mode === 'both') {
-                $sql .= " AND (email = ? OR name = ?)";
+                $sql .= " AND (email = ? OR username = ?)";
                 $params[] = $identifier;
                 $params[] = $identifier;
             } else {
@@ -197,7 +200,7 @@ if (!function_exists('authenticateUser')) {
             }
 
             if ((string)($user['status'] ?? '') !== 'active') {
-                return ['success' => false, 'error' => 'Hesabiniz aktif degil'];
+                return ['success' => false, 'error' => 'Hesabınız aktif değil'];
             }
 
             if (!password_verify($password, $user['password'])) {
@@ -279,7 +282,7 @@ if (!function_exists('requireAuth')) {
     }
 }
 
-if (!function_exists('requireAdmin')) {
+if (!function_exists('requireAdmin')) {
     /**
      * Kullanıcının admin olmasını zorunlu kılar
      */
@@ -289,7 +292,7 @@ if (!function_exists('requireAdmin')) {
 
         global $pdo, $baseUri;
         if (!refreshAuthenticatedSession($pdo ?? null)) {
-            logoutUser($pdo ?? null);
+            logoutUser($pdo ?? null, false);
             $loginUrl = function_exists('routePublicStaticUrl')
                 ? routePublicStaticUrl('login')
                 : (($baseUri ?? '') . '/giris');
@@ -311,11 +314,11 @@ if (!function_exists('requireAdmin')) {
     }
 }
 
-if (!function_exists('logoutUser')) {
+if (!function_exists('logoutUser')) {
     /**
      * Kullanıcı çıkış işlemi
      */
-    function logoutUser(?PDO $pdo = null): void
+    function logoutUser(?PDO $pdo = null, bool $clearRememberToken = true): void
     {
         $userId = $_SESSION['_auth_user_id'] ?? null;
         
@@ -323,7 +326,9 @@ if (!function_exists('logoutUser')) {
             logActivity($pdo, 'user_logout', 'user', (int) $userId);
         }
 
-        authClearRememberToken($pdo, $userId ? (int)$userId : null);
+        if ($clearRememberToken) {
+            authClearRememberToken($pdo, $userId ? (int)$userId : null);
+        }
 
         // Session'ı tamamen temizle
         $_SESSION = [];

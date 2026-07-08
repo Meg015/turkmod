@@ -20,7 +20,7 @@ function logsGetList(
     $params = [];
 
     if ($search !== '') {
-        $where[] = "(a.action LIKE :search_action OR u.name LIKE :search_user OR a.subject_type LIKE :search_subject)";
+        $where[] = "(a.action LIKE :search_action OR u.username LIKE :search_user OR a.subject_type LIKE :search_subject)";
         $searchTerm = '%' . $search . '%';
         $params['search_action'] = $searchTerm;
         $params['search_user'] = $searchTerm;
@@ -52,9 +52,9 @@ function logsGetList(
     $total = (int)$countStmt->fetchColumn();
 
     // Fetch
-    $stmt = $pdo->prepare("SELECT a.*, u.name AS actor_name,
+    $stmt = $pdo->prepare("SELECT a.*, u.username AS actor_name,
                                   t.title AS topic_title,
-                                  su.name AS subject_user_name,
+                                  su.username AS subject_user_name,
                                   c.name AS subject_category_name
                            FROM activity_logs a
                            LEFT JOIN users u ON a.actor_id = u.id
@@ -402,6 +402,8 @@ function appLogsGetStats(PDO $pdo): array
 {
     return [
         'total' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs")->fetchColumn(),
+        'total_24h' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(),
+        'total_7d' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
         'errors_24h' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE level IN ('error','critical') AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(),
         'errors_7d' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE level IN ('error','critical') AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
         'channels' => (int) $pdo->query("SELECT COUNT(DISTINCT channel) FROM application_logs")->fetchColumn(),

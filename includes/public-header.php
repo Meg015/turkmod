@@ -236,7 +236,7 @@ if (isset($categoryId)) {
 if (isset($items)) {
     $publicHeaderVars['items'] = $items;
 }
-foreach ([
+$authVars = [
     'auth_error',
     'auth_success',
     'auth_show_onboarding',
@@ -251,7 +251,7 @@ foreach ([
     'auth_login_icon',
     'auth_login_remember_label',
     'auth_allow_registration',
-    'auth_name_value',
+    'auth_username_value',
     'auth_email_value',
     'auth_password_min_length',
     'auth_password_policy_hint',
@@ -259,10 +259,9 @@ foreach ([
     'auth_password_require_numbers',
     'auth_password_require_special',
     'auth_reset_action',
-] as $authVarKey) {
-    if (isset($$authVarKey)) {
-        $publicHeaderVars[$authVarKey] = $$authVarKey;
-    }
+];
+foreach ($authVars as $authVarKey) {
+    $publicHeaderVars[$authVarKey] = $$authVarKey ?? '';
 }
 
 if ($_isAuthPage && function_exists('sendNoStoreHeaders')) {
@@ -304,11 +303,11 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script<?= function_exists('appCspNonceAttr') ? appCspNonceAttr() : '' ?>><?php
-// Inline theme-mode-init — sıfır HTTP isteği, anında çalışır
+// Inline theme-mode-init - sifir HTTP istegi, aninda calisir
 try {
     $themeInitCode = @file_get_contents(__DIR__ . '/../assets/js/theme-mode-init.js');
     if ($themeInitCode !== false) {
-        // Remove wrapping IIFE — content is already a self-executing function
+        // Remove wrapping IIFE - content is already a self-executing function
         echo $themeInitCode;
     } else {
         // Fallback minimal inline version
@@ -767,3 +766,4 @@ $_profileAvatarUrl = function_exists('defaultAvatarUrl') ? defaultAvatarUrl($bas
         <main id="main-content" class="flex-grow-1" tabindex="-1">
 
 
+

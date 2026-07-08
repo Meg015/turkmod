@@ -26,19 +26,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!checkRateLimit($forgotRateKey, $passwordResetRateLimit, $passwordResetRateWindow)) {
         $remaining = getRateLimitRemainingSeconds($forgotRateKey, $passwordResetRateWindow);
         $minutes = (int) ceil($remaining / 60);
-        $errorMsg = "Cok fazla istek. Lutfen {$minutes} dakika sonra tekrar deneyin.";
+        $errorMsg = "Çok fazla istek. Lütfen {$minutes} dakika sonra tekrar deneyin.";
     } elseif (!verify_csrf_token($_POST['_token'] ?? '')) {
-        $errorMsg = 'Guvenlik dogrulamasi basarisiz.';
+        $errorMsg = 'Güvenlik doğrulaması başarısız.';
     } else {
         incrementRateLimit($forgotRateKey, $passwordResetRateWindow);
         $email = trim($_POST['email'] ?? '');
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errorMsg = 'Gecerli bir e-posta adresi girin.';
+            $errorMsg = 'Geçerli bir e-posta adresi girin.';
         } else {
             if ($pdo) {
                 try {
-                    $stmt = $pdo->prepare('SELECT id, name FROM users WHERE email = :email LIMIT 1');
+                    $stmt = $pdo->prepare('SELECT id, username FROM users WHERE email = :email LIMIT 1');
                     $stmt->execute(['email' => $email]);
                     $user = $stmt->fetch();
 
@@ -64,21 +64,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $resetUrl = rtrim($publicBaseUrl, '/') . '/' . ltrim(routePublicStaticPath('reset_password'), '/') . '?token=' . $token . '&email=' . urlencode($email);
 
                         require_once $projectRoot . '/includes/src/Engine/Email/Legacy/helpers.php';
-                        sendPasswordResetEmail($email, (string) $user['name'], $resetUrl);
+                        sendPasswordResetEmail($email, (string) ($user['username'] ?? ''), $resetUrl);
 
                         if ($appDebug) {
-                            $successMsg = 'Sifre sifirlama baglantisi: ' . $resetUrl;
+                            $successMsg = 'Şifre sıfırlama bağlantısı: ' . $resetUrl;
                         } else {
-                            $successMsg = 'Sifre sifirlama baglantisi e-posta adresinize gonderildi.';
+                            $successMsg = 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.';
                         }
                     } else {
-                        $successMsg = 'Eger bu e-posta kayitliysa, sifre sifirlama baglantisi gonderildi.';
+                        $successMsg = 'Eğer bu e-posta kayıtlıysa, şifre sıfırlama bağlantısı gönderildi.';
                     }
                 } catch (Throwable $e) {
-                    $errorMsg = safeErrorMessage($e, 'Islem sirasinda bir hata olustu.');
+                    $errorMsg = safeErrorMessage($e, 'İşlem sırasında bir hata oluştu.');
                 }
             } else {
-                $errorMsg = 'Veritabani baglantisi kurulamadi.';
+                $errorMsg = 'Veritabanı bağlantısı kurulamadı.';
             }
         }
     }
@@ -152,4 +152,5 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
 </div>
 
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>
+
 

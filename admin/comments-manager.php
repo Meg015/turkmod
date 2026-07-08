@@ -46,6 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'text_length' => mb_strlen((string)$commentRow['body']),
                         ]);
                     }
+                    if (function_exists('invalidatePublicContentCache')) {
+                        invalidatePublicContentCache();
+                    }
                     flash('success', 'Yorum onaylandı.');
                     break;
 
@@ -57,6 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($commentRow && function_exists('eventsReverseActivityPoints') && (int)$commentRow['user_id'] > 0 && empty($commentRow['deleted_at']) && (string)$commentRow['status'] === 'approved') {
                         eventsReverseActivityPoints($pdo, (int)$commentRow['user_id'], 'comment_created', 'comment', $commentId, 'comment_rejected');
                     }
+                    if (function_exists('invalidatePublicContentCache')) {
+                        invalidatePublicContentCache();
+                    }
                     flash('success', 'Yorum reddedildi.');
                     break;
 
@@ -67,6 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     if ($commentRow && function_exists('eventsReverseActivityPoints') && (int)$commentRow['user_id'] > 0 && empty($commentRow['deleted_at']) && (string)$commentRow['status'] === 'approved') {
                         eventsReverseActivityPoints($pdo, (int)$commentRow['user_id'], 'comment_created', 'comment', $commentId, 'comment_deleted');
+                    }
+                    if (function_exists('invalidatePublicContentCache')) {
+                        invalidatePublicContentCache();
                     }
                     flash('success', 'Yorum silindi.');
                     break;
@@ -81,6 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'text_length' => mb_strlen((string)$commentRow['body']),
                             ]);
                         }
+                    }
+                    if (function_exists('invalidatePublicContentCache')) {
+                        invalidatePublicContentCache();
                     }
                     flash('success', 'Yorum geri yüklendi.');
                     break;
@@ -101,6 +113,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $pdo->prepare("UPDATE comments SET body = ?, is_edited = 1, edited_at = NOW() WHERE id = ?")->execute([$newBody, $commentId]);
                         } else {
                             $pdo->prepare("UPDATE comments SET body = ? WHERE id = ?")->execute([$newBody, $commentId]);
+                        }
+                        if (function_exists('invalidatePublicContentCache')) {
+                            invalidatePublicContentCache();
                         }
                         flash('success', 'Yorum güncellendi.');
                     } else {
@@ -134,7 +149,7 @@ if ($status !== 'all') {
 }
 
 if ($search !== '') {
-    $where[] = '(c.body LIKE ? OR u.name LIKE ? OR t.title LIKE ?)';
+    $where[] = '(c.body LIKE ? OR u.username LIKE ? OR t.title LIKE ?)';
     $searchTerm = '%' . $search . '%';
     $params[] = $searchTerm;
     $params[] = $searchTerm;
@@ -162,7 +177,7 @@ $total = (int)$countStmt->fetchColumn();
 // Get comments
 $offset = ($page - 1) * $perPage;
 $sql = "SELECT c.*,
-        u.name as author_name, u.avatar as author_avatar,
+        u.username AS author_name, u.avatar as author_avatar,
         t.id as topic_id, t.title as topic_title, t.slug as topic_slug,
         (SELECT COUNT(*) FROM comment_reactions WHERE comment_id = c.id) as reaction_count
         FROM comments c

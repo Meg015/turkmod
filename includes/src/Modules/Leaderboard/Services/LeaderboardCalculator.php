@@ -163,6 +163,31 @@ final class LeaderboardCalculator
         return $data;
     }
 
+    private function userHasUsernameColumn(PDO $pdo): bool
+    {
+        static $cache = [];
+        $key = spl_object_id($pdo);
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+
+        try {
+            $stmt = $pdo->query("SHOW COLUMNS FROM users LIKE 'username'");
+            $cache[$key] = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Throwable) {
+            $cache[$key] = false;
+        }
+
+        return $cache[$key];
+    }
+
+    private function userNameExpression(PDO $pdo, string $alias = 'u'): string
+    {
+        return $this->userHasUsernameColumn($pdo)
+            ? "COALESCE(NULLIF({$alias}.username, ''), CONCAT('user-', {$alias}.id))"
+            : "CONCAT('user-', {$alias}.id)";
+    }
+
     /**
      * @return array{data:array<int,array<string,mixed>>,total:int}
      */
@@ -177,6 +202,7 @@ final class LeaderboardCalculator
     ): array {
         $adminClause = $this->buildAdminExclusionClause($excludeAdmins);
         $bannedClause = $this->buildBannedExclusionClause((bool) $this->getSetting($pdo, 'leaderboard_exclude_banned', true));
+        $userNameExpr = $this->userNameExpression($pdo, 'u');
         $metricSql = match ($category) {
             'daily_login' => "(SELECT COUNT(*) FROM activity_logs a
                 WHERE a.actor_id = u.id
@@ -220,7 +246,7 @@ final class LeaderboardCalculator
             SELECT * FROM (
                 SELECT
                     u.id AS user_id,
-                    u.name AS username,
+                    {$userNameExpr} AS username,
                     u.avatar,
                     {$metricSql} AS score
                 FROM users u
