@@ -73,6 +73,20 @@ function downloadRedirectAfterCount(?PDO $pdo, int $linkId, string $targetUrl): 
     exit;
 }
 
+/**
+ * @param array<string, mixed> $vars
+ * @return array<string, mixed>
+ */
+function downloadThemePageVars(array $vars): array
+{
+    $existing = $GLOBALS['publicHeaderVars'] ?? null;
+    if (!is_array($existing)) {
+        $existing = [];
+    }
+
+    return array_replace($existing, $vars);
+}
+
 try {
     $linkId = (int) ($_GET['id'] ?? 0);
     $link = null;
@@ -95,6 +109,11 @@ try {
         $download_has_alert = true;
         $download_alert_class = 'ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error';
         $download_alert_message = downloadSettingText($downloadSettings, 'download_redirect_missing_message', 'İndirme bağlantısı bulunamadı veya kaldırılmış.');
+        $publicHeaderVars = downloadThemePageVars([
+            'download_has_alert' => true,
+            'download_alert_class' => $download_alert_class,
+            'download_alert_message' => $download_alert_message,
+        ]);
         require_once $projectRoot . '/includes/public-header.php';
         if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             require_once $projectRoot . '/includes/public-footer.php';
@@ -127,6 +146,11 @@ try {
             : (($baseUri ?? '') . '/giris');
         $loginHref .= (str_contains($loginHref, '?') ? '&' : '?') . 'redirect=' . rawurlencode((string) ($_SERVER['REQUEST_URI'] ?? ''));
 
+        $publicHeaderVars = downloadThemePageVars([
+            'download_has_alert' => true,
+            'download_alert_class' => $download_alert_class,
+            'download_alert_message' => $download_alert_message,
+        ]);
         require_once $projectRoot . '/includes/public-header.php';
         if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             require_once $projectRoot . '/includes/public-footer.php';
@@ -156,6 +180,11 @@ try {
         $download_has_alert = true;
         $download_alert_class = 'ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error';
         $download_alert_message = downloadSettingText($downloadSettings, 'download_redirect_invalid_message', 'Geçersiz indirme bağlantısı.');
+        $publicHeaderVars = downloadThemePageVars([
+            'download_has_alert' => true,
+            'download_alert_class' => $download_alert_class,
+            'download_alert_message' => $download_alert_message,
+        ]);
         require_once $projectRoot . '/includes/public-header.php';
         if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             require_once $projectRoot . '/includes/public-footer.php';
@@ -223,6 +252,36 @@ try {
         $download_redirect_redirecting_label = downloadSettingText($downloadSettings, 'download_redirect_redirecting_label', 'Yönlendiriliyor...');
         $download_redirect_secondary_label = downloadSettingText($downloadSettings, 'download_redirect_secondary_label', 'Konuya Dön');
 
+        $publicHeaderVars = downloadThemePageVars([
+            'download_confirm' => true,
+            'download_confirm_href' => $download_confirm_href,
+            'download_topic_href' => $download_topic_href,
+            'download_target_host' => $download_target_host,
+            'download_link_name' => $download_link_name,
+            'download_topic_title' => $download_topic_title,
+            'download_target_scheme' => $download_target_scheme,
+            'download_target_url' => $download_target_url,
+            'download_countdown_seconds' => $download_countdown_seconds,
+            'download_auto_redirect_enabled' => $download_auto_redirect_enabled,
+            'download_show_target_url' => $download_show_target_url,
+            'download_redirect_kicker' => $download_redirect_kicker,
+            'download_redirect_title' => $download_redirect_title,
+            'download_redirect_intro' => $download_redirect_intro,
+            'download_redirect_host_label' => $download_redirect_host_label,
+            'download_redirect_link_label' => $download_redirect_link_label,
+            'download_redirect_topic_label' => $download_redirect_topic_label,
+            'download_redirect_protocol_label' => $download_redirect_protocol_label,
+            'download_redirect_safety_domain_text' => $download_redirect_safety_domain_text,
+            'download_redirect_safety_count_text' => $download_redirect_safety_count_text,
+            'download_redirect_safety_external_text' => $download_redirect_safety_external_text,
+            'download_redirect_note' => $download_redirect_note,
+            'download_redirect_timer_prefix' => $download_redirect_timer_prefix,
+            'download_redirect_timer_suffix' => $download_redirect_timer_suffix,
+            'download_redirect_primary_label' => $download_redirect_primary_label,
+            'download_redirect_primary_countdown_label' => $download_redirect_primary_countdown_label,
+            'download_redirect_redirecting_label' => $download_redirect_redirecting_label,
+            'download_redirect_secondary_label' => $download_redirect_secondary_label,
+        ]);
         require_once $projectRoot . '/includes/public-header.php';
         if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             require_once $projectRoot . '/includes/public-footer.php';
@@ -310,6 +369,11 @@ try {
     $download_has_alert = true;
     $download_alert_class = 'ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error';
     $download_alert_message = downloadSettingText($downloadSettings, 'download_redirect_error_message', 'İndirme işlemi sırasında bir hata oluştu.');
+    $publicHeaderVars = downloadThemePageVars([
+        'download_has_alert' => true,
+        'download_alert_class' => $download_alert_class,
+        'download_alert_message' => $download_alert_message,
+    ]);
     require_once $projectRoot . '/includes/public-header.php';
     if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
         require_once $projectRoot . '/includes/public-footer.php';

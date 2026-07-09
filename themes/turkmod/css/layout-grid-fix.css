@@ -26,3 +26,18 @@
     grid-column: 3 !important;
   }
 }
+
+/* Keep download confirmation card centered regardless of layout mode details. */
+html[data-public-theme="turkmod"] body.public-page-download .site-main--focus .layout.grid--focus {
+  width: min(100%, var(--t-download-width, 920px)) !important;
+  max-width: var(--t-download-width, 920px) !important;
+  margin-inline: auto !important;
+}
+
+html[data-public-theme="turkmod"] body.public-page-download .download-confirm-wrap {
+  width: min(100%, var(--t-download-width, 920px)) !important;
+  max-width: var(--t-download-width, 920px) !important;
+  margin-inline: auto !important;
+  justify-self: center;
+  align-self: center;
+}
