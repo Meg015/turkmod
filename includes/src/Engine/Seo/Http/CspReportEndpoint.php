@@ -56,12 +56,12 @@ final class CspReportEndpoint implements Handler
     {
         $logDir = rtrim($this->logDir, "/\\");
         if (!is_dir($logDir)) {
-            @mkdir($logDir, 0775, true);
+            mkdir($logDir, 0775, true);
         }
 
         $logFile = $logDir . '/csp-reports.log';
         $entry = date('Y-m-d H:i:s') . ' ' . json_encode($report, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
 
-        @file_put_contents($logFile, $entry, FILE_APPEND | LOCK_EX);
+        file_put_contents($logFile, $entry, FILE_APPEND | LOCK_EX);
     }
 }

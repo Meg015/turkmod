@@ -82,7 +82,7 @@ final class ScraperUrlGuard
             if (defined('DNS_AAAA')) {
                 $dnsTypes |= DNS_AAAA;
             }
-            foreach (@dns_get_record($host, $dnsTypes) ?: [] as $record) {
+            foreach (dns_get_record($host, $dnsTypes) ?: [] as $record) {
                 if (!empty($record['ip'])) {
                     $addresses[] = (string) $record['ip'];
                 }
@@ -93,7 +93,7 @@ final class ScraperUrlGuard
         }
 
         if ($addresses === []) {
-            foreach (@gethostbynamel($host) ?: [] as $address) {
+            foreach (gethostbynamel($host) ?: [] as $address) {
                 $addresses[] = (string) $address;
             }
         }

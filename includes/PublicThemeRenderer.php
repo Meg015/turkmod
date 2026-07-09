@@ -2313,7 +2313,7 @@ final class PublicThemeRenderer
     {
         // Inline theme-mode-init - zero HTTP requests, executes immediately
         $initPath = __DIR__ . '/../assets/js/theme-mode-init.js';
-        $code = @file_get_contents($initPath);
+        $code = file_get_contents($initPath);
         if ($code !== false && $code !== '') {
             $nonce = function_exists('appCspNonceAttr') ? appCspNonceAttr() : '';
             return '<script' . $nonce . '>' . $code . '</script>';
@@ -3173,7 +3173,9 @@ final class PublicThemeRenderer
         $user = isset($pageVars['user']) && is_array($pageVars['user']) ? $pageVars['user'] : [];
         $isProfilePage = in_array($pageKey, ['profile', 'public_profile'], true);
         if ($isProfilePage && $user === []) {
+            $fallbackUsername = (string) ($pageVars['profile_username'] ?? $pageVars['profile_name'] ?? $pageVars['profile_private_username'] ?? $pageVars['profile_private_name'] ?? $pageVars['pageTitle'] ?? 'Kullanici');
             return [
+                'username' => $fallbackUsername,
                 'name' => (string) ($pageVars['pageTitle'] ?? 'Kullanıcı'),
                 'bio' => '',
                 'avatar' => '',
@@ -3621,11 +3623,9 @@ final class PublicThemeRenderer
      */
     private static function profileStatusLabel(array $user): string
     {
-        return function_exists('profileResolveStatusLabel')
-            ? profileResolveStatusLabel($user)
-            : (empty($user['is_banned'])
-                ? (($user['status'] ?? 'active') === 'active' ? 'Aktif' : 'Devre Disi')
-                : 'Banli');
+        return empty($user['is_banned'])
+            ? (($user['status'] ?? 'active') === 'active' ? 'Aktif' : 'Devre Disi')
+            : 'Banli';
     }
 
     /**
@@ -3633,11 +3633,9 @@ final class PublicThemeRenderer
      */
     private static function profileStatusBadgeClass(array $user): string
     {
-        return function_exists('profileResolveStatusBadgeClass')
-            ? profileResolveStatusBadgeClass($user)
-            : (empty($user['is_banned'])
-                ? (($user['status'] ?? 'active') === 'active' ? 'badge-success' : 'badge-secondary')
-                : 'badge-danger');
+        return empty($user['is_banned'])
+            ? (($user['status'] ?? 'active') === 'active' ? 'badge-success' : 'badge-secondary')
+            : 'badge-danger';
     }
 
     private static function formatDate(string $value): string

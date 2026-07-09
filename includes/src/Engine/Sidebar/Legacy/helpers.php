@@ -1306,7 +1306,8 @@ if (!function_exists('sidebarBuilderCommunityActivityItems')) {
                 $stats['comments'] = (int) $pdo->query("SELECT COUNT(*) FROM comments WHERE status='approved' AND deleted_at IS NULL AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn();
                 $stats['downloads'] = (int) $pdo->query("SELECT COUNT(*) FROM downloads WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn();
                 $stats['members'] = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE status='active' AND deleted_at IS NULL AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                error_log('[sidebar] community activity query failed: ' . $e->getMessage());
             }
         }
         return [
@@ -1383,7 +1384,8 @@ if (!function_exists('sidebarBuilderNavigationItems')) {
                     if ($resolved !== '') {
                         return $resolved;
                     }
-                } catch (Throwable) {
+                } catch (Throwable $e) {
+                    error_log('[sidebar] routeUrl resolution failed: ' . $e->getMessage());
                 }
             }
 
@@ -1547,15 +1549,18 @@ if (!function_exists('sidebarBuilderStatsItems')) {
                 $stats['categories'] = (int) $pdo->query("SELECT COUNT(*) FROM categories WHERE deleted_at IS NULL")->fetchColumn();
                 $stats['downloads'] = (int) $pdo->query("SELECT COALESCE(SUM(download_count),0) FROM topics WHERE deleted_at IS NULL")->fetchColumn();
                 $stats['comments'] = (int) $pdo->query("SELECT COUNT(*) FROM comments WHERE deleted_at IS NULL")->fetchColumn();
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                error_log('[sidebar] stats items query failed: ' . $e->getMessage());
             }
+            return [
+                ['icon' => 'bi-cloud-arrow-up', 'value' => number_format($stats['mods'], 0, ',', '.'), 'label' => 'Icerik'],
+                ['icon' => 'bi-folder2-open', 'value' => number_format($stats['categories'], 0, ',', '.'), 'label' => 'Kategori'],
+                ['icon' => 'bi-download', 'value' => number_format($stats['downloads'], 0, ',', '.'), 'label' => 'Indirme'],
+                ['icon' => 'bi-chat-left-text', 'value' => number_format($stats['comments'], 0, ',', '.'), 'label' => 'Yorum'],
+            ];
         }
-        return [
-            ['icon' => 'bi-cloud-arrow-up', 'value' => number_format($stats['mods'], 0, ',', '.'), 'label' => 'Icerik'],
-            ['icon' => 'bi-folder2-open', 'value' => number_format($stats['categories'], 0, ',', '.'), 'label' => 'Kategori'],
-            ['icon' => 'bi-download', 'value' => number_format($stats['downloads'], 0, ',', '.'), 'label' => 'Indirme'],
-            ['icon' => 'bi-chat-left-text', 'value' => number_format($stats['comments'], 0, ',', '.'), 'label' => 'Yorum'],
-        ];
+
+        return [];
     }
 }
 

@@ -39,6 +39,9 @@ final class TopicSubmissionService
         $authorTopic = trim((string) ($input['author_topic'] ?? ''));
         $topicVersion = trim((string) ($input['topic_version'] ?? ''));
         $content = (string) ($input['content'] ?? '');
+        if ($content !== '') {
+            $content = \sanitizeHtml($content);
+        }
         $status = (string) ($input['status'] ?? 'published');
         $moderationFlagsJson = $input['moderation_flags_json'] ?? null;
         $topicDownloadLinks = trim((string) ($input['topic_download_links'] ?? ''));

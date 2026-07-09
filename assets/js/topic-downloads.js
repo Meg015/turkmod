@@ -455,7 +455,7 @@
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ topic_id: state.topicId })
+                body: JSON.stringify({ topic_id: state.topicId, _token: state.csrf })
             });
             const refreshData = await refreshResponse.json().catch(function () { return null; });
             return updateCsrfTokenFromResponse(state, section, refreshData);

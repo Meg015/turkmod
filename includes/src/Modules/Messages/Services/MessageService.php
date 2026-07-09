@@ -1346,7 +1346,7 @@ final class MessageService
                     'ignore_errors' => true,
                 ],
             ]);
-            @file_get_contents($url, false, $context);
+            file_get_contents($url, false, $context);
         } catch (\Throwable $e) {
             // Ignore broadcast errors
         }

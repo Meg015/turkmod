@@ -162,14 +162,14 @@ function adminComplaintsStatusCounts(?PDO $pdo, string $scope): array
         return $counts;
     }
 
+    $allowedScopes = ['users' => 'user_reports', 'topics' => 'topic_reports'];
+    $table = $allowedScopes[$scope] ?? null;
+    if ($table === null) {
+        return $counts;
+    }
+
     try {
-        if ($scope === 'users') {
-            adminComplaintsEnsureReportTable($pdo, 'users');
-            $table = 'user_reports';
-        } else {
-            adminComplaintsEnsureReportTable($pdo, 'topics');
-            $table = 'topic_reports';
-        }
+        adminComplaintsEnsureReportTable($pdo, $scope === 'users' ? 'users' : 'topics');
 
         $stmt = $pdo->query("SELECT status, COUNT(*) AS total FROM {$table} GROUP BY status");
         foreach ($stmt->fetchAll() ?: [] as $row) {

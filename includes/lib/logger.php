@@ -35,12 +35,12 @@ function appLogDir(): string
         $dir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs';
     }
     if (!is_dir($dir)) {
-        @mkdir($dir, 0775, true);
+        mkdir($dir, 0775, true);
     }
     // Web erişimini engelle
     $htaccess = $dir . DIRECTORY_SEPARATOR . '.htaccess';
     if (!file_exists($htaccess)) {
-        @file_put_contents($htaccess, "Require all denied\nDeny from all\n");
+        file_put_contents($htaccess, "Require all denied\nDeny from all\n");
     }
     return $dir;
 }
@@ -75,7 +75,7 @@ function appFileLog(string $level, string $message, array $context = []): void
 
     $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
     $path = appLogDir() . DIRECTORY_SEPARATOR . 'app-' . date('Y-m-d') . '.log';
-    @file_put_contents($path, $line, FILE_APPEND | LOCK_EX);
+    file_put_contents($path, $line, FILE_APPEND | LOCK_EX);
 }
 
 function appLogException(Throwable $e, array $context = []): void

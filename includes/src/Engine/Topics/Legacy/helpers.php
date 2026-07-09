@@ -188,6 +188,7 @@ function parseTopicDownloadLinksText(string $raw): array
         $parts = explode('|', $line, 2);
         $name = count($parts) === 2 ? trim($parts[0]) : 'Link';
         $url = count($parts) === 2 ? trim($parts[1]) : trim($parts[0]);
+        $url = topicDownloadNormalizeUrl($url);
 
         if ($url === '') {
             continue;
@@ -202,6 +203,13 @@ function parseTopicDownloadLinksText(string $raw): array
     }
 
     return $links;
+}
+
+function topicDownloadNormalizeUrl(string $url): string
+{
+    $url = preg_replace('/[\x00-\x1F\x7F]+/u', '', $url) ?? $url;
+
+    return trim($url);
 }
 
 function topicDownloadAccessMode(array $settings): string
@@ -318,7 +326,7 @@ function getTopicDownloadLinks(?PDO $pdo, int $topicId, string $legacyLinks = ''
                 return [
                     'id' => (int)$row['id'],
                     'name' => (string)$row['name'],
-                    'url' => (string)$row['url'],
+                    'url' => topicDownloadNormalizeUrl((string)$row['url']),
                     'download_count' => (int)($row['download_count'] ?? 0),
                 ];
             }, $rows);
@@ -334,7 +342,7 @@ function getTopicDownloadLinks(?PDO $pdo, int $topicId, string $legacyLinks = ''
                     return [
                         'id' => (int)$row['id'],
                         'name' => (string)$row['name'],
-                        'url' => (string)$row['url'],
+                        'url' => topicDownloadNormalizeUrl((string)$row['url']),
                         'download_count' => (int)($row['download_count'] ?? 0),
                     ];
                 }, $rows);
@@ -365,7 +373,11 @@ function syncTopicDownloadLinks(?PDO $pdo, int $topicId, string $rawLinks): void
         $stmt = $pdo->prepare("SELECT url, download_count FROM topic_download_links WHERE topic_id = ?");
         $stmt->execute([$topicId]);
         foreach ($stmt->fetchAll() as $row) {
-            $existingCounts[(string)$row['url']] = (int)($row['download_count'] ?? 0);
+            $normalizedUrl = topicDownloadNormalizeUrl((string)$row['url']);
+            if ($normalizedUrl === '') {
+                continue;
+            }
+            $existingCounts[$normalizedUrl] = (int)($row['download_count'] ?? 0);
         }
 
         $pdo->prepare("DELETE FROM topic_download_links WHERE topic_id = ?")->execute([$topicId]);
@@ -376,7 +388,10 @@ function syncTopicDownloadLinks(?PDO $pdo, int $topicId, string $rawLinks): void
                 VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
 
             foreach ($links as $index => $link) {
-                $url = (string)$link['url'];
+                $url = topicDownloadNormalizeUrl((string)$link['url']);
+                if ($url === '') {
+                    continue;
+                }
                 $insert->execute([
                     $topicId,
                     (string)$link['name'],

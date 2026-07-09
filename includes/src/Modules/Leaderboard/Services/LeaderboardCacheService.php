@@ -222,6 +222,7 @@ final class LeaderboardCacheService
 
             unset($row['calculated_at'], $row['period_start'], $row['period_end']);
         }
+        unset($row);
 
         return [
             'data' => $data,

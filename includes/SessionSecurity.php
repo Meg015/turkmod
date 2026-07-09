@@ -141,16 +141,15 @@ class SessionSecurity
     }
 
     /**
-     * User agent ve IP değişikliğini kontrol et
+     * User agent değişikliğini kontrol et (IP kontrolü kaldırıldı,
+     * çünkü mobil/VPN kullanıcılarında yanlış pozitif üretiyordu).
      */
     public function validateSessionIntegrity(): bool
     {
         $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $currentIp = $_SERVER['REMOTE_ADDR'] ?? '';
 
         if (!isset($_SESSION['_user_agent'])) {
             $_SESSION['_user_agent'] = $currentUserAgent;
-            $_SESSION['_user_ip'] = $currentIp;
             return true;
         }
 
@@ -158,15 +157,7 @@ class SessionSecurity
             Logger::getInstance()->security('User agent mismatch detected', [
                 'expected' => $_SESSION['_user_agent'],
                 'actual' => $currentUserAgent,
-                'ip' => $currentIp
-            ]);
-            return false;
-        }
-
-        if ($_SESSION['_user_ip'] !== $currentIp) {
-            Logger::getInstance()->security('IP address mismatch detected', [
-                'expected' => $_SESSION['_user_ip'],
-                'actual' => $currentIp
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
             ]);
             return false;
         }

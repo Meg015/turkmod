@@ -28,7 +28,7 @@ function main(array $argv): int
         return 2;
     }
 
-    if (!@chdir($repoRoot)) {
+    if (!chdir($repoRoot)) {
         fwrite(STDERR, '[migration-guard] Proje kokune gecilemedi: ' . $repoRoot . PHP_EOL);
 
         return 2;

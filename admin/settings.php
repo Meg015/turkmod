@@ -685,7 +685,7 @@ if (!function_exists('settingsCronTriggerByUrl')) {
                     'verify_peer_name' => false,
                 ],
             ]);
-            $raw = @file_get_contents($url, false, $context);
+            $raw = file_get_contents($url, false, $context);
             $headers = $http_response_header ?? [];
             if (is_array($headers)) {
                 foreach ($headers as $headerLine) {

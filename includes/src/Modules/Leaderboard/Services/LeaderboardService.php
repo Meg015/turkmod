@@ -269,7 +269,8 @@ final class LeaderboardService
             if ($cache->isCacheStale($pdo, $category, $period)) {
                 try {
                     $cache->recalculate($pdo, $category, $period, false);
-                } catch (Throwable) {
+                } catch (Throwable $e) {
+                    error_log('[leaderboard] stale cache recalculate failed: ' . $e->getMessage());
                 }
 
                 $cachedData = $cache->readCache($pdo, $category, $period, $limit, $offset, $searchValue);
@@ -280,7 +281,8 @@ final class LeaderboardService
 
         try {
             $cache->recalculate($pdo, $category, $period, false);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log('[leaderboard] cache recalculate failed: ' . $e->getMessage());
         }
 
         $cachedData = $cache->readCache($pdo, $category, $period, $limit, $offset, $searchValue);
@@ -351,7 +353,8 @@ final class LeaderboardService
                 if ($cache->isCacheStale($pdo, (string) $categoryKey, (string) $periodKey)) {
                     try {
                         $cache->recalculate($pdo, (string) $categoryKey, (string) $periodKey, false);
-                    } catch (Throwable) {
+                    } catch (Throwable $e) {
+                        error_log('[leaderboard] rank stale cache recalculate failed: ' . $e->getMessage());
                     }
                 }
 

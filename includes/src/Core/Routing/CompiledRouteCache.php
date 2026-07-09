@@ -50,13 +50,17 @@ final class CompiledRouteCache
             return;
         }
 
-        @rename($tempFile, $this->cacheFile);
+        if (is_file($tempFile)) {
+            rename($tempFile, $this->cacheFile);
+        }
     }
 
     public function clear(): void
     {
         if (is_file($this->cacheFile)) {
-            @unlink($this->cacheFile);
+            if (is_file($this->cacheFile)) {
+            unlink($this->cacheFile);
+        }
         }
     }
 

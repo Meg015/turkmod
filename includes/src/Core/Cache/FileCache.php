@@ -59,14 +59,14 @@ final class FileCache implements TaggableCache
             return true;
         }
 
-        return @unlink($path);
+        return is_file($path) ? unlink($path) : true;
     }
 
     public function clear(): bool
     {
         $success = true;
         foreach (glob($this->directory . DIRECTORY_SEPARATOR . $this->prefix . '-*.cache') ?: [] as $path) {
-            if (is_file($path) && !@unlink($path)) {
+            if (is_file($path) && !unlink($path)) {
                 $success = false;
             }
         }
@@ -83,7 +83,7 @@ final class FileCache implements TaggableCache
                 continue;
             }
 
-            if (in_array($tag, $entry['tags'], true) && !@unlink($path)) {
+            if (in_array($tag, $entry['tags'], true) && !unlink($path)) {
                 $success = false;
             }
         }
@@ -131,7 +131,10 @@ final class FileCache implements TaggableCache
 
         $entry = json_decode($raw, true);
         if (!is_array($entry) || !array_key_exists('value', $entry)) {
-            $legacy = @unserialize($raw, ['allowed_classes' => false]);
+            $legacy = unserialize($raw, ['allowed_classes' => false]);
+            if ($legacy === false && $raw !== serialize(false)) {
+                return null;
+            }
             if (!is_array($legacy) || !array_key_exists('value', $legacy)) {
                 return null;
             }
@@ -140,7 +143,9 @@ final class FileCache implements TaggableCache
 
         $expiresAt = (int) ($entry['expires_at'] ?? 0);
         if ($expiresAt > 0 && $expiresAt < time()) {
-            @unlink($path);
+            if (is_file($path)) {
+                unlink($path);
+            }
 
             return null;
         }

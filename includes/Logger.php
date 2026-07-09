@@ -49,7 +49,7 @@ class Logger {
         $this->logLevel = array_key_exists($envLevel, $this->levels) ? $envLevel : 'INFO';
 
         if (!is_dir($this->logPath)) {
-            @mkdir($this->logPath, 0755, true);
+            mkdir($this->logPath, 0755, true);
         }
     }
 
@@ -73,11 +73,11 @@ class Logger {
         $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 
         $logFile = $this->logPath . 'app-' . date('Y-m-d') . '.log';
-        @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+        file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
 
         if (in_array($level, ['EMERGENCY', 'ALERT', 'CRITICAL', 'ERROR'], true)) {
             $errorLog = $this->logPath . 'error-' . date('Y-m-d') . '.log';
-            @file_put_contents($errorLog, $line, FILE_APPEND | LOCK_EX);
+            file_put_contents($errorLog, $line, FILE_APPEND | LOCK_EX);
         }
 
         $this->cleanOldLogs();
@@ -119,21 +119,23 @@ class Logger {
 
         foreach ($files as $file) {
             if (filemtime($file) < $cutoff) {
-                @unlink($file);
+                if (is_file($file)) {
+                unlink($file);
+            }
             }
         }
 
-        @touch($cleanFile);
+        touch($cleanFile);
     }
 
     private function writeChannel(string $channel, string $message, array $context = []): void {
         $entry = $this->buildEntry($channel, $message, $context);
         $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
         $logFile = $this->logPath . $channel . '-' . date('Y-m-d') . '.log';
-        @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+        file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
     }
 
-    // PSR-3 metodları
+    // PSR-3 metodlarý
     public function emergency($message, array $context = []) {
         $this->log(self::EMERGENCY, $message, $context);
     }

@@ -144,23 +144,23 @@ function healthTailLines(string $file, int $lineLimit = 250, int $byteLimit = 26
         return [];
     }
 
-    $size = @filesize($file);
+    $size = filesize($file);
     if ($size === false || $size <= 0) {
         return [];
     }
 
-    $handle = @fopen($file, 'rb');
+    $handle = fopen($file, 'rb');
     if (!$handle) {
         return [];
     }
 
     $readSize = min($byteLimit, (int) $size);
     if ($readSize < (int) $size) {
-        @fseek($handle, -$readSize, SEEK_END);
+        fseek($handle, -$readSize, SEEK_END);
     }
 
-    $chunk = (string) @fread($handle, $readSize);
-    @fclose($handle);
+    $chunk = (string) fread($handle, $readSize);
+    fclose($handle);
 
     $lines = preg_split('/\R/u', $chunk) ?: [];
     $lines = array_values(array_filter($lines, static fn (string $line): bool => trim($line) !== ''));
@@ -560,8 +560,8 @@ function healthReadableBytes(int|float $bytes): string
 
 function healthDiskDetail(string $path): string
 {
-    $free = @disk_free_space($path);
-    $total = @disk_total_space($path);
+    $free = disk_free_space($path);
+    $total = disk_total_space($path);
     if ($free === false || $total === false || $total <= 0) {
         return 'disk bilgisi okunamadı';
     }

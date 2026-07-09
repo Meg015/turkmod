@@ -100,9 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'upload') {
     if ($result['uploaded'] > 0) {
         logActivity($pdo, 'media_uploaded', 'media', null, ['count' => $result['uploaded'], 'path' => $targetPath]);
         flash('success', $result['uploaded'] . ' dosya başarıyla yüklendi.' . (!empty($result['errors']) ? ' (' . count($result['errors']) . ' hata)' : ''));
-        @unlink($cacheFile);
-    }
-    if (!empty($result['errors']) && $result['uploaded'] === 0) {
+        if (is_file($cacheFile)) {
+            unlink($cacheFile);
+        }
         flash('error', implode(' ', $result['errors']));
     }
 
@@ -219,7 +219,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete') {
     if (mediaDeleteFile($pdo, $uploadBase, (string) ($_POST['file_path'] ?? ''))) {
         logActivity($pdo, 'media_deleted', 'media', null, ['file_path' => (string) ($_POST['file_path'] ?? '')]);
         flash('success', 'Dosya silindi.');
-        @unlink($cacheFile);
+        if (is_file($cacheFile)) {
+            unlink($cacheFile);
+        }
     } else {
         flash('error', 'Dosya bulunamadı veya silinemedi.');
     }
@@ -239,7 +241,7 @@ if (is_file($cacheFile) && (time() - filemtime($cacheFile) < $cacheDuration)) {
 }
 if (!is_array($mediaStats) || !isset($mediaStats['files'])) {
     $mediaStats = mediaGetGlobalStats($uploadBase);
-    @file_put_contents($cacheFile, json_encode($mediaStats));
+    file_put_contents($cacheFile, json_encode($mediaStats));
 }
 
 $totalFiles = $mediaStats['files'] ?? 0;

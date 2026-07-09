@@ -86,8 +86,10 @@ function analyticsPruneOldLogs(string $storageDir, int $retentionDays, ?int $tim
             continue;
         }
         $logDate = strtotime($matches[1] . ' 00:00:00');
-        if ($logDate !== false && $logDate < $cutoff && is_file($path) && @unlink($path)) {
-            $deleted++;
+        if ($logDate !== false && $logDate < $cutoff && is_file($path)) {
+            if (unlink($path)) {
+                $deleted++;
+            }
         }
     }
 

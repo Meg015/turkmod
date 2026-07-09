@@ -11,7 +11,7 @@ final class ScraperEncodingNormalizer
         if (preg_match('/<meta[^>]+charset=["\']?([^"\'>\s]+)/i', $html, $matches)) {
             $charset = strtoupper(trim($matches[1]));
             if ($charset !== '' && $charset !== 'UTF-8') {
-                $converted = @mb_convert_encoding($html, 'UTF-8', $charset);
+                $converted = mb_convert_encoding($html, 'UTF-8', $charset);
                 if (is_string($converted) && $converted !== '') {
                     return self::decodeEntities($converted);
                 }
@@ -21,7 +21,7 @@ final class ScraperEncodingNormalizer
         if (!mb_check_encoding($html, 'UTF-8')) {
             $detected = mb_detect_encoding($html, ['UTF-8', 'Windows-1254', 'ISO-8859-9', 'Windows-1252', 'ISO-8859-1'], true);
             if ($detected && $detected !== 'UTF-8') {
-                $converted = @mb_convert_encoding($html, 'UTF-8', $detected);
+                $converted = mb_convert_encoding($html, 'UTF-8', $detected);
                 if (is_string($converted) && $converted !== '') {
                     return self::decodeEntities($converted);
                 }
@@ -29,7 +29,7 @@ final class ScraperEncodingNormalizer
         }
 
         if (preg_match('/[ÂÃ][\x80-\xBF]/u', $html)) {
-            $fixed = @mb_convert_encoding($html, 'UTF-8', 'ISO-8859-1');
+            $fixed = mb_convert_encoding($html, 'UTF-8', 'ISO-8859-1');
             if (is_string($fixed) && $fixed !== '' && mb_check_encoding($fixed, 'UTF-8') && !preg_match('/[ÂÃ][\x80-\xBF]/u', $fixed)) {
                 return self::decodeEntities($fixed);
             }

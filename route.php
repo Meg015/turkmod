@@ -11,8 +11,14 @@ use App\Modules\Events\Api\EventsApiHandler;
 // which breaks CSS, JS, and font delivery.
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 if ($uri !== null && $uri !== '/') {
-    $filePath = __DIR__ . str_replace('/', DIRECTORY_SEPARATOR, rawurldecode($uri));
-    if (is_file($filePath)) {
+    $decoded = rawurldecode($uri);
+    // Prevent path traversal: reject any path containing '..'
+    if (str_contains($decoded, '..')) {
+        routerNotFound();
+    }
+    $filePath = __DIR__ . str_replace('/', DIRECTORY_SEPARATOR, $decoded);
+    $realPath = realpath($filePath);
+    if ($realPath !== false && str_starts_with($realPath, __DIR__ . DIRECTORY_SEPARATOR) && is_file($realPath)) {
         return false;
     }
 }
@@ -62,7 +68,10 @@ function routerRequireFile(string $relativePath): void
     }
 
     routerApplyScriptContext($relativePath);
-    extract($GLOBALS, EXTR_SKIP);
+    $pdo = $GLOBALS['pdo'] ?? null;
+    $baseUri = $GLOBALS['baseUri'] ?? '';
+    $envConfig = $GLOBALS['envConfig'] ?? [];
+    $appDebug = $GLOBALS['appDebug'] ?? false;
     require $target;
     exit;
 }

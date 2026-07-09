@@ -16,6 +16,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     $title = trim($_POST['title'] ?? '');
     $content = trim($_POST['content'] ?? '');
+    if ($content !== '') {
+        $content = sanitizeHtml($content);
+    }
     $authorTopic = trim($_POST['author_topic'] ?? '');
     $topicVersion = trim($_POST['topic_version'] ?? '');
     $categoryId = (int) ($_POST['category_id'] ?? 0);

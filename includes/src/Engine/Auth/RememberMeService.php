@@ -90,7 +90,7 @@ final class RememberMeService
         $minutes = (int) ($settings['remember_session_timeout_minutes'] ?? 43200);
         $configuredLifetime = max(1, $minutes) * 60;
 
-        return max(self::PERSISTENT_REMEMBER_LIFETIME_SECONDS, $configuredLifetime);
+        return min(self::PERSISTENT_REMEMBER_LIFETIME_SECONDS, $configuredLifetime);
     }
 
     /**

@@ -239,23 +239,27 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                             : "name AS display_name";
                         try {
                             if (!empty($subjectIds['topic'])) {
-                                $tIds = implode(',', $subjectIds['topic']);
-                                $tStmt = $pdo->query("SELECT id, title FROM topics WHERE id IN ($tIds)");
+                                $tPh = implode(',', array_fill(0, count($subjectIds['topic']), '?'));
+                                $tStmt = $pdo->prepare("SELECT id, title FROM topics WHERE id IN ($tPh)");
+                                $tStmt->execute(array_values($subjectIds['topic']));
                                 foreach ($tStmt->fetchAll(PDO::FETCH_ASSOC) as $row) $subjectNames['topic'][$row['id']] = $row['title'];
                             }
                             if (!empty($subjectIds['user'])) {
-                                $uIds = implode(',', $subjectIds['user']);
-                                $uStmt = $pdo->query("SELECT id, {$userSubjectSelect} FROM users WHERE id IN ($uIds)");
+                                $uPh = implode(',', array_fill(0, count($subjectIds['user']), '?'));
+                                $uStmt = $pdo->prepare("SELECT id, {$userSubjectSelect} FROM users WHERE id IN ($uPh)");
+                                $uStmt->execute(array_values($subjectIds['user']));
                                 foreach ($uStmt->fetchAll(PDO::FETCH_ASSOC) as $row) $subjectNames['user'][$row['id']] = $row['display_name'];
                             }
                             if (!empty($subjectIds['comment'])) {
-                                $cIds = implode(',', $subjectIds['comment']);
-                                $cStmt = $pdo->query("SELECT id, body FROM comments WHERE id IN ($cIds)");
+                                $cPh = implode(',', array_fill(0, count($subjectIds['comment']), '?'));
+                                $cStmt = $pdo->prepare("SELECT id, body FROM comments WHERE id IN ($cPh)");
+                                $cStmt->execute(array_values($subjectIds['comment']));
                                 foreach ($cStmt->fetchAll(PDO::FETCH_ASSOC) as $row) $subjectNames['comment'][$row['id']] = mb_substr(trim((string) $row['body']), 0, 40) . '...';
                             }
                             if (!empty($subjectIds['category'])) {
-                                $catIds = implode(',', $subjectIds['category']);
-                                $catStmt = $pdo->query("SELECT id, name FROM categories WHERE id IN ($catIds)");
+                                $catPh = implode(',', array_fill(0, count($subjectIds['category']), '?'));
+                                $catStmt = $pdo->prepare("SELECT id, name FROM categories WHERE id IN ($catPh)");
+                                $catStmt->execute(array_values($subjectIds['category']));
                                 foreach ($catStmt->fetchAll(PDO::FETCH_ASSOC) as $row) $subjectNames['category'][$row['id']] = $row['name'];
                             }
                         } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }

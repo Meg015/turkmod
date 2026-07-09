@@ -58,7 +58,7 @@ function scraperReadJsonCache(string $bucket, string $key, int $ttlSeconds): ?ar
         return null;
     }
 
-    $payload = json_decode((string) @file_get_contents($file), true);
+    $payload = json_decode((string) file_get_contents($file), true);
     return is_array($payload) ? $payload : null;
 }
 
@@ -66,13 +66,13 @@ function scraperWriteJsonCache(string $bucket, string $key, array $payload): voi
 {
     $directory = scraperCacheDirectory($bucket);
     if (!is_dir($directory)) {
-        @mkdir($directory, 0775, true);
+        mkdir($directory, 0775, true);
     }
     if (!is_dir($directory) || !is_writable($directory)) {
         return;
     }
 
-    @file_put_contents(
+    file_put_contents(
         $directory . '/' . hash('sha256', $key) . '.json',
         json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
         LOCK_EX

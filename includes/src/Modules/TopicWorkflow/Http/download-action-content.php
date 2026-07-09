@@ -49,6 +49,13 @@ function downloadTimerTemplateParts(string $template): array
 
 function downloadSafeTargetUrl(string $url): ?string
 {
+    if (function_exists('topicDownloadNormalizeUrl')) {
+        $url = topicDownloadNormalizeUrl($url);
+    } else {
+        $url = preg_replace('/[\x00-\x1F\x7F]+/u', '', $url) ?? $url;
+        $url = trim($url);
+    }
+
     $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
     $host = (string) (parse_url($url, PHP_URL_HOST) ?: '');
 

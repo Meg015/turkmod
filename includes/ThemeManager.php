@@ -144,7 +144,7 @@ final class ThemeManager
                     continue;
                 }
 
-                $hash = @hash_file('sha256', $file->getPathname());
+                $hash = hash_file('sha256', $file->getPathname());
                 $fingerprints[] = $relative . ':' . ($hash !== false ? $hash : 'unreadable');
             }
         } catch (Throwable) {
@@ -364,10 +364,10 @@ final class ThemeManager
             if (!is_array($decoded)) {
                 throw new RuntimeException('theme.json is not valid JSON.');
             }
-            
+
             // Write to cache
             if (!is_dir(dirname($cachePath))) {
-                @mkdir(dirname($cachePath), 0775, true);
+                mkdir(dirname($cachePath), 0775, true);
             }
             file_put_contents($cachePath, "<?php\nreturn " . var_export($decoded, true) . ";\n", LOCK_EX);
         }

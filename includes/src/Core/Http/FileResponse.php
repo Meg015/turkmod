@@ -47,7 +47,7 @@ final class FileResponse extends Response
             $responseHeaders['Content-Disposition'] = 'attachment; filename="' . addcslashes($this->downloadName, "\"\\") . '"';
         }
 
-        $modifiedAt = @filemtime($filePath);
+        $modifiedAt = filemtime($filePath);
         if ($modifiedAt !== false) {
             $responseHeaders['Last-Modified'] = gmdate('D, d M Y H:i:s', $modifiedAt) . ' GMT';
         }

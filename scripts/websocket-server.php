@@ -57,10 +57,9 @@ class ChatServer implements MessageComponentInterface
         return '';
     }
 
-    private function authenticateConnection(ConnectionInterface $conn, int $userId, string $token): bool
+    private function authenticateConnection(ConnectionInterface $conn, int $userId): bool
     {
-        $token = trim($token);
-        if ($userId <= 0 || $token === '') {
+        if ($userId <= 0) {
             return false;
         }
 
@@ -77,26 +76,25 @@ class ChatServer implements MessageComponentInterface
 
         $_SESSION = [];
         session_id($sessionId);
-        $started = @session_start();
+        $started = session_start();
         if (!$started) {
             $_SESSION = [];
             if ($previousSessionId !== '') {
-                @session_id($previousSessionId);
+                session_id($previousSessionId);
             }
 
             return false;
         }
 
-        $sessionToken = (string) ($_SESSION['_csrf_token'] ?? '');
         $sessionUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
         session_write_close();
         $_SESSION = [];
 
         if ($previousSessionId !== '') {
-            @session_id($previousSessionId);
+            session_id($previousSessionId);
         }
 
-        return $sessionToken !== '' && hash_equals($sessionToken, $token) && $sessionUserId === $userId;
+        return $sessionUserId > 0 && $sessionUserId === $userId;
     }
 
     public function onOpen(ConnectionInterface $conn)
@@ -106,12 +104,13 @@ class ChatServer implements MessageComponentInterface
         parse_str($querystring, $query);
 
         $userId = (int)($query['user_id'] ?? 0);
-        $token = (string)($query['token'] ?? '');
 
         echo "Parsed user_id: {$userId}\n";
 
-        // Verification against the browser session that owns the CSRF token.
-        if ($this->authenticateConnection($conn, $userId, $token)) {
+        // Authenticate via the user's PHP session cookie (HttpOnly, SameSite).
+        // The CSRF token is NOT passed in the URL query string — it would leak
+        // via server logs, Referer headers, and browser history.
+        if ($this->authenticateConnection($conn, $userId)) {
             $this->clients->attach($conn);
             $conn->userId = $userId;
 

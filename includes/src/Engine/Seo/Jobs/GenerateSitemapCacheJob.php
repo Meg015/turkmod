@@ -27,7 +27,7 @@ final class GenerateSitemapCacheJob implements Job
             $this->write($output);
         } finally {
             if ($this->lockFile !== null && is_file($this->lockFile)) {
-                @unlink($this->lockFile);
+                unlink($this->lockFile);
             }
         }
     }

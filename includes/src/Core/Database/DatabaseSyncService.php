@@ -474,7 +474,7 @@ final class DatabaseSyncService
         }
 
         $lockPath = $lockDir . DIRECTORY_SEPARATOR . 'database-sync.lock';
-        $handle = @fopen($lockPath, 'c+');
+        $handle = fopen($lockPath, 'c+');
         if ($handle === false) {
             return false;
         }

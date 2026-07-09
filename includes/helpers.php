@@ -1109,6 +1109,14 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
         if ($content === '') {
             return '';
         }
+        // Sanitize announcement content: allow safe formatting, strip dangerous tags/attributes
+        $content = strip_tags($content,
+            '<p><br><strong><b><em><i><u><a><ul><ol><li><blockquote><h3><h4><h5><h6><img><span><div><pre><code><hr><table><thead><tbody><tr><th><td><sup><sub><del><ins>'
+        );
+        // Remove event handler attributes from remaining tags
+        $content = preg_replace('/\bon\w+\s*=\s*"[^"]*"/i', '', $content);
+        $content = preg_replace("/\bon\w+\s*=\s*'[^']*'/i", '', $content);
+        $content = preg_replace('/\bon\w+\s*=\s*[^\s>]+/i', '', $content);
         $hasAction = $actionText !== '' && $actionUrl !== '';
 
         // Refine Minimal paleti: noise-free, hairline borders, muted accent

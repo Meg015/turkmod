@@ -20,6 +20,7 @@ final class CsrfGuard implements Middleware
         }
 
         if (!function_exists('verify_csrf_token')) {
+            trigger_error('CSRF guard bypassed: verify_csrf_token() not loaded', E_USER_WARNING);
             return $next->handle($request);
         }
 

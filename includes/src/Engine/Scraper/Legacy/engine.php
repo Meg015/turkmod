@@ -133,7 +133,7 @@ class ScraperEngine
             return null;
         }
 
-        $info = @getimagesizefromstring($data);
+        $info = getimagesizefromstring($data);
         if (!is_array($info) || empty($info['mime']) || !str_starts_with((string)$info['mime'], 'image/')) {
             return null;
         }
@@ -743,7 +743,7 @@ class ScraperEngine
         $saveDir = $appBasePath . '/' . rtrim($this->imageSavePath, '/') . '/' . $datePath;
 
         if (!is_dir($saveDir)) {
-            @mkdir($saveDir, 0755, true);
+            mkdir($saveDir, 0755, true);
         }
 
         $ext = pathinfo(parse_url($imageUrl, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION) ?: 'jpg';
@@ -786,11 +786,13 @@ class ScraperEngine
         if (file_put_contents($fullPath, $imageData) !== false) {
             // Bilinen boï¿½/placeholder resimleri MD5 hash ile engelle
             if (md5_file($fullPath) === '006a3226b7a233d4a830078f7237868b') {
-                @unlink($fullPath);
+                unlink($fullPath);
                 return null;
             }
+
             return rtrim($this->imageSavePath, '/') . '/' . $datePath . '/' . $filename;
         }
+
         return null;
     }
 
@@ -1609,7 +1611,7 @@ class ScraperEngine
             return false;
         }
 
-        $info = @getimagesizefromstring($data);
+        $info = getimagesizefromstring($data);
         if (!is_array($info) || empty($info['mime']) || !str_starts_with((string)$info['mime'], 'image/')) {
             return false;
         }
@@ -1854,7 +1856,7 @@ class ScraperEngine
         }
 
         $regex = '/' . str_replace('/', '\\/', $pattern) . '/u';
-        if (@preg_match_all($regex, $text, $matches) === false || empty($matches[0])) {
+        if (preg_match_all($regex, $text, $matches) === false || empty($matches[0])) {
             return '';
         }
 

@@ -11,7 +11,7 @@ function mediaEnsureDirectories(string $uploadBase): void
     foreach (['konu', 'profil', 'genel'] as $d) {
         $dir = $uploadBase . DIRECTORY_SEPARATOR . $d;
         if (!is_dir($dir)) {
-            @mkdir($dir, 0755, true);
+            mkdir($dir, 0755, true);
         }
     }
 }
@@ -170,8 +170,8 @@ function mediaValidateUploadedImageFile(array $file, array $allowedExt, int $max
         return $name . ': Gecici dosya okunamadi.';
     }
 
-    $sample = @file_get_contents($tmpPath, false, null, 0, 8192);
-    if (is_string($sample) && preg_match('/<\?(?:php|=)?|<script|javascript:|onload\s*=|eval\s*\(|base64_decode/i', $sample)) {
+    $sample = file_get_contents($tmpPath, false, null, 0, 8192);
+    if ($sample !== false && preg_match('/<\?(?:php|=)?|<script|javascript:|onload\s*=|eval\s*\(|base64_decode/i', $sample)) {
         return $name . ': Dosya icerigi guvenli degil.';
     }
 
@@ -188,7 +188,7 @@ function mediaValidateUploadedImageFile(array $file, array $allowedExt, int $max
         return $name . ': Dosya icerigi uzantisiyla eslesmiyor.';
     }
 
-    $imageInfo = @getimagesize($tmpPath);
+    $imageInfo = getimagesize($tmpPath);
     if ($imageInfo === false) {
         return $name . ': Gecersiz gorsel dosyasi.';
     }
@@ -234,8 +234,8 @@ function mediaValidateUploadedFile(array $file, array $allowedExt, int $maxUploa
         return mediaValidateUploadedImageFile($file, $imageAllowedExt, $maxUploadMB, $label);
     }
 
-    $sample = @file_get_contents($tmpPath, false, null, 0, 8192);
-    if (is_string($sample) && preg_match('/<\?(?:php|=)?|<script|javascript:|onload\s*=|eval\s*\(|base64_decode/i', $sample)) {
+    $sample = file_get_contents($tmpPath, false, null, 0, 8192);
+    if ($sample !== false && preg_match('/<\?(?:php|=)?|<script|javascript:|onload\s*=|eval\s*\(|base64_decode/i', $sample)) {
         return $name . ': Dosya icerigi guvenli degil.';
     }
 
@@ -284,7 +284,7 @@ function mediaUploadFiles(
         $destDir .= DIRECTORY_SEPARATOR . $subFolder;
     }
     if (!is_dir($destDir)) {
-        @mkdir($destDir, 0755, true);
+        mkdir($destDir, 0755, true);
     }
 
     if (empty($files['name'][0])) {
@@ -374,7 +374,7 @@ function mediaDeleteFile(PDO $pdo, string $uploadBase, string $filePath): bool
     $fullPath = mediaResolvePath($uploadBase, $filePath);
 
     if ($fullPath && is_file($fullPath)) {
-        @unlink($fullPath);
+        unlink($fullPath);
         $projectRoot = mediaProjectRoot($uploadBase);
         try {
             $relUploadsPath = mediaRelativeToUploads($uploadBase, $fullPath);
@@ -397,8 +397,7 @@ function mediaScanDir(string $basePath, string $webBase, string $relPrefix = '')
         return $items;
     }
 
-    $entries = @scandir($basePath) ?: [];
-    foreach ($entries as $entry) {
+    $entries = scandir($basePath) ?: [];    foreach ($entries as $entry) {
         if ($entry === '.' || $entry === '..' || $entry === '.gitkeep' || $entry === '.htaccess' || $entry === 'index.php') {
             continue;
         }
@@ -475,8 +474,7 @@ function mediaGetGlobalStats(string $basePath, bool $recursive = true): array
 
     while (!empty($stack)) {
         $currentDir = array_pop($stack);
-        $entries = @scandir($currentDir);
-        
+        $entries = scandir($currentDir);        
         if ($entries === false) {
             continue; // Klasör okunamıyorsa atla, diğerlerini işlemeye devam et
         }
@@ -495,7 +493,7 @@ function mediaGetGlobalStats(string $basePath, bool $recursive = true): array
                 }
             } else {
                 $stats['files']++;
-                $stats['size'] += @filesize($fullPath) ?: 0;
+                $stats['size'] += filesize($fullPath) ?: 0;
                 $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
                 if (in_array($ext, $imageExts, true)) {
                     $stats['images']++;
@@ -578,7 +576,7 @@ function mediaProcessImage(string $filePath, array $imageSettings): array
             $result['name'] = basename($webpPath);
 
             if (!$keepOriginal) {
-                @unlink($filePath);
+                unlink($filePath);
             }
 
             $result['path'] = $webpPath;
@@ -608,11 +606,11 @@ function mediaProcessImage(string $filePath, array $imageSettings): array
 function mediaCreateImageFromFile(string $path, string $ext): ?\GdImage
 {
     return match ($ext) {
-        'jpg', 'jpeg' => @imagecreatefromjpeg($path) ?: null,
-        'png' => @imagecreatefrompng($path) ?: null,
-        'gif' => @imagecreatefromgif($path) ?: null,
-        'bmp' => @imagecreatefrombmp($path) ?: null,
-        'webp' => @imagecreatefromwebp($path) ?: null,
+        'jpg', 'jpeg' => imagecreatefromjpeg($path) ?: null,
+        'png' => imagecreatefrompng($path) ?: null,
+        'gif' => imagecreatefromgif($path) ?: null,
+        'bmp' => imagecreatefrombmp($path) ?: null,
+        'webp' => imagecreatefromwebp($path) ?: null,
         default => null,
     };
 }
@@ -684,8 +682,12 @@ function mediaApplyWatermark(\GdImage &$image, string $text, array $settings): v
     imagestring($image, $gdFontSize, (int)$x, (int)$y - $textH, $text, $color);
 }
 
-function mediaSaveImage(\GdImage $image, string $path, string $ext, array $settings): void
+function mediaSaveImage(?\GdImage $image, string $path, string $ext, array $settings): void
 {
+    if ($image === null) {
+        error_log('[media] mediaSaveImage: null image provided, skipping save');
+        return;
+    }
     switch ($ext) {
         case 'jpg':
         case 'jpeg':
@@ -746,7 +748,7 @@ function mediaCreateThumbnail(string $sourcePath, array $settings): ?string
     $dir = dirname($sourcePath);
     $name = pathinfo($sourcePath, PATHINFO_FILENAME);
     $thumbDir = $dir . DIRECTORY_SEPARATOR . 'thumbnails';
-    if (!is_dir($thumbDir)) @mkdir($thumbDir, 0755, true);
+    if (!is_dir($thumbDir)) mkdir($thumbDir, 0755, true);
 
     $webpEnabled = ($settings['webp_enabled'] ?? '1') === '1';
     $gdInfo = gd_info();

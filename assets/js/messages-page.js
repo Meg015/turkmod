@@ -645,7 +645,7 @@
                 wsReconnectTimer = null;
             }
             var protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-            var wsUrl = protocol + window.location.hostname + ":8080/?user_id=" + currentUserId + "&token=" + encodeURIComponent(csrfToken);
+            var wsUrl = protocol + window.location.hostname + ":8080/?user_id=" + currentUserId;
 
             try {
                 ws = new WebSocket(wsUrl);

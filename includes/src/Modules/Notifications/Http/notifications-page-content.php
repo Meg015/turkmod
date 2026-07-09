@@ -473,6 +473,14 @@ foreach (notification_user_preference_groups() as $preferenceGroup) {
     ];
 }
 
+$publicHeaderVars = isset($publicHeaderVars) && is_array($publicHeaderVars) ? $publicHeaderVars : [];
+$notificationThemeVars = get_defined_vars();
+foreach ($notificationThemeVars as $notificationThemeKey => $notificationThemeValue) {
+    if ($notificationThemeKey === 'notification_preference_groups' || str_starts_with((string) $notificationThemeKey, 'notifications_')) {
+        $publicHeaderVars[$notificationThemeKey] = $notificationThemeValue;
+    }
+}
+
 require_once $projectRoot . '/includes/public-header.php';
 ?>
 

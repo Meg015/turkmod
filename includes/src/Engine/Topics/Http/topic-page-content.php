@@ -162,7 +162,13 @@ if ($pdo && !empty($topic["id"])) {
             "SELECT url FROM topic_download_links WHERE topic_id = ? ORDER BY display_order ASC, id ASC LIMIT 1",
         );
         $downloadStmt->execute([(int) $topic["id"]]);
-        $topicDownloadUrl = trim((string) ($downloadStmt->fetchColumn() ?: ""));
+        $topicDownloadUrl = trim((string) ($downloadStmt->fetchColumn() ?: ""));
+        if (function_exists('topicDownloadNormalizeUrl')) {
+            $topicDownloadUrl = topicDownloadNormalizeUrl($topicDownloadUrl);
+        } else {
+            $topicDownloadUrl = preg_replace('/[\x00-\x1F\x7F]+/u', '', $topicDownloadUrl) ?? $topicDownloadUrl;
+            $topicDownloadUrl = trim($topicDownloadUrl);
+        }
     } catch (Throwable $e) {
         appLogException($e, [
             "source" => "topic.php structuredDataDownloadUrl",
@@ -184,9 +190,29 @@ if ($topicPrimaryImage !== "") {
 $seoMetaTags = function_exists('seoGenerateTopicMeta')
     ? seoGenerateTopicMeta($topic, $settings, $topicCanonicalPath, true)
     : getSeoMeta($pageTitle, $metaDescription, $topicCanonicalPath, $topicPrimaryImageUrl, true, 'article');
-$topicSchemaBody = mb_substr(strip_tags($cleanTopicDescription !== "" ? $cleanTopicDescription : (string) ($topic["content"] ?? "")), 0, 500, "UTF-8");
-// SEO Schema.org: DiscussionForumPosting
-$schemaData = [
+$topicSchemaBody = mb_substr(strip_tags($cleanTopicDescription !== "" ? $cleanTopicDescription : (string) ($topic["content"] ?? "")), 0, 500, "UTF-8");
+$resolveProfileSchemaUrl = static function (int $userId, string $username) use ($settings): string {
+    if ($userId <= 0 || !function_exists('publicProfileUrl')) {
+        return '';
+    }
+
+    $profileUrl = publicProfileUrl([
+        'id' => $userId,
+        'name' => $username,
+        'username' => $username,
+    ]);
+
+    if ($profileUrl === '' || $profileUrl === '#') {
+        return '';
+    }
+
+    return function_exists('seoCanonicalUrl')
+        ? seoCanonicalUrl($profileUrl, $settings)
+        : $profileUrl;
+};
+$topicAuthorUrl = $resolveProfileSchemaUrl((int) ($topic['author_id'] ?? 0), (string) ($topic['author'] ?? 'Anonim'));
+// SEO Schema.org: DiscussionForumPosting
+$schemaData = [
     "@context" => "https://schema.org",
     "@type" => "DiscussionForumPosting",
     "headline" => $topic["title"],
@@ -195,12 +221,12 @@ $schemaData = [
         "@type" => "WebPage",
         "@id" => $topicCanonicalUrl,
     ],
-    "datePublished" => date('c', strtotime((string)($topic["created_at"] ?? 'now'))),
-    "dateModified" => date('c', strtotime((string)($topic["updated_at"] ?? $topic["created_at"] ?? 'now'))),
-    "author" => [
-        "@type" => "Person",
-        "name" => $topic["author"] ?? "Anonim"
-    ],
+    "datePublished" => date('c', strtotime((string)($topic["created_at"] ?? 'now'))),
+    "dateModified" => date('c', strtotime((string)($topic["updated_at"] ?? $topic["created_at"] ?? 'now'))),
+    "author" => [
+        "@type" => "Person",
+        "name" => $topic["author"] ?? "Anonim"
+    ],
     "articleBody" => $topicSchemaBody,
     "isAccessibleForFree" => true,
     "about" => [
@@ -218,22 +244,99 @@ $schemaData = [
             "interactionType" => "https://schema.org/DownloadAction",
             "userInteractionCount" => (int) ($topic["download_count"] ?? 0),
         ],
-    ],
-];
-if ($topicPrimaryImageUrl !== "") {
-    $schemaData["image"] = [$topicPrimaryImageUrl];
-    $schemaData["thumbnailUrl"] = $topicPrimaryImageUrl;
-}
+    ],
+];
+if ($topicAuthorUrl !== '') {
+    $schemaData["author"]["url"] = $topicAuthorUrl;
+}
+if ($topicPrimaryImageUrl !== "") {
+    $schemaData["image"] = [$topicPrimaryImageUrl];
+    $schemaData["thumbnailUrl"] = $topicPrimaryImageUrl;
+}
 if ($topicDownloadUrl !== "") {
     $schemaData["downloadUrl"] = $topicDownloadUrl;
 }
-if (!empty($topic["topic_version"])) {
-    $schemaData["softwareVersion"] = (string) $topic["topic_version"];
-}
-
-if ($pdo && !empty($topic["id"])) {
+if (!empty($topic["topic_version"])) {
+    $schemaData["softwareVersion"] = (string) $topic["topic_version"];
+}
+
+$topicVideoSchema = null;
+
+if ($pdo && !empty($topic["id"]) && function_exists('getTopicMediaGallery')) {
+    try {
+        $mediaLinks = getTopicMediaGallery($pdo, (int) $topic["id"]);
+        $publishedAt = date('c', strtotime((string) ($topic['published_at'] ?? $topic['created_at'] ?? 'now')));
+        foreach ($mediaLinks as $mediaUrl) {
+            $mediaUrl = trim((string) $mediaUrl);
+            if ($mediaUrl === '') {
+                continue;
+            }
+
+            if (
+                preg_match(
+                    '/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i',
+                    $mediaUrl,
+                    $ytMatch,
+                )
+            ) {
+                $videoId = $ytMatch[1];
+                $topicVideoSchema = [
+                    '@type' => 'VideoObject',
+                    'name' => (string) ($topic['title'] ?? 'Video'),
+                    'description' => $topicSchemaBody,
+                    'thumbnailUrl' => 'https://img.youtube.com/vi/' . $videoId . '/hqdefault.jpg',
+                    'uploadDate' => $publishedAt,
+                    'embedUrl' => 'https://www.youtube.com/embed/' . $videoId . '?rel=0',
+                    'contentUrl' => 'https://www.youtube.com/watch?v=' . $videoId,
+                ];
+                break;
+            }
+
+            if (preg_match('/vimeo\.com\/(?:.*\/)?(\d+)/i', $mediaUrl, $vimMatch)) {
+                $videoId = $vimMatch[1];
+                $topicVideoSchema = [
+                    '@type' => 'VideoObject',
+                    'name' => (string) ($topic['title'] ?? 'Video'),
+                    'description' => $topicSchemaBody,
+                    'uploadDate' => $publishedAt,
+                    'embedUrl' => 'https://player.vimeo.com/video/' . $videoId,
+                    'contentUrl' => 'https://vimeo.com/' . $videoId,
+                ];
+                if ($topicPrimaryImageUrl !== '') {
+                    $topicVideoSchema['thumbnailUrl'] = $topicPrimaryImageUrl;
+                }
+                break;
+            }
+
+            if (preg_match('/\.(mp4|webm|ogg)$/i', $mediaUrl)) {
+                $videoUrl = preg_match('~^(?:https?:)?//~i', $mediaUrl) === 1
+                    ? $mediaUrl
+                    : rtrim($baseUri, '/') . '/' . ltrim($mediaUrl, '/');
+                $topicVideoSchema = [
+                    '@type' => 'VideoObject',
+                    'name' => (string) ($topic['title'] ?? 'Video'),
+                    'description' => $topicSchemaBody,
+                    'uploadDate' => $publishedAt,
+                    'contentUrl' => $videoUrl,
+                    'url' => $topicCanonicalUrl,
+                ];
+                if ($topicPrimaryImageUrl !== '') {
+                    $topicVideoSchema['thumbnailUrl'] = $topicPrimaryImageUrl;
+                }
+                break;
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+}
+if ($topicVideoSchema !== null) {
+    $schemaData['video'] = [$topicVideoSchema];
+}
+
+if ($pdo && !empty($topic["id"])) {
     try {
-        $stmtComments = $pdo->prepare("SELECT c.id, c.body, c.created_at, u.username AS author FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.topic_id = ? AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NULL ORDER BY c.created_at ASC LIMIT 10");
+        $stmtComments = $pdo->prepare("SELECT c.id, c.body, c.created_at, u.id AS author_id, u.username AS author FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.topic_id = ? AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NULL ORDER BY c.created_at ASC LIMIT 10");
         $stmtComments->execute([(int) $topic["id"]]);
         
         $totalCommentsStmt = $pdo->prepare("SELECT COUNT(id) FROM comments WHERE topic_id = ? AND status = 'approved' AND deleted_at IS NULL");
@@ -245,18 +348,23 @@ if ($pdo && !empty($topic["id"])) {
             "userInteractionCount" => (int) $schemaData['commentCount'],
         ];
 
-        $schemaComments = [];
-        while ($c = $stmtComments->fetch(PDO::FETCH_ASSOC)) {
-            $schemaComments[] = [
-                "@type" => "Comment",
-                "text" => mb_substr(strip_tags((string)$c["body"]), 0, 300),
-                "datePublished" => date('c', strtotime((string)$c["created_at"])),
-                "author" => [
-                    "@type" => "Person",
-                    "name" => $c["author"] ?? "Anonim"
-                ]
-            ];
-        }
+        $schemaComments = [];
+        while ($c = $stmtComments->fetch(PDO::FETCH_ASSOC)) {
+            $commentAuthorUrl = $resolveProfileSchemaUrl((int) ($c['author_id'] ?? 0), (string) ($c['author'] ?? 'Anonim'));
+            $commentAuthor = [
+                "@type" => "Person",
+                "name" => $c["author"] ?? "Anonim",
+            ];
+            if ($commentAuthorUrl !== '') {
+                $commentAuthor['url'] = $commentAuthorUrl;
+            }
+            $schemaComments[] = [
+                "@type" => "Comment",
+                "text" => mb_substr(strip_tags((string)$c["body"]), 0, 300),
+                "datePublished" => date('c', strtotime((string)$c["created_at"])),
+                "author" => $commentAuthor
+            ];
+        }
         if (!empty($schemaComments)) {
             $schemaData['comment'] = $schemaComments;
         }

@@ -58,7 +58,7 @@ function appSendMail(string $to, string $subject, string $body, array $options =
 
     // Fallback: PHP mail()
     try {
-        return @mail($to, $subject, $body, $headers);
+        return mail($to, $subject, $body, $headers);
     } catch (Throwable $e) {
         appLogException($e, ['fn' => 'appSendMail', 'driver' => 'mail', 'to' => $to]);
         return false;
@@ -80,7 +80,7 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
 
     try {
         $prefix = ($enc === 'ssl') ? 'ssl://' : '';
-        $socket = @fsockopen($prefix . $host, $port, $errno, $errstr, 10);
+        $socket = fsockopen($prefix . $host, $port, $errno, $errstr, 10);
 
         if (!$socket) {
             appLogException(new \RuntimeException("SMTP connection failed: {$errstr} ({$errno})"), ['fn' => 'appSendMailSmtp']);

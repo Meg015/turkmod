@@ -157,7 +157,7 @@ function getPublicCategoriesTree(?PDO $pdo): array
     unset($node);
 
     if (!is_dir(dirname($cacheFile))) {
-        @mkdir(dirname($cacheFile), 0775, true);
+        mkdir(dirname($cacheFile), 0775, true);
     }
     file_put_contents($cacheFile, "<?php\nreturn " . var_export($tree, true) . ";\n", LOCK_EX);
 

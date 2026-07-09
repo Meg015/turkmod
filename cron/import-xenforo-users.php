@@ -217,7 +217,10 @@ function xfImportExtractPasswordHash(mixed $data): string
         return '';
     }
 
-    $parsed = @unserialize($raw, ['allowed_classes' => false]);
+    $parsed = unserialize($raw, ['allowed_classes' => false]);
+    if ($parsed === false && $raw !== serialize(false)) {
+        return '';
+    }
     if (!is_array($parsed)) {
         return '';
     }

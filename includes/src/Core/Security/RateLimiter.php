@@ -90,7 +90,7 @@ final class FileRateLimiter implements RateLimiter
     {
         $path = $this->entryPath($key);
         if (is_file($path)) {
-            @unlink($path);
+            unlink($path);
         }
     }
 
@@ -111,7 +111,10 @@ final class FileRateLimiter implements RateLimiter
 
         $data = json_decode($raw, true);
         if (!is_array($data) || !isset($data['hits']) || !is_array($data['hits'])) {
-            $legacy = @unserialize($raw, ['allowed_classes' => false]);
+            $legacy = unserialize($raw, ['allowed_classes' => false]);
+            if ($legacy === false && $raw !== serialize(false)) {
+                return [];
+            }
             if (!is_array($legacy) || !isset($legacy['hits']) || !is_array($legacy['hits'])) {
                 return [];
             }

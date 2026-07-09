@@ -557,11 +557,17 @@ function legacyRedirectCreatePrefixImportRules(?PDO $pdo, string $type, string $
     $limit = max(1, min(2000, $limit));
 
     if ($type === 'category') {
-        $rows = $pdo->query("SELECT id, slug, name AS title FROM categories WHERE deleted_at IS NULL AND status = 'active' ORDER BY id DESC LIMIT {$limit}")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $stmt = $pdo->prepare("SELECT id, slug, name AS title FROM categories WHERE deleted_at IS NULL AND status = 'active' ORDER BY id DESC LIMIT ?");
+        $stmt->execute([$limit]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } elseif ($type === 'profile') {
-        $rows = $pdo->query("SELECT id, username AS title FROM users WHERE status = 'active' AND (is_banned = 0 OR is_banned IS NULL) ORDER BY id DESC LIMIT {$limit}")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $stmt = $pdo->prepare("SELECT id, username AS title FROM users WHERE status = 'active' AND (is_banned = 0 OR is_banned IS NULL) ORDER BY id DESC LIMIT ?");
+        $stmt->execute([$limit]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } else {
-        $rows = $pdo->query("SELECT id, slug, title FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') ORDER BY id DESC LIMIT {$limit}")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $stmt = $pdo->prepare("SELECT id, slug, title FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') ORDER BY id DESC LIMIT ?");
+        $stmt->execute([$limit]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     $stmt = $pdo->prepare("INSERT INTO legacy_redirect_rules

@@ -1,9 +1,25 @@
 function addDlRow(name, url) {
     const row = document.createElement('div');
     row.className = 'dl-row';
-    row.innerHTML = '<input type="text" name="dl_name[]" class="ui-admin-form-control w-25" placeholder="Kaynak (Örn: Drive)" value="' + (name || '') + '">'
-        + '<input type="url" name="dl_url[]" class="ui-admin-form-control flex-grow-1" placeholder="https://..." value="' + (url || '') + '">'
-        + '<button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-ui-remove-closest=".dl-row" title="Kaldır"><i class="bi bi-trash3"></i></button>';
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.name = 'dl_name[]';
+    nameInput.className = 'ui-admin-form-control w-25';
+    nameInput.placeholder = 'Kaynak (Örn: Drive)';
+    if (name) nameInput.value = name;
+    const urlInput = document.createElement('input');
+    urlInput.type = 'url';
+    urlInput.name = 'dl_url[]';
+    urlInput.className = 'ui-admin-form-control flex-grow-1';
+    urlInput.placeholder = 'https://...';
+    if (url) urlInput.value = url;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm';
+    removeBtn.setAttribute('data-ui-remove-closest', '.dl-row');
+    removeBtn.title = 'Kaldır';
+    removeBtn.innerHTML = '<i class="bi bi-trash3"></i>';
+    row.append(nameInput, urlInput, removeBtn);
     document.getElementById('dlRows').appendChild(row);
     bindUploadRuleInputs(row);
 }

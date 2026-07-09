@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 final class TemplateRenderer
 {
+    private const VARIABLE_TAG_PATTERN = '/(?<!\{)\{([a-zA-Z0-9_.:-]+)(?:\|([^\}]+))?\}(?!\})/';
+
     /** @var array<string, bool> */
     private array $rawKeys = [];
 
@@ -68,11 +70,11 @@ final class TemplateRenderer
             $compiled = $this->compileTemplate($template);
 
             if (!is_dir($this->compiledCacheDir)) {
-                @mkdir($this->compiledCacheDir, 0775, true);
+                mkdir($this->compiledCacheDir, 0775, true);
             }
 
             $header = "<?php\n// Compiled template cache - DO NOT EDIT\n// Generated: " . date('Y-m-d H:i:s') . "\n";
-            @file_put_contents($cacheFile, $header . $compiled, LOCK_EX);
+            file_put_contents($cacheFile, $header . $compiled, LOCK_EX);
 
             return $this->executeCompiledTemplate($cacheFile, $variables, $rawKeys);
         }
@@ -88,7 +90,6 @@ final class TemplateRenderer
     {
         $this->rawKeys = array_fill_keys($rawKeys, true);
 
-        // Use compiled cache if available
         if ($this->compiledCacheDir !== '' && !$this->debug) {
             return $this->renderStringCompiled($template, $variables, $rawKeys);
         }
@@ -102,10 +103,6 @@ final class TemplateRenderer
 
     /**
      * Compile TPL template to PHP code and cache it.
-     * On subsequent requests, the compiled PHP is directly required.
-     *
-     * @param array<string, mixed> $variables
-     * @param array<int, string> $rawKeys
      */
     private function renderStringCompiled(string $template, array $variables = [], array $rawKeys = []): string
     {
@@ -115,26 +112,22 @@ final class TemplateRenderer
             return $this->executeCompiledTemplate($cacheFile, $variables, $rawKeys);
         }
 
-        // Compile the template
         $compiled = $this->compileTemplate($template);
 
-        // Write to cache
         if (!is_dir($this->compiledCacheDir)) {
-            @mkdir($this->compiledCacheDir, 0775, true);
+            if (!is_dir($this->compiledCacheDir)) {
+            mkdir($this->compiledCacheDir, 0775, true);
+        };
         }
 
         $header = "<?php\n// Compiled template cache - DO NOT EDIT\n// Generated: " . date('Y-m-d H:i:s') . "\n";
-        @file_put_contents($cacheFile, $header . $compiled, LOCK_EX);
+        file_put_contents($cacheFile, $header . $compiled, LOCK_EX);
 
         return $this->executeCompiledTemplate($cacheFile, $variables, $rawKeys);
     }
 
     /**
      * Execute a compiled template file with output buffering.
-     *
-     * @param string $cacheFile
-     * @param array<string, mixed> $variables
-     * @param array<int, string> $rawKeys
      */
     private function executeCompiledTemplate(string $cacheFile, array $variables, array $rawKeys): string
     {
@@ -165,16 +158,10 @@ final class TemplateRenderer
      */
     private function compileTemplate(string $template): string
     {
-        // First resolve includes (inline them)
         $template = $this->resolveIncludesForCompilation($template, []);
 
-        // Compile loops: {loop key}...{/loop}
         $template = $this->compileLoops($template);
-
-        // Compile conditions: {if key}...{elseif key}...{else}...{/if}
         $template = $this->compileConditions($template);
-
-        // Compile variables: {key}, {key|filter}, {raw:key}
         $template = $this->compileVariables($template);
 
         return $template;
@@ -398,7 +385,6 @@ final class TemplateRenderer
 
             $fullMatchLen = ($endPos + 5) - $start;
 
-            // Build PHP if/elseif/else structure
             $branches = [];
             $branchStart = $blockStart;
             $currentKey = $key;
@@ -448,7 +434,7 @@ final class TemplateRenderer
      */
     private function compileVariables(string $template): string
     {
-        return (string) preg_replace_callback('/\{([a-zA-Z0-9_.:-]+)(?:\|([^\}]+))?\}/', function (array $matches): string {
+        return (string) preg_replace_callback(self::VARIABLE_TAG_PATTERN, function (array $matches): string {
             $key = (string) $matches[1];
             $filtersStr = (string) ($matches[2] ?? '');
             $rawRequested = false;
@@ -557,7 +543,9 @@ final class TemplateRenderer
         }
 
         foreach (glob($this->compiledCacheDir . '/*.php') ?: [] as $file) {
-            @unlink($file);
+            if (is_file($file)) {
+                unlink($file);
+            }
         }
     }
 
@@ -620,7 +608,7 @@ final class TemplateRenderer
 
             $loopKey = $matches[1];
             $blockStart = $endKeyPos + 1;
-            
+
             $depth = 1;
             $searchOffset = $blockStart;
             $endPos = -1;
@@ -720,7 +708,7 @@ final class TemplateRenderer
             $depth = 1;
             $searchOffset = $blockStart;
             $endPos = -1;
-            $markers = []; // [['pos' => int, 'type' => 'elseif'|'else', 'key' => string, 'negated' => bool, 'tag_end' => int]]
+            $markers = [];
             $hasElse = false;
 
             while (true) {
@@ -862,7 +850,7 @@ final class TemplateRenderer
     {
         $renderer = $this;
 
-        return (string) preg_replace_callback('/\{([a-zA-Z0-9_.:-]+)(?:\|([^\}]+))?\}/', static function (array $matches) use ($variables, $renderer): string {
+        return (string) preg_replace_callback(self::VARIABLE_TAG_PATTERN, static function (array $matches) use ($variables, $renderer): string {
             $key = (string) $matches[1];
             $filtersStr = (string) ($matches[2] ?? '');
             $rawRequested = false;
@@ -872,21 +860,30 @@ final class TemplateRenderer
                 $key = substr($key, 4);
             }
 
+            if (str_starts_with($key, 'missing:')) {
+                return '{{' . $key . '}}';
+            }
+
             $value = $renderer->valueByPath($variables, $key);
             if ($value === null) {
                 if ($renderer->strictMissingVariables) {
                     throw new RuntimeException('Missing template variable: ' . $key);
                 }
 
-                if ($renderer->debug) {
+                $hasDefaultFilter = $filtersStr !== ''
+                    && preg_match('/(^|\|)\s*default(?:\(|$)/i', $filtersStr) === 1;
+                if ($hasDefaultFilter) {
+                    $value = '';
+                } elseif ($renderer->debug) {
                     if ($renderer->logger !== null) {
                         ($renderer->logger)('warning', 'template', 'TPL Missing Variable: ' . $key, ['template_key' => $key]);
                     } elseif (function_exists('appLog')) {
                         appLog($GLOBALS['pdo'] ?? null, 'warning', 'template', 'TPL Missing Variable: ' . $key, ['template_key' => $key]);
                     }
-                    return '{missing:' . $key . '}';
+                    return '{{missing:' . $key . '}}';
+                } else {
+                    return '';
                 }
-                return '';
             }
 
             if (is_bool($value)) {
@@ -976,7 +973,6 @@ final class TemplateRenderer
                     $value = nl2br($value);
                     break;
                 case 'raw':
-                    // raw filter is handled in renderVariables; no-op here
                     break;
             }
         }

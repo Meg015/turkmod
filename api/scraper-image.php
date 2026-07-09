@@ -27,13 +27,13 @@ function scraperImageReadCache(string $url, int $ttlSeconds = 604800): ?array
         return null;
     }
 
-    $meta = json_decode((string) @file_get_contents($metaFile), true);
+    $meta = json_decode((string) file_get_contents($metaFile), true);
     $mime = is_array($meta) ? strtolower((string)($meta['mime'] ?? '')) : '';
     if ($mime === '' || !str_starts_with($mime, 'image/')) {
         return null;
     }
 
-    $data = @file_get_contents($dataFile);
+    $data = file_get_contents($dataFile);
     return is_string($data) && $data !== '' ? ['data' => $data, 'mime' => $mime] : null;
 }
 
@@ -47,15 +47,15 @@ function scraperImageWriteCache(string $url, array $image): void
 
     $directory = scraperImageCacheDirectory();
     if (!is_dir($directory)) {
-        @mkdir($directory, 0775, true);
+        mkdir($directory, 0775, true);
     }
     if (!is_dir($directory) || !is_writable($directory)) {
         return;
     }
 
     $key = scraperImageCacheKey($url);
-    @file_put_contents($directory . '/' . $key . '.bin', $data, LOCK_EX);
-    @file_put_contents(
+    file_put_contents($directory . '/' . $key . '.bin', $data, LOCK_EX);
+    file_put_contents(
         $directory . '/' . $key . '.json',
         json_encode(['mime' => $mime, 'cached_at' => time()], JSON_UNESCAPED_SLASHES),
         LOCK_EX

@@ -368,6 +368,11 @@ if (!$skipSessionBootstrap && session_status() === PHP_SESSION_NONE) {
     if ($isHttps) {
         ini_set("session.cookie_secure", "1");
     }
+    // Kalıcı oturum: cookie_lifetime ve gc_maxlifetime 365 gün.
+    // Böylece tarayıcı kapansa bile session cookie silinmez ve session verisi GC tarafından temizlenmez.
+    $sessionLifetime = 365 * 24 * 60 * 60;
+    ini_set("session.cookie_lifetime", (string)$sessionLifetime);
+    ini_set("session.gc_maxlifetime", (string)$sessionLifetime);
     session_cache_limiter(''); // Prevent PHP from sending default session cache headers
     session_start();
 
@@ -804,23 +809,11 @@ if (!$skipSessionBootstrap && $pdo && empty($_SESSION["_auth_user_id"]) && funct
     authAttemptRememberLogin($pdo, $adminSettingsGlobal);
 }
 
-// Auth check helper
+// Auth check helper — tüm oturumlar kalıcıdır, timeout kontrolü yapılmaz.
+// Oturum yalnızca explicit logout, hesap silme/ban veya cookie süresinin dolmasıyla sonlanır.
 $isLoggedIn = !empty($_SESSION["_auth_user_id"]);
 if ($isLoggedIn) {
-    $isRememberSession = !empty($_SESSION['_auth_remember_session']);
-    if ($isRememberSession) {
-        // "Remember me" sessions should remain active until explicit logout/security invalidation.
-        $_SESSION['_auth_last_activity'] = time();
-    } else {
-        $sessionTimeout = (int)($adminSettingsGlobal['session_timeout_minutes'] ?? 120);
-        $lastActivity = $_SESSION['_auth_last_activity'] ?? time();
-        if ($sessionTimeout > 0 && (time() - $lastActivity) > ($sessionTimeout * 60)) {
-            logoutUser($pdo, false);
-            $isLoggedIn = false;
-        } else {
-            $_SESSION['_auth_last_activity'] = time();
-        }
-    }
+    $_SESSION['_auth_last_activity'] = time();
 }
 
 // Performance (#14): Throttle session refresh to every 5 minutes instead of every request.
@@ -1701,12 +1694,12 @@ function routeModuleRouteSources(): array
     foreach ($loader->discover($modulesRoot) as $metadata) {
         $moduleFile = (string) ($metadata["module_file"] ?? "");
         if ($moduleFile !== "" && is_file($moduleFile)) {
-            $sources[$moduleFile] = (int) (@filemtime($moduleFile) ?: 0);
+            $sources[$moduleFile] = (int) (filemtime($moduleFile) ?: 0);
         }
 
         $routesFile = (string) ($metadata["routes"] ?? "");
         if ($routesFile !== "" && is_file($routesFile)) {
-            $sources[$routesFile] = (int) (@filemtime($routesFile) ?: 0);
+            $sources[$routesFile] = (int) (filemtime($routesFile) ?: 0);
         }
     }
 
@@ -1722,7 +1715,7 @@ function routeCompiledRouteCacheFile(): string
 function routeCompiledRouteSignature(): string
 {
     $state = [
-        "init_mtime" => (int) (@filemtime(__FILE__) ?: 0),
+        "init_mtime" => (int) (filemtime(__FILE__) ?: 0),
         "groups" => routeGroupCatalog(),
         "sources" => routeModuleRouteSources(),
         "public_static_paths" => routePublicStaticPathSettings($GLOBALS["pdo"] ?? null),
@@ -3278,7 +3271,9 @@ function handleFileUpload(
             "is_primary" => $isPrimary,
         ];
     } catch (Throwable $e) {
-        @unlink($fullPath);
+        if (is_file($fullPath)) {
+            unlink($fullPath);
+        }
         return ["error" => safeErrorMessage($e, "Dosya kaydedilemedi.")];
     }
 }
@@ -3347,7 +3342,7 @@ function topicDeletePhysicalFile(string $relativePath): void
     }
 
     if (is_file($fullPath)) {
-        @unlink($fullPath);
+        unlink($fullPath);
     }
 
     $thumbPath =
@@ -3357,7 +3352,7 @@ function topicDeletePhysicalFile(string $relativePath): void
         DIRECTORY_SEPARATOR .
         basename($fullPath);
     if (is_file($thumbPath)) {
-        @unlink($thumbPath);
+        unlink($thumbPath);
     }
 }
 

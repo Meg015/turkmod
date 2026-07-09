@@ -347,7 +347,7 @@ function profileUploadAvatar(PDO $pdo, int $userId, array $file, string $uploadB
     $profileSlug = profileSlugify($profileIdentity) ?: ('profil-' . $userId);
     $relativeDir = 'uploads/profil/profil-' . $userId . '-' . $profileSlug;
     $dir = rtrim($uploadBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, str_replace('uploads/', '', $relativeDir));
-    if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
         return 'Profil klasörü oluşturulamadı.';
     }
 
@@ -356,7 +356,7 @@ function profileUploadAvatar(PDO $pdo, int $userId, array $file, string $uploadB
     $oldAvatarRelative = preg_replace('#^uploads/#', '', str_replace('\\', '/', (string)$oldAvatar)) ?: '';
     $oldAvatarPath = $oldAvatarRelative !== '' ? mediaResolvePath($uploadBase, $oldAvatarRelative) : null;
     if ($oldAvatarPath && is_file($oldAvatarPath)) {
-        @unlink($oldAvatarPath);
+        unlink($oldAvatarPath);
     }
 
     $fileName = function_exists('uploadProfileAvatarFilename')
@@ -823,32 +823,6 @@ function profileActivityLoginDetail(array $activity): string
     return implode(' · ', $parts);
 }
 
-function profileActivitySubjectLabel(array $activity): string
-{
-    if (profileActivityIsLogin($activity)) {
-        return 'Oturum';
-    }
-
-    $subjectType = strtolower(trim((string) ($activity['subject_type'] ?? '')));
-    $subjectTitle = profileActivitySubjectTitle($activity);
-    if ($subjectType === '') {
-        return 'Genel sistem olayı';
-    }
-
-    $labels = [
-        'topic' => 'Konu',
-        'comment' => 'Yorum yapılan konu',
-        'user' => 'Kullanıcı',
-        'category' => 'Kategori',
-        'settings' => 'Ayar',
-        'topic_report' => 'Konu raporu',
-        'user_report' => 'Kullanıcı raporu',
-    ];
-    $label = $labels[$subjectType] ?? ucwords(str_replace('_', ' ', $subjectType));
-
-    return $subjectTitle !== null ? $label . ': ' . $subjectTitle : $label;
-}
-
 function profileActivityDetailLabel(array $activity): string
 {
     if (profileActivityIsLogin($activity)) {
@@ -1000,62 +974,6 @@ function profileEnrichActivityRows(PDO $pdo, int $userId, array $rows): array
 
     return $rows;
 }
-
-function profileRenderTabPagination(
-    string $baseUri,
-    string $tabKey,
-    string $paramName,
-    int $total,
-    int $currentPage,
-    int $perPage,
-): string {
-    if ($total <= 0) {
-        return '';
-    }
-
-    $totalPages = max(1, (int) ceil($total / max(1, $perPage)));
-    $currentPage = max(1, min($currentPage, $totalPages));
-    $urlForPage = static function (int $page) use ($baseUri, $tabKey, $paramName): string {
-        return rtrim($baseUri, '/') . '/profile.php?tab=' . urlencode($tabKey) . '&' . urlencode($paramName) . '=' . $page;
-    };
-
-    $html = '<nav class="topic-pagination profile-tab-pagination" aria-label="Profil sayfalama"><ul>';
-    if ($currentPage > 1) {
-        $html .= '<li><a href="' . htmlspecialchars($urlForPage($currentPage - 1)) . '" aria-label="Önceki sayfa">&laquo;</a></li>';
-    }
-
-    $maxVisible = 7;
-    $start = max(1, $currentPage - (int) floor($maxVisible / 2));
-    $end = min($totalPages, $start + $maxVisible - 1);
-    if ($end - $start < $maxVisible - 1) {
-        $start = max(1, $end - $maxVisible + 1);
-    }
-
-    if ($start > 1) {
-        $html .= '<li><a href="' . htmlspecialchars($urlForPage(1)) . '">1</a></li>';
-        if ($start > 2) {
-            $html .= '<li class="disabled"><span>&hellip;</span></li>';
-        }
-    }
-
-    for ($i = $start; $i <= $end; $i++) {
-        $active = $i === $currentPage ? ' class="active" aria-current="page"' : '';
-        $html .= '<li' . $active . '><a href="' . htmlspecialchars($urlForPage($i)) . '">' . $i . '</a></li>';
-    }
-
-    if ($end < $totalPages) {
-        if ($end < $totalPages - 1) {
-            $html .= '<li class="disabled"><span>&hellip;</span></li>';
-        }
-        $html .= '<li><a href="' . htmlspecialchars($urlForPage($totalPages)) . '">' . $totalPages . '</a></li>';
-    }
-    if ($currentPage < $totalPages) {
-        $html .= '<li><a href="' . htmlspecialchars($urlForPage($currentPage + 1)) . '" aria-label="Sonraki sayfa">&raquo;</a></li>';
-    }
-
-    return $html . '</ul></nav>';
-}
-
 function profileGetPendingTopics(PDO $pdo, int $userId, int $limit = 10, string $statusFilter = ''): array
 {
     $allowedStatuses = ['draft', 'rejected', 'revision'];
@@ -1094,11 +1012,6 @@ function profileGetComments(PDO $pdo, int $userId, int $limit = 10, int $offset 
     $stmt->bindValue(':offset', max(0, $offset), PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll();
-}
-
-function profileGetStats(PDO $pdo, int $userId): array
-{
-    return profileGetStatsReal($pdo, $userId);
 }
 
 function profileGetStatsReal(PDO $pdo, int $userId): array
@@ -1350,22 +1263,10 @@ function profileGroupBadge(string $groupSlug, string $groupName): string
 {
     return profilePresentation()->groupBadge($groupSlug, $groupName);
 }
-
-function profileRoleBadge(string $roleSlug, string $roleName): string
-{
-    return profileGroupBadge($roleSlug, $roleName);
-}
-
 function profileAvatarUrl(string $baseUri, ?string $avatar): string
 {
     return profilePresentation()->avatarUrl($baseUri, $avatar);
 }
-
-function profileInitials(string $name): string
-{
-    return profilePresentation()->initials($name);
-}
-
 function profileMemberSince(string $createdAt): string
 {
     return profilePresentation()->memberSince($createdAt);
@@ -1376,48 +1277,6 @@ function profileTenureLabel(string $createdAt): string
     return profilePresentation()->tenureLabel($createdAt);
 }
 
-function profileAvatarFallbackUrl(string $baseUri): string
-{
-    return profilePresentation()->avatarFallbackUrl($baseUri);
-}
-
-function profileResolveGroupName(array $user, string $fallback = 'Kullanıcı Grubu'): string
-{
-    return profilePresentation()->groupName($user, $fallback);
-}
-
-function profileResolveGroupSlug(array $user, string $fallback = 'member'): string
-{
-    return profilePresentation()->groupSlug($user, $fallback);
-}
-
-function profileResolveStatusLabel(array $user): string
-{
-    return profilePresentation()->statusLabel($user);
-}
-
-function profileResolveStatusBadgeClass(array $user): string
-{
-    return profilePresentation()->statusBadgeClass($user);
-}
-
-/**
- * @param array<int|string, mixed> $definitions
- * @param array<int, string> $defaultClasses
- * @return array<int, array<string, string>>
- */
-function profileBuildStatCards(array $definitions, array $defaultClasses = ['stat-info', '', 'stat-success', 'stat-warning']): array
-{
-    return profilePresentation()->statCards($definitions, $defaultClasses);
-}
-
-/**
- * Shared profile presentation model used by profile controllers and the theme renderer.
- *
- * @param array<string, mixed> $user
- * @param array<string, mixed> $options
- * @return array<string, mixed>
- */
 function profileBuildProfileContext(array $user, array $options = []): array
 {
     return profilePresentation()->profileContext($user, $options);
@@ -1440,17 +1299,6 @@ function profileBuildSocialLinks(array $user): array
 {
     return profilePresentation()->socialLinks($user);
 }
-
-function profileBuildSidebarStats(
-    int $topicCount,
-    int|string $commentCount,
-    int $viewCount,
-    int $downloadCount,
-    array $labels = []
-): array {
-    return profilePresentation()->sidebarStats($topicCount, $commentCount, $viewCount, $downloadCount, $labels);
-}
-
 function profileBuildSidebarData(array $user, array $options = []): array
 {
     return profilePresentation()->sidebarData($user, $options);

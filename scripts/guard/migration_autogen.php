@@ -28,7 +28,7 @@ function main(array $argv): int
         return 2;
     }
 
-    if (!@chdir($repoRoot)) {
+    if (!chdir($repoRoot)) {
         fwrite(STDERR, '[migration-autogen] Proje kokune gecilemedi: ' . $repoRoot . PHP_EOL);
 
         return 2;
@@ -113,7 +113,7 @@ function main(array $argv): int
         $autoStatements,
     );
 
-    if (@file_put_contents($migrationPath, $content) === false) {
+    if (file_put_contents($migrationPath, $content) === false) {
         fwrite(STDERR, '[migration-autogen] Migration dosyasi yazilamadi: ' . $migrationPath . PHP_EOL);
 
         return 2;
@@ -233,7 +233,7 @@ function chooseMigrationTarget(string $repoRoot, array $changedPaths): array
     if (count($moduleIds) === 1) {
         $moduleName = array_values($moduleIds)[0];
         $moduleMigrationDir = $repoRoot . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Modules' . DIRECTORY_SEPARATOR . $moduleName . DIRECTORY_SEPARATOR . 'Database' . DIRECTORY_SEPARATOR . 'migrations';
-        if (is_dir($moduleMigrationDir) || @mkdir($moduleMigrationDir, 0775, true) || is_dir($moduleMigrationDir)) {
+        if (is_dir($moduleMigrationDir) || mkdir($moduleMigrationDir, 0775, true) || is_dir($moduleMigrationDir)) {
             return [
                 'directory' => $moduleMigrationDir,
                 'scope' => 'module:' . $moduleName,
@@ -242,7 +242,7 @@ function chooseMigrationTarget(string $repoRoot, array $changedPaths): array
     }
 
     $rootMigrationDir = $repoRoot . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'migrations';
-    if (!is_dir($rootMigrationDir) && !@mkdir($rootMigrationDir, 0775, true) && !is_dir($rootMigrationDir)) {
+    if (!is_dir($rootMigrationDir) && !mkdir($rootMigrationDir, 0775, true) && !is_dir($rootMigrationDir)) {
         throw new RuntimeException('Root migration dizini olusturulamadi: ' . $rootMigrationDir);
     }
 

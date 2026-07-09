@@ -2526,9 +2526,9 @@ function getAdminSettings(?PDO $pdo): array
     // Dosya cache'ine yaz
     $cacheDir = dirname($cacheFile);
     if (!is_dir($cacheDir)) {
-        @mkdir($cacheDir, 0775, true);
+        mkdir($cacheDir, 0775, true);
     }
-    @file_put_contents($cacheFile, "<?php\nreturn " . var_export($cache, true) . ";\n", LOCK_EX);
+    file_put_contents($cacheFile, "<?php\nreturn " . var_export($cache, true) . ";\n", LOCK_EX);
 
     // APCu'ya da yaz
     if (function_exists('apcu_store')) {
@@ -2568,7 +2568,7 @@ function invalidateAdminSettingsCache(): void
     // Dosya cache'i temizle
     $cacheFile = dirname(__DIR__) . '/storage/cache/admin_settings_compiled.php';
     if (is_file($cacheFile)) {
-        @unlink($cacheFile);
+        unlink($cacheFile);
     }
 }
 

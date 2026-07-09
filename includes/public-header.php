@@ -306,7 +306,7 @@ if (
     <script<?= function_exists('appCspNonceAttr') ? appCspNonceAttr() : '' ?>><?php
 // Inline theme-mode-init - sifir HTTP istegi, aninda calisir
 try {
-    $themeInitCode = @file_get_contents(__DIR__ . '/../assets/js/theme-mode-init.js');
+    $themeInitCode = file_get_contents(__DIR__ . '/../assets/js/theme-mode-init.js');
     if ($themeInitCode !== false) {
         // Remove wrapping IIFE - content is already a self-executing function
         echo $themeInitCode;
@@ -765,6 +765,6 @@ $_profileAvatarUrl = function_exists('defaultAvatarUrl') ? defaultAvatarUrl($bas
             </div>
         </header>
         <main id="main-content" class="flex-grow-1" tabindex="-1">
-
-
+
+
 

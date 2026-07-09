@@ -709,7 +709,7 @@ function adminQualityCheckMediaRecord(?PDO $pdo, array $media): array
             $status = 'broken';
             $statusCode = null;
             $message = 'Yerel gorsel dosyasi bos.';
-        } elseif (@getimagesize($localPath) === false) {
+        } elseif (getimagesize($localPath) === false) {
             $status = 'warning';
             $statusCode = null;
             $message = 'Dosya var ama gorsel olarak dogrulanamadi.';
@@ -910,7 +910,8 @@ function adminQualityGetScannableTopicIds(?PDO $pdo, int $offset = 0, int $limit
     $offset = max(0, $offset);
     $limit = max(1, min(10, $limit));
     try {
-        $stmt = $pdo->query("SELECT id FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') ORDER BY id ASC LIMIT {$limit} OFFSET {$offset}");
+        $stmt = $pdo->prepare("SELECT id FROM topics WHERE deleted_at IS NULL AND status IN ('published','approved') ORDER BY id ASC LIMIT ? OFFSET ?");
+        $stmt->execute([$limit, $offset]);
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
     } catch (Throwable $e) {
         return [];

@@ -146,7 +146,7 @@ function uploadTopicValidateImageFile(array $file, string $label, array $setting
         return $label . " boyutu en fazla " . max(1, $maxSizeMb) . " MB olabilir.";
     }
 
-    $info = @getimagesize((string) ($file["tmp_name"] ?? ""));
+    $info = getimagesize((string) ($file["tmp_name"] ?? ""));
     if (!$info) {
         return $label . " geçerli bir görsel değil.";
     }
@@ -471,8 +471,8 @@ $pageCssFiles = array_values(array_unique(array_merge(
 )));
 
 $upload_mode = 'create';
-$upload_form_action = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('upload_topic')
+$upload_form_action = function_exists('routePublicStaticUrl')
+    ? routePublicStaticUrl('upload_topic')
     : ($baseUri . '/upload-topic.php');
 $upload_csrf_token = csrf_token();
 $upload_submit_token = $uploadSubmitToken;
@@ -822,4 +822,4 @@ require_once $projectRoot . "/includes/public-header.php";
 
 
 <?php require_once $projectRoot . "/includes/public-footer.php"; ?>
-
+

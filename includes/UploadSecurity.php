@@ -231,12 +231,12 @@ class UploadSecurity {
      * PHP kodu içeriyor mu kontrol et
      */
     private function containsPhpCode($filePath) {
-        $content = file_get_contents($filePath, false, null, 0, 8192); // İlk 8KB'ı kontrol et
+        $content = file_get_contents($filePath, false, null, 0, 1024 * 1024);
         
         $patterns = [
             '/<\?php/i',
             '/<\?=/i',
-            '/<\?/i',
+            '/<\?(?!xml)/i',
             '/<script.*language.*php.*>/i',
             '/eval\s*\(/i',
             '/base64_decode/i',
@@ -259,7 +259,7 @@ class UploadSecurity {
      * Geçerli görsel mi kontrol et
      */
     private function isValidImage($filePath) {
-        $imageInfo = @getimagesize($filePath);
+        $imageInfo = getimagesize($filePath);
         
         if ($imageInfo === false) {
             return false;

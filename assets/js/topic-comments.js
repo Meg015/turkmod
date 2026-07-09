@@ -599,9 +599,11 @@
                 pollTimer = setInterval(()=>{
                     if(document.hidden) return; // skip if tab not visible
                     if(currentPage > 1) return; // skip polling if user has loaded more pages
+                    if(window._isPollingComments) return;
+                    window._isPollingComments = true;
                     fetch(API+'?topic_id='+TOPIC+'&page='+currentPage+'&sort='+currentSort+'&_t='+Date.now()).then(r=>r.json()).then(data=>{
                         renderAll(data, true); // true = isPollUpdate
-                    }).catch(()=>{});
+                    }).catch(()=>{}).finally(()=>{ window._isPollingComments = false; });
                 }, POLL*1000);
 
                 // Pause/resume on visibility change (single named handler)

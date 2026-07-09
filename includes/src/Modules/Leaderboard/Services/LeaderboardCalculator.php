@@ -159,6 +159,7 @@ final class LeaderboardCalculator
             $row['rank'] = $rank;
             $previousScore = $score;
         }
+        unset($row);
 
         return $data;
     }
@@ -285,6 +286,7 @@ final class LeaderboardCalculator
                 $row = $this->service->decorateRow($row);
             }
         }
+        unset($row);
 
         return [
             'data' => $data,
