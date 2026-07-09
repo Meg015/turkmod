@@ -171,3 +171,216 @@ if (!function_exists('seoWriteSitemapCache')) {
         file_put_contents($cacheFile, $output, LOCK_EX);
     }
 }
+
+if (!function_exists('seoSitemapCacheTtl')) {
+    function seoSitemapCacheTtl(?array $settings = null, int $default = 3600): int
+    {
+        $settings = is_array($settings) ? $settings : [];
+
+        return max(0, (int) ($settings['sitemap_cache_duration'] ?? $default));
+    }
+}
+
+if (!function_exists('seoSitemapCacheKey')) {
+    function seoSitemapCacheKey(string $type, array $signature = []): string
+    {
+        $payload = json_encode($signature, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($payload)) {
+            $payload = serialize($signature);
+        }
+
+        $normalizedType = strtolower(trim($type));
+        $normalizedType = preg_replace('/[^a-z0-9:_-]+/i', '-', $normalizedType) ?? 'sitemap';
+
+        return 'seo-sitemap:v1:' . $normalizedType . ':' . hash('sha256', $payload);
+    }
+}
+
+if (!function_exists('seoSitemapCacheValue')) {
+    function seoSitemapCacheValue(string $body, int $lastModifiedTimestamp): array
+    {
+        return [
+            'body' => $body,
+            'last_modified_timestamp' => max(0, $lastModifiedTimestamp),
+        ];
+    }
+}
+
+if (!function_exists('seoSitemapCacheValueFromMixed')) {
+    /**
+     * @return array{body:string,last_modified_timestamp:int}|null
+     */
+    function seoSitemapCacheValueFromMixed(mixed $value): ?array
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $body = $value['body'] ?? null;
+        $lastModifiedTimestamp = $value['last_modified_timestamp'] ?? null;
+        if (!is_string($body) || !is_numeric($lastModifiedTimestamp)) {
+            return null;
+        }
+
+        return [
+            'body' => $body,
+            'last_modified_timestamp' => max(0, (int) $lastModifiedTimestamp),
+        ];
+    }
+}
+
+if (!function_exists('seoSitemapCacheGet')) {
+    /**
+     * @return array{body:string,last_modified_timestamp:int}|null
+     */
+    function seoSitemapCacheGet(?\App\Core\Cache\TaggableCache $cache, string $key): ?array
+    {
+        if (!$cache instanceof \App\Core\Cache\TaggableCache) {
+            return null;
+        }
+
+        return seoSitemapCacheValueFromMixed($cache->get($key));
+    }
+}
+
+if (!function_exists('seoSitemapCacheSet')) {
+    function seoSitemapCacheSet(
+        ?\App\Core\Cache\TaggableCache $cache,
+        string $key,
+        string $body,
+        int $lastModifiedTimestamp,
+        int $ttlSeconds,
+        array $tags = [],
+    ): void {
+        if (!$cache instanceof \App\Core\Cache\TaggableCache || $ttlSeconds <= 0) {
+            return;
+        }
+
+        $cache->set(
+            $key,
+            seoSitemapCacheValue($body, $lastModifiedTimestamp),
+            $ttlSeconds,
+            array_values(array_unique(array_merge(['sitemap'], array_map('strval', $tags)))),
+        );
+    }
+}
+
+if (!function_exists('seoInvalidateSitemapCaches')) {
+    function seoInvalidateSitemapCaches(?\App\Core\Cache\TaggableCache $cache = null): void
+    {
+        if (!$cache instanceof \App\Core\Cache\TaggableCache && class_exists(\App\Core\Bootstrap\Boot::class)) {
+            try {
+                $container = \App\Core\Bootstrap\Boot::container(dirname(__DIR__));
+                $resolved = $container->get(\App\Core\Cache\TaggableCache::class);
+                if ($resolved instanceof \App\Core\Cache\TaggableCache) {
+                    $cache = $resolved;
+                }
+            } catch (\Throwable $exception) {
+                return;
+            }
+        }
+
+        if ($cache instanceof \App\Core\Cache\TaggableCache) {
+            $cache->invalidateTag('sitemap');
+        }
+    }
+}
+
+if (!function_exists('seoNormalizeSitemapEtag')) {
+    function seoNormalizeSitemapEtag(string $etag): string
+    {
+        $etag = trim($etag);
+        if (str_starts_with($etag, 'W/')) {
+            $etag = trim(substr($etag, 2));
+        }
+
+        return trim($etag, "\"' \t\n\r\0\x0B");
+    }
+}
+
+if (!function_exists('seoSitemapRequestNotModified')) {
+    function seoSitemapRequestNotModified(\App\Core\Http\Request $request, string $etag, int $lastModifiedTimestamp): bool
+    {
+        $ifNoneMatch = trim((string) $request->header('If-None-Match', ''));
+        if ($ifNoneMatch !== '') {
+            if ($ifNoneMatch === '*') {
+                return true;
+            }
+
+            $normalizedEtag = seoNormalizeSitemapEtag($etag);
+            foreach (explode(',', $ifNoneMatch) as $candidate) {
+                if (seoNormalizeSitemapEtag($candidate) === $normalizedEtag) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        $ifModifiedSince = trim((string) $request->header('If-Modified-Since', ''));
+        if ($ifModifiedSince !== '') {
+            $modifiedSince = strtotime($ifModifiedSince);
+            if ($modifiedSince !== false && $modifiedSince >= $lastModifiedTimestamp) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('seoPrepareSitemapXml')) {
+    function seoPrepareSitemapXml(string $xml): string
+    {
+        if (!str_contains($xml, 'xml-stylesheet')) {
+            $declaration = '<?xml version="1.0" encoding="UTF-8"?>';
+            $stylesheet = '<?xml-stylesheet type="text/css" href="sitemap.css"?>';
+            if (str_starts_with($xml, $declaration)) {
+                $xml = $declaration . "\n" . $stylesheet . "\n" . substr($xml, strlen($declaration) + 1);
+            } else {
+                $xml = $stylesheet . "\n" . $xml;
+            }
+        }
+
+        return function_exists('formatSitemapXml') ? formatSitemapXml($xml) : $xml;
+    }
+}
+
+if (!function_exists('seoSitemapResponse')) {
+    function seoSitemapResponse(
+        \App\Core\Http\Request $request,
+        string $preparedBody,
+        int $lastModifiedTimestamp,
+        int $cacheDuration = 600,
+    ): \App\Core\Http\Response {
+        $cacheDuration = max(0, $cacheDuration);
+        if ($lastModifiedTimestamp <= 0) {
+            $lastModifiedTimestamp = time();
+        }
+        $etag = '"' . hash('sha256', $preparedBody) . '"';
+        $cacheControl = $cacheDuration > 0
+            ? 'public, max-age=' . $cacheDuration . ', stale-while-revalidate=86400'
+            : 'no-cache, must-revalidate';
+        $expiresAt = time() + $cacheDuration;
+        $headers = [
+            'Content-Type' => 'application/xml; charset=utf-8',
+            'X-Robots-Tag' => 'noindex',
+            'Cache-Control' => $cacheControl,
+            'Expires' => gmdate('D, d M Y H:i:s', $expiresAt) . ' GMT',
+            'ETag' => $etag,
+            'Last-Modified' => gmdate('D, d M Y H:i:s', $lastModifiedTimestamp) . ' GMT',
+        ];
+
+        if (seoSitemapRequestNotModified($request, $etag, $lastModifiedTimestamp)) {
+            return new \App\Core\Http\Response('', 304, [
+                'X-Robots-Tag' => 'noindex',
+                'Cache-Control' => $cacheControl,
+                'Expires' => $headers['Expires'],
+                'ETag' => $etag,
+                'Last-Modified' => $headers['Last-Modified'],
+            ]);
+        }
+
+        return new \App\Core\Http\Response($preparedBody, 200, $headers);
+    }
+}

@@ -47,6 +47,12 @@ try {
     echo "Deleted topics: {$deletedTopics}\n";
 
     $pdo->commit();
+
+    if ($deletedTopics > 0 && function_exists('seoInvalidateSitemapCaches')) {
+        seoInvalidateSitemapCaches();
+        echo "Invalidated sitemap caches.\n";
+    }
+
     echo "Cleanup finished successfully.\n";
 
     if (function_exists('recordCronRun')) {

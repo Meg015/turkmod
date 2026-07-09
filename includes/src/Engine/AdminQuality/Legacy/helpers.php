@@ -202,8 +202,13 @@ function adminQualitySetTopicModeration(?PDO $pdo, int $topicId, string $decisio
         'id' => $topicId,
     ]);
 
+    $updated = $stmt->rowCount() > 0;
+    if ($updated && function_exists('seoInvalidateSitemapCaches')) {
+        seoInvalidateSitemapCaches();
+    }
+
     logActivity($pdo, 'topic_moderated', 'topic', $topicId, ['decision' => $decision, 'note' => $note]);
-    return $stmt->rowCount() > 0;
+    return $updated;
 }
 
 function adminQualitySafeHttpUrl(string $url): bool

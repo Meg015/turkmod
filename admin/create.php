@@ -115,6 +115,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 ->execute([$primaryMediaId, $topicId]);
 
             $pdo->commit();
+            seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_created', 'topic', $topicId, ['title' => $title]);
 
             // Update leaderboard stats for author
@@ -274,4 +275,3 @@ require_once __DIR__ . '/header.php';
 <script src="<?= asset_url('admin/assets/create-page.js', $baseUri) ?>" defer></script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
-

@@ -73,6 +73,7 @@ require_once __DIR__ . "/ThemeManager.php";
 require_once __DIR__ . "/TemplateRenderer.php";
 require_once __DIR__ . "/PublicThemeRenderer.php";
 require_once __DIR__ . "/SeoPublicPages.php";
+require_once __DIR__ . "/SeoHelpers.php";
 require_once __DIR__ . "/ThemeConverter.php";
 require_once __DIR__ . "/SessionSecurity.php";
 require_once __DIR__ . "/UploadSecurity.php";
@@ -2432,6 +2433,7 @@ function restoreTopic(?PDO $pdo, int $id): bool
         $stmt->execute(["id" => $id]);
 
         if ($stmt->rowCount() > 0) {
+            seoInvalidateSitemapCaches();
             logActivity($pdo, "topic_restored", "topic", $id);
             return true;
         }
@@ -3448,6 +3450,7 @@ function permanentlyDeleteTopic(
 
         $pdo->commit();
 
+        seoInvalidateSitemapCaches();
         foreach ($paths as $path) {
             topicDeletePhysicalFile($path);
         }

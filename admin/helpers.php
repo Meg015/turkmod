@@ -2144,6 +2144,8 @@ function topicRevisionRestore(PDO $pdo, int $revisionId, ?int $actorUserId): int
         syncTopicDownloadLinks($pdo, $topicId, implode("\n", $lines));
     }
 
+    seoInvalidateSitemapCaches();
+
     return $topicId;
 }
 
@@ -2397,6 +2399,10 @@ function adminNormalizeLegacyTopicStatuses(?PDO $pdo): void
 
     if ($changed && function_exists('invalidatePublicContentCache')) {
         invalidatePublicContentCache();
+    }
+
+    if ($changed) {
+        seoInvalidateSitemapCaches();
     }
 }
 

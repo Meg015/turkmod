@@ -172,6 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 break;
         }
         if ($action !== '') {
+            seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_bulk_' . $action, 'topic', null, ['count' => count($selectedIds)]);
         }
     } catch (Throwable $e) {

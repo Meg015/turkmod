@@ -22,6 +22,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 } else {
                     $pdo->prepare("UPDATE topics SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
                         ->execute([$id]);
+                    seoInvalidateSitemapCaches();
                     logActivity($pdo, 'topic_deleted', 'topic', $id);
                     flash('success', 'Konu çöp kutusuna taşındı. Geri almak için çöp kutusunu kullanabilirsiniz.');
                 }

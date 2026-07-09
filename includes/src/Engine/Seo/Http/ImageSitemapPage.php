@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Engine\Seo\Http;
 
+use App\Core\Cache\TaggableCache;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Routing\Handler;
@@ -26,6 +27,7 @@ final class ImageSitemapPage implements Handler
         private ?Closure $galleryResolver = null,
         private ?Closure $mediaFilesResolver = null,
         private ?Closure $nowResolver = null,
+        private ?TaggableCache $cache = null,
     ) {
     }
 
@@ -33,29 +35,46 @@ final class ImageSitemapPage implements Handler
     {
         $settings = $this->settings ?? $this->resolveSettings();
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
+        $page = $this->resolvePage($request);
+        $cacheDuration = seoSitemapCacheTtl($settings);
+        $cacheKey = seoSitemapCacheKey('image-sitemap', [
+            'base' => $canonicalBase,
+            'page' => $page,
+            'settings' => $settings,
+        ]);
+        $cached = seoSitemapCacheGet($this->cache, $cacheKey);
+        if ($cached !== null) {
+            return $this->xmlResponse($request, $cached['body'], $cached['last_modified_timestamp'], $cacheDuration);
+        }
 
         if ((string) ($settings['image_sitemap_enabled'] ?? '1') !== '1') {
-            return $this->xmlResponse(
+            $body = seoPrepareSitemapXml(
                 '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
                 . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>' . "\n",
-                null,
             );
+            $lastModifiedTimestamp = strtotime($this->now()) ?: time();
+            seoSitemapCacheSet($this->cache, $cacheKey, $body, $lastModifiedTimestamp, $cacheDuration, ['sitemap:image']);
+
+            return $this->xmlResponse($request, $body, $lastModifiedTimestamp, $cacheDuration);
         }
 
         $maxUrlsPerSitemap = max(1, min(50000, (int) ($settings['sitemap_max_urls'] ?? 1000)));
         $maxImages = (int) ($settings['image_sitemap_max_images'] ?? 20);
         $latestLastmod = null;
+        $pageTopics = $this->resolveTopics($settings, $page, $maxUrlsPerSitemap);
+        $topicMediaRows = $this->loadTopicMediaRows($pageTopics);
 
         $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"' . "\n";
         $body .= '        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
 
-        foreach ($this->resolveTopics($settings, $this->resolvePage($request), $maxUrlsPerSitemap) as $topic) {
+        foreach ($pageTopics as $topic) {
             if (function_exists('seoTopicShouldAppearInSitemap') && !seoTopicShouldAppearInSitemap($topic, $settings)) {
                 continue;
             }
 
-            $images = $this->collectImages($topic, $settings, $canonicalBase, $maxImages);
+            $topicId = (int) ($topic['id'] ?? 0);
+            $images = $this->collectImages($topic, $settings, $canonicalBase, $maxImages, $topicMediaRows[$topicId] ?? []);
             if ($images === []) {
                 continue;
             }
@@ -76,8 +95,11 @@ final class ImageSitemapPage implements Handler
         }
 
         $body .= '</urlset>' . "\n";
+        $preparedBody = seoPrepareSitemapXml($body);
+        $lastModifiedTimestamp = $latestLastmod ?? (strtotime($this->now()) ?: time());
+        seoSitemapCacheSet($this->cache, $cacheKey, $preparedBody, $lastModifiedTimestamp, $cacheDuration, ['sitemap:image']);
 
-        return $this->xmlResponse($body, $latestLastmod);
+        return $this->xmlResponse($request, $preparedBody, $lastModifiedTimestamp, $cacheDuration);
     }
 
     /**
@@ -206,7 +228,7 @@ final class ImageSitemapPage implements Handler
      * @param array<string,mixed> $settings
      * @return list<array{url:string,caption:string}>
      */
-    private function collectImages(array $topic, array $settings, string $canonicalBase, int $maxImages): array
+    private function collectImages(array $topic, array $settings, string $canonicalBase, int $maxImages, array $mediaRows = []): array
     {
         $images = [];
         $seen = [];
@@ -235,7 +257,9 @@ final class ImageSitemapPage implements Handler
         }
 
         if ((string) ($settings['image_sitemap_inline'] ?? '1') === '1') {
-            foreach ($this->mediaGallery((int) ($topic['id'] ?? 0)) as $line) {
+            $inlineRows = $mediaRows !== [] ? $mediaRows : $this->mediaGallery((int) ($topic['id'] ?? 0));
+            foreach ($inlineRows as $row) {
+                $line = is_array($row) ? trim((string) ($row['path'] ?? '')) : trim((string) $row);
                 if ($line !== '' && preg_match('/\.(jpg|jpeg|png|gif|webp|svg)$/i', $line) === 1 && $this->shouldIncludeImagePath($line, $settings)) {
                     $appendImage(
                         filter_var($line, FILTER_VALIDATE_URL) ? $line : $this->canonicalUrl($line, $settings, $canonicalBase),
@@ -246,9 +270,14 @@ final class ImageSitemapPage implements Handler
         }
 
         if ((string) ($settings['image_sitemap_media'] ?? '1') === '1') {
-            foreach ($this->mediaFiles((int) ($topic['id'] ?? 0), max(1, $maxImages - count($images))) as $mediaFile) {
+            $mediaFiles = $mediaRows !== [] ? $mediaRows : $this->mediaFiles((int) ($topic['id'] ?? 0), max(1, $maxImages - count($images)));
+            foreach ($mediaFiles as $mediaFile) {
+                if (!is_array($mediaFile)) {
+                    continue;
+                }
+
                 $filePath = trim((string) ($mediaFile['path'] ?? ''));
-                if ($filePath === '' || !$this->shouldIncludeImagePath($filePath, $settings)) {
+                if ($filePath === '' || !$this->isImageMediaRow($mediaFile) || !$this->shouldIncludeImagePath($filePath, $settings)) {
                     continue;
                 }
 
@@ -260,6 +289,79 @@ final class ImageSitemapPage implements Handler
         }
 
         return $images;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $topics
+     * @return array<int,list<array<string,mixed>>>
+     */
+    private function loadTopicMediaRows(array $topics): array
+    {
+        $topicIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $topic): int => max(0, (int) ($topic['id'] ?? 0)),
+            $topics,
+        ))));
+
+        if ($topicIds === []) {
+            return [];
+        }
+
+        $pdo = $this->resolvePdo();
+        if (!$pdo instanceof PDO) {
+            return [];
+        }
+
+        try {
+            $placeholders = implode(', ', array_fill(0, count($topicIds), '?'));
+            $statement = $pdo->prepare(
+                'SELECT topic_id, path, original_name, type, mime_type, is_primary, display_order, id
+                 FROM media_files
+                 WHERE topic_id IN (' . $placeholders . ')
+                 ORDER BY topic_id ASC, is_primary DESC, display_order ASC, id ASC',
+            );
+            $statement->execute($topicIds);
+            $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $exception) {
+            if (function_exists('appLogException')) {
+                appLogException($exception, ['source' => self::class, 'scope' => 'topic_media_rows']);
+            } else {
+                error_log($exception->getMessage());
+            }
+
+            return [];
+        }
+
+        $grouped = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $topicId = max(0, (int) ($row['topic_id'] ?? 0));
+            if ($topicId <= 0) {
+                continue;
+            }
+
+            $grouped[$topicId][] = $row;
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * @param array<string,mixed> $mediaFile
+     */
+    private function isImageMediaRow(array $mediaFile): bool
+    {
+        $path = trim((string) ($mediaFile['path'] ?? ''));
+        $type = strtolower(trim((string) ($mediaFile['type'] ?? '')));
+        $mimeType = strtolower(trim((string) ($mediaFile['mime_type'] ?? '')));
+
+        if ($type === 'image' || str_starts_with($mimeType, 'image/')) {
+            return true;
+        }
+
+        return $path !== '' && preg_match('/\.(jpg|jpeg|png|gif|webp|svg)$/i', $path) === 1;
     }
 
     /**
@@ -439,27 +541,8 @@ final class ImageSitemapPage implements Handler
         return date('Y-m-d\TH:i:sP');
     }
 
-    private function xmlResponse(string $body, ?int $lastModifiedTimestamp): Response
+    private function xmlResponse(Request $request, string $preparedBody, int $lastModifiedTimestamp, int $cacheDuration): Response
     {
-        if (!str_contains($body, 'xml-stylesheet')) {
-            $declaration = '<?xml version="1.0" encoding="UTF-8"?>';
-            $stylesheet = '<?xml-stylesheet type="text/css" href="sitemap.css"?>';
-            if (str_starts_with($body, $declaration)) {
-                $body = $declaration . "\n" . $stylesheet . "\n" . substr($body, strlen($declaration) + 1);
-            } else {
-                $body = $stylesheet . "\n" . $body;
-            }
-        }
-        $body = function_exists('formatSitemapXml') ? formatSitemapXml($body) : $body;
-        $expiresAt = ($lastModifiedTimestamp ?? time()) + 600;
-
-        return new Response($body, 200, [
-            'Content-Type' => 'application/xml; charset=utf-8',
-            'X-Robots-Tag' => 'noindex',
-            'Cache-Control' => 'public, max-age=600, stale-while-revalidate=86400',
-            'Expires' => gmdate('D, d M Y H:i:s', $expiresAt) . ' GMT',
-            'ETag' => '"' . hash('sha256', $body) . '"',
-            'Last-Modified' => gmdate('D, d M Y H:i:s', $lastModifiedTimestamp ?? time()) . ' GMT',
-        ]);
+        return seoSitemapResponse($request, $preparedBody, $lastModifiedTimestamp, $cacheDuration);
     }
 }

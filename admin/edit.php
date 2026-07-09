@@ -146,6 +146,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             syncTopicDownloadLinks($pdo, $id, $topicDownloadLinks);
 
             $pdo->commit();
+            seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_updated', 'topic', $id, ['title' => $title]);
             flash('success', 'Konu başarıyla güncellendi.');
             header('Location: topics.php');

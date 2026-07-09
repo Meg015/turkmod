@@ -150,6 +150,7 @@ final class TopicSubmissionService
             $topics->setPrimaryMediaId($pdo, $topicId, $primaryMediaId);
 
             $pdo->commit();
+            seoInvalidateSitemapCaches();
 
             $this->emitCreatedEvent($pdo, $topicId, $authorId, $status, $categoryId, $slug, $title);
             $this->emitPublishedEventIfNeeded($pdo, $topicId, $authorId, $status, $categoryId, $slug, $title);

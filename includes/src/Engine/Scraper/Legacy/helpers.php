@@ -1279,6 +1279,7 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
         $pdo->prepare("UPDATE bot_sites SET total_imports = total_imports + 1 WHERE id = ?")->execute([$import['bot_site_id']]);
 
         $pdo->commit();
+        seoInvalidateSitemapCaches();
         logActivity($pdo, 'bot_import_published', 'topic', $topicId, ['import_id' => $importId, 'source' => $import['source_url']]);
         return $slug;
     } catch (Throwable $e) {

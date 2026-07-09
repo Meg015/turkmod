@@ -29,6 +29,7 @@ if (
     && preg_match('~(?:^|/)(?:robots\.txt|sitemap\.xml|(?:topic|profile|image)-sitemap(?:-\d+)?\.xml|favicon\.ico|xmlrpc\.php)$~i', $statelessSeoRoutePath) === 1
 ) {
     $GLOBALS['_skip_session_bootstrap'] = true;
+    $GLOBALS['_cache_control_set'] = true;
 }
 
 require_once __DIR__ . '/includes/init.php';

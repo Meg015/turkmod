@@ -152,6 +152,7 @@ final class TopicEditService
 
             \syncTopicDownloadLinks($pdo, $topicId, $downloadLines);
             $pdo->commit();
+            seoInvalidateSitemapCaches();
 
             $this->emitEvents($pdo, $topicId, $userId, $status, $categoryId, $slug, $title);
 

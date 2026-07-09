@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Engine\Seo\Http;
 
+use App\Core\Cache\TaggableCache;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Routing\Handler;
@@ -24,6 +25,7 @@ final class SitemapIndexPage implements Handler
         private ?Closure $canonicalBaseResolver = null,
         private ?Closure $statisticsResolver = null,
         private ?Closure $nowResolver = null,
+        private ?TaggableCache $cache = null,
     ) {
     }
 
@@ -32,37 +34,62 @@ final class SitemapIndexPage implements Handler
         $settings = $this->settings ?? $this->resolveSettings();
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
         $now = $this->now();
+        $cacheDuration = seoSitemapCacheTtl($settings);
+        $cacheKey = seoSitemapCacheKey('sitemap-index', [
+            'base' => $canonicalBase,
+            'settings' => $settings,
+        ]);
+        $cached = seoSitemapCacheGet($this->cache, $cacheKey);
+        if ($cached !== null) {
+            return $this->xmlResponse(
+                $request,
+                $cached['body'],
+                $cached['last_modified_timestamp'],
+                $cacheDuration,
+            );
+        }
 
         if (function_exists('seoIndexToggleValue')) {
             if (seoIndexToggleValue($settings, 'allow_indexing', '1') !== '1') {
-                return $this->xmlResponse(
+                $body = seoPrepareSitemapXml(
                     '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
                     . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' . "\n",
-                    $now,
                 );
+                $lastModifiedTimestamp = strtotime($now) ?: time();
+                seoSitemapCacheSet($this->cache, $cacheKey, $body, $lastModifiedTimestamp, $cacheDuration, ['sitemap:index']);
+
+                return $this->xmlResponse($request, $body, $lastModifiedTimestamp, $cacheDuration);
             }
         } elseif ((string) ($settings['allow_indexing'] ?? '1') !== '1') {
-            return $this->xmlResponse(
+            $body = seoPrepareSitemapXml(
                 '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
                 . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' . "\n",
-                $now,
             );
+            $lastModifiedTimestamp = strtotime($now) ?: time();
+            seoSitemapCacheSet($this->cache, $cacheKey, $body, $lastModifiedTimestamp, $cacheDuration, ['sitemap:index']);
+
+            return $this->xmlResponse($request, $body, $lastModifiedTimestamp, $cacheDuration);
         }
 
         if ((string) ($settings['sitemap_enabled'] ?? '1') !== '1') {
-            return $this->xmlResponse(
+            $body = seoPrepareSitemapXml(
                 '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
                 . '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' . "\n",
-                $now,
             );
+            $lastModifiedTimestamp = strtotime($now) ?: time();
+            seoSitemapCacheSet($this->cache, $cacheKey, $body, $lastModifiedTimestamp, $cacheDuration, ['sitemap:index']);
+
+            return $this->xmlResponse($request, $body, $lastModifiedTimestamp, $cacheDuration);
         }
 
         $statistics = $this->resolveStatistics($settings, $now);
-
-        return $this->xmlResponse(
+        $lastModifiedTimestamp = $this->latestModifiedTimestamp($statistics, $now);
+        $body = seoPrepareSitemapXml(
             $this->renderSitemapIndex($settings, $canonicalBase, $statistics),
-            $this->latestModifiedAt($statistics, $now),
         );
+        seoSitemapCacheSet($this->cache, $cacheKey, $body, $lastModifiedTimestamp, $cacheDuration, ['sitemap:index']);
+
+        return $this->xmlResponse($request, $body, $lastModifiedTimestamp, $cacheDuration);
     }
 
     /**
@@ -304,7 +331,7 @@ final class SitemapIndexPage implements Handler
     /**
      * @param array{topic_lastmod:string,profile_lastmod:string,image_lastmod:string,total_topics:int,total_public_profiles:int,total_topics_with_images:int} $statistics
      */
-    private function latestModifiedAt(array $statistics, string $fallback): string
+    private function latestModifiedTimestamp(array $statistics, string $fallback): int
     {
         $latest = null;
         foreach ([$statistics['topic_lastmod'], $statistics['profile_lastmod'], $statistics['image_lastmod']] as $lastmod) {
@@ -314,30 +341,11 @@ final class SitemapIndexPage implements Handler
             }
         }
 
-        return date('Y-m-d\TH:i:sP', $latest ?? (strtotime($fallback) ?: time()));
+        return $latest ?? (strtotime($fallback) ?: time());
     }
 
-    private function xmlResponse(string $body, string $lastModified): Response
+    private function xmlResponse(Request $request, string $preparedBody, int $lastModifiedTimestamp, int $cacheDuration): Response
     {
-        if (!str_contains($body, 'xml-stylesheet')) {
-            $declaration = '<?xml version="1.0" encoding="UTF-8"?>';
-            $stylesheet = '<?xml-stylesheet type="text/css" href="sitemap.css"?>';
-            if (str_starts_with($body, $declaration)) {
-                $body = $declaration . "\n" . $stylesheet . "\n" . substr($body, strlen($declaration) + 1);
-            } else {
-                $body = $stylesheet . "\n" . $body;
-            }
-        }
-        $body = function_exists('formatSitemapXml') ? formatSitemapXml($body) : $body;
-        $expiresAt = max(time(), strtotime($lastModified) ?: time()) + 600;
-
-        return new Response($body, 200, [
-            'Content-Type' => 'application/xml; charset=utf-8',
-            'X-Robots-Tag' => 'noindex',
-            'Cache-Control' => 'public, max-age=600, stale-while-revalidate=86400',
-            'Expires' => gmdate('D, d M Y H:i:s', $expiresAt) . ' GMT',
-            'ETag' => '"' . hash('sha256', $body) . '"',
-            'Last-Modified' => gmdate('D, d M Y H:i:s', strtotime($lastModified) ?: time()) . ' GMT',
-        ]);
+        return seoSitemapResponse($request, $preparedBody, $lastModifiedTimestamp, $cacheDuration);
     }
 }

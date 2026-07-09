@@ -463,7 +463,12 @@ function profileResubmitTopicForModeration(PDO $pdo, int $topicId, int $userId):
         'uid' => $userId,
     ]);
 
-    return $stmt->rowCount() > 0;
+    $updated = $stmt->rowCount() > 0;
+    if ($updated && function_exists('seoInvalidateSitemapCaches')) {
+        seoInvalidateSitemapCaches();
+    }
+
+    return $updated;
 }
 
 function profileCountComments(PDO $pdo, int $userId): int
