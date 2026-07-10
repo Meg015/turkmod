@@ -58,7 +58,9 @@ function submitClearLogs(e) {
         btn.disabled = true;
         btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Siliniyor...';
         
-        fetch('users.php', {
+        const actionUrl = new URL(form.getAttribute('action') || 'users.php', window.location.href).toString();
+
+        fetch(actionUrl, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: new FormData(form)

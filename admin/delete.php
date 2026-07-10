@@ -24,6 +24,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         ->execute([$id]);
                     seoInvalidateSitemapCaches();
                     logActivity($pdo, 'topic_deleted', 'topic', $id);
+                    adminAuditLogger()->logAction($pdo, 'topic_deleted', 'topic', $id, 'Konu çöp kutusuna taşındı', [], [], false);
                     flash('success', 'Konu çöp kutusuna taşındı. Geri almak için çöp kutusunu kullanabilirsiniz.');
                 }
             } catch (Throwable $e) {

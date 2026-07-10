@@ -148,6 +148,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $pdo->commit();
             seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_updated', 'topic', $id, ['title' => $title]);
+            adminAuditLogger()->logAction($pdo, 'topic_updated', 'topic', $id, 'Konu güncellendi', [], ['title' => $title], false);
             flash('success', 'Konu başarıyla güncellendi.');
             header('Location: topics.php');
             exit;

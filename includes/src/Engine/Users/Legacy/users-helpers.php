@@ -2226,6 +2226,12 @@ function usersAddAdminNote(PDO $pdo, int $userId, int $adminId, string $note, st
             'tags' => $tags,
         ], $adminId);
     }
+    if (function_exists('adminAuditLogger')) {
+        adminAuditLogger()->logAction($pdo, 'user_admin_note_added', 'user', $userId, 'Admin notu eklendi', [], [
+            'tone' => $tone,
+            'tags' => $tags,
+        ], false);
+    }
 
     return '';
 }

@@ -57,14 +57,6 @@ if ($error !== '') {
 
 adminAuditLogger()->logAction($pdo, 'group_change', 'user', $userId, $reason, ['group_ids' => $oldGroupIds], ['group_id' => $newGroupId], true);
 
-logActivity($pdo, "user_group_changed", "user", $userId, [
-    "old_group_ids" => $oldGroupIds,
-    "new_group_id" => $newGroupId,
-    "new_group" => $group['name'],
-    "changed_by" => $currentUserId,
-    "reason" => $reason,
-]);
-
 sendSuccess('Kullanici grubu basariyla guncellendi.', [
     'data' => [
         'user_id' => $userId,

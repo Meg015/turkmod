@@ -208,6 +208,9 @@ function adminQualitySetTopicModeration(?PDO $pdo, int $topicId, string $decisio
     }
 
     logActivity($pdo, 'topic_moderated', 'topic', $topicId, ['decision' => $decision, 'note' => $note]);
+    if (function_exists('adminAuditLogger')) {
+        adminAuditLogger()->logAction($pdo, 'topic_moderated', 'topic', $topicId, 'Konu moderasyonu', [], ['decision' => $decision, 'note' => $note], false);
+    }
     return $updated;
 }
 
@@ -629,6 +632,9 @@ function adminQualityCheckDownloadLink(?PDO $pdo, int $linkId): array
     $pdo->prepare("UPDATE topics SET last_checked_at = NOW() WHERE id = ?")->execute([(int)$link['topic_id']]);
     if (function_exists('logActivity')) {
         logActivity($pdo, 'download_link_checked', 'topic', (int)$link['topic_id'], ['link_id' => $linkId, 'health_status' => $health, 'status_code' => $statusCode, 'message' => $message]);
+    }
+    if (function_exists('adminAuditLogger')) {
+        adminAuditLogger()->logAction($pdo, 'download_link_checked', 'topic', (int) $link['topic_id'], 'İndirme bağlantısı kontrol edildi', [], ['link_id' => $linkId, 'health_status' => $health, 'status_code' => $statusCode, 'message' => $message], false);
     }
 
     return ['success' => true, 'message' => adminQualityDownloadHealthLabel($health) . ' - ' . $message, 'health_status' => $health, 'status_code' => $statusCode];
@@ -1095,6 +1101,21 @@ function adminQualityClearTopicHealth(?PDO $pdo): array
                     'application_logs' => $result['application_logs'],
                     'summary' => $result['summary'],
                 ]);
+            } catch (Throwable $logError) {
+                error_log('[silent-catch] ' . $logError->getMessage());
+            }
+        }
+        if (function_exists('adminAuditLogger')) {
+            try {
+                adminAuditLogger()->logAction($pdo, 'topic_health_cleared', 'topic', 0, 'Konu sağlığı temizlendi', [], [
+                    'topics' => $result['topics'],
+                    'topic_download_links' => $result['topic_download_links'],
+                    'media_files' => $result['media_files'],
+                    'activity_logs' => $result['activity_logs'],
+                    'user_activity_events' => $result['user_activity_events'],
+                    'application_logs' => $result['application_logs'],
+                    'summary' => $result['summary'],
+                ], false);
             } catch (Throwable $logError) {
                 error_log('[silent-catch] ' . $logError->getMessage());
             }

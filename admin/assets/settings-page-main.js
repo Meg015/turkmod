@@ -105,6 +105,41 @@ function validateUserUploadSettingLogic() {
     return true;
 }
 
+function captureButtonState(button) {
+    if (!button) {
+        return null;
+    }
+
+    return {
+        button: button,
+        html: button.innerHTML,
+        disabled: button.disabled,
+        className: button.className
+    };
+}
+
+function setGenericButtonLoading(button, label) {
+    if (!button) {
+        return null;
+    }
+
+    var state = captureButtonState(button);
+    button.disabled = true;
+    button.classList.add('loading');
+    button.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>' + label;
+    return state;
+}
+
+function restoreButtonState(state) {
+    if (!state || !state.button) {
+        return;
+    }
+
+    state.button.innerHTML = state.html;
+    state.button.disabled = state.disabled;
+    state.button.className = state.className;
+}
+
 [
     'user_upload_allow_video_url',
     'user_upload_wizard_enabled',
@@ -133,11 +168,16 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
     var active = document.querySelector('.settings-tabs .nav-link.active');
     if(active) document.getElementById('activeTabInput').value = active.getAttribute('href').replace('#','');
 
-    // Add loading state to save button
     var saveBtn = document.querySelector('.ui-admin-btn-save-enhanced');
+    var submitter = e.submitter || document.activeElement;
+    if (!submitter || submitter === document.body || submitter.tagName !== 'BUTTON' || submitter.type !== 'submit') {
+        submitter = saveBtn;
+    }
+
     var originalIcon = '';
     var originalText = '';
-    if (saveBtn) {
+    var genericSubmitState = null;
+    if (submitter && submitter === saveBtn) {
         saveBtn.classList.add('loading');
         var iconEl = saveBtn.querySelector('.btn-icon-wrapper i');
         var textEl = saveBtn.querySelector('.btn-text');
@@ -145,6 +185,8 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
         originalText = textEl ? textEl.textContent : saveBtn.textContent;
         if (iconEl) iconEl.className = 'bi bi-arrow-repeat';
         if (textEl) textEl.textContent = 'Kaydediliyor...';
+    } else if (submitter) {
+        genericSubmitState = setGenericButtonLoading(submitter, 'Gönderiliyor...');
     }
 
     var formData = new FormData(this);
@@ -159,7 +201,7 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
     })
     .then(response => response.json())
     .then(data => {
-        if (saveBtn) {
+        if (submitter && submitter === saveBtn) {
             saveBtn.classList.remove('loading');
             var restoreIcon = saveBtn.querySelector('.btn-icon-wrapper i');
             var restoreText = saveBtn.querySelector('.btn-text');
@@ -170,6 +212,16 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
                 saveBtn.classList.add('success');
                 setTimeout(() => saveBtn.classList.remove('success'), 2000);
             }
+        } else {
+            restoreButtonState(genericSubmitState);
+            if (data.success && submitter) {
+                submitter.classList.add('success');
+                setTimeout(function() {
+                    if (submitter) {
+                        submitter.classList.remove('success');
+                    }
+                }, 2000);
+            }
         }
         
         if (typeof window.showToast === 'function') {
@@ -177,12 +229,14 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
         }
     })
     .catch(error => {
-        if (saveBtn) {
+        if (submitter && submitter === saveBtn) {
             saveBtn.classList.remove('loading');
             var restoreIcon = saveBtn.querySelector('.btn-icon-wrapper i');
             var restoreText = saveBtn.querySelector('.btn-text');
             if (restoreIcon && originalIcon) restoreIcon.className = originalIcon;
             if (restoreText) restoreText.textContent = originalText;
+        } else {
+            restoreButtonState(genericSubmitState);
         }
         console.error('Save error:', error);
         if (typeof window.showToast === 'function') {

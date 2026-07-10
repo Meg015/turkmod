@@ -1,6 +1,7 @@
 <?php
 
 $groupLabels = function_exists('userActivityGroupLabels') ? userActivityGroupLabels() : [];
+$groupLabels = array_intersect_key($groupLabels, array_flip(['activity', 'auth', 'security', 'content', 'appeal', 'note']));
 $deviceLabels = [
     '' => 'Tüm cihazlar',
     'desktop' => 'Masaüstü',
@@ -8,6 +9,14 @@ $deviceLabels = [
     'tablet' => 'Tablet',
     'bot' => 'Bot',
 ];
+$activityBaseRoute = (string) ($activityBaseRoute ?? 'users.php');
+$activityBaseParams = is_array($activityBaseParams ?? null) ? $activityBaseParams : ['tab' => 'activity'];
+$canManageLogs = function_exists('adminCurrentUserCan') && adminCurrentUserCan('logs.manage');
+$showTabInput = isset($activityBaseParams['tab']);
+$activityBuildUrl = static function (array $extra = []) use ($activityBaseRoute, $activityBaseParams): string {
+    $params = array_filter(array_merge($activityBaseParams, $extra), static fn ($value): bool => $value !== null && $value !== '');
+    return $activityBaseRoute . ($params !== [] ? '?' . http_build_query($params) : '');
+};
 
 $q = sanitizeSearchQuery($_GET['q'] ?? '');
 $userId = max(0, (int) ($_GET['user_id'] ?? 0));
@@ -68,6 +77,17 @@ try {
     $adminRows = userActivityAdminActions($pdo, $filters, 10);
     $dbEventTypes = $pdo->query("SELECT DISTINCT event_type FROM user_activity_events ORDER BY event_type ASC LIMIT 100")->fetchAll(PDO::FETCH_COLUMN) ?: [];
     $eventTypes = array_unique(array_merge(array_keys(function_exists('userActivityAllKnownEvents') ? userActivityAllKnownEvents() : []), $dbEventTypes));
+    $hiddenEventTypes = function_exists('userActivityHiddenEventTypes') ? userActivityHiddenEventTypes() : [];
+    $normalizeEventType = static function (string $value): string {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9]+/u', '_', $value) ?? $value;
+        return trim($value, '_');
+    };
+    $eventTypes = array_values(array_filter($eventTypes, static function ($type) use ($hiddenEventTypes, $normalizeEventType): bool {
+        $eventType = (string) $type;
+        $eventTypeKey = $normalizeEventType($eventType);
+        return !in_array($eventTypeKey, $hiddenEventTypes, true) && !str_starts_with($eventTypeKey, 'topic_bulk_');
+    }));
     sort($eventTypes);
 
     if ($userId > 0) {
@@ -100,9 +120,96 @@ $eventTone = static function (string $group): string {
         default => 'secondary',
     };
 };
-$queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup, $eventType, $ipAddress, $deviceType, $dateFrom, $dateTo): string {
-    return 'users.php?' . http_build_query(array_filter([
-        'tab' => 'activity',
+$activityPersonLabel = static function (array $event): string {
+    $meta = [];
+    if (!empty($event['metadata_json'])) {
+        $decoded = json_decode((string) $event['metadata_json'], true);
+        $meta = is_array($decoded) ? $decoded : [];
+    }
+
+    $candidates = [
+        trim((string) ($meta['user_name_snapshot'] ?? '')),
+        trim((string) ($meta['actor_name_snapshot'] ?? '')),
+        trim((string) ($event['user_name'] ?? '')),
+        trim((string) ($event['actor_name'] ?? '')),
+        trim((string) ($meta['display_name'] ?? '')),
+        trim((string) ($meta['username'] ?? '')),
+        trim((string) ($meta['user_name'] ?? '')),
+        trim((string) ($meta['name'] ?? '')),
+        trim((string) ($meta['email'] ?? '')),
+        trim((string) ($meta['user_email_snapshot'] ?? '')),
+        trim((string) ($meta['actor_email_snapshot'] ?? '')),
+        trim((string) ($event['user_email'] ?? '')),
+        trim((string) ($event['actor_email'] ?? '')),
+    ];
+    foreach ($candidates as $candidate) {
+        if ($candidate !== '') {
+            return $candidate;
+        }
+    }
+
+    $userId = max(0, (int) ($event['user_id'] ?? 0));
+    $subjectType = trim((string) ($event['subject_type'] ?? ''));
+    $subjectId = max(0, (int) ($event['subject_id'] ?? 0));
+    $actorId = max(0, (int) ($event['actor_user_id'] ?? 0));
+
+    if ($userId > 0 || ($subjectType === 'user' && $subjectId > 0) || $actorId > 0) {
+        return 'Silinmiş kullanıcı';
+    }
+
+    return 'Anonim kullanıcı';
+};
+$activitySubjectDescriptor = static function (array $event, array $subjectNames = [], array $meta = []): array {
+    $subjectTypeKey = trim((string) ($event['subject_type'] ?? ''));
+    $subjectTypes = [
+        'topic' => 'Konu',
+        'comment' => 'Yorum',
+        'user' => 'Kullanıcı',
+        'restriction' => 'Kısıtlama',
+        'report' => 'Şikayet',
+        'appeal' => 'İtiraz',
+        'note' => 'Not',
+        'category' => 'Kategori',
+        'security_event' => 'Güvenlik',
+    ];
+    $subjectLabel = $subjectTypes[$subjectTypeKey] ?? ($subjectTypeKey !== '' ? ucwords(str_replace('_', ' ', $subjectTypeKey)) : '');
+
+    $subjectId = (int) ($event['subject_id'] ?? 0);
+    $subjectName = '';
+    if ($subjectTypeKey !== '' && isset($subjectNames[$subjectTypeKey]) && is_array($subjectNames[$subjectTypeKey])) {
+        $subjectName = trim((string) ($subjectNames[$subjectTypeKey][$subjectId] ?? ''));
+    }
+    if ($subjectName === '') {
+        foreach (['title', 'name', 'username', 'display_name', 'user_name_snapshot', 'actor_name_snapshot'] as $metaKey) {
+            if (!empty($meta[$metaKey]) && is_scalar($meta[$metaKey])) {
+                $subjectName = trim((string) $meta[$metaKey]);
+                break;
+            }
+        }
+    }
+    if ($subjectName === '' && !empty($event['title']) && trim((string) $event['title']) !== userActivityEventLabel((string) $event['event_type'])) {
+        $subjectName = trim((string) $event['title']);
+    }
+
+    $summaryLabel = '';
+    if ($subjectLabel !== '' && $subjectName !== '') {
+        $summaryLabel = $subjectLabel . ': ' . $subjectName;
+    } elseif ($subjectLabel !== '') {
+        $summaryLabel = $subjectLabel;
+    } elseif ($subjectName !== '') {
+        $summaryLabel = $subjectName;
+    }
+
+    return [
+        'type_key' => $subjectTypeKey,
+        'label' => $subjectLabel,
+        'id' => $subjectId,
+        'name' => $subjectName,
+        'summary' => $summaryLabel,
+    ];
+};
+$queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $userId, $eventGroup, $eventType, $ipAddress, $deviceType, $dateFrom, $dateTo): string {
+    return $activityBuildUrl([
         'q' => $q,
         'user_id' => $userId > 0 ? $userId : null,
         'group' => $eventGroup,
@@ -112,7 +219,7 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
         'date_from' => $dateFrom,
         'date_to' => $dateTo,
         'page' => $targetPage,
-    ], static fn ($value): bool => $value !== null && $value !== ''));
+    ]);
 };
 ?>
 
@@ -127,8 +234,10 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
 
     <div class="admin-card user-activity-filter-card ui-panel ui-card">
         <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
-            <form method="get" action="users.php" class="ui-admin-filter-row user-activity-filter">
-                <input type="hidden" name="tab" value="activity">
+            <form method="get" action="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-filter-row user-activity-filter">
+                <?php if ($showTabInput): ?>
+                    <input type="hidden" name="tab" value="activity">
+                <?php endif; ?>
                 <input type="hidden" name="user_id" value="<?= $userId > 0 ? (int) $userId : '' ?>">
                 <div class="ui-admin-filter-grow">
                     <label class="ui-admin-form-label">Ara</label>
@@ -174,7 +283,7 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                 </div>
                 <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-search"></i> Filtrele</button>
                 <?php if ($hasFilters): ?>
-                    <a href="users.php?tab=activity" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
+                    <a href="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
                 <?php endif; ?>
             </form>
         </div>
@@ -209,11 +318,13 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                     <h3><i class="bi bi-activity"></i> Hareket Akışı</h3>
                     <span><?= number_format($totalEvents, 0, ',', '.') ?> kayıt</span>
                 </div>
-                <div>
-                    <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger" data-clear-logs-open>
-                        <i class="bi bi-trash"></i> Kayıtları Temizle
-                    </button>
-                </div>
+                <?php if ($canManageLogs): ?>
+                    <div>
+                        <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger" data-clear-logs-open>
+                            <i class="bi bi-trash"></i> Kayıtları Temizle
+                        </button>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
                 <?php if (empty($events)): ?>
@@ -273,70 +384,99 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
                             }
                             $group = (string) ($event['event_group'] ?? 'activity');
                             $tone = $eventTone($group);
+                            $personLabel = $activityPersonLabel($event);
+                            $actionLabel = trim((string) ($event['title'] ?? '')) !== '' ? (string) $event['title'] : userActivityEventLabel((string) $event['event_type']);
+                            $subjectInfo = $activitySubjectDescriptor($event, $subjectNames, $meta);
+                            $summaryLabel = (string) ($subjectInfo['summary'] ?? '');
+                            $eventLabel = userActivityEventLabel((string) $event['event_type']);
+                            $requestMethod = trim((string) ($event['request_method'] ?? ''));
+                            $requestPath = trim((string) ($event['request_path'] ?? ''));
+                            $requestSummary = trim(implode(' ', array_values(array_filter([$requestMethod, $requestPath], static fn (string $value): bool => $value !== ''))));
+                            if ($requestSummary === '') {
+                                $requestSummary = '-';
+                            }
+                            $deviceSummary = trim((string) ($event['device_type'] ?? ''));
+                            $browserSummary = trim((string) ($event['browser'] ?? ''));
+                            $platformSummary = trim((string) ($event['platform'] ?? ''));
+                            $ipSummary = trim((string) ($event['ip_address'] ?? ''));
+                            $subjectSummary = '';
+                            if (($subjectInfo['label'] ?? '') !== '') {
+                                $subjectSummary = (string) $subjectInfo['label'];
+                                if (($subjectInfo['name'] ?? '') !== '') {
+                                    $subjectSummary .= ': ' . (string) $subjectInfo['name'];
+                                }
+                            }
+                            $userIdValue = max(0, (int) ($event['user_id'] ?? 0));
+                            $actorIdValue = max(0, (int) ($event['actor_user_id'] ?? 0));
+                            $actorLabel = trim((string) ($meta['actor_name_snapshot'] ?? '')) ?: trim((string) ($event['actor_name'] ?? ''));
+                            if ($actorLabel === '' && $actorIdValue > 0) {
+                                $actorLabel = 'Silinmiş kullanıcı';
+                            }
                             ?>
                             <article class="user-activity-item">
                                 <div class="user-activity-dot tone-<?= htmlspecialchars($tone) ?>"><i class="bi bi-record-circle"></i></div>
                                 <div class="user-activity-item-main">
                                     <div class="user-activity-row-top">
-                                        <div>
+                                        <div class="user-activity-headline">
                                             <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars($tone) ?>"><?= htmlspecialchars($groupLabels[$group] ?? $group) ?></span>
-                                            <strong><?= htmlspecialchars((string) ($event['title'] ?: userActivityEventLabel((string) $event['event_type']))) ?></strong>
+                                            <strong><?= htmlspecialchars($personLabel) ?></strong>
+                                            <span class="user-activity-action"><?= htmlspecialchars($actionLabel) ?></span>
                                         </div>
                                         <time><?= htmlspecialchars($fmtDate((string) $event['created_at'])) ?></time>
                                     </div>
-                                    <div class="user-activity-row-meta">
-                                        <span><i class="bi bi-person"></i> <?= htmlspecialchars((string) ($event['user_name'] ?? ('#' . ($event['user_id'] ?? '-')))) ?></span>
-                                        <?php if (!empty($event['actor_user_id']) && (int) $event['actor_user_id'] !== (int) ($event['user_id'] ?? 0)): ?>
-                                            <span><i class="bi bi-person-badge"></i> <?= htmlspecialchars((string) ($event['actor_name'] ?? ('#' . $event['actor_user_id']))) ?></span>
-                                        <?php endif; ?>
-                                        <span><i class="bi bi-hdd-network"></i> <code><?= htmlspecialchars((string) ($event['ip_address'] ?? '-')) ?></code></span>
-                                        <span><i class="bi bi-display"></i> <?= htmlspecialchars(trim((string) ($event['device_type'] ?? 'unknown') . ' · ' . (string) ($event['browser'] ?? ''))) ?></span>
-                                        <?php if (!empty($event['request_path'])): ?>
-                                            <span><i class="bi bi-signpost-2"></i> <?= htmlspecialchars((string) $event['request_path']) ?></span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <?php if (!empty($meta) || !empty($event['subject_type'])): ?>
-                                        <details class="user-activity-details">
-                                            <summary><i class="bi bi-braces"></i> Detay</summary>
-                                            <?php
-                                            $subjectTypes = [
-                                                'topic' => 'Konu',
-                                                'comment' => 'Yorum',
-                                                'user' => 'Kullanıcı',
-                                                'restriction' => 'Kısıtlama',
-                                                'report' => 'Şikayet',
-                                                'appeal' => 'İtiraz',
-                                                'note' => 'Not',
-                                            ];
-                                            $subjectTypeKey = (string) ($event['subject_type'] ?? '');
-                                            $subjectLabel = $subjectTypes[$subjectTypeKey] ?? ($subjectTypeKey ?: '-');
-                                            $subjectName = $subjectNames[$subjectTypeKey][$event['subject_id']] ?? $meta['title'] ?? ($meta['name'] ?? ('#' . ($event['subject_id'] ?? '-')));
-                                            ?>
-                                            <div class="user-activity-detail-grid ui-grid">
-                                                <span><b>Olay</b><?= htmlspecialchars(userActivityEventLabel((string) $event['event_type'])) ?></span>
-                                                <span><b>Nesne</b><?= htmlspecialchars($subjectLabel) ?> <?= htmlspecialchars((string) $subjectName) ?></span>
-                                                <span><b>Platform</b><?= htmlspecialchars((string) ($event['platform'] ?? '-')) ?></span>
-                                                <span><b>Metot</b><?= htmlspecialchars((string) ($event['request_method'] ?? '-')) ?></span>
+                                    <?php if ($summaryLabel !== '' && $summaryLabel !== $personLabel): ?>
+                                        <div class="user-activity-row-meta user-activity-row-meta-simple">
+                                            <span><i class="bi bi-bullseye"></i> <?= htmlspecialchars($summaryLabel) ?></span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <details class="user-activity-details">
+                                        <summary class="user-activity-detail-toggle">
+                                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                                            <span>Detay</span>
+                                        </summary>
+                                        <div class="user-activity-detail-panel">
+                                            <div class="user-activity-detail-grid">
+                                                <span><b>Olay</b><strong><?= htmlspecialchars($eventLabel) ?></strong></span>
+                                                <span><b>Grup</b><strong><?= htmlspecialchars($groupLabels[$group] ?? $group) ?></strong></span>
+                                                <span><b>Kullanıcı</b><strong><?= htmlspecialchars($personLabel) ?></strong></span>
+                                                <span><b>Kullanıcı ID</b><strong><?= $userIdValue > 0 ? (string) $userIdValue : '-' ?></strong></span>
+                                                <span><b>Aktör</b><strong><?= htmlspecialchars($actorLabel !== '' ? $actorLabel : '-') ?></strong></span>
+                                                <span><b>Aktör ID</b><strong><?= $actorIdValue > 0 ? (string) $actorIdValue : '-' ?></strong></span>
+                                                <span><b>Nesne</b><strong><?= htmlspecialchars($subjectSummary !== '' ? $subjectSummary : '-') ?></strong></span>
+                                                <span><b>IP</b><strong><code><?= htmlspecialchars($ipSummary !== '' ? $ipSummary : '-') ?></code></strong></span>
+                                                <span><b>Cihaz</b><strong><?= htmlspecialchars($deviceSummary !== '' ? $deviceSummary : '-') ?></strong></span>
+                                                <span><b>Tarayıcı</b><strong><?= htmlspecialchars($browserSummary !== '' ? $browserSummary : '-') ?></strong></span>
+                                                <span><b>Platform</b><strong><?= htmlspecialchars($platformSummary !== '' ? $platformSummary : '-') ?></strong></span>
+                                                <span><b>İstek</b><strong><?= htmlspecialchars($requestSummary) ?></strong></span>
+                                                <span><b>Zaman</b><strong><?= htmlspecialchars($fmtDate((string) $event['created_at'])) ?></strong></span>
                                             </div>
                                             <?php if (!empty($meta)): ?>
                                                 <pre class="user-activity-json"><?= htmlspecialchars(json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></pre>
                                             <?php endif; ?>
-                                        </details>
-                                    <?php endif; ?>
+                                        </div>
+                                    </details>
                                 </div>
                             </article>
                         <?php endforeach; ?>
                     </div>
                     <?php if ($totalPages > 1): ?>
-                        <div class="notif-pagination-bar">
-                            <span><?= number_format((int) ($totalEvents ?? 0)) ?> olay</span>
-                            <div>
+                        <div class="user-activity-pagination-meta">
+                            Sayfa <strong><?= (int) $page ?></strong> / <?= (int) $totalPages ?> · Toplam <?= number_format((int) ($totalEvents ?? 0)) ?> olay
+                        </div>
+                        <div class="pagination-wrapper user-activity-pagination-wrapper logs-pagination-wrapper">
+                            <div class="pagination user-activity-pagination">
                                 <?php if ($page > 1): ?>
-                                    <a class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" href="<?= htmlspecialchars($queryForPage($page - 1)) ?>"><i class="bi bi-chevron-left"></i></a>
+                                    <a href="<?= htmlspecialchars($queryForPage($page - 1)) ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
                                 <?php endif; ?>
-                                <strong><?= (int) $page ?> / <?= (int) $totalPages ?></strong>
+
+                                <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
+                                    <a href="<?= htmlspecialchars($queryForPage($i)) ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"<?= $i === $page ? ' aria-current="page"' : '' ?>>
+                                        <?= (int) $i ?>
+                                    </a>
+                                <?php endfor; ?>
+
                                 <?php if ($page < $totalPages): ?>
-                                    <a class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" href="<?= htmlspecialchars($queryForPage($page + 1)) ?>"><i class="bi bi-chevron-right"></i></a>
+                                    <a href="<?= htmlspecialchars($queryForPage($page + 1)) ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -365,10 +505,10 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
             </section>
 
             <section class="admin-card ui-panel">
-                <div class="card-header user-activity-card-head ui-panel__head ui-card"><h3><i class="bi bi-person-gear"></i> Admin İşlemleri</h3></div>
+                <div class="card-header user-activity-card-head ui-panel__head ui-card"><h3><i class="bi bi-person-gear"></i> Yönetici İşlemleri</h3></div>
                 <div class="card-body ui-panel__body">
                     <?php if (empty($adminRows)): ?>
-                        <p class="ui-admin-muted-sm">Admin işlem kaydı yok.</p>
+                        <p class="ui-admin-muted-sm">Yönetici işlem kaydı yok.</p>
                     <?php else: ?>
                         <ul class="user-activity-mini-list">
                             <?php foreach ($adminRows as $row): ?>
@@ -431,15 +571,16 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
     </div>
 </div>
 
+<?php if ($canManageLogs): ?>
 <!-- Clear Logs Modal -->
-<div class="media-modal-overlay" id="clearLogsModal" role="dialog" aria-modal="true" aria-label="Kayitlari temizle" hidden aria-hidden="true">
+<div class="media-modal-overlay" id="clearLogsModal" role="dialog" aria-modal="true" aria-label="Kayıtları temizle" hidden aria-hidden="true">
     <div class="media-modal ui-admin-modal-sm ui-panel">
         <div class="media-modal-header ui-panel__head">
             <h3 class="ui-admin-modal-title"><i class="bi bi-trash"></i> Kayıtları Temizle</h3>
             <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-clear-logs-close>&times;</button>
         </div>
         <div class="media-modal-body ui-panel__body">
-            <form id="clearLogsForm" data-clear-logs-form>
+            <form id="clearLogsForm" data-clear-logs-form action="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                 <input type="hidden" name="action" value="clear_activity_logs">
                 <input type="hidden" name="target_user_id" value="<?= $userId > 0 ? (int)$userId : 0 ?>">
@@ -469,3 +610,4 @@ $queryForPage = static function (int $targetPage) use ($q, $userId, $eventGroup,
 </div>
 
 <script src="<?= asset_url('admin/assets/users-activity-tab.js', $baseUri) ?>" defer></script>
+<?php endif; ?>

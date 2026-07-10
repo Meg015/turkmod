@@ -48,12 +48,12 @@ $cronGroups = [
         'title' => 'Genel Ayarlar',
         'icon' => 'bi-gear',
         'description' => 'Arka plan görevleri için temel çalışma kuralları ve güvenlik ayarları.',
-        'keys' => ['cron_enabled', 'cron_secret_key', 'cron_health_scan_interval', 'cron_batch_size']
+        'keys' => ['cron_enabled', 'cron_php_binary', 'cron_secret_key', 'cron_health_scan_interval', 'cron_batch_size']
     ],
     'cron-tab-endpoints' => [
         'title' => 'Gorev Yoneticisi',
         'icon' => 'bi-terminal',
-        'description' => 'Cron komutlarini tek listede gorun, kopyalayin ve manuel tetikleyin.',
+        'description' => 'Cron komutlarini tek listede gorun, kopyalayin ve manuel tetikleyin. Her görev için CLI, HTTP yedek ve direkt URL görünür.',
         'keys' => []
     ],
     'cron-tab-health' => [
@@ -450,6 +450,30 @@ $userSystemGroups = [
     ],
 ];
 
+$emailGroups = [
+    'email-tab-settings' => [
+        'title' => 'E-posta Ayarları',
+        'icon' => 'bi-sliders',
+        'description' => 'SMTP sunucusu, gönderici bilgileri ve e-posta sürücüsünü yönetin.',
+        'keys' => [
+            'mail_driver',
+            'smtp_host',
+            'smtp_port',
+            'smtp_username',
+            'smtp_password',
+            'smtp_encryption',
+            'mail_from_name',
+            'mail_from_address',
+        ],
+    ],
+    'email-tab-test' => [
+        'title' => 'Test Gönderimi',
+        'icon' => 'bi-send-check',
+        'description' => 'Mevcut ayarlarla seçtiğiniz adrese test e-postası gönderin.',
+        'keys' => [],
+    ],
+];
+
 $rateLimitGroups = [
     'rate-tab-auth' => [
         'title' => 'Giris ve Hesap Guvenligi',
@@ -537,6 +561,93 @@ $rateLimitGroups = [
 ];
 
 if (!function_exists('settingsCronTaskCatalog')) {
+    if (!function_exists('settingsCronShellArg')) {
+        function settingsCronShellArg(string $value): string
+        {
+            $value = trim(str_replace(["\r", "\n"], '', $value));
+            if ($value === '') {
+                return "''";
+            }
+
+            return escapeshellarg($value);
+        }
+    }
+
+    if (!function_exists('settingsCronPhpBinary')) {
+        function settingsCronPhpBinary(array $settings): string
+        {
+            $binary = trim(str_replace(["\r", "\n"], '', (string) ($settings['cron_php_binary'] ?? '')));
+            if ($binary === '' || (function_exists('adminCronPhpBinaryIsAutoValue') && adminCronPhpBinaryIsAutoValue($binary))) {
+                $candidates = function_exists('adminCronPhpBinaryCandidates') ? adminCronPhpBinaryCandidates() : [];
+                return $candidates[0] ?? 'php';
+            }
+
+            return $binary;
+        }
+    }
+
+    if (!function_exists('settingsCronHttpCommand')) {
+        function settingsCronHttpCommand(string $url): string
+        {
+            $quotedUrl = settingsCronShellArg($url);
+
+            return 'curl -fsS ' . $quotedUrl . ' >/dev/null 2>&1 || wget -qO- ' . $quotedUrl . ' >/dev/null 2>&1';
+        }
+    }
+
+    if (!function_exists('settingsBuildEmailTestHtml')) {
+        function settingsBuildEmailTestHtml(array $settings, string $recipient, string $message): string
+        {
+            $siteName = trim((string) ($settings['site_name'] ?? 'Yenidosyalar'));
+            if ($siteName === '') {
+                $siteName = 'Yenidosyalar';
+            }
+
+            $driver = strtoupper(trim((string) ($settings['mail_driver'] ?? 'smtp')));
+            $fromName = trim((string) ($settings['mail_from_name'] ?? $siteName));
+            if ($fromName === '') {
+                $fromName = $siteName;
+            }
+            $fromAddress = trim((string) ($settings['mail_from_address'] ?? 'noreply@localhost'));
+            $smtpHost = trim((string) ($settings['smtp_host'] ?? ''));
+            $smtpPort = trim((string) ($settings['smtp_port'] ?? ''));
+            $smtpEncryption = strtoupper(trim((string) ($settings['smtp_encryption'] ?? 'tls')));
+            $messageSafe = nl2br(htmlspecialchars($message, ENT_QUOTES, 'UTF-8'));
+
+            $metaRows = [
+                'Sistem' => $siteName,
+                'Surucu' => $driver,
+                'Gonderici' => $fromName,
+                'Gonderici Adresi' => $fromAddress,
+                'SMTP Sunucu' => $smtpHost !== '' ? $smtpHost : '—',
+                'SMTP Port' => $smtpPort !== '' ? $smtpPort : '—',
+                'Sifreleme' => $smtpEncryption !== '' ? $smtpEncryption : '—',
+                'Alici' => $recipient,
+            ];
+
+            $metaHtml = '';
+            foreach ($metaRows as $label => $value) {
+                $metaHtml .= '<tr>'
+                    . '<th style="text-align:left;padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;width:38%;">' . htmlspecialchars((string) $label, ENT_QUOTES, 'UTF-8') . '</th>'
+                    . '<td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#111827;">' . htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') . '</td>'
+                    . '</tr>';
+            }
+
+            return '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"></head>'
+                . '<body style="margin:0;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">'
+                . '<div style="max-width:640px;margin:0 auto;padding:32px 18px;">'
+                . '<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:28px;">'
+                . '<p style="margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">E-posta Testi</p>'
+                . '<h1 style="margin:0 0 18px;font-size:22px;line-height:1.35;color:#0f172a;">' . htmlspecialchars($siteName . ' e-posta testi', ENT_QUOTES, 'UTF-8') . '</h1>'
+                . '<div style="padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:15px;line-height:1.75;">' . $messageSafe . '</div>'
+                . '<div style="margin-top:22px;border-top:1px solid #e5e7eb;padding-top:18px;">'
+                . '<table role="presentation" style="width:100%;border-collapse:collapse;font-size:13px;line-height:1.6;">' . $metaHtml . '</table>'
+                . '</div>'
+                . '<p style="margin:20px 0 0;font-size:12px;color:#94a3b8;">Bu ileti, paneldeki mevcut ayarlar kullanılarak test amaçlı oluşturuldu.</p>'
+                . '</div></div></body></html>';
+        }
+    }
+
     /**
      * @return array<string,array<string,mixed>>
      */
@@ -544,6 +655,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
     {
         $baseUrl = rtrim($adminPublicBaseUrl, '/');
         $secret = trim((string) ($settings['cron_secret_key'] ?? ''));
+        $phpBinary = settingsCronPhpBinary($settings);
+        $phpBinaryCommand = preg_match('/\s/', $phpBinary) === 1 ? settingsCronShellArg($phpBinary) : $phpBinary;
 
         $scriptPath = static function (string $filename): string {
             $path = realpath(__DIR__ . '/../cron/' . $filename);
@@ -576,7 +689,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
                 'icon' => 'bi-heart-pulse',
                 'schedule' => '* * * * *',
                 'schedule_label' => 'Her 1 dakika',
-                'cli' => 'php ' . $scriptPath('topic-health-scan.php') . ' --limit=50',
+                'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('topic-health-scan.php')) . ' --limit=50',
+                'http' => settingsCronHttpCommand($buildUrl('/cron/topic-health-scan.php', ['limit' => '50'])),
                 'url' => $buildUrl('/cron/topic-health-scan.php', ['limit' => '50']),
             ],
             'notification_email_queue' => [
@@ -587,7 +701,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
                 'icon' => 'bi-envelope',
                 'schedule' => '* * * * *',
                 'schedule_label' => 'Her 1 dakika',
-                'cli' => 'php ' . $scriptPath('send-notification-email-queue.php') . ' --limit=25',
+                'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('send-notification-email-queue.php')) . ' --limit=25',
+                'http' => settingsCronHttpCommand($buildUrl('/cron/send-notification-email-queue.php', ['limit' => '25'])),
                 'url' => $buildUrl('/cron/send-notification-email-queue.php', ['limit' => '25']),
             ],
             'rate_limits_cleanup' => [
@@ -598,7 +713,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
                 'icon' => 'bi-speedometer2',
                 'schedule' => '*/15 * * * *',
                 'schedule_label' => 'Her 15 dakika',
-                'cli' => 'php ' . $scriptPath('cleanup-expired-rate-limits.php'),
+                'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('cleanup-expired-rate-limits.php')),
+                'http' => settingsCronHttpCommand($buildUrl('/cron/cleanup-expired-rate-limits.php')),
                 'url' => $buildUrl('/cron/cleanup-expired-rate-limits.php'),
             ],
             'leaderboard_cache_daily' => [
@@ -609,7 +725,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
                 'icon' => 'bi-trophy',
                 'schedule' => '*/15 * * * *',
                 'schedule_label' => 'Her 15 dakika (daily ornegi)',
-                'cli' => 'php ' . $scriptPath('update-leaderboard-cache.php') . ' --period=daily',
+                'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('update-leaderboard-cache.php')) . ' --period=daily',
+                'http' => settingsCronHttpCommand($buildUrl('/cron/update-leaderboard-cache.php', ['period' => 'daily'])),
                 'url' => $buildUrl('/cron/update-leaderboard-cache.php', ['period' => 'daily']),
             ],
             'events_master' => [
@@ -620,7 +737,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
                 'icon' => 'bi-calendar-event',
                 'schedule' => '* * * * *',
                 'schedule_label' => 'Her 1 dakika',
-                'cli' => 'php ' . $scriptPath('events-master.php'),
+                'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('events-master.php')),
+                'http' => settingsCronHttpCommand($buildUrl('/cron/events-master.php')),
                 'url' => $buildUrl('/cron/events-master.php'),
             ],
         ];
@@ -804,6 +922,93 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     $postAction = trim((string) ($_POST['action'] ?? 'save_settings'));
+    if ($postAction === 'send_email_test') {
+        $currentSettings = getAdminSettings($pdo);
+        $recipient = trim((string) ($_POST['email_test_recipient'] ?? ''));
+        $message = trim((string) ($_POST['email_test_message'] ?? ''));
+
+        if ($recipient === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
+            $messageText = 'Gecerli bir test e-posta adresi girin.';
+            if ($isAjax) {
+                sendError('email_test_invalid_recipient', $messageText, 422);
+            }
+            flash('error', $messageText);
+            header('Location: settings.php#email');
+            exit;
+        }
+
+        if ($message === '') {
+            $messageText = 'Test mesaji bos olamaz.';
+            if ($isAjax) {
+                sendError('email_test_empty_message', $messageText, 422);
+            }
+            flash('error', $messageText);
+            header('Location: settings.php#email');
+            exit;
+        }
+
+        $overrideSettings = is_array($currentSettings) ? $currentSettings : [];
+        foreach ([
+            'mail_driver',
+            'smtp_host',
+            'smtp_port',
+            'smtp_username',
+            'smtp_password',
+            'smtp_encryption',
+            'mail_from_name',
+            'mail_from_address',
+        ] as $settingKey) {
+            if (array_key_exists($settingKey, $_POST)) {
+                $overrideSettings[$settingKey] = trim((string) ($_POST[$settingKey] ?? ''));
+            }
+        }
+
+        $siteName = trim((string) ($overrideSettings['site_name'] ?? 'Yenidosyalar'));
+        if ($siteName === '') {
+            $siteName = 'Yenidosyalar';
+        }
+
+        $subject = $siteName . ' - E-posta Testi';
+        $fromName = trim((string) ($overrideSettings['mail_from_name'] ?? $siteName));
+        if ($fromName === '') {
+            $fromName = $siteName;
+        }
+        $fromAddress = trim((string) ($overrideSettings['mail_from_address'] ?? ''));
+
+        $mailOk = appSendMail(
+            $recipient,
+            $subject,
+            settingsBuildEmailTestHtml($overrideSettings, $recipient, $message),
+            [
+                'from_name' => $fromName,
+                'from_address' => $fromAddress,
+                'reply_to' => $fromAddress,
+                'settings' => $overrideSettings,
+            ]
+        );
+        $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
+        $mailError = trim((string) ($mailResult['error'] ?? ''));
+
+        if ($mailOk) {
+            $successMessage = 'Test e-postasi gonderildi: ' . $recipient;
+            if ($isAjax) {
+                sendSuccess($successMessage, ['recipient' => $recipient]);
+            }
+            flash('success', $successMessage);
+        } else {
+            $errorMessage = 'Test e-postasi gonderilemedi.';
+            if ($mailError !== '') {
+                $errorMessage .= ' ' . $mailError;
+            }
+            if ($isAjax) {
+                sendError('email_test_failed', $errorMessage, 500);
+            }
+            flash('error', $errorMessage);
+        }
+
+        header('Location: settings.php#email');
+        exit;
+    }
     if ($postAction === 'trigger_cron') {
         $currentSettings = getAdminSettings($pdo);
         $cronSecret = trim((string) ($currentSettings['cron_secret_key'] ?? ''));
@@ -901,6 +1106,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         saveAdminSettings($pdo, $_POST);
         $activeTab = $_POST['_active_tab'] ?? 'general';
         logActivity($pdo, 'settings_updated', 'settings', null, ['active_tab' => $activeTab]);
+        adminAuditLogger()->logAction($pdo, 'settings_updated', 'settings', 0, 'Ayarlar güncellendi', [], ['active_tab' => $activeTab], false);
 
         if ($isAjax) {
             sendSuccess('Ayarlar basariyla kaydedildi.', ['activeTab' => $activeTab]);
@@ -1184,8 +1390,8 @@ require_once __DIR__ . '/header.php';
     <div class="alert alert-info border-info d-flex gap-3 align-items-start">
         <i class="bi bi-info-square-fill fs-4 mt-1"></i>
         <div>
-            <strong>Gorev yonetimi:</strong> Her cron gorevi icin CLI komutu, URL endpoint'i ve manuel tetikleme aksiyonu tek kartta sunulur.
-            CPanel/Plesk tarafinda CLI zamanlayici kullanmaniz onerilir.
+            <strong>Görev yönetimi:</strong> Her cron görevi için CLI komutu, HTTP yedek komutu, URL endpoint'i ve manuel tetikleme aksiyonu tek kartta sunulur.
+            HestiaCP/CPanel/Plesk tarafında CLI komutunu kullanın; PHP yolu boş bırakılırsa sistem uygun CLI yolunu otomatik seçer.
         </div>
     </div>
 
@@ -1231,6 +1437,14 @@ require_once __DIR__ . '/header.php';
                         </div>
 
                         <div class="cron-task-command-row">
+                            <label class="ui-admin-form-label fw-bold">HTTP Yedek Komutu</label>
+                            <div class="admin-inline-control">
+                                <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['http'] ?? '')) ?>" readonly data-ui-select-on-focus>
+                                <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="cron-task-command-row">
                             <label class="ui-admin-form-label fw-bold">URL Endpoint</label>
                             <div class="admin-inline-control">
                                 <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" readonly data-ui-select-on-focus>
@@ -1244,7 +1458,7 @@ require_once __DIR__ . '/header.php';
                                 <i class="bi bi-play-fill"></i> Tetikle
                             </button>
                             <a href="logs.php?view=cron&cron_job=<?= urlencode($jobKey) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">
-                                <i class="bi bi-card-list"></i> Cron Loglari
+                                <i class="bi bi-card-list"></i> Cron Logları
                             </a>
                         </div>
                     </article>
@@ -1329,7 +1543,43 @@ require_once __DIR__ . '/header.php';
                                                                     <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
                                                                 <?php endif; ?>
                                                             </label>
-                                                            <?php if ($definition['type'] === 'text'): ?>
+                                                            <?php if ($key === 'cron_php_binary'): ?>
+                                                                <?php
+                                                                $cronPhpBinaryValue = trim(str_replace(["\r", "\n"], '', (string) ($settings[$key] ?? '')));
+                                                                $cronPhpBinaryIsAuto = function_exists('adminCronPhpBinaryIsAutoValue')
+                                                                    ? adminCronPhpBinaryIsAutoValue($cronPhpBinaryValue)
+                                                                    : $cronPhpBinaryValue === '';
+                                                                $cronPhpBinaryResolved = function_exists('settingsCronPhpBinary')
+                                                                    ? settingsCronPhpBinary($settings)
+                                                                    : ($cronPhpBinaryValue !== '' ? $cronPhpBinaryValue : 'php');
+                                                                $cronPhpBinaryCandidates = function_exists('adminCronPhpBinaryCandidates')
+                                                                    ? adminCronPhpBinaryCandidates()
+                                                                    : [];
+                                                                $cronPhpBinaryListId = 'cron-php-binary-candidates';
+                                                                ?>
+                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="text" class="ui-admin-form-control bg-light font-monospace" list="<?= htmlspecialchars($cronPhpBinaryListId) ?>" value="<?= htmlspecialchars($cronPhpBinaryIsAuto ? '' : $cronPhpBinaryValue) ?>" placeholder="Boş bırakın: otomatik tespit edilsin">
+                                                                <datalist id="<?= htmlspecialchars($cronPhpBinaryListId) ?>">
+                                                                    <?php foreach ($cronPhpBinaryCandidates as $candidate): ?>
+                                                                        <option value="<?= htmlspecialchars($candidate) ?>"></option>
+                                                                    <?php endforeach; ?>
+                                                                </datalist>
+                                                                <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+                                                                    <span class="badge <?= $cronPhpBinaryIsAuto ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $cronPhpBinaryIsAuto ? 'Otomatik mod' : 'Elle girildi' ?></span>
+                                                                    <span class="small text-muted">Komutlarda kullanılacak: <code class="font-monospace"><?= htmlspecialchars($cronPhpBinaryResolved) ?></code></span>
+                                                                </div>
+                                                                <?php if ($cronPhpBinaryCandidates !== []): ?>
+                                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                                        <?php foreach (array_slice($cronPhpBinaryCandidates, 0, 6) as $candidate): ?>
+                                                                            <span class="badge text-bg-light border font-monospace"><?= htmlspecialchars($candidate) ?></span>
+                                                                        <?php endforeach; ?>
+                                                                        <?php if (count($cronPhpBinaryCandidates) > 6): ?>
+                                                                            <span class="badge text-bg-light border">+<?= count($cronPhpBinaryCandidates) - 6 ?></span>
+                                                                        <?php endif; ?>
+                                                                    </div>
+                                                                <?php else: ?>
+                                                                    <div class="small text-warning mt-2">Uygun bir PHP CLI yolu otomatik bulunamadı. İsterseniz tam yolu elle girin.</div>
+                                                                <?php endif; ?>
+                                                            <?php elseif ($definition['type'] === 'text'): ?>
                                                                 <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control bg-light"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
                                                             <?php elseif ($definition['type'] === 'select'): ?>
                                                                 <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select bg-light">
@@ -1937,6 +2187,87 @@ require_once __DIR__ . '/header.php';
                                     </div>
                                 </div>
                             <?php $userSystemFirst = false; endforeach; ?>
+                        <?php elseif ($id === 'email'): ?>
+                            <div class="settings-subtabs" data-settings-subtabs>
+                                <?php $emailFirst = true; foreach ($emailGroups as $emailTabId => $emailGroup): ?>
+                                    <button type="button" class="settings-subtab-link<?= $emailFirst ? ' active' : '' ?>" data-settings-subtab="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-scope="email">
+                                        <i class="bi <?= htmlspecialchars((string) ($emailGroup['icon'] ?? 'bi-envelope')) ?> me-1"></i><?= htmlspecialchars((string) ($emailGroup['title'] ?? $emailTabId)) ?>
+                                    </button>
+                                <?php $emailFirst = false; endforeach; ?>
+                            </div>
+
+                            <?php $emailFirst = true; foreach ($emailGroups as $emailTabId => $emailGroup): ?>
+                                <div class="route-filter-subtab-panel settings-subtab-panel admin-card admin-card-spaced<?= $emailFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-scope="email">
+                                    <div class="card-body ui-panel__body">
+                                        <?php if (!empty($emailGroup['description'])): ?>
+                                            <div class="admin-section-desc"><?= htmlspecialchars((string) ($emailGroup['description'])) ?></div>
+                                        <?php endif; ?>
+
+                                        <?php if ($emailTabId === 'email-tab-settings'): ?>
+                                            <?= adminRenderSettingsGrid($definitions, $settings, 'email', (array) ($emailGroup['keys'] ?? [])) ?>
+                                        <?php else: ?>
+                                            <?php $currentAdminEmail = trim((string) ($_SESSION['_auth_user_email'] ?? '')); ?>
+                                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
+                                                <i class="bi bi-info-circle"></i>
+                                                <div>
+                                                    <strong>Test gönderimi</strong><br>
+                                                    Bu araç, üstteki SMTP alanlarında yaptığınız mevcut değişiklikleri de kullanır ve ayarları kaydetmeden tek başına test gönderir.
+                                                </div>
+                                            </div>
+
+                                            <div class="admin-settings-grid ui-grid">
+                                                <div class="admin-field-wide">
+                                                    <label class="ui-admin-form-label" for="email_test_recipient">Test E-Posta Adresi</label>
+                                                    <input id="email_test_recipient" name="email_test_recipient" type="email" class="ui-admin-form-control" value="<?= htmlspecialchars($currentAdminEmail) ?>" placeholder="test@domain.com" autocomplete="email">
+                                                </div>
+                                                <div class="admin-field-wide">
+                                                    <label class="ui-admin-form-label" for="email_test_message">Test Mesajı</label>
+                                                    <textarea id="email_test_message" name="email_test_message" rows="6" class="ui-admin-form-control">Bu bir test e-postasıdır. Gönderim yapıldıktan sonra gelen kutusunu ve SMTP loglarını kontrol edin.</textarea>
+                                                </div>
+                                            </div>
+
+                                            <div class="admin-divider-block mt-3">
+                                                <div class="admin-inline-head ui-panel__head">
+                                                    <i class="bi bi-envelope-check"></i>
+                                                    <span class="admin-inline-title">Mevcut E-posta Ayarları</span>
+                                                </div>
+                                                <div class="admin-settings-grid-sm ui-grid">
+                                                    <div>
+                                                        <label class="ui-admin-form-label">Sürücü</label>
+                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['mail_driver'] ?? 'mail')) ?>" readonly>
+                                                    </div>
+                                                    <div>
+                                                        <label class="ui-admin-form-label">Gönderici</label>
+                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['mail_from_name'] ?? '')) ?>" readonly>
+                                                    </div>
+                                                    <div>
+                                                        <label class="ui-admin-form-label">Gönderici Adresi</label>
+                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['mail_from_address'] ?? '')) ?>" readonly>
+                                                    </div>
+                                                    <div>
+                                                        <label class="ui-admin-form-label">SMTP Sunucu</label>
+                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['smtp_host'] ?? '')) ?>" readonly>
+                                                    </div>
+                                                    <div>
+                                                        <label class="ui-admin-form-label">SMTP Port</label>
+                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['smtp_port'] ?? '')) ?>" readonly>
+                                                    </div>
+                                                    <div>
+                                                        <label class="ui-admin-form-label">Şifreleme</label>
+                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['smtp_encryption'] ?? '')) ?>" readonly>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex justify-content-end mt-3">
+                                                <button type="submit" name="action" value="send_email_test" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm">
+                                                    <i class="bi bi-send-check"></i> Test Gönder
+                                                </button>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php $emailFirst = false; endforeach; ?>
                         <?php elseif ($id === 'rate_limit'): ?>
                             <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
                                 <i class="bi bi-info-circle"></i>

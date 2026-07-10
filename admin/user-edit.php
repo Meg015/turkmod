@@ -162,10 +162,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = "Kullanıcı bilgileri başarıyla güncellendi.";
                 $messageType = "success";
 
-                // Log the activity
-                if (function_exists('logActivity')) {
-                    logActivity($pdo, 'admin_updated_user', 'user', $userId, ['admin_id' => $_SESSION["_auth_user_id"]]);
-                }
                 if (function_exists('invalidatePublicContentCache')) {
                     invalidatePublicContentCache();
                 }
@@ -210,6 +206,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                $profileOld = [];
+                $profileNew = [];
+                $profileFieldMap = [
+                    'username' => $username,
+                    'email' => $email,
+                    'avatar' => $avatar,
+                    'bio' => $bio,
+                    'website' => $website,
+                    'location' => $location,
+                    'social_github' => $github,
+                    'social_twitter' => $twitter,
+                    'social_discord' => $discord,
+                    'public_profile' => $publicProfile,
+                    'public_show_topics' => $publicTopics,
+                    'public_show_comments' => $publicComments,
+                    'public_show_socials' => $publicSocials,
+                ];
+                foreach ($profileFieldMap as $field => $newValue) {
+                    $oldValue = $user[$field] ?? null;
+                    if ((string) $oldValue !== (string) $newValue) {
+                        $profileOld[$field] = $oldValue;
+                        $profileNew[$field] = $newValue;
+                    }
+                }
+                if ($password !== '') {
+                    $profileOld['password_changed'] = false;
+                    $profileNew['password_changed'] = true;
+                }
+                if ($profileNew !== [] && function_exists('adminAuditLogger')) {
+                    $auditReason = $editReason !== '' ? $editReason : 'Kullanıcı düzenleme formu';
+                    adminAuditLogger()->logAction($pdo, 'admin_user_updated', 'user', $userId, $auditReason, $profileOld, $profileNew, false);
+                }
                 // Refresh user data
                 $stmt->execute([$userId]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);

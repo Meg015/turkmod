@@ -2,129 +2,271 @@
 
 declare(strict_types=1);
 
-/**
- * Loglar Controller
- * Is mantigi: includes/src/Engine/Logs/Legacy/helpers.php
- */
 require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../includes/src/Engine/Logs/Legacy/helpers.php';
-adminRequirePermission('logs.view', 'Loglari goruntulemek icin gerekli izin hesabiniza tanimlanmamis.');
+require_once __DIR__ . '/../includes/src/Engine/AdminAudit/Legacy/helpers.php';
+
+adminRequirePermission('logs.view', 'Günlükleri görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
+
+if (function_exists('ensureAdminActionLogTable')) {
+    ensureAdminActionLogTable($pdo);
+}
 
 $view = strtolower(trim((string) ($_GET['view'] ?? 'activity')));
 if (!in_array($view, ['activity', 'cron'], true)) {
     $view = 'activity';
 }
 
-$pageTitle = $view === 'cron' ? 'Cron Loglari' : 'Aktivite Loglari';
+$pageTitle = $view === 'cron' ? 'Cron Logları' : 'Yönetici İşlem Günlüğü';
+$canManageLogs = function_exists('adminCurrentUserCan') && adminCurrentUserCan('logs.manage');
 
-// Aktivite log temizleme islemleri
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-    $postAction = (string) ($_POST['action'] ?? '');
-    if ($postAction === 'clear_old' || $postAction === 'clear_all' || $postAction === 'clear_cron_all') {
-        $redirectTarget = $view === 'cron' ? 'logs.php?view=cron' : 'logs.php';
-        if (!verify_csrf_token($_POST['_token'] ?? '')) {
-            flash('error', 'Guvenlik hatasi.');
-        } elseif (!adminCurrentUserCan('logs.manage')) {
-            adminDenyAction('Log temizlemek icin gerekli izin hesabiniza tanimlanmamis.', $redirectTarget);
-        } else {
-            try {
-                if ($postAction === 'clear_cron_all') {
-                    $deleted = appLogsClearFiltered($pdo, '', '', 'cron');
-                    logActivity($pdo, 'cron_logs_cleared', 'logs', null, ['scope' => 'all', 'deleted' => $deleted, 'channel' => 'cron']);
-                    if (function_exists('adminAuditLogger')) {
-                        adminAuditLogger()->logAction(
-                            $pdo,
-                            'cron_logs_cleared',
-                            'logs',
-                            0,
-                            'Cron loglari tamamen temizlendi',
-                            [],
-                            ['scope' => 'all', 'deleted' => $deleted, 'channel' => 'cron'],
-                            false
-                        );
-                    }
-                    flash('success', 'Cron loglari temizlendi. Silinen kayit: ' . $deleted . '.');
-                } elseif ($postAction === 'clear_all') {
-                    $deleted = logsClearAll($pdo);
-                    if (function_exists('adminAuditLogger')) {
-                        adminAuditLogger()->logAction(
-                            $pdo,
-                            'activity_logs_cleared',
-                            'settings',
-                            0,
-                            'Aktivite loglari tamamen temizlendi',
-                            [],
-                            ['scope' => 'all', 'deleted' => $deleted],
-                            false
-                        );
-                    }
-                    flash('success', 'Tebrikler, ' . $deleted . ' adet kayit tamamen temizlendi.');
-                } else {
-                    $days = max(7, (int) ($_POST['days'] ?? 90));
-                    $deleted = logsClearOld($pdo, $days);
-                    logActivity($pdo, 'activity_logs_cleared', 'logs', null, ['action' => $postAction, 'deleted' => $deleted, 'days' => $days]);
-                    if (function_exists('adminAuditLogger')) {
-                        adminAuditLogger()->logAction(
-                            $pdo,
-                            'activity_logs_cleared',
-                            'settings',
-                            0,
-                            'Aktivite loglari kismi temizlendi',
-                            [],
-                            ['scope' => 'old', 'deleted' => $deleted, 'days' => $days],
-                            false
-                        );
-                    }
-                    flash('success', $deleted . ' eski log kaydi silindi.');
-                }
-            } catch (Throwable $e) {
-                flash('error', 'Temizleme hatasi: ' . safeErrorMessage($e));
-            }
-        }
+$activityDefaultActionTypes = [
+    'group_change',
+    'status_change',
+    'ban',
+    'unban',
+    'restrict',
+    'delete',
+    'group_save',
+    'group_deactivate',
+    'settings_updated',
+    'admin_user_updated',
+    'topic_settings_updated',
+    'topic_created',
+    'topic_updated',
+    'topic_deleted',
+    'topic_deleted_permanently',
+    'topic_restored',
+    'topic_approved',
+    'topic_user_edited',
+    'topic_bulk_publish',
+    'topic_bulk_unpublish',
+    'topic_bulk_draft',
+    'topic_bulk_delete',
+    'topic_bulk_purge',
+    'topic_bulk_restore',
+    'topic_revision_restored',
+    'topic_moderated',
+    'topic_health_scan_completed',
+    'topic_health_cleared',
+    'download_link_checked',
+    'category_created',
+    'category_updated',
+    'category_deleted',
+    'media_uploaded',
+    'media_deleted',
+    'leaderboard_recalculated',
+    'leaderboard_cache_cleared',
+    'leaderboard_settings_updated',
+    'cron_manual_triggered',
+    'cron_logs_cleared',
+    'bot_import_published',
+    'activity_logs_cleared',
+    'application_logs_cleared',
+    'admin_action_log_cleared',
+    'rate_limit_records_deleted',
+];
 
-        header('Location: ' . $redirectTarget);
-        exit;
+$activityDefaultTargetTypes = [
+    'user',
+    'topic',
+    'category',
+    'settings',
+    'media',
+    'leaderboard',
+    'user_group',
+    'system',
+    'logs',
+];
+
+$activityActionTypes = $activityDefaultActionTypes;
+$activityTargetTypes = $activityDefaultTargetTypes;
+
+if ($pdo) {
+    try {
+        $dbActionTypes = $pdo->query("SELECT DISTINCT action_type FROM admin_action_log ORDER BY action_type ASC")->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        $activityActionTypes = array_values(array_unique(array_merge($activityActionTypes, $dbActionTypes)));
+        sort($activityActionTypes, SORT_NATURAL | SORT_FLAG_CASE);
+    } catch (Throwable $e) {
+        $activityActionTypes = $activityDefaultActionTypes;
+    }
+
+    try {
+        $dbTargetTypes = $pdo->query("SELECT DISTINCT target_type FROM admin_action_log ORDER BY target_type ASC")->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        $activityTargetTypes = array_values(array_unique(array_merge($activityTargetTypes, $dbTargetTypes)));
+        sort($activityTargetTypes, SORT_NATURAL | SORT_FLAG_CASE);
+    } catch (Throwable $e) {
+        $activityTargetTypes = $activityDefaultTargetTypes;
     }
 }
 
-// Aktivite loglari filtreleri
-$search = trim((string) ($_GET['q'] ?? ''));
-$filterAction = (string) ($_GET['action'] ?? '');
-$filterSubject = trim((string) ($_GET['subject'] ?? ''));
+$filterAction = trim((string) ($_GET['action_type'] ?? ''));
+$filterTargetType = trim((string) ($_GET['target_type'] ?? ''));
+$filterTarget = max(0, (int) ($_GET['target_id'] ?? 0));
+$filterActor = max(0, (int) ($_GET['actor_id'] ?? 0));
+$filterState = trim((string) ($_GET['state'] ?? ''));
+if (!in_array($filterState, ['', 'active', 'reverted', 'reversible'], true)) {
+    $filterState = '';
+}
 $dateFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date_from'] ?? '')) === 1 ? (string) $_GET['date_from'] : '';
 $dateTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date_to'] ?? '')) === 1 ? (string) $_GET['date_to'] : '';
 $page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 50;
 
-$logs = ['items' => [], 'total' => 0, 'page' => 1, 'perPage' => 50];
-$stats = ['total' => 0, 'today' => 0, 'week' => 0, 'error_events' => 0, 'critical_admin_actions' => 0];
-$actionTypes = [];
-$subjectTypes = [];
+$activityFilters = array_filter([
+    'action_type' => $filterAction,
+    'target_type' => $filterTargetType,
+    'target_id' => $filterTarget > 0 ? $filterTarget : null,
+    'actor_id' => $filterActor > 0 ? $filterActor : null,
+    'state' => $filterState,
+    'date_from' => $dateFrom,
+    'date_to' => $dateTo,
+], static fn ($value): bool => $value !== '' && $value !== null);
 
-// Cron loglari filtreleri
+$activityLogs = ['items' => [], 'total' => 0, 'page' => $page, 'perPage' => $perPage];
+$activityTotalPages = 1;
+$activityCriticalCount = 0;
 $cronSearch = trim((string) ($_GET['cron_q'] ?? ''));
 $cronStatus = strtolower(trim((string) ($_GET['cron_status'] ?? 'all')));
+if (!in_array($cronStatus, ['all', 'success', 'warning', 'error', 'skipped'], true)) {
+    $cronStatus = 'all';
+}
 $cronJob = trim((string) ($_GET['cron_job'] ?? ''));
 $cronPage = max(1, (int) ($_GET['cron_page'] ?? 1));
 $cronPerPage = 50;
-$cronAllowedStatuses = ['all', 'success', 'warning', 'error', 'skipped'];
-if (!in_array($cronStatus, $cronAllowedStatuses, true)) {
-    $cronStatus = 'all';
-}
-
 $cronLogs = ['items' => [], 'total' => 0, 'page' => $cronPage, 'perPage' => $cronPerPage];
 $cronStats = ['total' => 0, 'success' => 0, 'warning' => 0, 'error' => 0, 'job_count' => 0];
 $cronJobs = [];
 
-if ($pdo) {
-    try {
-        $logs = logsGetList($pdo, $search, $filterAction, $page, 50, $filterSubject, $dateFrom, $dateTo);
-        $stats = logsGetStats($pdo);
-        $actionTypes = logsGetActionTypes($pdo);
-        $subjectTypes = logsGetSubjectTypes($pdo);
-    } catch (Throwable $e) {
-        flash('error', 'Aktivite loglari yuklenemedi: ' . safeErrorMessage($e));
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $postAction = (string) ($_POST['action'] ?? '');
+    $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+    $redirectParams = array_filter($_GET, static fn ($value): bool => $value !== '' && $value !== null);
+
+    $respond = static function (bool $ok, string $message) use ($isAjax, $redirectParams, $view): void {
+        if ($isAjax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => $ok, 'message' => $message], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        flash($ok ? 'success' : 'error', $message);
+        $location = 'logs.php';
+        if ($redirectParams !== []) {
+            $location .= '?' . http_build_query($redirectParams);
+        } elseif ($view === 'cron') {
+            $location .= '?view=cron';
+        }
+        header('Location: ' . $location);
+        exit;
+    };
+
+    if ($view === 'activity' && $postAction === 'revert') {
+        if (!verify_csrf_token($_POST['_token'] ?? '')) {
+            $respond(false, 'Güvenlik doğrulaması başarısız.');
+        }
+        if (!$canManageLogs) {
+            $respond(false, 'Bu işlemi yapmak için logs.manage izni gereklidir.');
+        }
+
+        $err = adminAuditLogger()->revertAction(
+            $pdo,
+            (int) ($_POST['log_id'] ?? 0),
+            (int) ($_SESSION['_auth_user_id'] ?? 0)
+        );
+        $respond($err === '', $err === '' ? 'İşlem geri alındı.' : $err);
     }
 
+    if ($view === 'activity' && $postAction === 'clear_action_logs') {
+        if (!verify_csrf_token($_POST['_token'] ?? '')) {
+            $respond(false, 'Güvenlik doğrulaması başarısız.');
+        }
+        if (!$canManageLogs) {
+            $respond(false, 'Bu işlemi yapmak için logs.manage izni gereklidir.');
+        }
+
+        $scope = trim((string) ($_POST['scope'] ?? ''));
+        if (!in_array($scope, ['older_than_30_days', 'all'], true)) {
+            $respond(false, 'Geçersiz temizleme kapsamı.');
+        }
+
+        $deleted = adminClearActionLog($pdo, $scope);
+        if (function_exists('appLog')) {
+            appLog($pdo, 'info', 'maintenance', 'admin_action_log_cleared', [
+                'scope' => $scope,
+                'deleted' => $deleted,
+            ]);
+        }
+
+        $respond(true, $deleted . ' adet yönetici işlem kaydı temizlendi.');
+    }
+
+    if ($view === 'cron' && $postAction === 'clear_cron_all') {
+        if (!verify_csrf_token($_POST['_token'] ?? '')) {
+            $respond(false, 'Güvenlik doğrulaması başarısız.');
+        }
+        if (!$canManageLogs) {
+            $respond(false, 'Bu işlemi yapmak için logs.manage izni gereklidir.');
+        }
+
+        $deleted = function_exists('appLogsClearFiltered')
+            ? appLogsClearFiltered($pdo, '', '', 'cron')
+            : 0;
+        if (function_exists('adminAuditLogger')) {
+            adminAuditLogger()->logAction(
+                $pdo,
+                'cron_logs_cleared',
+                'logs',
+                0,
+                'Cron logları temizlendi',
+                [],
+                ['scope' => 'all', 'deleted' => $deleted, 'channel' => 'cron'],
+                false
+            );
+        }
+
+        $respond(true, 'Cron logları temizlendi. Silinen kayıt: ' . $deleted . '.');
+    }
+}
+
+$activityLogList = [];
+$activityTotal = 0;
+$activityCriticalActions = [
+    'ban',
+    'delete',
+    'restrict',
+    'group_change',
+    'status_change',
+    'settings_updated',
+    'topic_settings_updated',
+    'topic_deleted',
+    'topic_deleted_permanently',
+    'topic_bulk_delete',
+    'topic_bulk_purge',
+    'category_deleted',
+    'media_deleted',
+    'leaderboard_settings_updated',
+    'application_logs_cleared',
+    'rate_limit_records_deleted',
+    'cron_logs_cleared',
+];
+
+if ($pdo && $view === 'activity') {
+    try {
+        $activityLogList = adminGetActionLog($pdo, $activityFilters, $perPage, ($page - 1) * $perPage);
+        $activityTotal = adminCountActionLog($pdo, $activityFilters);
+        $activityTotalPages = max(1, (int) ceil(max(0, $activityTotal) / max(1, $perPage)));
+        if ($page > $activityTotalPages) {
+            $page = $activityTotalPages;
+            $activityLogList = adminGetActionLog($pdo, $activityFilters, $perPage, ($page - 1) * $perPage);
+        }
+        $activityCriticalCount = count(array_filter($activityLogList, static fn (array $log): bool => in_array((string) ($log['action_type'] ?? ''), $activityCriticalActions, true)));
+    } catch (Throwable $e) {
+        flash('error', 'Yönetici işlem günlükleri yüklenemedi: ' . safeErrorMessage($e));
+    }
+}
+
+if ($pdo && $view === 'cron') {
     try {
         $jobStmt = $pdo->query("SELECT DISTINCT message FROM application_logs WHERE channel = 'cron' ORDER BY message ASC");
         $jobRows = $jobStmt ? ($jobStmt->fetchAll(PDO::FETCH_COLUMN) ?: []) : [];
@@ -193,7 +335,7 @@ if ($pdo) {
         $countStmt->execute();
         $cronLogs['total'] = (int) $countStmt->fetchColumn();
 
-        $cronTotalPages = (int) ceil($cronLogs['total'] / max(1, $cronPerPage));
+        $cronTotalPages = (int) ceil(max(0, $cronLogs['total']) / max(1, $cronPerPage));
         if ($cronTotalPages > 0 && $cronPage > $cronTotalPages) {
             $cronPage = $cronTotalPages;
         }
@@ -242,16 +384,99 @@ if ($pdo) {
             $cronLogs['items'][] = $row;
         }
     } catch (Throwable $e) {
-        flash('error', 'Cron loglari yuklenemedi: ' . safeErrorMessage($e));
+        flash('error', 'Cron logları yüklenemedi: ' . safeErrorMessage($e));
     }
 }
 
+$adminAuditTargetLabel = static function (string $targetType, int $targetId, ?string $targetName = null): string {
+    $map = [
+        'user' => 'Kullanıcı',
+        'topic' => 'Konu',
+        'category' => 'Kategori',
+        'settings' => 'Ayarlar',
+        'media' => 'Medya',
+        'leaderboard' => 'Liderlik',
+        'user_group' => 'Kullanıcı Grubu',
+        'system' => 'Sistem',
+        'logs' => 'Günlükler',
+    ];
+
+    $label = $map[$targetType] ?? ($targetType !== '' ? ucwords(str_replace('_', ' ', $targetType)) : 'Hedef');
+    if ($targetType === 'user' && $targetName !== null && $targetName !== '') {
+        return $label . ': ' . $targetName;
+    }
+    if ($targetId > 0) {
+        return $label . ' #' . $targetId;
+    }
+
+    return $label;
+};
+
+$adminAuditScalar = static function ($value): string {
+    if (is_bool($value)) {
+        return $value ? 'Evet' : 'Hayır';
+    }
+    if (is_array($value)) {
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '—';
+    }
+    if (is_object($value)) {
+        return '[Nesne]';
+    }
+    if ($value === null || $value === '') {
+        return '—';
+    }
+
+    return (string) $value;
+};
+
+$adminAuditChanges = static function (array $old, array $new) use ($adminAuditScalar): string {
+    $keyMap = [
+        'status' => 'Durum',
+        'group_id' => 'Grup ID',
+        'group_ids' => 'Grup IDleri',
+        'username' => 'Kullanıcı Adı',
+        'email' => 'E-posta',
+        'avatar' => 'Avatar',
+        'bio' => 'Biyografi',
+        'website' => 'Website',
+        'location' => 'Konum',
+        'social_github' => 'GitHub',
+        'social_twitter' => 'Twitter',
+        'social_discord' => 'Discord',
+        'public_profile' => 'Profil Açık',
+        'public_show_topics' => 'Konular',
+        'public_show_comments' => 'Yorumlar',
+        'public_show_socials' => 'Sosyal Bağlantılar',
+        'password_changed' => 'Şifre Değişti',
+        'is_banned' => 'Yasaklı',
+        'ban_reason' => 'Yasaklanma Gerekçesi',
+        'type' => 'Kısıtlama Türü',
+        'days' => 'Süre (Gün)',
+        'section' => 'Bölüm',
+        'scope' => 'Kapsam',
+        'deleted' => 'Silinen',
+        'count' => 'Adet',
+        'keys' => 'Alanlar',
+        'channel' => 'Kanal',
+        'target_user_id' => 'Kullanıcı ID',
+    ];
+
+    $parts = [];
+    foreach ($new as $key => $newValue) {
+        $oldValue = $old[$key] ?? null;
+        $label = $keyMap[$key] ?? ucwords(str_replace('_', ' ', (string) $key));
+        $parts[] = '<div class="ui-admin-change-line"><strong class="ui-admin-text-muted">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . ':</strong> <span class="ui-admin-text-danger">' . htmlspecialchars($adminAuditScalar($oldValue), ENT_QUOTES, 'UTF-8') . '</span> <i class="bi bi-arrow-right ui-admin-text-muted"></i> <span class="ui-admin-text-success">' . htmlspecialchars($adminAuditScalar($newValue), ENT_QUOTES, 'UTF-8') . '</span></div>';
+    }
+
+    return $parts !== [] ? implode('', $parts) : '<span class="ui-admin-muted">—</span>';
+};
+
 $cronStatusLabel = static function (string $status): string {
     return match ($status) {
-        'success' => 'Basarili',
-        'warning' => 'Uyari',
+        'success' => 'Başarılı',
+        'warning' => 'Uyarı',
         'error' => 'Hata',
-        'skipped' => 'Atlandi',
+        'skipped' => 'Atlandı',
         default => strtoupper($status),
     };
 };
@@ -282,54 +507,343 @@ $cronContextSummary = static function (array $context): string {
 
 $successMsg = get_flash('success');
 $errorMsg = get_flash('error');
+$activityActionQuery = http_build_query(array_filter([
+    'action_type' => $filterAction,
+    'target_type' => $filterTargetType,
+    'target_id' => $filterTarget > 0 ? $filterTarget : '',
+    'actor_id' => $filterActor > 0 ? $filterActor : '',
+    'state' => $filterState,
+    'date_from' => $dateFrom,
+    'date_to' => $dateTo,
+], static fn ($value): bool => $value !== '' && $value !== null));
+$activityPostAction = 'logs.php' . ($activityActionQuery !== '' ? '?' . $activityActionQuery : '');
+
 require_once __DIR__ . '/header.php';
 ?>
 
 <?php adminRenderLogsSubtabs($view === 'cron' ? 'cron' : 'activity'); ?>
 
 <div class="logs-page">
-<?php if ($view === 'cron'): ?>
+<?php if ($view === 'activity'): ?>
+    <section class="ui-admin-page-hero">
+        <div class="ui-admin-page-hero-text">
+            <span class="ui-admin-kicker"><i class="bi bi-shield-check"></i> Denetim merkezi</span>
+            <h2>Yönetici İşlem Günlüğü</h2>
+            <p>Grup, durum, kısıtlama, silme ve ayar değişikliklerini izleyin; geri alınabilir işlemleri kontrollü şekilde iptal edin.</p>
+        </div>
+    </section>
+
+    <?php if ($successMsg): ?>
+        <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success"><i class="bi bi-check-circle"></i> <?= htmlspecialchars($successMsg, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
+    <?php if ($errorMsg): ?>
+        <div class="ui-admin-alert ui-admin-alert-error ui-alert ui-alert--error"><i class="bi bi-exclamation-triangle"></i> <?= htmlspecialchars($errorMsg, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
+
     <div class="admin-stat-grid logs-summary ui-grid">
         <div class="admin-stat-card stat-info logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-card-list"></i></div>
-            <div class="stat-content"><span class="stat-label">Toplam Cron Log</span><span class="stat-value"><?= number_format((int) $cronStats['total']) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-success logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-check2-circle"></i></div>
-            <div class="stat-content"><span class="stat-label">Basarili</span><span class="stat-value"><?= number_format((int) $cronStats['success']) ?></span></div>
+            <div class="stat-icon"><i class="bi bi-journal-text"></i></div>
+            <div class="stat-content"><span class="stat-label">Toplam kayıt</span><span class="stat-value"><?= number_format((int) $activityTotal, 0, ',', '.') ?></span></div>
         </div>
         <div class="admin-stat-card stat-warning logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
-            <div class="stat-content"><span class="stat-label">Uyari</span><span class="stat-value"><?= number_format((int) $cronStats['warning']) ?></span></div>
+            <div class="stat-icon"><i class="bi bi-clock-history"></i></div>
+            <div class="stat-content"><span class="stat-label">Geri alınabilir</span><span class="stat-value"><?= number_format((int) count(array_filter($activityLogList, static fn (array $log): bool => (int) ($log['is_reversible'] ?? 0) === 1 && empty($log['reverted_at']))), 0, ',', '.') ?></span></div>
+        </div>
+        <div class="admin-stat-card stat-success logs-stat ui-card">
+            <div class="stat-icon"><i class="bi bi-arrow-counterclockwise"></i></div>
+            <div class="stat-content"><span class="stat-label">Geri alınmış</span><span class="stat-value"><?= number_format((int) count(array_filter($activityLogList, static fn (array $log): bool => !empty($log['reverted_at']))), 0, ',', '.') ?></span></div>
         </div>
         <div class="admin-stat-card stat-danger logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-bug"></i></div>
-            <div class="stat-content"><span class="stat-label">Hata</span><span class="stat-value"><?= number_format((int) $cronStats['error']) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-info logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-cpu"></i></div>
-            <div class="stat-content"><span class="stat-label">Farkli Job</span><span class="stat-value"><?= number_format((int) $cronStats['job_count']) ?></span></div>
+            <div class="stat-icon"><i class="bi bi-shield-exclamation"></i></div>
+            <div class="stat-content"><span class="stat-label">Kritik eylem</span><span class="stat-value"><?= number_format((int) $activityCriticalCount, 0, ',', '.') ?></span></div>
         </div>
     </div>
 
     <div class="admin-card logs-toolbar-card ui-panel">
-        <div class="card-header logs-toolbar-head ui-panel__head">
-            <form method="get" action="logs.php" class="logs-filter-form">
+        <div class="card-body ui-admin-card-compact ui-panel__body ui-card logs-toolbar-shell">
+            <div class="logs-toolbar-row logs-toolbar-row--activity">
+            <form method="get" action="logs.php" class="logs-filter-form logs-filter-form--activity ui-admin-filter-row">
+                <input type="hidden" name="view" value="activity">
+                <select name="action_type" class="ui-admin-form-select">
+                    <option value="">Tüm eylemler</option>
+                    <?php foreach ($activityActionTypes as $actionType): ?>
+                        <option value="<?= htmlspecialchars((string) $actionType, ENT_QUOTES, 'UTF-8') ?>" <?= $filterAction === (string) $actionType ? 'selected' : '' ?>>
+                            <?= htmlspecialchars(adminActionLabel((string) $actionType), ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <select name="target_type" class="ui-admin-form-select">
+                    <option value="">Tüm hedefler</option>
+                    <?php foreach ($activityTargetTypes as $targetType): ?>
+                        <option value="<?= htmlspecialchars((string) $targetType, ENT_QUOTES, 'UTF-8') ?>" <?= $filterTargetType === (string) $targetType ? 'selected' : '' ?>>
+                            <?= htmlspecialchars((string) ([
+                                'user' => 'Kullanıcı',
+                                'topic' => 'Konu',
+                                'category' => 'Kategori',
+                                'settings' => 'Ayarlar',
+                                'media' => 'Medya',
+                                'leaderboard' => 'Liderlik',
+                                'user_group' => 'Kullanıcı Grubu',
+                                'system' => 'Sistem',
+                                'logs' => 'Günlükler',
+                            ][$targetType] ?? ucwords(str_replace('_', ' ', (string) $targetType))), ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <input type="number" name="target_id" class="ui-admin-form-control" min="1" placeholder="Hedef ID" value="<?= $filterTarget > 0 ? (int) $filterTarget : '' ?>">
+                <input type="number" name="actor_id" class="ui-admin-form-control" min="1" placeholder="Admin ID" value="<?= $filterActor > 0 ? (int) $filterActor : '' ?>">
+                <select name="state" class="ui-admin-form-select">
+                    <option value="">Tüm durumlar</option>
+                    <option value="active" <?= $filterState === 'active' ? 'selected' : '' ?>>Aktif</option>
+                    <option value="reversible" <?= $filterState === 'reversible' ? 'selected' : '' ?>>Geri alınabilir</option>
+                    <option value="reverted" <?= $filterState === 'reverted' ? 'selected' : '' ?>>Geri alınmış</option>
+                </select>
+                <input type="date" name="date_from" class="ui-admin-form-control" value="<?= htmlspecialchars($dateFrom, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="date" name="date_to" class="ui-admin-form-control" value="<?= htmlspecialchars($dateTo, ENT_QUOTES, 'UTF-8') ?>">
+                <div class="logs-filter-actions">
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-search"></i> Filtrele</button>
+                    <?php if ($activityActionQuery !== ''): ?>
+                        <a href="logs.php" class="logs-filter-reset"><i class="bi bi-x-circle"></i> Filtreleri Sıfırla</a>
+                    <?php endif; ?>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <section class="admin-card user-activity-feed-card logs-list-card ui-panel ui-card">
+        <div class="card-header user-activity-card-head ui-admin-card-header-actions ui-panel__head ui-card logs-list-head">
+            <div>
+                <h3><i class="bi bi-journal-check"></i> Yönetici İşlem Akışı</h3>
+                <span><?= number_format((int) $activityTotal, 0, ',', '.') ?> kayıt</span>
+            </div>
+            <div class="logs-toolbar-actions">
+                <?php if ($canManageLogs): ?>
+                    <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger-outline" data-clear-logs-open>
+                        <i class="bi bi-trash"></i> Günlüğü Temizle
+                    </button>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
+            <?php if (empty($activityLogList)): ?>
+                <div class="ui-admin-empty ui-admin-empty-pro ui-admin-empty-audit ui-empty">
+                    <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-journal-check"></i></div>
+                    <h3 class="ui-admin-empty-title ui-empty">İşlem kaydı bulunamadı</h3>
+                    <p class="ui-admin-empty-desc ui-empty"><?= $activityActionQuery !== '' ? 'Seçili filtrelerle eşleşen denetim kaydı yok.' : 'Henüz kritik veya geri alınabilir admin işlemi kaydedilmedi.' ?></p>
+                    <div class="ui-admin-empty-meta" aria-label="Günlük durumu">
+                        <span><i class="bi bi-funnel"></i> <?= $activityActionQuery !== '' ? 'Filtre aktif' : 'Filtre yok' ?></span>
+                        <span><i class="bi bi-shield-lock"></i> Kritik kayıt yok</span>
+                    </div>
+                    <?php if ($activityActionQuery !== ''): ?>
+                        <div class="ui-admin-empty-actions ui-empty">
+                            <a href="logs.php" class="logs-filter-reset"><i class="bi bi-x-circle"></i> Filtreleri Sıfırla</a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <div class="ui-admin-table-responsive">
+                    <table class="ui-admin-table ui-admin-table-striped">
+                        <thead>
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Yönetici</th>
+                                <th>Eylem</th>
+                                <th>Hedef</th>
+                                <th>Gerekçe</th>
+                                <th>Değişim Detayları</th>
+                                <th>Durum</th>
+                                <th>İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($activityLogList as $log): ?>
+                                <?php
+                                $old = json_decode((string) ($log['old_value'] ?? ''), true);
+                                if (!is_array($old)) {
+                                    $old = [];
+                                }
+                                $new = json_decode((string) ($log['new_value'] ?? ''), true);
+                                if (!is_array($new)) {
+                                    $new = [];
+                                }
+                                $isReverted = !empty($log['reverted_at']);
+                                $canRevert = $canManageLogs && (int) ($log['is_reversible'] ?? 0) === 1 && !$isReverted;
+                                $actionType = (string) ($log['action_type'] ?? '');
+                                $actionLabel = htmlspecialchars(adminActionLabel($actionType), ENT_QUOTES, 'UTF-8');
+                                $targetType = (string) ($log['target_type'] ?? '');
+                                $targetName = (string) ($log['target_name'] ?? '');
+                                $tone = 'info';
+                                if ($isReverted) {
+                                    $tone = 'muted';
+                                } elseif ($actionType === 'ban' || str_contains($actionType, 'delete')) {
+                                    $tone = 'danger';
+                                } elseif ($actionType === 'restrict' || $actionType === 'status_change' || str_contains($actionType, 'settings') || str_contains($actionType, 'update')) {
+                                    $tone = 'warning';
+                                } elseif ($actionType === 'unban' || $actionType === 'group_change') {
+                                    $tone = 'success';
+                                }
+                                $changeHtml = $adminAuditChanges($old, $new);
+                                ?>
+
+                                <tr<?= $isReverted ? ' class="ui-admin-row-muted"' : '' ?>>
+                                    <td class="ui-admin-muted ui-admin-nowrap"><?= htmlspecialchars((string) ($log['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td>
+                                        <i class="bi bi-person-badge ui-admin-text-muted"></i>
+                                        <?= htmlspecialchars((string) ($log['actor_name'] ?? ('#' . (int) ($log['actor_id'] ?? 0))), ENT_QUOTES, 'UTF-8') ?>
+                                    </td>
+                                    <td><span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars($tone, ENT_QUOTES, 'UTF-8') ?>"><?= $actionLabel ?></span></td>
+                                    <td>
+                                        <?php if ($targetType === 'user' && (int) ($log['target_id'] ?? 0) > 0): ?>
+                                            <a href="users.php?edit=<?= (int) $log['target_id'] ?>">
+                                                <?= htmlspecialchars($adminAuditTargetLabel($targetType, (int) $log['target_id'], $targetName !== '' ? $targetName : null), ENT_QUOTES, 'UTF-8') ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <?= htmlspecialchars($adminAuditTargetLabel($targetType, (int) ($log['target_id'] ?? 0), $targetName !== '' ? $targetName : null), ENT_QUOTES, 'UTF-8') ?>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?= htmlspecialchars((string) ($log['reason'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= $changeHtml ?></td>
+                                    <td>
+                                        <?php if ($isReverted): ?>
+                                            <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-arrow-counterclockwise"></i> Geri alındı</span>
+                                        <?php else: ?>
+                                            <span class="ui-admin-badge ui-admin-badge-success">Aktif</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($canRevert): ?>
+                                            <form method="post" action="<?= htmlspecialchars($activityPostAction, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form" data-admin-confirm="Bu işlemi geri almak istediğinize emin misiniz?" data-admin-confirm-tone="warning">
+                                                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                                                <input type="hidden" name="action" value="revert">
+                                                <input type="hidden" name="log_id" value="<?= (int) $log['id'] ?>">
+                                                <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-warning">
+                                                    <i class="bi bi-arrow-counterclockwise"></i> Geri Al
+                                                </button>
+                                            </form>
+                                        <?php else: ?>
+                                            <span class="ui-admin-muted">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <?php if ($activityTotalPages > 1): ?>
+                    <?php
+                    $activityPageParams = $activityFilters;
+                    $pageBase = 'logs.php?' . ($activityPageParams ? http_build_query($activityPageParams) . '&' : '') . 'page=';
+                    ?>
+                    <div class="pagination-wrapper logs-pagination-wrapper">
+                        <div class="pagination">
+                            <?php if ($page > 1): ?>
+                                <a href="<?= htmlspecialchars($pageBase . ($page - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
+                            <?php endif; ?>
+
+                            <?php for ($i = max(1, $page - 2); $i <= min($activityTotalPages, $page + 2); $i++): ?>
+                                <a href="<?= htmlspecialchars($pageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"<?= $i === $page ? ' aria-current="page"' : '' ?>>
+                                    <?= (int) $i ?>
+                                </a>
+                            <?php endfor; ?>
+
+                            <?php if ($page < $activityTotalPages): ?>
+                                <a href="<?= htmlspecialchars($pageBase . ($page + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <?php if ($canManageLogs): ?>
+    <div class="media-modal-overlay" id="clearLogsModal" role="dialog" aria-modal="true" aria-label="Yönetici günlüğünü temizle" hidden aria-hidden="true">
+        <div class="media-modal ui-admin-modal-sm ui-panel">
+            <div class="media-modal-header ui-panel__head">
+                <h3 class="ui-admin-modal-title"><i class="bi bi-trash"></i> Yönetici Günlüğünü Temizle</h3>
+                <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-clear-logs-close>&times;</button>
+            </div>
+            <div class="media-modal-body ui-panel__body">
+                <form id="clearLogsForm" data-clear-logs-form action="<?= htmlspecialchars($activityPostAction, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="action" value="clear_action_logs">
+
+                    <div class="ui-admin-mb-md">
+                        <label class="ui-admin-form-label">Neler Silinsin?</label>
+                        <select name="scope" class="ui-admin-form-select" required>
+                            <option value="older_than_30_days">30 Günden Eski Kayıtları Sil</option>
+                            <option value="all">Tüm Günlüğü Sil (Tehlikeli)</option>
+                        </select>
+                    </div>
+
+                    <div class="ui-admin-alert ui-admin-alert-warning ui-admin-alert-spaced ui-alert ui-alert--warning" data-keep-inline-alert>
+                        <strong>Uyarı:</strong> Bu işlem denetim kayıtlarını silecektir. Güvenlik incelemeleri için son logların tutulması önerilir. Sadece gerekli olduğunda temizlik yapın. İşlem geri alınamaz.
+                    </div>
+
+                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                        <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-clear-logs-close>İptal</button>
+                        <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-trash"></i> Seçilenleri Kalıcı Olarak Sil</button>
+                    </div>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($canManageLogs): ?>
+        <script src="<?= asset_url('admin/assets/users-activity-tab.js', $baseUri) ?>" defer></script>
+    <?php endif; ?>
+
+<?php else: ?>
+    <section class="ui-admin-page-hero">
+        <div class="ui-admin-page-hero-text">
+            <span class="ui-admin-kicker"><i class="bi bi-cpu"></i> Zamanlanmış işler</span>
+            <h2>Cron Logları</h2>
+            <p>Cron çalışmalarını, durumları ve çıktılarını tek listede izleyin.</p>
+        </div>
+    </section>
+
+    <div class="admin-stat-grid logs-summary ui-grid">
+        <div class="admin-stat-card stat-info logs-stat ui-card">
+            <div class="stat-icon"><i class="bi bi-card-list"></i></div>
+            <div class="stat-content"><span class="stat-label">Toplam Cron Log</span><span class="stat-value"><?= number_format((int) $cronStats['total'], 0, ',', '.') ?></span></div>
+        </div>
+        <div class="admin-stat-card stat-success logs-stat ui-card">
+            <div class="stat-icon"><i class="bi bi-check2-circle"></i></div>
+            <div class="stat-content"><span class="stat-label">Başarılı</span><span class="stat-value"><?= number_format((int) $cronStats['success'], 0, ',', '.') ?></span></div>
+        </div>
+        <div class="admin-stat-card stat-warning logs-stat ui-card">
+            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-content"><span class="stat-label">Uyarı</span><span class="stat-value"><?= number_format((int) $cronStats['warning'], 0, ',', '.') ?></span></div>
+        </div>
+        <div class="admin-stat-card stat-danger logs-stat ui-card">
+            <div class="stat-icon"><i class="bi bi-bug"></i></div>
+            <div class="stat-content"><span class="stat-label">Hata</span><span class="stat-value"><?= number_format((int) $cronStats['error'], 0, ',', '.') ?></span></div>
+        </div>
+        <div class="admin-stat-card stat-info logs-stat ui-card">
+            <div class="stat-icon"><i class="bi bi-cpu"></i></div>
+            <div class="stat-content"><span class="stat-label">Farklı Job</span><span class="stat-value"><?= number_format((int) $cronStats['job_count'], 0, ',', '.') ?></span></div>
+        </div>
+    </div>
+
+    <div class="admin-card logs-toolbar-card ui-panel">
+        <div class="card-body ui-admin-card-compact ui-panel__body ui-card logs-toolbar-shell">
+            <form method="get" action="logs.php" class="logs-filter-form ui-admin-filter-row">
                 <input type="hidden" name="view" value="cron">
-                <input type="text" name="cron_q" class="ui-admin-form-control" placeholder="Mesaj, job key veya IP ara..." value="<?= htmlspecialchars($cronSearch) ?>">
+                <input type="text" name="cron_q" class="ui-admin-form-control" placeholder="Mesaj, job key veya IP ara..." value="<?= htmlspecialchars($cronSearch, ENT_QUOTES, 'UTF-8') ?>">
                 <select name="cron_status" class="ui-admin-form-select">
-                    <option value="all" <?= $cronStatus === 'all' ? 'selected' : '' ?>>Tum Durumlar</option>
-                    <option value="success" <?= $cronStatus === 'success' ? 'selected' : '' ?>>Basarili</option>
-                    <option value="warning" <?= $cronStatus === 'warning' ? 'selected' : '' ?>>Uyari</option>
+                    <option value="all" <?= $cronStatus === 'all' ? 'selected' : '' ?>>Tüm Durumlar</option>
+                    <option value="success" <?= $cronStatus === 'success' ? 'selected' : '' ?>>Başarılı</option>
+                    <option value="warning" <?= $cronStatus === 'warning' ? 'selected' : '' ?>>Uyarı</option>
                     <option value="error" <?= $cronStatus === 'error' ? 'selected' : '' ?>>Hata</option>
-                    <option value="skipped" <?= $cronStatus === 'skipped' ? 'selected' : '' ?>>Atlandi</option>
+                    <option value="skipped" <?= $cronStatus === 'skipped' ? 'selected' : '' ?>>Atlandı</option>
                 </select>
                 <select name="cron_job" class="ui-admin-form-select">
-                    <option value="">Tum Joblar</option>
+                    <option value="">Tüm Joblar</option>
                     <?php foreach ($cronJobs as $cronJobOption): ?>
-                    <option value="<?= htmlspecialchars((string) $cronJobOption) ?>" <?= $cronJob === (string) $cronJobOption ? 'selected' : '' ?>>
-                        <?= htmlspecialchars((string) $cronJobOption) ?>
-                    </option>
+                        <option value="<?= htmlspecialchars((string) $cronJobOption, ENT_QUOTES, 'UTF-8') ?>" <?= $cronJob === (string) $cronJobOption ? 'selected' : '' ?>>
+                            <?= htmlspecialchars((string) $cronJobOption, ENT_QUOTES, 'UTF-8') ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
                 <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-search"></i> Filtrele</button>
@@ -337,26 +851,32 @@ require_once __DIR__ . '/header.php';
                     <a href="logs.php?view=cron" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Temizle</a>
                 <?php endif; ?>
             </form>
-            <div class="logs-clear-form d-flex flex-wrap gap-2 align-items-center">
-                <?php if (adminCurrentUserCan('logs.manage')): ?>
-                <form method="post" action="logs.php?view=cron" data-admin-confirm="Tum cron loglari kalici olarak silinecek. Emin misiniz?" data-admin-confirm-title="Cron loglari silinsin mi?" data-admin-confirm-ok="Tumunu Sil" data-admin-confirm-tone="danger">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="clear_cron_all">
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm"><i class="bi bi-trash"></i> Tumunu Sil</button>
-                </form>
+            <div class="logs-toolbar-actions">
+                <?php if ($canManageLogs): ?>
+                    <form method="post" action="logs.php?view=cron" data-admin-confirm="Tüm cron logları kalıcı olarak silinecek. Emin misiniz?" data-admin-confirm-title="Cron logları silinsin mi?" data-admin-confirm-ok="Tümünü Sil" data-admin-confirm-tone="danger">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="clear_cron_all">
+                        <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Tümünü Sil</button>
+                    </form>
                 <?php endif; ?>
-                <a href="settings.php#cron" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-gear"></i> Cron Ayarlari</a>
+                <a href="settings.php#cron" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs"><i class="bi bi-gear"></i> Cron Ayarları</a>
             </div>
         </div>
     </div>
 
     <div class="admin-card logs-list-card ui-panel">
+        <div class="card-header user-activity-card-head ui-admin-card-header-actions ui-panel__head ui-card logs-list-head">
+            <div>
+                <h3><i class="bi bi-card-list"></i> Cron Logları</h3>
+                <span><?= number_format((int) $cronLogs['total'], 0, ',', '.') ?> kayıt</span>
+            </div>
+        </div>
         <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
             <?php if (empty($cronLogs['items'])): ?>
                 <div class="ui-admin-empty ui-empty">
                     <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-card-list"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Cron log kaydi bulunamadi</h3>
-                    <p class="ui-admin-empty-desc ui-empty">Filtreye uyan cron kaydi yok. Cron calistiginda kayitlar burada listelenir.</p>
+                    <h3 class="ui-admin-empty-title ui-empty">Cron log kaydı bulunamadı</h3>
+                    <p class="ui-admin-empty-desc ui-empty">Filtreye uyan cron kaydı yok. Cron çalıştığında kayıtlar burada listelenir.</p>
                 </div>
             <?php else: ?>
                 <div class="table-wrapper ui-table-wrap ui-surface">
@@ -373,205 +893,63 @@ require_once __DIR__ . '/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($cronLogs['items'] as $cronLog): ?>
-                            <?php
+                                <?php
                                 $cronContext = is_array($cronLog['context_data'] ?? null) ? $cronLog['context_data'] : [];
                                 $cronStatusValue = strtolower((string) ($cronLog['status'] ?? 'success'));
                                 $cronLevelClass = $cronStatusBadgeClass($cronStatusValue);
                                 $cronSummary = $cronContextSummary($cronContext);
                                 $cronIp = trim((string) ($cronLog['ip_address'] ?? ''));
-                            ?>
-                            <tr>
-                                <td class="ui-admin-table-cell-id"><?= (int) ($cronLog['id'] ?? 0) ?></td>
-                                <td class="ui-admin-table-cell-date"><?= date('d.m.Y H:i:s', strtotime((string) ($cronLog['created_at'] ?? 'now'))) ?></td>
-                                <td><span class="badge <?= htmlspecialchars($cronLevelClass) ?>"><?= htmlspecialchars($cronStatusLabel($cronStatusValue)) ?></span></td>
-                                <td class="ui-admin-table-cell-strong"><code><?= htmlspecialchars((string) ($cronLog['job_key'] ?? '-')) ?></code></td>
-                                <td class="ui-admin-table-cell-secondary"><?= htmlspecialchars((string) ($cronLog['message'] ?? '-')) ?></td>
-                                <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
-                                    <div class="ui-admin-log-desc-scroll">
-                                        <?= nl2br(htmlspecialchars($cronSummary)) ?>
-                                        <?php if ($cronIp !== ''): ?>
-                                            <br><small>ip=<?= htmlspecialchars($cronIp) ?></small>
-                                        <?php endif; ?>
-                                        <?php if (!empty($cronContext['sapi']) && is_scalar($cronContext['sapi'])): ?>
-                                            <br><small>sapi=<?= htmlspecialchars((string) $cronContext['sapi']) ?></small>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                            </tr>
+                                ?>
+                                <tr>
+                                    <td class="ui-admin-table-cell-id"><?= (int) ($cronLog['id'] ?? 0) ?></td>
+                                    <td class="ui-admin-table-cell-date"><?= date('d.m.Y H:i:s', strtotime((string) ($cronLog['created_at'] ?? 'now'))) ?></td>
+                                    <td><span class="badge <?= htmlspecialchars($cronLevelClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($cronStatusLabel($cronStatusValue), ENT_QUOTES, 'UTF-8') ?></span></td>
+                                    <td class="ui-admin-table-cell-strong"><code><?= htmlspecialchars((string) ($cronLog['job_key'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></code></td>
+                                    <td class="ui-admin-table-cell-secondary"><?= htmlspecialchars((string) ($cronLog['message'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
+                                        <div class="ui-admin-log-desc-scroll">
+                                            <?= nl2br(htmlspecialchars($cronSummary, ENT_QUOTES, 'UTF-8')) ?>
+                                            <?php if ($cronIp !== ''): ?>
+                                                <br><small>ip=<?= htmlspecialchars($cronIp, ENT_QUOTES, 'UTF-8') ?></small>
+                                            <?php endif; ?>
+                                            <?php if (!empty($cronContext['sapi']) && is_scalar($cronContext['sapi'])): ?>
+                                                <br><small>sapi=<?= htmlspecialchars((string) $cronContext['sapi'], ENT_QUOTES, 'UTF-8') ?></small>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
 
                 <?php
-                $cronTotalPages = (int) ceil(($cronLogs['total'] ?? 0) / max(1, (int) ($cronLogs['perPage'] ?? 1)));
+                $cronTotalPages = (int) ceil(max(0, (int) $cronLogs['total']) / max(1, (int) $cronLogs['perPage']));
                 if ($cronTotalPages > 1):
                     $cronQueryBase = array_filter([
                         'view' => 'cron',
                         'cron_q' => $cronSearch,
                         'cron_status' => $cronStatus !== 'all' ? $cronStatus : '',
                         'cron_job' => $cronJob,
-                    ], static fn ($value): bool => $value !== '');
+                    ], static fn ($value): bool => $value !== '' && $value !== null);
                 ?>
-                <div class="pagination-wrapper">
+                <div class="pagination-wrapper logs-pagination-wrapper">
                     <div class="pagination">
                         <?php if ($cronPage > 1): ?>
                             <?php $prevParams = $cronQueryBase + ['cron_page' => $cronPage - 1]; ?>
-                            <a href="logs.php?<?= htmlspecialchars(http_build_query($prevParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Onceki"><i class="bi bi-chevron-left"></i></a>
+                            <a href="logs.php?<?= htmlspecialchars(http_build_query($prevParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
                         <?php endif; ?>
 
                         <?php for ($i = max(1, $cronPage - 2); $i <= min($cronTotalPages, $cronPage + 2); $i++): ?>
                             <?php $pageParams = $cronQueryBase + ['cron_page' => $i]; ?>
-                            <a href="logs.php?<?= htmlspecialchars(http_build_query($pageParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $cronPage ? 'active' : '' ?>"><?= $i ?></a>
+                            <a href="logs.php?<?= htmlspecialchars(http_build_query($pageParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $cronPage ? 'active' : '' ?>"<?= $i === $cronPage ? ' aria-current="page"' : '' ?>><?= $i ?></a>
                         <?php endfor; ?>
 
                         <?php if ($cronPage < $cronTotalPages): ?>
                             <?php $nextParams = $cronQueryBase + ['cron_page' => $cronPage + 1]; ?>
-                            <a href="logs.php?<?= htmlspecialchars(http_build_query($nextParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
+                            <a href="logs.php?<?= htmlspecialchars(http_build_query($nextParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
                         <?php endif; ?>
                     </div>
-                </div>
-                <?php endif; ?>
-            <?php endif; ?>
-        </div>
-    </div>
-<?php else: ?>
-    <div class="admin-stat-grid logs-summary ui-grid">
-        <div class="admin-stat-card stat-info logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-journal-text"></i></div>
-            <div class="stat-content"><span class="stat-label">Toplam Log</span><span class="stat-value"><?= number_format($stats['total']) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-success logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-calendar-check"></i></div>
-            <div class="stat-content"><span class="stat-label">Bugun Olusan</span><span class="stat-value"><?= number_format($stats['today']) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-warning logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-calendar-week"></i></div>
-            <div class="stat-content"><span class="stat-label">Son 7 Gun</span><span class="stat-value"><?= number_format($stats['week']) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-info logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-list-check"></i></div>
-            <div class="stat-content"><span class="stat-label">Islem Turu</span><span class="stat-value"><?= number_format((int) count($actionTypes)) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-info logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-tags"></i></div>
-            <div class="stat-content"><span class="stat-label">Kayit Turu</span><span class="stat-value"><?= number_format((int) count($subjectTypes)) ?></span></div>
-        </div>
-    </div>
-
-    <div class="admin-card logs-toolbar-card ui-panel">
-        <div class="card-header logs-toolbar-head ui-panel__head">
-            <form method="get" action="logs.php" class="logs-filter-form">
-                <input type="text" name="q" class="ui-admin-form-control" placeholder="Kullanici, islem veya tur ara..." value="<?= htmlspecialchars($search) ?>">
-                <select name="action" class="ui-admin-form-select">
-                    <option value="">Tum Islemler</option>
-                    <?php foreach ($actionTypes as $at): ?>
-                    <option value="<?= htmlspecialchars($at) ?>" <?= $filterAction === $at ? 'selected' : '' ?>><?= htmlspecialchars(logsFormatAction($at)) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select name="subject" class="ui-admin-form-select">
-                    <option value="">Tum Kayit Turleri</option>
-                    <?php foreach ($subjectTypes as $subjectType): ?>
-                    <option value="<?= htmlspecialchars((string) $subjectType) ?>" <?= $filterSubject === (string) $subjectType ? 'selected' : '' ?>><?= htmlspecialchars(logsFormatSubject((string) $subjectType)) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <input type="date" name="date_from" class="ui-admin-form-control" value="<?= htmlspecialchars($dateFrom) ?>" aria-label="Baslangic tarihi">
-                <input type="date" name="date_to" class="ui-admin-form-control" value="<?= htmlspecialchars($dateTo) ?>" aria-label="Bitis tarihi">
-                <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-search"></i> Filtrele</button>
-                <?php if ($search !== '' || $filterAction !== '' || $filterSubject !== '' || $dateFrom !== '' || $dateTo !== ''): ?>
-                    <a href="logs.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Temizle</a>
-                <?php endif; ?>
-            </form>
-            <form method="post" action="logs.php" class="logs-clear-form" data-admin-confirm="Tum aktivite loglari kalici olarak silinecek. Emin misiniz?" data-admin-confirm-title="Tum loglar temizlensin mi?" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="clear_all">
-                <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm"><i class="bi bi-trash"></i> Tum Loglari Temizle</button>
-            </form>
-        </div>
-    </div>
-
-    <div class="admin-card logs-list-card ui-panel">
-        <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
-            <?php if (empty($logs['items'])): ?>
-                <div class="ui-admin-empty ui-empty">
-                    <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-journal-text"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Henuz log kaydi yok</h3>
-                    <p class="ui-admin-empty-desc ui-empty">Aktivite olustugunda veya filtreleri degistirdiginizde kayitlar burada gorunecek.</p>
-                </div>
-            <?php else: ?>
-                <div class="table-wrapper ui-table-wrap ui-surface">
-                    <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th class="ui-admin-table-head-narrow">#</th>
-                                <th>Tarih</th>
-                                <th>Kullanici</th>
-                                <th>Ne Oldu?</th>
-                                <th>Ilgili Kayit</th>
-                                <th>Aciklama</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($logs['items'] as $log): ?>
-                            <tr>
-                                <td class="ui-admin-table-cell-id"><?= (int) $log['id'] ?></td>
-                                <td class="ui-admin-table-cell-date"><?= date('d.m.Y H:i', strtotime((string) $log['created_at'])) ?></td>
-                                <td class="ui-admin-table-cell-strong"><?= htmlspecialchars((string) ($log['actor_name'] ?? 'Sistem')) ?></td>
-                                <td>
-                                    <span class="admin-badge <?= logsActionBadgeClass((string) $log['action']) ?>">
-                                        <?= htmlspecialchars(logsFormatAction((string) $log['action'])) ?>
-                                    </span>
-                                </td>
-                                <?php
-                                    $logProps = !empty($log['properties']) ? json_decode((string) $log['properties'], true) : null;
-                                    $logSubjectTitle = is_array($logProps) ? ($logProps['subject_title'] ?? null) : null;
-                                    if (!$logSubjectTitle) {
-                                        if (($log['subject_type'] ?? '') === 'topic' && !empty($log['topic_title'])) {
-                                            $logSubjectTitle = $log['topic_title'];
-                                        } elseif (($log['subject_type'] ?? '') === 'user') {
-                                            if (!empty($log['subject_user_name'])) {
-                                                $logSubjectTitle = $log['subject_user_name'];
-                                            } elseif (($log['subject_id'] ?? null) == ($log['actor_id'] ?? null) && !empty($log['actor_name'])) {
-                                                $logSubjectTitle = $log['actor_name'];
-                                            }
-                                        } elseif (($log['subject_type'] ?? '') === 'category' && !empty($log['subject_category_name'])) {
-                                            $logSubjectTitle = $log['subject_category_name'];
-                                        } elseif (($log['subject_type'] ?? '') === 'comment' && is_array($logProps) && isset($logProps['topic_id'])) {
-                                            $logSubjectTitle = 'Konu #' . $logProps['topic_id'] . ' altindaki yorum';
-                                        }
-                                    }
-                                    $formattedSubject = logsFormatSubject($log['subject_type'] ?? null, $log['subject_id'] ?? null, is_string($logSubjectTitle) ? $logSubjectTitle : null);
-                                ?>
-                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm"><?= htmlspecialchars((string) $formattedSubject) ?></td>
-                                <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
-                                    <div class="ui-admin-log-desc-scroll">
-                                        <?= nl2br(htmlspecialchars(logsFormatProperties($log['properties'] ?? null))) ?>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                <?php
-                $totalPages = (int) ceil((int) ($logs['total'] ?? 0) / max(1, (int) ($logs['perPage'] ?? 1)));
-                if ($totalPages > 1):
-                ?>
-                <div class="ui-admin-pagination-center">
-                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <?php
-                        $qs = http_build_query(array_filter([
-                            'q' => $search,
-                            'action' => $filterAction,
-                            'subject' => $filterSubject,
-                            'date_from' => $dateFrom,
-                            'date_to' => $dateTo,
-                            'page' => $i,
-                        ]));
-                        ?>
-                        <a href="logs.php?<?= $qs ?>" class="ui-admin-btn ui-admin-btn-sm <?= $i === $page ? 'ui-admin-btn-primary' : 'ui-admin-btn-outline' ?>"><?= $i ?></a>
-                    <?php endfor; ?>
                 </div>
                 <?php endif; ?>
             <?php endif; ?>
@@ -581,3 +959,4 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
+

@@ -31,6 +31,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !empty($_SERVER['HTTP_X_
             $pdo->prepare("UPDATE categories SET parent_id = NULL WHERE parent_id = ?")->execute([$id]);
             $pdo->prepare("UPDATE categories SET status = 'inactive', deleted_at = NOW() WHERE id = ?")->execute([$id]);
             logActivity($pdo, 'category_deleted', 'category', $id);
+            adminAuditLogger()->logAction($pdo, 'category_deleted', 'category', $id, 'Kategori silindi', [], [], false);
             echo json_encode(['ok' => true, 'message' => 'Kategori silindi.']);
         } else {
             echo json_encode(['ok' => false, 'message' => 'Bilinmeyen işlem.']);
@@ -70,6 +71,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $pdo->prepare("UPDATE categories SET parent_id = NULL WHERE parent_id = ?")->execute([$id]);
             $pdo->prepare("UPDATE categories SET status = 'inactive', deleted_at = NOW() WHERE id = ?")->execute([$id]);
             logActivity($pdo, 'category_deleted', 'category', $id);
+            adminAuditLogger()->logAction($pdo, 'category_deleted', 'category', $id, 'Kategori silindi', [], [], false);
             flash('success', 'Kategori silindi.');
             header('Location: categories.php');
             exit;
@@ -117,6 +119,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'id' => $id,
             ]);
             logActivity($pdo, 'category_updated', 'category', $id, ['name' => $name]);
+            adminAuditLogger()->logAction($pdo, 'category_updated', 'category', $id, 'Kategori güncellendi', [], ['name' => $name], false);
             flash('success', 'Kategori güncellendi.');
         } else {
             $stmt = $pdo->prepare("INSERT INTO categories
@@ -133,6 +136,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'seo_description' => $seoDescription,
             ]);
             logActivity($pdo, 'category_created', 'category', (int)$pdo->lastInsertId(), ['name' => $name]);
+            adminAuditLogger()->logAction($pdo, 'category_created', 'category', (int)$pdo->lastInsertId(), 'Kategori oluşturuldu', [], ['name' => $name], false);
             flash('success', 'Kategori eklendi.');
         }
 

@@ -38,11 +38,27 @@ if ($isCli && isset($options['help'])) {
     exit(0);
 }
 
+$cronRunStatus = 'error';
+$cronRunContext = ['reason' => 'cron_not_completed'];
+$cronRunLogged = false;
+$cronPdo = $pdo ?? null;
+register_shutdown_function(static function () use (&$cronRunLogged, &$cronRunStatus, &$cronRunContext, &$cronPdo): void {
+    if ($cronRunLogged || !($cronPdo instanceof PDO) || !function_exists('recordCronRun')) {
+        return;
+    }
+
+    $cronRunLogged = true;
+    recordCronRun($cronPdo, 'rate_limits_cleanup', $cronRunStatus, $cronRunContext);
+});
+
 if (!($pdo ?? null) instanceof PDO) {
+    $cronRunStatus = 'error';
+    $cronRunContext = ['reason' => 'database_connection_unavailable'];
     $message = "Database connection failed.\n";
     if ($isCli) {
         fwrite(STDERR, $message);
     } else {
+        http_response_code(500);
         echo $message;
     }
     exit(1);
@@ -53,9 +69,10 @@ try {
     $stmt->execute();
     $deletedRows = (int) $stmt->rowCount();
 
-    recordCronRun($pdo, 'rate_limits_cleanup', 'success', [
+    $cronRunStatus = 'success';
+    $cronRunContext = [
         'deleted_rows' => $deletedRows,
-    ]);
+    ];
 
     if ($deletedRows > 0 && function_exists('appLog')) {
         appLog($pdo, 'info', 'maintenance', 'rate_limit_cleanup', [
@@ -68,9 +85,10 @@ try {
     echo 'Expired rate limit rows deleted: ' . $deletedRows . "\n";
     exit(0);
 } catch (Throwable $e) {
-    recordCronRun($pdo, 'rate_limits_cleanup', 'error', [
+    $cronRunStatus = 'error';
+    $cronRunContext = [
         'error' => $e->getMessage(),
-    ]);
+    ];
 
     if (function_exists('appLogException')) {
         appLogException($e, ['source' => 'cron/cleanup-expired-rate-limits.php']);
@@ -80,6 +98,7 @@ try {
     if ($isCli) {
         fwrite(STDERR, $message);
     } else {
+        http_response_code(500);
         echo $message;
     }
     exit(1);

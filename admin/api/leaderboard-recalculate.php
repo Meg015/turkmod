@@ -57,6 +57,13 @@ try {
         'calculation_time_ms' => $executionTime,
         'actor_id' => $currentUserId,
     ]);
+    adminAuditLogger()->logAction($pdo, 'leaderboard_recalculated', 'leaderboard', 0, 'Liderlik yeniden hesaplandı', [], [
+        'category' => $category,
+        'period' => $period,
+        'force' => $force,
+        'affected_users' => $result['affected_users'] ?? 0,
+        'calculation_time_ms' => $executionTime,
+    ], false);
 
     sendSuccess('Leaderboard recalculated successfully', [
         'category' => $category,

@@ -87,6 +87,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_leaderboard_se
 
         invalidateAdminSettingsCache();
         logActivity($pdo, 'leaderboard_settings_updated', 'settings', null, ['keys' => array_keys($leaderboardSettingDefs)]);
+        if (function_exists('adminAuditLogger')) {
+            adminAuditLogger()->logAction($pdo, 'leaderboard_settings_updated', 'settings', 0, 'Liderlik tablosu ayarları güncellendi', [], ['keys' => array_keys($leaderboardSettingDefs)], false);
+        }
         flash('success', 'Liderlik tablosu ayarları kaydedildi.');
         header('Location: leaderboard.php#leaderboard-settings');
         exit;

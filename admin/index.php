@@ -3,6 +3,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../includes/src/Engine/Logs/Legacy/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/AdminAudit/Legacy/helpers.php';
 
 $pageTitle = 'Dashboard';
 adminRequirePermission('dashboard.view', 'Dashboard goruntulemek icin gerekli izin hesabiniza tanimlanmamis.');
@@ -52,13 +53,16 @@ if ($pdo) {
         $attention['pending_topics'] = (int) ($moderationQuality['pending'] ?? $stats['pending']);
         $attentionTotal = array_sum($attention);
 
+        if (function_exists('ensureAdminActionLogTable')) {
+            ensureAdminActionLogTable($pdo);
+        }
         $activityStmt = $pdo->query(
-            "SELECT a.action, a.subject_type, a.subject_id, a.properties, a.created_at,
-                    u.username AS actor_name, t.title AS topic_title
-             FROM activity_logs a
-             LEFT JOIN users u ON a.actor_id = u.id
-             LEFT JOIN topics t ON a.subject_type = 'topic' AND a.subject_id = t.id
-             ORDER BY a.created_at DESC
+            "SELECT l.action_type AS action, l.target_type, l.target_id, l.reason, l.old_value, l.new_value, l.created_at,
+                    actor.username AS actor_name, target.username AS target_name
+             FROM admin_action_log l
+             LEFT JOIN users actor ON l.actor_id = actor.id
+             LEFT JOIN users target ON l.target_type = 'user' AND l.target_id = target.id
+             ORDER BY l.created_at DESC, l.id DESC
              LIMIT 6"
         );
         $recentActivity = $activityStmt ? ($activityStmt->fetchAll() ?: []) : [];
@@ -268,7 +272,7 @@ $attentionTotal = $attentionTotal ?? 0;
     </div>
 
     <div class="admin-card ui-panel">
-        <div class="card-header ui-panel__head"><i class="bi bi-clock-history"></i>Son Aktiviteler</div>
+        <div class="card-header ui-panel__head"><i class="bi bi-clock-history"></i>Son Yönetim İşlemleri</div>
         <div class="card-body ui-admin-card-flush ui-panel__body ui-card">
             <?php if (empty($recentActivity)): ?>
                 <div class="activity-item">
@@ -283,10 +287,16 @@ $attentionTotal = $attentionTotal ?? 0;
                 <?php foreach ($recentActivity as $activity): ?>
                     <?php
                     [$activityClass, $activityIcon] = dashboardActivityIcon((string)($activity['action'] ?? ''));
-                    $activityTitle = function_exists('logsFormatAction') ? logsFormatAction((string)$activity['action']) : (string)$activity['action'];
-                    $activityProps = is_string($activity['properties'] ?? null) ? json_decode((string) $activity['properties'], true) : null;
-                    $activitySubjectTitle = is_array($activityProps) ? ($activityProps['subject_title'] ?? $activityProps['topic_title'] ?? null) : null;
-                    $activityDesc = $activity['topic_title'] ?: (is_string($activitySubjectTitle) && $activitySubjectTitle !== '' ? $activitySubjectTitle : ($activity['actor_name'] ?: logsFormatSubject($activity['subject_type'] ?? null, $activity['subject_id'] ?? null)));
+                    $activityTitle = function_exists('adminActionLabel') ? adminActionLabel((string) $activity['action']) : (string) $activity['action'];
+                    $targetLabel = function_exists('logsFormatSubject')
+                        ? logsFormatSubject((string) ($activity['target_type'] ?? ''), (int) ($activity['target_id'] ?? 0), (string) ($activity['target_name'] ?? null))
+                        : ((string) ($activity['target_type'] ?? '') . ' #' . (int) ($activity['target_id'] ?? 0));
+                    $activityDescParts = array_values(array_filter([
+                        (string) ($activity['actor_name'] ?? ''),
+                        $targetLabel,
+                        trim((string) ($activity['reason'] ?? '')),
+                    ], static fn ($value): bool => $value !== ''));
+                    $activityDesc = $activityDescParts !== [] ? implode(' · ', $activityDescParts) : '-';
                     ?>
                     <div class="activity-item">
                         <div class="activity-icon <?= htmlspecialchars($activityClass) ?>"><i class="bi <?= htmlspecialchars($activityIcon) ?>"></i></div>

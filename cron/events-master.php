@@ -17,9 +17,27 @@ if (!$isCli) {
     header('Content-Type: text/plain; charset=utf-8');
 }
 
+$cronRunStatus = 'error';
+$cronRunContext = ['reason' => 'cron_not_completed'];
+$cronRunLogged = false;
+$cronPdo = $pdo ?? null;
+$cronHadIssues = false;
+register_shutdown_function(static function () use (&$cronRunLogged, &$cronRunStatus, &$cronRunContext, &$cronPdo): void {
+    if ($cronRunLogged || !($cronPdo instanceof PDO) || !function_exists('recordCronRun')) {
+        return;
+    }
+
+    $cronRunLogged = true;
+    recordCronRun($cronPdo, 'events_master', $cronRunStatus, $cronRunContext);
+});
+
 if (!$pdo || !eventsTablesReady($pdo)) {
     if ($pdo instanceof PDO) {
-        recordCronRun($pdo, 'events_master', 'skipped', ['reason' => 'events_schema_not_ready']);
+        $cronRunStatus = 'skipped';
+        $cronRunContext = ['reason' => 'events_schema_not_ready'];
+    }
+    if (!$isCli) {
+        http_response_code(503);
     }
     exit("Events tables not ready.\n");
 }
@@ -32,7 +50,7 @@ echo "=================================\n";
 
 // 1. Cleanup
 echo "\n--- 1. Cleanup (Eski Logları Temizleme) ---\n";
-(function() use ($pdo, $config) {
+(function() use ($pdo, $config, &$cronHadIssues) {
     $retentionDays = max(1, (int)($config['audit_log_retention_days'] ?? 30));
     try {
         $stmt = $pdo->prepare("DELETE FROM events_audit_log WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)");
@@ -46,12 +64,13 @@ echo "\n--- 1. Cleanup (Eski Logları Temizleme) ---\n";
     } catch (Throwable $e) {
         echo "Error: " . $e->getMessage() . "\n";
         recordCronRun($pdo, 'events_cleanup', 'error', ['error' => $e->getMessage()]);
+        $cronHadIssues = true;
     }
 })();
 
 // 2. Expire Rewards
 echo "\n--- 2. Expire Rewards (Süresi Dolan Ödüller) ---\n";
-(function() use ($pdo) {
+(function() use ($pdo, &$cronHadIssues) {
     try {
         $expired = $pdo->exec("UPDATE events_user_rewards SET status = 'expired', updated_at = NOW() WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < NOW()");
         if ($expired > 0) {
@@ -61,12 +80,13 @@ echo "\n--- 2. Expire Rewards (Süresi Dolan Ödüller) ---\n";
         echo "Expired rewards: " . (int)$expired . "\n";
     } catch (Throwable $e) {
         echo "Error: " . $e->getMessage() . "\n";
+        $cronHadIssues = true;
     }
 })();
 
 // 3. Raffle Resolve
 echo "\n--- 3. Raffle Resolve (Çekiliş Sonuçlandırma) ---\n";
-(function() use ($pdo, $config) {
+(function() use ($pdo, $config, &$cronHadIssues) {
     if (!eventsConfigBool($config, 'events_system_enabled') || !eventsConfigBool($config, 'events_raffles_enabled')) {
         echo "System or raffles disabled.\n";
         return;
@@ -93,6 +113,7 @@ echo "\n--- 3. Raffle Resolve (Çekiliş Sonuçlandırma) ---\n";
                 $pdo->rollBack();
                 eventsErrorLog($pdo, 'Auto raffle resolve failed.', ['error' => $e->getMessage(), 'raffle_id' => $raffleId], 'ERROR');
                 $failed++;
+                $cronHadIssues = true;
             }
         }
         echo "Processed {$processed} raffles. Failed: {$failed}\n";
@@ -101,14 +122,18 @@ echo "\n--- 3. Raffle Resolve (Çekiliş Sonuçlandırma) ---\n";
             'processed' => $processed,
             'failed' => $failed,
         ]);
+        if ($failed > 0) {
+            $cronHadIssues = true;
+        }
     } catch (Throwable $e) {
         echo "Error: " . $e->getMessage() . "\n";
+        $cronHadIssues = true;
     }
 })();
 
 // 4. Send Email Queue
 echo "\n--- 4. Send Email Queue (E-posta Kuyruğu) ---\n";
-(function() use ($pdo, $config) {
+(function() use ($pdo, $config, &$cronHadIssues) {
     if (!eventsConfigBool($config, 'email_notifications_enabled') || !eventsConfigBool($config, 'email_queue_enabled')) {
         echo "Email notifications or queue disabled.\n";
         return;
@@ -140,15 +165,24 @@ echo "\n--- 4. Send Email Queue (E-posta Kuyruğu) ---\n";
                 $status = $retry >= $maxRetry ? 'failed' : 'pending';
                 $pdo->prepare("UPDATE events_email_queue SET status = ?, retry_count = ?, error_message = ?, updated_at = NOW() WHERE id = ?")->execute([$status, $retry, mb_substr($e->getMessage(), 0, 1000), (int)$row['id']]);
                 $failed++;
+                $cronHadIssues = true;
             }
         }
         echo "Emails sent: {$sent}, failed: {$failed}\n";
+        if ($failed > 0) {
+            $cronHadIssues = true;
+        }
     } catch (Throwable $e) {
         echo "Error: " . $e->getMessage() . "\n";
+        $cronHadIssues = true;
     }
 })();
 
-recordCronRun($pdo, 'events_master', 'success', ['status' => 'completed']);
+$cronRunStatus = $cronHadIssues ? 'warning' : 'success';
+$cronRunContext = ['status' => 'completed'];
+if (!$isCli && $cronRunStatus !== 'success') {
+    http_response_code(500);
+}
 
 echo "\n=================================\n";
 echo " Master Cron Completed.\n";

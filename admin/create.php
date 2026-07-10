@@ -117,6 +117,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $pdo->commit();
             seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_created', 'topic', $topicId, ['title' => $title]);
+            adminAuditLogger()->logAction($pdo, 'topic_created', 'topic', $topicId, 'Konu oluşturuldu', [], ['title' => $title], false);
 
             // Update leaderboard stats for author
             if ($authorId > 0 && file_exists(__DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php')) {

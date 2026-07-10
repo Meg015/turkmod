@@ -48,13 +48,6 @@ if ($stmt->rowCount() <= 0) {
     sendError('status_update_failed', 'Durum güncelleme sırasında bir hata oluştu.', 500);
 }
 
-logActivity($pdo, "user_status_changed", "user", $userId, [
-    "old_status" => $user['status'],
-    "new_status" => $newStatus,
-    "changed_by" => $currentUserId,
-    "reason" => $reason,
-]);
-
 adminAuditLogger()->logAction($pdo, 'status_change', 'user', $userId, $reason,
     ['status' => $user['status']], ['status' => $newStatus], true);
 

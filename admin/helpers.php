@@ -137,27 +137,27 @@ function adminRenderLogsSubtabs(string $active): void
 
     $items = [
         'activity' => [
-            'label' => 'Aktivite Logları',
+            'label' => 'Yönetici İşlem Günlüğü',
             'href' => '/admin/logs.php',
             'icon' => 'bi-journal-text',
             'permission' => 'logs.view',
         ],
+        'action' => [
+            'label' => 'Kullanıcı İşlem Günlüğü',
+            'href' => '/admin/action-log.php',
+            'icon' => 'bi-clock-history',
+            'permission' => 'logs.view',
+        ],
         'application' => [
-            'label' => 'Uygulama Loglari',
+            'label' => 'Uygulama Logları',
             'href' => '/admin/application-logs.php',
             'icon' => 'bi-journal-code',
             'permission' => 'logs.view',
         ],
         'cron' => [
-            'label' => 'Cron Loglari',
+            'label' => 'Cron Logları',
             'href' => '/admin/logs.php?view=cron',
             'icon' => 'bi-card-list',
-            'permission' => 'logs.view',
-        ],
-        'action' => [
-            'label' => 'İşlem Günlüğü',
-            'href' => '/admin/action-log.php',
-            'icon' => 'bi-clock-history',
             'permission' => 'logs.view',
         ],
         'rate_limits' => [
@@ -1280,6 +1280,13 @@ function adminSettingDefinitions(): array
             'section' => 'cron',
             'tooltip' => 'Tüm arka plan cron görevlerinin çalışmasına izin verir'
         ],
+        'cron_php_binary' => [
+            'label' => 'PHP CLI Yolu',
+            'type' => 'string',
+            'default' => '',
+            'section' => 'cron',
+            'tooltip' => 'Boş bırakılırsa otomatik olarak bulunan ilk uygun PHP CLI yolu kullanılır. Örn: /usr/bin/php8.2'
+        ],
         'cron_secret_key' => [
             'label' => 'Cron Güvenlik Anahtarı (Secret)',
             'type' => 'string',
@@ -2271,6 +2278,132 @@ function adminDropForeignKeysForColumn(PDO $pdo, string $table, string $column):
     }
 }
 
+if (!function_exists('adminCronPhpBinaryNormalizeValue')) {
+    function adminCronPhpBinaryNormalizeValue(string $value): string
+    {
+        $value = trim(str_replace(["\r", "\n"], '', $value));
+        if ($value === '') {
+            return '';
+        }
+
+        $normalized = function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+        $autoValues = [
+            'auto',
+            'automatic',
+            'default',
+            'php',
+            'otomatik',
+            'varsayilan',
+            'varsayılan',
+            'system',
+            'sistem',
+        ];
+        if (in_array($normalized, $autoValues, true)) {
+            return '';
+        }
+
+        return $value;
+    }
+}
+
+if (!function_exists('adminCronPhpBinaryIsAutoValue')) {
+    function adminCronPhpBinaryIsAutoValue(string $value): bool
+    {
+        return adminCronPhpBinaryNormalizeValue($value) === '';
+    }
+}
+
+if (!function_exists('adminCronPhpBinaryCandidates')) {
+    function adminCronPhpBinaryCandidates(): array
+    {
+        static $cache = null;
+        if (is_array($cache)) {
+            return $cache;
+        }
+
+        $candidates = [];
+        $seen = [];
+        $addCandidate = static function ($path) use (&$candidates, &$seen): void {
+            $path = trim(str_replace(["\r", "\n"], '', (string) $path));
+            if ($path === '') {
+                return;
+            }
+
+            $resolved = realpath($path);
+            if (is_string($resolved) && $resolved !== '') {
+                $path = $resolved;
+            }
+
+            $normalized = strtolower(str_replace('\\', '/', $path));
+            if (isset($seen[$normalized])) {
+                return;
+            }
+
+            if (!is_file($path)) {
+                return;
+            }
+
+            $basename = strtolower(basename($path));
+            if (!preg_match('/^php(?:[0-9.]+)?(?:-cli)?(?:\.exe)?$/i', $basename)) {
+                return;
+            }
+
+            if (
+                stripos($basename, 'cgi') !== false
+                || stripos($basename, 'fpm') !== false
+                || stripos($basename, 'dbg') !== false
+                || stripos($basename, 'config') !== false
+                || stripos($basename, 'ize') !== false
+            ) {
+                return;
+            }
+
+            if (function_exists('is_executable') && !is_executable($path)) {
+                return;
+            }
+
+            $seen[$normalized] = true;
+            $candidates[] = $path;
+        };
+
+        $patterns = [];
+        if (defined('PHP_BINARY')) {
+            $addCandidate(PHP_BINARY);
+        }
+        if (defined('PHP_BINDIR')) {
+            $bindir = rtrim(str_replace('\\', '/', (string) PHP_BINDIR), '/');
+            if ($bindir !== '') {
+                $patterns[] = $bindir . '/php*';
+            }
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $patterns = array_merge([
+                'C:/xampp/php/php*.exe',
+                'C:/php/php*.exe',
+                'C:/Program Files/PHP/php*.exe',
+                'C:/Program Files (x86)/PHP/php*.exe',
+            ], $patterns);
+        } else {
+            $patterns = array_merge([
+                '/usr/bin/php*',
+                '/usr/local/bin/php*',
+                '/opt/cpanel/ea-php*/root/usr/bin/php*',
+                '/opt/plesk/php/*/bin/php*',
+            ], $patterns);
+        }
+
+        foreach ($patterns as $pattern) {
+            foreach (glob($pattern, GLOB_NOSORT) ?: [] as $candidate) {
+                $addCandidate($candidate);
+            }
+        }
+
+        $cache = array_values($candidates);
+        return $cache;
+    }
+}
+
 function adminNormalizeSettingValue(string $key, string $value, array $definition): string
 {
     if ($key === 'site_language') {
@@ -2283,6 +2416,10 @@ function adminNormalizeSettingValue(string $key, string $value, array $definitio
 
     if ($key === 'sidebar_builder_config' && trim($value) !== '' && function_exists('sidebarBuilderSanitizeConfigJson')) {
         return sidebarBuilderSanitizeConfigJson($value);
+    }
+
+    if ($key === 'cron_php_binary') {
+        return adminCronPhpBinaryNormalizeValue($value);
     }
 
     if (($definition['type'] ?? '') === 'select' && isset($definition['options']) && is_array($definition['options'])) {

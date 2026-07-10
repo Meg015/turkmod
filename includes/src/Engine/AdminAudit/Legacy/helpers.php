@@ -206,7 +206,7 @@ if (!function_exists('adminGetActionLog')) {
 
             $sql = "SELECT l.*,
                            actor.username AS actor_name,
-                           target.name AS target_name
+                           target.username AS target_name
                     FROM admin_action_log l
                     LEFT JOIN users actor ON actor.id = l.actor_id
                     LEFT JOIN users target ON target.id = l.target_id AND l.target_type = 'user'
@@ -406,21 +406,86 @@ if (!function_exists('adminActionLabel')) {
     function adminActionLabel(string $actionType): string
     {
         $map = [
-            'group_change'         => 'Grup Değişimi',
-            'group_change_revert'  => 'Grup Değişimi (Geri Alındı)',
-            'status_change'        => 'Durum Değişimi',
-            'status_change_revert' => 'Durum Değişimi (Geri Alındı)',
-            'ban'                  => 'Yasaklama',
-            'ban_revert'           => 'Yasaklama (Geri Alındı)',
-            'unban'                => 'Yasak Kaldırma',
-            'unban_revert'         => 'Yasak Kaldırma (Geri Alındı)',
-            'restrict'             => 'Kısıtlama',
-            'delete'               => 'Silme',
-            'activity_logs_cleared' => 'Aktivite Logları Temizlendi',
-            'application_logs_cleared' => 'Uygulama Loglari Temizlendi',
-            'rate_limit_records_deleted' => 'Rate Limit Kayıtları Temizlendi',
+            'group_change'                => 'Grup Değişimi',
+            'group_change_revert'         => 'Grup Değişimi (Geri Alındı)',
+            'status_change'               => 'Durum Değişimi',
+            'status_change_revert'        => 'Durum Değişimi (Geri Alındı)',
+            'ban'                         => 'Yasaklama',
+            'ban_revert'                  => 'Yasaklama (Geri Alındı)',
+            'unban'                       => 'Yasak Kaldırma',
+            'unban_revert'                => 'Yasak Kaldırma (Geri Alındı)',
+            'restrict'                    => 'Kısıtlama',
+            'delete'                      => 'Silme',
+            'group_save'                  => 'Grup Kaydedildi',
+            'group_deactivate'            => 'Grup Pasife Alındı',
+            'settings_updated'            => 'Ayarlar Güncellendi',
+            'admin_user_updated'          => 'Kullanıcı Güncellendi',
+            'topic_settings_updated'      => 'Konu Ayarları Güncellendi',
+            'topic_created'               => 'Konu Oluşturuldu',
+            'topic_updated'               => 'Konu Güncellendi',
+            'topic_deleted'               => 'Konu Silindi',
+            'topic_deleted_permanently'   => 'Konu Kalıcı Silindi',
+            'topic_restored'              => 'Konu Geri Yüklendi',
+            'topic_approved'              => 'Konu Onaylandı',
+            'topic_user_edited'           => 'Konu Düzenlendi',
+            'topic_bulk_publish'          => 'Toplu Konu Yayınlandı',
+            'topic_bulk_unpublish'        => 'Toplu Konu Taslağa Alındı',
+            'topic_bulk_draft'            => 'Toplu Konu Taslağa Alındı',
+            'topic_bulk_delete'           => 'Toplu Konu Silindi',
+            'topic_bulk_purge'            => 'Toplu Konu Kalıcı Silindi',
+            'topic_bulk_restore'          => 'Toplu Konu Geri Yüklendi',
+            'topic_revision_restored'     => 'Konu Revizyonu Geri Yüklendi',
+            'topic_moderated'             => 'Konu Moderasyonu',
+            'topic_health_scan_completed' => 'Konu Sağlığı Taraması Tamamlandı',
+            'topic_health_cleared'        => 'Konu Sağlığı Temizlendi',
+            'download_link_checked'       => 'İndirme Linki Kontrol Edildi',
+            'category_created'            => 'Kategori Oluşturuldu',
+            'category_updated'            => 'Kategori Güncellendi',
+            'category_deleted'            => 'Kategori Silindi',
+            'media_uploaded'              => 'Medya Yüklendi',
+            'media_deleted'               => 'Medya Silindi',
+            'leaderboard_recalculated'    => 'Liderlik Yeniden Hesaplandı',
+            'leaderboard_cache_cleared'   => 'Liderlik Önbelleği Temizlendi',
+            'leaderboard_settings_updated'=> 'Liderlik Ayarları Güncellendi',
+            'cron_manual_triggered'       => 'Cron Manuel Çalıştırıldı',
+            'cron_logs_cleared'           => 'Cron Logları Temizlendi',
+            'bot_import_published'        => 'Bot İçeriği Yayınlandı',
+            'activity_logs_cleared'       => 'Aktivite Logları Temizlendi',
+            'application_logs_cleared'    => 'Uygulama Logları Temizlendi',
+            'admin_action_log_cleared'    => 'Yönetici İşlem Günlüğü Temizlendi',
+            'rate_limit_records_deleted'  => 'Rate Limit Kayıtları Temizlendi',
         ];
         return $map[$actionType] ?? $actionType;
+    }
+}
+
+if (!function_exists('adminClearActionLog')) {
+    function adminClearActionLog(PDO $pdo, string $scope = 'older_than_30_days'): int
+    {
+        if (!$pdo) {
+            return 0;
+        }
+
+        ensureAdminActionLogTable($pdo);
+        $scope = trim($scope);
+
+        try {
+            if ($scope === 'all') {
+                $count = (int) $pdo->query('SELECT COUNT(*) FROM admin_action_log')->fetchColumn();
+                $pdo->exec('TRUNCATE TABLE admin_action_log');
+                return $count;
+            }
+
+            $cutoff = (new DateTimeImmutable())->modify('-30 days')->format('Y-m-d H:i:s');
+            $stmt = $pdo->prepare('DELETE FROM admin_action_log WHERE created_at IS NOT NULL AND created_at < :cutoff');
+            $stmt->execute(['cutoff' => $cutoff]);
+            return max(0, (int) $stmt->rowCount());
+        } catch (Throwable $e) {
+            if (function_exists('appLogException')) {
+                appLogException($e, ['source' => 'adminClearActionLog', 'scope' => $scope]);
+            }
+            return 0;
+        }
     }
 }
 

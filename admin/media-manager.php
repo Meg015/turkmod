@@ -99,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'upload') {
 
     if ($result['uploaded'] > 0) {
         logActivity($pdo, 'media_uploaded', 'media', null, ['count' => $result['uploaded'], 'path' => $targetPath]);
+        adminAuditLogger()->logAction($pdo, 'media_uploaded', 'media', 0, 'Medya yüklendi', [], ['count' => $result['uploaded'], 'path' => $targetPath], false);
         flash('success', $result['uploaded'] . ' dosya başarıyla yüklendi.' . (!empty($result['errors']) ? ' (' . count($result['errors']) . ' hata)' : ''));
         if (is_file($cacheFile)) {
             unlink($cacheFile);
@@ -218,6 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete') {
 
     if (mediaDeleteFile($pdo, $uploadBase, (string) ($_POST['file_path'] ?? ''))) {
         logActivity($pdo, 'media_deleted', 'media', null, ['file_path' => (string) ($_POST['file_path'] ?? '')]);
+        adminAuditLogger()->logAction($pdo, 'media_deleted', 'media', 0, 'Medya silindi', [], ['file_path' => (string) ($_POST['file_path'] ?? '')], false);
         flash('success', 'Dosya silindi.');
         if (is_file($cacheFile)) {
             unlink($cacheFile);
@@ -548,4 +550,3 @@ $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $medi
 <script src="<?= asset_url('admin/assets/media-manager-page.js', $baseUri) ?>" defer></script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
-

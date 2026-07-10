@@ -52,8 +52,29 @@ if (!$isCli) {
     header('Content-Type: text/plain; charset=utf-8');
 }
 
+$cronRunStatus = 'error';
+$cronRunContext = ['reason' => 'cron_not_completed'];
+$cronRunLogged = false;
+$cronPdo = $pdo ?? null;
+register_shutdown_function(static function () use (&$cronRunLogged, &$cronRunStatus, &$cronRunContext, &$cronPdo): void {
+    if ($cronRunLogged || !($cronPdo instanceof PDO) || !function_exists('recordCronRun')) {
+        return;
+    }
+
+    $cronRunLogged = true;
+    recordCronRun($cronPdo, 'leaderboard_cache', $cronRunStatus, $cronRunContext);
+});
+
 if (!$isCli) {
     if (!isset($_GET['period'])) {
+        $cronRunStatus = 'error';
+        $cronRunContext = [
+            'reason' => 'missing_period',
+            'periods_input' => null,
+        ];
+        if (!$isCli) {
+            http_response_code(422);
+        }
         echo "Error: period parameter is required.\n\n";
         exit(1);
     }
@@ -73,6 +94,11 @@ if (!$isCli) {
 
     // Validate required parameters
     if (!isset($options['period'])) {
+        $cronRunStatus = 'error';
+        $cronRunContext = [
+            'reason' => 'missing_period',
+            'periods_input' => null,
+        ];
         echo "Error: --period parameter is required.\n\n";
         showHelp();
         exit(1);
@@ -97,6 +123,15 @@ if ($periodsInput === 'all') {
     $periods = array_map('trim', explode(',', $periodsInput));
     foreach ($periods as $period) {
         if (!in_array($period, $validPeriods, true)) {
+            $cronRunStatus = 'error';
+            $cronRunContext = [
+                'reason' => 'invalid_period',
+                'invalid_period' => $period,
+                'periods_input' => $periodsInput,
+            ];
+            if (!$isCli) {
+                http_response_code(422);
+            }
             echo "Error: Invalid period '{$period}'. Valid periods: " . implode(', ', $validPeriods) . ", all\n";
             exit(1);
         }
@@ -111,6 +146,15 @@ if ($categoryInput === 'all') {
     $categories = array_map('trim', explode(',', $categoryInput));
     foreach ($categories as $category) {
         if (!in_array($category, $validCategories, true)) {
+            $cronRunStatus = 'error';
+            $cronRunContext = [
+                'reason' => 'invalid_category',
+                'invalid_category' => $category,
+                'category_input' => $categoryInput,
+            ];
+            if (!$isCli) {
+                http_response_code(422);
+            }
             echo "Error: Invalid category '{$category}'. Valid categories: " . implode(', ', $validCategories) . ", all\n";
             exit(1);
         }
@@ -221,7 +265,8 @@ echo "\n===========================================\n";
 echo "Completed: " . date('Y-m-d H:i:s') . "\n";
 echo "===========================================\n";
 
-recordCronRun($pdo, 'leaderboard_cache', count($errors) > 0 ? 'error' : 'success', [
+$cronRunStatus = count($errors) > 0 ? 'error' : 'success';
+$cronRunContext = [
     'periods' => $periods,
     'categories' => $categories,
     'dry_run' => $dryRun,
@@ -230,7 +275,10 @@ recordCronRun($pdo, 'leaderboard_cache', count($errors) > 0 ? 'error' : 'success
     'total_affected_users' => $totalAffectedUsers,
     'execution_time_ms' => $totalExecutionTime,
     'errors' => $errors,
-]);
+];
+if (!$isCli && count($errors) > 0) {
+    http_response_code(500);
+}
 
 // Exit with appropriate code
 exit(count($errors) > 0 ? 1 : 0);

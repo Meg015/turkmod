@@ -47,6 +47,14 @@ try {
             'actor_id' => $currentUserId,
         ]);
     }
+    if ($done && function_exists('adminAuditLogger')) {
+        adminAuditLogger()->logAction($pdo, 'topic_health_scan_completed', 'topic', 0, 'Konu sağlığı taraması tamamlandı', [], [
+            'total' => $total,
+            'offset' => $offset,
+            'processed' => min($processed, $total),
+            'batch_size' => $batchSize,
+        ], false);
+    }
 
     sendSuccess('Topic health scan batch completed.', [
         'total' => $total,

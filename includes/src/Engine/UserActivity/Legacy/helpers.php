@@ -256,6 +256,128 @@ if (!function_exists('userActivityGroupLabels')) {
     }
 }
 
+if (!function_exists('userActivityHiddenEventTypes')) {
+    function userActivityHiddenEventTypes(): array
+    {
+        return [
+            'admin_user_updated',
+            'group_save',
+            'group_deactivate',
+            'user_group_changed',
+            'user_status_changed',
+            'user_banned',
+            'user_unbanned',
+            'user_restricted',
+            'user_restriction_removed',
+            'user_restrictions_cleared',
+            'user_admin_note_added',
+            'settings_updated',
+            'topic_settings_updated',
+            'topic_moderated',
+            'topic_revision_restored',
+            'topic_health_scan_completed',
+            'topic_health_cleared',
+            'download_link_checked',
+            'category_created',
+            'category_updated',
+            'category_deleted',
+            'media_uploaded',
+            'media_deleted',
+            'leaderboard_recalculated',
+            'leaderboard_cache_cleared',
+            'leaderboard_settings_updated',
+            'action_logs_cleared',
+            'cron_logs_cleared',
+            'application_logs_cleared',
+            'activity_logs_cleared',
+            'rate_limit_records_deleted',
+            'cron_manual_triggered',
+            'bot_import_published',
+        ];
+    }
+}
+
+if (!function_exists('userActivityAdminActorSql')) {
+    function userActivityAdminActorSql(string $alias = 'e'): string
+    {
+        $actorColumn = $alias . '.actor_user_id';
+
+        return "NOT EXISTS (
+            SELECT 1
+            FROM user_group_members ugm
+            INNER JOIN user_groups ug ON ug.id = ugm.group_id
+            LEFT JOIN user_group_permissions ugp
+                ON ugp.group_id = ug.id
+               AND ugp.permission_value = 1
+               AND ugp.permission_key IN ('*', 'admin.access')
+            WHERE ugm.user_id = {$actorColumn}
+              AND ug.is_active = 1
+              AND (ug.slug = 'admin' OR ugp.permission_key IS NOT NULL)
+        )";
+    }
+}
+
+if (!function_exists('userActivityVisibleSql')) {
+    function userActivityVisibleSql(string $alias = 'e'): string
+    {
+        $hiddenTypes = userActivityHiddenEventTypes();
+
+        $hiddenTypeSql = "'" . implode("','", array_map(
+            static fn (string $type): string => str_replace("'", "''", $type),
+            $hiddenTypes
+        )) . "'";
+
+        return "("
+            . "{$alias}.event_group NOT IN ('admin', 'moderation')"
+            . " AND {$alias}.event_type NOT IN ({$hiddenTypeSql})"
+            . " AND {$alias}.event_type NOT LIKE 'topic_bulk_%'"
+            . " AND " . userActivityAdminActorSql($alias)
+            . ")";
+    }
+}
+
+if (!function_exists('userActivityClear')) {
+    function userActivityClear(PDO $pdo, string $scope = 'all', ?int $userId = null): int
+    {
+        if (!$pdo) {
+            return 0;
+        }
+
+        try {
+            userActivityEnsureSchema($pdo);
+            $scope = trim($scope);
+
+            if ($scope === 'all') {
+                $count = (int) $pdo->query('SELECT COUNT(*) FROM user_activity_events')->fetchColumn();
+                $pdo->exec('TRUNCATE TABLE user_activity_events');
+                return $count;
+            }
+
+            $where = [];
+            $params = [];
+
+            if ($scope === 'user' && $userId !== null && $userId > 0) {
+                $where[] = 'user_id = :user_id';
+                $params['user_id'] = $userId;
+            } elseif ($scope === 'older_than_30_days') {
+                $where[] = 'created_at < :cutoff';
+                $params['cutoff'] = (new DateTimeImmutable())->modify('-30 days')->format('Y-m-d H:i:s');
+            } else {
+                return 0;
+            }
+
+            $stmt = $pdo->prepare('DELETE FROM user_activity_events WHERE ' . implode(' AND ', $where));
+            $stmt->execute($params);
+            return max(0, (int) $stmt->rowCount());
+        } catch (Throwable $e) {
+            if (function_exists('appLogException')) {
+                appLogException($e, ['source' => 'userActivityClear', 'scope' => $scope, 'user_id' => $userId]);
+            }
+            return 0;
+        }
+    }
+}
+
 if (!function_exists('userActivityLog')) {
     function userActivityLog(
         ?PDO $pdo,
@@ -284,6 +406,45 @@ if (!function_exists('userActivityLog')) {
             }
             if ($title === '') {
                 $title = userActivityEventLabel($eventType);
+            }
+
+            $userSnapshotCache = [];
+            $resolveUserSnapshot = static function (?int $id) use ($pdo, &$userSnapshotCache): array {
+                if ($id === null || $id <= 0) {
+                    return [];
+                }
+                if (array_key_exists($id, $userSnapshotCache)) {
+                    return $userSnapshotCache[$id];
+                }
+
+                try {
+                    $stmt = $pdo->prepare('SELECT username, email FROM users WHERE id = :id LIMIT 1');
+                    $stmt->execute(['id' => $id]);
+                    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                    $userSnapshotCache[$id] = [
+                        'name' => trim((string) ($row['username'] ?? '')),
+                        'email' => trim((string) ($row['email'] ?? '')),
+                    ];
+                } catch (Throwable $e) {
+                    $userSnapshotCache[$id] = [];
+                }
+
+                return $userSnapshotCache[$id];
+            };
+
+            $targetSnapshot = $resolveUserSnapshot($userId);
+            if (!empty($targetSnapshot['name'])) {
+                $metadata['user_name_snapshot'] = $targetSnapshot['name'];
+            }
+            if (!empty($targetSnapshot['email'])) {
+                $metadata['user_email_snapshot'] = $targetSnapshot['email'];
+            }
+            $actorSnapshot = $resolveUserSnapshot($actorUserId);
+            if (!empty($actorSnapshot['name'])) {
+                $metadata['actor_name_snapshot'] = $actorSnapshot['name'];
+            }
+            if (!empty($actorSnapshot['email'])) {
+                $metadata['actor_email_snapshot'] = $actorSnapshot['email'];
             }
 
             $stmt = $pdo->prepare("INSERT INTO user_activity_events
@@ -356,6 +517,8 @@ if (!function_exists('userActivityBuildFilters')) {
             $where[] = "{$alias}.created_at < :date_to";
             $params['date_to'] = date('Y-m-d H:i:s', strtotime((string) $filters['date_to'] . ' +1 day'));
         }
+
+        $where[] = userActivityVisibleSql($alias);
 
         return [implode(' AND ', $where), $params];
     }

@@ -17,8 +17,28 @@ if (PHP_SAPI !== 'cli') {
     die("This script can only be run from the command line.");
 }
 
+$cronRunStatus = 'error';
+$cronRunContext = ['reason' => 'cron_not_completed'];
+$cronRunLogged = false;
+$cronPdo = $pdo ?? null;
+
 $pdo = \App\Core\Database::connection();
+if ($pdo instanceof PDO) {
+    $cronPdo = $pdo;
+}
+
+register_shutdown_function(static function () use (&$cronRunLogged, &$cronRunStatus, &$cronRunContext, &$cronPdo): void {
+    if ($cronRunLogged || !($cronPdo instanceof PDO) || !function_exists('recordCronRun')) {
+        return;
+    }
+
+    $cronRunLogged = true;
+    recordCronRun($cronPdo, 'cleanup_deleted', $cronRunStatus, $cronRunContext);
+});
+
 if (!$pdo) {
+    $cronRunStatus = 'error';
+    $cronRunContext = ['reason' => 'database_connection_unavailable'];
     die("Database connection failed.\n");
 }
 
@@ -55,17 +75,20 @@ try {
 
     echo "Cleanup finished successfully.\n";
 
-    if (function_exists('recordCronRun')) {
-        recordCronRun($pdo, 'cleanup_deleted', 'success', [
-            'deleted_topics' => $deletedTopics,
-            'deleted_notifications' => $deletedReadNotifications
-        ]);
-    }
+    $cronRunStatus = 'success';
+    $cronRunContext = [
+        'deleted_topics' => $deletedTopics,
+        'deleted_notifications' => $deletedReadNotifications
+    ];
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    $cronRunStatus = 'error';
+    $cronRunContext = [
+        'error' => $e->getMessage(),
+    ];
     echo "Error during cleanup: " . $e->getMessage() . "\n";
     if (function_exists('appLogException')) {
         appLogException($e, ['source' => 'cron_cleanup_deleted']);

@@ -33,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             $_POST['_sections'] = 'topic_management';
             saveAdminSettings($pdo, $_POST);
             logActivity($pdo, 'topic_settings_updated', 'settings', null, ['section' => 'topic_management']);
+            adminAuditLogger()->logAction($pdo, 'topic_settings_updated', 'settings', 0, 'Konu yönetimi ayarları güncellendi', [], ['section' => 'topic_management'], false);
             flash('success', 'Konu yönetimi ayarları kaydedildi.');
         } catch (Throwable $e) {
             flash('error', 'Konu yönetimi ayarları kaydedilemedi: ' . safeErrorMessage($e));
@@ -174,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         if ($action !== '') {
             seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_bulk_' . $action, 'topic', null, ['count' => count($selectedIds)]);
+            adminAuditLogger()->logAction($pdo, 'topic_bulk_' . $action, 'topic', 0, 'Toplu konu işlemi', [], ['action' => $action, 'count' => count($selectedIds)], false);
         }
     } catch (Throwable $e) {
         flash('error', 'Toplu işlem başarısız: ' . safeErrorMessage($e));

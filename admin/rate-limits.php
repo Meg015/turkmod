@@ -201,32 +201,41 @@ require_once __DIR__ . '/header.php';
 ?>
 <?php adminRenderLogsSubtabs('rate_limits'); ?>
 
-<div class="rate-limit-page">
+<div class="logs-page rate-limit-page">
+    <section class="ui-admin-page-hero">
+        <div class="ui-admin-page-hero-text">
+            <span class="ui-admin-kicker"><i class="bi bi-speedometer2"></i> Erişim sınırları</span>
+            <h2>Rate Limit İzleme</h2>
+            <p>Giriş, kayıt ve API limitlerini tek akışta izleyin; süresi dolan kayıtları topluca temizleyin.</p>
+        </div>
+    </section>
 
     <!-- İstatistik Kartları -->
     <section class="rate-limit-hero" aria-label="Rate limit özeti ve filtreler">
-        <div class="admin-stat-grid rate-limit-summary ui-grid">
-            <div class="admin-stat-card stat-info rate-limit-stat ui-card">
+        <div class="admin-stat-grid logs-summary rate-limit-summary ui-grid">
+            <div class="admin-stat-card stat-info logs-stat rate-limit-stat ui-card">
                 <div class="stat-icon"><i class="bi bi-collection"></i></div>
                 <div class="stat-content"><span class="stat-label">Toplam Kayıt</span><span class="stat-value"><?= number_format($stats['total']) ?></span></div>
             </div>
-            <div class="admin-stat-card stat-success rate-limit-stat ui-card">
+            <div class="admin-stat-card stat-success logs-stat rate-limit-stat ui-card">
                 <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
                 <div class="stat-content"><span class="stat-label">Aktif</span><span class="stat-value"><?= number_format($stats['active']) ?></span></div>
             </div>
-            <div class="admin-stat-card stat-warning rate-limit-stat ui-card">
+            <div class="admin-stat-card stat-warning logs-stat rate-limit-stat ui-card">
                 <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
                 <div class="stat-content"><span class="stat-label">Süresi Dolmuş</span><span class="stat-value"><?= number_format($stats['expired']) ?></span></div>
             </div>
-            <div class="admin-stat-card stat-danger rate-limit-stat ui-card">
+            <div class="admin-stat-card stat-danger logs-stat rate-limit-stat ui-card">
                 <div class="stat-icon"><i class="bi bi-unlock-fill"></i></div>
                 <div class="stat-content"><span class="stat-label">Login Kilidi</span><span class="stat-value"><?= number_format($stats['login_active']) ?></span></div>
             </div>
         </div>
+    </section>
 
-        <!-- Filtre ve Araçlar -->
-        <div class="rate-limit-toolbar">
-            <form class="rate-limit-search" method="get" action="rate-limits.php">
+    <!-- Filtre ve Araçlar -->
+    <div class="admin-card logs-toolbar-card ui-panel">
+        <div class="card-body ui-admin-card-compact ui-panel__body ui-card rate-limit-toolbar logs-toolbar-shell">
+            <form class="rate-limit-search logs-filter-form ui-admin-filter-row" method="get" action="rate-limits.php">
                 <input type="text" name="q" class="ui-admin-form-control" placeholder="Anahtar, IP veya tür ara..." value="<?= htmlspecialchars($search) ?>">
                 <select name="status" class="ui-admin-form-select">
                     <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>Tümü (önerilen)</option>
@@ -238,34 +247,34 @@ require_once __DIR__ . '/header.php';
                     <a href="rate-limits.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-lg"></i> Temizle</a>
                 <?php endif; ?>
             </form>
-            <div class="rate-limit-actions">
+            <div class="rate-limit-actions logs-toolbar-actions">
                 <form method="post" action="rate-limits.php" data-admin-confirm="Süresi dolmuş kayıtlar silinsin mi?" data-admin-confirm-title="Dolan kayıtları sil" data-admin-confirm-ok="Sil" data-admin-confirm-tone="warning">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="clear_expired">
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-hourglass-split"></i> Dolanları Sil</button>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs"><i class="bi bi-hourglass-split"></i> Dolanları Sil</button>
                 </form>
                 <form method="post" action="rate-limits.php" data-admin-confirm="Tüm login rate limit kayıtları silinsin mi?" data-admin-confirm-title="Login kilitlerini temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="clear_login">
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-sm"><i class="bi bi-unlock"></i> Login Kilitlerini Temizle</button>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-xs"><i class="bi bi-unlock"></i> Login Kilitlerini Temizle</button>
                 </form>
                 <form method="post" action="rate-limits.php" data-admin-confirm="Tüm rate limit kayıtları silinsin mi? Bu işlem geri alınamaz!" data-admin-confirm-title="Tüm kayıtları sil" data-admin-confirm-ok="Tümünü Sil" data-admin-confirm-tone="danger">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="clear_all">
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm"><i class="bi bi-trash"></i> Tümünü Sil</button>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Tümünü Sil</button>
                 </form>
             </div>
         </div>
-    </section>
+    </div>
 
     <!-- Kayıt Listesi -->
     <form method="post" action="rate-limits.php" id="rateLimitBulkForm" data-admin-confirm="Seçili kayıtlar silinsin mi?" data-admin-confirm-title="Seçili kayıtları sil" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="delete_selected">
-        <div class="admin-card rate-limit-card ui-panel">
-            <div class="card-header rate-limit-list-head ui-panel__head">
+        <div class="admin-card rate-limit-card logs-list-card ui-panel">
+            <div class="card-header rate-limit-list-head ui-panel__head logs-list-head">
                 <strong class="rate-limit-list-title"><i class="bi bi-speedometer2"></i> Rate Limit Kayıtları</strong>
-                <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm"><i class="bi bi-trash"></i> Seçilileri Sil</button>
+                <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Seçilileri Sil</button>
             </div>
             <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
                 <?php if (empty($items)): ?>

@@ -31,8 +31,9 @@ if (!in_array($activeTab, $tabs, true)) {
     $activeTab = 'users';
 }
 
-$canViewUsers = userHasPermission($pdo, $currentUserId, 'users.view');
-$canViewGroups = userHasPermission($pdo, $currentUserId, 'groups.view');
+$canViewUsers = userHasPermission($pdo, $currentUserId, 'users.view');
+$canViewGroups = userHasPermission($pdo, $currentUserId, 'groups.view');
+$canManageLogs = userHasPermission($pdo, $currentUserId, 'logs.manage');
 
 if ($activeTab === 'users' && !$canViewUsers) {
     if ($canViewGroups) {
@@ -136,15 +137,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $respond($error === '', $error === '' ? 'Grup pasife alindi.' : $error, ['group_id' => $groupId]);
                 break;
 
-            case 'save_user':
-                $error = usersUpdateProfile($pdo, $userId, $_POST, $currentUserId, $validGroupIds);
-                if ($error === '' && function_exists('userActivityLog')) {
-                    userActivityLog($pdo, $userId, 'admin_user_updated', 'admin', 'user', $userId, 'Admin kullanici bilgilerini guncelledi', [
-                        'fields' => array_values(array_intersect(array_keys($_POST), ['username', 'email', 'group_id', 'status', 'bio', 'website', 'location', 'social_github', 'social_twitter', 'social_discord'])),
-                    ], $currentUserId);
-                }
-                $respond($error === '', $error === '' ? 'Kullanıcı bilgileri güncellendi.' : $error);
-                break;
+            case 'save_user':
+                $error = usersUpdateProfile($pdo, $userId, $_POST, $currentUserId, $validGroupIds);
+                if ($error === '') {
+                    adminAuditLogger()->logAction(
+                        $pdo,
+                        'admin_updated_user',
+                        'user',
+                        $userId,
+                        'Kullanici bilgileri guncellendi',
+                        [],
+                        [
+                            'fields' => array_values(array_intersect(array_keys($_POST), ['username', 'email', 'group_id', 'status', 'bio', 'website', 'location', 'social_github', 'social_twitter', 'social_discord'])),
+                        ],
+                        false
+                    );
+                }
+                $respond($error === '', $error === '' ? 'Kullanıcı bilgileri güncellendi.' : $error);
+                break;
 
             case 'change_group':
                 $reason = trim((string)($_POST['reason'] ?? ''));
@@ -153,19 +163,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $oldGroupIds = function_exists('usersUserGroupIds') ? usersUserGroupIds($pdo, $userId) : [];
                 $newGroupId = (int)($_POST['new_group_id'] ?? 0);
-                $error = usersChangeGroup($pdo, $userId, $newGroupId, $currentUserId, $validGroupIds);
-                if ($error === '') {
-                    adminAuditLogger()->logAction($pdo, 'group_change', 'user', $userId, $reason,
-                        ['group_ids' => $oldGroupIds], ['group_id' => $newGroupId], true);
-                    userActivityLog($pdo, $userId, 'user_group_changed', 'admin', 'user', $userId, 'Kullanici grubu guncellendi', [
-                        'old_group_ids' => $oldGroupIds,
-                        'new_group_id' => $newGroupId,
-                        'reason' => $reason,
-                    ], $currentUserId);
-                    usersDispatchAccountNotification($pdo, 'user_group_changed', $userId, $currentUserId, 'Hesap grubunuz yonetim tarafindan guncellendi. Gerekce: ' . $reason, 'info');
-                }
-                $respond($error === '', $error === '' ? 'Kullanici grubu guncellendi.' : $error);
-                break;
+                $error = usersChangeGroup($pdo, $userId, $newGroupId, $currentUserId, $validGroupIds);
+                if ($error === '') {
+                    adminAuditLogger()->logAction($pdo, 'group_change', 'user', $userId, $reason,
+                        ['group_ids' => $oldGroupIds], ['group_id' => $newGroupId], true);
+                    usersDispatchAccountNotification($pdo, 'user_group_changed', $userId, $currentUserId, 'Hesap grubunuz yonetim tarafindan guncellendi. Gerekce: ' . $reason, 'info');
+                }
+                $respond($error === '', $error === '' ? 'Kullanici grubu guncellendi.' : $error);
+                break;
 
             case 'toggle_status':
                 $reason = trim((string)($_POST['reason'] ?? ''));
@@ -176,75 +181,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $oldStatusStmt->execute([$userId]);
                 $oldStatus = (string)($oldStatusStmt->fetchColumn() ?: '');
                 $newStatus = ((string)($_POST['new_status'] ?? '') === 'active') ? 'active' : 'inactive';
-                ($newStatus === 'active') ? usersActivate($pdo, $userId) : usersDeactivate($pdo, $userId);
-                adminAuditLogger()->logAction($pdo, 'status_change', 'user', $userId, $reason,
-                    ['status' => $oldStatus], ['status' => $newStatus], true);
-                userActivityLog($pdo, $userId, 'user_status_changed', 'admin', 'user', $userId, 'Kullanici durumu guncellendi', [
-                    'old_status' => $oldStatus,
-                    'new_status' => $newStatus,
-                    'reason' => $reason,
-                ], $currentUserId);
-                $statusLabels = ['active' => 'Aktif', 'inactive' => 'Pasif'];
-                $newStatusLabel = $statusLabels[$newStatus] ?? $newStatus;
-                usersDispatchAccountNotification($pdo, 'user_status_changed', $userId, $currentUserId, 'Hesap durumunuz "' . $newStatusLabel . '" olarak guncellendi. Gerekce: ' . $reason, 'info');
-                $respond(true, 'Kullanıcı durumu güncellendi.');
+                ($newStatus === 'active') ? usersActivate($pdo, $userId) : usersDeactivate($pdo, $userId);
+                adminAuditLogger()->logAction($pdo, 'status_change', 'user', $userId, $reason,
+                    ['status' => $oldStatus], ['status' => $newStatus], true);
+                $statusLabels = ['active' => 'Aktif', 'inactive' => 'Pasif'];
+                $newStatusLabel = $statusLabels[$newStatus] ?? $newStatus;
+                usersDispatchAccountNotification($pdo, 'user_status_changed', $userId, $currentUserId, 'Hesap durumunuz "' . $newStatusLabel . '" olarak guncellendi. Gerekce: ' . $reason, 'info');
+                $respond(true, 'Kullanıcı durumu güncellendi.');
                 break;
 
-            case 'clear_activity_logs':
-                $scope = (string)($_POST['scope'] ?? '');
-                $targetUserId = (int)($_POST['target_user_id'] ?? 0);
-                $where = [];
-                $params = [];
-                
-                if ($scope === 'user' && $targetUserId > 0) {
-                    $where[] = "user_id = ?";
-                    $params[] = $targetUserId;
-                } elseif ($scope === 'older_than_30_days') {
-                    $where[] = "created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)";
-                } elseif ($scope === 'all') {
-                    // Tüm kayıtları temizle
-                } else {
-                    $respond(false, 'Geçersiz temizleme kapsamı.');
-                    break;
-                }
-                
-                if ($scope === 'all') {
-                    $deletedCount = $pdo->query("SELECT COUNT(*) FROM user_activity_events")->fetchColumn();
-                    $pdo->exec("TRUNCATE TABLE user_activity_events");
-                } else {
-                    $sql = "DELETE FROM user_activity_events" . (!empty($where) ? " WHERE " . implode(' AND ', $where) : "");
-                    $stmt = $pdo->prepare($sql);
-                    $stmt->execute($params);
-                    $deletedCount = $stmt->rowCount();
-                }
-                
-                if (function_exists('adminLogAction') && $scope !== 'all') {
-                    $scopeMap = [
-                        'all' => 'Tümü',
-                        'older_than_30_days' => '30 Günden Eskiler',
-                        'user' => 'Belirli Kullanıcı'
-                    ];
-                    $scopeName = $scopeMap[$scope] ?? $scope;
-                    adminAuditLogger()->logAction($pdo, 'activity_logs_cleared', 'system', 0, "Kapsam: $scopeName, Silinen: $deletedCount", [], [], true);
-                }
-                $respond(true, "Tebrikler, $deletedCount adet kayıt hiçbir kalıntı bırakılmadan temizlendi ve sayaçlar sıfırlandı!");
-                break;
+            case 'clear_activity_logs':
+                if (!$canManageLogs) {
+                    $respond(false, 'Bu işlemi yapma yetkiniz yok.');
+                    break;
+                }
+
+                $scope = (string)($_POST['scope'] ?? '');
+                $targetUserId = (int)($_POST['target_user_id'] ?? 0);
+
+                if ($scope === 'user' && $targetUserId <= 0) {
+                    $respond(false, 'Geçersiz temizleme kapsamı.');
+                    break;
+                }
+                if (!in_array($scope, ['user', 'older_than_30_days', 'all'], true)) {
+                    $respond(false, 'Geçersiz temizleme kapsamı.');
+                    break;
+                }
+
+                $deletedCount = function_exists('userActivityClear')
+                    ? userActivityClear($pdo, $scope, $targetUserId > 0 ? $targetUserId : null)
+                    : 0;
+
+                if (function_exists('adminLogAction')) {
+                    $scopeMap = [
+                        'all' => 'Tümü',
+                        'older_than_30_days' => '30 Günden Eskiler',
+                        'user' => 'Belirli Kullanıcı',
+                    ];
+                    $scopeName = $scopeMap[$scope] ?? $scope;
+                    adminAuditLogger()->logAction($pdo, 'activity_logs_cleared', 'system', 0, "Kapsam: $scopeName, Silinen: $deletedCount", [], [], true);
+                }
+                $respond(true, "Tebrikler, $deletedCount adet kayıt hiçbir kalıntı bırakılmadan temizlendi ve sayaçlar sıfırlandı!");
+                break;
 
             case 'ban':
-                if ($userId === $currentUserId) {
-                    $respond(false, 'Kendi hesabınızı banlayamazsınız.');
-                }
-                $reason = trim((string)($_POST['ban_reason'] ?? ($_POST['reason'] ?? '')));
-                if ($reason === '') {
-                    $respond(false, 'Yasaklama için gerekçe zorunludur.');
-                }
-                usersBan($pdo, $userId, $reason);
-                adminAuditLogger()->logAction($pdo, 'ban', 'user', $userId, $reason,
-                    ['is_banned' => 0], ['is_banned' => 1], true);
-                userActivityLog($pdo, $userId, 'user_banned', 'moderation', 'user', $userId, 'Kullanici banlandi', [
-                    'reason' => $reason,
-                    'message' => trim((string)($_POST['ban_message'] ?? '')),
-                ], $currentUserId);
+                if ($userId === $currentUserId) {
+                    $respond(false, 'Kendi hesabınızı banlayamazsınız.');
+                }
+                $reason = trim((string)($_POST['ban_reason'] ?? ($_POST['reason'] ?? '')));
+                if ($reason === '') {
+                    $respond(false, 'Yasaklama için gerekçe zorunludur.');
+                }
+                usersBan($pdo, $userId, $reason);
+                adminAuditLogger()->logAction($pdo, 'ban', 'user', $userId, $reason,
+                    ['is_banned' => 0], ['is_banned' => 1], true);
                 usersDispatchAccountNotification(
                     $pdo,
                     'user_banned',
@@ -263,17 +253,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $reason = trim((string)($_POST['reason'] ?? ''));
                 $oldBanReasonStmt = $pdo->prepare("SELECT ban_reason FROM users WHERE id = ?");
                 $oldBanReasonStmt->execute([$userId]);
-                $oldBanReason = (string)($oldBanReasonStmt->fetchColumn() ?: '');
-                usersUnban($pdo, $userId);
-                adminAuditLogger()->logAction($pdo, 'unban', 'user', $userId, $reason,
-                    ['is_banned' => 1, 'ban_reason' => $oldBanReason], ['is_banned' => 0], true);
-                userActivityLog($pdo, $userId, 'user_unbanned', 'moderation', 'user', $userId, 'Kullanici bani kaldirildi', [
-                    'reason' => $reason,
-                    'old_ban_reason' => $oldBanReason,
-                ], $currentUserId);
-                usersDispatchAccountNotification($pdo, 'user_unbanned', $userId, $currentUserId, 'Hesabinizdaki ban kaldirildi.' . ($reason !== '' ? ' Gerekce: ' . $reason : ''), 'success');
-                $respond(true, 'Kullanıcı banı kaldırıldı.');
-                break;
+                $oldBanReason = (string)($oldBanReasonStmt->fetchColumn() ?: '');
+                usersUnban($pdo, $userId);
+                adminAuditLogger()->logAction($pdo, 'unban', 'user', $userId, $reason,
+                    ['is_banned' => 1, 'ban_reason' => $oldBanReason], ['is_banned' => 0], true);
+                usersDispatchAccountNotification($pdo, 'user_unbanned', $userId, $currentUserId, 'Hesabinizdaki ban kaldirildi.' . ($reason !== '' ? ' Gerekce: ' . $reason : ''), 'success');
+                $respond(true, 'Kullanıcı banı kaldırıldı.');
+                break;
 
             case 'add_restriction':
                 $restrictReason = trim((string)($_POST['restrict_reason'] ?? ''));
@@ -295,21 +281,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $restrictMessage = trim((string)($_POST['restrict_message'] ?? ''));
                 
                 $pdo->beginTransaction();
-                try {
-                    foreach ($restrictTypes as $restrictType) {
-                        $restrictType = (string)$restrictType;
-                        usersAddRestriction($pdo, $userId, $restrictType, $restrictReason, $restrictDays, $currentUserId);
-                        adminAuditLogger()->logAction($pdo, 'restrict', 'user', $userId, $restrictReason,
-                            [], ['type' => $restrictType, 'days' => $restrictDays], false);
-                        userActivityLog($pdo, $userId, 'user_restricted', 'moderation', 'restriction', $userId, 'Kisitlama eklendi', [
-                            'restriction_type' => $restrictType,
-                            'days' => $restrictDays,
-                            'reason' => $restrictReason,
-                            'message' => $restrictMessage,
-                        ], $currentUserId);
-                        usersDispatchAccountNotification($pdo, 'user_restricted', $userId, $currentUserId, usersGetRestrictionTypeLabel($restrictType) . ' kisitlamasi eklendi. Sebep: ' . $restrictReason, 'warning');
-                    }
-                    $pdo->commit();
+                try {
+                    foreach ($restrictTypes as $restrictType) {
+                        $restrictType = (string)$restrictType;
+                        usersAddRestriction($pdo, $userId, $restrictType, $restrictReason, $restrictDays, $currentUserId);
+                        adminAuditLogger()->logAction($pdo, 'restrict', 'user', $userId, $restrictReason,
+                            [], ['type' => $restrictType, 'days' => $restrictDays], false);
+                        usersDispatchAccountNotification($pdo, 'user_restricted', $userId, $currentUserId, usersGetRestrictionTypeLabel($restrictType) . ' kisitlamasi eklendi. Sebep: ' . $restrictReason, 'warning');
+                    }
+                    $pdo->commit();
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) {
                         $pdo->rollBack();
@@ -323,25 +303,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'remove_restriction':
                 $restrictionId = (int)($_POST['restriction_id'] ?? 0);
                 $restrictionStmt = $pdo->prepare("SELECT user_id, restriction_type, reason FROM user_restrictions WHERE id = ? LIMIT 1");
-                $restrictionStmt->execute([$restrictionId]);
-                $restrictionBefore = $restrictionStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-                usersRemoveRestriction($pdo, $restrictionId);
-                if ($restrictionBefore) {
-                    $targetUserId = (int) $restrictionBefore['user_id'];
-                    userActivityLog($pdo, $targetUserId, 'user_restriction_removed', 'moderation', 'restriction', $restrictionId, 'Kisitlama kaldirildi', [
-                        'restriction_type' => (string) $restrictionBefore['restriction_type'],
-                        'reason' => (string) ($restrictionBefore['reason'] ?? ''),
-                    ], $currentUserId);
-                    usersDispatchAccountNotification($pdo, 'user_restriction_removed', $targetUserId, $currentUserId, usersGetRestrictionTypeLabel((string) $restrictionBefore['restriction_type']) . ' kisitlamasi kaldirildi.', 'success');
-                }
-                $respond(true, 'Kısıtlama kaldırıldı.');
-                break;
-
-            case 'remove_all_restrictions':
-                userActivityLog($pdo, $userId, 'user_restrictions_cleared', 'moderation', 'user', $userId, 'Tum kisitlamalar kaldirildi', [], $currentUserId);
-                usersRemoveAllRestrictions($pdo, $userId);
-                usersDispatchAccountNotification($pdo, 'user_restriction_removed', $userId, $currentUserId, 'Hesabinizdaki tum kisitlamalar kaldirildi.', 'success');
-                $respond(true, 'Tüm kısıtlamalar kaldırıldı.');
+                $restrictionStmt->execute([$restrictionId]);
+                $restrictionBefore = $restrictionStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                usersRemoveRestriction($pdo, $restrictionId);
+                if ($restrictionBefore) {
+                    $targetUserId = (int) $restrictionBefore['user_id'];
+                    usersDispatchAccountNotification($pdo, 'user_restriction_removed', $targetUserId, $currentUserId, usersGetRestrictionTypeLabel((string) $restrictionBefore['restriction_type']) . ' kisitlamasi kaldirildi.', 'success');
+                }
+                $respond(true, 'Kısıtlama kaldırıldı.');
+                break;
+
+            case 'remove_all_restrictions':
+                usersRemoveAllRestrictions($pdo, $userId);
+                usersDispatchAccountNotification($pdo, 'user_restriction_removed', $userId, $currentUserId, 'Hesabinizdaki tum kisitlamalar kaldirildi.', 'success');
+                $respond(true, 'Tüm kısıtlamalar kaldırıldı.');
                 break;
 
             case 'add_admin_note':

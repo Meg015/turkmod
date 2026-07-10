@@ -39,14 +39,33 @@ if (isset($options['help'])) {
     exit(0);
 }
 
+$cronRunStatus = 'error';
+$cronRunContext = ['reason' => 'cron_not_completed'];
+$cronRunLogged = false;
+$cronPdo = $pdo ?? null;
+register_shutdown_function(static function () use (&$cronRunLogged, &$cronRunStatus, &$cronRunContext, &$cronPdo): void {
+    if ($cronRunLogged || !($cronPdo instanceof PDO) || !function_exists('recordCronRun')) {
+        return;
+    }
+
+    $cronRunLogged = true;
+    recordCronRun($cronPdo, 'notification_email_queue', $cronRunStatus, $cronRunContext);
+});
+
 if (!$pdo) {
+    $cronRunStatus = 'error';
+    $cronRunContext = ['reason' => 'database_connection_unavailable'];
+    if (!$isCli) {
+        http_response_code(500);
+    }
     fwrite(STDERR, "Database connection is not available.\n");
     exit(1);
 }
 
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 if (($settings['notif_email_channel_ready'] ?? '0') !== '1') {
-    recordCronRun($pdo, 'notification_email_queue', 'skipped', ['reason' => 'email_queue_disabled']);
+    $cronRunStatus = 'skipped';
+    $cronRunContext = ['reason' => 'email_queue_disabled'];
     echo "Notification email queue is disabled.\n";
     exit(0);
 }
@@ -77,23 +96,31 @@ echo "Dry run: {$result['dry_run']}\n";
 echo "Queue totals: queued={$stats['queued']} processing={$stats['processing']} sent={$stats['sent']} failed={$stats['failed']}\n";
 
 if (!empty($result['errors'])) {
-    recordCronRun($pdo, 'notification_email_queue', 'error', [
+    $cronRunStatus = 'error';
+    $cronRunContext = [
         'limit' => $limit,
         'dry_run' => $dryRun,
         'result' => $result,
         'stats' => $stats,
-    ]);
+    ];
+    if (!$isCli) {
+        http_response_code(500);
+    }
     foreach ($result['errors'] as $error) {
         echo "Error: {$error}\n";
     }
     exit(1);
 }
 
-recordCronRun($pdo, 'notification_email_queue', ((int) $result['failed'] > 0 ? 'warning' : 'success'), [
+$cronRunStatus = ((int) $result['failed'] > 0 ? 'warning' : 'success');
+$cronRunContext = [
     'limit' => $limit,
     'dry_run' => $dryRun,
     'result' => $result,
     'stats' => $stats,
-]);
+];
+if (!$isCli && (int) $result['failed'] > 0) {
+    http_response_code(500);
+}
 
 exit(0);

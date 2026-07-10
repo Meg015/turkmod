@@ -5,9 +5,9 @@ declare(strict_types=1);
 require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../includes/src/Engine/Logs/Legacy/helpers.php';
 
-adminRequirePermission('logs.view', 'Uygulama loglarini goruntulemek icin gerekli izin hesabiniza tanimlanmamis.');
+adminRequirePermission('logs.view', 'Uygulama loglarını görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 
-$pageTitle = 'Uygulama Loglari';
+$pageTitle = 'Uygulama Logları';
 
 if (!function_exists('applicationLogsLevelBadgeClass')) {
     function applicationLogsLevelBadgeClass(string $level): string
@@ -211,6 +211,14 @@ require_once __DIR__ . '/header.php';
 <?php adminRenderLogsSubtabs('application'); ?>
 
 <div class="logs-page application-logs-page">
+    <section class="ui-admin-page-hero">
+        <div class="ui-admin-page-hero-text">
+            <span class="ui-admin-kicker"><i class="bi bi-journal-code"></i> Sistem kayıtları</span>
+            <h2>Uygulama Logları</h2>
+            <p>Sistem, hata ve bakım kayıtlarını tek listede izleyin.</p>
+        </div>
+    </section>
+
     <div class="ui-admin-alert ui-admin-alert-info ui-alert">
         <i class="bi bi-info-circle"></i>
         <div>
@@ -240,59 +248,86 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="admin-card logs-toolbar-card ui-panel">
-        <div class="card-header logs-toolbar-head ui-panel__head">
-            <form method="get" action="application-logs.php" class="logs-filter-form">
-                <input type="text" name="q" class="ui-admin-form-control" placeholder="Mesaj, kanal, seviye veya IP ara..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
-                <select name="level" class="ui-admin-form-select">
-                    <option value="">Tum Seviyeler</option>
-                    <?php foreach ($levels as $level): ?>
-                        <option value="<?= htmlspecialchars((string) $level, ENT_QUOTES, 'UTF-8') ?>" <?= $filterLevel === (string) $level ? 'selected' : '' ?>>
-                            <?= htmlspecialchars(strtoupper((string) $level), ENT_QUOTES, 'UTF-8') ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <select name="channel" class="ui-admin-form-select">
-                    <option value="">Tum Kanallar</option>
-                    <?php foreach ($channels as $channel): ?>
-                        <option value="<?= htmlspecialchars((string) $channel, ENT_QUOTES, 'UTF-8') ?>" <?= $filterChannel === (string) $channel ? 'selected' : '' ?>>
-                            <?= htmlspecialchars((string) $channel, ENT_QUOTES, 'UTF-8') ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <input type="date" name="date_from" class="ui-admin-form-control" value="<?= htmlspecialchars($dateFrom, ENT_QUOTES, 'UTF-8') ?>" aria-label="Baslangic tarihi">
-                <input type="date" name="date_to" class="ui-admin-form-control" value="<?= htmlspecialchars($dateTo, ENT_QUOTES, 'UTF-8') ?>" aria-label="Bitis tarihi">
+        <div class="card-body ui-admin-card-compact ui-panel__body ui-card application-logs-toolbar logs-toolbar-shell">
+            <form method="get" action="application-logs.php" class="ui-admin-filter-row application-logs-filter-form">
+                <div class="ui-admin-filter-grow application-logs-search">
+                    <label class="ui-admin-form-label">Ara</label>
+                    <input type="text" name="q" class="ui-admin-form-control" placeholder="Mesaj, kanal, seviye veya IP ara..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+                <div class="ui-admin-filter-sm">
+                    <label class="ui-admin-form-label">Seviye</label>
+                    <select name="level" class="ui-admin-form-select">
+                        <option value="">Tum Seviyeler</option>
+                        <?php foreach ($levels as $level): ?>
+                            <option value="<?= htmlspecialchars((string) $level, ENT_QUOTES, 'UTF-8') ?>" <?= $filterLevel === (string) $level ? 'selected' : '' ?>>
+                                <?= htmlspecialchars(strtoupper((string) $level), ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="ui-admin-filter-sm">
+                    <label class="ui-admin-form-label">Kanal</label>
+                    <select name="channel" class="ui-admin-form-select">
+                        <option value="">Tum Kanallar</option>
+                        <?php foreach ($channels as $channel): ?>
+                            <option value="<?= htmlspecialchars((string) $channel, ENT_QUOTES, 'UTF-8') ?>" <?= $filterChannel === (string) $channel ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) $channel, ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="ui-admin-filter-sm">
+                    <label class="ui-admin-form-label">Başlangıç</label>
+                    <input type="date" name="date_from" class="ui-admin-form-control" value="<?= htmlspecialchars($dateFrom, ENT_QUOTES, 'UTF-8') ?>" aria-label="Başlangıç tarihi">
+                </div>
+                <div class="ui-admin-filter-sm">
+                    <label class="ui-admin-form-label">Bitiş</label>
+                    <input type="date" name="date_to" class="ui-admin-form-control" value="<?= htmlspecialchars($dateTo, ENT_QUOTES, 'UTF-8') ?>" aria-label="Bitiş tarihi">
+                </div>
                 <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-search"></i> Filtrele</button>
                 <?php if ($hasFilters): ?>
-                    <a href="application-logs.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Temizle</a>
+                    <a href="application-logs.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-circle"></i> Temizle</a>
                 <?php endif; ?>
             </form>
+
             <?php if ($canManageLogs): ?>
-                <div class="application-logs-actions">
-                    <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Yalnizca aktif filtreye uyan uygulama loglari silinsin mi?" data-admin-confirm-title="Filtreli loglari temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="clear_filtered">
-                        <?php $renderFilterHiddenFields(); ?>
-                        <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" <?= $hasFilters ? '' : 'disabled' ?>><i class="bi bi-funnel"></i> Filtreyi Temizle</button>
-                    </form>
-                    <form method="post" action="application-logs.php" class="logs-clear-form application-logs-old-form" data-admin-confirm="Belirttiginiz gunden daha eski uygulama loglari silinsin mi?" data-admin-confirm-title="Eski loglari temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="clear_old">
-                        <?php $renderFilterHiddenFields(); ?>
-                        <input type="number" name="days" min="7" max="3650" step="1" value="90" class="ui-admin-form-control application-logs-days-input" aria-label="Gun sayisi">
-                        <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-sm"><i class="bi bi-calendar-minus"></i> Eskiyi Temizle</button>
-                    </form>
-                    <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Tum uygulama loglari kalici olarak silinecek. Emin misiniz?" data-admin-confirm-title="Tum uygulama loglarini temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="clear_all">
-                        <?php $renderFilterHiddenFields(); ?>
-                        <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm"><i class="bi bi-trash"></i> Tumunu Temizle</button>
-                    </form>
+                <div class="application-logs-maintenance">
+                    <div class="application-logs-maintenance-label"><i class="bi bi-tools"></i> Bakım işlemleri</div>
+                    <div class="application-logs-actions logs-toolbar-actions">
+                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Yalnizca aktif filtreye uyan uygulama loglari silinsin mi?" data-admin-confirm-title="Filtreli loglari temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="clear_filtered">
+                            <?php $renderFilterHiddenFields(); ?>
+                            <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs" <?= $hasFilters ? '' : 'disabled' ?>><i class="bi bi-funnel"></i> Filtreyi Temizle</button>
+                        </form>
+                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Belirttiginiz gunden daha eski uygulama loglari silinsin mi?" data-admin-confirm-title="Eski loglari temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="clear_old">
+                            <?php $renderFilterHiddenFields(); ?>
+                            <div class="application-logs-old-row">
+                                <input type="number" name="days" min="7" max="3650" step="1" value="90" class="ui-admin-form-control application-logs-days-input" aria-label="Gun sayisi">
+                                <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-xs"><i class="bi bi-calendar-minus"></i> Eskiyi Temizle</button>
+                            </div>
+                        </form>
+                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Tum uygulama loglari kalici olarak silinecek. Emin misiniz?" data-admin-confirm-title="Tum uygulama loglarini temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="clear_all">
+                            <?php $renderFilterHiddenFields(); ?>
+                            <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Tümünü Sil</button>
+                        </form>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
     </div>
 
     <div class="admin-card logs-list-card ui-panel">
+        <div class="card-header logs-list-head ui-admin-card-header-actions ui-panel__head ui-card">
+            <div>
+                <h3><i class="bi bi-journal-code"></i> Uygulama Logları</h3>
+                <span><?= number_format((int) ($logs['total'] ?? 0), 0, ',', '.') ?> kayıt</span>
+            </div>
+        </div>
         <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
             <?php if (empty($logs['items'])): ?>
                 <div class="ui-admin-empty ui-empty">
@@ -357,18 +392,18 @@ require_once __DIR__ . '/header.php';
                     ], static fn ($value): bool => $value !== '' && $value !== null);
                     $pageBase = 'application-logs.php?' . ($pageParams ? http_build_query($pageParams) . '&' : '') . 'page=';
                     ?>
-                    <div class="pagination-wrapper">
+                    <div class="pagination-wrapper logs-pagination-wrapper">
                         <div class="pagination">
                             <?php if ($page > 1): ?>
-                                <a href="<?= htmlspecialchars($pageBase . ($page - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki"><i class="bi bi-chevron-left"></i></a>
+                                <a href="<?= htmlspecialchars($pageBase . ($page - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
                             <?php endif; ?>
 
                             <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                                <a href="<?= htmlspecialchars($pageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>
+                                <a href="<?= htmlspecialchars($pageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"<?= $i === $page ? ' aria-current="page"' : '' ?>><?= $i ?></a>
                             <?php endfor; ?>
 
                             <?php if ($page < $totalPages): ?>
-                                <a href="<?= htmlspecialchars($pageBase . ($page + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
+                                <a href="<?= htmlspecialchars($pageBase . ($page + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
                             <?php endif; ?>
                         </div>
                     </div>

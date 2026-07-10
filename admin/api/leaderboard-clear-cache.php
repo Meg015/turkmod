@@ -30,6 +30,10 @@ try {
             'scope' => 'all',
             'cleared_by' => $currentUserId
         ]);
+        adminAuditLogger()->logAction($pdo, 'leaderboard_cache_cleared', 'leaderboard', 0, 'Liderlik önbelleği temizlendi', [], [
+            'scope' => 'all',
+            'cleared_by' => $currentUserId
+        ], false);
 
         sendSuccess('All leaderboard cache cleared successfully');
     }
@@ -60,6 +64,11 @@ try {
         'period' => $period,
         'cleared_by' => $currentUserId
     ]);
+    adminAuditLogger()->logAction($pdo, 'leaderboard_cache_cleared', 'leaderboard', 0, 'Liderlik önbelleği temizlendi', [], [
+        'category' => $category,
+        'period' => $period,
+        'cleared_by' => $currentUserId
+    ], false);
 
     sendSuccess('Cache cleared successfully', [
         'category' => $category,

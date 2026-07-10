@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $pageTitle = 'Sistem Sağlığı';
 require_once __DIR__ . '/init.php';
+require_once __DIR__ . '/../includes/src/Engine/UserActivity/Legacy/helpers.php';
 
 adminRequirePermission('system.view', 'Sistem sağlığını görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 
@@ -848,7 +849,7 @@ $logsCenterBaseParams = array_filter([
 $logsCenterUrl = 'system-health.php?' . http_build_query($logsCenterBaseParams);
 $runtimePageBase = 'system-health.php?' . http_build_query($logsCenterBaseParams + ['app_page' => $appPage]) . '&runtime_page=';
 $appPageBase = 'system-health.php?' . http_build_query($logsCenterBaseParams + ['runtime_page' => $runtimePage]) . '&app_page=';
-$coreTables = ['users', 'user_groups', 'user_group_members', 'user_group_permissions', 'categories', 'topics', 'media_files', 'admin_settings', 'activity_logs', 'application_logs', 'request_rate_limits'];
+$coreTables = ['users', 'user_groups', 'user_group_members', 'user_group_permissions', 'categories', 'topics', 'media_files', 'admin_settings', 'activity_logs', 'user_activity_events', 'admin_action_log', 'application_logs', 'request_rate_limits'];
 $missingCoreTables = [];
 foreach ($coreTables as $table) {
     if (!healthTableExists($pdo, $table)) {
@@ -878,8 +879,8 @@ $appErrors7d = $loadLogSection && healthTableExists($pdo, 'application_logs')
 $latestAppLog = $loadLogSection && healthTableExists($pdo, 'application_logs')
     ? healthTextScalar($pdo, "SELECT CONCAT(level, ' / ', channel, ' / ', LEFT(message, 140)) FROM application_logs ORDER BY id DESC LIMIT 1", [], 'kayıt yok')
     : 'log detayı için Logs sekmesini açın';
-$activityToday = $loadLogSection && healthTableExists($pdo, 'activity_logs')
-    ? healthScalar($pdo, "SELECT COUNT(*) FROM activity_logs WHERE created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)")
+$activityToday = $loadLogSection && healthTableExists($pdo, 'user_activity_events')
+    ? healthScalar($pdo, "SELECT COUNT(*) FROM user_activity_events e WHERE e.created_at >= CURDATE() AND e.created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.event_group NOT IN ('admin', 'moderation') AND e.event_type NOT IN ('admin_user_updated', 'group_save', 'group_deactivate', 'user_group_changed', 'user_status_changed', 'user_banned', 'user_unbanned', 'user_restricted', 'user_restriction_removed', 'user_restrictions_cleared', 'user_admin_note_added', 'settings_updated', 'topic_settings_updated', 'topic_moderated', 'topic_revision_restored', 'topic_health_scan_completed', 'topic_health_cleared', 'download_link_checked', 'category_created', 'category_updated', 'category_deleted', 'media_uploaded', 'media_deleted', 'leaderboard_recalculated', 'leaderboard_cache_cleared', 'leaderboard_settings_updated', 'application_logs_cleared', 'activity_logs_cleared', 'rate_limit_records_deleted', 'cron_manual_triggered', 'bot_import_published') AND e.event_type NOT LIKE 'topic_bulk_%' AND NOT EXISTS (SELECT 1 FROM user_group_members ugm INNER JOIN user_groups ug ON ug.id = ugm.group_id LEFT JOIN user_group_permissions ugp ON ugp.group_id = ug.id AND ugp.permission_value = 1 AND ugp.permission_key IN ('*', 'admin.access') WHERE ugm.user_id = e.actor_user_id AND ug.is_active = 1 AND (ug.slug = 'admin' OR ugp.permission_key IS NOT NULL))")
     : 0;
 
 $emailQueued = $loadQueueSection && healthTableExists($pdo, 'notification_email_queue')
@@ -997,7 +998,7 @@ $checks = [
     healthRow('logs', 'Uygulama hataları 24s', $appErrors24h === 0, $appErrors24h . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
     healthRow('logs', 'Uygulama hataları 7g', $appErrors7d === 0, $appErrors7d . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
     healthRow('logs', 'Son uygulama logu', true, $latestAppLog, 'info', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
-    healthRow('logs', 'Bugünkü aktivite', true, $activityToday . ' işlem kaydı', 'info', $baseUri . '/admin/action-log.php', 'İşlem Günlüğü'),
+    healthRow('logs', 'Bugünkü kullanıcı hareketleri', true, $activityToday . ' işlem kaydı', 'info', $baseUri . '/admin/action-log.php', 'Kullanıcı İşlem Günlüğü'),
 
     healthRow('queues', 'E-posta kuyruğu', $emailFailed === 0, $emailQueued . ' bekleyen/işlenen, ' . $emailFailed . ' başarısız', 'warning', $baseUri . '/admin/notifications.php?tab=logs', 'Bildirimler'),
     healthRow('queues', 'Cron script dosyaları', count($missingCronScripts) === 0, count($missingCronScripts) === 0 ? count($cronScriptPaths) . ' script mevcut' : 'Eksik: ' . implode(', ', $missingCronScripts), 'warning'),
@@ -1193,7 +1194,7 @@ require_once __DIR__ . '/header.php';
                 <p>Runtime ve uygulama hatalarini tek ekranda izleyin, filtreleyin ve aksiyon alin.</p>
             </div>
             <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="<?= htmlspecialchars((string) $baseUri . '/admin/application-logs.php', ENT_QUOTES, 'UTF-8') ?>">
-                <i class="bi bi-journal-code"></i> Tum Uygulama Loglari
+                <i class="bi bi-journal-code"></i> Tüm Uygulama Logları
             </a>
         </div>
 
