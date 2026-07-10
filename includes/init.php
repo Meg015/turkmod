@@ -2883,7 +2883,6 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
 
     $requestUri = $requestUri ?? (string) ($_SERVER["REQUEST_URI"] ?? "");
     $path = (string) parse_url($requestUri, PHP_URL_PATH);
-    $basename = basename($path);
     $pageKey = trim((string) $pageKey);
 
     if ($pageKey === '' && function_exists('seoPublicPageResolveKey')) {
@@ -2893,6 +2892,9 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
     // Public page preset + hard security rules
     $shouldNoindex = function_exists('seoPublicPageIsNoindex')
         ? seoPublicPageIsNoindex($pageKey, $settings)
+        : false;
+    $shouldNofollow = function_exists('seoPublicPageIsNofollow')
+        ? seoPublicPageIsNofollow($pageKey, $settings)
         : false;
     if (in_array($pageKey, ['login', 'register', 'forgot_password', 'reset_password'], true)) {
         $shouldNoindex = true;
@@ -2927,7 +2929,7 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
     }
 
     $indexDirective = $shouldNoindex ? "noindex" : "index";
-    $followDirective = ($pageKey === "download" || $basename === "download.php") ? "nofollow" : "follow";
+    $followDirective = $shouldNofollow ? "nofollow" : "follow";
     return $indexDirective . ", " . $followDirective . ", max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 }
 

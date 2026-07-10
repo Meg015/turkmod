@@ -200,7 +200,7 @@ $seoGroups = [
     'seo-tab-public-pages' => [
         'title' => 'Public Sayfalar',
         'icon' => 'bi-window-stack',
-        'description' => 'Tüm public sayfaların meta başlığını, açıklamasını, görselini ve noindex davranışını tek ekrandan yönetin.',
+        'description' => 'Tüm public sayfaların meta başlığını, açıklamasını, görselini, noindex, nofollow ve sitemap davranışını tek ekrandan yönetin.',
         'keys' => [],
     ],
     'seo-tab-social' => [
@@ -1631,7 +1631,7 @@ require_once __DIR__ . '/header.php';
                                                 <span class="admin-inline-title">Public Sayfa Presetleri</span>
                                             </div>
                                             <div class="admin-section-desc">
-                                                Başlık ve açıklama alanları boş bırakılırsa sayfa kendi varsayılan SEO katmanını kullanır. Noindex anahtarı, o sayfanın arama motorlarına açık olup olmadığını belirler.
+                                                Başlık ve açıklama alanları boş bırakılırsa sayfa kendi varsayılan SEO katmanını kullanır. Noindex anahtarı, o sayfanın arama motorlarına açık olup olmadığını belirler; noindex açık sayfalar sitemap'ten otomatik düşer.
                                             </div>
                                             <div class="seo-public-pages-token-row">
                                                 <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-files"></i><?= (int) $publicPageCount ?> sayfa</span>
@@ -1649,10 +1649,14 @@ require_once __DIR__ . '/header.php';
                                                 foreach ($groupPages as $pageKey => $pageMeta) {
                                                     $preset = seoPublicPagePresetForKey((string) $pageKey, $settings);
                                                     $defaultNoindex = !empty($pageMeta['default_noindex']);
+                                                    $defaultNofollow = function_exists('seoPublicPageDefaultNofollow')
+                                                        ? seoPublicPageDefaultNofollow((array) $pageMeta)
+                                                        : $defaultNoindex;
                                                     $isCustomized = $preset['title'] !== ''
                                                         || $preset['description'] !== ''
                                                         || $preset['image'] !== ''
-                                                        || (($preset['noindex'] === '1') !== $defaultNoindex);
+                                                        || (($preset['noindex'] === '1') !== $defaultNoindex)
+                                                        || (($preset['nofollow'] === '1') !== $defaultNofollow);
                                                     if ($isCustomized) {
                                                         $groupConfigured++;
                                                     }
@@ -1680,10 +1684,14 @@ require_once __DIR__ . '/header.php';
                                                             <?php
                                                             $preset = seoPublicPagePresetForKey((string) $pageKey, $settings);
                                                             $defaultNoindex = !empty($pageMeta['default_noindex']);
+                                                            $defaultNofollow = function_exists('seoPublicPageDefaultNofollow')
+                                                                ? seoPublicPageDefaultNofollow((array) $pageMeta)
+                                                                : $defaultNoindex;
                                                             $isCustomized = $preset['title'] !== ''
                                                                 || $preset['description'] !== ''
                                                                 || $preset['image'] !== ''
-                                                                || (($preset['noindex'] === '1') !== $defaultNoindex);
+                                                                || (($preset['noindex'] === '1') !== $defaultNoindex)
+                                                                || (($preset['nofollow'] === '1') !== $defaultNofollow);
                                                             $pageLabel = (string) ($pageMeta['label'] ?? $pageKey);
                                                             $pageSummary = trim((string) ($pageMeta['summary'] ?? ''));
                                                             $pagePath = trim((string) ($pageMeta['path'] ?? ''));
@@ -1691,7 +1699,7 @@ require_once __DIR__ . '/header.php';
                                                             $fieldIdBase = 'seo-public-' . preg_replace('~[^a-zA-Z0-9_-]+~', '-', (string) $pageKey);
                                                             $isNoindexLocked = function_exists('seoPublicPageIsNoindexLocked') ? seoPublicPageIsNoindexLocked((string) $pageKey) : false;
                                                             ?>
-                                                            <section class="seo-public-page-card">
+                                                            <section class="seo-public-page-card<?= ($preset['noindex'] ?? '0') === '1' ? ' is-noindex' : '' ?>" data-seo-public-page-card>
                                                                 <div class="seo-public-page-card-head">
                                                                     <div class="seo-public-page-title">
                                                                         <strong><?= htmlspecialchars($pageLabel) ?></strong>
@@ -1701,6 +1709,10 @@ require_once __DIR__ . '/header.php';
                                                                         <span class="ui-admin-badge <?= $preset['noindex'] === '1' ? 'ui-admin-badge-warning' : 'ui-admin-badge-success' ?>">
                                                                             <i class="bi <?= $preset['noindex'] === '1' ? 'bi-eye-slash' : 'bi-eye' ?>"></i>
                                                                             <?= $preset['noindex'] === '1' ? 'Noindex' : 'Index' ?>
+                                                                        </span>
+                                                                        <span class="ui-admin-badge <?= $preset['nofollow'] === '1' ? 'ui-admin-badge-info' : 'ui-admin-badge-success' ?>">
+                                                                            <i class="bi <?= $preset['nofollow'] === '1' ? 'bi-link-45deg' : 'bi-link' ?>"></i>
+                                                                            <?= $preset['nofollow'] === '1' ? 'Nofollow' : 'Follow' ?>
                                                                         </span>
                                                                         <?php if ($isNoindexLocked): ?>
                                                                             <span class="ui-admin-badge ui-admin-badge-muted">
@@ -1754,7 +1766,7 @@ require_once __DIR__ . '/header.php';
 
                                                                     <div class="seo-public-page-field seo-public-page-field-wide">
                                                                         <label class="ui-admin-switch seo-public-page-switch">
-                                                                            <input type="checkbox" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][noindex]" value="1" <?= ($preset['noindex'] ?? '0') === '1' ? 'checked' : '' ?><?= $isNoindexLocked ? ' disabled aria-disabled="true"' : '' ?>>
+                                                                            <input type="checkbox" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][noindex]" value="1" <?= ($preset['noindex'] ?? '0') === '1' ? 'checked' : '' ?><?= $isNoindexLocked ? ' disabled aria-disabled="true"' : '' ?> data-seo-public-page-noindex>
                                                                             <span class="ui-admin-switch-label">Arama motorlarından gizle</span>
                                                                         </label>
                                                                         <?php if ($isNoindexLocked): ?>
@@ -1765,15 +1777,32 @@ require_once __DIR__ . '/header.php';
                                                                         <?php endif; ?>
                                                                     </div>
 
-                                                                    <div class="seo-public-page-field seo-public-page-field-wide" style="display: flex; gap: 1.5rem; align-items: center; padding-top: 0.5rem; border-top: 1px dashed var(--admin-border);">
-                                                                        <label class="ui-admin-switch seo-public-page-switch mb-0">
-                                                                            <input type="checkbox" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][sitemap_include]" value="1" <?= ($preset['sitemap_include'] ?? '1') === '1' ? 'checked' : '' ?>>
-                                                                            <span class="ui-admin-switch-label">Sitemap'e Ekle</span>
+                                                                    <div class="seo-public-page-field seo-public-page-field-wide">
+                                                                        <label class="ui-admin-switch seo-public-page-switch">
+                                                                            <input type="checkbox" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][nofollow]" value="1" <?= ($preset['nofollow'] ?? '0') === '1' ? 'checked' : '' ?> data-seo-public-page-nofollow>
+                                                                            <span class="ui-admin-switch-label">Nofollow yap</span>
                                                                         </label>
-                                                                        
-                                                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                                        <div class="small text-muted mt-2 d-flex align-items-center gap-1">
+                                                                            <i class="bi bi-link-45deg"></i>
+                                                                            Arama motorlarının linkleri takip etmesini kapatır.
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="seo-public-page-field seo-public-page-field-wide seo-public-page-sitemap-row<?= ($preset['noindex'] ?? '0') === '1' ? ' is-disabled' : '' ?>" data-seo-public-page-sitemap-row>
+                                                                        <div class="seo-public-page-sitemap-head">
+                                                                            <label class="ui-admin-switch seo-public-page-switch mb-0">
+                                                                                <input type="checkbox" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][sitemap_include]" value="1" <?= ($preset['sitemap_include'] ?? '1') === '1' ? 'checked' : '' ?> data-seo-public-page-sitemap>
+                                                                                <span class="ui-admin-switch-label">Sitemap'e Ekle</span>
+                                                                            </label>
+                                                                            <div class="small text-muted d-flex align-items-center gap-1 seo-public-page-sitemap-note">
+                                                                                <i class="bi bi-diagram-3"></i>
+                                                                                Noindex açıkken bu sayfa sitemap'ten otomatik dışlanır.
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div class="seo-public-page-priority-wrap">
                                                                             <label class="ui-admin-form-label mb-0" for="<?= htmlspecialchars($fieldIdBase . '-priority') ?>">Öncelik (Priority):</label>
-                                                                            <select id="<?= htmlspecialchars($fieldIdBase . '-priority') ?>" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][sitemap_priority]" class="ui-admin-form-select" style="width: auto;">
+                                                                            <select id="<?= htmlspecialchars($fieldIdBase . '-priority') ?>" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][sitemap_priority]" class="ui-admin-form-select seo-public-page-priority-select">
                                                                                 <?php foreach (['1.0', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1'] as $p): ?>
                                                                                     <option value="<?= $p ?>" <?= ($preset['sitemap_priority'] ?? '0.5') === $p ? 'selected' : '' ?>><?= $p ?></option>
                                                                                 <?php endforeach; ?>

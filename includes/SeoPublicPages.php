@@ -26,6 +26,34 @@ if (!function_exists('seoPublicPageIsNoindexLocked')) {
     }
 }
 
+if (!function_exists('seoPublicPageDefaultNofollow')) {
+    /**
+     * @param array<string,mixed> $meta
+     */
+    function seoPublicPageDefaultNofollow(array $meta): bool
+    {
+        if (array_key_exists('default_nofollow', $meta)) {
+            $value = $meta['default_nofollow'];
+            if (is_bool($value)) {
+                return $value;
+            }
+
+            $normalized = strtolower(trim((string) $value));
+            if ($normalized === '') {
+                return !empty($meta['default_noindex']);
+            }
+            if (in_array($normalized, ['1', 'true', 'on', 'yes'], true)) {
+                return true;
+            }
+            if (in_array($normalized, ['0', 'false', 'off', 'no'], true)) {
+                return false;
+            }
+        }
+
+        return !empty($meta['default_noindex']);
+    }
+}
+
 if (!function_exists('seoPublicPageApplyTemplate')) {
     function seoPublicPageApplyTemplate(string $template, array $vars): string
     {
@@ -554,6 +582,7 @@ if (!function_exists('seoPublicPagePresetsNormalize')) {
     {
         $catalog = seoPublicPageCatalog();
         $source = [];
+        $fromArray = is_array($raw);
 
         if (is_string($raw)) {
             $decoded = json_decode(trim($raw), true);
@@ -576,9 +605,14 @@ if (!function_exists('seoPublicPagePresetsNormalize')) {
             $image = trim((string) ($entry['image'] ?? ''));
             $lockedNoindex = seoPublicPageIsNoindexLocked((string) $pageKey);
             $defaultNoindex = $lockedNoindex || !empty($meta['default_noindex']);
+            $defaultNofollow = seoPublicPageDefaultNofollow($meta);
+            $inputNoindexDefault = $fromArray ? false : $defaultNoindex;
+            $inputNofollowDefault = $fromArray ? false : $defaultNofollow;
+            $inputSitemapDefault = $fromArray ? false : true;
             $noindex = $lockedNoindex
                 ? true
-                : seoPublicPageBoolValue($entry['noindex'] ?? null, $defaultNoindex);
+                : seoPublicPageBoolValue($entry['noindex'] ?? null, $inputNoindexDefault);
+            $nofollow = seoPublicPageBoolValue($entry['nofollow'] ?? null, $inputNofollowDefault);
 
             $page = [];
             if ($title !== '') {
@@ -593,9 +627,12 @@ if (!function_exists('seoPublicPagePresetsNormalize')) {
             if ($noindex !== $defaultNoindex) {
                 $page['noindex'] = $noindex ? '1' : '0';
             }
+            if ($nofollow !== $defaultNofollow) {
+                $page['nofollow'] = $nofollow ? '1' : '0';
+            }
             
-            $sitemapInclude = seoPublicPageBoolValue($entry['sitemap_include'] ?? null, true);
-            if (!$sitemapInclude) {
+            $sitemapInclude = seoPublicPageBoolValue($entry['sitemap_include'] ?? null, $inputSitemapDefault);
+            if ($noindex || !$sitemapInclude) {
                 $page['sitemap_include'] = '0';
             }
             
@@ -651,6 +688,7 @@ if (!function_exists('seoPublicPagePresetForKey')) {
         $catalog = seoPublicPageCatalog($settings);
         $stored = seoPublicPagePresetsFromSettings($settings);
         $defaultNoindex = !empty($catalog[$pageKey]['default_noindex']);
+        $defaultNofollow = seoPublicPageDefaultNofollow($catalog[$pageKey] ?? []);
 
         $defaultPriority = [
             'home' => '1.0',
@@ -667,6 +705,7 @@ if (!function_exists('seoPublicPagePresetForKey')) {
             'description' => '',
             'image' => '',
             'noindex' => $defaultNoindex ? '1' : '0',
+            'nofollow' => $defaultNofollow ? '1' : '0',
             'sitemap_include' => '1',
             'sitemap_priority' => $defaultPriority,
         ];
@@ -679,7 +718,11 @@ if (!function_exists('seoPublicPagePresetForKey')) {
         $preset['description'] = trim((string) ($preset['description'] ?? ''));
         $preset['image'] = trim((string) ($preset['image'] ?? ''));
         $preset['noindex'] = seoPublicPageBoolValue($preset['noindex'] ?? null, $defaultNoindex) ? '1' : '0';
+        $preset['nofollow'] = seoPublicPageBoolValue($preset['nofollow'] ?? null, $defaultNofollow) ? '1' : '0';
         $preset['sitemap_include'] = seoPublicPageBoolValue($preset['sitemap_include'] ?? null, true) ? '1' : '0';
+        if ($preset['noindex'] === '1') {
+            $preset['sitemap_include'] = '0';
+        }
         $preset['sitemap_priority'] = trim((string) ($preset['sitemap_priority'] ?? $defaultPriority));
 
         return $preset;
@@ -909,7 +952,7 @@ if (!function_exists('seoPublicPageTemplateVars')) {
 if (!function_exists('seoPublicPageMeta')) {
     /**
      * @param array{title?:string,description?:string,image?:string} $defaults
-     * @return array{title:string,description:string,image:string,title_is_final:bool,noindex:bool,page_key:string,preset:array<string,string>}
+     * @return array{title:string,description:string,image:string,title_is_final:bool,noindex:bool,nofollow:bool,page_key:string,preset:array<string,string>}
      */
     function seoPublicPageMeta(string $pageKey, array $defaults = [], array $context = [], ?array $settings = null): array
     {
@@ -939,6 +982,7 @@ if (!function_exists('seoPublicPageMeta')) {
             'image' => $image,
             'title_is_final' => $titleIsFinal,
             'noindex' => $preset['noindex'] === '1',
+            'nofollow' => $preset['nofollow'] === '1',
             'page_key' => $pageKey,
             'preset' => $preset,
         ];
@@ -998,6 +1042,15 @@ if (!function_exists('seoPublicPageIsNoindex')) {
         $preset = seoPublicPagePresetForKey($pageKey, $settings);
 
         return ($preset['noindex'] ?? '0') === '1';
+    }
+}
+
+if (!function_exists('seoPublicPageIsNofollow')) {
+    function seoPublicPageIsNofollow(string $pageKey, ?array $settings = null): bool
+    {
+        $preset = seoPublicPagePresetForKey($pageKey, $settings);
+
+        return ($preset['nofollow'] ?? '0') === '1';
     }
 }
 
