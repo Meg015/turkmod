@@ -20,26 +20,20 @@ function legacyRedirectParsePath(string $path): ?array
         $rawPath = '/' . ltrim(substr($rawPath, strlen($baseUri)), '/');
     }
 
-    $patterns = [
-        'topic' => '#^/konu/([a-zA-Z0-9._-]+)\.(\d+)/?$#',
-        'category' => '#^/forums/([a-zA-Z0-9._-]+)\.(\d+)/?$#',
-    ];
-
-    foreach ($patterns as $type => $pattern) {
-        if (preg_match($pattern, $rawPath, $matches) !== 1) {
-            continue;
-        }
-
-        $slug = trim((string) $matches[1], '.-/');
+    if (preg_match('#^/(konu|forums)/([a-zA-Z0-9._-]+)\.(\d+)(?:/.*)?/?$#', $rawPath, $matches) === 1) {
+        $prefix = (string) $matches[1];
+        $slug = trim((string) $matches[2], '.-/');
         if ($slug === '') {
             return null;
         }
 
+        $legacyId = (int) $matches[3];
+
         return [
-            'type' => $type,
+            'type' => $prefix === 'forums' ? 'category' : 'topic',
             'slug' => $slug,
-            'legacy_id' => (int) $matches[2],
-            'path' => $rawPath . (str_ends_with($rawPath, '/') ? '' : '/'),
+            'legacy_id' => $legacyId,
+            'path' => '/' . $prefix . '/' . $slug . '.' . $legacyId . '/',
         ];
     }
 

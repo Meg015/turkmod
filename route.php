@@ -354,9 +354,18 @@ function routerHandleLegacyPhpRoute(string $cleanRoute): void
     if ($normalizedLegacyPath === 'public-profile.php') {
         $profileSlug = trim((string) ($_GET['profile'] ?? $_GET['slug'] ?? ''));
         if ($profileSlug !== '') {
-            $redirect = routeCanonicalPath('profile', $profileSlug);
             $remainingQuery = $_GET;
             unset($remainingQuery['profile'], $remainingQuery['slug']);
+            $redirect = routeCanonicalPath('profile', $profileSlug);
+
+            $pdo = $GLOBALS['pdo'] ?? null;
+            if ($pdo instanceof PDO && function_exists('publicProfileResolveUserBySlug')) {
+                $profileUser = publicProfileResolveUserBySlug($pdo, $profileSlug);
+                if (is_array($profileUser) && function_exists('publicProfileUrl')) {
+                    $redirect = publicProfileUrl($profileUser);
+                }
+            }
+
             if ($remainingQuery !== []) {
                 $query = http_build_query($remainingQuery);
                 if ($query !== '') {
@@ -397,7 +406,7 @@ function routerHandleLegacyPhpRoute(string $cleanRoute): void
 
 function routerHandleLegacyRoute(array $segments): void
 {
-    if (count($segments) !== 2 || !preg_match('/^(.+)\.([0-9]+)$/', $segments[1], $legacyMatch)) {
+    if (count($segments) < 2 || !preg_match('/^(.+)\.([0-9]+)$/', $segments[1], $legacyMatch)) {
         return;
     }
 
