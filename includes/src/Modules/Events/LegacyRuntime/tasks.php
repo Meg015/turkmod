@@ -215,7 +215,7 @@ if (!function_exists('eventsActivityHookDefinitions')) {
     {
         return [
             'daily_login' => ['wired' => true, 'risk' => 'Dusuk', 'location' => 'login.php'],
-            'topic_created' => ['wired' => true, 'risk' => 'Orta', 'location' => 'upload-topic.php'],
+            'topic_created' => ['wired' => true, 'risk' => 'Orta', 'location' => 'upload_topic'],
             'comment_created' => ['wired' => true, 'risk' => 'Orta', 'location' => 'api/comments.php'],
             'comment_reaction_added' => ['wired' => true, 'risk' => 'Orta', 'location' => 'api/comments.php'],
             'topic_favorite_added' => ['wired' => true, 'risk' => 'Orta', 'location' => 'api/favorites/toggle.php'],

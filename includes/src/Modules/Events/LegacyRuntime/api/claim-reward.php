@@ -17,11 +17,7 @@ if ($rewardId <= 0) {
 }
 
 try {
-    $rewardsUrl = function_exists('eventsPublicUrl')
-        ? eventsPublicUrl('rewards')
-        : (function_exists('routePublicStaticUrl')
-            ? routePublicStaticUrl('events', 'rewards')
-            : rtrim((string) ($baseUri ?? ''), '/') . '/events/rewards');
+    $rewardsUrl = eventsPublicUrl('rewards');
 
     $pdo->beginTransaction();
     $stmt = $pdo->prepare("SELECT * FROM events_user_rewards WHERE id = ? AND user_id = ? FOR UPDATE");

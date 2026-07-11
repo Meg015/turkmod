@@ -132,7 +132,7 @@ $_currentScript = basename((string) ($_SERVER["SCRIPT_NAME"] ?? ""));
 $_currentRequestUri = (string) ($_SERVER["REQUEST_URI"] ?? ($baseUri . "/index.php"));
 $_isAuthPage = function_exists("routeIsAuthPage")
     ? routeIsAuthPage($_currentScript)
-    : in_array($_currentScript, ["login.php", "register.php", "forgot-password.php", "reset-password.php", "giris", "kayit", "sifremi-unuttum", "sifre-sifirla"], true);
+    : in_array($_currentScript, ["giris", "kayit", "sifremi-unuttum", "sifre-sifirla"], true);
 $_loginHref = $_loginBaseHref . (!$_isAuthPage ? "?redirect=" . rawurlencode($_currentRequestUri) : "");
 $_pageCssMap = [];
 $_extraPageCssFiles = isset($pageCssFiles) && is_array($pageCssFiles)
@@ -705,11 +705,11 @@ $_profileAvatarUrl = function_exists('defaultAvatarUrl') ? defaultAvatarUrl($bas
                                     </div>
                                 </li>
                                 <?php if ($_hProfile): ?>
-                                <li><a class="tpm-item" href="<?= $baseUri ?>/profile.php"><i class="bi bi-person" aria-hidden="true"></i>Profilim</a></li>
+                                <li><a class="tpm-item" href="<?= routeCanonicalPath('profile') ?>"><i class="bi bi-person" aria-hidden="true"></i>Profilim</a></li>
                                 <?php endif; ?>
-                                <li><a class="tpm-item" href="<?= $baseUri ?>/profile.php#topics"><i class="bi bi-file-earmark-text" aria-hidden="true"></i>İçeriklerim</a></li>
-                                <li><a class="tpm-item" href="<?= $baseUri ?>/profile.php?tab=favorites"><i class="bi bi-heart" aria-hidden="true"></i>Favorilerim</a></li>
-                                <li><a class="tpm-item" href="<?= $baseUri ?>/profile.php?tab=activity"><i class="bi bi-clock-history" aria-hidden="true"></i>Aktivitem</a></li>
+                                <li><a class="tpm-item" href="<?= routeCanonicalPath('profile') ?>#topics"><i class="bi bi-file-earmark-text" aria-hidden="true"></i>İçeriklerim</a></li>
+                                <li><a class="tpm-item" href="<?= routeCanonicalPath('profile') ?>?tab=favorites"><i class="bi bi-heart" aria-hidden="true"></i>Favorilerim</a></li>
+                                <li><a class="tpm-item" href="<?= routeCanonicalPath('profile') ?>?tab=activity"><i class="bi bi-clock-history" aria-hidden="true"></i>Aktivitem</a></li>
                                 <li><a class="tpm-item" href="<?= htmlspecialchars($_messagesUrl, ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-chat-left-text" aria-hidden="true"></i>Mesajlar</a></li>
                                 <li><a class="tpm-item" href="<?= htmlspecialchars($_notificationsUrl, ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bell" aria-hidden="true"></i>Bildirimlerim</a></li>
                                 <li><a class="tpm-item" href="<?= htmlspecialchars($_uploadTopicUrl, ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>İçerik Yükle</a></li>

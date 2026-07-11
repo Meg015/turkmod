@@ -103,14 +103,12 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
             ["Mod Yükle", routePublicStaticUrl('upload_topic')],
             ["Giriş", routePublicStaticUrl('login')],
             ["Kayıt Ol", routePublicStaticUrl('register')],
-            ["Profil", $baseUri . "/profile.php"],
+            ["Profil", routeCanonicalPath('profile')],
         ];
         if ($_fShowCats && !isset($publicCategories)) {
             $publicCategories = isset($pdo) ? getPublicCategories($pdo) : [];
         }
-        $_fAuthCompact = function_exists('routeIsAuthPage')
-            ? routeIsAuthPage((string) ($_SERVER["SCRIPT_NAME"] ?? ""))
-            : in_array(basename((string) ($_SERVER["SCRIPT_NAME"] ?? "")), ["login.php", "register.php", "forgot-password.php", "reset-password.php", "giris", "kayit", "sifremi-unuttum", "sifre-sifirla"], true);
+        $_fAuthCompact = routeIsAuthPage((string) ($_SERVER["SCRIPT_NAME"] ?? ""));
         ?>
         <footer class="footer<?= $_fAuthCompact ? " footer-auth-compact" : "" ?>" data-footer-layout="<?= htmlspecialchars($_fLayout) ?>" role="contentinfo">
             <div class="container footer-container footer-layout-<?= htmlspecialchars($_fLayout) ?> ui-container">

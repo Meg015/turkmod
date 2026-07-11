@@ -9,15 +9,9 @@ if ($isLoggedIn) {
     exit;
 }
 
-$loginUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('login')
-    : ($baseUri . '/giris');
-$registerUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('register')
-    : ($baseUri . '/kayit');
-$notificationsUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('notifications')
-    : ($baseUri . '/notifications.php');
+$loginUrl = routePublicStaticUrl('login');
+$registerUrl = routePublicStaticUrl('register');
+$notificationsUrl = routePublicStaticUrl('notifications');
 
 $errorMsg = '';
 $successMsg = '';

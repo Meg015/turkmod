@@ -327,29 +327,17 @@ final class TopicSitemapPage implements Handler
      */
     private function topicUrl(array $topic, array $settings, string $canonicalBase): string
     {
-        if (function_exists('topicUrlForRow')) {
-            return $this->canonicalUrl(topicUrlForRow($topic), $settings, $canonicalBase);
-        }
-
-        $slug = trim((string) ($topic['slug'] ?? ''), '/');
-        $id = (string) ($topic['id'] ?? '');
-        $path = '/konu/' . $slug . ($id !== '' ? '-' . $id : '');
-
-        return $this->canonicalUrl($path, $settings, $canonicalBase);
+        return $this->canonicalUrl(topicUrlForRow($topic), $settings, $canonicalBase);
     }
 
     private function categoryListPath(): string
     {
-        return function_exists('categoryListUrl') ? (string) categoryListUrl() : '/kategori';
+        return (string) categoryListUrl();
     }
 
     private function categoryPath(string $slug, string $parentSlug): string
     {
-        if (function_exists('categoryUrl')) {
-            return (string) categoryUrl($slug, $parentSlug);
-        }
-
-        return '/kategori/' . ($parentSlug !== '' ? trim($parentSlug, '/') . '/' : '') . trim($slug, '/');
+        return (string) categoryUrl($slug, $parentSlug);
     }
 
     /**

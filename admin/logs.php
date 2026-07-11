@@ -19,6 +19,7 @@ if (!in_array($view, ['activity', 'cron'], true)) {
 
 $pageTitle = $view === 'cron' ? 'Cron Logları' : 'Yönetici İşlem Günlüğü';
 $canManageLogs = function_exists('adminCurrentUserCan') && adminCurrentUserCan('logs.manage');
+$csrfToken = function_exists('csrf_token') ? csrf_token() : '';
 
 $activityDefaultActionTypes = [
     'group_change',

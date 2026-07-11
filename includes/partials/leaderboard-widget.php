@@ -12,9 +12,7 @@ require_once __DIR__ . '/../src/Modules/Leaderboard/Legacy/helpers.php';
 require_once __DIR__ . '/../src/Modules/Leaderboard/Legacy/cache-manager.php';
 
 $settings = leaderboardGetSettings($pdo);
-$leaderboardUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('leaderboard')
-    : ($baseUri . '/leaderboard.php');
+$leaderboardUrl = routePublicStaticUrl('leaderboard');
 
 // Check if sidebar widget is enabled
 if (($settings['leaderboard_enabled'] ?? '1') !== '1' ||
@@ -62,17 +60,19 @@ if (empty($topUsers)) {
                     : $user;
                 $rank = $index + 1;
                 $username = htmlspecialchars($user['username'] ?? 'Anonim');
+                $profileDisplayName = publicProfileDisplayName($user);
+                if ($profileDisplayName === '') {
+                    $profileDisplayName = 'kullanici';
+                }
                 $count = number_format((int)($user['count'] ?? $user['score'] ?? 0));
                 $userId = (int)($user['user_id'] ?? 0);
                 $avatarFallback = function_exists('defaultAvatarUrl')
                     ? defaultAvatarUrl($baseUri)
                     : $baseUri . '/assets/images/noavatar-neon-helmet.svg';
-                $profileUrl = htmlspecialchars((string)($user['profile_url'] ?? (function_exists('publicProfileUrl')
-                    ? publicProfileUrl([
-                        'id' => $userId,
-                        'name' => (string) ($user['username'] ?? 'uye'),
-                    ])
-                    : ($baseUri . '/profil/' . rawurlencode((string) $userId)))), ENT_QUOTES, 'UTF-8');
+                $profileUrl = htmlspecialchars((string)($user['profile_url'] ?? publicProfileUrl([
+                    'id' => $userId,
+                    'username' => $profileDisplayName,
+                ])), ENT_QUOTES, 'UTF-8');
 
                 $avatarUrl = htmlspecialchars((string)($user['avatar_url'] ?? $avatarFallback), ENT_QUOTES, 'UTF-8');
                 $medals = ['🥇', '🥈', '🥉'];

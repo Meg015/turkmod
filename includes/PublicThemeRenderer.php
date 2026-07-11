@@ -72,6 +72,7 @@ final class PublicThemeRenderer
             'site_name' => $siteName,
             'site_description' => $siteDescription,
             'base_url' => rtrim($baseUri, '/'),
+            'upload_topic_url' => (string) routePublicStaticUrl('upload_topic'),
             'logo_url' => self::publicSettingAsset(trim((string) ($settings['logo_url'] ?? '')), $baseUri),
             'logo_alt' => $siteName . ' logo',
             'page_title' => $pageTitle,
@@ -484,8 +485,8 @@ final class PublicThemeRenderer
         $published = function_exists('formatAppDate')
             ? formatAppDate((string) ($item['published_at'] ?? ($item['created_at'] ?? 'now')), $pdo)
             : date('d M Y', strtotime((string) ($item['published_at'] ?? ($item['created_at'] ?? 'now'))));
-        $href = function_exists('topicUrlForRow') ? topicUrlForRow($item) : '#';
-        $authorUrl = !empty($item['author_id']) && function_exists('publicProfileUrl')
+        $href = topicUrlForRow($item);
+        $authorUrl = !empty($item['author_id'])
             ? publicProfileUrl([
                 'id' => (int) $item['author_id'],
                 'name' => $author !== '' ? $author : 'Admin',
@@ -535,7 +536,7 @@ final class PublicThemeRenderer
             'image_fetchpriority' => $isLcpCandidate ? 'high' : '',
             'title' => $title,
             'category' => $category,
-            'category_url' => $categorySlug !== '' && function_exists('categoryUrl') ? categoryUrl($categorySlug, $categoryParentSlug) : '#',
+            'category_url' => categoryUrl($categorySlug, $categoryParentSlug),
             'date' => $published,
             'excerpt' => $summary,
             'views' => number_format($views, 0, ',', '.'),
@@ -904,7 +905,7 @@ final class PublicThemeRenderer
 
         if (($settings['show_author_info'] ?? '1') === '1') {
             $authorUrl = '';
-            if (!empty($topic['author_id']) && function_exists('publicProfileUrl')) {
+            if (!empty($topic['author_id'])) {
                 $authorUrl = publicProfileUrl(['id' => (int) $topic['author_id'], 'name' => (string) ($topic['author'] ?? 'Anonim')]);
             }
             $rows[] = ['icon' => 'bi-person-badge', 'label' => 'Konu Sahibi', 'value' => (string) ($topic['author'] ?? 'Anonim'), 'url' => $authorUrl];
@@ -916,7 +917,7 @@ final class PublicThemeRenderer
             $rows[] = ['icon' => 'bi-controller', 'label' => 'Oyun Sürümü', 'value' => (string) ($topic['topic_version'] ?? '-'), 'url' => ''];
         }
 
-        $categoryUrl = $categorySlug !== '' && function_exists('categoryUrl') ? categoryUrl($categorySlug) : '#';
+        $categoryUrl = categoryUrl($categorySlug);
         $rows[] = ['icon' => 'bi-folder2-open', 'label' => 'Kategori', 'value' => $category, 'url' => $categoryUrl];
         $views = (int) ($topic['view_count'] ?? 0);
         if (($settings['show_view_count'] ?? '1') === '1' && $views > 0) {
@@ -996,8 +997,8 @@ final class PublicThemeRenderer
         $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
         $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
         $downloadAuthApi = rtrim($baseUri, '/') . '/api/auth-popup.php';
-        $downloadLoginUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris');
-        $downloadRegisterUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('register') : ($baseUri . '/kayit');
+        $downloadLoginUrl = routePublicStaticUrl('login');
+        $downloadRegisterUrl = routePublicStaticUrl('register');
         $downloadLockButtonText = trim((string) ($settings['download_access_locked_button_text'] ?? 'Kilidi Aç')) ?: 'Kilidi Aç';
         $downloadCommentCtaLabel = trim((string) ($settings['download_access_comment_cta_label'] ?? 'Yorumlara Git')) ?: 'Yorumlara Git';
         $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'İndirme linklerini açmak için giriş yapın')) ?: 'İndirme linklerini açmak için giriş yapın';
@@ -1020,9 +1021,7 @@ final class PublicThemeRenderer
                 ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
                 : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.';
         }
-        $downloadCommentTarget = function_exists('topicUrl')
-            ? topicUrl((string) ($topic['slug'] ?? ''), $topicId) . '#comments-heading'
-            : (rtrim($baseUri, '/') . '/topic.php?id=' . $topicId . '#comments-heading');
+        $downloadCommentTarget = topicUrl((string) ($topic['slug'] ?? ''), $topicId) . '#comments-heading';
 
         if (($settings['topic_detail_show_download_panel'] ?? '1') !== '1') {
             return [
@@ -1057,7 +1056,7 @@ final class PublicThemeRenderer
             }
             $id = (int) ($link['id'] ?? 0);
             $href = $id > 0
-                ? (function_exists('routePublicStaticUrl') ? routePublicStaticUrl('download') : (rtrim($baseUri, '/') . '/download.php')) . '?id=' . $id
+                ? routePublicStaticUrl('download') . '?id=' . $id
                 : (function_exists('safeExternalUrl') ? safeExternalUrl($url, '') : $url);
             if ($href === '') {
                 continue;
@@ -1470,7 +1469,7 @@ final class PublicThemeRenderer
         if ($showAuthor) {
             $author = htmlspecialchars((string) ($topic['author'] ?? 'Anonim'), ENT_QUOTES, 'UTF-8');
             $authorHtml = $author;
-            if (!empty($topic['author_id']) && function_exists('publicProfileUrl')) {
+            if (!empty($topic['author_id'])) {
                 $authorHtml = '<a href="' . htmlspecialchars(publicProfileUrl(['id' => (int) $topic['author_id'], 'name' => (string) ($topic['author'] ?? 'Anonim')]), ENT_QUOTES, 'UTF-8') . '">' . $author . '</a>';
             }
             $html .= self::topicInfoRow('bi-person-badge', 'Konu Sahibi', $authorHtml, true);
@@ -1482,7 +1481,7 @@ final class PublicThemeRenderer
             $html .= self::topicInfoRow('bi-controller', 'Oyun Sürümü', htmlspecialchars((string) ($topic['topic_version'] ?? '-'), ENT_QUOTES, 'UTF-8'), true);
         }
 
-        $categoryUrl = $categorySlug !== '' && function_exists('categoryUrl') ? categoryUrl($categorySlug) : '#';
+        $categoryUrl = categoryUrl($categorySlug);
         $html .= self::topicInfoRow('bi-folder2-open', 'Kategori', '<a href="' . htmlspecialchars($categoryUrl, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($category, ENT_QUOTES, 'UTF-8') . '</a>', true);
         if ($showViews && $views > 0) {
             $html .= self::topicInfoRow('bi-eye', 'Görüntülenme', number_format($views, 0, ',', '.'), true);
@@ -1524,7 +1523,7 @@ final class PublicThemeRenderer
             }
             $html .= '</select></label><label><span>Detay</span><textarea name="details" rows="3" maxlength="1000" placeholder="Ek bilgi varsa yazın"></textarea></label></div><button type="submit" class="topic-report-submit"><i class="bi bi-send" aria-hidden="true"></i> Rapor Gönder</button><div class="topic-report-feedback" aria-live="polite"></div></form>';
         } else {
-            $html .= '<div class="topic-report-login"><i class="bi bi-shield-exclamation" aria-hidden="true"></i><span>Rapor göndermek için giriş yapmalısınız.</span><a href="' . htmlspecialchars((function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : (rtrim($baseUri, '/') . '/giris')), ENT_QUOTES, 'UTF-8') . '">Giriş yap</a></div>';
+            $html .= '<div class="topic-report-login"><i class="bi bi-shield-exclamation" aria-hidden="true"></i><span>Rapor göndermek için giriş yapmalısınız.</span><a href="' . htmlspecialchars(routePublicStaticUrl('login'), ENT_QUOTES, 'UTF-8') . '">Giriş yap</a></div>';
         }
 
         return $html . '</div></div>';
@@ -1564,7 +1563,7 @@ final class PublicThemeRenderer
             $id = (int) ($link['id'] ?? 0);
             $name = trim((string) ($link['name'] ?? '')) ?: 'İndirme Linki';
             $href = $id > 0
-                ? (function_exists('routePublicStaticUrl') ? routePublicStaticUrl('download') : (rtrim($baseUri, '/') . '/download.php')) . '?id=' . $id
+                ? routePublicStaticUrl('download') . '?id=' . $id
                 : (function_exists('safeExternalUrl') ? safeExternalUrl($url, '') : $url);
             if ($href === '') {
                 continue;
@@ -1609,7 +1608,7 @@ final class PublicThemeRenderer
                 : '<img src="' . htmlspecialchars($avatar !== '' ? $avatar : $avatarFallback, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($userName !== '' ? $userName : 'U', ENT_QUOTES, 'UTF-8') . '" title="' . htmlspecialchars($userName !== '' ? $userName : 'U', ENT_QUOTES, 'UTF-8') . '" width="48" height="48" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="' . htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8') . '">';
             $form = '<div class="ui-comment-form-wrap" id="tcFormWrap"><div class="ui-comment-form-avatar">' . $avatarHtml . '</div><div class="ui-comment-form-body ui-panel__body"><textarea id="tcInput" class="ui-comment-textarea" placeholder="Düşüncelerini paylaş..." maxlength="' . $maxLength . '" rows="1"></textarea><div class="ui-comment-form-actions is-hidden" id="tcActions"><span class="ui-comment-char-count"><span id="tcCharCount">0</span>/' . $maxLength . '</span><div class="ui-comment-form-btns"><button type="button" class="ui-comment-btn-cancel" id="tcCancel">İptal</button><button type="button" class="ui-comment-btn-submit" id="tcSubmit" disabled>Gönder</button></div></div></div></div>';
         } else {
-            $form = '<div class="ui-comment-login-prompt">Yorum yapmak için <a href="' . htmlspecialchars((function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : (rtrim($baseUri, '/') . '/giris')), ENT_QUOTES, 'UTF-8') . '">giriş yapın</a>.</div>';
+            $form = '<div class="ui-comment-login-prompt">Yorum yapmak için <a href="' . htmlspecialchars(routePublicStaticUrl('login'), ENT_QUOTES, 'UTF-8') . '">giriş yapın</a>.</div>';
         }
         $html .= $form . '<div class="ui-comment-list" id="tcList"><div class="ui-comment-loading" id="tcLoading"><div class="ui-comment-skeleton"><div class="ui-comment-skeleton-avatar"></div><div class="ui-comment-skeleton-body"><div class="ui-comment-skeleton-line ui-comment-skeleton-line--short"></div><div class="ui-comment-skeleton-line ui-comment-skeleton-line--full"></div><div class="ui-comment-skeleton-line ui-comment-skeleton-line--medium"></div></div></div></div></div><div class="ui-comment-load-more-wrap is-hidden" id="tcLoadMoreWrap"><button type="button" class="ui-comment-load-more-btn" id="tcLoadMore">Daha fazla yorum yükle</button></div><div class="ui-comment-pagination-info is-hidden" id="tcPaginationInfo"></div></section>';
 
@@ -1731,7 +1730,7 @@ final class PublicThemeRenderer
         ];
 
         if ($isEventsRequest || $pageKey === 'events') {
-            $items[] = ['label' => 'Etkinlikler', 'url' => (function_exists('routePublicStaticUrl') ? routePublicStaticUrl('events') : (rtrim($baseUri, '/') . '/events'))];
+            $items[] = ['label' => 'Etkinlikler', 'url' => routePublicStaticUrl('events')];
             if ($pageTitle !== '' && $pageTitle !== 'Etkinlikler') {
                 $items[] = ['label' => $pageTitle];
             }
@@ -1755,11 +1754,11 @@ final class PublicThemeRenderer
             if (!empty($pageVars['isSpecificCategory'])) {
                 $parentName = trim((string) ($pageVars['categoryParentName'] ?? ''));
                 $parentSlug = trim((string) ($pageVars['categoryActualParentSlug'] ?? ''));
-                if ($parentName !== '' && $parentSlug !== '' && function_exists('categoryUrl')) {
+                if ($parentName !== '' && $parentSlug !== '') {
                     $items[] = ['label' => $parentName, 'url' => categoryUrl($parentSlug)];
                 }
                 $categorySlug = trim((string) ($pageVars['categorySlug'] ?? ''));
-                $categoryUrl = $categorySlug !== '' && function_exists('categoryUrl')
+                $categoryUrl = $categorySlug !== ''
                     ? categoryUrl($categorySlug, $parentSlug)
                     : '';
                 $items[] = ['label' => (string) ($pageVars['categoryName'] ?? $pageTitle), 'url' => $categoryUrl];
@@ -1780,13 +1779,13 @@ final class PublicThemeRenderer
                 $categoryParentSlug = $categoryParentSlug !== '' ? $categoryParentSlug : (string) ($parent['slug'] ?? '');
                 $categoryParentName = $categoryParentName !== '' ? $categoryParentName : (string) ($parent['name'] ?? '');
             }
-            if ($categoryParentSlug !== '' && $categoryParentName !== '' && function_exists('categoryUrl')) {
+            if ($categoryParentSlug !== '' && $categoryParentName !== '') {
                 $items[] = ['label' => $categoryParentName, 'url' => categoryUrl($categoryParentSlug)];
             }
-            if ($category !== '' && $categorySlug !== '' && function_exists('categoryUrl')) {
+            if ($category !== '' && $categorySlug !== '') {
                 $items[] = ['label' => $category, 'url' => categoryUrl($categorySlug, $categoryParentSlug)];
             }
-            $topicUrl = function_exists('topicUrlForRow') ? topicUrlForRow($topic) : '';
+            $topicUrl = topicUrlForRow($topic);
             $items[] = ['label' => (string) ($topic['title'] ?? $pageTitle), 'url' => $topicUrl];
             return $items;
         }
@@ -1916,7 +1915,7 @@ final class PublicThemeRenderer
         $views = (int) ($topic['view_count'] ?? 0);
         $downloads = (int) ($topic['download_count'] ?? $topic['downloads_count'] ?? 0);
         $favorites = (int) ($pageVars['favoritesCount'] ?? $topic['favorites_count'] ?? $topic['likes'] ?? $topic['rating_count'] ?? 0);
-        $topicUrl = function_exists('topicUrlForRow') ? topicUrlForRow($topic) : '#';
+        $topicUrl = topicUrlForRow($topic);
         if ($topicUrl !== '#' && !preg_match('~^(https?:)?//|^/~i', $topicUrl)) {
             $topicUrl = rtrim($baseUri, '/') . '/' . ltrim($topicUrl, '/');
         }
@@ -1931,7 +1930,7 @@ final class PublicThemeRenderer
                 : $title . ' kapak gorseli',
             'title' => $title,
             'category' => $category,
-            'category_url' => $categorySlug !== '' && function_exists('categoryUrl') ? categoryUrl($categorySlug, $categoryParentSlug) : '#',
+            'category_url' => categoryUrl($categorySlug, $categoryParentSlug),
             'date' => function_exists('formatAppDate') ? formatAppDate((string) ($topic['published_at'] ?? $topic['created_at'] ?? 'now'), $GLOBALS['pdo'] ?? null) : date('d.m.Y', $timestamp),
             'date_short' => date('d.m', $timestamp),
             'day_name' => date('D', $timestamp),
@@ -2395,9 +2394,7 @@ final class PublicThemeRenderer
         $count = self::categoryTotal($node);
         $isActive = $activeSlug !== '' && $slug === $activeSlug;
         $containsActive = self::categoryContainsSlug($node, $activeSlug);
-        $url = function_exists('categoryUrlForRow')
-            ? categoryUrlForRow($pdo instanceof PDO ? $pdo : null, $node)
-            : (function_exists('categoryUrl') ? categoryUrl($slug) : ($baseUri . '/category.php?slug=' . rawurlencode($slug)));
+        $url = categoryUrlForRow($pdo instanceof PDO ? $pdo : null, $node);
         $itemId = 'cat-' . $variant . '-' . (++$state['index']);
         $hasChildren = $children !== [];
         $isSidebarRootToggle = $variant === 'sidebar' && $depth === 0 && $hasChildren;
@@ -2487,9 +2484,7 @@ final class PublicThemeRenderer
         $count = self::categoryTotal($node);
         $isActive = $activeSlug !== '' && $slug === $activeSlug;
         $containsActive = self::categoryContainsSlug($node, $activeSlug);
-        $url = function_exists('categoryUrlForRow')
-            ? categoryUrlForRow($pdo instanceof PDO ? $pdo : null, $node)
-            : (function_exists('categoryUrl') ? categoryUrl($slug) : ($baseUri . '/category.php?slug=' . rawurlencode($slug)));
+        $url = categoryUrlForRow($pdo instanceof PDO ? $pdo : null, $node);
         $itemId = 'cat-' . $variant . '-' . (++$state['index']);
         $panelId = $itemId . '-children';
         $depthClass = $depth > 0 ? ' cat-menu__item--child' : ' cat-menu__item--parent';
@@ -2625,7 +2620,7 @@ final class PublicThemeRenderer
             }
             $popularTopics[] = [
                 'title' => (string) ($row['title'] ?? 'Konu'),
-                'url' => function_exists('topicUrlForRow') ? topicUrlForRow($row) : '#',
+                'url' => topicUrlForRow($row),
                 'image' => $image,
                 'meta' => isset($row['download_count']) ? number_format((int) $row['download_count'], 0, ',', '.') . ' indirme' : '',
             ];
@@ -2656,7 +2651,7 @@ final class PublicThemeRenderer
                     'author' => $author,
                     'avatar' => $commentAvatar,
                     'excerpt' => mb_substr(trim(strip_tags((string) ($row['body'] ?? $row['content'] ?? ''))), 0, 74),
-                    'url' => function_exists('topicUrlForRow') ? topicUrlForRow($row) : '#',
+                    'url' => topicUrlForRow($row),
                     'date' => function_exists('formatAppDate') ? formatAppDate((string) ($row['created_at'] ?? 'now'), $pdo) : '',
                 ];
             }
@@ -2687,7 +2682,7 @@ final class PublicThemeRenderer
                         'author' => $author,
                         'avatar' => $commentAvatar,
                         'excerpt' => mb_substr(trim(strip_tags((string) ($row['body'] ?? ''))), 0, 74),
-                        'url' => function_exists('topicUrlForRow') ? topicUrlForRow($row) : '#',
+                        'url' => topicUrlForRow($row),
                         'date' => function_exists('formatAppDate') ? formatAppDate((string) ($row['created_at'] ?? 'now'), $pdo) : '',
                     ];
                 }
@@ -2707,7 +2702,7 @@ final class PublicThemeRenderer
             if ($name === '' || $slug === '') {
                 continue;
             }
-            $url = function_exists('categoryUrl') ? categoryUrl($slug) : '#';
+            $url = categoryUrl($slug);
             $tagCloudItems[] = [
                 'label' => $name,
                 'url' => $url,
@@ -2717,7 +2712,7 @@ final class PublicThemeRenderer
         $footerCopyright = (string) ($settings['footer_copyright'] ?? '&copy; {current_year}. <a href="{base_url}/index.php" class="site-footer-brand-link">{site_name}</a> - Tüm hakları saklıdır.');
         $footerCopyright = str_replace(['{current_year}', '{base_url}', '{site_name}'], [date('Y'), rtrim($baseUri, '/'), htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8')], $footerCopyright);
 
-        $footerNavLinksRaw = (string) ($settings['footer_nav_links'] ?? "Ana sayfa|{base_url}/index.php\nKategoriler|{base_url}/kategoriler\nEtkinlikler|{base_url}/events\nMod Yükle|{base_url}/upload-topic.php");
+        $footerNavLinksRaw = (string) ($settings['footer_nav_links'] ?? "Ana sayfa|{base_url}/index.php\nKategoriler|{base_url}/kategoriler\nEtkinlikler|{base_url}/events\nMod Yükle|{upload_topic_url}");
         $footerNavItems = [];
         foreach (explode("\n", str_replace("\r", "", $footerNavLinksRaw)) as $line) {
             $parts = explode('|', $line);
@@ -2725,6 +2720,7 @@ final class PublicThemeRenderer
                 $label = trim($parts[0]);
                 $url = trim($parts[1]);
                 $url = str_replace('{base_url}', rtrim($baseUri, '/'), $url);
+                $url = str_replace('{upload_topic_url}', (string) routePublicStaticUrl('upload_topic'), $url);
                 $footerNavItems[] = ['label' => $label, 'url' => $url];
             }
         }
@@ -2886,27 +2882,18 @@ final class PublicThemeRenderer
         }
 
         return match ($currentScript) {
-            'category.php' => 'category',
-            'topic.php' => 'topic',
-            'download.php' => 'download',
-            'profile.php' => 'profile',
-            'public-profile.php' => 'public_profile',
-            'contact.php' => 'contact',
             'iletisim' => 'contact',
-            'login.php' => 'login',
+            'indir' => 'download',
             'giris' => 'login',
-            'register.php' => 'register',
             'kayit' => 'register',
-            'forgot-password.php' => 'forgot_password',
             'sifremi-unuttum' => 'forgot_password',
-            'reset-password.php' => 'reset_password',
             'sifre-sifirla' => 'reset_password',
-            'upload-topic.php' => 'upload_topic',
-            'edit-topic.php' => 'edit_topic',
-            'notifications.php' => 'notifications',
-            'messages.php' => 'messages',
-            'leaderboard.php' => 'leaderboard',
-            'ban-appeals.php' => 'ban_appeals',
+            'konu-yukle' => 'upload_topic',
+            'konu-duzenle' => 'edit_topic',
+            'bildirimler' => 'notifications',
+            'mesajlar' => 'messages',
+            'liderlik' => 'leaderboard',
+            'ban-itiraz' => 'ban_appeals',
             default => 'home',
         };
     }
@@ -2939,7 +2926,11 @@ final class PublicThemeRenderer
             return 'home';
         }
 
-        if (self::matchesPublicStaticAlias('messages', $prefix)) {
+        $staticPaths = function_exists('routePublicStaticPathSettings')
+            ? routePublicStaticPathSettings($GLOBALS['pdo'] ?? null)
+            : [];
+        $messagesPath = strtolower(trim((string) ($staticPaths['messages'] ?? 'mesajlar'), '/'));
+        if ($messagesPath !== '' && $prefix === $messagesPath) {
             return 'messages';
         }
 
@@ -2957,42 +2948,23 @@ final class PublicThemeRenderer
         }
 
         return match ($prefix) {
-            'konu', 'topic' => 'topic',
-            'kategori', 'kategoriler', 'category', 'categories' => 'category',
-            'profil', 'profile' => isset($segments[1]) && (string) $segments[1] !== '' ? 'public_profile' : 'profile',
-            'profile.php' => 'profile',
-            'public-profile.php' => 'public_profile',
-            'iletisim', 'contact' => 'contact',
-            'download.php', 'indir' => 'download',
-            'konu-yukle', 'upload-topic', 'upload-topic.php', 'mod-yukle' => 'upload_topic',
-            'konu-duzenle', 'edit-topic', 'edit-topic.php', 'mod-duzenle' => 'edit_topic',
-            'bildirimler', 'notifications', 'notifications.php' => 'notifications',
-            'messages.php' => 'messages',
-            'liderlik', 'leaderboard', 'leaderboard.php' => 'leaderboard',
-            'ban-itiraz', 'ban-appeals', 'ban-appeals.php' => 'ban_appeals',
+            'konu' => 'topic',
+            'kategori', 'kategoriler' => 'category',
+            'profil' => isset($segments[1]) && (string) $segments[1] !== '' ? 'public_profile' : 'profile',
+            'iletisim' => 'contact',
+            'indir' => 'download',
+            'konu-yukle' => 'upload_topic',
+            'konu-duzenle' => 'edit_topic',
+            'bildirimler' => 'notifications',
+            'mesajlar' => 'messages',
+            'liderlik' => 'leaderboard',
+            'ban-itiraz' => 'ban_appeals',
             'giris' => 'login',
             'kayit' => 'register',
             'sifremi-unuttum' => 'forgot_password',
             'sifre-sifirla' => 'reset_password',
             default => '',
         };
-    }
-
-    private static function matchesPublicStaticAlias(string $routeKey, string $prefix): bool
-    {
-        if ($prefix === '' || !function_exists('routePublicStaticPathAliases')) {
-            return false;
-        }
-
-        $aliases = routePublicStaticPathAliases($routeKey);
-        foreach ($aliases as $alias) {
-            $cleanAlias = strtolower(trim((string) $alias, '/'));
-            if ($cleanAlias !== '' && $cleanAlias === $prefix) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -3077,7 +3049,7 @@ final class PublicThemeRenderer
             'mode' => $isEdit ? 'edit' : 'create',
             'is_edit' => $isEdit,
             'is_create' => !$isEdit,
-            'form_action' => (string) ($pageVars['upload_form_action'] ?? ($isEdit ? (function_exists('routePublicStaticUrl') ? routePublicStaticUrl('edit_topic') : ($baseUri . '/edit-topic.php')) : (function_exists('routePublicStaticUrl') ? routePublicStaticUrl('upload_topic') : ($baseUri . '/upload-topic.php')))),
+            'form_action' => (string) ($pageVars['upload_form_action'] ?? ($isEdit ? routePublicStaticUrl('edit_topic') : routePublicStaticUrl('upload_topic'))),
             'cancel_url' => $isEdit ? ($baseUri . '/profile.php?tab=topics') : ($baseUri . '/index.php'),
             'profile_topics_url' => $baseUri . '/profile.php?tab=topics',
             'csrf_token' => (string) ($pageVars['upload_csrf_token'] ?? (function_exists('csrf_token') ? csrf_token() : '')),
@@ -3295,7 +3267,7 @@ final class PublicThemeRenderer
         $canReport = !empty($pageVars['profile_can_report']) || !empty($profileContext['can_report']);
         $canMessage = !empty($pageVars['profile_can_message']) || !empty($profileContext['can_message']);
         $messageUrl = (string) ($pageVars['profile_message_url'] ?? ($profileContext['message_url'] ?? ''));
-        if ($messageUrl === '' && $canMessage && function_exists('routePublicStaticUrl')) {
+        if ($messageUrl === '' && $canMessage) {
             $messageUrl = routePublicStaticUrl('messages') . '?with=' . (int) ($user['id'] ?? 0);
         }
         $sidebarStats = [];
@@ -3483,7 +3455,7 @@ final class PublicThemeRenderer
                 ['url' => rtrim($baseUri, '/') . '/profile.php?tab=topics', 'icon' => 'bi-file-earmark-text', 'value' => number_format($totalTopics, 0, ',', '.'), 'label' => 'Konularim'],
                 ['url' => rtrim($baseUri, '/') . '/profile.php?tab=favorites', 'icon' => 'bi-heart', 'value' => number_format($totalFavorites, 0, ',', '.'), 'label' => 'Favorilerim'],
                 ['url' => rtrim($baseUri, '/') . '/profile.php?tab=comments', 'icon' => 'bi-chat-dots', 'value' => number_format($totalComments, 0, ',', '.'), 'label' => 'Yorumlarim'],
-                ['url' => (function_exists('routePublicStaticUrl') ? routePublicStaticUrl('notifications') : (rtrim($baseUri, '/') . '/notifications.php')), 'icon' => 'bi-bell', 'value' => 'Merkez', 'label' => 'Bildirimler'],
+                ['url' => routePublicStaticUrl('notifications'), 'icon' => 'bi-bell', 'value' => 'Merkez', 'label' => 'Bildirimler'],
                 ['url' => rtrim($baseUri, '/') . '/profile.php?tab=settings', 'icon' => 'bi-gear', 'value' => 'Profil', 'label' => 'Ayarlar'],
             ],
             'tab_overview' => $activeTab === 'overview',
@@ -3700,7 +3672,7 @@ final class PublicThemeRenderer
         $item = [
             'id' => (int) ($row['id'] ?? 0),
             'title' => (string) ($row['title'] ?? 'Konu'),
-            'url' => function_exists('topicUrlForRow') ? topicUrlForRow($row) : '#',
+            'url' => topicUrlForRow($row),
             'category' => (string) ($row['category'] ?? $row['category_name'] ?? 'Genel'),
             'views' => number_format((int) ($row['view_count'] ?? 0), 0, ',', '.'),
             'downloads' => number_format((int) ($row['download_count'] ?? 0), 0, ',', '.'),
@@ -3709,7 +3681,7 @@ final class PublicThemeRenderer
         ];
 
         if ($includeEdit) {
-            $item['edit_url'] = (function_exists('routePublicStaticUrl') ? routePublicStaticUrl('edit_topic') : (rtrim($baseUri, '/') . '/edit-topic.php')) . '?id=' . (int) ($row['id'] ?? 0);
+            $item['edit_url'] = routePublicStaticUrl('edit_topic') . '?id=' . (int) ($row['id'] ?? 0);
         }
 
         return $item;
@@ -3740,7 +3712,7 @@ final class PublicThemeRenderer
         return [
             'id' => (int) ($row['id'] ?? 0),
             'title' => (string) ($row['title'] ?? 'Konu'),
-            'edit_url' => (function_exists('routePublicStaticUrl') ? routePublicStaticUrl('edit_topic') : (rtrim($baseUri, '/') . '/edit-topic.php')) . '?id=' . (int) ($row['id'] ?? 0),
+            'edit_url' => routePublicStaticUrl('edit_topic') . '?id=' . (int) ($row['id'] ?? 0),
             'category' => (string) ($row['category'] ?? 'Genel'),
             'updated' => self::formatDateTime((string) ($row['updated_at'] ?? $row['created_at'] ?? 'now')),
             'moderation_note' => trim((string) ($flags['note'] ?? '')),
@@ -3757,12 +3729,7 @@ final class PublicThemeRenderer
     private static function profileCommentItem(array $row): array
     {
         $date = (string) ($row['created_at'] ?? 'now');
-        $url = '#';
-        if (function_exists('topicUrl')) {
-            $url = topicUrl((string) ($row['topic_slug'] ?? ''), (int) ($row['topic_id'] ?? 0)) . '#comment-' . (int) ($row['id'] ?? 0);
-        } elseif (isset($row['topic_id'])) {
-            $url = function_exists('topicUrlForRow') ? topicUrlForRow($row) : '#';
-        }
+        $url = topicUrlForRow($row) . '#comment-' . (int) ($row['id'] ?? 0);
 
         return [
             'body' => mb_substr(trim(strip_tags((string) ($row['body'] ?? $row['content'] ?? ''))), 0, 180),
@@ -3787,9 +3754,9 @@ final class PublicThemeRenderer
         return [
             'id' => (int) ($row['id'] ?? 0),
             'title' => (string) ($row['title'] ?? 'Konu'),
-            'url' => function_exists('topicUrlForRow') ? topicUrlForRow($row) : '#',
+            'url' => topicUrlForRow($row),
             'category' => $category,
-            'category_url' => $categorySlug !== '' && function_exists('categoryUrl') ? categoryUrl($categorySlug) : '#',
+            'category_url' => categoryUrl($categorySlug),
             'author' => (string) ($row['author'] ?? '-'),
             'views' => number_format((int) ($row['view_count'] ?? 0), 0, ',', '.'),
             'date' => self::formatDate((string) ($row['favorited_at'] ?? 'now')),
@@ -3814,7 +3781,7 @@ final class PublicThemeRenderer
 
         return [
             'title' => (string) ($row['topic_title'] ?? $row['title'] ?? 'Silinmis konu'),
-            'url' => function_exists('topicUrl') ? topicUrl((string) ($row['topic_slug'] ?? ''), (int) ($row['topic_id'] ?? 0)) : '#',
+            'url' => topicUrl((string) ($row['topic_slug'] ?? ''), (int) ($row['topic_id'] ?? 0)),
             'category' => (string) ($row['category'] ?? 'Genel'),
             'date' => self::formatDateTime((string) ($row['created_at'] ?? 'now')),
             'reason' => (string) ($reasonLabels[$row['reason'] ?? ''] ?? $row['reason'] ?? ''),
@@ -3966,7 +3933,7 @@ final class PublicThemeRenderer
             $total = (int) ($pageVars['publishedTopicCount'] ?? 0);
             $page = (int) ($pageVars['profileCurrentPage'] ?? 1);
             $perPage = (int) ($pageVars['topicsPerPage'] ?? 12);
-            $baseUrl = function_exists('publicProfileUrl') ? publicProfileUrl($user) : '';
+            $baseUrl = publicProfileUrl($user);
             if ($baseUrl !== '') {
                 $items = self::paginationItems($total, $page, $perPage, $baseUrl, 'page');
             }
@@ -4022,8 +3989,3 @@ final class PublicThemeRenderer
         return mb_strtoupper(mb_substr($value, 0, 1, 'UTF-8'), 'UTF-8');
     }
 }
-
-
-
-
-

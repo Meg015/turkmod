@@ -17,11 +17,7 @@ $hourlyLimit = max(0, (int)$config['wheel_hourly_limit']);
 $now = date('Y-m-d H:i:s');
 
 try {
-    $rewardsUrl = function_exists('eventsPublicUrl')
-        ? eventsPublicUrl('rewards')
-        : (function_exists('routePublicStaticUrl')
-            ? routePublicStaticUrl('events', 'rewards')
-            : rtrim((string) ($baseUri ?? ''), '/') . '/events/rewards');
+    $rewardsUrl = eventsPublicUrl('rewards');
 
     $pdo->beginTransaction();
 

@@ -146,6 +146,38 @@
                 });
             }
 
+            function slugifyProfileName(value) {
+                const text = String(value || '').trim();
+                if (text === '') return 'kullanici';
+
+                const normalized = text
+                    .replace(/[ÇĞİÖŞÜçğıöşü]/g, function(char) {
+                        return {
+                            'Ç': 'C',
+                            'Ğ': 'G',
+                            'İ': 'I',
+                            'Ö': 'O',
+                            'Ş': 'S',
+                            'Ü': 'U',
+                            'ç': 'c',
+                            'ğ': 'g',
+                            'ı': 'i',
+                            'ö': 'o',
+                            'ş': 's',
+                            'ü': 'u',
+                        }[char] || char;
+                    })
+                    .normalize('NFKD')
+                    .replace(/[\u0300-\u036f]/g, '');
+
+                const slug = normalized
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '');
+
+                return slug || 'kullanici';
+            }
+
             // -- Client-side Markdown Parser (safe, lightweight) --
             function parseMarkdown(text) {
                 if (!text) return '';
@@ -163,7 +195,7 @@
                 html = html.replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
                 // @mention highlight
                 html = html.replace(/@([\w\-]+)/g, function(match, username) {
-                    return '<a href="' + escAttr(BASE_URI + '/profil/' + encodeURIComponent(username)) + '" class="ui-comment-mention">@' + esc(username) + '</a>';
+                    return '<span class="ui-comment-mention">@' + esc(username) + '</span>';
                 });
                 // Newlines to <br>
                 html = html.replace(/\n/g, '<br>');
@@ -235,9 +267,13 @@
                     groupBadge = '<span class="ui-comment-group-badge">' + esc(c.group_name) + '</span>';
                 }
 
+                const profileDisplayName = c.author || c.username || 'kullanici';
+                const profileAuthorId = parseInt(c.author_id || c.user_id || 0, 10);
                 const profileUrl = c.profile_url
                     ? String(c.profile_url)
-                    : (c.author ? BASE_URI + '/profil/' + encodeURIComponent(c.author) : '#');
+                    : (profileAuthorId > 0
+                        ? BASE_URI + '/profil/' + encodeURIComponent(slugifyProfileName(profileDisplayName) + '-' + profileAuthorId)
+                        : '#');
 
                  const templateValues = {
                     classes: cls,

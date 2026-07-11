@@ -13,8 +13,7 @@ if ($cacheEnabled && empty($_SESSION['_auth_user_id'])) {
     header("Pragma: no-cache");
     header("Expires: 0");
 }
-require_once $projectRoot . "/includes/src/Engine/Seo/Legacy/legacy-redirect-helpers.php";
-require_once $projectRoot . "/includes/src/Engine/Seo/Legacy/helpers.php";
+require_once $projectRoot . "/includes/src/Engine/Seo/Legacy/helpers.php";
 
 $id = (int) ($_GET["id"] ?? 0);
 $slug = trim($_GET["slug"] ?? "");
@@ -63,18 +62,6 @@ if ($id > 0) {
 }
 
 if (!$topic) {
-    $seoRedirect = legacyRedirectResolveMissingRoutedPath(
-        $pdo,
-        (string) ($_SERVER["REQUEST_URI"] ?? ""),
-    );
-    if (
-        !empty($seoRedirect["redirect"]) &&
-        !empty($seoRedirect["target_url"])
-    ) {
-        header("Location: " . (string) $seoRedirect["target_url"], true, 301);
-        exit();
-    }
-
     http_response_code(404);
     $pageTitle = "Konu Bulunamadı";
     require_once $projectRoot . "/includes/public-header.php";
@@ -83,14 +70,7 @@ if (!$topic) {
     exit();
 }
 
-if (routeRequestNeedsCanonicalRedirect('topic', topicCanonicalSlug((string) ($topic["slug"] ?? $slug), (int) ($topic["id"] ?? 0), $settings))) {
-    header(
-        "Location: " . topicUrl((string) ($topic["slug"] ?? $slug), (int) ($topic["id"] ?? 0)),
-        true,
-        301,
-    );
-    exit();
-}
+
 
 if (
     ($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST" &&
@@ -106,9 +86,7 @@ if (
 
     if (!$isLoggedIn) {
         flash("error", "Favorilere eklemek için giriş yapmalısınız.");
-        $loginUrl = function_exists("routePublicStaticUrl")
-            ? routePublicStaticUrl("login")
-            : ($baseUri . "/giris");
+        $loginUrl = routePublicStaticUrl("login");
         header("Location: " . $loginUrl);
         exit();
     }
@@ -192,7 +170,7 @@ $seoMetaTags = function_exists('seoGenerateTopicMeta')
     : getSeoMeta($pageTitle, $metaDescription, $topicCanonicalPath, $topicPrimaryImageUrl, true, 'article');
 $topicSchemaBody = mb_substr(strip_tags($cleanTopicDescription !== "" ? $cleanTopicDescription : (string) ($topic["content"] ?? "")), 0, 500, "UTF-8");
 $resolveProfileSchemaUrl = static function (int $userId, string $username) use ($settings): string {
-    if ($userId <= 0 || !function_exists('publicProfileUrl')) {
+    if ($userId <= 0) {
         return '';
     }
 
@@ -397,10 +375,8 @@ $isTopicOwner = $isLoggedIn
     && (int) ($topic["author_id"] ?? 0) === $currentUserId;
 $canEditTopic = $canManageTopic || $isTopicOwner;
 $topicEditUrl = $canManageTopic
-    ? $baseUri . "/admin/edit.php?id=" . (int) ($topic["id"] ?? 0)
-    : (function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('edit_topic')
-        : ($baseUri . '/edit-topic.php')) . '?id=' . (int) ($topic['id'] ?? 0);
+    ? $baseUri . "/admin/edit.php?id=" . (int) ($topic["id"] ?? 0)
+    : routePublicStaticUrl('edit_topic') . '?id=' . (int) ($topic['id'] ?? 0);
 $topicDetailShowToolbar = ($settings['topic_detail_show_toolbar'] ?? '1') === '1';
 $topicDetailShowInfoPanel = ($settings['topic_detail_show_info_panel'] ?? '1') === '1';
 $topicDetailShowMedia = ($settings['topic_detail_show_media'] ?? '1') === '1';
@@ -478,10 +454,8 @@ $isTopicOwner = $isLoggedIn
     && (int) ($topic["author_id"] ?? 0) === $currentUserId;
 $canEditTopic = $canManageTopic || $isTopicOwner;
 $topicEditUrl = $canManageTopic
-    ? $baseUri . "/admin/edit.php?id=" . (int) ($topic["id"] ?? 0)
-    : (function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('edit_topic')
-        : ($baseUri . '/edit-topic.php')) . '?id=' . (int) ($topic['id'] ?? 0);
+    ? $baseUri . "/admin/edit.php?id=" . (int) ($topic["id"] ?? 0)
+    : routePublicStaticUrl('edit_topic') . '?id=' . (int) ($topic['id'] ?? 0);
 
 // Yorumları DB'den çek
 $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
@@ -762,7 +736,7 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
             <div class="topic-report-login">
                 <i class="bi bi-shield-exclamation"></i>
                 <span>Rapor göndermek için giriş yapmalısınız.</span>
-                <a href="<?= htmlspecialchars(function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris'), ENT_QUOTES, 'UTF-8') ?>">Giriş yap</a>
+                <a href="<?= htmlspecialchars(routePublicStaticUrl('login'), ENT_QUOTES, 'UTF-8') ?>">Giriş yap</a>
             </div>
             <?php endif; ?>
             </div>
@@ -794,8 +768,8 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giriş Yap')) ?: 'Giriş Yap';
         $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayıt Ol')) ?: 'Kayıt Ol';
         $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.')) ?: 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.';
-        $downloadLoginUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris');
-        $downloadRegisterUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('register') : ($baseUri . '/kayit');
+        $downloadLoginUrl = routePublicStaticUrl('login');
+        $downloadRegisterUrl = routePublicStaticUrl('register');
         $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
         $downloadAuthApi = rtrim($baseUri, '/') . '/api/auth-popup.php';
         $downloadTopicId = (int) ($topic['id'] ?? 0);
@@ -804,9 +778,7 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
             : ($downloadLockReason === 'comment_required'
                 ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
                 : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.');
-        $downloadTopicUrl = function_exists('topicUrl')
-            ? topicUrl((string) ($topic['slug'] ?? ''), $downloadTopicId)
-            : ($baseUri . '/topic.php?id=' . $downloadTopicId);
+        $downloadTopicUrl = topicUrl((string) ($topic['slug'] ?? ''), $downloadTopicId);
         $downloadCommentTarget = $downloadTopicUrl . '#comments-heading';
         $downloadCurrentRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
 
@@ -903,11 +875,9 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                         if ($dlUrl === '') {
                             continue;
                         }
-                        $dlHref = $dlId > 0
-                            ? (function_exists('routePublicStaticUrl')
-                                ? routePublicStaticUrl('download')
-                                : ($baseUri . '/download.php')) . '?id=' . $dlId
-                            : $dlUrl;
+                                                $dlHref = $dlId > 0
+                            ? routePublicStaticUrl('download') . '?id=' . $dlId
+                            : $dlUrl;
                         $cardLocked = $downloadLocked;
                         $cardLockReason = $cardLocked ? $downloadLockReason : 'none';
                         $cardLockMessage = $cardLocked ? $downloadSectionLockMessage : '';
@@ -1069,7 +1039,7 @@ $defaultAvatarUrl = function_exists('defaultAvatarUrl')
             </div>
             <?php else: ?>
             <div class="ui-comment-login-prompt">
-                Yorum yapmak için <a href="<?= htmlspecialchars(function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris'), ENT_QUOTES, 'UTF-8') ?>">giriş yapın</a>.
+                Yorum yapmak için <a href="<?= htmlspecialchars(routePublicStaticUrl('login'), ENT_QUOTES, 'UTF-8') ?>">giriş yapın</a>.
             </div>
             <?php endif; ?>
 

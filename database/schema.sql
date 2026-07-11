@@ -763,47 +763,6 @@ CREATE TABLE `leaderboard_history` (
   CONSTRAINT `leaderboard_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `legacy_redirect_hits` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `rule_id` bigint(20) unsigned DEFAULT NULL,
-  `source_path` varchar(1024) NOT NULL,
-  `source_type` enum('topic','category') DEFAULT NULL,
-  `target_url` varchar(1024) DEFAULT NULL,
-  `match_score` tinyint(3) unsigned DEFAULT NULL,
-  `result` enum('redirected','pending','ignored','not_found','disabled') NOT NULL,
-  `referrer` varchar(2048) DEFAULT NULL,
-  `ip_address` varchar(255) DEFAULT NULL,
-  `user_agent` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `legacy_redirect_hits_source_index` (`source_path`(255)),
-  KEY `legacy_redirect_hits_result_created_index` (`result`,`created_at`),
-  KEY `legacy_redirect_hits_rule_id_foreign` (`rule_id`),
-  CONSTRAINT `legacy_redirect_hits_rule_id_foreign` FOREIGN KEY (`rule_id`) REFERENCES `legacy_redirect_rules` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `legacy_redirect_rules` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `source_path` varchar(1024) NOT NULL,
-  `source_type` enum('topic','category') NOT NULL,
-  `legacy_id` bigint(20) unsigned DEFAULT NULL,
-  `legacy_slug` varchar(500) NOT NULL,
-  `target_type` enum('topic','category','url') DEFAULT NULL,
-  `target_id` bigint(20) unsigned DEFAULT NULL,
-  `target_url` varchar(1024) DEFAULT NULL,
-  `match_score` tinyint(3) unsigned NOT NULL DEFAULT 0,
-  `status` enum('active','pending','ignored') NOT NULL DEFAULT 'active',
-  `is_manual` tinyint(1) NOT NULL DEFAULT 0,
-  `hit_count` bigint(20) unsigned NOT NULL DEFAULT 0,
-  `last_hit_at` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `legacy_redirect_rules_source_unique` (`source_path`(255)),
-  KEY `legacy_redirect_rules_status_index` (`status`),
-  KEY `legacy_redirect_rules_type_score_index` (`source_type`,`match_score`)
-) ENGINE=InnoDB AUTO_INCREMENT=3961 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE `media_files` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `topic_id` bigint(20) unsigned DEFAULT NULL,
@@ -945,20 +904,6 @@ CREATE TABLE `permissions` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `rate_limits` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `action_type` varchar(50) NOT NULL,
-  `identifier` varchar(100) NOT NULL,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `user_id` bigint(20) unsigned DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `idx_rate_limits_action_identifier` (`action_type`,`identifier`,`created_at`),
-  KEY `idx_rate_limits_ip` (`ip_address`,`created_at`),
-  KEY `idx_rate_limits_user` (`user_id`,`created_at`),
-  KEY `idx_rate_limits_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `ratings` (

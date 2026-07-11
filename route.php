@@ -225,13 +225,6 @@ function routerHandleEventsRoute(array $segments): void
         return;
     }
 
-    $eventsAliases = function_exists('routePublicStaticPathAliases')
-        ? routePublicStaticPathAliases('events')
-        : ['events'];
-    if (!in_array($requestPrefix, $eventsAliases, true)) {
-        return;
-    }
-
     $paths = function_exists('routePublicStaticPathSettings')
         ? routePublicStaticPathSettings($GLOBALS['pdo'] ?? null)
         : ['events' => 'events'];
@@ -239,35 +232,12 @@ function routerHandleEventsRoute(array $segments): void
     if ($canonicalPrefix === '') {
         $canonicalPrefix = 'events';
     }
-
     if ($requestPrefix !== $canonicalPrefix) {
-        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-        $routeSettings = function_exists('routeFriendlySettings')
-            ? routeFriendlySettings()
-            : [];
-        $shouldRedirect = in_array($method, ['GET', 'HEAD'], true)
-            && function_exists('routeAliasRedirectsEnabled')
-            && routeAliasRedirectsEnabled($routeSettings);
-
-        if ($shouldRedirect) {
-            $redirectSegments = $segments;
-            $redirectSegments[0] = $canonicalPrefix;
-            $redirectPath = implode('/', array_values(array_filter($redirectSegments, static fn ($segment): bool => $segment !== '')));
-            $redirect = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
-            $redirect .= '/' . ltrim($redirectPath, '/');
-
-            $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
-            if ($query !== '') {
-                $redirect .= '?' . $query;
-            }
-
-            header('Location: ' . $redirect, true, 301);
-            exit;
-        }
+        return;
     }
 
     $normalizedSegments = $segments;
-    $normalizedSegments[0] = 'events';
+    $normalizedSegments[0] = $canonicalPrefix;
 
     $config = routerEventsRouteConfig();
     $bootstrapFile = __DIR__ . '/' . ltrim($config['bootstrap'], '/\\');
@@ -316,232 +286,8 @@ function routerHandleStaticRoute(string $cleanRoute): void
         return;
     }
 
-    if (!empty($route['is_alias'])) {
-        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-        $routeSettings = function_exists('routeFriendlySettings')
-            ? routeFriendlySettings()
-            : [];
-        $shouldRedirect = in_array($method, ['GET', 'HEAD'], true)
-            && function_exists('routeAliasRedirectsEnabled')
-            && routeAliasRedirectsEnabled($routeSettings);
-
-        $canonicalPath = trim((string) ($route['canonical_path'] ?? ''), '/');
-        if ($shouldRedirect && $canonicalPath !== '' && $canonicalPath !== trim($cleanRoute, '/')) {
-            $redirect = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
-            $redirect .= '/' . ltrim($canonicalPath, '/');
-
-            $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
-            if ($query !== '') {
-                $redirect .= '?' . $query;
-            }
-
-            header('Location: ' . $redirect, true, 301);
-            exit;
-        }
-    }
-
     $middleware = is_array($route['group_middleware'] ?? null) ? $route['group_middleware'] : [];
     routerDispatchTarget($target, $cleanRoute === '' ? 'index.php' : $cleanRoute, $middleware);
-}
-
-function routerHandleLegacyPhpRoute(string $cleanRoute): void
-{
-    if (!str_ends_with(strtolower($cleanRoute), '.php') || !function_exists('routeLegacyRedirectTarget')) {
-        return;
-    }
-
-    $normalizedLegacyPath = strtolower(trim($cleanRoute, '/'));
-    if ($normalizedLegacyPath === 'public-profile.php') {
-        $profileSlug = trim((string) ($_GET['profile'] ?? $_GET['slug'] ?? ''));
-        if ($profileSlug !== '') {
-            $remainingQuery = $_GET;
-            unset($remainingQuery['profile'], $remainingQuery['slug']);
-            $redirect = routeCanonicalPath('profile', $profileSlug);
-
-            $pdo = $GLOBALS['pdo'] ?? null;
-            if ($pdo instanceof PDO && function_exists('publicProfileResolveUserBySlug')) {
-                $profileUser = publicProfileResolveUserBySlug($pdo, $profileSlug);
-                if (is_array($profileUser) && function_exists('publicProfileUrl')) {
-                    $redirect = publicProfileUrl($profileUser);
-                }
-            }
-
-            if ($remainingQuery !== []) {
-                $query = http_build_query($remainingQuery);
-                if ($query !== '') {
-                    $redirect .= '?' . $query;
-                }
-            }
-
-            header('Location: ' . $redirect, true, 301);
-            exit;
-        }
-    }
-
-    $target = routeLegacyRedirectTarget($cleanRoute);
-    if ($target === null) {
-        return;
-    }
-
-    $normalizedTarget = trim($target, '/');
-    $currentPath = trim($cleanRoute, '/');
-    if ($normalizedTarget === $currentPath) {
-        return;
-    }
-
-    $base = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
-    $redirect = $base . '/';
-    if ($normalizedTarget !== '') {
-        $redirect .= $normalizedTarget;
-    }
-
-    $queryString = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
-    if ($queryString !== '') {
-        $redirect .= '?' . $queryString;
-    }
-
-    header('Location: ' . $redirect, true, 301);
-    exit;
-}
-
-function routerHandleLegacyRoute(array $segments): void
-{
-    if (count($segments) < 2 || !preg_match('/^(.+)\.([0-9]+)$/', $segments[1], $legacyMatch)) {
-        return;
-    }
-
-    $legacyType = match ($segments[0]) {
-        'konu' => 'topic',
-        'forums' => 'category',
-        default => '',
-    };
-
-    if ($legacyType !== '') {
-        $_GET['type'] = $legacyType;
-        $_GET['legacy_slug'] = $legacyMatch[1];
-        $_GET['legacy_id'] = $legacyMatch[2];
-        routerDispatchTarget(\App\Engine\Seo\Http\LegacyRedirectPage::class, 'legacy-redirect.php');
-    }
-}
-
-function routerHandleLegacyPageSuffixRoute(array $segments): void
-{
-    global $settings;
-
-    if (
-        count($segments) !== 3 ||
-        !preg_match('/^(.+)\.([0-9]+)$/', $segments[1], $legacyMatch) ||
-        !preg_match('/^page-([1-9][0-9]*)$/', $segments[2], $pageMatch)
-    ) {
-        return;
-    }
-
-    $legacyType = match ($segments[0]) {
-        'konu' => 'topic',
-        'forums' => 'category',
-        default => '',
-    };
-
-    if ($legacyType === '') {
-        return;
-    }
-
-    $pdo = $GLOBALS['pdo'] ?? null;
-    $page = max(1, (int) $pageMatch[1]);
-    $queryParams = [];
-    parse_str((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY), $queryParams);
-
-    if ($legacyType === 'topic') {
-        $topic = $pdo instanceof PDO ? getTopic($pdo, (int) $legacyMatch[2]) : null;
-        if (is_array($topic) && !empty($topic['slug'])) {
-            $redirect = function_exists('topicUrlForRow')
-                ? topicUrlForRow($topic)
-                : topicUrl((string) $topic['slug'], (int) ($topic['id'] ?? 0));
-
-            unset($queryParams['page']);
-            if ($queryParams !== []) {
-                $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($queryParams);
-            }
-
-            header('Location: ' . $redirect, true, 301);
-            exit;
-        }
-
-        if (function_exists('legacyRedirectResolve')) {
-            $seoRedirect = legacyRedirectResolve($pdo instanceof PDO ? $pdo : null, '/' . $segments[0] . '/' . $segments[1] . '/');
-            if (!empty($seoRedirect['redirect']) && !empty($seoRedirect['target_url'])) {
-                $redirect = (string) $seoRedirect['target_url'];
-
-                unset($queryParams['page']);
-                if ($queryParams !== []) {
-                    $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($queryParams);
-                }
-
-                header('Location: ' . $redirect, true, 301);
-                exit;
-            }
-        }
-
-        return;
-    }
-
-    if (!($pdo instanceof PDO)) {
-        return;
-    }
-
-    try {
-        $stmt = $pdo->prepare(
-            'SELECT cat.slug, parent.slug AS parent_slug
-             FROM categories cat
-             LEFT JOIN categories parent ON parent.id = cat.parent_id
-             WHERE cat.id = :id AND cat.deleted_at IS NULL
-             LIMIT 1',
-        );
-        $stmt->execute(['id' => (int) $legacyMatch[2]]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-        $row = false;
-    }
-
-    if (is_array($row) && !empty($row['slug'])) {
-        $redirect = categoryUrl((string) $row['slug'], (string) ($row['parent_slug'] ?? ''));
-        $perPage = (int) (($settings['items_per_page'] ?? CATEGORY_TOPICS_PER_PAGE) ?: CATEGORY_TOPICS_PER_PAGE);
-        $totalResult = function_exists('getTopicsByCategorySlug')
-            ? getTopicsByCategorySlug($pdo, (string) $row['slug'], 1, $perPage)
-            : ['total' => 0];
-        $totalPages = max(1, (int) ceil((int) ($totalResult['total'] ?? 0) / max(1, $perPage)));
-        $page = min($page, $totalPages);
-        if ($page > 1) {
-            $queryParams['page'] = $page;
-        } else {
-            unset($queryParams['page']);
-        }
-
-        if ($queryParams !== []) {
-            $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($queryParams);
-        }
-
-        header('Location: ' . $redirect, true, 301);
-        exit;
-    }
-
-    if (function_exists('legacyRedirectResolve')) {
-        $seoRedirect = legacyRedirectResolve($pdo, '/' . $segments[0] . '/' . $segments[1] . '/');
-        if (!empty($seoRedirect['redirect']) && !empty($seoRedirect['target_url'])) {
-            $redirect = (string) $seoRedirect['target_url'];
-            if ($page > 1) {
-                $queryParams['page'] = $page;
-            } else {
-                unset($queryParams['page']);
-            }
-            if ($queryParams !== []) {
-                $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($queryParams);
-            }
-
-            header('Location: ' . $redirect, true, 301);
-            exit;
-        }
-    }
 }
 
 function routerHandleGotoPostRoute(array $segments): void
@@ -583,24 +329,6 @@ function routerHandleGotoPostRoute(array $segments): void
     }
 
     $redirect = topicUrl((string) $row['slug'], (int) $row['topic_id']) . '#comment-' . (int) $row['comment_id'];
-    header('Location: ' . $redirect, true, 301);
-    exit;
-}
-
-function routerHandleLegacyStyleVariationRoute(array $segments): void
-{
-    if (count($segments) < 2) {
-        return;
-    }
-
-    if (strtolower((string) $segments[0]) !== 'misc' || strtolower((string) $segments[1]) !== 'style-variation') {
-        return;
-    }
-
-    $base = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
-    $redirect = $base === '' ? '/' : ($base . '/');
-
-    header('X-Robots-Tag: noindex, nofollow', true);
     header('Location: ' . $redirect, true, 301);
     exit;
 }
@@ -655,11 +383,7 @@ $settings = getAdminSettings($pdo);
 routerHandleSitemapRoute($cleanRoute, $settings);
 routerHandleEventsRoute($segments);
 routerHandleStaticRoute($cleanRoute);
-routerHandleLegacyPhpRoute($cleanRoute);
-routerHandleLegacyPageSuffixRoute($segments);
 routerHandleGotoPostRoute($segments);
-routerHandleLegacyStyleVariationRoute($segments);
-routerHandleLegacyRoute($segments);
 routerHandleDynamicContentRoute($segments, $pdo);
 
 routerNotFound();

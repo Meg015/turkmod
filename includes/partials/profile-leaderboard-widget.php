@@ -12,9 +12,7 @@ require_once __DIR__ . '/../src/Modules/Leaderboard/Legacy/helpers.php';
 require_once __DIR__ . '/../src/Modules/Leaderboard/Legacy/calculator.php';
 
 $settings = leaderboardGetSettings($pdo);
-$leaderboardUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('leaderboard')
-    : ($baseUri . '/leaderboard.php');
+$leaderboardUrl = routePublicStaticUrl('leaderboard');
 
 if (($settings['leaderboard_enabled'] ?? '1') !== '1') {
     return;

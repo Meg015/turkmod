@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 requireAuth();
 
-$banAppealsUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('ban_appeals')
-    : ($baseUri . '/ban-appeals.php');
-$logoutUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('logout')
-    : ($baseUri . '/logout.php');
+$banAppealsUrl = routePublicStaticUrl('ban_appeals');
+$logoutUrl = routePublicStaticUrl('logout');
 
 $userId = (int)($_SESSION['_auth_user_id'] ?? 0);
 $restriction = $pdo ? usersGetAccessRestriction($pdo, $userId) : null;

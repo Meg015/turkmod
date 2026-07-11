@@ -82,6 +82,8 @@ final class MessageService
         }
 
         $typingSelect = $this->participantTypingSelectSql($pdo, 'other_p');
+        $otherUserNameSql = $this->userDisplayNameSql($pdo, 'u');
+        $otherUserAvatarSql = $this->userColumnSql($pdo, 'avatar', 'u', "''");
 
         try {
             $stmt = $pdo->prepare("
@@ -96,8 +98,8 @@ final class MessageService
                 other_p.last_read_message_id AS with_last_read_message_id,
                 {$typingSelect} AS with_typing_at,
                 other_p.last_read_at AS with_last_read_at,
-                u.username AS with_user_name,
-                u.avatar AS with_user_avatar,
+                {$otherUserNameSql} AS with_user_name,
+                {$otherUserAvatarSql} AS with_user_avatar,
                 lm.sender_user_id AS last_sender_user_id,
                 lm.body AS last_message_body,
                 lm.created_at AS last_message_created_at,
@@ -151,6 +153,8 @@ final class MessageService
         $limit = max(1, min(100, $limit));
 
         $typingSelect = $this->participantTypingSelectSql($pdo, 'other_p');
+        $otherUserNameSql = $this->userDisplayNameSql($pdo, 'u');
+        $otherUserAvatarSql = $this->userColumnSql($pdo, 'avatar', 'u', "''");
 
         try {
             $stmt = $pdo->prepare("
@@ -165,8 +169,8 @@ final class MessageService
                 other_p.last_read_message_id AS with_last_read_message_id,
                 {$typingSelect} AS with_typing_at,
                 other_p.last_read_at AS with_last_read_at,
-                u.username AS with_user_name,
-                u.avatar AS with_user_avatar,
+                {$otherUserNameSql} AS with_user_name,
+                {$otherUserAvatarSql} AS with_user_avatar,
                 lm.sender_user_id AS last_sender_user_id,
                 lm.body AS last_message_body,
                 lm.created_at AS last_message_created_at,
@@ -495,12 +499,17 @@ final class MessageService
 
         $limit = max(1, min(20, $limit));
         $rows = [];
+        $displayNameSql = $this->userDisplayNameSql($pdo);
+        $avatarSql = $this->userColumnSql($pdo, 'avatar', '', "''");
+        $statusSql = $this->userColumnSql($pdo, 'status', '', "'active'");
+        $isBannedSql = $this->userColumnSql($pdo, 'is_banned', '', '0');
+        $deletedAtSql = $this->userColumnSql($pdo, 'deleted_at', '', 'NULL');
         $sql = "
-            SELECT id, username, avatar, status, is_banned, deleted_at
+            SELECT id, {$displayNameSql} AS username, {$avatarSql} AS avatar, {$statusSql} AS status, {$isBannedSql} AS is_banned, {$deletedAtSql} AS deleted_at
             FROM users
             WHERE id <> :user_id
-              AND username LIKE :query
-            ORDER BY username ASC
+              AND {$displayNameSql} LIKE :query
+            ORDER BY {$displayNameSql} ASC
             LIMIT :limit
         ";
 
@@ -513,12 +522,14 @@ final class MessageService
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable) {
             // Minimal fallback for older schemas.
+            $displayNameSql = $this->userDisplayNameSql($pdo);
+            $avatarSql = $this->userColumnSql($pdo, 'avatar', '', "''");
             $fallback = $pdo->prepare("
-                SELECT id, username, avatar
+                SELECT id, {$displayNameSql} AS username, {$avatarSql} AS avatar
                 FROM users
                 WHERE id <> :user_id
-                  AND username LIKE :query
-                ORDER BY username ASC
+                  AND {$displayNameSql} LIKE :query
+                ORDER BY {$displayNameSql} ASC
                 LIMIT :limit
             ");
             $fallback->bindValue(':user_id', $userId, PDO::PARAM_INT);
@@ -894,8 +905,13 @@ final class MessageService
         }
 
         try {
+            $displayNameSql = $this->userDisplayNameSql($pdo);
+            $avatarSql = $this->userColumnSql($pdo, 'avatar', '', "''");
+            $statusSql = $this->userColumnSql($pdo, 'status', '', "'active'");
+            $isBannedSql = $this->userColumnSql($pdo, 'is_banned', '', '0');
+            $deletedAtSql = $this->userColumnSql($pdo, 'deleted_at', '', 'NULL');
             $stmt = $pdo->prepare('
-                SELECT id, username, avatar, status, is_banned, deleted_at
+                SELECT id, ' . $displayNameSql . ' AS username, ' . $avatarSql . ' AS avatar, ' . $statusSql . ' AS status, ' . $isBannedSql . ' AS is_banned, ' . $deletedAtSql . ' AS deleted_at
                 FROM users
                 WHERE id = :id
                 LIMIT 1
@@ -906,16 +922,32 @@ final class MessageService
                 return $row;
             }
         } catch (Throwable) {
-            // Fallback query for older schemas.
-            $stmt = $pdo->prepare('SELECT id, username, avatar FROM users WHERE id = :id LIMIT 1');
-            $stmt->execute(['id' => $userId]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (is_array($row)) {
-                return $row;
-            }
+            return null;
         }
 
         return null;
+    }
+
+    private function userDisplayNameSql(PDO $pdo, string $alias = ''): string
+    {
+        $prefix = $alias !== '' ? $alias . '.' : '';
+
+        foreach (['username', 'name', 'author'] as $column) {
+            if ($this->schema->columnExists($pdo, 'users', $column)) {
+                return $prefix . $column;
+            }
+        }
+
+        return "'Kullanici'";
+    }
+
+    private function userColumnSql(PDO $pdo, string $column, string $alias = '', string $fallbackSql = 'NULL'): string
+    {
+        if ($this->schema->columnExists($pdo, 'users', $column)) {
+            return ($alias !== '' ? $alias . '.' : '') . $column;
+        }
+
+        return $fallbackSql;
     }
 
     /**
@@ -1070,11 +1102,7 @@ final class MessageService
             return '';
         }
 
-        if (function_exists('routePublicStaticUrl')) {
-            $base = (string) routePublicStaticUrl('messages');
-        } else {
-            $base = rtrim($baseUri, '/') . '/mesajlar';
-        }
+        $base = (string) routePublicStaticUrl('messages');
 
         return $base . '?thread=' . $threadId;
     }
@@ -1370,4 +1398,3 @@ final class MessageService
         return $this->typingColumnByConnection[$key];
     }
 }
-

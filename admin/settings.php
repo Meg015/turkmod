@@ -41,7 +41,7 @@ $sectionDescriptions = [
     'cron' => 'Arka plan görevleri ve zamanlanmış işlemleri (Cron Job) buradan yönetebilirsiniz.',
 ];
 
-$sectionDescriptions['route_filters'] = 'Friendly URL on eklerini, alias rotalarini ve canonical yonlendirme davranisini tek yerden yonetin. Konu, kategori ve profil rotalari ayni sistemden calisir.';
+$sectionDescriptions['route_filters'] = 'Friendly URL on eklerini ve canonical yonlendirme davranisini tek yerden yonetin. Konu, kategori ve profil rotalari ayni sistemden calisir.';
 
 $cronGroups = [
     'cron-tab-general' => [
@@ -74,15 +74,12 @@ $routeFilterGroups = [
     'route-tab-prefixes' => [
         'title' => 'URL On Ekleri',
         'icon' => 'bi-link-45deg',
-        'description' => 'Konu, kategori ve profil URL\'lerinin on eklerini ve alias\'larını yönetin.',
+        'description' => 'Konu, kategori ve profil URL\'lerinin on eklerini yönetin.',
         'keys' => [
             'route_topic_prefix',
             'route_category_prefix',
             'route_category_list_prefix',
             'route_profile_prefix',
-            'route_topic_aliases',
-            'route_category_aliases',
-            'route_profile_aliases',
         ],
     ],
     'route-tab-public-pages' => [
@@ -109,11 +106,8 @@ $routeFilterGroups = [
     'route-tab-redirects' => [
         'title' => 'Yönlendirmeler',
         'icon' => 'bi-arrow-repeat',
-        'description' => 'Canonical yönlendirme, alias yönlendirme ve eski URL yönlendirmelerini yapılandırın.',
+        'description' => 'WWW ve HTTPS yönlendirmelerini yapılandırın.',
         'keys' => [
-            'route_redirect_to_canonical',
-            'route_alias_redirects',
-            'route_old_url_redirect',
             'route_www_redirect',
             'route_https_redirect',
         ],
@@ -2252,39 +2246,6 @@ require_once __DIR__ . '/header.php';
                                                 <div class="admin-field-wide">
                                                     <label class="ui-admin-form-label" for="email_test_message">Test Mesajı</label>
                                                     <textarea id="email_test_message" name="email_test_message" rows="6" class="ui-admin-form-control">Bu bir test e-postasıdır. Gönderim yapıldıktan sonra gelen kutusunu ve SMTP loglarını kontrol edin.</textarea>
-                                                </div>
-                                            </div>
-
-                                            <div class="admin-divider-block mt-3">
-                                                <div class="admin-inline-head ui-panel__head">
-                                                    <i class="bi bi-envelope-check"></i>
-                                                    <span class="admin-inline-title">Mevcut E-posta Ayarları</span>
-                                                </div>
-                                                <div class="admin-settings-grid-sm ui-grid">
-                                                    <div>
-                                                        <label class="ui-admin-form-label">Sürücü</label>
-                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['mail_driver'] ?? 'mail')) ?>" readonly>
-                                                    </div>
-                                                    <div>
-                                                        <label class="ui-admin-form-label">Gönderici</label>
-                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['mail_from_name'] ?? '')) ?>" readonly>
-                                                    </div>
-                                                    <div>
-                                                        <label class="ui-admin-form-label">Gönderici Adresi</label>
-                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['mail_from_address'] ?? '')) ?>" readonly>
-                                                    </div>
-                                                    <div>
-                                                        <label class="ui-admin-form-label">SMTP Sunucu</label>
-                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['smtp_host'] ?? '')) ?>" readonly>
-                                                    </div>
-                                                    <div>
-                                                        <label class="ui-admin-form-label">SMTP Port</label>
-                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['smtp_port'] ?? '')) ?>" readonly>
-                                                    </div>
-                                                    <div>
-                                                        <label class="ui-admin-form-label">Şifreleme</label>
-                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars((string) ($settings['smtp_encryption'] ?? '')) ?>" readonly>
-                                                    </div>
                                                 </div>
                                             </div>
 

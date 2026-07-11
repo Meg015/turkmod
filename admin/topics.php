@@ -71,9 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
 
                 if ($eventKey !== '') {
                     $topicSlug = trim((string) ($topicForNotification['slug'] ?? ''));
-                    $topicLink = $decision === 'approve' && $topicSlug !== '' && function_exists('topicUrl')
+                    $topicLink = $decision === 'approve'
                         ? topicUrl($topicSlug, (int) ($topicForNotification['id'] ?? $topicId))
-                        : (($baseUri ?? '') . '/edit-topic.php?id=' . $topicId);
+                        : routePublicStaticUrl('edit_topic') . '?id=' . $topicId;
                     $noteLine = $note !== '' ? ' Not: ' . $note : '';
 
                     notificationDispatch($pdo, $eventKey, (int) $topicForNotification['author_id'], $currentUserId ?: null, 'topic', $topicId, [

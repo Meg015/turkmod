@@ -89,7 +89,6 @@ require_once __DIR__ . "/src/Engine/Topics/Legacy/core_helpers.php";
 require_once __DIR__ . "/src/Engine/Comments/Legacy/helpers.php";
 require_once __DIR__ . "/src/Engine/Email/Legacy/helpers.php";
 require_once __DIR__ . "/src/Engine/Sidebar/Legacy/helpers.php";
-require_once __DIR__ . "/src/Engine/Seo/Legacy/legacy-redirect-helpers.php";
 require_once __DIR__ . "/src/Engine/Users/Legacy/users-helpers.php";
 
 // Admin helpers (getAdminSettings, adminSettingDefinitions, vb.)
@@ -839,8 +838,8 @@ if ($pdo && $isLoggedIn && !usersRestrictedPathAllowed($_SERVER["SCRIPT_NAME"] ?
                 ? (string) filemtime(__DIR__ . "/../assets/css/system-fallback.css")
                 : "1";
             $fallbackCssHref = rtrim($baseUri, "/") . "/assets/css/system-fallback.css?v=" . $fallbackCssVersion;
-            $appealUrl = rtrim($baseUri, "/") . "/ban-appeals.php";
-            $logoutUrl = rtrim($baseUri, "/") . "/logout.php";
+            $appealUrl = routePublicStaticUrl("ban_appeals");
+            $logoutUrl = routePublicStaticUrl("logout");
             $reason = htmlspecialchars((string) $restriction["message"], ENT_QUOTES, "UTF-8");
             $title = htmlspecialchars((string) $restriction["title"], ENT_QUOTES, "UTF-8");
             $date = !empty($restriction["date"]) ? date("d.m.Y H:i", strtotime((string) $restriction["date"])) : "";
@@ -861,13 +860,7 @@ if ($pdo && $isLoggedIn && !usersRestrictedPathAllowed($_SERVER["SCRIPT_NAME"] ?
 // Bakım modu kontrolü (admin sayfaları ve login hariç)
 if ($pdo) {
     $isAdminPage = str_contains($_SERVER["SCRIPT_NAME"] ?? "", "/admin/");
-    $isLoginPage = function_exists("routeIsAuthPage")
-        ? routeIsAuthPage((string) ($_SERVER["SCRIPT_NAME"] ?? ""))
-        : in_array(
-            basename((string) ($_SERVER["SCRIPT_NAME"] ?? "")),
-            ["login.php", "register.php", "forgot-password.php", "reset-password.php", "giris", "kayit", "sifremi-unuttum", "sifre-sifirla"],
-            true
-        );
+    $isLoginPage = routeIsAuthPage((string) ($_SERVER["SCRIPT_NAME"] ?? ""));
     $isAdminUser = (int) ($_SESSION['_auth_user_id'] ?? 0) > 0
         && function_exists('userHasPermission')
         && userHasPermission($pdo, (int) $_SESSION['_auth_user_id'], 'admin.access');
@@ -1030,18 +1023,6 @@ function routePublicStaticPathSettingKeys(): array
     ];
 }
 
-function routePublicStaticLegacyAliases(): array
-{
-    return [
-        "messages" => ["messages"],
-        "leaderboard" => ["leaderboard"],
-        "contact" => ["contact"],
-        "upload_topic" => ["upload-topic"],
-        "edit_topic" => ["edit-topic"],
-        "download" => ["download"],
-    ];
-}
-
 function routePublicStaticReservedSegments(): array
 {
     return [
@@ -1182,42 +1163,6 @@ function routePublicStaticPathSettings(
     }
 
     return $resolved;
-}
-
-function routePublicStaticPathAliases(
-    string $routeKey,
-    ?array $settings = null,
-    ?array $paths = null,
-): array {
-    $paths = is_array($paths)
-        ? $paths
-        : routePublicStaticPathSettings($GLOBALS["pdo"] ?? null, $settings);
-    $defaults = routePublicStaticPathDefaults();
-    $legacy = routePublicStaticLegacyAliases();
-
-    $canonical = routePublicStaticPathSanitize(
-        (string) ($paths[$routeKey] ?? ""),
-    );
-    if ($canonical === "") {
-        return [];
-    }
-
-    $aliases = [$canonical];
-    $default = routePublicStaticPathSanitize(
-        (string) ($defaults[$routeKey] ?? ""),
-    );
-    if ($default !== "") {
-        $aliases[] = $default;
-    }
-
-    foreach (($legacy[$routeKey] ?? []) as $alias) {
-        $clean = routePublicStaticPathSanitize((string) $alias);
-        if ($clean !== "") {
-            $aliases[] = $clean;
-        }
-    }
-
-    return array_values(array_unique(array_filter($aliases)));
 }
 
 function routePublicStaticPath(
@@ -1367,21 +1312,9 @@ function routePublicRouteCatalog(): array
             "canonical_path" => $canonicalPath,
         ]);
         $routes[$canonicalPath] = $canonicalMeta;
-
-        foreach (routePublicStaticPathAliases($routeKey, null, $paths) as $aliasPath) {
-            $aliasPath = trim((string) $aliasPath, "/");
-            if ($aliasPath === "" || $aliasPath === $canonicalPath || isset($routes[$aliasPath])) {
-                continue;
-            }
-
-            $aliasMeta = $canonicalMeta;
-            $aliasMeta["is_alias"] = true;
-            $routes[$aliasPath] = $aliasMeta;
-        }
     }
 
     $eventsBasePath = trim((string) ($paths["events"] ?? "events"), "/");
-    $eventsAliases = routePublicStaticPathAliases("events", null, $paths);
     $eventPages = [
         "" => ["label" => "Etkinlikler", "target" => "includes/src/Modules/Events/Pages/index.php", "kind" => "Modül", "dispatch" => "events"],
         "wheel" => ["label" => "Çark", "target" => "includes/src/Modules/Events/Pages/wheel.php", "kind" => "Modül", "dispatch" => "events"],
@@ -1405,26 +1338,6 @@ function routePublicRouteCatalog(): array
             "canonical_path" => $canonicalPath,
         ]);
         $routes[$canonicalPath] = $canonicalMeta;
-
-        foreach ($eventsAliases as $aliasBasePath) {
-            $aliasBasePath = trim((string) $aliasBasePath, "/");
-            if ($aliasBasePath === "") {
-                continue;
-            }
-
-            $aliasPath = $aliasBasePath;
-            if ($suffix !== "") {
-                $aliasPath .= "/" . $suffix;
-            }
-
-            if ($aliasPath === $canonicalPath || isset($routes[$aliasPath])) {
-                continue;
-            }
-
-            $aliasMeta = $canonicalMeta;
-            $aliasMeta["is_alias"] = true;
-            $routes[$aliasPath] = $aliasMeta;
-        }
     }
 
     $routes["sitemap.xml"] = ["label" => "Site Haritası", "target" => \App\Engine\Seo\Http\SitemapIndexPage::class, "kind" => "Sistem", "dispatch" => "handler"];
@@ -1494,13 +1407,7 @@ function routeAuthRoutePaths(): array
 function routeAuthPageKeyMap(): array
 {
     $paths = routePublicStaticPathSettings($GLOBALS["pdo"] ?? null);
-    $map = [
-        "login.php" => "login",
-        "register.php" => "register",
-        "forgot-password.php" => "forgot_password",
-        "reset-password.php" => "reset_password",
-    ];
-
+    $map = [];
     $authRouteKeys = [
         "login" => "login",
         "register" => "register",
@@ -1509,11 +1416,9 @@ function routeAuthPageKeyMap(): array
     ];
 
     foreach ($authRouteKeys as $routeKey => $pageKey) {
-        foreach (routePublicStaticPathAliases($routeKey, null, $paths) as $path) {
-            $cleanPath = trim((string) $path, "/");
-            if ($cleanPath !== "") {
-                $map[$cleanPath] = $pageKey;
-            }
+        $cleanPath = trim((string) ($paths[$routeKey] ?? ""), "/");
+        if ($cleanPath !== "") {
+            $map[$cleanPath] = $pageKey;
         }
     }
 
@@ -1774,22 +1679,11 @@ function routeGroupedRouteCatalog(): array
     return $catalog;
 }
 
-function routeLegacyRedirectMap(): array
-{
-    return (new \App\Core\Routing\LegacyRedirectMap())->all();
-}
-
-function routeLegacyRedirectTarget(string $legacyPath): ?string
-{
-    return (new \App\Core\Routing\LegacyRedirectMap())->targetFor($legacyPath);
-}
-
 function routeRegisteredRouteCatalog(): array
 {
     return [
         "groups" => routeGroupCatalog(),
         "grouped" => routeGroupedRouteCatalog(),
-        "legacy_redirects" => routeLegacyRedirectMap(),
         'public' => routePublicRouteCatalog(),
         'modules' => routeModuleRouteCatalog(),
     ];
@@ -1815,16 +1709,7 @@ function routePrefixReservedSegments(): array
         "includes",
         "tests",
         "uploads",
-        "login.php",
-        "logout.php",
-        "register.php",
-        "forgot-password.php",
-        "reset-password.php",
         "index.php",
-        "topic.php",
-        "category.php",
-        "download.php",
-        "profile.php",
         "sitemap.xml",
         "topic-sitemap.xml",
         "profile-sitemap.xml",
@@ -1848,7 +1733,6 @@ function routePrefixReservedSegments(): array
         "konu-duzenle",
         "indir",
         "forums",
-        "legacy-redirect.php",
         "route.php",
     ];
 }
@@ -1950,33 +1834,10 @@ function routePrefixAliases(
     ?array $routes = null,
 ): array {
     $routes = $routes ?: routePrefixSettings($GLOBALS["pdo"] ?? null);
-    $settingsProvided = is_array($settings);
-    $settings = $settings ?: [];
-    $prefixes = [(string) ($routes[$type] ?? "")];
-    $settingKey = "route_" . $type . "_aliases";
-    $raw = (string) ($settings[$settingKey] ?? "");
 
-    if (
-        $raw === "" &&
-        !$settingsProvided &&
-        isset($GLOBALS["pdo"]) &&
-        $GLOBALS["pdo"] instanceof PDO
-    ) {
-        try {
-            $raw = function_exists("adminSettingValue")
-                ? adminSettingValue($GLOBALS["pdo"], $settingKey, "")
-                : "";
-        } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-    }
-
-    foreach (preg_split('/[\r\n,]+/', $raw) ?: [] as $alias) {
-        $clean = routePrefixSanitize($alias);
-        if ($clean !== "") {
-            $prefixes[] = $clean;
-        }
-    }
-
-    return array_values(array_unique(array_filter($prefixes)));
+    return array_values(array_filter([
+        (string) ($routes[$type] ?? ""),
+    ]));
 }
 
 function routePrefixMatches(
@@ -2090,20 +1951,6 @@ function routeFriendlySettings(?array $settings = null): array
     return [];
 }
 
-function routeFriendlyRedirectsEnabled(?array $settings = null): bool
-{
-    $settings = routeFriendlySettings($settings);
-
-    return (string) ($settings["route_redirect_to_canonical"] ?? "1") === "1";
-}
-
-function routeAliasRedirectsEnabled(?array $settings = null): bool
-{
-    $settings = routeFriendlySettings($settings);
-
-    return (string) ($settings["route_alias_redirects"] ?? "1") === "1";
-}
-
 function routeRequestPrefixFromPath(string $path): string
 {
     global $baseUri;
@@ -2123,63 +1970,6 @@ function routeRequestPrefixFromPath(string $path): string
     $segments = explode("/", trim($normalizedPath, "/"));
 
     return routePrefixSanitize((string) ($segments[0] ?? ""));
-}
-
-function routeRequestUsesAliasPrefix(
-    string $type,
-    string $requestPath,
-    ?array $settings = null,
-): bool {
-    $requestPrefix = routeRequestPrefixFromPath($requestPath);
-    if ($requestPrefix === "") {
-        return false;
-    }
-
-    $routes = routePrefixSettings($GLOBALS["pdo"] ?? null);
-    $canonicalPrefix = routePrefixSanitize((string) ($routes[$type] ?? ""));
-    if ($requestPrefix === $canonicalPrefix) {
-        return false;
-    }
-
-    return in_array(
-        $requestPrefix,
-        routePrefixAliases($type, routeFriendlySettings($settings), $routes),
-        true,
-    );
-}
-
-function routeRequestNeedsCanonicalRedirect(
-    string $type,
-    string $slug = "",
-): bool {
-    $method = strtoupper((string) ($_SERVER["REQUEST_METHOD"] ?? "GET"));
-    if (!in_array($method, ["GET", "HEAD"], true)) {
-        return false;
-    }
-
-    $requestPath = (string) parse_url(
-        (string) ($_SERVER["REQUEST_URI"] ?? ""),
-        PHP_URL_PATH,
-    );
-    if ($requestPath === "") {
-        return false;
-    }
-
-    $canonical = routeCanonicalPath($type, $slug);
-    $normalize = static function (string $path): string {
-        return "/" . trim(rawurldecode($path), "/");
-    };
-
-    if ($normalize($requestPath) === $normalize($canonical)) {
-        return false;
-    }
-
-    $routeSettings = routeFriendlySettings();
-    if (routeRequestUsesAliasPrefix($type, $requestPath, $routeSettings)) {
-        return routeAliasRedirectsEnabled($routeSettings);
-    }
-
-    return routeFriendlyRedirectsEnabled($routeSettings);
 }
 
 function topicUrl(string $slug, ?int $id = null): string
@@ -2301,32 +2091,129 @@ function categoryUrlForRow(?PDO $pdo, array $row): string
     return categoryUrl($slug, $parentSlugCache[$parentId]);
 }
 
+function publicProfileDisplayName(array $user): string
+{
+    foreach (["username", "name", "author"] as $field) {
+        $value = trim((string) ($user[$field] ?? ""));
+        if ($value !== "") {
+            return $value;
+        }
+    }
+
+    return "kullanici";
+}
+
 function publicProfileSlug(int $userId, string $username): string
 {
-    $usernameSlug = slugify($username);
-    return $userId . ($usernameSlug !== "" ? "-" . $usernameSlug : "");
+    $usernameSlug = slugify(trim($username));
+    if ($usernameSlug === "") {
+        $usernameSlug = "kullanici";
+    }
+
+    return $usernameSlug . "-" . $userId;
 }
 
 function publicProfileIdFromSlug(string $slug): int
 {
-    if (preg_match('/^(\d+)(?:-|$)/', trim($slug), $matches) !== 1) {
+    $slug = trim($slug);
+    if ($slug === "") {
         return 0;
     }
 
-    return (int) $matches[1];
+    if (preg_match('/-(\d+)$/', $slug, $matches) === 1) {
+        return (int) $matches[1];
+    }
+
+    return 0;
+}
+
+function publicProfileIsRenderable(array $user): bool
+{
+    if ((int) ($user["id"] ?? 0) <= 0) {
+        return false;
+    }
+
+    if ((string) ($user["status"] ?? "active") !== "active") {
+        return false;
+    }
+
+    if (!empty($user["is_banned"])) {
+        return false;
+    }
+
+    if (array_key_exists("public_profile", $user) && (int) $user["public_profile"] !== 1) {
+        return false;
+    }
+
+    if (array_key_exists("deleted_at", $user) && trim((string) $user["deleted_at"]) !== "") {
+        return false;
+    }
+
+    return true;
+}
+
+function publicProfileMatchesSlug(array $user, string $slug): bool
+{
+    $slug = trim($slug);
+    if ($slug === "") {
+        return false;
+    }
+
+    $userId = (int) ($user["id"] ?? 0);
+    if ($userId <= 0 || !publicProfileIsRenderable($user)) {
+        return false;
+    }
+
+    $displayName = publicProfileDisplayName($user);
+    if ($displayName === "") {
+        $displayName = "kullanici";
+    }
+
+    return $slug === publicProfileSlug($userId, $displayName);
+}
+
+function publicProfileResolveUserBySlug(PDO $pdo, string $slug): ?array
+{
+    $slug = trim($slug);
+    if ($slug === "") {
+        return null;
+    }
+
+    $fetchUser = static function (PDO $pdo, string $sql, array $params): ?array {
+        try {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            return is_array($user) ? $user : null;
+        } catch (Throwable $e) {
+            error_log('[silent-catch] ' . $e->getMessage());
+            return null;
+        }
+    };
+
+    $candidateId = publicProfileIdFromSlug($slug);
+    if ($candidateId > 0) {
+        $candidate = $fetchUser($pdo, 'SELECT u.* FROM users u WHERE u.id = :id LIMIT 1', [
+            'id' => $candidateId,
+        ]);
+        if (is_array($candidate) && publicProfileMatchesSlug($candidate, $slug)) {
+            return $candidate;
+        }
+    }
+
+    return null;
 }
 
 function publicProfileUrl(array $user): string
 {
     $id =
         (int) ($user["id"] ?? ($user["author_id"] ?? ($user["user_id"] ?? 0)));
-    $username = (string) ($user["username"] ?? ($user["name"] ?? ($user["author"] ?? "uye")));
 
     if ($id <= 0) {
         return "#";
     }
 
-    return routeCanonicalPath("profile", publicProfileSlug($id, $username));
+    return routeCanonicalPath("profile", publicProfileSlug($id, publicProfileDisplayName($user)));
 }
 
 /**

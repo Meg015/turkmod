@@ -6,24 +6,12 @@ require_once $projectRoot . '/includes/init.php';
 require_once $projectRoot . '/includes/src/Engine/Users/Legacy/profile-helpers.php';
 require_once $projectRoot . '/includes/src/Engine/Seo/Legacy/helpers.php';
 
-$profileSlug = trim((string) ($_GET['profile'] ?? $_GET['slug'] ?? ''));
-$profileUserId = publicProfileIdFromSlug($profileSlug);
-if ($pdo && function_exists('usersEnsureUsernameSchema')) {
-    usersEnsureUsernameSchema($pdo);
-}
-$profileLookupColumn = (function_exists('usersColumnExists') && $pdo && usersColumnExists($pdo, 'users', 'username'))
-    ? 'username'
-    : 'name';
+$profileSlug = trim((string) ($_GET['profile'] ?? ''));
+$user = ($pdo instanceof PDO && function_exists('publicProfileResolveUserBySlug'))
+    ? publicProfileResolveUserBySlug($pdo, $profileSlug)
+    : null;
 
-if ($profileUserId <= 0 && $pdo && $profileSlug !== '') {
-    try {
-        $fallbackStmt = $pdo->prepare("SELECT id FROM users WHERE deleted_at IS NULL AND status = 'active' AND public_profile = 1 AND {$profileLookupColumn} = :profile_lookup LIMIT 1");
-        $fallbackStmt->execute(['profile_lookup' => $profileSlug]);
-        $profileUserId = (int) ($fallbackStmt->fetchColumn() ?: 0);
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-}
-
-if (!$pdo || $profileUserId <= 0) {
+if (!$pdo || !is_array($user)) {
     http_response_code(404);
     $pageTitle = 'Profil Bulunamadi';
     require_once $projectRoot . '/includes/public-header.php';
@@ -33,25 +21,10 @@ if (!$pdo || $profileUserId <= 0) {
 }
 
 profileEnsureColumns($pdo);
-$user = profileGetUser($pdo, $profileUserId);
 
-if (!$user || (string) ($user['status'] ?? 'active') !== 'active' || !empty($user['is_banned']) || (int) ($user['public_profile'] ?? 1) !== 1) {
-    http_response_code(404);
-    $pageTitle = 'Profil Bulunamadi';
-    require_once $projectRoot . '/includes/public-header.php';
-    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">Kullanici profili bulunamadi.</div>';
-    require_once $projectRoot . '/includes/public-footer.php';
-    exit;
-}
-
-$profileUsername = trim((string) ($user['username'] ?? ''));
+$profileUsername = publicProfileDisplayName($user);
 if ($profileUsername === '') {
     $profileUsername = 'kullanici';
-}
-$canonicalSlug = publicProfileSlug((int) $user['id'], $profileUsername);
-if ($profileSlug !== $canonicalSlug || routeRequestNeedsCanonicalRedirect('profile', $canonicalSlug)) {
-    header('Location: ' . publicProfileUrl($user), true, 301);
-    exit;
 }
 
 $stats = profileGetStatsReal($pdo, (int) $user['id']);
@@ -63,9 +36,7 @@ $showComments = (int) ($user['public_show_comments'] ?? 0) === 1;
 $showSocials = (int) ($user['public_show_socials'] ?? 1) === 1;
 $canReportProfile = $isLoggedIn && (int) ($_SESSION['_auth_user_id'] ?? 0) !== (int) $user['id'];
 $canMessageProfile = $isLoggedIn && (int) ($_SESSION['_auth_user_id'] ?? 0) !== (int) $user['id'];
-$profileMessageUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('messages') . '?with=' . (int) $user['id']
-    : (rtrim((string) ($baseUri ?? ''), '/') . '/mesajlar?with=' . (int) $user['id']);
+$profileMessageUrl = routePublicStaticUrl('messages') . '?with=' . (int) $user['id'];
 $publishedTopicCount = $showTopics ? profileCountPublishedTopics($pdo, (int) $user['id']) : 0;
 $profileContext = profileBuildProfileContext($user, [
     'base_uri' => $baseUri,
@@ -269,7 +240,7 @@ require_once $projectRoot . '/includes/public-header.php';
             <div class="topic-report-login">
                 <i class="bi bi-shield-exclamation"></i>
                 <span>Kullanici sikayeti gondermek icin giris yapmalisiniz.</span>
-                <a href="<?= htmlspecialchars(function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($baseUri . '/giris'), ENT_QUOTES, 'UTF-8') ?>">Giris yap</a>
+                <a href="<?= htmlspecialchars(routePublicStaticUrl('login'), ENT_QUOTES, 'UTF-8') ?>">Giris yap</a>
             </div>
             <?php endif; ?>
         </div>

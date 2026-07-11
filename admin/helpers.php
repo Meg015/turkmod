@@ -502,7 +502,7 @@ function adminSettingDefinitions(): array
         'header_topbar_bg'       => ['label' => 'Üst Çubuk Arka Plan',       'type' => 'color',  'default' => '#0f172a',  'section' => 'lay_header'],
 
         // -- Footer Ayarlari -----------------------------------
-        'footer_nav_links'       => ['label' => 'Footer Linkleri (satır başına: Başlık|URL)', 'type' => 'text', 'default' => "Ana sayfa|{base_url}/index.php\nKategoriler|{base_url}/kategoriler\nEtkinlikler|{base_url}/events\nMod Yükle|{base_url}/upload-topic.php", 'section' => 'lay_footer'],
+        'footer_nav_links'       => ['label' => 'Footer Linkleri (satır başına: Başlık|URL)', 'type' => 'text', 'default' => "Ana sayfa|{base_url}/index.php\nKategoriler|{base_url}/kategoriler\nEtkinlikler|{base_url}/events\nMod Yükle|{base_url}/konu-yukle", 'section' => 'lay_footer'],
         'footer_copyright'  => ['label' => 'Telif Hakkı Metni', 'type' => 'string', 'default' => '&copy; {current_year}. <a href="{base_url}/index.php" class="site-footer-brand-link">{site_name}</a> - Tüm hakları saklıdır.', 'section' => 'lay_footer'],
 
         // -- Sidebar Ayarlari ----------------------------------
@@ -802,17 +802,11 @@ function adminSettingDefinitions(): array
         'route_edit_topic_path'         => ['label' => 'Konu Duzenle URL Yolu',               'type' => 'string', 'default' => 'konu-duzenle',     'section' => 'route_filters', 'tooltip' => 'Ornek: /konu-duzenle'],
         'route_download_path'           => ['label' => 'Indirme URL Yolu',                    'type' => 'string', 'default' => 'indir',            'section' => 'route_filters', 'tooltip' => 'Ornek: /indir'],
         'route_events_path'             => ['label' => 'Etkinlik Merkezi URL Yolu',           'type' => 'string', 'default' => 'events',           'section' => 'route_filters', 'tooltip' => 'Events alt sayfalari bu taban yola baglanir. Ornek: /events, /events/wheel'],
-        'route_topic_aliases'           => ['label' => 'Konu URL Aliaslari (Virgulle Ayrilmis)', 'type' => 'string', 'default' => '', 'section' => 'route_filters', 'tooltip' => 'Eski url yapilarini yonlendirmek icin kullanilir. (orn: topic,t)'],
-        'route_category_aliases'        => ['label' => 'Kategori URL Aliaslari (Virgulle Ayrilmis)', 'type' => 'string', 'default' => '', 'section' => 'route_filters', 'tooltip' => 'Eski url yapilarini yonlendirmek icin kullanilir. (orn: category,c)'],
-        'route_profile_aliases'         => ['label' => 'Profil URL Aliaslari (Virgulle Ayrilmis)', 'type' => 'string', 'default' => '', 'section' => 'route_filters', 'tooltip' => 'Eski url yapilarini yonlendirmek icin kullanilir. (orn: user,u)'],
-        'route_redirect_to_canonical'   => ['label' => 'Friendly URL Canonical Yonlendirme',   'type' => 'bool',   'default' => '1',         'section' => 'route_filters'],
-        'route_alias_redirects'         => ['label' => 'Alias URLleri Canonical Adrese Tasi',   'type' => 'bool',   'default' => '1',         'section' => 'route_filters'],
-        'route_old_url_redirect'        => ['label' => 'Eski URL Yönlendirme (id tabanli)',    'type' => 'bool',   'default' => '1',         'section' => 'route_filters', 'tooltip' => 'Orijinal index.php?id=123 yapisini yeni /konu/slug-id yapisina 301 ile yonlendirir.'],
         'route_www_redirect'            => ['label' => 'WWW Yonlendirmesi',                   'type' => 'select', 'default' => 'none',      'section' => 'route_filters', 'options' => ['none' => 'Islem Yok', 'www' => 'WWW Zorla (www.site.com)', 'non-www' => 'WWW Kaldir (site.com)']],
         'route_https_redirect'          => ['label' => 'HTTPS Zorla (SSL)',                   'type' => 'bool',   'default' => '0',         'section' => 'route_filters'],
         'route_hide_index_php'          => ['label' => 'Ana Sayfa URL\'sinde index.php Gizle',  'type' => 'bool',   'default' => '0',         'section' => 'route_filters', 'tooltip' => 'Etkinleştirildiğinde, ana sayfa https://site.example/ şeklinde görünür, https://site.example/index.php yerine'],
         'route_trailing_slash'          => ['label' => 'Sondaki Slash (/) Yonlendirmesi',     'type' => 'select', 'default' => 'none',      'section' => 'route_filters', 'options' => ['none' => 'Islem Yok', 'add' => 'Sona Slash Ekle (/kategori/)', 'remove' => 'Sondaki Slash\'i Kaldir (/kategori)']],
-        'route_topic_id_suffix'         => ['label' => 'Konu URL Sonuna ID Ekle',              'type' => 'bool',   'default' => '1',         'section' => 'route_filters', 'tooltip' => 'Etkinse konu URLleri /konu/slug-id formatinda uretilir ve eski /konu/slug adresleri canonical adrese yonlendirilir.'],
+        'route_topic_id_suffix'         => ['label' => 'Konu URL Sonuna ID Ekle',              'type' => 'bool',   'default' => '1',         'section' => 'route_filters', 'tooltip' => 'Etkinse konu URLleri /konu/slug-id formatinda uretilir.'],
         'route_slug_format'             => ['label' => 'URL Slug Formati (Bosluklar Icin)',   'type' => 'select', 'default' => 'dash',      'section' => 'route_filters', 'options' => ['dash' => 'Tire (-) ornek-baslik', 'underscore' => 'Alt Cizgi (_) ornek_baslik']],
         'route_case_sensitive'          => ['label' => 'Harf Buyuklugu (Case Sensitivity)',   'type' => 'select', 'default' => 'lowercase', 'section' => 'route_filters', 'options' => ['sensitive' => 'Duyarli (Orijinal Birak)', 'lowercase' => 'Tumunu Kucult (SEO Onerisi)']],
         'route_url_max_length'          => ['label' => 'Maksimum URL Uzunlugu',               'type' => 'number', 'default' => '200',       'section' => 'route_filters', 'tooltip' => 'Slug olusturulurken bu degerden sonrasi kesilir.'],
@@ -2329,20 +2323,6 @@ if (!function_exists('adminCronPhpBinaryCandidates')) {
                 return;
             }
 
-            $resolved = realpath($path);
-            if (is_string($resolved) && $resolved !== '') {
-                $path = $resolved;
-            }
-
-            $normalized = strtolower(str_replace('\\', '/', $path));
-            if (isset($seen[$normalized])) {
-                return;
-            }
-
-            if (!is_file($path)) {
-                return;
-            }
-
             $basename = strtolower(basename($path));
             if (!preg_match('/^php(?:[0-9.]+)?(?:-cli)?(?:\.exe)?$/i', $basename)) {
                 return;
@@ -2358,7 +2338,22 @@ if (!function_exists('adminCronPhpBinaryCandidates')) {
                 return;
             }
 
-            if (function_exists('is_executable') && !is_executable($path)) {
+            // PATH entries can point at binaries outside open_basedir; probe quietly.
+            $resolved = @realpath($path);
+            if (is_string($resolved) && $resolved !== '') {
+                $path = $resolved;
+            }
+
+            $normalized = strtolower(str_replace('\\', '/', $path));
+            if (isset($seen[$normalized])) {
+                return;
+            }
+
+            if (!@is_file($path)) {
+                return;
+            }
+
+            if (function_exists('is_executable') && !@is_executable($path)) {
                 return;
             }
 
@@ -2711,7 +2706,7 @@ function invalidateAdminSettingsCache(): void
     // Dosya cache'i temizle
     $cacheFile = dirname(__DIR__) . '/storage/cache/admin_settings_compiled.php';
     if (is_file($cacheFile)) {
-        unlink($cacheFile);
+        @unlink($cacheFile);
     }
 }
 
@@ -2916,20 +2911,6 @@ function saveAdminSettings(?PDO $pdo, array $input): void
 
         if (array_key_exists($key, $publicRoutePathValues)) {
             $value = (string)($publicRoutePathValues[$key] ?? $definition['default']);
-        }
-
-        if (in_array($key, ['route_topic_aliases', 'route_category_aliases', 'route_profile_aliases'], true)) {
-            $routeType = str_replace(['route_', '_aliases'], '', $key);
-            $prefixKey = 'route_' . $routeType . '_prefix';
-            $currentPrefix = (string)($routePrefixValues[$prefixKey] ?? '');
-            $aliases = [];
-            foreach (preg_split('/[\r\n,]+/', $value) ?: [] as $alias) {
-                $sanitizedAlias = function_exists('routePrefixSanitize') ? routePrefixSanitize($alias) : slugify($alias);
-                if ($sanitizedAlias !== '' && $sanitizedAlias !== $currentPrefix) {
-                    $aliases[] = $sanitizedAlias;
-                }
-            }
-            $value = implode("\n", array_values(array_unique($aliases)));
         }
 
         if ($key === 'sidebar_builder_config' && function_exists('sidebarBuilderSanitizeConfigJson')) {

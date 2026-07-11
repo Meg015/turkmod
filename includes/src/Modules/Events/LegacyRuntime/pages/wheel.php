@@ -12,11 +12,7 @@ $pageTitle = 'Çark Çevir';
 $metaDescription = 'Günlük çark hakkını kullan ve etkinlik ödülleri kazan.';
 $userId = (int)($_SESSION['_auth_user_id'] ?? 0);
 $config = eventsGetConfig($pdo);
-$eventsBaseUrl = function_exists('eventsPublicUrl')
-    ? eventsPublicUrl()
-    : (function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('events')
-        : rtrim((string) ($baseUri ?? ''), '/') . '/events');
+$eventsBaseUrl = eventsPublicUrl();
 $wheelFrontendSettings = eventsWheelFrontendSettings($config);
 $featureGate = eventsFeatureGate($config, 'wheel');
 

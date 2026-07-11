@@ -5,9 +5,7 @@ declare(strict_types=1);
 if (!function_exists('eventsPublicUrl')) {
     function eventsPublicUrl(string $suffix = ''): string
     {
-        $baseUrl = function_exists('routePublicStaticUrl')
-            ? routePublicStaticUrl('events')
-            : rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/') . '/events';
+        $baseUrl = routePublicStaticUrl('events');
 
         $suffix = trim($suffix);
         if ($suffix === '') {

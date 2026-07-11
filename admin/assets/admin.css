@@ -9905,7 +9905,6 @@ input[type="checkbox"]:checked ~ .cover-action-bar-content .state-restore { disp
     .leaderboard-admin-stats { grid-template-columns:1fr; }
 }
 
-/* Source: admin/legacy-redirects.php */
 :root{--redirect-section-gap:.75rem}
 .ui-admin-sort-link{
     display:inline-flex;

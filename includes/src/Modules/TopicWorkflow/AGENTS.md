@@ -19,8 +19,8 @@ Legacy root entrypoints stay as thin compatibility wrappers only.
 ## Do Not Re-Introduce
 
 - Do not move business logic back into:
-  - `upload-topic.php`
-  - `edit-topic.php`
+  - `routePublicStaticUrl('upload_topic')`
+  - `routePublicStaticUrl('edit_topic')`
   - `download.php`
 - Do not add new business logic to legacy helpers under `includes/modules/topics/*`
   or `includes/modules/media/*`.
@@ -33,9 +33,9 @@ Legacy root entrypoints stay as thin compatibility wrappers only.
 - Keep AJAX response contract:
   - `Content-Type: application/json; charset=utf-8`
   - payload keys `success` and `message`
-- Keep compatibility form actions:
-  - `/upload-topic.php`
-  - `/edit-topic.php?id=...`
+- Keep form actions routed through the current helpers:
+  - `routePublicStaticUrl('upload_topic')`
+  - `routePublicStaticUrl('edit_topic') . '?id=...'`
 - Keep download safe-URL and confirmation behavior unchanged.
 
 ## Events and Queue Contracts
@@ -73,4 +73,3 @@ Legacy root entrypoints stay as thin compatibility wrappers only.
 - Auth header checks for login/register/forgot/reset/upload/edit routes.
 - `powershell -ExecutionPolicy Bypass -File scripts/ui-smoke-check.ps1`
 - `git diff --check`
-

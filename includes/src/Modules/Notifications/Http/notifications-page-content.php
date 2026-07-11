@@ -3,14 +3,10 @@ require_once $projectRoot . '/includes/notifications.php';
 
 $pageTitle = 'Bildirimleriniz';
 $userId = (int) ($_SESSION['_auth_user_id'] ?? 0);
-$notificationsBaseUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('notifications')
-    : (rtrim((string) ($baseUri ?? ''), '/') . '/notifications.php');
+$notificationsBaseUrl = routePublicStaticUrl('notifications');
 
 if ($userId <= 0) {
-    $loginUrl = function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('login')
-        : (($baseUri ?? '') . '/giris');
+    $loginUrl = routePublicStaticUrl('login');
     header('Location: ' . $loginUrl . '?redirect=' . rawurlencode((string) ($_SERVER['REQUEST_URI'] ?? $notificationsBaseUrl)));
     exit;
 }

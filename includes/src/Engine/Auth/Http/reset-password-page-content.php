@@ -8,15 +8,9 @@ if ($isLoggedIn) {
     exit;
 }
 
-$loginUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('login')
-    : ($baseUri . '/giris');
-$forgotPasswordUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('forgot_password')
-    : ($baseUri . '/sifremi-unuttum');
-$resetPasswordBaseUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('reset_password')
-    : ($baseUri . '/sifre-sifirla');
+$loginUrl = routePublicStaticUrl('login');
+$forgotPasswordUrl = routePublicStaticUrl('forgot_password');
+$resetPasswordBaseUrl = routePublicStaticUrl('reset_password');
 
 $token = trim($_GET['token'] ?? '');
 $email = trim($_GET['email'] ?? '');

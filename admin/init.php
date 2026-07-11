@@ -10,7 +10,6 @@ require_once __DIR__ . '/../includes/src/Engine/Media/Legacy/helpers.php';
 require_once __DIR__ . '/../includes/src/Engine/Users/Legacy/profile-helpers.php';
 require_once __DIR__ . '/../includes/src/Engine/Users/Legacy/users-helpers.php';
 require_once __DIR__ . '/../includes/src/Engine/Scraper/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/Seo/Legacy/legacy-redirect-helpers.php';
 require_once __DIR__ . '/../includes/src/Engine/AdminQuality/Legacy/helpers.php';
 require_once __DIR__ . '/../includes/src/Modules/Contact/Legacy/helpers.php';
 require_once __DIR__ . '/../includes/src/Modules/Events/init.php';

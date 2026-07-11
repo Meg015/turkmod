@@ -333,7 +333,7 @@ if (!function_exists('seoPublicPageCatalog')) {
             'public_profile' => [
                 'group' => 'core',
                 'label' => 'Kullanıcı Profili',
-                'path' => seoPublicPageRoutePath('profile', '123-ornek-uye', $settings),
+                'path' => seoPublicPageRoutePath('profile', 'ornek-uye-123', $settings),
                 'summary' => 'Diğer kullanıcıların profil sayfaları.',
                 'placeholders' => ['username', 'topics', 'comments', 'views', 'downloads', 'page_title', 'page_description', 'site_name'],
                 'default_noindex' => ((string) ($settings['robots_noindex_profiles'] ?? '0')) === '1',
@@ -795,31 +795,6 @@ if (!function_exists('seoPublicPageResolveKey')) {
             if ($authPageKey !== '') {
                 return $authPageKey;
             }
-        }
-
-        $basename = strtolower((string) basename($normalizedPath));
-        $directScriptMap = [
-            'index.php' => 'home',
-            'index' => 'home',
-            'topic.php' => 'topic',
-            'category.php' => 'category',
-            'profile.php' => 'profile',
-            'public-profile.php' => 'public_profile',
-            'contact.php' => 'contact',
-            'leaderboard.php' => 'leaderboard',
-            'ban-appeals.php' => 'ban_appeals',
-            'download.php' => 'download',
-            'upload-topic.php' => 'upload_topic',
-            'edit-topic.php' => 'edit_topic',
-            'notifications.php' => 'notifications',
-            'messages.php' => 'messages',
-            'login.php' => 'login',
-            'register.php' => 'register',
-            'forgot-password.php' => 'forgot_password',
-            'reset-password.php' => 'reset_password',
-        ];
-        if (isset($directScriptMap[$basename])) {
-            return $directScriptMap[$basename];
         }
 
         $staticPaths = seoPublicPageStaticPaths($settings);

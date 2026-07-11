@@ -49,7 +49,7 @@ final class NotificationEventSubscriber implements Listener
         $this->dispatch($pdo, 'topic_approved', $recipientId, $actorId > 0 ? $actorId : null, 'topic', $topicId, [
             'topic_title' => (string) ($payload['title'] ?? 'Konu'),
             'type' => 'success',
-            'link' => $this->topicLink($topicId),
+            'link' => $this->topicLink($pdo, $topicId),
             'dedupe_key' => 'topic_approved:' . $recipientId . ':' . $topicId,
         ]);
     }
@@ -74,7 +74,7 @@ final class NotificationEventSubscriber implements Listener
             'topic_title' => (string) ($payload['topic_title'] ?? 'Konu'),
             'comment_excerpt' => (string) ($payload['comment_excerpt'] ?? $payload['content_excerpt'] ?? ''),
             'type' => 'info',
-            'link' => $this->topicLink($topicId),
+            'link' => $this->topicLink($pdo, $topicId),
             'dedupe_key' => $eventKey . ':' . $recipientId . ':' . $commentId,
         ]);
     }
@@ -123,14 +123,22 @@ final class NotificationEventSubscriber implements Listener
         return $this->notifications->dispatch($pdo, $eventKey, $recipientId, $actorId, $entityType, $entityId, $payload);
     }
 
-    private function topicLink(int $topicId): string
+    private function topicLink(PDO $pdo, int $topicId): string
     {
         if ($topicId <= 0) {
-            return '/';
+            return \routeCanonicalPath('topic');
         }
 
-        $baseUri = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
+        try {
+            $stmt = $pdo->prepare('SELECT id, slug FROM topics WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+            $stmt->execute(['id' => $topicId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row) && !empty($row['slug'])) {
+                return \topicUrlForRow($row);
+            }
+        } catch (\Throwable $e) {
+        }
 
-        return $baseUri . '/topic.php?id=' . $topicId;
+        return \routeCanonicalPath('topic');
     }
 }

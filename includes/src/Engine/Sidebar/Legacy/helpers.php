@@ -879,18 +879,12 @@ if (!function_exists('sidebarBuilderWidgetTemplateVars')) {
                     : (string) ($widgetSettings['guest_text'] ?? 'Mod indir, yorum yap ve favorilerini takip et.');
                 $base['primary_label'] = $loggedIn ? 'Mod Yukle' : 'Kayit Ol';
                 $base['primary_url'] = $loggedIn
-                    ? (function_exists('routePublicStaticUrl')
-                        ? routePublicStaticUrl('upload_topic')
-                        : rtrim((string) ($source['base_url'] ?? ''), '/') . '/upload-topic.php')
-                    : (function_exists('routePublicStaticUrl')
-                        ? routePublicStaticUrl('register')
-                        : rtrim((string) ($source['base_url'] ?? ''), '/') . '/kayit');
+                    ? routePublicStaticUrl('upload_topic')
+                    : routePublicStaticUrl('register');
                 $base['secondary_label'] = $loggedIn ? 'Profilim' : 'Giris Yap';
                 $base['secondary_url'] = $loggedIn
                     ? rtrim((string) ($source['base_url'] ?? ''), '/') . '/profile.php'
-                    : (function_exists('routePublicStaticUrl')
-                        ? routePublicStaticUrl('login')
-                        : rtrim((string) ($source['base_url'] ?? ''), '/') . '/giris');
+                    : routePublicStaticUrl('login');
                 break;
 
             case 'related_content':
@@ -1082,7 +1076,7 @@ if (!function_exists('sidebarBuilderTopicItemVars')) {
         };
         return [
             'title' => (string) ($row['title'] ?? 'Konu'),
-            'url' => function_exists('topicUrlForRow') ? topicUrlForRow($row) : '#',
+            'url' => topicUrlForRow($row),
             'image' => $image,
             'meta' => $meta,
             'category' => (string) ($row['category'] ?? 'Genel'),
@@ -1241,7 +1235,7 @@ if (!function_exists('sidebarBuilderCategoryShowcaseItems')) {
             $parentSlug = (string) ($row['parent_slug'] ?? '');
             $items[] = [
                 'label' => (string) ($row['name'] ?? $row['label'] ?? 'Kategori'),
-                'url' => $slug !== '' && function_exists('categoryUrl') ? categoryUrl($slug, $parentSlug) : (string) ($row['url'] ?? '#'),
+                'url' => $slug !== '' ? categoryUrl($slug, $parentSlug) : (string) ($row['url'] ?? '#'),
                 'count' => number_format((int) ($row['topic_count'] ?? $row['count'] ?? 0), 0, ',', '.'),
                 'icon' => 'bi-folder2-open',
             ];
@@ -1278,7 +1272,7 @@ if (!function_exists('sidebarBuilderTrendingTagItems')) {
                     $slug = (string) ($row['slug'] ?? '');
                     $items[] = [
                         'label' => (string) ($row['name'] ?? 'Etiket'),
-                        'url' => $slug !== '' && function_exists('categoryUrl') ? categoryUrl($slug, (string) ($row['parent_slug'] ?? '')) : '#',
+                        'url' => $slug !== '' ? categoryUrl($slug, (string) ($row['parent_slug'] ?? '')) : '#',
                         'count' => number_format((int) ($row['topic_count'] ?? 0), 0, ',', '.'),
                     ];
                 }
@@ -1377,32 +1371,8 @@ if (!function_exists('sidebarBuilderNavigationItems')) {
      */
     function sidebarBuilderNavigationItems(array $settings, string $baseUrl): array
     {
-        $routeUrl = static function (string $routeKey, string $fallback) use ($baseUrl): string {
-            if (function_exists('routePublicStaticUrl')) {
-                try {
-                    $resolved = trim((string) routePublicStaticUrl($routeKey));
-                    if ($resolved !== '') {
-                        return $resolved;
-                    }
-                } catch (Throwable $e) {
-                    error_log('[sidebar] routeUrl resolution failed: ' . $e->getMessage());
-                }
-            }
-
-            if (preg_match('~^(?:https?:)?//~i', $fallback)) {
-                return $fallback;
-            }
-
-            if (str_starts_with($fallback, '/')) {
-                $basePrefix = '/' . trim($baseUrl, '/');
-                if ($basePrefix !== '/' && ($fallback === $basePrefix || str_starts_with($fallback, $basePrefix . '/'))) {
-                    return $fallback;
-                }
-                return ($basePrefix === '/' ? '' : rtrim($baseUrl, '/')) . '/' . ltrim($fallback, '/');
-            }
-
-            $prefix = rtrim($baseUrl, '/');
-            return ($prefix !== '' ? $prefix : '') . '/' . ltrim($fallback, '/');
+        $routeUrl = static function (string $routeKey): string {
+            return trim((string) routePublicStaticUrl($routeKey));
         };
 
         $categoryListHref = function_exists('categoryListUrl')
@@ -1434,7 +1404,7 @@ if (!function_exists('sidebarBuilderNavigationItems')) {
             ],
             'upload_topic' => [
                 'line' => 'Mod Yukle|{upload_topic}|bi-cloud-arrow-up',
-                'markers' => ['mod yukle', 'mod yükle', 'icerik yukle', 'içerik yükle', '{upload_topic}', '/upload-topic.php', 'upload-topic.php', '/konu-yukle', 'konu-yukle'],
+                'markers' => ['mod yukle', 'mod yükle', 'icerik yukle', 'içerik yükle', '{upload_topic}', '{upload_topic_url}', '/konu-yukle', 'konu-yukle'],
             ],
             'events' => [
                 'line' => 'Etkinlikler|{events}|bi-calendar-event',
@@ -1458,11 +1428,11 @@ if (!function_exists('sidebarBuilderNavigationItems')) {
 
         $placeholderMap = [
             '{category_list}' => $categoryListHref,
-            '{upload_topic}' => $routeUrl('upload_topic', '/upload-topic.php'),
-            '{events}' => $routeUrl('events', '/events'),
-            '{leaderboard}' => $routeUrl('leaderboard', '/leaderboard.php'),
-            '{contact}' => $routeUrl('contact', '/iletisim'),
-            '{notifications}' => $routeUrl('notifications', '/notifications.php'),
+            '{upload_topic}' => $routeUrl('upload_topic'),
+            '{events}' => $routeUrl('events'),
+            '{leaderboard}' => $routeUrl('leaderboard'),
+            '{contact}' => $routeUrl('contact'),
+            '{notifications}' => $routeUrl('notifications'),
         ];
 
         $categoryPath = (string) parse_url($categoryListHref, PHP_URL_PATH);
@@ -1589,7 +1559,7 @@ if (!function_exists('sidebarBuilderLeaderboardItems')) {
                 'name' => $name,
                 'initial' => mb_substr($name, 0, 1),
                 'score' => number_format((int) ($row['total_downloads'] ?? 0), 0, ',', '.'),
-                'url' => function_exists('publicProfileUrl') ? publicProfileUrl(['id' => (int) ($row['id'] ?? 0), 'username' => $name]) : '#',
+                'url' => publicProfileUrl(['id' => (int) ($row['id'] ?? 0), 'username' => $name]),
             ];
         }
         return $items;

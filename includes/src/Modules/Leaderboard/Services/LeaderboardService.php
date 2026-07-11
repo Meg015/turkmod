@@ -128,15 +128,15 @@ final class LeaderboardService
             return '#';
         }
 
-        $displayName = (string) ($row['username'] ?? $row['author'] ?? 'uye');
-        if (function_exists('publicProfileUrl')) {
-            return publicProfileUrl([
-                'id' => $userId,
-                'username' => $displayName,
-            ]);
+        $displayName = publicProfileDisplayName($row);
+        if ($displayName === '') {
+            $displayName = 'kullanici';
         }
 
-        return rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/') . '/profil/' . rawurlencode((string) $userId);
+        return publicProfileUrl([
+            'id' => $userId,
+            'username' => $displayName,
+        ]);
     }
 
     /**
@@ -178,8 +178,13 @@ final class LeaderboardService
      */
     public function decorateRow(array $row, ?string $baseUri = null): array
     {
-        if (!isset($row['username']) && isset($row['author'])) {
-            $row['username'] = (string) $row['author'];
+        $displayName = publicProfileDisplayName($row);
+        if ($displayName === '') {
+            $displayName = 'kullanici';
+        }
+
+        if (!isset($row['username']) || trim((string) $row['username']) === '') {
+            $row['username'] = $displayName;
         }
 
         if (!isset($row['avatar_path']) && isset($row['avatar'])) {
@@ -381,5 +386,3 @@ final class LeaderboardService
         return ['ranks' => $ranks];
     }
 }
-
-

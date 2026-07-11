@@ -295,6 +295,10 @@ final class NotificationEmailQueueService
                 return;
             }
 
+            if (function_exists('appSetLastMailResult')) {
+                appSetLastMailResult([]);
+            }
+
             $ok = (bool) $sender($row);
             $nextAttempts = (int) ($row['attempts'] ?? 0) + 1;
             $maxAttempts = max(1, (int) ($row['max_attempts'] ?? 3));
@@ -309,7 +313,7 @@ final class NotificationEmailQueueService
                 return;
             }
 
-            $this->markAttemptResult($pdo, $queueId, $nextAttempts, $maxAttempts, 'Mail driver returned false.', $result);
+            $this->markAttemptResult($pdo, $queueId, $nextAttempts, $maxAttempts, $this->buildMailFailureMessage(), $result);
         } catch (Throwable $e) {
             $nextAttempts = (int) ($row['attempts'] ?? 0) + 1;
             $maxAttempts = max(1, (int) ($row['max_attempts'] ?? 3));
@@ -341,5 +345,32 @@ final class NotificationEmailQueueService
         } else {
             $result['requeued']++;
         }
+    }
+
+    private function buildMailFailureMessage(): string
+    {
+        if (!function_exists('appLastMailResult')) {
+            return 'Mail driver returned false.';
+        }
+
+        $mailResult = appLastMailResult();
+        foreach (['error', 'smtp_response', 'response'] as $key) {
+            $message = trim((string) ($mailResult[$key] ?? ''));
+            if ($message !== '') {
+                return $message;
+            }
+        }
+
+        $driver = trim((string) ($mailResult['driver'] ?? ''));
+        $transport = trim((string) ($mailResult['transport'] ?? ''));
+        if ($driver !== '' || $transport !== '') {
+            return sprintf(
+                'Mail driver returned false (%s/%s).',
+                $driver !== '' ? $driver : 'unknown',
+                $transport !== '' ? $transport : 'unknown'
+            );
+        }
+
+        return 'Mail driver returned false.';
     }
 }

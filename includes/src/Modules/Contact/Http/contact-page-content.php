@@ -48,9 +48,7 @@ $formValues = [
 ];
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-    $returnUrl = function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('contact')
-        : (rtrim((string) ($baseUri ?? ''), '/') . '/iletisim');
+    $returnUrl = routePublicStaticUrl('contact');
     $postCategoryId = (int) ($_POST['category_id'] ?? 0);
     if (!isset($contactCategoryIds[$postCategoryId]) && $contactCategories !== []) {
         $postCategoryId = (int) ($contactCategories[0]['id'] ?? 0);
@@ -185,7 +183,7 @@ require_once $projectRoot . '/includes/public-header.php';
                             </div>
                         <?php endif; ?>
 
-                        <form method="post" action="<?= htmlspecialchars(function_exists('routePublicStaticUrl') ? routePublicStaticUrl('contact') : (rtrim((string) ($baseUri ?? ''), '/') . '/iletisim'), ENT_QUOTES, 'UTF-8') ?>" class="contact-form ui-stack" novalidate>
+                        <form method="post" action="<?= htmlspecialchars(routePublicStaticUrl('contact'), ENT_QUOTES, 'UTF-8') ?>" class="contact-form ui-stack" novalidate>
                             <?= csrf_field() ?>
                             <div class="contact-honeypot" aria-hidden="true" inert>
                                 <label for="company" aria-hidden="true">Company</label>

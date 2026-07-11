@@ -911,9 +911,6 @@ $expiredRateLimits = $loadQueueSection && healthTableExists($pdo, 'request_rate_
 $requestRateLimitRows = $loadDatabaseSection && healthTableExists($pdo, 'request_rate_limits')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM request_rate_limits")
     : 0;
-$legacyRateLimitRows = $loadDatabaseSection && healthTableExists($pdo, 'rate_limits')
-    ? healthScalar($pdo, "SELECT COUNT(*) FROM rate_limits")
-    : 0;
 $rateLimitHelperReady = function_exists('checkRateLimit')
     && function_exists('incrementRateLimit')
     && function_exists('resetRateLimit')
@@ -990,8 +987,7 @@ $checks = [
     healthRow('database', 'uploads yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'uploads'), healthPath($root . DIRECTORY_SEPARATOR . 'uploads')),
     healthRow('database', 'storage/logs yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs')),
     healthRow('database', 'Disk kapasitesi', true, healthDiskDetail($root), 'info'),
-    healthRow('database', 'Rate limit helper uyumu', $rateLimitHelperReady && healthTableExists($pdo, 'request_rate_limits'), $loadDatabaseSection ? (($rateLimitHelperReady ? 'helper hazır' : 'helper eksik') . ', request_rate_limits=' . $requestRateLimitRows . ', legacy rate_limits=' . $legacyRateLimitRows) : 'canlı hızlı görünümde sayım atlandı', $loadDatabaseSection ? 'warning' : 'info', $baseUri . '/admin/rate-limits.php', 'Rate Limit'),
-    healthRow('database', 'Legacy rate_limits kullanımı', $loadDatabaseSection ? $legacyRateLimitRows === 0 : true, $loadDatabaseSection ? ($legacyRateLimitRows === 0 ? 'aktif eski kayıt yok' : $legacyRateLimitRows . ' eski tablo kaydı var; runtime request_rate_limits ile izlenmeli') : 'canlı hızlı görünümde sayım atlandı', $loadDatabaseSection ? 'warning' : 'info', $baseUri . '/admin/rate-limits.php', 'İzle'),
+    healthRow('database', 'Rate limit helper uyumu', $rateLimitHelperReady && healthTableExists($pdo, 'request_rate_limits'), $loadDatabaseSection ? (($rateLimitHelperReady ? 'helper hazır' : 'helper eksik') . ', request_rate_limits=' . $requestRateLimitRows) : 'canlı hızlı görünümde sayım atlandı', $loadDatabaseSection ? 'warning' : 'info', $baseUri . '/admin/rate-limits.php', 'Rate Limit'),
 
     healthRow('logs', 'Runtime kritik loglar', (int) $runtimeLogSummary['critical'] === 0, (int) $runtimeLogSummary['critical'] === 0 ? 'son kayıtlarda kritik hata yok' : $runtimeLogSummary['critical'] . ' kritik sinyal; son: ' . $runtimeLogSummary['latest']),
     healthRow('logs', 'Runtime hata logları', (int) $runtimeLogSummary['errors'] === 0, (int) $runtimeLogSummary['errors'] === 0 ? $runtimeLogSummary['files'] . ' log dosyası tarandı' : $runtimeLogSummary['errors'] . ' hata/uyarı sinyali; son: ' . $runtimeLogSummary['latest'], 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),

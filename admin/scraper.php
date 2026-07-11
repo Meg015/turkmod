@@ -14,6 +14,14 @@ $stats = getScraperStats($pdo);
 $botSettings = getScraperBotSettings($pdo);
 $categories = $pdo->query("SELECT id, name FROM categories ORDER BY name ASC")->fetchAll();
 $botAuthors = usersGetList($pdo, '', '', 'active');
+$botAuthorLabel = static function (array $author): string {
+    $label = trim((string) ($author['username'] ?? $author['name'] ?? $author['email'] ?? ''));
+    if ($label === '') {
+        $label = 'Kullanıcı #' . (int) ($author['id'] ?? 0);
+    }
+
+    return $label;
+};
 
 require_once __DIR__ . '/header.php';
 ?>
@@ -193,7 +201,7 @@ require_once __DIR__ . '/header.php';
                             <div class="col-md-6"><label class="ui-admin-form-label">Bu Metinden Sonrasını Sil</label><input type="text" id="trim_after_text" name="trim_after_text" class="ui-admin-form-control"></div>
                             <div class="col-md-4"><label class="ui-admin-form-label">Varsayılan Kategori</label><select id="site_default_category_id" name="site_default_category_id" class="ui-admin-form-select"><option value="">Seçilmedi</option><?php foreach ($categories as $c): ?><option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option><?php endforeach; ?></select></div>
                             <div class="col-md-4"><label class="ui-admin-form-label">Önizleme Aktarım Durumu</label><select id="site_default_status" name="site_default_status" class="ui-admin-form-select"><option value="">Genel yayın ayarını kullan</option><option value="draft">Taslak</option><option value="published">Yayında</option></select></div>
-                            <div class="col-md-4"><label class="ui-admin-form-label">Varsayılan Yazar</label><select id="site_default_author_id" name="site_default_author_id" class="ui-admin-form-select"><option value="">Genel ayarı kullan</option><?php foreach ($botAuthors as $author): ?><option value="<?= (int)$author['id'] ?>"><?= htmlspecialchars($author['name'] ?: $author['email']) ?></option><?php endforeach; ?></select></div>
+                            <div class="col-md-4"><label class="ui-admin-form-label">Varsayılan Yazar</label><select id="site_default_author_id" name="site_default_author_id" class="ui-admin-form-select"><option value="">Genel ayarı kullan</option><?php foreach ($botAuthors as $author): ?><option value="<?= (int)$author['id'] ?>"><?= htmlspecialchars($botAuthorLabel($author), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
                             <div class="col-md-4"><label class="ui-admin-form-label">Görsel URL İçeriyorsa Atla</label><input type="text" id="skip_image_contains" name="skip_image_contains" class="ui-admin-form-control" placeholder="logo, avatar"></div>
                             <div class="col-md-4"><label class="ui-admin-form-label">İzinli Görsel Domainleri</label><input type="text" id="allowed_image_domains" name="allowed_image_domains" class="ui-admin-form-control" placeholder="cdn.site.com"></div>
                             <div class="col-md-4"><label class="ui-admin-form-label">Min Görsel Genişliği</label><input type="number" id="min_image_width" name="min_image_width" class="ui-admin-form-control" value="0" min="0"></div>
@@ -840,7 +848,7 @@ require_once __DIR__ . '/header.php';
                         <select name="bot_default_author_id" class="ui-admin-form-select">
                             <?php foreach ($botAuthors as $author): ?>
                             <option value="<?= (int)$author['id'] ?>" <?= (string)$botSettings['bot_default_author_id'] === (string)$author['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($author['name'] ?: $author['email']) ?><?= !empty($author['group_name']) ? ' - ' . htmlspecialchars($author['group_name']) : '' ?>
+                                <?= htmlspecialchars($botAuthorLabel($author), ENT_QUOTES, 'UTF-8') ?><?= !empty($author['group_name']) ? ' - ' . htmlspecialchars((string) $author['group_name'], ENT_QUOTES, 'UTF-8') : '' ?>
                             </option>
                             <?php endforeach; ?>
                             <?php if (empty($botAuthors)): ?>

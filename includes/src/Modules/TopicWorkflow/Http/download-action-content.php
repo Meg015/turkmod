@@ -148,9 +148,7 @@ try {
                 : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.';
         }
         $topicHref = topicUrl((string) ($link['topic_slug'] ?? ''), $downloadTopicId);
-        $loginHref = function_exists('routePublicStaticUrl')
-            ? routePublicStaticUrl('login')
-            : (($baseUri ?? '') . '/giris');
+        $loginHref = routePublicStaticUrl('login');
         $loginHref .= (str_contains($loginHref, '?') ? '&' : '?') . 'redirect=' . rawurlencode((string) ($_SERVER['REQUEST_URI'] ?? ''));
 
         $publicHeaderVars = downloadThemePageVars([
@@ -215,9 +213,7 @@ try {
         $linkName = trim((string) ($link['name'] ?? ''));
         $topicTitle = trim((string) ($link['topic_title'] ?? ''));
         $topicHref = topicUrl((string) ($link['topic_slug'] ?? ''), (int) ($link['topic_id'] ?? 0));
-        $downloadActionBaseUrl = function_exists('routePublicStaticUrl')
-            ? routePublicStaticUrl('download')
-            : (($baseUri ?? '') . '/download.php');
+        $downloadActionBaseUrl = routePublicStaticUrl('download');
         $confirmHref = $downloadActionBaseUrl . '?id=' . $linkId . '&confirm=1';
         $targetScheme = strtoupper((string) $scheme);
         $downloadCountdownSeconds = max(

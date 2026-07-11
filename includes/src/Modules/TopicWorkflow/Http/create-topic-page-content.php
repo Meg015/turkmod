@@ -33,9 +33,7 @@ function uploadTopicRespond(bool $success, string $message, int $statusCode = 20
     }
 
     $_SESSION[$success ? "_flash_success" : "_flash_error"] = $message;
-    $uploadTopicUrl = function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('upload_topic')
-        : (($GLOBALS["baseUri"] ?? "") . "/upload-topic.php");
+    $uploadTopicUrl = routePublicStaticUrl('upload_topic');
     header("Location: " . $uploadTopicUrl);
     exit();
 }
@@ -471,9 +469,7 @@ $pageCssFiles = array_values(array_unique(array_merge(
 )));
 
 $upload_mode = 'create';
-$upload_form_action = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('upload_topic')
-    : ($baseUri . '/upload-topic.php');
+$upload_form_action = routePublicStaticUrl('upload_topic');
 $upload_csrf_token = csrf_token();
 $upload_submit_token = $uploadSubmitToken;
 $upload_categories = [];

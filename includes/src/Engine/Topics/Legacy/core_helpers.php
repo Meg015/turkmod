@@ -118,11 +118,9 @@ function getTopicsFallbackSearch(
         $items = [];
         foreach ($candidates as $row) {
             $fuzzyScore = topicSearchFuzzyScore($search, $row);
-            $score = function_exists("legacyRedirectScoreCandidate")
-                ? legacyRedirectScoreCandidate($search, $row)
-                : 0;
+            $score = $fuzzyScore;
 
-            if ($fuzzyScore >= 45 || $score >= 45) {
+            if ($score >= 45) {
                 $row["_search_score"] = max($score, $fuzzyScore);
                 $items[] = $row;
             }

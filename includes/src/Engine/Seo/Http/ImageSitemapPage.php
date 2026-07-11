@@ -488,15 +488,7 @@ final class ImageSitemapPage implements Handler
      */
     private function topicUrl(array $topic, array $settings, string $canonicalBase): string
     {
-        if (function_exists('topicUrlForRow')) {
-            return $this->canonicalUrl(topicUrlForRow($topic), $settings, $canonicalBase);
-        }
-
-        $slug = trim((string) ($topic['slug'] ?? ''), '/');
-        $id = (string) ($topic['id'] ?? '');
-        $path = '/konu/' . $slug . ($id !== '' ? '-' . $id : '');
-
-        return $this->canonicalUrl($path, $settings, $canonicalBase);
+        return $this->canonicalUrl(topicUrlForRow($topic), $settings, $canonicalBase);
     }
 
     /**

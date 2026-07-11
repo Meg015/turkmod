@@ -94,24 +94,23 @@ if (!function_exists('loginSafeRedirect')) {
             return $fallback;
         }
 
-        $authPaths = [
-            '/login.php',
-            '/register.php',
-            '/forgot-password.php',
-            '/reset-password.php',
-            '/logout.php',
+        $authPaths = [];
+        $canonicalAuthPaths = [
+            'login' => '/giris',
+            'register' => '/kayit',
+            'forgot_password' => '/sifremi-unuttum',
+            'reset_password' => '/sifre-sifirla',
+            'logout' => '/cikis',
         ];
-        if (function_exists('routePublicStaticPathAliases')) {
-            foreach (['login', 'register', 'forgot_password', 'reset_password', 'logout'] as $authRouteKey) {
-                foreach (routePublicStaticPathAliases($authRouteKey) as $aliasPath) {
-                    $cleanAliasPath = trim((string) $aliasPath, '/');
-                    if ($cleanAliasPath !== '') {
-                        $authPaths[] = '/' . $cleanAliasPath;
-                    }
+        if (function_exists('routePublicStaticPath')) {
+            foreach (array_keys($canonicalAuthPaths) as $authRouteKey) {
+                $cleanPath = trim((string) routePublicStaticPath($authRouteKey), '/');
+                if ($cleanPath !== '') {
+                    $authPaths[] = '/' . $cleanPath;
                 }
             }
         } else {
-            $authPaths = array_merge($authPaths, ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla', '/cikis']);
+            $authPaths = array_values($canonicalAuthPaths);
         }
 
         foreach (array_values(array_unique($authPaths)) as $authPath) {
@@ -250,7 +249,7 @@ if (!function_exists('requireAuth')) {
     /**
      * Kullanıcının giriş yapmış olmasını zorunlu kılar
      */
-    function requireAuth(string $redirectUrl = '/login.php'): void
+    function requireAuth(string $redirectUrl = ''): void
     {
         if (empty($_SESSION['_auth_user_id'])) {
             global $baseUri;
@@ -258,21 +257,8 @@ if (!function_exists('requireAuth')) {
             $loginPath = function_exists('routePublicStaticPath')
                 ? '/' . ltrim(routePublicStaticPath('login'), '/')
                 : '/giris';
-            $defaultLoginPaths = ['/login.php', '/giris', $loginPath];
-            if (function_exists('routePublicStaticPathAliases')) {
-                foreach (routePublicStaticPathAliases('login') as $aliasPath) {
-                    $aliasPath = '/' . ltrim(trim((string) $aliasPath, '/'), '/');
-                    if ($aliasPath !== '/') {
-                        $defaultLoginPaths[] = $aliasPath;
-                    }
-                }
-            }
-            $defaultLoginPaths = array_values(array_unique($defaultLoginPaths));
             $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
-            $target = $redirectUrl;
-            if (in_array($redirectUrl, $defaultLoginPaths, true)) {
-                $target = $loginPath;
-            }
+            $target = $redirectUrl !== '' ? $redirectUrl : $loginPath;
             if ($target === $loginPath && $requestUri !== '') {
                 $target .= '?redirect=' . rawurlencode($requestUri);
             }
@@ -293,9 +279,7 @@ if (!function_exists('requireAdmin')) {
         global $pdo, $baseUri;
         if (!refreshAuthenticatedSession($pdo ?? null)) {
             logoutUser($pdo ?? null, false);
-            $loginUrl = function_exists('routePublicStaticUrl')
-                ? routePublicStaticUrl('login')
-                : (($baseUri ?? '') . '/giris');
+            $loginUrl = routePublicStaticUrl('login');
             header('Location: ' . $loginUrl);
             exit;
         }

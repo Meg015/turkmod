@@ -198,18 +198,12 @@ final class ProfileSitemapPage implements Handler
      */
     private function profileUrl(array $profile, array $settings, string $canonicalBase): string
     {
-        if (function_exists('publicProfileUrl')) {
-            return $this->canonicalUrl(publicProfileUrl([
-                'id' => (int) ($profile['id'] ?? 0),
-                'username' => (string) ($profile['username'] ?? ''),
-            ]), $settings, $canonicalBase);
-        }
-
         $id = (int) ($profile['id'] ?? 0);
-        $username = (string) ($profile['username'] ?? 'uye');
-        $slug = $id . '-' . trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($username)), '-');
-
-        return $this->canonicalUrl('/profil/' . $slug, $settings, $canonicalBase);
+        $username = trim((string) ($profile['username'] ?? ($profile['name'] ?? '')));
+        return $this->canonicalUrl(publicProfileUrl([
+            'id' => $id,
+            'username' => $username !== '' ? $username : 'kullanici',
+        ]), $settings, $canonicalBase);
     }
 
     /**

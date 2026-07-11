@@ -447,7 +447,7 @@ function formatComment(array $c, int $editWindow, array $reactionsMap = [], arra
         'id'                  => (int)$c['id'],
         'author'              => $c['author'] ?? 'Anonim',
         'avatar'              => $c['avatar'] ?? null,
-        'profile_url'         => function_exists('publicProfileUrl')
+        'profile_url'         => (int) ($c['user_id'] ?? 0) > 0
             ? publicProfileUrl([
                 'id' => (int) ($c['user_id'] ?? 0),
                 'name' => (string) ($c['author'] ?? 'Anonim'),
@@ -836,9 +836,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $topicTitle = trim((string) ($topicRow['title'] ?? 'Konu'));
                     $topicSlug = trim((string) ($topicRow['slug'] ?? ''));
-                    $topicPath = $topicSlug !== '' && function_exists('topicUrl')
-                        ? topicUrl($topicSlug, (int) ($topicRow['id'] ?? $topicId))
-                        : (($baseUri ?? '') . '/topic.php?id=' . $topicId);
+                    $topicPath = topicUrl($topicSlug, (int) ($topicRow['id'] ?? $topicId));
                     $commentLink = $topicPath . '#comment-' . $newId;
                     $actorName = $userId ? (string) ($_SESSION['_auth_user_name'] ?? 'Bir kullanıcı') : 'Bir ziyaretçi';
                     $basePayload = [

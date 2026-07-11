@@ -54,19 +54,14 @@ final class FileCache implements TaggableCache
 
     public function delete(string $key): bool
     {
-        $path = $this->entryPath($key);
-        if (!is_file($path)) {
-            return true;
-        }
-
-        return is_file($path) ? unlink($path) : true;
+        return $this->deletePath($this->entryPath($key));
     }
 
     public function clear(): bool
     {
         $success = true;
         foreach (glob($this->directory . DIRECTORY_SEPARATOR . $this->prefix . '-*.cache') ?: [] as $path) {
-            if (is_file($path) && !unlink($path)) {
+            if (!$this->deletePath($path)) {
                 $success = false;
             }
         }
@@ -83,7 +78,7 @@ final class FileCache implements TaggableCache
                 continue;
             }
 
-            if (in_array($tag, $entry['tags'], true) && !unlink($path)) {
+            if (in_array($tag, $entry['tags'], true) && !$this->deletePath($path)) {
                 $success = false;
             }
         }
@@ -143,9 +138,7 @@ final class FileCache implements TaggableCache
 
         $expiresAt = (int) ($entry['expires_at'] ?? 0);
         if ($expiresAt > 0 && $expiresAt < time()) {
-            if (is_file($path)) {
-                unlink($path);
-            }
+            $this->deletePath($path);
 
             return null;
         }
@@ -165,5 +158,20 @@ final class FileCache implements TaggableCache
     private function entryPath(string $key): string
     {
         return $this->directory . DIRECTORY_SEPARATOR . $this->prefix . '-' . hash('sha256', $key) . '.cache';
+    }
+
+    private function deletePath(string $path): bool
+    {
+        if (!is_file($path)) {
+            return true;
+        }
+
+        if (@unlink($path)) {
+            return true;
+        }
+
+        clearstatcache(true, $path);
+
+        return !is_file($path);
     }
 }

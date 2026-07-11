@@ -45,7 +45,7 @@ final class BanAppealNotificationService
 
         $appealsLink = \function_exists('routePublicStaticPath')
             ? '/' . ltrim((string) \routePublicStaticPath('ban_appeals'), '/')
-            : '/ban-appeals.php';
+            : '/ban-itiraz';
 
         try {
             notificationDispatch($pdo, 'ban_appeal_updated', $recipientId, $actorId, 'user', $appealId, [

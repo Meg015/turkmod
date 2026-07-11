@@ -36,7 +36,6 @@ $menuRouteMap = [
     'admin/events-tasks.php'            => 'events',
     'admin/events-wheel.php'            => 'events',
     'admin/events-audit-log.php'        => 'events',
-    'admin/legacy-redirects.php'        => 'legacy-redirects',
 
     // Günlükler (alt sekmeler sayfa içinde render edilir, sidebar tek link)
     'admin/logs.php'                    => 'logs',
@@ -150,9 +149,6 @@ function sidebarBadge(?int $count, int $max = 99): string {
             <?php endif; ?>
             <?php if ($adminCan('events.view')): ?>
                 <a class="admin-menu-item<?= sidebarActiveClass('events') ?>" href="<?= $baseUri ?>/admin/events.php"><i class="bi bi-stars"></i><span>Etkinlikler</span></a>
-            <?php endif; ?>
-            <?php if ($adminCan('legacy_redirects.view')): ?>
-                <a class="admin-menu-item<?= sidebarActiveClass('legacy-redirects') ?>" href="<?= $baseUri ?>/admin/legacy-redirects.php"><i class="bi bi-signpost-split"></i><span>SEO Yönlendirmeleri</span></a>
             <?php endif; ?>
         </div>
     </section>

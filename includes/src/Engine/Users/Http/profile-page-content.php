@@ -22,7 +22,8 @@ require_once $projectRoot . "/includes/src/Engine/Logs/Legacy/helpers.php";
 
 if (!$isLoggedIn) {
 
-    header("Location: " . $baseUri . "/login.php?redirect=" . rawurlencode((string) ($_SERVER["REQUEST_URI"] ?? "/profile.php")));
+    $loginRedirectUrl = routePublicStaticUrl('login');
+    header("Location: " . $loginRedirectUrl . "?redirect=" . rawurlencode((string) ($_SERVER["REQUEST_URI"] ?? routeCanonicalPath('profile'))));
 
     exit();
 
@@ -51,6 +52,8 @@ if (!$pdo) {
 
 
 profileEnsureColumns($pdo);
+
+$profilePageBaseUrl = routeCanonicalPath('profile');
 
 
 
@@ -613,7 +616,7 @@ $renderProfilePagination = static function (string $tabKey) use ($baseUri, $prof
 
     $urlForPage = static function (int $page) use ($baseUri, $tabKey, $paramName, $safeTopicStatusFilter, $safeActivityFilter): string {
 
-        $url = $baseUri . "/profile.php?tab=" . urlencode($tabKey) . "&" . urlencode($paramName) . "=" . $page;
+        $url = $profilePageBaseUrl . '?tab=' . urlencode($tabKey) . "&" . urlencode($paramName) . "=" . $page;
 
         if ($tabKey === "topics" && $safeTopicStatusFilter !== "all") {
 
@@ -800,7 +803,7 @@ foreach ($profileTabLabels as $tabKey => $tabLabel) {
 
     $profile_private_tabs[] = [
 
-        'url' => $baseUri . '/profile.php?tab=' . rawurlencode((string) $tabKey),
+        'url' => $profilePageBaseUrl . '?tab=' . rawurlencode((string) $tabKey),
 
         'class' => $activeTab === $tabKey ? 'profile-tab active' : 'profile-tab',
 
@@ -1082,7 +1085,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
         </div>
 
-        <a href="<?= $baseUri ?>/ban-appeals.php" class="profile-restriction-appeal">
+        <a href="<?= routePublicStaticUrl('ban_appeals') ?>" class="profile-restriction-appeal">
 
             <i class="bi bi-envelope"></i> Itiraz
 
@@ -1188,7 +1191,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
 <section class="profile-quick-access" aria-label="Profil hızlı erişim">
 
-    <a href="<?= $baseUri ?>/profile.php?tab=topics" class="profile-quick-card ui-card">
+    <a href="<?= $profilePageBaseUrl ?>?tab=topics" class="profile-quick-card ui-card">
 
         <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
 
@@ -1196,7 +1199,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     </a>
 
-    <a href="<?= $baseUri ?>/profile.php?tab=favorites" class="profile-quick-card ui-card">
+    <a href="<?= $profilePageBaseUrl ?>?tab=favorites" class="profile-quick-card ui-card">
 
         <i class="bi bi-heart" aria-hidden="true"></i>
 
@@ -1204,7 +1207,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     </a>
 
-    <a href="<?= $baseUri ?>/profile.php?tab=comments" class="profile-quick-card ui-card">
+    <a href="<?= $profilePageBaseUrl ?>?tab=comments" class="profile-quick-card ui-card">
 
         <i class="bi bi-chat-dots" aria-hidden="true"></i>
 
@@ -1220,7 +1223,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     </a>
 
-    <a href="<?= $baseUri ?>/profile.php?tab=settings" class="profile-quick-card ui-card">
+    <a href="<?= $profilePageBaseUrl ?>?tab=settings" class="profile-quick-card ui-card">
 
         <i class="bi bi-gear" aria-hidden="true"></i>
 
@@ -1248,7 +1251,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     <?php if (empty($userTopics) && empty($pendingTopics)): ?>
 
-        <div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-journal-x"></i><p>Henüz konu oluşturmadınız.</p><a href="<?= $baseUri ?>/upload-topic.php">İlk içeriği yükle</a></div>
+        <div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-journal-x"></i><p>Henüz konu oluşturmadınız.</p><a href="<?= routePublicStaticUrl('upload_topic') ?>">İlk içeriği yükle</a></div>
 
     <?php else: ?>
 
@@ -1330,7 +1333,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     <?php if (empty($userActivity)): ?>
 
-        <div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-hourglass"></i><p>Henüz aktivite yok.</p><a href="<?= $baseUri ?>/profile.php?tab=settings">Profili tamamla</a></div>
+        <div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-hourglass"></i><p>Henüz aktivite yok.</p><a href="<?= $profilePageBaseUrl ?>?tab=settings">Profili tamamla</a></div>
 
     <?php else: ?>
 
@@ -1475,7 +1478,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
         <?php foreach ($topicStatusOptions as $statusKey => $statusOption): ?>
 
-            <a href="<?= $baseUri ?>/profile.php?tab=topics&amp;topic_status=<?= urlencode($statusKey) ?>" class="profile-topic-status-filter-link <?= $topicStatusFilter === $statusKey ? "active" : "" ?>">
+            <a href="<?= $profilePageBaseUrl ?>?tab=topics&amp;topic_status=<?= urlencode($statusKey) ?>" class="profile-topic-status-filter-link <?= $topicStatusFilter === $statusKey ? "active" : "" ?>">
 
                 <i class="bi <?= htmlspecialchars($statusOption[1]) ?>"></i>
 
@@ -1530,7 +1533,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
                 <div class="profile-stack-fill">
 
-                    <a href="<?= $baseUri ?>/edit-topic.php?id=<?= (int) $t[
+                    <a href="<?= routePublicStaticUrl('edit_topic') ?>?id=<?= (int) $t[
 
     "id"
 
@@ -1588,7 +1591,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
                     <div class="profile-resubmit-form">
 
-                        <a href="<?= $baseUri ?>/edit-topic.php?id=<?= (int) $t["id"] ?>" class="profile-resubmit-action">
+                        <a href="<?= routePublicStaticUrl('edit_topic') ?>?id=<?= (int) $t["id"] ?>" class="profile-resubmit-action">
 
                         <i class="bi bi-pencil-square"></i>
 
@@ -1614,7 +1617,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     <?php if (empty($userTopics)): ?>
 
-        <div class="profile-empty-cta ui-empty"><i class="bi bi-stars"></i><h3>İlk konunu oluşturmaya hazır mısın?</h3><p>Henüz yayınlanmış bir konun görünmüyor. Yeni içerik ekleyerek profilini güçlendirebilir ve toplulukta görünür olmaya başlayabilirsin.</p><a href="<?= $baseUri ?>/upload-topic.php" class="ui-admin-btn ui-admin-btn-warning fw-bold"><i class="bi bi-plus-circle"></i> İlk Konuyu Oluştur</a></div>
+        <div class="profile-empty-cta ui-empty"><i class="bi bi-stars"></i><h3>İlk konunu oluşturmaya hazır mısın?</h3><p>Henüz yayınlanmış bir konun görünmüyor. Yeni içerik ekleyerek profilini güçlendirebilir ve toplulukta görünür olmaya başlayabilirsin.</p><a href="<?= routePublicStaticUrl('upload_topic') ?>" class="ui-admin-btn ui-admin-btn-warning fw-bold"><i class="bi bi-plus-circle"></i> İlk Konuyu Oluştur</a></div>
 
     <?php else: ?>
 
@@ -1666,7 +1669,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
             </div>
 
-            <a href="<?= $baseUri ?>/edit-topic.php?id=<?= (int) $t[
+            <a href="<?= routePublicStaticUrl('edit_topic') ?>?id=<?= (int) $t[
 
     "id"
 
@@ -1760,7 +1763,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     ) ?>)</div>
 
-    <form method="post" action="<?= $baseUri ?>/profile.php?tab=favorites" class="collection-create-form">
+    <form method="post" action="<?= $profilePageBaseUrl ?>?tab=favorites" class="collection-create-form">
 
         <?= csrf_field() ?>
 
@@ -1812,7 +1815,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
                 <div class="collection-summary-actions">
 
-                <form method="post" action="<?= $baseUri ?>/profile.php?tab=favorites">
+                <form method="post" action="<?= $profilePageBaseUrl ?>?tab=favorites">
 
                     <?= csrf_field() ?>
 
@@ -1830,7 +1833,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
                 </form>
 
-                <form method="post" action="<?= $baseUri ?>/profile.php?tab=favorites" data-app-confirm="Bu koleksiyonu silmek istiyor musunuz?" data-app-confirm-title="Koleksiyon silinsin mi?" data-app-confirm-ok="Sil">
+                <form method="post" action="<?= $profilePageBaseUrl ?>?tab=favorites" data-app-confirm="Bu koleksiyonu silmek istiyor musunuz?" data-app-confirm-title="Koleksiyon silinsin mi?" data-app-confirm-ok="Sil">
 
                     <?= csrf_field() ?>
 
@@ -1928,7 +1931,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
                     <?php if (!empty($userCollections)): ?>
 
-                    <form method="post" action="<?= $baseUri ?>/profile.php?tab=favorites" class="collection-picker-form">
+                    <form method="post" action="<?= $profilePageBaseUrl ?>?tab=favorites" class="collection-picker-form">
 
                         <?= csrf_field() ?>
 
@@ -1982,7 +1985,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
                         ?>
 
-                        <form method="post" action="<?= $baseUri ?>/profile.php?tab=favorites" class="collection-remove-form">
+                        <form method="post" action="<?= $profilePageBaseUrl ?>?tab=favorites" class="collection-remove-form">
 
                             <?= csrf_field() ?>
 
@@ -2154,7 +2157,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
         <?php foreach ($activityFilterOptions as $filterKey => $filterMeta):
 
-            $filterUrl = $baseUri . "/profile.php?tab=activity";
+            $filterUrl = $profilePageBaseUrl . "?tab=activity";
 
             if ($filterKey !== "all") {
 
@@ -2182,7 +2185,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     <?php if (empty($userActivity)): ?>
 
-        <div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-hourglass"></i><p><?= $activityFilter === "all" ? "Henüz aktivite yok." : "Bu filtrede aktivite yok." ?></p><a href="<?= $activityFilter === "all" ? $baseUri . "/profile.php?tab=settings" : $baseUri . "/profile.php?tab=activity" ?>"><?= $activityFilter === "all" ? "Profil ayarlarına git" : "Tüm aktiviteler" ?></a></div>
+        <div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-hourglass"></i><p><?= $activityFilter === "all" ? "Henüz aktivite yok." : "Bu filtrede aktivite yok." ?></p><a href="<?= $activityFilter === "all" ? $profilePageBaseUrl . "?tab=settings" : $profilePageBaseUrl . "?tab=activity" ?>"><?= $activityFilter === "all" ? "Profil ayarlarına git" : "Tüm aktiviteler" ?></a></div>
 
     <?php else: ?>
 
@@ -2328,7 +2331,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
         <div class="profile-section-title"><i class="bi bi-person-gear"></i>Profil Bilgileri</div>
 
-        <form method="post" action="<?= $baseUri ?>/profile.php?tab=settings">
+        <form method="post" action="<?= $profilePageBaseUrl ?>?tab=settings">
 
             <?= csrf_field() ?>
 
@@ -2538,7 +2541,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
             <div class="profile-section-title"><i class="bi bi-camera"></i>Profil Fotoğrafı</div>
 
-            <form method="post" action="<?= $baseUri ?>/profile.php?tab=settings" enctype="multipart/form-data" id="profileAvatarForm" class="profile-avatar-form">
+            <form method="post" action="<?= $profilePageBaseUrl ?>?tab=settings" enctype="multipart/form-data" id="profileAvatarForm" class="profile-avatar-form">
 
                 <?= csrf_field() ?>
 
@@ -2662,7 +2665,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
         <?php endif; ?>
 
-        <form method="post" action="<?= $baseUri ?>/profile.php?tab=security" id="profilePasswordForm">
+        <form method="post" action="<?= $profilePageBaseUrl ?>?tab=security" id="profilePasswordForm">
 
             <?= csrf_field() ?>
 
@@ -2780,7 +2783,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
             </div>
 
-            <form method="post" action="<?= $baseUri ?>/profile.php?tab=security" class="profile-session-logout-form"
+            <form method="post" action="<?= $profilePageBaseUrl ?>?tab=security" class="profile-session-logout-form"
 
                   data-app-confirm="Bu hesaba bağlı diğer tüm cihaz ve tarayıcılardaki oturumlar kapatılacak. Bu cihazdaki oturumunuz açık kalır. Devam etmek istiyor musunuz?"
 

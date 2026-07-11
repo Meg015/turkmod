@@ -8,12 +8,8 @@ if ($isLoggedIn) {
     exit;
 }
 
-$loginUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('login')
-    : (rtrim((string) $baseUri, '/') . '/giris');
-$forgotPasswordUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('forgot_password')
-    : (rtrim((string) $baseUri, '/') . '/sifremi-unuttum');
+$loginUrl = routePublicStaticUrl('login');
+$forgotPasswordUrl = routePublicStaticUrl('forgot_password');
 
 $errorMsg = '';
 $successMsg = '';

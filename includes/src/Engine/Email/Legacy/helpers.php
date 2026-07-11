@@ -147,7 +147,23 @@ function appSendMail(string $to, string $subject, string $body, array $options =
         }
     }
 
-    if ($driver === 'smtp' && $smtpHost !== '' && $smtpUser !== '') {
+    if ($driver === 'smtp') {
+        if ($smtpHost === '') {
+            appSetLastMailResult([
+                'ok' => false,
+                'driver' => $driver,
+                'transport' => 'smtp',
+                'to' => $to,
+                'subject' => $subject,
+                'from_name' => $fromName,
+                'from_address' => $fromAddress,
+                'reply_to' => $replyTo,
+                'error' => 'SMTP sunucusu tanimlanmadi, SMTP ile gonderim baslatilamadi.',
+            ]);
+
+            return false;
+        }
+
         return appSendMailSmtp($to, $subject, $body, [
             'host' => $smtpHost,
             'port' => $smtpPort,
@@ -162,6 +178,9 @@ function appSendMail(string $to, string $subject, string $body, array $options =
             'subject' => $subject,
         ]);
     }
+
+    // Sendmail and mail share the PHP mail() fallback; keep the transport label distinct for diagnostics.
+    $transport = $driver === 'sendmail' ? 'sendmail' : 'mail';
 
     // Fallback: PHP mail()
     try {
@@ -181,7 +200,7 @@ function appSendMail(string $to, string $subject, string $body, array $options =
             appSetLastMailResult([
                 'ok' => true,
                 'driver' => $driver,
-                'transport' => 'mail',
+                'transport' => $transport,
                 'to' => $to,
                 'subject' => $subject,
                 'from_name' => $fromName,
@@ -205,7 +224,7 @@ function appSendMail(string $to, string $subject, string $body, array $options =
         appSetLastMailResult([
             'ok' => false,
             'driver' => $driver,
-            'transport' => 'mail',
+            'transport' => $transport,
             'to' => $to,
             'subject' => $subject,
             'from_name' => $fromName,
@@ -219,7 +238,7 @@ function appSendMail(string $to, string $subject, string $body, array $options =
         appSetLastMailResult([
             'ok' => false,
             'driver' => $driver,
-            'transport' => 'mail',
+            'transport' => $transport,
             'to' => $to,
             'subject' => $subject,
             'from_name' => $fromName,

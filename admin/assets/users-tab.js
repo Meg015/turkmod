@@ -543,7 +543,7 @@ function openUserDetail(userId) {
                 + '</div>'
                 + '<div class="ui-admin-detail-grid ui-grid">'
                 +   '<div><h4>Son Konular</h4>' + listOrEmpty(d.recent_topics, function (t) {
-                        var topicHref = t.url || ('../topic.php?id=' + t.id);
+                        var topicHref = t.url || '#';
                         return '<li><a href="' + escHtml(topicHref) + '" target="_blank" rel="noopener">' + escHtml(t.title) + '</a> <span class="ui-admin-muted">' + escHtml(t.created_at) + '</span></li>';
                     }) + '</div>'
                 +   '<div><h4>Son Yorumlar</h4>' + listOrEmpty(d.recent_comments, function (c) {

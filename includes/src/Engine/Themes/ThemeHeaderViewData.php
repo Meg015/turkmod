@@ -12,9 +12,7 @@ final class ThemeHeaderViewData
     public static function notificationMenu(string $baseUri, bool $isLoggedIn): array
     {
         $baseUrl = rtrim($baseUri, '/');
-        $notificationsUrl = \function_exists('routePublicStaticUrl')
-            ? (string) \routePublicStaticUrl('notifications')
-            : ($baseUrl . '/notifications.php');
+        $notificationsUrl = (string) \routePublicStaticUrl('notifications');
 
         return [
             'notifications_enabled' => $isLoggedIn,
@@ -31,9 +29,7 @@ final class ThemeHeaderViewData
     public static function messageMenu(string $baseUri, bool $isLoggedIn): array
     {
         $baseUrl = rtrim($baseUri, '/');
-        $messagesUrl = \function_exists('routePublicStaticUrl')
-            ? (string) \routePublicStaticUrl('messages')
-            : ($baseUrl . '/mesajlar');
+        $messagesUrl = (string) \routePublicStaticUrl('messages');
 
         return [
             'messages_enabled' => $isLoggedIn,

@@ -8,7 +8,6 @@ use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Routing\Handler;
 use Closure;
-use PDO;
 use Throwable;
 
 final class NotFoundPage implements Handler
@@ -16,100 +15,15 @@ final class NotFoundPage implements Handler
     public function __construct(
         private ?string $rootPath = null,
         private ?string $baseUri = null,
-        private ?Closure $legacyMapResolver = null,
-        private ?Closure $legacyRedirectResolver = null,
         private ?Closure $bodyRenderer = null,
     ) {
     }
 
     public function handle(Request $request): Response
     {
-        $redirectUrl = $this->resolveRedirectUrl($request);
-        if ($redirectUrl !== null) {
-            return new Response('', 301, [
-                'Location' => $redirectUrl,
-                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-            ]);
-        }
-
         return new Response($this->renderBody($request), 404, [
             'Content-Type' => 'text/html; charset=utf-8',
         ]);
-    }
-
-    private function resolveRedirectUrl(Request $request): ?string
-    {
-        $mappedRedirect = $this->resolveMappedRedirectUrl($request);
-        if ($mappedRedirect !== null) {
-            return $mappedRedirect;
-        }
-
-        return $this->resolveLegacyContentRedirectUrl($request);
-    }
-
-    private function resolveMappedRedirectUrl(Request $request): ?string
-    {
-        $target = null;
-        if ($this->legacyMapResolver instanceof Closure) {
-            $target = ($this->legacyMapResolver)($request);
-        } elseif (function_exists('routeLegacyRedirectTarget')) {
-            $target = routeLegacyRedirectTarget($request->getUri());
-        }
-
-        if ($target === null) {
-            return null;
-        }
-
-        $normalizedTarget = trim((string) $target, '/');
-        if ($normalizedTarget === $this->currentRoutePath($request)) {
-            return null;
-        }
-
-        $baseUri = rtrim($this->resolveBaseUri(), '/');
-        $redirect = $baseUri . '/';
-        if ($normalizedTarget !== '') {
-            $redirect .= $normalizedTarget;
-        }
-
-        return $redirect;
-    }
-
-    private function resolveLegacyContentRedirectUrl(Request $request): ?string
-    {
-        $result = null;
-        if ($this->legacyRedirectResolver instanceof Closure) {
-            $result = ($this->legacyRedirectResolver)($request);
-        } elseif (function_exists('legacyRedirectResolve')) {
-            $pdo = $GLOBALS['pdo'] ?? null;
-            $result = legacyRedirectResolve($pdo instanceof PDO ? $pdo : null, $request->getUri());
-        }
-
-        if (is_string($result) && trim($result) !== '') {
-            return $result;
-        }
-
-        if (
-            is_array($result)
-            && !empty($result['redirect'])
-            && trim((string) ($result['target_url'] ?? '')) !== ''
-        ) {
-            return (string) $result['target_url'];
-        }
-
-        return null;
-    }
-
-    private function currentRoutePath(Request $request): string
-    {
-        $path = (string) parse_url($request->getUri(), PHP_URL_PATH);
-        $path = trim(str_replace('\\', '/', $path), '/');
-        $baseUri = trim($this->resolveBaseUri(), '/');
-
-        if ($baseUri !== '' && ($path === $baseUri || str_starts_with($path, $baseUri . '/'))) {
-            $path = ltrim(substr($path, strlen($baseUri)), '/');
-        }
-
-        return trim($path, '/');
     }
 
     private function resolveBaseUri(): string

@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Canonical rate-limit helper functions.
  *
  * Runtime calls go through App\Core\Security\RateLimiter by default. The
- * legacy request_rate_limits table remains a fallback for early bootstrap or
+ * shared request_rate_limits table is also used during early bootstrap or in
  * degraded environments where the Core container cannot be resolved.
  */
 
@@ -160,21 +160,21 @@ if (!function_exists('incrementRateLimit')) {
         coreRateLimitRememberWindow($key, $window);
 
         $limiter = coreRateLimiter();
-        $mirrorLegacyTable = true;
+        $mirrorRateLimitTable = true;
         if ($limiter instanceof \App\Core\Security\RateLimiter) {
             try {
                 $limiter->hit($key, coreRateLimitWindowSeconds($window));
                 // Database backend already persists into request_rate_limits.
                 // For file backend we still mirror to DB so admin/rate-limits stays observable.
                 if ($limiter instanceof \App\Core\Security\DatabaseRateLimiter) {
-                    $mirrorLegacyTable = false;
+                    $mirrorRateLimitTable = false;
                 }
             } catch (Throwable $exception) {
                 coreRateLimitLog($exception, ['fn' => 'incrementRateLimit', 'key' => $key]);
             }
         }
 
-        if (!$mirrorLegacyTable) {
+        if (!$mirrorRateLimitTable) {
             return;
         }
 

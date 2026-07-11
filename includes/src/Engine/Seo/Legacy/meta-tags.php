@@ -199,7 +199,9 @@ if (!function_exists('seoGenerateTopicMeta')) {
         if ($canonicalUrl === '') {
             $slug = (string) ($topic['slug'] ?? '');
             $id = (int) ($topic['id'] ?? 0);
-            $canonicalUrl = function_exists('topicUrl') ? topicUrl($slug, $id > 0 ? $id : null) : '';
+            if ($slug !== '') {
+                $canonicalUrl = topicUrl($slug, $id > 0 ? $id : null);
+            }
         }
 
         if (function_exists('seoPublicPageMetaTags')) {

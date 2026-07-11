@@ -1,10 +1,6 @@
 <?php
 $activeEventsTab = $activeEventsTab ?? 'overview';
-$baseEventsUrl = htmlspecialchars(
-    function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('events')
-        : rtrim((string) ($baseUri ?? ''), '/') . '/events'
-);
+$baseEventsUrl = htmlspecialchars(eventsPublicUrl());
 
 $tabbarUserId = (int)($_SESSION['_auth_user_id'] ?? 0);
 $tabbarClaimableTasksCount = 0;

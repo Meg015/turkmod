@@ -12,11 +12,7 @@ $pageTitle = 'Ödüllerim';
 $metaDescription = 'Etkinliklerden kazandığın ödülleri ve teslim durumlarını görüntüle.';
 $userId = (int)($_SESSION['_auth_user_id'] ?? 0);
 $config = eventsGetConfig($pdo);
-$eventsBaseUrl = function_exists('eventsPublicUrl')
-    ? eventsPublicUrl()
-    : (function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('events')
-        : rtrim((string) ($baseUri ?? ''), '/') . '/events');
+$eventsBaseUrl = eventsPublicUrl();
 $featureGate = eventsFeatureGate($config, 'rewards');
 if (!$featureGate['enabled']) {
     require dirname(__DIR__, 6) . '/includes/public-header.php';

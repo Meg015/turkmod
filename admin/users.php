@@ -244,8 +244,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'error',
                     function_exists('routePublicStaticPath')
                         ? '/' . ltrim((string) routePublicStaticPath('ban_appeals'), '/')
-                        : '/ban-appeals.php'
-                );
+                        : '/ban-itiraz'
+                );
                 $respond(true, 'Kullanıcı banlandı.');
                 break;
 

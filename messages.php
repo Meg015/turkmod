@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/init.php';
 
-$target = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('messages')
-    : (rtrim((string) ($baseUri ?? ''), '/') . '/mesajlar');
+$target = routePublicStaticUrl('messages');
 
 $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
 if ($query !== '') {

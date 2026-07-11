@@ -20,12 +20,8 @@ $leaderboard_disabled_message = trim((string) ($settings['leaderboard_disabled_m
 if ($leaderboard_disabled_message === '') {
     $leaderboard_disabled_message = 'Liderlik tablosu su anda kapali. Lutfen daha sonra tekrar kontrol edin.';
 }
-$leaderboard_disabled_contact_url = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('contact')
-    : (rtrim((string) $baseUri, '/') . '/iletisim');
-$leaderboard_disabled_categories_url = function_exists('categoryListUrl')
-    ? categoryListUrl()
-    : (rtrim((string) $baseUri, '/') . '/kategoriler');
+$leaderboard_disabled_contact_url = routePublicStaticUrl('contact');
+$leaderboard_disabled_categories_url = categoryListUrl();
 
 if ($leaderboard_disabled) {
     $pageTitle = 'Lider Tablosu Kapali';
@@ -108,9 +104,7 @@ $periods = [
     'yearly' => 'Yıllık',
     'all_time' => 'Tüm Zamanlar'
 ];
-$leaderboardBaseUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('leaderboard')
-    : ($baseUri . '/leaderboard.php');
+$leaderboardBaseUrl = routePublicStaticUrl('leaderboard');
 
 try {
     $fetchLimit = $perPage;
@@ -200,6 +194,10 @@ foreach ($users as $index => $user) {
     $avatarUrl = (string) ($row['avatar_url'] ?? $fallbackAvatarUrl);
     $hasAvatar = $avatarUrl !== $fallbackAvatarUrl;
     $rowUsername = (string) ($row['username'] ?? 'Anonim');
+    $profileDisplayName = publicProfileDisplayName($row);
+    if ($profileDisplayName === '') {
+        $profileDisplayName = 'kullanici';
+    }
 
     $rankChange = (int) ($row['rank_change'] ?? $row['change'] ?? 0);
     $metadata = isset($row['metadata']) && is_array($row['metadata']) ? $row['metadata'] : [];
@@ -214,12 +212,10 @@ foreach ($users as $index => $user) {
         'rank_class' => $rank <= 3 ? 'medal' : 'rank-number',
         'avatar_url' => $avatarUrl,
         'has_avatar' => $hasAvatar,
-        'profile_url' => (string) ($row['profile_url'] ?? (function_exists('publicProfileUrl')
-            ? publicProfileUrl([
-                'id' => $userId,
-                'name' => $rowUsername,
-            ])
-            : ($baseUri . '/profil/' . rawurlencode((string) $userId)))),
+        'profile_url' => (string) ($row['profile_url'] ?? publicProfileUrl([
+            'id' => $userId,
+            'username' => $profileDisplayName,
+        ])),
         'username' => $rowUsername,
         'is_current_user' => $isCurrentUser,
         'score' => number_format((int) ($row['count'] ?? $row['score'] ?? 0)),
@@ -432,12 +428,14 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                                         $isCurrentUser = $isLoggedIn && $userId === (int)$_SESSION['_auth_user_id'];
 
                                         $avatarUrl = htmlspecialchars((string)($user['avatar_url'] ?? $fallbackAvatarUrl), ENT_QUOTES, 'UTF-8');
-                                        $profileUrl = htmlspecialchars((string)($user['profile_url'] ?? (function_exists('publicProfileUrl')
-                                            ? publicProfileUrl([
-                                                'id' => $userId,
-                                                'name' => (string) ($user['username'] ?? 'uye'),
-                                            ])
-                                            : ($baseUri . '/profil/' . rawurlencode((string) $userId)))), ENT_QUOTES, 'UTF-8');
+                                        $profileDisplayName = publicProfileDisplayName($user);
+                                        if ($profileDisplayName === '') {
+                                            $profileDisplayName = 'kullanici';
+                                        }
+                                        $profileUrl = htmlspecialchars((string)($user['profile_url'] ?? publicProfileUrl([
+                                            'id' => $userId,
+                                            'username' => $profileDisplayName,
+                                        ])), ENT_QUOTES, 'UTF-8');
                                         ?>
                                         <tr class="<?= $isCurrentUser ? 'current-user' : '' ?>">
                                             <td class="col-rank">

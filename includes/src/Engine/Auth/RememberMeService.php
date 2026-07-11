@@ -215,8 +215,7 @@ final class RememberMeService
             if (function_exists('usersEnsureUsernameSchema')) {
                 usersEnsureUsernameSchema($pdo);
             }
-            $hasUsernameColumn = function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username');
-            $stmt = $pdo->prepare("SELECT id, " . ($hasUsernameColumn ? "username, " : "") . "name, email, status, remember_token
+            $stmt = $pdo->prepare("SELECT id, username, email, status, remember_token
                                    FROM users
                                    WHERE id = ? AND deleted_at IS NULL
                                    LIMIT 1");

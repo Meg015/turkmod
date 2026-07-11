@@ -21,9 +21,7 @@ final class AdminGuard implements Middleware
 
         global $pdo, $baseUri;
         $base = rtrim((string) ($baseUri ?? ''), '/');
-        $loginUrl = function_exists('routePublicStaticUrl')
-            ? routePublicStaticUrl('login')
-            : $base . '/giris';
+        $loginUrl = routePublicStaticUrl('login');
         $indexUrl = $base . '/index.php';
         $userId = (int) ($_SESSION['_auth_user_id'] ?? 0);
 

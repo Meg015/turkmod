@@ -19,12 +19,8 @@ if ($usesThemeRenderer) {
     // Turkmod theme bundle already contains home category styles.
     $pageCssFiles = [];
 }
-$homeUploadUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('upload_topic')
-    : rtrim((string) ($baseUri ?? ''), '/') . '/upload-topic.php';
-$homeRegisterUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('register')
-    : rtrim((string) ($baseUri ?? ''), '/') . '/kayit';
+$homeUploadUrl = routePublicStaticUrl('upload_topic');
+$homeRegisterUrl = routePublicStaticUrl('register');
 
 // Arama, filtreleme, sıralama ve sayfalama
 $search = function_exists("sanitizeSearchQuery")

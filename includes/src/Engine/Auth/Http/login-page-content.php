@@ -32,18 +32,10 @@ function loginRedirectForAuthenticatedUser(bool $isAdminUser, string $requestedR
 
 $requestedRedirect = loginSafeRedirect((string) ($_GET['redirect'] ?? $_POST['redirect'] ?? ''), $baseUri . '/index.php');
 $appDebug = isset($appDebug) ? (bool) $appDebug : ((defined('APP_DEBUG') && APP_DEBUG) ? true : false);
-$loginUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('login')
-    : ($baseUri . '/giris');
-$loginPath = function_exists('routePublicStaticPath')
-    ? '/' . ltrim(routePublicStaticPath('login'), '/')
-    : '/giris';
-$registerUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('register')
-    : ($baseUri . '/kayit');
-$forgotPasswordUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('forgot_password')
-    : ($baseUri . '/sifremi-unuttum');
+$loginUrl = routePublicStaticUrl('login');
+$loginPath = '/' . ltrim(routePublicStaticPath('login'), '/');
+$registerUrl = routePublicStaticUrl('register');
+$forgotPasswordUrl = routePublicStaticUrl('forgot_password');
 $loginAuditPath = $loginPath;
 
 // Zaten giriş yapmışsa yönlendir

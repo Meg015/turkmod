@@ -13,9 +13,7 @@ if ($pdo) {
 
 $userId = (int)($_SESSION['_auth_user_id'] ?? 0);
 $topicId = max(0, (int)($_GET['id'] ?? 0));
-$editTopicUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('edit_topic') . '?id=' . (int) $topicId
-    : ($baseUri . '/edit-topic.php?id=' . (int) $topicId);
+$editTopicUrl = routePublicStaticUrl('edit_topic') . '?id=' . (int) $topicId;
 $settings = function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : [];
 $categoryOptions = getAdminCategoryOptions($pdo);
 $pageTitle = 'Mod Düzenle';
@@ -278,7 +276,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             : 'Değişiklikler kaydedildi ve konu yayında kalmaya devam ediyor.';
         $editRedirect = $editNeedsDraftReview
             ? $baseUri . '/profile.php?tab=topics&topic_status=draft&edited=1'
-            : (function_exists('topicUrl') ? topicUrl($slug, $topicId) : $baseUri . '/topic.php?id=' . $topicId);
+            : topicUrl($slug, $topicId);
         editTopicRespond(true, $editSuccessMessage, 200, [
             'redirect' => $editRedirect,
             'topic_id' => $topicId,

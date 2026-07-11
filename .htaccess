@@ -71,8 +71,9 @@ Options -Indexes
     RewriteEngine On
     # Relative targets keep this portable across folder renames.
 
-    # Development and CLI-only paths must never be served over HTTP.
-    RewriteRule ^(?:\.maestro|cron|install)(?:/|$) - [F,L,NC]
+    # Development and installer paths must never be served over HTTP.
+    # Cron endpoints are protected inside the PHP entrypoints with CLI/secret checks.
+    RewriteRule ^(?:\.maestro|install)(?:/|$) - [F,L,NC]
 
     # Serve font files directly (bypass router)
     RewriteRule \.(woff2?|ttf|eot|otf)$ - [L]

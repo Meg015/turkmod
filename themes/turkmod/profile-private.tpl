@@ -65,7 +65,7 @@
 {/loop}
 {if profile.more_topics_url}<div class="profile-center-cta"><a href="{profile.more_topics_url}">Tümünü gör &rarr;</a></div>{/if}
 {else}
-<div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-journal-x" aria-hidden="true"></i><p>Henüz konu oluşturmadınız.</p><a href="{base_url}/upload-topic.php">İlk içeriği yükle</a></div>
+<div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-journal-x" aria-hidden="true"></i><p>Henüz konu oluşturmadınız.</p><a href="{upload_topic_url}">İlk içeriği yükle</a></div>
 {/if}
 </div>
 <div class="profile-section ui-card ui-section">
@@ -143,7 +143,7 @@
 {/loop}
 {if profile.topics_pagination_groups}{include "profile-pagination.tpl"}{/if}
 {else}
-<div class="profile-empty-cta ui-empty"><i class="bi bi-stars" aria-hidden="true"></i><h3>İlk konunu oluşturmaya hazır mısın?</h3><p>Henüz yayınlanmış bir konun görünmüyor. Yeni içerik ekleyerek profilini güçlendirebilirsin.</p><a href="{base_url}/upload-topic.php" class="ui-admin-btn ui-admin-btn-warning fw-bold"><i class="bi bi-plus-circle" aria-hidden="true"></i> İlk Konuyu Oluştur</a></div>
+<div class="profile-empty-cta ui-empty"><i class="bi bi-stars" aria-hidden="true"></i><h3>İlk konunu oluşturmaya hazır mısın?</h3><p>Henüz yayınlanmış bir konun görünmüyor. Yeni içerik ekleyerek profilini güçlendirebilirsin.</p><a href="{upload_topic_url}" class="ui-admin-btn ui-admin-btn-warning fw-bold"><i class="bi bi-plus-circle" aria-hidden="true"></i> İlk Konuyu Oluştur</a></div>
 {/if}
 </div>
 </div>

@@ -671,16 +671,29 @@ function profileActivityTopicUrl(?string $slug, int $topicId): string
 {
     $slug = trim((string) $slug);
     $topicId = max(0, $topicId);
-    if ($slug !== '' && function_exists('topicUrl')) {
+    if ($slug !== '') {
         return topicUrl($slug, $topicId > 0 ? $topicId : null);
+    }
+
+    if ($topicId > 0 && isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
+        try {
+            $stmt = $GLOBALS['pdo']->prepare('SELECT slug FROM topics WHERE id = :id LIMIT 1');
+            $stmt->execute(['id' => $topicId]);
+            $topicSlug = trim((string) ($stmt->fetchColumn() ?: ''));
+            if ($topicSlug !== '') {
+                return topicUrl($topicSlug, $topicId);
+            }
+        } catch (Throwable $e) {
+        }
+
+        return routeCanonicalPath('topic');
     }
 
     if ($topicId <= 0) {
         return '';
     }
 
-    global $baseUri;
-    return ($baseUri ?: '') . '/topic.php?id=' . $topicId;
+    return routeCanonicalPath('topic');
 }
 
 function profileActivityTargetUrl(array $activity): string

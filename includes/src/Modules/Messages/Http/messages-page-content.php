@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 use App\Modules\Messages\Services\MessageService;
 
-$messagesBaseUrl = function_exists('routePublicStaticUrl')
-    ? routePublicStaticUrl('messages')
-    : (rtrim((string) ($baseUri ?? ''), '/') . '/mesajlar');
+$messagesBaseUrl = routePublicStaticUrl('messages');
 $pageTitle = 'Mesajlar';
 $metaDescription = 'Uyelere ozel birebir mesajlasma alani.';
 $userId = (int) ($_SESSION['_auth_user_id'] ?? 0);
 
 if ($userId <= 0) {
-    $loginUrl = function_exists('routePublicStaticUrl')
-        ? routePublicStaticUrl('login')
-        : (rtrim((string) ($baseUri ?? ''), '/') . '/giris');
+    $loginUrl = routePublicStaticUrl('login');
     $redirectTarget = (string) ($_SERVER['REQUEST_URI'] ?? $messagesBaseUrl);
     header('Location: ' . $loginUrl . '?redirect=' . rawurlencode($redirectTarget));
     exit;

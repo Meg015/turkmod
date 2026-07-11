@@ -39,6 +39,36 @@
         return `${window.location.origin}${appBase}/${relativePath}`;
     }
 
+    function slugifyProfileName(value) {
+        const text = String(value || '').trim();
+        if (text === '') return 'kullanici';
+
+        const normalized = text
+            .replace(/[ÇĞİÖŞÜçğıöşü]/g, (char) => ({
+                'Ç': 'C',
+                'Ğ': 'G',
+                'İ': 'I',
+                'Ö': 'O',
+                'Ş': 'S',
+                'Ü': 'U',
+                'ç': 'c',
+                'ğ': 'g',
+                'ı': 'i',
+                'ö': 'o',
+                'ş': 's',
+                'ü': 'u',
+            }[char] || char))
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+        const slug = normalized
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+        return slug || 'kullanici';
+    }
+
     function buildProfileUrl(user, baseUri) {
         const profileUrl = String(user && user.profile_url ? user.profile_url : '').trim();
         if (profileUrl !== '') return profileUrl;
@@ -46,7 +76,10 @@
         const userId = parseInt((user && (user.user_id ?? user.id)) || 0, 10);
         if (userId <= 0) return '#';
 
-        return `${baseUri}/public-profile.php?profile=${userId}`;
+        const displayName = String((user && (user.username || user.name || user.author)) || '').trim();
+        const slug = slugifyProfileName(displayName);
+
+        return `${baseUri}/profil/${encodeURIComponent(`${slug}-${userId}`)}`;
     }
 
     function buildAvatarUrl(user, fallbackUrl) {
