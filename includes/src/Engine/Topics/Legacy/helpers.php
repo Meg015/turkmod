@@ -228,20 +228,113 @@ function topicDownloadCommentRequirement(array $settings): string
     return $mode === 'approved' ? 'approved' : 'submitted';
 }
 
-function topicDownloadSettingText(array $settings, string $key, string $fallback, array $legacyValues = []): string
+function topicDownloadSettingText(array $settings, string $key, string $fallback): string
 {
     $value = trim((string) ($settings[$key] ?? ''));
     if ($value === '') {
         return $fallback;
     }
 
-    foreach ($legacyValues as $legacyValue) {
-        if ($value === (string) $legacyValue) {
-            return $fallback;
-        }
+    return $value;
+}
+
+function topicDownloadProgressTemplate(array $settings): string
+{
+    $fallback = '{{completed}} adımdan {{total}} adımı tamamlandı';
+    $template = trim((string) ($settings['download_access_progress_template'] ?? ''));
+    if ($template === '' || !str_contains($template, '{{completed}}') || !str_contains($template, '{{total}}')) {
+        return $fallback;
     }
 
-    return $value;
+    return $template;
+}
+
+function topicDownloadProgressText(array $settings, int $completed, int $total): string
+{
+    return str_replace(
+        ['{{completed}}', '{{total}}'],
+        [(string) max(0, $completed), (string) max(0, $total)],
+        topicDownloadProgressTemplate($settings)
+    );
+}
+
+function topicDownloadGrantMode(array $settings): string
+{
+    return strtolower(trim((string) ($settings['download_access_grant_mode'] ?? 'permanent'))) === 'timed'
+        ? 'timed'
+        : 'permanent';
+}
+
+function topicDownloadGrantDurationUnit(array $settings): string
+{
+    $unit = strtolower(trim((string) ($settings['download_access_grant_duration_unit'] ?? 'hours')));
+    return in_array($unit, ['minutes', 'hours', 'days'], true) ? $unit : 'hours';
+}
+
+function topicDownloadGrantDurationMaximum(string $unit): int
+{
+    return match (strtolower(trim($unit))) {
+        'minutes' => 525600,
+        'days' => 3650,
+        default => 87600,
+    };
+}
+
+function topicDownloadGrantDurationValue(array $settings): int
+{
+    $unit = topicDownloadGrantDurationUnit($settings);
+    $maximum = topicDownloadGrantDurationMaximum($unit);
+
+    return max(1, min($maximum, (int) ($settings['download_access_grant_duration_value'] ?? 24)));
+}
+
+function topicDownloadGrantDurationSeconds(array $settings): int
+{
+    $multiplier = match (topicDownloadGrantDurationUnit($settings)) {
+        'minutes' => 60,
+        'days' => 86400,
+        default => 3600,
+    };
+
+    return topicDownloadGrantDurationValue($settings) * $multiplier;
+}
+
+function topicDownloadGrantExpiry(array $settings, string $grantedAt): ?string
+{
+    if (topicDownloadGrantMode($settings) !== 'timed') {
+        return null;
+    }
+
+    $grantedTimestamp = strtotime($grantedAt);
+    if ($grantedTimestamp === false) {
+        $grantedTimestamp = time();
+    }
+
+    return date('Y-m-d H:i:s', $grantedTimestamp + topicDownloadGrantDurationSeconds($settings));
+}
+
+function topicDownloadActiveUntilTemplate(array $settings): string
+{
+    $fallback = 'İndirme erişiminiz {{expires_at}} tarihine kadar açık.';
+    $template = trim((string) ($settings['download_access_active_until_template'] ?? ''));
+    return $template !== '' && str_contains($template, '{{expires_at}}') ? $template : $fallback;
+}
+
+function topicDownloadActiveUntilText(array $settings, ?string $expiresAt): string
+{
+    $expiresAt = trim((string) $expiresAt);
+    if ($expiresAt === '') {
+        return '';
+    }
+
+    $timestamp = strtotime($expiresAt);
+    if ($timestamp === false) {
+        return '';
+    }
+
+    $dateFormat = trim((string) ($settings['date_format'] ?? 'd.m.Y')) ?: 'd.m.Y';
+    $formatted = date($dateFormat . ' H:i', $timestamp);
+    return str_replace('{{expires_at}}', $formatted, topicDownloadActiveUntilTemplate($settings));
 }
 
 function topicDownloadAccessStage(bool $locked, string $reason): string
@@ -255,16 +348,36 @@ function topicDownloadAccessStage(bool $locked, string $reason): string
         return 'login';
     }
 
-    if ($reason === 'comment_required') {
+    if ($reason === 'comment_required' || $reason === 'comment_expired') {
         return 'comment';
+    }
+
+    if ($reason === 'comment_pending') {
+        return 'pending';
     }
 
     return 'locked';
 }
 
-function topicDownloadAccessStepClasses(string $stage): array
+function topicDownloadAccessStepClasses(string $stage, bool $commentStepRequired = true): array
 {
-    $stage = in_array($stage, ['login', 'comment', 'open', 'locked'], true) ? $stage : 'locked';
+    $stage = in_array($stage, ['login', 'comment', 'pending', 'open', 'locked'], true) ? $stage : 'locked';
+
+    if (!$commentStepRequired) {
+        if ($stage === 'open') {
+            return [
+                'login' => 'is-complete',
+                'comment' => 'is-muted',
+                'open' => 'is-active',
+            ];
+        }
+
+        return [
+            'login' => $stage === 'login' ? 'is-active' : 'is-pending',
+            'comment' => 'is-muted',
+            'open' => 'is-pending',
+        ];
+    }
 
     switch ($stage) {
         case 'login':
@@ -277,6 +390,12 @@ function topicDownloadAccessStepClasses(string $stage): array
             return [
                 'login' => 'is-complete',
                 'comment' => 'is-active',
+                'open' => 'is-pending',
+            ];
+        case 'pending':
+            return [
+                'login' => 'is-complete',
+                'comment' => 'is-waiting',
                 'open' => 'is-pending',
             ];
         case 'open':
@@ -297,10 +416,60 @@ function topicDownloadAccessStepClasses(string $stage): array
 function topicDownloadAccessFinalizeState(array $state): array
 {
     $stage = topicDownloadAccessStage((bool) ($state['locked'] ?? false), (string) ($state['reason'] ?? 'none'));
+    $mode = (string) ($state['mode'] ?? 'public');
+    $commentStepRequired = $mode === 'members_comment';
     $state['stage'] = $stage;
-    $state['step_classes'] = topicDownloadAccessStepClasses($stage);
+    $state['comment_step_required'] = $commentStepRequired;
+    $state['step_classes'] = topicDownloadAccessStepClasses($stage, $commentStepRequired);
+    $state['progress_total'] = match ($mode) {
+        'members' => 2,
+        'members_comment' => 3,
+        default => 0,
+    };
+    if ($mode === 'public') {
+        $state['progress_completed'] = 0;
+    } elseif ($mode === 'members') {
+        $state['progress_completed'] = $stage === 'open' ? 2 : 0;
+    } elseif ($stage === 'login') {
+        $state['progress_completed'] = 0;
+    } elseif ($stage === 'comment') {
+        $state['progress_completed'] = 1;
+    } elseif ($stage === 'pending') {
+        $state['progress_completed'] = 2;
+    } else {
+        $state['progress_completed'] = 3;
+    }
 
     return $state;
+}
+
+function topicUserTopicCommentState(?PDO $pdo, int $topicId, int $userId): string
+{
+    if (!$pdo || $topicId <= 0 || $userId <= 0) {
+        return 'none';
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT status
+            FROM comments
+            WHERE topic_id = :topic_id
+              AND user_id = :user_id
+              AND deleted_at IS NULL
+              AND status IN ('approved', 'pending')
+            ORDER BY CASE status WHEN 'approved' THEN 0 ELSE 1 END, id DESC
+            LIMIT 1");
+        $stmt->execute([
+            'topic_id' => $topicId,
+            'user_id' => $userId,
+        ]);
+        $status = strtolower(trim((string) $stmt->fetchColumn()));
+        return in_array($status, ['approved', 'pending'], true) ? $status : 'none';
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicUserTopicCommentState', 'topic_id' => $topicId, 'user_id' => $userId]);
+        }
+        return 'none';
+    }
 }
 
 function topicUserHasTopicComment(?PDO $pdo, int $topicId, int $userId, bool $approvedOnly = false): bool
@@ -334,6 +503,346 @@ function topicUserHasTopicComment(?PDO $pdo, int $topicId, int $userId, bool $ap
     }
 }
 
+function topicDownloadAccessGrantTableExists(?PDO $pdo, bool $refresh = false): bool
+{
+    if (!$pdo) {
+        return false;
+    }
+
+    static $cache = [];
+    $cacheKey = spl_object_id($pdo);
+    if (!$refresh && array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    try {
+        $stmt = $pdo->query("SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE()
+              AND table_name = 'topic_download_access_grants'
+            LIMIT 1");
+        return $cache[$cacheKey] = (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadAccessGrantTableExists']);
+        }
+        return $cache[$cacheKey] = false;
+    }
+}
+
+function topicDownloadEnsureAccessGrantSchema(?PDO $pdo): bool
+{
+    if (!$pdo) {
+        return false;
+    }
+    if (topicDownloadAccessGrantTableExists($pdo)) {
+        return true;
+    }
+    if (function_exists('runtimeSchemaUpdatesAllowed') && !runtimeSchemaUpdatesAllowed()) {
+        return false;
+    }
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS topic_download_access_grants (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            topic_id BIGINT UNSIGNED NOT NULL,
+            user_id BIGINT UNSIGNED NOT NULL,
+            comment_id BIGINT UNSIGNED NOT NULL,
+            grant_mode VARCHAR(16) NOT NULL DEFAULT 'permanent',
+            granted_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NULL DEFAULT NULL,
+            revoked_at TIMESTAMP NULL DEFAULT NULL,
+            revoke_reason VARCHAR(50) NULL,
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY topic_download_grants_comment_unique (comment_id),
+            KEY topic_download_grants_topic_user_granted (topic_id, user_id, granted_at),
+            KEY topic_download_grants_expires (expires_at),
+            CONSTRAINT topic_download_grants_topic_foreign FOREIGN KEY (topic_id) REFERENCES topics (id) ON DELETE CASCADE,
+            CONSTRAINT topic_download_grants_user_foreign FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            CONSTRAINT topic_download_grants_comment_foreign FOREIGN KEY (comment_id) REFERENCES comments (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        return topicDownloadAccessGrantTableExists($pdo, true);
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadEnsureAccessGrantSchema']);
+        }
+        return false;
+    }
+}
+
+function topicDownloadCommentQualifiesForGrant(array $settings, array $comment): bool
+{
+    if ((int) ($comment['id'] ?? 0) <= 0 || (int) ($comment['topic_id'] ?? 0) <= 0 || (int) ($comment['user_id'] ?? 0) <= 0) {
+        return false;
+    }
+    if (!empty($comment['deleted_at'])) {
+        return false;
+    }
+
+    $status = strtolower(trim((string) ($comment['status'] ?? '')));
+    if (topicDownloadCommentRequirement($settings) === 'approved') {
+        return $status === 'approved';
+    }
+
+    return in_array($status, ['approved', 'pending'], true);
+}
+
+function topicDownloadCreateAccessGrant(?PDO $pdo, array $settings, array $comment, ?string $grantedAt = null): bool
+{
+    if (!$pdo || topicDownloadAccessMode($settings) !== 'members_comment' || !topicDownloadCommentQualifiesForGrant($settings, $comment)) {
+        return false;
+    }
+    if (!topicDownloadEnsureAccessGrantSchema($pdo)) {
+        return false;
+    }
+
+    $grantedAt = trim((string) $grantedAt);
+    if ($grantedAt === '') {
+        $grantedAt = trim((string) ($comment['created_at'] ?? '')) ?: date('Y-m-d H:i:s');
+    }
+    $grantMode = topicDownloadGrantMode($settings);
+    $expiresAt = topicDownloadGrantExpiry($settings, $grantedAt);
+
+    try {
+        $stmt = $pdo->prepare("INSERT IGNORE INTO topic_download_access_grants
+            (topic_id, user_id, comment_id, grant_mode, granted_at, expires_at, revoked_at, revoke_reason, created_at, updated_at)
+            VALUES (:topic_id, :user_id, :comment_id, :grant_mode, :granted_at, :expires_at, NULL, NULL, NOW(), NOW())");
+        $stmt->execute([
+            'topic_id' => (int) $comment['topic_id'],
+            'user_id' => (int) $comment['user_id'],
+            'comment_id' => (int) $comment['id'],
+            'grant_mode' => $grantMode,
+            'granted_at' => $grantedAt,
+            'expires_at' => $expiresAt,
+        ]);
+        return $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadCreateAccessGrant', 'comment_id' => (int) ($comment['id'] ?? 0)]);
+        }
+        return false;
+    }
+}
+
+function topicDownloadApproveAccessGrant(?PDO $pdo, array $settings, array $comment, ?string $approvedAt = null): bool
+{
+    $comment['status'] = 'approved';
+    $comment['deleted_at'] = null;
+    if (!$pdo || topicDownloadAccessMode($settings) !== 'members_comment' || !topicDownloadCommentQualifiesForGrant($settings, $comment)) {
+        return false;
+    }
+    if (!topicDownloadEnsureAccessGrantSchema($pdo)) {
+        return false;
+    }
+
+    $approvedAt = trim((string) $approvedAt) ?: date('Y-m-d H:i:s');
+    $grantMode = topicDownloadGrantMode($settings);
+    $expiresAt = topicDownloadGrantExpiry($settings, $approvedAt);
+
+    try {
+        $stmt = $pdo->prepare("UPDATE topic_download_access_grants
+            SET grant_mode = :grant_mode,
+                granted_at = :granted_at,
+                expires_at = :expires_at,
+                revoked_at = NULL,
+                revoke_reason = NULL,
+                updated_at = NOW()
+            WHERE comment_id = :comment_id
+              AND revoke_reason = 'comment_rejected'");
+        $stmt->execute([
+            'grant_mode' => $grantMode,
+            'granted_at' => $approvedAt,
+            'expires_at' => $expiresAt,
+            'comment_id' => (int) $comment['id'],
+        ]);
+        if ($stmt->rowCount() > 0) {
+            return true;
+        }
+
+        return topicDownloadCreateAccessGrant($pdo, $settings, $comment, $approvedAt);
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadApproveAccessGrant', 'comment_id' => (int) ($comment['id'] ?? 0)]);
+        }
+        return false;
+    }
+}
+
+function topicDownloadRevokeAccessGrant(?PDO $pdo, int $commentId, string $reason): bool
+{
+    if (!$pdo || $commentId <= 0 || !topicDownloadEnsureAccessGrantSchema($pdo)) {
+        return false;
+    }
+
+    $reason = in_array($reason, ['comment_deleted', 'comment_rejected'], true) ? $reason : 'comment_invalid';
+    try {
+        $stmt = $pdo->prepare("UPDATE topic_download_access_grants
+            SET revoked_at = NOW(), revoke_reason = :reason, updated_at = NOW()
+            WHERE comment_id = :comment_id AND revoked_at IS NULL");
+        $stmt->execute(['reason' => $reason, 'comment_id' => $commentId]);
+        return $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadRevokeAccessGrant', 'comment_id' => $commentId]);
+        }
+        return false;
+    }
+}
+
+function topicDownloadRestoreAccessGrant(?PDO $pdo, array $settings, array $comment): bool
+{
+    if (!$pdo || !topicDownloadCommentQualifiesForGrant($settings, array_merge($comment, ['deleted_at' => null])) || !topicDownloadEnsureAccessGrantSchema($pdo)) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("UPDATE topic_download_access_grants
+            SET revoked_at = NULL, revoke_reason = NULL, updated_at = NOW()
+            WHERE comment_id = :comment_id
+              AND revoke_reason = 'comment_deleted'
+              AND (expires_at IS NULL OR expires_at > NOW())");
+        $stmt->execute(['comment_id' => (int) $comment['id']]);
+        if ($stmt->rowCount() > 0) {
+            return true;
+        }
+
+        return topicDownloadCreateAccessGrant(
+            $pdo,
+            $settings,
+            array_merge($comment, ['deleted_at' => null]),
+            trim((string) ($comment['created_at'] ?? '')) ?: null
+        );
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadRestoreAccessGrant', 'comment_id' => (int) ($comment['id'] ?? 0)]);
+        }
+        return false;
+    }
+}
+
+function topicDownloadLatestUserComment(?PDO $pdo, int $topicId, int $userId): ?array
+{
+    if (!$pdo || $topicId <= 0 || $userId <= 0) {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT id, topic_id, user_id, status, deleted_at, created_at, updated_at
+            FROM comments
+            WHERE topic_id = :topic_id AND user_id = :user_id
+            ORDER BY id DESC
+            LIMIT 1");
+        $stmt->execute(['topic_id' => $topicId, 'user_id' => $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadLatestUserComment', 'topic_id' => $topicId, 'user_id' => $userId]);
+        }
+        return null;
+    }
+}
+
+function topicDownloadReconcileAccessGrant(?PDO $pdo, array $settings, int $topicId, int $userId): void
+{
+    if (!$pdo || $topicId <= 0 || $userId <= 0 || !topicDownloadEnsureAccessGrantSchema($pdo)) {
+        return;
+    }
+
+    try {
+        $requirement = topicDownloadCommentRequirement($settings);
+        $statusSql = $requirement === 'approved' ? "c.status = 'approved'" : "c.status IN ('approved', 'pending')";
+        $stmt = $pdo->prepare("SELECT c.id, c.topic_id, c.user_id, c.status, c.deleted_at, c.created_at, c.updated_at
+            FROM comments c
+            LEFT JOIN topic_download_access_grants g ON g.comment_id = c.id
+            WHERE c.topic_id = :topic_id
+              AND c.user_id = :user_id
+              AND c.deleted_at IS NULL
+              AND {$statusSql}
+              AND g.id IS NULL
+            ORDER BY c.id DESC
+            LIMIT 1");
+        $stmt->execute(['topic_id' => $topicId, 'user_id' => $userId]);
+        $comment = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($comment)) {
+            return;
+        }
+
+        // Reconciliation is for pre-existing comments. The user-selected
+        // migration policy uses the original comment date, so an old comment
+        // cannot receive a fresh duration merely because the feature was enabled.
+        $grantedAt = trim((string) ($comment['created_at'] ?? ''));
+        topicDownloadCreateAccessGrant($pdo, $settings, $comment, $grantedAt ?: null);
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadReconcileAccessGrant', 'topic_id' => $topicId, 'user_id' => $userId]);
+        }
+    }
+}
+
+function topicDownloadLatestAccessGrant(?PDO $pdo, int $topicId, int $userId): ?array
+{
+    if (!$pdo || $topicId <= 0 || $userId <= 0 || !topicDownloadEnsureAccessGrantSchema($pdo)) {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT g.*, c.status AS comment_status, c.deleted_at AS comment_deleted_at,
+                c.created_at AS comment_created_at, c.updated_at AS comment_updated_at
+            FROM topic_download_access_grants g
+            INNER JOIN comments c ON c.id = g.comment_id
+            WHERE g.topic_id = :topic_id AND g.user_id = :user_id
+            ORDER BY g.granted_at DESC, g.id DESC
+            LIMIT 1");
+        $stmt->execute(['topic_id' => $topicId, 'user_id' => $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadLatestAccessGrant', 'topic_id' => $topicId, 'user_id' => $userId]);
+        }
+        return null;
+    }
+}
+
+function topicDownloadActiveAccessGrant(?PDO $pdo, array $settings, int $topicId, int $userId): ?array
+{
+    if (!$pdo || $topicId <= 0 || $userId <= 0 || !topicDownloadEnsureAccessGrantSchema($pdo)) {
+        return null;
+    }
+
+    $statusSql = topicDownloadCommentRequirement($settings) === 'approved'
+        ? "c.status = 'approved'"
+        : "c.status IN ('approved', 'pending')";
+    $deletedSql = (string) ($settings['download_access_relock_on_comment_delete'] ?? '1') === '1'
+        ? 'AND c.deleted_at IS NULL'
+        : '';
+
+    try {
+        $stmt = $pdo->prepare("SELECT g.*, c.status AS comment_status, c.deleted_at AS comment_deleted_at,
+                c.created_at AS comment_created_at, c.updated_at AS comment_updated_at
+            FROM topic_download_access_grants g
+            INNER JOIN comments c ON c.id = g.comment_id
+            WHERE g.topic_id = :topic_id
+              AND g.user_id = :user_id
+              AND g.revoked_at IS NULL
+              AND (g.expires_at IS NULL OR g.expires_at > NOW())
+              AND {$statusSql}
+              {$deletedSql}
+            ORDER BY g.granted_at DESC, g.id DESC
+            LIMIT 1");
+        $stmt->execute(['topic_id' => $topicId, 'user_id' => $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['fn' => 'topicDownloadActiveAccessGrant', 'topic_id' => $topicId, 'user_id' => $userId]);
+        }
+        return null;
+    }
+}
+
 function topicDownloadAccessState(?PDO $pdo, array $settings, int $topicId, int $userId = 0): array
 {
     $mode = topicDownloadAccessMode($settings);
@@ -341,24 +850,39 @@ function topicDownloadAccessState(?PDO $pdo, array $settings, int $topicId, int 
     $loginMessage = topicDownloadSettingText(
         $settings,
         'download_access_login_message',
-        'Önce giriş yapın, sonra bir yorum gönderin; kilit otomatik açılır.',
-        ['Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.']
+        'Önce giriş yapın, sonra bir yorum gönderin; kilit otomatik açılır.'
     );
     $commentMessage = topicDownloadSettingText(
         $settings,
         'download_access_comment_message',
-        'Önce bir yorum gönderin; kilit otomatik açılır.',
-        ['Indirme linklerini gormek icin once yorum yapmaniz lazim.']
+        'Önce bir yorum gönderin; kilit otomatik açılır.'
+    );
+    $pendingMessage = topicDownloadSettingText(
+        $settings,
+        'download_access_pending_message',
+        'Yorumunuz gönderildi ve yönetici onayı bekliyor. Onaylandığında indirme bağlantıları otomatik açılacak.'
+    );
+    $expiredMessage = topicDownloadSettingText(
+        $settings,
+        'download_access_expired_message',
+        'İndirme bağlantılarını yeniden açmak için yeni bir yorum gönderin.'
     );
 
     $state = [
         'mode' => $mode,
         'comment_requirement' => $commentRequirement,
+        'grant_mode' => topicDownloadGrantMode($settings),
         'locked' => false,
         'reason' => 'none',
         'message' => '',
         'has_comment' => false,
+        'comment_status' => 'none',
         'requires_login' => false,
+        'grant_id' => 0,
+        'grant_comment_id' => 0,
+        'granted_at' => null,
+        'expires_at' => null,
+        'access_until_text' => '',
     ];
 
     if ($topicId <= 0 || $mode === 'public') {
@@ -377,11 +901,80 @@ function topicDownloadAccessState(?PDO $pdo, array $settings, int $topicId, int 
         return topicDownloadAccessFinalizeState($state);
     }
 
-    $approvedOnly = $commentRequirement === 'approved';
-    $hasComment = topicUserHasTopicComment($pdo, $topicId, $userId, $approvedOnly);
-    $state['has_comment'] = $hasComment;
-    if ($hasComment) {
+    topicDownloadReconcileAccessGrant($pdo, $settings, $topicId, $userId);
+    $grant = topicDownloadLatestAccessGrant($pdo, $topicId, $userId);
+    if (is_array($grant)) {
+        $commentStatus = strtolower(trim((string) ($grant['comment_status'] ?? '')));
+        $commentDeleted = trim((string) ($grant['comment_deleted_at'] ?? '')) !== '';
+        $relockOnDelete = (string) ($settings['download_access_relock_on_comment_delete'] ?? '1') === '1';
+        $statusQualifies = $commentRequirement === 'approved'
+            ? $commentStatus === 'approved'
+            : in_array($commentStatus, ['approved', 'pending'], true);
+
+        if (!$statusQualifies && trim((string) ($grant['revoked_at'] ?? '')) === '') {
+            topicDownloadRevokeAccessGrant($pdo, (int) ($grant['comment_id'] ?? 0), 'comment_rejected');
+            $grant = topicDownloadLatestAccessGrant($pdo, $topicId, $userId);
+        } elseif ($commentDeleted && $relockOnDelete && trim((string) ($grant['revoked_at'] ?? '')) === '') {
+            topicDownloadRevokeAccessGrant($pdo, (int) ($grant['comment_id'] ?? 0), 'comment_deleted');
+            $grant = topicDownloadLatestAccessGrant($pdo, $topicId, $userId);
+        } elseif (!$commentDeleted && (string) ($grant['revoke_reason'] ?? '') === 'comment_deleted') {
+            topicDownloadRestoreAccessGrant($pdo, $settings, [
+                'id' => (int) ($grant['comment_id'] ?? 0),
+                'topic_id' => $topicId,
+                'user_id' => $userId,
+                'status' => $commentStatus,
+                'deleted_at' => null,
+                'created_at' => (string) ($grant['comment_created_at'] ?? ''),
+                'updated_at' => (string) ($grant['comment_updated_at'] ?? ''),
+            ]);
+            $grant = topicDownloadLatestAccessGrant($pdo, $topicId, $userId);
+        }
+    }
+
+    $activeGrant = topicDownloadActiveAccessGrant($pdo, $settings, $topicId, $userId);
+    if (is_array($activeGrant)) {
+        $expiresAt = trim((string) ($activeGrant['expires_at'] ?? '')) ?: null;
+        $state['grant_id'] = (int) ($activeGrant['id'] ?? 0);
+        $state['grant_comment_id'] = (int) ($activeGrant['comment_id'] ?? 0);
+        $state['grant_mode'] = (string) ($activeGrant['grant_mode'] ?? topicDownloadGrantMode($settings));
+        $state['granted_at'] = trim((string) ($activeGrant['granted_at'] ?? '')) ?: null;
+        $state['expires_at'] = $expiresAt;
+        $state['comment_status'] = strtolower(trim((string) ($activeGrant['comment_status'] ?? ''))) ?: 'none';
+        $state['has_comment'] = true;
+        $state['access_until_text'] = topicDownloadActiveUntilText($settings, $expiresAt);
         return topicDownloadAccessFinalizeState($state);
+    }
+
+    if (is_array($grant)) {
+        $state['grant_id'] = (int) ($grant['id'] ?? 0);
+        $state['grant_comment_id'] = (int) ($grant['comment_id'] ?? 0);
+        $state['grant_mode'] = (string) ($grant['grant_mode'] ?? topicDownloadGrantMode($settings));
+        $state['granted_at'] = trim((string) ($grant['granted_at'] ?? '')) ?: null;
+        $state['expires_at'] = trim((string) ($grant['expires_at'] ?? '')) ?: null;
+        $state['comment_status'] = strtolower(trim((string) ($grant['comment_status'] ?? ''))) ?: 'none';
+    }
+
+    $latestComment = topicDownloadLatestUserComment($pdo, $topicId, $userId);
+    $latestCommentStatus = is_array($latestComment) && empty($latestComment['deleted_at'])
+        ? strtolower(trim((string) ($latestComment['status'] ?? '')))
+        : 'none';
+    if ($commentRequirement === 'approved' && $latestCommentStatus === 'pending') {
+        $state['locked'] = true;
+        $state['reason'] = 'comment_pending';
+        $state['message'] = $pendingMessage;
+        $state['comment_status'] = 'pending';
+        return topicDownloadAccessFinalizeState($state);
+    }
+
+    if (is_array($grant)) {
+        $expiresAt = trim((string) ($grant['expires_at'] ?? ''));
+        $expired = $expiresAt !== '' && (($expiresTimestamp = strtotime($expiresAt)) === false || $expiresTimestamp <= time());
+        if (trim((string) ($grant['revoked_at'] ?? '')) === '' && $expired) {
+            $state['locked'] = true;
+            $state['reason'] = 'comment_expired';
+            $state['message'] = $expiredMessage;
+            return topicDownloadAccessFinalizeState($state);
+        }
     }
 
     $state['locked'] = true;

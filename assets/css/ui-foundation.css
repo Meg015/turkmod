@@ -1378,3 +1378,129 @@ body.topic-download-auth-open {
         min-height: 2.7rem;
     }
 }
+
+.topic-dl-access-notice.is-success {
+    border-color: color-mix(in srgb, var(--ui-foundation-success, #10b981) 30%, var(--color-border, #d8dee8));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ui-foundation-success, #10b981) 10%, var(--color-surface, #fff)), color-mix(in srgb, var(--ui-foundation-success, #10b981) 6%, var(--color-surface, #fff)));
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--ui-foundation-success, #10b981) 10%, transparent);
+}
+
+.topic-dl-access-notice.is-success > i,
+.topic-dl-access-notice.is-success .topic-dl-access-notice__title,
+.topic-dl-access-notice.is-success .topic-dl-access-notice__text {
+    color: color-mix(in srgb, var(--ui-foundation-success, #10b981) 76%, var(--color-text, #111827));
+}
+
+.topic-dl-access-notice.is-success .topic-dl-access-step.is-complete {
+    opacity: 1;
+    box-shadow: 0 8px 16px color-mix(in srgb, var(--ui-foundation-success, #10b981) 9%, transparent);
+}
+
+.topic-dl-access-notice__title {
+    display: block;
+    color: var(--color-text, #111827);
+    font-size: 1rem;
+    font-weight: 850;
+    line-height: 1.25;
+}
+
+.topic-dl-access-progress {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: .32rem .58rem;
+    border: 1px solid color-mix(in srgb, var(--color-border, #d8dee8) 78%, var(--color-primary, #8b1538) 22%);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-surface, #fff) 88%, var(--color-primary, #8b1538) 12%);
+    color: var(--color-text-muted, var(--text-dim, #64748b));
+    font-size: .74rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.topic-dl-access-until {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    color: var(--color-text-muted, var(--text-dim, #64748b));
+    font-size: .78rem;
+    font-weight: 750;
+    line-height: 1.35;
+}
+
+.topic-dl-access-until[hidden] {
+    display: none !important;
+}
+
+.topic-dl-access-step[hidden] {
+    display: none !important;
+}
+
+.topic-dl-access-step.is-waiting {
+    border-color: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 34%, var(--color-border, #d8dee8));
+    background: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 12%, var(--color-surface, #fff));
+    color: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 82%, #111827);
+}
+
+.topic-dl-access-notice.is-approval-pending {
+    border-color: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 38%, var(--color-border, #d8dee8));
+}
+
+.topic-dl-access-notice.is-access-expired {
+    border-color: color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 44%, var(--color-border, #d8dee8));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ui-foundation-warning, #f59e0b) 10%, var(--color-surface, #fff)), var(--color-surface, #fff));
+}
+
+.topic-dl-access-notice.is-success.is-compact {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding-block: 9px;
+    cursor: pointer;
+}
+
+.topic-dl-access-notice.is-success.is-compact .topic-dl-access-notice__text,
+.topic-dl-access-notice.is-success.is-compact .topic-dl-access-until,
+.topic-dl-access-notice.is-success.is-compact .topic-dl-access-progress,
+.topic-dl-access-notice.is-success.is-compact .topic-dl-access-steps {
+    display: none !important;
+}
+
+.topic-dl-access-notice.is-success.is-compact .topic-dl-access-notice__body {
+    align-content: center;
+    gap: 0;
+}
+
+.topic-dl-access-notice.is-success-entering {
+    animation: topic-download-success-enter .72s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.topic-dl-card.is-access-highlighted {
+    animation: topic-download-card-highlight 1.7s ease both;
+}
+
+.topic-comments.is-download-comment-highlighted {
+    animation: topic-download-comment-highlight 1.7s ease both;
+}
+
+@keyframes topic-download-success-enter {
+    0% { opacity: .4; transform: translateY(8px) scale(.985); }
+    55% { transform: translateY(-2px) scale(1.005); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes topic-download-card-highlight {
+    0%, 100% { box-shadow: inherit; }
+    30%, 70% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-foundation-success, #10b981) 24%, transparent), 0 18px 34px color-mix(in srgb, var(--ui-foundation-success, #10b981) 18%, transparent); }
+}
+
+@keyframes topic-download-comment-highlight {
+    0%, 100% { box-shadow: inherit; }
+    30%, 70% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary, #8b1538) 20%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .topic-dl-access-notice.is-success-entering,
+    .topic-dl-card.is-access-highlighted,
+    .topic-comments.is-download-comment-highlighted {
+        animation: none !important;
+    }
+}

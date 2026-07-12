@@ -158,7 +158,7 @@
 
         showEditHistory: function (commentId) {
             const baseUri = document.querySelector('meta[name="app-base-uri"]')?.content || '';
-            fetch(baseUri + `/api/comments.php?action=edit_history&comment_id=${commentId}`)
+            fetch(baseUri + `/api/comments.php?action=edit_history&comment_id=${commentId}&_=${Date.now()}`, { cache: 'no-store' })
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
@@ -194,6 +194,11 @@
                                     <strong>${this.escapeHtml(h.editor_name)}</strong>
                                     <span class="text-muted">${h.time_ago}</span>
                                 </div>
+                                ${h.edit_reason ? `
+                                    <div class="history-reason">
+                                        <strong>Neden:</strong> ${this.escapeHtml(h.edit_reason)}
+                                    </div>
+                                ` : ''}
                                 <div class="history-diff">
                                     <div class="history-old">
                                         <label>Eski:</label>

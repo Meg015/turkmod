@@ -45,3 +45,88 @@ if (!function_exists('commentApplyTopicCountDelta')) {
         return $delta;
     }
 }
+
+if (!function_exists('commentSchemaHasColumn')) {
+    function commentSchemaHasColumn(PDO $pdo, string $table, string $column): bool
+    {
+        static $cache = [];
+
+        $table = preg_replace('/[^a-zA-Z0-9_]/', '', $table) ?: '';
+        $column = preg_replace('/[^a-zA-Z0-9_]/', '', $column) ?: '';
+        if ($table === '' || $column === '') {
+            return false;
+        }
+
+        $cacheKey = $table . '.' . $column;
+        if (!array_key_exists($cacheKey, $cache)) {
+            try {
+                $stmt = $pdo->query("SHOW COLUMNS FROM `{$table}` LIKE " . $pdo->quote($column));
+                $cache[$cacheKey] = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+            } catch (Throwable $e) {
+                $cache[$cacheKey] = false;
+            }
+        }
+
+        return $cache[$cacheKey];
+    }
+}
+
+if (!function_exists('commentUpdateWithHistory')) {
+    /** @return array{changed:bool,history_id:int,body:string,edit_reason:?string} */
+    function commentUpdateWithHistory(
+        PDO $pdo,
+        array $comment,
+        string $newBody,
+        int $editorUserId,
+        ?string $editReason = null,
+        bool $historyEnabled = true
+    ): array {
+        $commentId = (int) ($comment['id'] ?? 0);
+        $oldBody = (string) ($comment['body'] ?? '');
+        $newBody = trim($newBody);
+        $editReason = trim((string) $editReason);
+        $editReason = $editReason !== '' ? mb_substr($editReason, 0, 255) : null;
+
+        if ($commentId <= 0 || $editorUserId <= 0 || $newBody === '') {
+            throw new InvalidArgumentException('Gecersiz yorum duzenleme verisi.');
+        }
+
+        if ($oldBody === $newBody) {
+            return ['changed' => false, 'history_id' => 0, 'body' => $oldBody, 'edit_reason' => $editReason];
+        }
+
+        $ownsTransaction = !$pdo->inTransaction();
+        if ($ownsTransaction) {
+            $pdo->beginTransaction();
+        }
+
+        try {
+            $historyId = 0;
+            if ($historyEnabled) {
+                $historyStmt = $pdo->prepare(
+                    'INSERT INTO comment_edit_history (comment_id, user_id, old_body, new_body, edit_reason, created_at) VALUES (?, ?, ?, ?, ?, NOW())'
+                );
+                $historyStmt->execute([$commentId, $editorUserId, $oldBody, $newBody, $editReason]);
+                $historyId = (int) $pdo->lastInsertId();
+            }
+
+            if (commentSchemaHasColumn($pdo, 'comments', 'is_edited')) {
+                $updateStmt = $pdo->prepare('UPDATE comments SET body = ?, is_edited = 1, edited_at = NOW(), updated_at = NOW() WHERE id = ?');
+            } else {
+                $updateStmt = $pdo->prepare('UPDATE comments SET body = ?, updated_at = NOW() WHERE id = ?');
+            }
+            $updateStmt->execute([$newBody, $commentId]);
+
+            if ($ownsTransaction) {
+                $pdo->commit();
+            }
+
+            return ['changed' => true, 'history_id' => $historyId, 'body' => $newBody, 'edit_reason' => $editReason];
+        } catch (Throwable $e) {
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+}

@@ -7717,6 +7717,44 @@ html[data-theme="dark"] {
     min-height: 260px;
     padding: 1rem 1.125rem;
 }
+.account-email-quill-container {
+    margin-top: .35rem;
+    overflow: hidden;
+}
+.account-email-quill-container .ql-container.ql-snow {
+    min-height: 280px;
+}
+.account-email-quill-container .ql-editor {
+    min-height: 250px;
+}
+.account-email-fallback-shell {
+    margin-top: .35rem;
+    overflow: hidden;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--ui-admin-ui-radius, var(--radius-md));
+    background: var(--ui-admin-surface);
+}
+.account-email-fallback-toolbar {
+    display: flex;
+    gap: .35rem;
+    padding: .55rem;
+    border-bottom: 1px solid var(--ui-admin-border);
+    background: var(--ui-admin-surface-alt);
+}
+.account-email-fallback-toolbar button {
+    min-width: 2rem;
+    min-height: 2rem;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: .4rem;
+    background: var(--ui-admin-surface);
+    color: var(--ui-admin-text);
+    cursor: pointer;
+}
+.account-email-fallback-editor {
+    min-height: 250px;
+    padding: 1rem 1.125rem;
+    outline: none;
+}
 
 /* Admin consistency pass: mobile, forms, empty states and theme-safe controls. */
 @media (max-width: 640px) {
@@ -13785,3 +13823,79 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     font-size: 1.1rem;
     pointer-events: none;
 }
+
+/* Download Manager: keep access settings visible, but separate related fields. */
+.download-access-settings-sections {
+    display: grid;
+    gap: 0;
+    margin-top: 1.15rem;
+}
+
+.download-access-settings-section {
+    padding: 1.45rem 0 1.6rem;
+    border-top: 1px solid color-mix(in srgb, var(--ui-admin-border, #d9dee8) 84%, var(--ui-admin-primary, #8b1538) 16%);
+}
+
+.download-access-settings-section:first-child {
+    padding-top: .35rem;
+    border-top: 0;
+}
+
+.download-access-settings-section:last-child {
+    padding-bottom: .25rem;
+}
+
+.download-access-settings-section__header {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+.download-access-settings-section__icon {
+    display: inline-flex;
+    flex: 0 0 2rem;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid color-mix(in srgb, var(--ui-admin-primary, #8b1538) 20%, var(--ui-admin-border, #d9dee8));
+    border-radius: .65rem;
+    background: color-mix(in srgb, var(--ui-admin-primary, #8b1538) 8%, var(--ui-admin-surface, #fff));
+    color: var(--ui-admin-primary, #8b1538);
+}
+
+.download-access-settings-section__header h3 {
+    margin: 0;
+    color: var(--ui-admin-text, #172033);
+    font-size: .95rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.download-access-settings-section__header p {
+    max-width: 62rem;
+    margin: .25rem 0 0;
+    color: var(--ui-admin-text-muted, #667085);
+    font-size: .82rem;
+    line-height: 1.5;
+}
+
+.download-access-settings-section__grid {
+    margin-top: 0;
+}
+
+@media (max-width: 720px) {
+    .download-access-settings-section {
+        padding-block: 1.2rem;
+    }
+
+    .download-access-settings-section__header {
+        gap: .65rem;
+    }
+
+    .download-access-settings-section__header p {
+        font-size: .78rem;
+    }
+}
+.account-email-template-list{display:grid;gap:18px;margin-top:18px}.account-email-template-card .card-header{display:flex;align-items:center;justify-content:space-between;gap:16px}.account-email-template-card .card-header small{color:var(--ui-text-muted,#718096);font-weight:400;margin-top:4px}.account-email-body{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;min-height:220px}.account-email-preview{border:1px solid var(--ui-border,#dfe4ec);border-radius:10px;background:#f7f9fc;padding:10px}.account-email-preview-frame{display:block;width:100%;height:360px;border:0;border-radius:7px;background:#fff}.account-email-token{cursor:pointer;border:1px solid var(--ui-border,#dfe4ec);background:var(--ui-surface,#fff)}@media(max-width:720px){.account-email-template-card .card-header{align-items:flex-start;flex-direction:column}.account-email-preview-frame{height:440px}}

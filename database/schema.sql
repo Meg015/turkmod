@@ -304,6 +304,27 @@ CREATE TABLE `comments` (
   CONSTRAINT `comments_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `topic_download_access_grants` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `topic_id` bigint(20) unsigned NOT NULL,
+  `user_id` bigint(20) unsigned NOT NULL,
+  `comment_id` bigint(20) unsigned NOT NULL,
+  `grant_mode` varchar(16) NOT NULL DEFAULT 'permanent',
+  `granted_at` timestamp NOT NULL,
+  `expires_at` timestamp NULL DEFAULT NULL,
+  `revoked_at` timestamp NULL DEFAULT NULL,
+  `revoke_reason` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `topic_download_grants_comment_unique` (`comment_id`),
+  KEY `topic_download_grants_topic_user_granted` (`topic_id`,`user_id`,`granted_at`),
+  KEY `topic_download_grants_expires` (`expires_at`),
+  CONSTRAINT `topic_download_grants_comment_foreign` FOREIGN KEY (`comment_id`) REFERENCES `comments` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `topic_download_grants_topic_foreign` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `topic_download_grants_user_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `downloads` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `topic_id` bigint(20) unsigned NOT NULL,
@@ -1384,6 +1405,8 @@ CREATE TABLE `users` (
   `email` varchar(255) NOT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
   `email_verification_token` varchar(255) DEFAULT NULL,
+  `email_verification_expires_at` timestamp NULL DEFAULT NULL,
+  `email_verification_sent_at` timestamp NULL DEFAULT NULL,
   `password` varchar(255) NOT NULL,
   `two_factor_secret` varchar(255) DEFAULT NULL,
   `two_factor_recovery_codes` text DEFAULT NULL,

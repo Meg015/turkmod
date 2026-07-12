@@ -1214,6 +1214,18 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
     font-size: .82rem !important;
 }
 
+.history-reason {
+    margin: 0 0 10px !important;
+    padding: 8px 10px !important;
+    border: 1px solid color-mix(in srgb, var(--warning, #d97706) 30%, var(--border)) !important;
+    border-radius: var(--radius-sm, 6px) !important;
+    background: color-mix(in srgb, var(--warning, #d97706) 9%, var(--bg-white)) !important;
+    color: var(--text) !important;
+    font-size: .82rem !important;
+    line-height: 1.5 !important;
+    overflow-wrap: anywhere !important;
+}
+
 .history-diff {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;

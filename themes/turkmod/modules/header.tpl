@@ -58,10 +58,10 @@
 {/if}
 {/loop}
 {if logged_in}
-<li class="nav-item d-lg-none"><a class="nav-link" href="{base_url}/profile.php">Hesabim</a></li>
+<li class="nav-item d-lg-none"><a class="nav-link" href="{profile_url}">Hesabim</a></li>
 {else}
-<li class="nav-item d-lg-none"><a class="nav-link" href="{base_url}/giris">Giriş</a></li>
-<li class="nav-item d-lg-none"><a class="nav-link" href="{base_url}/kayit">Kayıt Ol</a></li>
+<li class="nav-item d-lg-none"><a class="nav-link" href="{login_url}">Giriş</a></li>
+<li class="nav-item d-lg-none"><a class="nav-link" href="{register_url}">Kayıt Ol</a></li>
 {/if}
 </ul>
 </div>
@@ -120,11 +120,11 @@
 {if messages_enabled}<script src="{base_url}/assets/js/public-messages-menu.js" defer></script>{/if}
 {else}
 <div class="header-auth-actions" role="group" aria-label="Hesap işlemleri">
-<a class="header-auth-link header-auth-link--secondary" href="{base_url}/giris">
+<a class="header-auth-link header-auth-link--secondary" href="{login_url}">
 <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
 <span>Giriş</span>
 </a>
-<a class="header-auth-link header-auth-link--primary" href="{base_url}/kayit">
+<a class="header-auth-link header-auth-link--primary" href="{register_url}">
 <i class="bi bi-person-circle" aria-hidden="true"></i>
 <span>Kayıt</span>
 </a>

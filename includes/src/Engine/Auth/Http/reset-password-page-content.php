@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errorMsg = 'Şifreler eşleşmiyor.';
         } elseif ($pdo) {
             try {
-                $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email AND password_reset_token = :token AND password_reset_expires_at IS NOT NULL AND password_reset_expires_at >= NOW() LIMIT 1');
+                $stmt = $pdo->prepare('SELECT id, username, email FROM users WHERE email = :email AND password_reset_token = :token AND password_reset_expires_at IS NOT NULL AND password_reset_expires_at >= NOW() LIMIT 1');
                 $stmt->execute([
                     'email' => $email,
                     'token' => hash('sha256', $token),
@@ -64,6 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ->execute(['password' => $hashedPassword, 'id' => $user['id']]);
 
                     logActivity($pdo, 'password_reset', 'user', (int) $user['id']);
+                    try {
+                        accountEmailService($pdo)->send('password_reset_completed', (string) $user['email'], [
+                            'username' => (string) ($user['username'] ?? ''),
+                        ]);
+                    } catch (Throwable $mailError) {
+                        if (function_exists('appLogException')) appLogException($mailError, ['source' => 'password_reset_completed']);
+                    }
                     resetRateLimit($resetRateKey);
                     $successMsg = 'Şifreniz başarıyla değiştirildi. Şimdi giriş yapabilirsiniz.';
                 }

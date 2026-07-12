@@ -794,7 +794,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         window.showToast?.('Bu konu zaten gönderiliyor veya gönderildi.', 'warning', {
             solution: 'Yükleme bittikten sonra Profil > Konularım ekranından durumunu kontrol edebilirsiniz.',
             actionLabel: 'Konularım',
-            actionUrl: document.getElementById('uploadForm')?.getAttribute('data-profile-topics-url') || 'profile.php?tab=topics'
+            actionUrl: document.getElementById('uploadForm')?.getAttribute('data-profile-topics-url') || '#'
         });
         return;
     }
@@ -901,7 +901,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         clearUploadTopicDraft();
         window.showToast?.(payload.message || 'Mod kaydedildi.', 'success', {
             actionLabel: 'Konularım',
-            actionUrl: document.getElementById('uploadForm')?.getAttribute('data-profile-draft-url') || 'profile.php?tab=topics&topic_status=draft'
+            actionUrl: document.getElementById('uploadForm')?.getAttribute('data-profile-draft-url') || '#'
         });
         if (submitButton) {
             submitButton.classList.remove('is-submitting');

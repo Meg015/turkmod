@@ -85,6 +85,16 @@
                     window.dispatchEvent(event);
                 } catch (error) {}
             }
+            function dispatchCommentDeletedEvent(payload = {}) {
+                try {
+                    const detail = Object.assign({
+                        topicId: parseInt(TOPIC || '0', 10) || 0,
+                    }, payload || {});
+                    const event = new CustomEvent('topic-comment:deleted', { detail });
+                    document.dispatchEvent(event);
+                    window.dispatchEvent(event);
+                } catch (error) {}
+            }
             function avatar(name,avUrl){
                 const src = avUrl
                     ? (avUrl.startsWith('http') ? avUrl : BASE_URI + '/' + avUrl.replace(/^\/+/,''))
@@ -1096,7 +1106,11 @@
                             body:JSON.stringify({action:'delete',id:commentId,_token:CSRF})
                         }).then(r=>r.json()).then(d=>{
                             if(d._token) CSRF=d._token;
-                            if(d.success){showAlert('Yorum silindi.');loadComments(currentPage);}
+                            if(d.success){
+                                showAlert('Yorum silindi.');
+                                dispatchCommentDeletedEvent({ commentId: commentId });
+                                loadComments(currentPage);
+                            }
                             else {
                                 showAlert(d.error||'Hata','error');
                                 clearButtonBusy(deleteBtn);

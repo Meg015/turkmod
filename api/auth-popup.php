@@ -296,6 +296,18 @@ try {
         if (function_exists('logActivity')) {
             logActivity($pdo, 'user_registered', 'user', $newUserId, ['email' => $email]);
         }
+        try {
+            $accountMailer = accountEmailService($pdo);
+            $accountMailer->send('welcome', $email, [
+                'username' => $username,
+                'login_url' => function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : rtrim((string) $baseUri, '/') . '/giris',
+            ]);
+            $accountMailer->issueVerification($newUserId, $email, $username);
+        } catch (Throwable $mailError) {
+            if (function_exists('appLogException')) {
+                appLogException($mailError, ['source' => 'auth_popup_account_email', 'user_id' => $newUserId]);
+            }
+        }
         if (function_exists('eventsRecordActivity')) {
             eventsRecordActivity($pdo, $newUserId, 'user_registered', 'user', $newUserId, [
                 'is_approved' => true,

@@ -1977,6 +1977,21 @@ function topicUrl(string $slug, ?int $id = null): string
     return routeCanonicalPath("topic", topicCanonicalSlug($slug, $id));
 }
 
+function routePrivateProfileUrl(array $query = [], string $fragment = ''): string
+{
+    $url = routeCanonicalPath('profile');
+    if ($query !== []) {
+        $url .= '?' . http_build_query($query);
+    }
+
+    $fragment = ltrim(trim($fragment), '#');
+    if ($fragment !== '') {
+        $url .= '#' . rawurlencode($fragment);
+    }
+
+    return $url;
+}
+
 function topicUrlForRow(array $topic): string
 {
     $slug = (string) ($topic["slug"] ?? $topic["topic_slug"] ?? "");

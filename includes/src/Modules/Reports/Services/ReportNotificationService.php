@@ -60,7 +60,7 @@ final class ReportNotificationService
             'moderation_note' => $note,
             'moderation_note_line' => $note !== '' ? ' Not: ' . $note : '',
             'type' => $this->statusType($status),
-            'link' => $baseUri . '/profile.php?tab=reports',
+            'link' => \routePrivateProfileUrl(['tab' => 'reports']),
             'dedupe_key' => $eventKey . ':' . $recipientId . ':' . $reportId . ':' . $status . ':' . hash('sha256', $note),
         ], $payload));
     }

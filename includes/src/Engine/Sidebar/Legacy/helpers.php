@@ -883,7 +883,7 @@ if (!function_exists('sidebarBuilderWidgetTemplateVars')) {
                     : routePublicStaticUrl('register');
                 $base['secondary_label'] = $loggedIn ? 'Profilim' : 'Giris Yap';
                 $base['secondary_url'] = $loggedIn
-                    ? rtrim((string) ($source['base_url'] ?? ''), '/') . '/profile.php'
+                    ? routePrivateProfileUrl()
                     : routePublicStaticUrl('login');
                 break;
 

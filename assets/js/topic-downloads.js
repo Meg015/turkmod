@@ -41,6 +41,25 @@
             registerUrl: section.dataset.registerUrl || '',
             commentTarget: section.dataset.commentTarget || '#comments-heading',
             currentRequestUri: section.dataset.currentRequestUri || currentPath,
+            accessMode: section.dataset.accessMode || 'public',
+            commentStepRequired: toBool(section.dataset.commentStepRequired, (section.dataset.accessMode || 'public') === 'members_comment'),
+            successNoticeEnabled: toBool(section.dataset.successNoticeEnabled, true),
+            successMessage: section.dataset.successMessage || 'Tüm erişim şartlarını tamamladınız. İndirme bağlantıları kullanıma hazır.',
+            progressEnabled: toBool(section.dataset.progressEnabled, true),
+            commentTitle: section.dataset.commentTitle || 'Yorum gerekli',
+            progressTemplate: section.dataset.progressTemplate || '{{completed}} adımdan {{total}} adımı tamamlandı',
+            progressCompleted: Math.max(0, parseInt(section.dataset.progressCompleted || '0', 10) || 0),
+            progressTotal: Math.max(0, parseInt(section.dataset.progressTotal || '0', 10) || 0),
+            successAnimationEnabled: toBool(section.dataset.successAnimationEnabled, true),
+            successAutoCompact: toBool(section.dataset.successAutoCompact, true),
+            successCompactDelay: Math.max(0, Math.min(60, parseInt(section.dataset.successCompactDelay || '5', 10) || 0)),
+            highlightFirstCard: toBool(section.dataset.highlightFirstCard, true),
+            pendingMessage: section.dataset.pendingMessage || 'Yorumunuz gönderildi ve yönetici onayı bekliyor. Onaylandığında indirme bağlantıları otomatik açılacak.',
+            pendingButtonText: section.dataset.pendingButtonText || 'Onay Bekleniyor',
+            expiredTitle: section.dataset.expiredTitle || 'Yorum erişim süreniz doldu',
+            expiredMessage: section.dataset.expiredMessage || 'İndirme bağlantılarını yeniden açmak için yeni bir yorum gönderin.',
+            accessUntilText: section.dataset.accessUntilText || '',
+            expiresAt: section.dataset.accessExpiresAt || '',
             openAuthPopup: toBool(section.dataset.openAuthPopup, true),
             focusCommentForm: toBool(section.dataset.focusCommentForm, true),
             unlockAfterAuth: toBool(section.dataset.unlockAfterAuth, true),
@@ -55,7 +74,18 @@
             modalAction: 'login',
             pendingCard: null,
             commentWatchTimer: null,
-            commentWatchCount: 0,
+            commentWatcherActive: false,
+            commentWatchStartedAt: 0,
+            commentWatchInFlight: false,
+            commentWatchFailures: 0,
+            commentWatchWarningShown: false,
+            visibilityHandler: null,
+            lastAccessRefreshSucceeded: true,
+            countdownTimers: new Map(),
+            accessExpiryTimer: null,
+            compactTimer: null,
+            highlightTimer: null,
+            lastFocusedElement: null,
         };
     }
 
@@ -69,7 +99,7 @@
 
     function accessStage(locked, reason, explicitStage) {
         const stage = String(explicitStage || '').toLowerCase().trim();
-        if (stage === 'login' || stage === 'comment' || stage === 'open' || stage === 'locked') {
+        if (stage === 'login' || stage === 'comment' || stage === 'pending' || stage === 'open' || stage === 'locked') {
             return stage;
         }
         if (!locked) {
@@ -80,13 +110,16 @@
         if (normalizedReason === 'auth_required') {
             return 'login';
         }
-        if (normalizedReason === 'comment_required') {
+        if (normalizedReason === 'comment_required' || normalizedReason === 'comment_expired') {
             return 'comment';
+        }
+        if (normalizedReason === 'comment_pending') {
+            return 'pending';
         }
         return 'locked';
     }
 
-    function syncAccessStepUi(notice, stage) {
+    function syncAccessStepUi(notice, stage, success, commentStepRequired) {
         if (!notice) {
             return;
         }
@@ -96,11 +129,18 @@
             comment: 'is-pending',
             open: 'is-pending',
         };
-        if (stage === 'login') {
+        if (success) {
+            stepMap.login = 'is-complete';
+            stepMap.comment = 'is-complete';
+            stepMap.open = 'is-complete';
+        } else if (stage === 'login') {
             stepMap.login = 'is-active';
         } else if (stage === 'comment') {
             stepMap.login = 'is-complete';
             stepMap.comment = 'is-active';
+        } else if (stage === 'pending') {
+            stepMap.login = 'is-complete';
+            stepMap.comment = 'is-waiting';
         } else if (stage === 'open') {
             stepMap.login = 'is-complete';
             stepMap.comment = 'is-complete';
@@ -109,18 +149,47 @@
 
         notice.querySelectorAll('[data-download-step]').forEach(function (step) {
             const key = step.getAttribute('data-download-step') || '';
-            step.classList.remove('is-active', 'is-complete', 'is-pending', 'is-muted');
-            step.classList.add(stepMap[key] || 'is-pending');
+            if (key === 'comment') {
+                step.hidden = !commentStepRequired;
+                step.setAttribute('aria-hidden', commentStepRequired ? 'false' : 'true');
+            }
+            step.classList.remove('is-active', 'is-complete', 'is-pending', 'is-waiting', 'is-muted');
+            step.classList.add(key === 'comment' && !commentStepRequired ? 'is-muted' : (stepMap[key] || 'is-pending'));
             if (stepMap[key] === 'is-active') {
                 step.setAttribute('aria-current', 'step');
             } else {
                 step.removeAttribute('aria-current');
             }
+            const label = key === 'login' ? 'Giriş' : (key === 'comment' ? 'Yorum' : 'İndirme bağlantısı');
+            const statusLabel = stepMap[key] === 'is-complete'
+                ? 'tamamlandı'
+                : (stepMap[key] === 'is-active' ? 'şimdi tamamlanmalı' : (stepMap[key] === 'is-waiting' ? 'onay bekliyor' : 'sırada'));
+            step.setAttribute('aria-label', label + ': ' + statusLabel);
         });
+
+        const openIcon = notice.querySelector('[data-download-step="open"] i');
+        if (openIcon) {
+            openIcon.className = 'bi ' + (commentStepRequired ? 'bi-3-circle-fill' : 'bi-2-circle-fill');
+        }
     }
 
     function cardHref(card) {
         return card.dataset.downloadHref || card.getAttribute('href') || '#';
+    }
+
+    function cancelCardCountdown(card, state, resetReady) {
+        const timer = state.countdownTimers.get(card);
+        if (timer) {
+            window.clearInterval(timer);
+            state.countdownTimers.delete(card);
+        }
+        card.dataset.counting = '0';
+        card.removeAttribute('aria-busy');
+        card.classList.remove('is-counting');
+        if (resetReady) {
+            card.dataset.ready = '0';
+            card.classList.remove('is-ready');
+        }
     }
 
     function updateCardLockedUi(card, state, locked, reason, message) {
@@ -135,15 +204,17 @@
         card.setAttribute('aria-disabled', locked ? 'true' : 'false');
 
         if (locked) {
-            card.classList.remove('is-ready', 'is-counting');
-            card.dataset.ready = '0';
-            card.dataset.counting = '0';
+            cancelCardCountdown(card, state, true);
             card.setAttribute('href', '#');
             if (action) {
-                action.textContent = reason === 'comment_required' ? state.commentCtaLabel : state.lockButtonText;
+                action.textContent = reason === 'comment_required' || reason === 'comment_expired'
+                    ? state.commentCtaLabel
+                    : (reason === 'comment_pending' ? state.pendingButtonText : state.lockButtonText);
             }
             if (icon) {
-                icon.className = 'bi bi-lock-fill';
+                icon.className = reason === 'comment_pending'
+                    ? 'bi bi-hourglass-split'
+                    : (reason === 'comment_expired' ? 'bi bi-clock-history' : 'bi bi-lock-fill');
             }
             if (info && message) {
                 let small = info.querySelector('.topic-dl-lock-message');
@@ -170,6 +241,82 @@
         }
     }
 
+    function accessNoticeTitle(locked, reason, state) {
+        if (!locked) {
+            return 'İndirmeye hazırsınız';
+        }
+        if (reason === 'auth_required') {
+            return 'Giriş gerekli';
+        }
+        if (reason === 'comment_required') {
+            return state.commentTitle;
+        }
+        if (reason === 'comment_pending') {
+            return 'Yorum onayı bekleniyor';
+        }
+        if (reason === 'comment_expired') {
+            return state.expiredTitle;
+        }
+        return 'İndirme erişimi kısıtlı';
+    }
+
+    function progressText(state) {
+        if (!state.progressEnabled || state.progressTotal <= 0) {
+            return '';
+        }
+        const fallback = '{{completed}} adımdan {{total}} adımı tamamlandı';
+        const template = state.progressTemplate.indexOf('{{completed}}') !== -1
+            && state.progressTemplate.indexOf('{{total}}') !== -1
+            ? state.progressTemplate
+            : fallback;
+        return template
+            .split('{{completed}}').join(String(state.progressCompleted))
+            .split('{{total}}').join(String(state.progressTotal));
+    }
+
+    function clearCompactTimer(state) {
+        if (state.compactTimer) {
+            window.clearTimeout(state.compactTimer);
+            state.compactTimer = null;
+        }
+    }
+
+    function scheduleSuccessCompact(notice, state) {
+        clearCompactTimer(state);
+        if (!notice || !state.successAutoCompact || !notice.classList.contains('is-success')) {
+            return;
+        }
+        state.compactTimer = window.setTimeout(function compactWhenIdle() {
+            const interacting = notice.matches(':hover') || notice.contains(document.activeElement);
+            if (interacting) {
+                state.compactTimer = window.setTimeout(compactWhenIdle, 1000);
+                return;
+            }
+            notice.classList.add('is-compact');
+            state.compactTimer = null;
+        }, state.successCompactDelay * 1000);
+    }
+
+    function highlightElement(element, className, state) {
+        if (!element) {
+            return;
+        }
+        if (state.highlightTimer) {
+            window.clearTimeout(state.highlightTimer);
+        }
+        element.classList.remove(className);
+        void element.offsetWidth;
+        element.classList.add(className);
+        state.highlightTimer = window.setTimeout(function () {
+            element.classList.remove(className);
+            state.highlightTimer = null;
+        }, 1800);
+    }
+
+    function firstDownloadCard(section) {
+        return section.querySelector('.topic-dl-card:not([hidden])');
+    }
+
     function updateSectionNotice(section, state, locked, reason, message, stage) {
         const nextStage = accessStage(locked, reason, stage || state.downloadStage);
         section.dataset.locked = locked ? '1' : '0';
@@ -184,16 +331,66 @@
         if (!notice) {
             return;
         }
+        const wasSuccess = notice.classList.contains('is-success');
+        const success = !locked && state.accessMode !== 'public' && state.successNoticeEnabled;
+        const visible = locked || success;
         notice.dataset.downloadStage = nextStage;
-        notice.hidden = !locked;
-        notice.style.display = locked ? '' : 'none';
-        const text = notice.querySelector('.topic-dl-access-notice__text, span');
-        if (text && locked) {
-            text.textContent = message || (reason === 'comment_required'
-                ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
-                : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.');
+        notice.classList.toggle('is-success', success);
+        notice.classList.toggle('is-approval-pending', locked && reason === 'comment_pending');
+        notice.classList.toggle('is-access-expired', locked && reason === 'comment_expired');
+        if (!success) {
+            notice.classList.remove('is-compact', 'is-success-entering');
+            clearCompactTimer(state);
         }
-        syncAccessStepUi(notice, nextStage);
+        notice.hidden = !visible;
+        notice.style.display = visible ? '' : 'none';
+        const noticeIcon = notice.querySelector(':scope > i');
+        if (noticeIcon) {
+            noticeIcon.className = success
+                ? 'bi bi-check-circle-fill'
+                : (reason === 'comment_pending'
+                    ? 'bi bi-hourglass-split'
+                    : (reason === 'comment_expired' ? 'bi bi-clock-history' : 'bi bi-lock-fill'));
+        }
+        const title = notice.querySelector('.topic-dl-access-notice__title');
+        if (title && visible) {
+            title.textContent = accessNoticeTitle(locked, reason, state);
+        }
+        const text = notice.querySelector('.topic-dl-access-notice__text, span');
+        if (text && visible) {
+            text.textContent = success
+                ? state.successMessage
+                : (reason === 'comment_pending'
+                    ? state.pendingMessage
+                    : (reason === 'comment_expired'
+                        ? (message || state.expiredMessage)
+                        : (message || (reason === 'comment_required'
+                        ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
+                        : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.'))));
+        }
+        const accessUntil = notice.querySelector('[data-download-access-until]');
+        if (accessUntil) {
+            accessUntil.textContent = success ? state.accessUntilText : '';
+            accessUntil.hidden = !success || state.accessUntilText === '';
+        }
+        const progress = notice.querySelector('[data-download-progress]');
+        if (progress) {
+            const nextProgressText = progressText(state);
+            progress.textContent = nextProgressText;
+            progress.setAttribute('aria-label', nextProgressText);
+            progress.hidden = nextProgressText === '';
+        }
+        syncAccessStepUi(notice, nextStage, success, state.commentStepRequired);
+        if (success) {
+            notice.classList.remove('is-compact');
+            if (!wasSuccess && state.successAnimationEnabled) {
+                notice.classList.add('is-success-entering');
+                window.setTimeout(function () {
+                    notice.classList.remove('is-success-entering');
+                }, 900);
+            }
+            scheduleSuccessCompact(notice, state);
+        }
     }
 
     async function fetchAccessState(section, state) {
@@ -221,13 +418,27 @@
     async function refreshLockState(section, state, autoOpenCard) {
         const data = await fetchAccessState(section, state);
         if (!data) {
+            state.lastAccessRefreshSucceeded = false;
             return false;
         }
+        state.lastAccessRefreshSucceeded = true;
 
         const locked = !!(data.locked || (data.access && data.access.locked));
         const reason = String((data.reason || (data.access && data.access.reason) || 'none'));
         const message = String((data.message || (data.access && data.access.message) || ''));
         const stage = String((data.stage || (data.access && data.access.stage) || ''));
+        state.accessMode = String((data.mode || (data.access && data.access.mode) || state.accessMode || 'public'));
+        if (Object.prototype.hasOwnProperty.call(data, 'comment_step_required')) {
+            state.commentStepRequired = !!data.comment_step_required;
+        } else if (data.access && Object.prototype.hasOwnProperty.call(data.access, 'comment_step_required')) {
+            state.commentStepRequired = !!data.access.comment_step_required;
+        } else {
+            state.commentStepRequired = state.accessMode === 'members_comment';
+        }
+        state.progressCompleted = Math.max(0, parseInt(data.progress_completed || (data.access && data.access.progress_completed) || '0', 10) || 0);
+        state.progressTotal = Math.max(0, parseInt(data.progress_total || (data.access && data.access.progress_total) || '0', 10) || 0);
+        state.accessUntilText = String((data.access_until_text || (data.access && data.access.access_until_text) || ''));
+        state.expiresAt = String((data.expires_at || (data.access && data.access.expires_at) || ''));
 
         updateSectionNotice(section, state, locked, reason, message, stage);
 
@@ -236,10 +447,49 @@
             updateCardLockedUi(card, state, locked, reason, message);
         });
 
-        if (!locked && autoOpenCard) {
-            runCountdown(autoOpenCard, state, true);
+        if (!locked && state.highlightFirstCard) {
+            highlightElement(autoOpenCard || firstDownloadCard(section), 'is-access-highlighted', state);
         }
+        scheduleAccessExpiryRefresh(section, state, locked);
         return !locked;
+    }
+
+    function clearAccessExpiryTimer(state) {
+        if (state.accessExpiryTimer) {
+            window.clearTimeout(state.accessExpiryTimer);
+            state.accessExpiryTimer = null;
+        }
+    }
+
+    function accessExpiryTimestamp(value) {
+        const normalized = String(value || '').trim().replace(' ', 'T');
+        if (!normalized) {
+            return 0;
+        }
+        const timestamp = Date.parse(normalized);
+        return Number.isFinite(timestamp) ? timestamp : 0;
+    }
+
+    function scheduleAccessExpiryRefresh(section, state, locked) {
+        clearAccessExpiryTimer(state);
+        if (locked || !state.expiresAt) {
+            return;
+        }
+        const expiresAt = accessExpiryTimestamp(state.expiresAt);
+        if (!expiresAt) {
+            return;
+        }
+        const maximumDelay = 2147480000;
+        const remaining = expiresAt - Date.now();
+        const delay = remaining <= 0 ? 0 : Math.min(maximumDelay, remaining + 250);
+        state.accessExpiryTimer = window.setTimeout(function () {
+            state.accessExpiryTimer = null;
+            if (remaining > maximumDelay) {
+                scheduleAccessExpiryRefresh(section, state, false);
+                return;
+            }
+            refreshLockState(section, state, state.pendingCard || null).catch(function () {});
+        }, delay);
     }
 
     function openDownload(card) {
@@ -251,6 +501,15 @@
     }
 
     function finishCountdown(card, state, autoOpen) {
+        const timer = state.countdownTimers.get(card);
+        if (timer) {
+            window.clearInterval(timer);
+            state.countdownTimers.delete(card);
+        }
+        if (card.dataset.locked === '1' || !card.isConnected) {
+            cancelCardCountdown(card, state, true);
+            return;
+        }
         card.dataset.ready = '1';
         card.dataset.counting = '0';
         card.removeAttribute('aria-busy');
@@ -298,7 +557,11 @@
             return;
         }
 
-        const timer = setInterval(function () {
+        const timer = window.setInterval(function () {
+            if (card.dataset.locked === '1' || !card.isConnected) {
+                cancelCardCountdown(card, state, true);
+                return;
+            }
             remaining -= 1;
             if (remaining > 0) {
                 if (action) {
@@ -309,6 +572,7 @@
             clearInterval(timer);
             finishCountdown(card, state, autoOpen);
         }, 1000);
+        state.countdownTimers.set(card, timer);
     }
 
     function focusCommentArea(state) {
@@ -321,6 +585,7 @@
         }
 
         commentSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        highlightElement(commentSection, 'is-download-comment-highlighted', state);
         if (!state.focusCommentForm) {
             return;
         }
@@ -359,9 +624,49 @@
         if (!state.modal || !state.modalBackdrop) {
             return;
         }
+        const focusTarget = state.lastFocusedElement;
         state.modal.hidden = true;
         state.modalBackdrop.hidden = true;
         document.body.classList.remove('topic-download-auth-open');
+        state.lastFocusedElement = null;
+        if (focusTarget && focusTarget.isConnected && typeof focusTarget.focus === 'function') {
+            window.setTimeout(function () {
+                focusTarget.focus();
+            }, 0);
+        }
+    }
+
+    function authModalFocusableElements(modal) {
+        if (!modal) {
+            return [];
+        }
+        return Array.from(modal.querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(function (element) {
+            return !element.disabled && !element.hidden && element.getClientRects().length > 0;
+        });
+    }
+
+    function trapAuthModalFocus(event, state) {
+        if (event.key !== 'Tab' || !state.modal || state.modal.hidden) {
+            return;
+        }
+        const focusable = authModalFocusableElements(state.modal);
+        if (focusable.length === 0) {
+            event.preventDefault();
+            state.modal.focus();
+            return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        } else if (!state.modal.contains(document.activeElement)) {
+            event.preventDefault();
+            first.focus();
+        }
     }
 
     function switchModalTab(state, action) {
@@ -422,6 +727,7 @@
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
         modal.setAttribute('aria-labelledby', 'topicDownloadAuthTitle');
+        modal.setAttribute('tabindex', '-1');
 
         modal.innerHTML = '' +
             '<div class="topic-download-auth-shell">' +
@@ -524,7 +830,9 @@
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape' && state.modal && !state.modal.hidden) {
                 closeAuthModal(state);
+                return;
             }
+            trapAuthModalFocus(event, state);
         });
 
         document.body.appendChild(backdrop);
@@ -734,6 +1042,10 @@
             return;
         }
 
+        if (state.modal.hidden && document.activeElement && !state.modal.contains(document.activeElement)) {
+            state.lastFocusedElement = document.activeElement;
+        }
+
         switchModalTab(state, state.modalAction || 'login');
         updateAuthModalCopy(state);
         setModalFeedback(state, '', 'info');
@@ -750,25 +1062,109 @@
         }
     }
 
+    function commentWatchDelay(state) {
+        if (state.commentWatchFailures > 0) {
+            return Math.min(30000, 2000 * Math.pow(2, Math.min(4, state.commentWatchFailures - 1)));
+        }
+        const elapsed = Math.max(0, Date.now() - state.commentWatchStartedAt);
+        if (elapsed < 30000) {
+            return 2000;
+        }
+        if (elapsed < 300000) {
+            return 5000;
+        }
+        return 15000;
+    }
+
+    function stopCommentUnlockWatcher(state) {
+        state.commentWatcherActive = false;
+        state.commentWatchInFlight = false;
+        if (state.commentWatchTimer) {
+            window.clearTimeout(state.commentWatchTimer);
+            state.commentWatchTimer = null;
+        }
+        if (state.visibilityHandler) {
+            document.removeEventListener('visibilitychange', state.visibilityHandler);
+            state.visibilityHandler = null;
+        }
+    }
+
+    function scheduleCommentUnlockWatch(section, state, delay) {
+        if (!state.commentWatcherActive || document.hidden || state.commentWatchInFlight) {
+            return;
+        }
+        if (state.commentWatchTimer) {
+            window.clearTimeout(state.commentWatchTimer);
+        }
+        state.commentWatchTimer = window.setTimeout(function () {
+            state.commentWatchTimer = null;
+            runCommentUnlockWatch(section, state);
+        }, Math.max(0, delay));
+    }
+
+    async function runCommentUnlockWatch(section, state) {
+        if (!state.commentWatcherActive || state.commentWatchInFlight || document.hidden) {
+            return;
+        }
+        if (!section.isConnected) {
+            stopCommentUnlockWatcher(state);
+            return;
+        }
+
+        state.commentWatchInFlight = true;
+        const unlocked = await refreshLockState(section, state, state.pendingCard || null);
+        state.commentWatchInFlight = false;
+
+        if (!state.commentWatcherActive) {
+            return;
+        }
+        if (unlocked) {
+            stopCommentUnlockWatcher(state);
+            return;
+        }
+
+        if (state.lastAccessRefreshSucceeded) {
+            state.commentWatchFailures = 0;
+        } else {
+            state.commentWatchFailures += 1;
+            if (state.commentWatchFailures >= 3 && !state.commentWatchWarningShown) {
+                state.commentWatchWarningShown = true;
+                showToast('Erişim durumu şu anda yenilenemiyor; bağlantı geri geldiğinde otomatik olarak tekrar denenecek.', 'warning');
+            }
+        }
+        scheduleCommentUnlockWatch(section, state, commentWatchDelay(state));
+    }
+
     function startCommentUnlockWatcher(section, state) {
         if (!state.unlockAfterComment) {
             return;
         }
-        if (state.commentWatchTimer) {
+        if (state.commentWatcherActive) {
+            if (!document.hidden && !state.commentWatchInFlight && !state.commentWatchTimer) {
+                scheduleCommentUnlockWatch(section, state, 0);
+            }
             return;
         }
-        state.commentWatchCount = 0;
-        state.commentWatchTimer = window.setInterval(async function () {
-            state.commentWatchCount += 1;
-            const unlocked = await refreshLockState(section, state, state.pendingCard || null);
-            if (unlocked || state.commentWatchCount >= 15) {
-                window.clearInterval(state.commentWatchTimer);
-                state.commentWatchTimer = null;
-                if (unlocked && state.pendingCard && state.pendingCard.dataset.locked !== '1') {
-                    runCountdown(state.pendingCard, state, true);
-                }
+
+        state.commentWatcherActive = true;
+        state.commentWatchStartedAt = Date.now();
+        state.commentWatchFailures = 0;
+        state.commentWatchWarningShown = false;
+        state.visibilityHandler = function () {
+            if (!state.commentWatcherActive) {
+                return;
             }
-        }, 1800);
+            if (document.hidden) {
+                if (state.commentWatchTimer) {
+                    window.clearTimeout(state.commentWatchTimer);
+                    state.commentWatchTimer = null;
+                }
+                return;
+            }
+            scheduleCommentUnlockWatch(section, state, 0);
+        };
+        document.addEventListener('visibilitychange', state.visibilityHandler);
+        scheduleCommentUnlockWatch(section, state, 0);
     }
 
     function handleLockedCardClick(card, section, state) {
@@ -776,13 +1172,18 @@
         const message = lockMessage(card, state);
 
         state.pendingCard = card;
-        if (reason === 'comment_required' && message) {
+        if ((reason === 'comment_required' || reason === 'comment_expired') && message) {
             showToast(message, 'warning');
         }
 
-        if (reason === 'comment_required') {
-            focusCommentArea(state);
+        if (reason === 'comment_pending') {
+            showToast(state.pendingMessage || message, 'info');
             startCommentUnlockWatcher(section, state);
+            return;
+        }
+
+        if (reason === 'comment_required' || reason === 'comment_expired') {
+            focusCommentArea(state);
             return;
         }
 
@@ -840,7 +1241,7 @@
             if ((section.dataset.locked || '0') !== '1') {
                 return;
             }
-            if ((section.dataset.lockReason || '') !== 'comment_required') {
+            if (!['comment_required', 'comment_expired'].includes(section.dataset.lockReason || '')) {
                 return;
             }
             startCommentUnlockWatcher(section, state);
@@ -856,6 +1257,13 @@
 
         window.addEventListener('topic-comment:created', schedule);
         document.addEventListener('topic-comment:created', schedule);
+        document.addEventListener('topic-comment:deleted', function (event) {
+            const detailTopicId = event && event.detail ? parseInt(event.detail.topicId || '0', 10) : 0;
+            if (detailTopicId > 0 && detailTopicId !== state.topicId) {
+                return;
+            }
+            refreshLockState(section, state, state.pendingCard || null).catch(function () {});
+        });
     }
 
     function initSection(section) {
@@ -870,6 +1278,7 @@
             section.dataset.lockMessage || '',
             section.dataset.downloadStage || ''
         );
+        scheduleAccessExpiryRefresh(section, state, (section.dataset.locked || '0') === '1');
 
         cards.forEach(function (card) {
             bindCard(section, state, card);
@@ -878,7 +1287,15 @@
         const notice = section.parentElement ? section.parentElement.querySelector('[data-download-lock-notice]') : null;
         if (notice && notice.dataset.downloadLockNoticeBound !== '1') {
             notice.dataset.downloadLockNoticeBound = '1';
-            notice.addEventListener('click', function () {
+            notice.addEventListener('click', function (event) {
+                if (notice.classList.contains('is-success') && notice.classList.contains('is-compact')) {
+                    notice.classList.remove('is-compact');
+                    scheduleSuccessCompact(notice, state);
+                    return;
+                }
+                if (event.target.closest('button, a, input, select, textarea')) {
+                    return;
+                }
                 const firstLocked = section.querySelector('.topic-dl-card[data-locked="1"]');
                 if (firstLocked) {
                     handleLockedCardClick(firstLocked, section, state);
@@ -887,6 +1304,17 @@
         }
 
         bindCommentBridge(section, state);
+        if ((section.dataset.lockReason || '') === 'comment_pending') {
+            startCommentUnlockWatcher(section, state);
+        }
+        window.addEventListener('pagehide', function () {
+            stopCommentUnlockWatcher(state);
+            clearAccessExpiryTimer(state);
+            state.countdownTimers.forEach(function (timer) {
+                window.clearInterval(timer);
+            });
+            state.countdownTimers.clear();
+        }, { once: true });
     }
 
     function boot() {

@@ -242,6 +242,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $pwSuccess = "Şifreniz başarıyla değiştirildi.";
 
                 logActivity($pdo, "password_changed", "user", $userId);
+                try {
+                    accountEmailService($pdo)->send('password_changed', (string) ($user['email'] ?? ''), [
+                        'username' => (string) ($user['username'] ?? ''),
+                        'actor_context' => 'Hesap sahibi',
+                        'action_url' => routePublicStaticUrl('forgot_password'),
+                    ]);
+                } catch (Throwable $mailError) {
+                    if (function_exists('appLogException')) appLogException($mailError, ['source' => 'profile_password_changed']);
+                }
 
             } else {
 

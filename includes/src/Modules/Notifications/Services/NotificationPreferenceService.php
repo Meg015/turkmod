@@ -109,6 +109,18 @@ final class NotificationPreferenceService
                 'preference_title' => 'Yorumum onaylanınca',
                 'preference_description' => 'Onay bekleyen yorumunuz yayına alındığında bildirim alın.',
             ],
+            'comment_edited_by_staff' => [
+                'setting_key' => 'notif_event_comment_edited_by_staff',
+                'admin_setting' => 'notif_event_comments_enabled',
+                'title' => 'Yorumunuz düzenlendi',
+                'message' => '“{{topic_title}}” konusundaki yorumunuz {{actor_name}} tarafından düzenlendi.{{moderation_note_line}}',
+                'type' => 'warning',
+                'default' => '1',
+                'admin_default' => '1',
+                'icon' => 'bi-pencil-square',
+                'preference_title' => 'Yorumum yetkili tarafından düzenlenince',
+                'preference_description' => 'Yorumunuz bir admin veya yetkili tarafından değiştirildiğinde bildirim alın.',
+            ],
             'favorite_topic_comment' => [
                 'setting_key' => 'notif_event_favorite_topic_comment',
                 'admin_setting' => 'notif_event_favorites_enabled',

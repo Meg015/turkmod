@@ -1997,7 +1997,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
         showEditHistory: function (commentId) {
             const baseUri = document.querySelector('meta[name="app-base-uri"]')?.content || '';
-            fetch(baseUri + `/api/comments.php?action=edit_history&comment_id=${commentId}`)
+            fetch(baseUri + `/api/comments.php?action=edit_history&comment_id=${commentId}&_=${Date.now()}`, { cache: 'no-store' })
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
@@ -2033,6 +2033,12 @@ if (typeof module !== 'undefined' && module.exports) {
                                     <strong>${this.escapeHtml(h.editor_name)}</strong>
                                     <span class="text-muted">${h.time_ago}</span>
                                 </div>
+                                ${h.edit_reason ? `
+                                    <!-- Optional staff edit reason -->
+                                    <div class="history-reason">
+                                        <strong>Neden:</strong> ${this.escapeHtml(h.edit_reason)}
+                                    </div>
+                                ` : ''}
                                 <div class="history-diff">
                                     <div class="history-old">
                                         <label>Eski:</label>
@@ -5279,13 +5285,59 @@ e.init();
 
   function markAllNotificationsAsRead(event) {
     if (event) event.preventDefault();
-    var list = document.getElementById("notifList");
-    if (list) {
-      list.querySelectorAll(".notif-item.unread").forEach(function (item) {
-        item.classList.remove("unread");
-      });
+    var root = notificationRoot();
+    var markAll = event && event.target ? event.target.closest("[data-notif-mark-all]") : null;
+    if (!root || !markAll || markAll.dataset.busy === "1") return;
+
+    var readApi = root.getAttribute("data-notif-read-api") || "";
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    var csrfToken = csrfMeta ? csrfMeta.getAttribute("content") || "" : "";
+    if (!readApi) {
+      if (window.showToast) window.showToast("Bildirim servisi kullanilamiyor.", "error");
+      return;
     }
-    updateNotificationBadge(0);
+
+    markAll.dataset.busy = "1";
+    markAll.setAttribute("aria-disabled", "true");
+
+    var formData = new FormData();
+    formData.append("_token", csrfToken);
+    formData.append("id", "all");
+
+    fetch(readApi, {
+      method: "POST",
+      body: formData,
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+      .then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok || !data || (data.ok !== true && data.success !== true)) {
+            throw new Error(data && data.message ? data.message : "Bildirimler guncellenemedi.");
+          }
+          return data;
+        });
+      })
+      .then(function () {
+        var list = document.getElementById("notifList");
+        if (list) {
+          list.querySelectorAll(".notif-item.unread").forEach(function (item) {
+            item.classList.remove("unread");
+          });
+        }
+        updateNotificationBadge(0);
+        if (window.showToast) window.showToast("Bildirimler okundu olarak isaretlendi.", "success");
+        return fetchNotifications();
+      })
+      .catch(function (error) {
+        fetchNotifications();
+        if (window.showToast) {
+          window.showToast(error && error.message ? error.message : "Bildirimler guncellenemedi.", "error");
+        }
+      })
+      .finally(function () {
+        markAll.dataset.busy = "0";
+        markAll.removeAttribute("aria-disabled");
+      });
   }
 
   document.addEventListener("click", function (event) {

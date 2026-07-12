@@ -64,6 +64,11 @@ try {
         'message' => (string) ($state['message'] ?? ''),
         'mode' => (string) ($state['mode'] ?? 'public'),
         'comment_requirement' => (string) ($state['comment_requirement'] ?? 'submitted'),
+        'comment_step_required' => !empty($state['comment_step_required']),
+        'progress_completed' => (int) ($state['progress_completed'] ?? 0),
+        'progress_total' => (int) ($state['progress_total'] ?? 0),
+        'access_until_text' => (string) ($state['access_until_text'] ?? ''),
+        'expires_at' => $state['expires_at'] ?? null,
     ]);
 } catch (Throwable $e) {
     sendServerError('Indirme erisim durumu alinamadi.', $e);

@@ -23,8 +23,30 @@ if ($leaderboard_disabled_message === '') {
 $leaderboard_disabled_contact_url = routePublicStaticUrl('contact');
 $leaderboard_disabled_categories_url = categoryListUrl();
 
+/**
+ * Keep the structured theme template in sync with the variables prepared by
+ * this page while preserving any values supplied by the route/bootstrap.
+ *
+ * @param array<string, mixed> $existing
+ * @param array<string, mixed> $scope
+ * @return array<string, mixed>
+ */
+$leaderboardThemePageVars = static function (array $existing, array $scope): array {
+    foreach ($scope as $key => $value) {
+        if (str_starts_with((string) $key, 'leaderboard_')) {
+            $existing[(string) $key] = $value;
+        }
+    }
+
+    return $existing;
+};
+
 if ($leaderboard_disabled) {
     $pageTitle = 'Lider Tablosu Kapali';
+    $publicHeaderVars = $leaderboardThemePageVars(
+        isset($publicHeaderVars) && is_array($publicHeaderVars) ? $publicHeaderVars : [],
+        get_defined_vars()
+    );
     require_once $leaderboardProjectRoot . '/includes/public-header.php';
     ?>
 
@@ -292,6 +314,10 @@ if ($leaderboard_has_pagination) {
     }
 }
 
+$publicHeaderVars = $leaderboardThemePageVars(
+    isset($publicHeaderVars) && is_array($publicHeaderVars) ? $publicHeaderVars : [],
+    get_defined_vars()
+);
 require_once $leaderboardProjectRoot . '/includes/public-header.php';
 ?>
 

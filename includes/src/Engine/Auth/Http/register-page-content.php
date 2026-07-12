@@ -138,6 +138,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 // Kayıt akışı bildirim gönderilemedi diye bozulmasın.
                             }
                         }
+                        try {
+                            $accountMailer = accountEmailService($pdo);
+                            $accountMailer->send('welcome', $email, ['username' => $username, 'login_url' => $loginUrl]);
+                            $accountMailer->issueVerification($newUserId, $email, $username);
+                        } catch (Throwable $mailError) {
+                            if (function_exists('appLogException')) {
+                                appLogException($mailError, ['source' => 'registration_account_email', 'user_id' => $newUserId]);
+                            }
+                        }
                         if (is_file($projectRoot . '/includes/src/Modules/Events/init.php')) {
                             require_once $projectRoot . '/includes/src/Modules/Events/init.php';
                         }

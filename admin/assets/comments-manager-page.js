@@ -38,6 +38,7 @@ function initCommentReadMore() {
 function openEditModal(commentId, commentBody) {
     document.getElementById('editCommentId').value = commentId;
     document.getElementById('editCommentBody').value = commentBody;
+    document.getElementById('editCommentReason').value = '';
     var modal = document.getElementById('editModal');
     document.body.style.overflow = 'hidden';
 

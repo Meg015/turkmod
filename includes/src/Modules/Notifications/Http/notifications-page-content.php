@@ -173,7 +173,7 @@ function notification_safe_link(string $link, string $baseUri): string
     if (preg_match('~/edit-topic\.php$~i', $normalizedPath) === 1) {
         parse_str($query, $params);
         if ((int) ($params['id'] ?? 0) <= 0) {
-            return rtrim($baseUri, '/') . '/profile.php?tab=topics';
+            return routePrivateProfileUrl(['tab' => 'topics']);
         }
     }
 

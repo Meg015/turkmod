@@ -137,8 +137,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $isBanned, $banReason
         ];
 
+        $emailChanged = strcasecmp($email, (string) ($user['email'] ?? '')) !== 0;
+        if ($emailChanged) {
+            $updateSql .= ", email_verified_at = NULL, email_verification_token = NULL, email_verification_expires_at = NULL";
+        }
+
         // Check if password is being changed
         $password = $_POST['password'] ?? '';
+        $passwordChanged = false;
         if ($password !== '') {
             $policyError = validatePasswordPolicy($password, null, 'Şifre');
             if ($policyError !== '') {
@@ -148,6 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $updateSql .= ", password = ?, password_changed_at = NOW(), remember_token = NULL";
                 $params[] = password_hash($password, PASSWORD_DEFAULT);
+                $passwordChanged = true;
             }
         }
 
@@ -158,6 +165,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $updateStmt = $pdo->prepare($updateSql);
                 $updateStmt->execute($params);
+
+                try {
+                    $accountMailer = accountEmailService($pdo);
+                    if ($passwordChanged) {
+                        $accountMailer->send('password_changed', $email, [
+                            'username' => $username,
+                            'actor_context' => 'Yönetici tarafından',
+                            'action_url' => routePublicStaticUrl('forgot_password'),
+                        ]);
+                    }
+                    if ($emailChanged) {
+                        $oldEmail = (string) ($user['email'] ?? '');
+                        $variables = ['username' => $username, 'old_email' => $oldEmail, 'new_email' => $email, 'actor_context' => 'Yönetici tarafından'];
+                        if (filter_var($oldEmail, FILTER_VALIDATE_EMAIL)) $accountMailer->send('email_changed', $oldEmail, $variables);
+                        $accountMailer->send('email_changed', $email, $variables);
+                        $accountMailer->issueVerification($userId, $email, $username);
+                    }
+                } catch (Throwable $mailError) {
+                    if (function_exists('appLogException')) appLogException($mailError, ['source' => 'admin_user_account_email', 'user_id' => $userId]);
+                }
 
                 $message = "Kullanıcı bilgileri başarıyla güncellendi.";
                 $messageType = "success";

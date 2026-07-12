@@ -5,6 +5,7 @@ require_once __DIR__ . '/init.php';
 adminRequirePermission('comments.view', 'Yorumlari goruntulemek icin gerekli izin hesabiniza tanimlanmamis.');
 
 $pageTitle = 'Yorum Yönetimi';
+$settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 
 // Filters
 $status = $_GET['status'] ?? 'all';
@@ -31,12 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($commentId > 0) {
         try {
-            $commentStmt = $pdo->prepare("SELECT id, topic_id, user_id, body, status, deleted_at FROM comments WHERE id = ? LIMIT 1");
+            $commentStmt = $pdo->prepare("SELECT id, topic_id, user_id, body, status, deleted_at, created_at, updated_at FROM comments WHERE id = ? LIMIT 1");
             $commentStmt->execute([$commentId]);
             $commentRow = $commentStmt->fetch(PDO::FETCH_ASSOC) ?: null;
             switch ($action) {
                 case 'approve':
-                    $pdo->prepare("UPDATE comments SET status = 'approved' WHERE id = ?")->execute([$commentId]);
+                    $approvedAt = date('Y-m-d H:i:s');
+                    $pdo->prepare("UPDATE comments SET status = 'approved', updated_at = NOW() WHERE id = ?")->execute([$commentId]);
+                    $accessOpened = false;
+                    if ($commentRow && (string) $commentRow['status'] !== 'approved' && empty($commentRow['deleted_at']) && function_exists('topicDownloadApproveAccessGrant')) {
+                        $accessOpened = topicDownloadApproveAccessGrant($pdo, $settings, $commentRow, $approvedAt);
+                    }
                     if ($commentRow) {
                         commentApplyTopicCountDelta($pdo, $commentRow, 'approved', !empty($commentRow['deleted_at']));
                     }
@@ -49,11 +55,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (function_exists('invalidatePublicContentCache')) {
                         invalidatePublicContentCache();
                     }
+                    if ($commentRow && (int) ($commentRow['user_id'] ?? 0) > 0 && (string) ($commentRow['status'] ?? '') !== 'approved' && empty($commentRow['deleted_at']) && function_exists('notificationDispatch')) {
+                        try {
+                            $topicStmt = $pdo->prepare("SELECT id, title, slug FROM topics WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+                            $topicStmt->execute([(int) ($commentRow['topic_id'] ?? 0)]);
+                            $topicRow = $topicStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                            $topicTitle = trim((string) ($topicRow['title'] ?? 'Konu')) ?: 'Konu';
+                            $topicLink = topicUrl((string) ($topicRow['slug'] ?? ''), (int) ($topicRow['id'] ?? $commentRow['topic_id'])) . '#comment-' . $commentId;
+                            $payload = [
+                                'actor_name' => (string) ($_SESSION['_auth_user_name'] ?? 'Yönetim'),
+                                'topic_title' => $topicTitle,
+                                'link' => $topicLink,
+                                'dedupe_key' => 'comment_approved:' . (int) $commentRow['user_id'] . ':' . $commentId,
+                            ];
+                            if ($accessOpened) {
+                                $payload['title'] = 'İndirme erişiminiz açıldı';
+                                $payload['message'] = '“' . $topicTitle . '” konusundaki yorumunuz onaylandı. İndirme bağlantıları artık kullanıma hazır.';
+                            }
+                            notificationDispatch(
+                                $pdo,
+                                'comment_approved',
+                                (int) $commentRow['user_id'],
+                                (int) ($_SESSION['_auth_user_id'] ?? 0) ?: null,
+                                'comment',
+                                $commentId,
+                                $payload
+                            );
+                        } catch (Throwable $e) {
+                            if (function_exists('appLogException')) {
+                                appLogException($e, ['source' => 'comments-manager.comment-approved-notification', 'comment_id' => $commentId]);
+                            } else {
+                                error_log('Comment approval notification failed: ' . $e->getMessage());
+                            }
+                        }
+                    }
                     flash('success', 'Yorum onaylandı.');
                     break;
 
                 case 'reject':
                     $pdo->prepare("UPDATE comments SET status = 'rejected' WHERE id = ?")->execute([$commentId]);
+                    if (function_exists('topicDownloadRevokeAccessGrant')) {
+                        topicDownloadRevokeAccessGrant($pdo, $commentId, 'comment_rejected');
+                    }
                     if ($commentRow) {
                         commentApplyTopicCountDelta($pdo, $commentRow, 'rejected', !empty($commentRow['deleted_at']));
                     }
@@ -68,6 +111,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 case 'delete':
                     $pdo->prepare("UPDATE comments SET deleted_at = NOW() WHERE id = ?")->execute([$commentId]);
+                    if ((string) ($settings['download_access_relock_on_comment_delete'] ?? '1') === '1' && function_exists('topicDownloadRevokeAccessGrant')) {
+                        topicDownloadRevokeAccessGrant($pdo, $commentId, 'comment_deleted');
+                    }
                     if ($commentRow) {
                         commentApplyTopicCountDelta($pdo, $commentRow, (string)($commentRow['status'] ?? ''), true);
                     }
@@ -82,6 +128,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 case 'restore':
                     $pdo->prepare("UPDATE comments SET deleted_at = NULL WHERE id = ?")->execute([$commentId]);
+                    if ($commentRow && function_exists('topicDownloadRestoreAccessGrant')) {
+                        topicDownloadRestoreAccessGrant($pdo, $settings, array_merge($commentRow, ['deleted_at' => null]));
+                    }
                     if ($commentRow) {
                         commentApplyTopicCountDelta($pdo, $commentRow, (string)($commentRow['status'] ?? ''), false);
                         if (function_exists('eventsRecordActivity') && (int)$commentRow['user_id'] > 0 && (string)$commentRow['status'] === 'approved' && !empty($commentRow['deleted_at'])) {
@@ -99,25 +148,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 case 'edit':
                     $newBody = trim($_POST['body'] ?? '');
-                    if ($newBody !== '') {
-                        // Check if columns exist
-                        $hasEditColumns = false;
-                        try {
-                            $cols = $pdo->query("SHOW COLUMNS FROM comments LIKE 'is_edited'")->fetchAll();
-                            $hasEditColumns = !empty($cols);
-                        } catch (Throwable $e) {
-                            // Ignore
-                        }
-
-                        if ($hasEditColumns) {
-                            $pdo->prepare("UPDATE comments SET body = ?, is_edited = 1, edited_at = NOW() WHERE id = ?")->execute([$newBody, $commentId]);
-                        } else {
-                            $pdo->prepare("UPDATE comments SET body = ? WHERE id = ?")->execute([$newBody, $commentId]);
+                    $editReason = trim($_POST['edit_reason'] ?? '');
+                    if ($newBody !== '' && $commentRow) {
+                        $editResult = commentUpdateWithHistory(
+                            $pdo,
+                            $commentRow,
+                            $newBody,
+                            (int) ($_SESSION['_auth_user_id'] ?? 0),
+                            $editReason,
+                            (string) ($settings['comment_edit_history'] ?? '1') === '1'
+                        );
+                        if (!empty($editResult['changed']) && function_exists('notificationDispatchCommentEdited')) {
+                            try {
+                                notificationDispatchCommentEdited(
+                                    $pdo,
+                                    $commentRow,
+                                    (int) ($_SESSION['_auth_user_id'] ?? 0),
+                                    (string) ($_SESSION['_auth_user_name'] ?? 'Yönetim'),
+                                    $editResult
+                                );
+                            } catch (Throwable $notificationError) {
+                                if (function_exists('appLogException')) {
+                                    appLogException($notificationError, [
+                                        'source' => 'comments-manager.comment-edit-notification',
+                                        'comment_id' => $commentId,
+                                    ]);
+                                } else {
+                                    error_log('Comment edit notification failed: ' . $notificationError->getMessage());
+                                }
+                            }
                         }
                         if (function_exists('invalidatePublicContentCache')) {
                             invalidatePublicContentCache();
                         }
-                        flash('success', 'Yorum güncellendi.');
+                        flash('success', !empty($editResult['changed']) ? 'Yorum güncellendi.' : 'Yorum içeriğinde değişiklik yok.');
                     } else {
                         flash('error', 'Yorum içeriği boş olamaz.');
                     }
@@ -454,6 +518,12 @@ require_once __DIR__ . '/header.php';
                         <i class="bi bi-chat-text"></i> Yorum İçeriği
                     </label>
                     <textarea name="body" id="editCommentBody" class="ui-comment-manager-edit-textarea" required></textarea>
+                </div>
+                <div class="ui-comment-manager-edit-form-group">
+                    <label class="ui-comment-manager-edit-label" for="editCommentReason">
+                        <i class="bi bi-card-text"></i> Düzenleme Nedeni <span class="text-muted">(isteğe bağlı)</span>
+                    </label>
+                    <textarea name="edit_reason" id="editCommentReason" class="ui-comment-manager-edit-textarea" maxlength="255" rows="3" placeholder="Kullanıcıya gösterilecek kısa açıklama..."></textarea>
                 </div>
             </div>
             <div class="ui-comment-manager-edit-footer ui-panel__foot">

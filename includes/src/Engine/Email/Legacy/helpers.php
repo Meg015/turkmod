@@ -885,6 +885,10 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
     $driver = (string) ($config['driver'] ?? 'smtp');
     $encodedSubject = appEncodeMailHeaderValue($subject);
     $encodedFromName = appEncodeMailHeaderValue($fromName);
+    $ehloHost = appNormalizeMailHeaderValue((string) (gethostname() ?: 'localhost'));
+    if ($ehloHost === '' || preg_match('/^[a-z0-9.-]+$/i', $ehloHost) !== 1) {
+        $ehloHost = 'localhost';
+    }
 
     $fail = static function (string $error, array $extra = []) use ($driver, $to, $subject, $fromName, $fromAddr, $replyTo): bool {
         appSetLastMailResult(array_merge([
@@ -930,14 +934,28 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
 
     try {
         $prefix = ($enc === 'ssl') ? 'ssl://' : '';
-        $socket = fsockopen($prefix . $host, $port, $errno, $errstr, 10);
+        $socketWarning = '';
+        set_error_handler(static function (int $severity, string $message) use (&$socketWarning): bool {
+            $socketWarning = trim($message);
+            return true;
+        });
+        try {
+            $socket = fsockopen($prefix . $host, $port, $errno, $errstr, 10);
+        } finally {
+            restore_error_handler();
+        }
 
         if (!$socket) {
-            return $fail("SMTP connection failed: {$errstr} ({$errno})", [
+            $connectionError = trim($errstr) !== '' ? trim($errstr) : $socketWarning;
+            if ($connectionError === '') {
+                $connectionError = 'Unknown connection error';
+            }
+            return $fail("SMTP connection failed: {$connectionError} ({$errno})", [
                 'smtp_errno' => $errno,
-                'smtp_error' => $errstr,
+                'smtp_error' => $connectionError,
             ]);
         }
+        stream_set_timeout($socket, 15);
 
         if (!$expectResponse($socket, [220], 'SMTP greeting')) {
             fclose($socket);
@@ -945,7 +963,7 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
         }
 
         // EHLO
-        fwrite($socket, "EHLO localhost\r\n");
+        fwrite($socket, "EHLO {$ehloHost}\r\n");
         if (!$expectResponse($socket, [250], 'EHLO')) {
             fclose($socket);
             return false;
@@ -959,12 +977,22 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
                 return false;
             }
 
-            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            $tlsWarning = '';
+            set_error_handler(static function (int $severity, string $message) use (&$tlsWarning): bool {
+                $tlsWarning = trim($message);
+                return true;
+            });
+            try {
+                $tlsEnabled = stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+            } finally {
+                restore_error_handler();
+            }
+            if ($tlsEnabled !== true) {
                 fclose($socket);
-                return $fail('SMTP TLS negotiation failed.');
+                return $fail('SMTP TLS negotiation failed' . ($tlsWarning !== '' ? ': ' . $tlsWarning : '.'));
             }
 
-            fwrite($socket, "EHLO localhost\r\n");
+            fwrite($socket, "EHLO {$ehloHost}\r\n");
             if (!$expectResponse($socket, [250], 'EHLO after STARTTLS')) {
                 fclose($socket);
                 return false;
@@ -1023,7 +1051,9 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
         $message .= "MIME-Version: 1.0\r\n";
         $message .= "Content-Type: text/html; charset=UTF-8\r\n";
         $message .= "\r\n";
-        $message .= $body . "\r\n.\r\n";
+        $smtpBody = preg_replace('/\r\n|\r|\n/', "\r\n", $body) ?? $body;
+        $smtpBody = preg_replace('/(?m)^\./', '..', $smtpBody) ?? $smtpBody;
+        $message .= $smtpBody . "\r\n.\r\n";
 
         fwrite($socket, $message);
         $dataResponse = $readResponse($socket);
@@ -1064,6 +1094,9 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
             'from_address' => $fromAddr,
             'reply_to' => $replyTo,
             'error' => $e->getMessage(),
+            'exception_class' => get_class($e),
+            'exception_file' => $e->getFile(),
+            'exception_line' => $e->getLine(),
         ]);
         appLogException($e, ['fn' => 'appSendMailSmtp', 'to' => $to]);
         return false;
@@ -1073,35 +1106,18 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
 /**
  * Send password reset email.
  */
+function accountEmailService(?PDO $pdo = null): \App\Engine\Email\AccountEmailService
+{
+    $connection = $pdo ?? ($GLOBALS['pdo'] ?? null);
+    return new \App\Engine\Email\AccountEmailService($connection instanceof PDO ? $connection : null);
+}
+
 function sendPasswordResetEmail(string $to, string $userName, string $resetUrl): bool
 {
-    $subject = 'Şifre Sıfırlama Talebi';
-    $body = <<<HTML
-<!DOCTYPE html>
-<html lang="tr">
-<head><meta charset="UTF-8"></head>
-<body style="font-family:Roboto,sans-serif;background:#f8fafc;padding:2rem;">
-<div style="max-width:500px;margin:0 auto;background:#fff;border-radius:8px;padding:2rem;border:1px solid #e2e8f0;">
-    <h2 style="color:#1e293b;margin-top:0;">Şifre Sıfırlama</h2>
-    <p>Merhaba <strong>{$userName}</strong>,</p>
-    <p>Hesabınız için bir şifre sıfırlama talebi aldık. Aşağıdaki bağlantıya tıklayarak yeni şifrenizi belirleyebilirsiniz:</p>
-    <p style="text-align:center;margin:1.5rem 0;">
-        <a href="{$resetUrl}" style="background:#f2a51a;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Şifremi Sıfırla</a>
-    </p>
-    <p style="color:#64748b;font-size:0.9rem;">Bu bağlantı 1 saat geçerlidir. Eğer bu talebi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
-    <hr style="border:none;border-top:1px solid #e2e8f0;margin:1.5rem 0;">
-    <p style="color:#94a3b8;font-size:0.8rem;">Bu e-posta otomatik olarak gönderilmiştir.</p>
-</div>
-</body>
-</html>
-HTML;
-
-    return appSendMail($to, $subject, $body, [
-        'email_log' => [
-            'source' => 'auth',
-            'source_key' => 'password_reset',
-            'recipient_name' => $userName,
-        ],
+    return accountEmailService()->send('password_reset_request', $to, [
+        'username' => $userName,
+        'action_url' => $resetUrl,
+        'expires_minutes' => '60',
     ]);
 }
 
@@ -1110,31 +1126,5 @@ HTML;
  */
 function sendWelcomeEmail(string $to, string $userName, string $loginUrl): bool
 {
-    $subject = 'Hoş Geldiniz!';
-    $body = <<<HTML
-<!DOCTYPE html>
-<html lang="tr">
-<head><meta charset="UTF-8"></head>
-<body style="font-family:Roboto,sans-serif;background:#f8fafc;padding:2rem;">
-<div style="max-width:500px;margin:0 auto;background:#fff;border-radius:8px;padding:2rem;border:1px solid #e2e8f0;">
-    <h2 style="color:#1e293b;margin-top:0;">Hoş Geldiniz!</h2>
-    <p>Merhaba <strong>{$userName}</strong>,</p>
-    <p>Hesabınız başarıyla oluşturuldu. Artık giriş yaparak içeriklere erişebilir ve yorum yapabilirsiniz.</p>
-    <p style="text-align:center;margin:1.5rem 0;">
-        <a href="{$loginUrl}" style="background:#f2a51a;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Giriş Yap</a>
-    </p>
-    <hr style="border:none;border-top:1px solid #e2e8f0;margin:1.5rem 0;">
-    <p style="color:#94a3b8;font-size:0.8rem;">Bu e-posta otomatik olarak gönderilmiştir.</p>
-</div>
-</body>
-</html>
-HTML;
-
-    return appSendMail($to, $subject, $body, [
-        'email_log' => [
-            'source' => 'auth',
-            'source_key' => 'welcome_email',
-            'recipient_name' => $userName,
-        ],
-    ]);
+    return accountEmailService()->send('welcome', $to, ['username' => $userName, 'login_url' => $loginUrl]);
 }

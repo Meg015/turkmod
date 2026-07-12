@@ -94,7 +94,7 @@ function editTopicRespond(bool $success, string $message, int $statusCode = 200,
 
     flash($success ? 'success' : 'error', $message);
     $target = $success
-        ? (string) ($data['redirect'] ?? ($baseUri . '/profile.php?tab=topics&topic_status=draft'))
+        ? (string) ($data['redirect'] ?? routePrivateProfileUrl(['tab' => 'topics', 'topic_status' => 'draft']))
         : $editTopicUrl;
     header('Location: ' . $target);
     exit;
@@ -139,13 +139,13 @@ if ($pdo && $topicId > 0) {
 
 if (!$topic) {
     flash('error', 'Düzenleyebileceğiniz mod bulunamadı.');
-    header('Location: ' . $baseUri . '/profile.php?tab=topics');
+    header('Location: ' . routePrivateProfileUrl(['tab' => 'topics']));
     exit;
 }
 
 if ($pdo && function_exists('usersHasRestriction') && (usersHasRestriction($pdo, $userId, 'all') || usersHasRestriction($pdo, $userId, 'topic') || usersHasRestriction($pdo, $userId, 'upload'))) {
     flash('error', 'Hesabınızda mod düzenleme kısıtlaması bulunduğu için bu işlem yapılamaz.');
-    header('Location: ' . $baseUri . '/profile.php?tab=topics');
+    header('Location: ' . routePrivateProfileUrl(['tab' => 'topics']));
     exit;
 }
 
@@ -275,7 +275,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             ? 'Değişiklikler taslak olarak kaydedildi. Yayına alınana kadar konu profilinizde Taslak olarak görünecek.'
             : 'Değişiklikler kaydedildi ve konu yayında kalmaya devam ediyor.';
         $editRedirect = $editNeedsDraftReview
-            ? $baseUri . '/profile.php?tab=topics&topic_status=draft&edited=1'
+            ? routePrivateProfileUrl(['tab' => 'topics', 'topic_status' => 'draft', 'edited' => '1'])
             : topicUrl($slug, $topicId);
         editTopicRespond(true, $editSuccessMessage, 200, [
             'redirect' => $editRedirect,
@@ -640,7 +640,7 @@ require_once $projectRoot . '/includes/public-header.php';
                                 </div>
                                 <div class="public-actions upload-final-actions">
                                     <button type="submit" class="btn-submit-mod"><i class="bi bi-send-check"></i> Değişiklikleri Onaya Gönder</button>
-                                    <a href="<?= $baseUri ?>/profile.php?tab=topics" class="btn-cancel-mod">İptal Et</a>
+                                    <a href="<?= htmlspecialchars(routePrivateProfileUrl(['tab' => 'topics']), ENT_QUOTES, 'UTF-8') ?>" class="btn-cancel-mod">İptal Et</a>
                                 </div>
                             </section>
 
@@ -654,7 +654,7 @@ require_once $projectRoot . '/includes/public-header.php';
 
                     <div class="public-actions">
                         <button type="submit" class="btn-submit-mod"><i class="bi bi-send-check"></i> Değişiklikleri Onaya Gönder</button>
-                        <a href="<?= $baseUri ?>/profile.php?tab=topics" class="btn-cancel-mod">İptal Et</a>
+                        <a href="<?= htmlspecialchars(routePrivateProfileUrl(['tab' => 'topics']), ENT_QUOTES, 'UTF-8') ?>" class="btn-cancel-mod">İptal Et</a>
                     </div>
                 </form>
             </div>

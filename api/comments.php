@@ -620,6 +620,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$canDelete) jsonResponse(403, ['error' => 'Yetkiniz yok.']);
 
             $pdo->prepare("UPDATE comments SET deleted_at = NOW() WHERE id = ?")->execute([$commentId]);
+            if ((string) ($settings['download_access_relock_on_comment_delete'] ?? '1') === '1' && function_exists('topicDownloadRevokeAccessGrant')) {
+                topicDownloadRevokeAccessGrant($pdo, $commentId, 'comment_deleted');
+            }
             commentApplyTopicCountDelta($pdo, $row, (string)($row['status'] ?? ''), true);
             if (function_exists('eventsReverseActivityPoints') && (int)$row['user_id'] > 0 && (string)$row['status'] === 'approved') {
                 eventsReverseActivityPoints($pdo, (int)$row['user_id'], 'comment_created', 'comment', $commentId, 'comment_deleted');
@@ -642,7 +645,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($commentId <= 0 || $body === '') jsonResponse(400, ['error' => 'Geçersiz veri.']);
 
         try {
-            $check = $pdo->prepare("SELECT user_id, body, created_at FROM comments WHERE id = ? AND deleted_at IS NULL");
+            $check = $pdo->prepare("SELECT id, topic_id, user_id, body, created_at FROM comments WHERE id = ? AND deleted_at IS NULL");
             $check->execute([$commentId]);
             $row = $check->fetch();
             if (!$row) jsonResponse(404, ['error' => 'Yorum bulunamadı.']);
@@ -656,29 +659,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($elapsed > $editWindow * 60) jsonResponse(403, ['error' => 'Düzenleme süresi dolmuş.']);
             }
 
-            $oldBody = $row['body'];
-
-            // Save edit history if enabled (only if table exists)
-            if ($editHistoryEnabled && $oldBody !== $body) {
+            $editResult = commentUpdateWithHistory(
+                $pdo,
+                $row,
+                $body,
+                (int) $_SESSION['_auth_user_id'],
+                null,
+                $editHistoryEnabled
+            );
+            if (!empty($editResult['changed']) && function_exists('notificationDispatchCommentEdited')) {
                 try {
-                    $historyStmt = $pdo->prepare("INSERT INTO comment_edit_history (comment_id, user_id, old_body, new_body, created_at) VALUES (?, ?, ?, ?, NOW())");
-                    $historyStmt->execute([$commentId, (int)$_SESSION['_auth_user_id'], $oldBody, $body]);
-                } catch (Throwable $e) {
-                    // Table doesn't exist yet, skip history
+                    notificationDispatchCommentEdited(
+                        $pdo,
+                        $row,
+                        (int) $_SESSION['_auth_user_id'],
+                        (string) ($_SESSION['_auth_user_name'] ?? 'Yetkili'),
+                        $editResult
+                    );
+                } catch (Throwable $notificationError) {
+                    if (function_exists('appLogException')) {
+                        appLogException($notificationError, [
+                            'source' => 'api.comments.comment-edit-notification',
+                            'comment_id' => $commentId,
+                        ]);
+                    } else {
+                        error_log('Comment edit notification failed: ' . $notificationError->getMessage());
+                    }
                 }
-            }
-
-            // Update comment (use cached schema check)
-            if (_commentsSchemaHas($pdo, 'is_edited')) {
-                $pdo->prepare("UPDATE comments SET body = ?, is_edited = 1, edited_at = NOW(), updated_at = NOW() WHERE id = ?")->execute([$body, $commentId]);
-            } else {
-                $pdo->prepare("UPDATE comments SET body = ?, updated_at = NOW() WHERE id = ?")->execute([$body, $commentId]);
             }
             if (function_exists('invalidatePublicContentCache')) {
                 invalidatePublicContentCache();
             }
 
-            jsonResponse(200, ['success' => true, 'body' => $body, 'is_edited' => true, '_token' => csrf_token()]);
+            jsonResponse(200, [
+                'success' => true,
+                'body' => (string) $editResult['body'],
+                'is_edited' => !empty($editResult['changed']),
+                '_token' => csrf_token(),
+            ]);
         } catch (Throwable $e) {
             jsonResponse(500, ['error' => 'Düzenleme başarısız.']);
         }
@@ -802,6 +820,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$topicId, $userId, $parentId, $body, $status]);
         }
         $newId = (int)$pdo->lastInsertId();
+
+        if ($userId && function_exists('topicDownloadCreateAccessGrant')) {
+            $createdAt = date('Y-m-d H:i:s');
+            topicDownloadCreateAccessGrant($pdo, $settings, [
+                'id' => $newId,
+                'topic_id' => $topicId,
+                'user_id' => $userId,
+                'status' => $status,
+                'deleted_at' => null,
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ], $createdAt);
+        }
 
         // Save mentions (only if table exists)
         if (!empty($mentionedUsers)) {

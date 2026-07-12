@@ -174,7 +174,7 @@ if (!function_exists('authenticateUser')) {
             if (function_exists('usersEnsureUsernameSchema')) {
                 usersEnsureUsernameSchema($pdo);
             }
-            $sql = "SELECT id, username, email, password, status, password_changed_at
+            $sql = "SELECT id, username, email, email_verified_at, password, status, password_changed_at
                     FROM users
                     WHERE deleted_at IS NULL";
             $params = [];
@@ -204,6 +204,12 @@ if (!function_exists('authenticateUser')) {
 
             if (!password_verify($password, $user['password'])) {
                 return ['success' => false, 'error' => 'Şifre hatalı'];
+            }
+
+            if (($settings['account_email_verification_enabled'] ?? '0') === '1'
+                && ($settings['account_email_verification_required'] ?? '0') === '1'
+                && empty($user['email_verified_at'])) {
+                return ['success' => false, 'error' => 'Giriş için e-posta adresinizi doğrulamanız gerekiyor. Yeni bağlantı isteyebilirsiniz.'];
             }
 
             $expiryDays = (int)($settings['password_expiry_days'] ?? 0);

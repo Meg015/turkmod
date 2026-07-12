@@ -95,8 +95,8 @@ function admin_notification_settings_schema(): array
             'description' => 'Yeni kullanıcılar için otomatik hoş geldin bildirimini ayarlar.',
             'items' => [
                 ['key' => 'notif_system_sender', 'type' => 'text', 'label' => 'Sistem Gönderen Adı', 'help' => 'Otomatik bildirimlerde başlıkta kullanılacak kısa ad.', 'default' => 'Sistem'],
-                ['key' => 'notif_welcome_enabled', 'type' => 'bool', 'label' => 'Yeni Üyeye Hoş Geldin Bildirimi', 'help' => 'Kayıt olan kullanıcıya otomatik sistem bildirimi gönderir.', 'default' => '0'],
-                ['key' => 'notif_welcome_msg', 'type' => 'textarea', 'label' => 'Hoş Geldin Mesajı', 'help' => 'Yeni üyeye gönderilecek otomatik bildirim metni.', 'default' => 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.'],
+                ['key' => 'notif_welcome_enabled', 'type' => 'bool', 'label' => 'Site İçi Hoş Geldin Bildirimi', 'help' => 'Kayıt olan kullanıcıya yalnızca bildirim merkezinde otomatik sistem bildirimi gönderir.', 'default' => '0'],
+                ['key' => 'notif_welcome_msg', 'type' => 'textarea', 'label' => 'Site İçi Hoş Geldin Mesajı', 'help' => 'Yeni üyeye bildirim merkezinde gösterilecek metin. E-posta şablonundan ayrıdır.', 'default' => 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.'],
             ],
         ],
     ];

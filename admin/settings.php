@@ -351,24 +351,84 @@ $downloadGroups = [
         ],
     ],
     'downloads-tab-access' => [
-        'title' => 'Indirme Erisim Kilidi',
+        'title' => 'Erişim Kilidi ve Metinler',
         'icon' => 'bi-shield-lock',
-        'description' => 'Uyelik/yorum sartli kilit, popup akis ve sayfa yenilemeden kilit acma davranislari.',
-        'keys' => [
-            'download_access_mode',
-            'download_access_comment_requirement',
-            'download_access_login_message',
-            'download_access_comment_message',
-            'download_access_locked_button_text',
-            'download_access_comment_cta_label',
-            'download_access_open_auth_popup',
-            'download_access_focus_comment_form',
-            'download_access_unlock_after_auth',
-            'download_access_unlock_after_comment',
-            'download_access_auth_modal_title',
-            'download_access_auth_login_label',
-            'download_access_auth_register_label',
-            'download_access_auth_success_message',
+        'description' => 'Üyelik ve yorum şartlı indirme kilidinin başlıklarını, açıklamalarını ve kilit açma davranışlarını yönetin.',
+        'sections' => [
+            [
+                'title' => 'Erişim Politikası',
+                'icon' => 'bi-shield-check',
+                'description' => 'İndirme bağlantılarının kimlere ve hangi yorum doğrulamasıyla açılacağını belirleyin.',
+                'keys' => [
+                    'download_access_mode',
+                    'download_access_comment_requirement',
+                ],
+            ],
+            [
+                'title' => 'Süre ve Yenileme',
+                'icon' => 'bi-clock-history',
+                'description' => 'Yorumla kazanılan erişimin kalıcı veya süreli olmasını ve silme sonrası davranışı yönetin.',
+                'keys' => [
+                    'download_access_grant_mode',
+                    'download_access_grant_duration_value',
+                    'download_access_grant_duration_unit',
+                    'download_access_relock_on_comment_delete',
+                ],
+            ],
+            [
+                'title' => 'Kilit Metinleri ve Davranışlar',
+                'icon' => 'bi-lock',
+                'description' => 'Kilitli kart mesajlarını, yönlendirme çağrılarını ve otomatik kilit açma davranışlarını düzenleyin.',
+                'keys' => [
+                    'download_access_login_message',
+                    'download_access_comment_title',
+                    'download_access_comment_message',
+                    'download_access_locked_button_text',
+                    'download_access_comment_cta_label',
+                    'download_access_open_auth_popup',
+                    'download_access_focus_comment_form',
+                    'download_access_unlock_after_auth',
+                    'download_access_unlock_after_comment',
+                ],
+            ],
+            [
+                'title' => 'Giriş/Kayıt Penceresi',
+                'icon' => 'bi-person-lock',
+                'description' => 'Kilit üzerinden açılan giriş ve kayıt penceresindeki başlık ve işlem metinlerini yönetin.',
+                'keys' => [
+                    'download_access_auth_modal_title',
+                    'download_access_auth_login_label',
+                    'download_access_auth_register_label',
+                    'download_access_auth_success_message',
+                ],
+            ],
+            [
+                'title' => 'Bekleme ve Süre Dolumu',
+                'icon' => 'bi-hourglass-split',
+                'description' => 'Yorum onayı beklenirken veya süreli erişim sona erdiğinde gösterilecek metinleri belirleyin.',
+                'keys' => [
+                    'download_access_pending_message',
+                    'download_access_pending_button_text',
+                    'download_access_expired_title',
+                    'download_access_expired_message',
+                    'download_access_active_until_template',
+                ],
+            ],
+            [
+                'title' => 'Başarı ve İlerleme Görünümü',
+                'icon' => 'bi-check-circle',
+                'description' => 'Şartlar tamamlandığında gösterilen başarı alanını, adım bilgisini ve görsel geçişleri yönetin.',
+                'keys' => [
+                    'download_access_success_notice_enabled',
+                    'download_access_success_message',
+                    'download_access_progress_enabled',
+                    'download_access_progress_template',
+                    'download_access_success_animation_enabled',
+                    'download_access_success_auto_compact',
+                    'download_access_success_compact_delay',
+                    'download_access_highlight_first_card',
+                ],
+            ],
         ],
     ],
 ];
@@ -464,6 +524,12 @@ $emailGroups = [
         'title' => 'Test Gönderimi',
         'icon' => 'bi-send-check',
         'description' => 'Mevcut ayarlarla seçtiğiniz adrese test e-postası gönderin.',
+        'keys' => [],
+    ],
+    'email-tab-account' => [
+        'title' => 'Hesap E-Posta Şablonları',
+        'icon' => 'bi-person-check',
+        'description' => 'Kayıt, doğrulama, şifre ve hesap güvenliği e-postalarını tek merkezden yönetin.',
         'keys' => [],
     ],
 ];
@@ -589,7 +655,7 @@ if (!function_exists('settingsCronTaskCatalog')) {
         }
     }
 
-    if (!function_exists('settingsBuildEmailTestHtml')) {
+if (!function_exists('settingsBuildEmailTestHtml')) {
         function settingsBuildEmailTestHtml(array $settings, string $recipient, string $message): string
         {
             $siteName = trim((string) ($settings['site_name'] ?? 'Yenidosyalar'));
@@ -736,6 +802,38 @@ if (!function_exists('settingsCronTaskCatalog')) {
                 'url' => $buildUrl('/cron/events-master.php'),
             ],
         ];
+    }
+}
+
+if (!function_exists('settingsEmailTestDiagnostic')) {
+    /**
+     * Build a concise SMTP diagnostic that is safe to show to an administrator.
+     *
+     * @param array<string,mixed> $mailResult
+     * @param array<int,string> $secrets
+     */
+    function settingsEmailTestDiagnostic(array $mailResult, array $secrets = []): string
+    {
+        $diagnostic = trim((string) ($mailResult['error'] ?? ''));
+        if ($diagnostic === '') {
+            $diagnostic = trim((string) ($mailResult['smtp_response'] ?? ''));
+        }
+
+        foreach ($secrets as $secret) {
+            $secret = (string) $secret;
+            if ($secret !== '') {
+                $diagnostic = str_replace($secret, '[masked]', $diagnostic);
+            }
+        }
+
+        $diagnostic = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/', '', $diagnostic) ?? '';
+        $diagnostic = trim(preg_replace('/\s+/', ' ', $diagnostic) ?? '');
+
+        if (function_exists('mb_substr')) {
+            return mb_substr($diagnostic, 0, 700, 'UTF-8');
+        }
+
+        return substr($diagnostic, 0, 700);
     }
 }
 
@@ -916,13 +1014,57 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     $postAction = trim((string) ($_POST['action'] ?? 'save_settings'));
+    if ($postAction === 'send_account_email_test') {
+        $templateKey = trim((string) ($_POST['account_email_template_key'] ?? ''));
+        $recipient = trim((string) ($_POST['account_email_test_recipient'] ?? ''));
+        $catalog = \App\Engine\Email\AccountEmailService::catalog();
+        if (!isset($catalog[$templateKey])) {
+            sendError('account_email_template_invalid', 'Geçersiz hesap e-posta şablonu.', 422);
+        }
+        if (filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
+            sendError('account_email_recipient_invalid', 'Geçerli bir test e-posta adresi girin.', 422);
+        }
+
+        $currentSettings = getAdminSettings($pdo);
+        $smtpOverrides = $currentSettings;
+        foreach (['mail_driver', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption', 'mail_from_name', 'mail_from_address'] as $settingKey) {
+            if (array_key_exists($settingKey, $_POST)) {
+                $smtpOverrides[$settingKey] = trim((string) $_POST[$settingKey]);
+            }
+        }
+        $subjectKey = \App\Engine\Email\AccountEmailService::settingKey($templateKey, 'subject');
+        $bodyKey = \App\Engine\Email\AccountEmailService::settingKey($templateKey, 'body');
+        $publicBase = function_exists('appPublicBaseUrl') ? rtrim((string) appPublicBaseUrl(true), '/') : '';
+        $ok = accountEmailService($pdo)->send($templateKey, $recipient, [
+            'username' => 'Test Kullanıcısı',
+            'action_url' => $publicBase . '/test-action',
+            'login_url' => function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : $publicBase . '/giris',
+            'profile_url' => $publicBase . '/profil/test-kullanici',
+            'expires_minutes' => '60',
+            'old_email' => 'eski@example.com',
+            'new_email' => $recipient,
+            'actor_context' => 'Yönetim paneli test gönderimi',
+        ], [
+            'force' => true,
+            'enabled' => '1',
+            'subject' => (string) ($_POST[$subjectKey] ?? $catalog[$templateKey]['subject']),
+            'body' => (string) ($_POST[$bodyKey] ?? $catalog[$templateKey]['body']),
+            'settings' => $smtpOverrides,
+        ]);
+        $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
+        if ($ok) {
+            sendSuccess('Hesap e-posta testi gönderildi: ' . $recipient, ['template' => $templateKey]);
+        }
+        $detail = settingsEmailTestDiagnostic($mailResult, [(string) ($smtpOverrides['smtp_password'] ?? '')]);
+        sendError('account_email_test_failed', 'Hesap e-posta testi gönderilemedi.' . ($detail !== '' ? ' ' . $detail : ''), 500);
+    }
     if ($postAction === 'send_email_test') {
         $currentSettings = getAdminSettings($pdo);
         $recipient = trim((string) ($_POST['email_test_recipient'] ?? ''));
         $message = trim((string) ($_POST['email_test_message'] ?? ''));
 
         if ($recipient === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
-            $messageText = 'Gecerli bir test e-posta adresi girin.';
+            $messageText = 'Geçerli bir test e-posta adresi girin.';
             if ($isAjax) {
                 sendError('email_test_invalid_recipient', $messageText, 422);
             }
@@ -932,7 +1074,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
 
         if ($message === '') {
-            $messageText = 'Test mesaji bos olamaz.';
+            $messageText = 'Test mesajı boş olamaz.';
             if ($isAjax) {
                 sendError('email_test_empty_message', $messageText, 422);
             }
@@ -986,21 +1128,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             ]
         );
         $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
-        $mailError = trim((string) ($mailResult['error'] ?? ''));
+        $mailError = settingsEmailTestDiagnostic($mailResult, [
+            (string) ($overrideSettings['smtp_password'] ?? ''),
+        ]);
 
         if ($mailOk) {
-            $successMessage = 'Test e-postasi gonderildi: ' . $recipient;
+            $successMessage = 'Test e-postası gönderildi: ' . $recipient;
             if ($isAjax) {
                 sendSuccess($successMessage, ['recipient' => $recipient]);
             }
             flash('success', $successMessage);
         } else {
-            $errorMessage = 'Test e-postasi gonderilemedi.';
+            $errorMessage = 'Test e-postası gönderilemedi.';
             if ($mailError !== '') {
                 $errorMessage .= ' ' . $mailError;
             }
             if ($isAjax) {
-                sendError('email_test_failed', $errorMessage, 500);
+                sendError('email_test_failed', $errorMessage, 500, [
+                    'transport' => (string) ($mailResult['transport'] ?? ''),
+                    'smtp_code' => $mailResult['smtp_code'] ?? null,
+                ]);
             }
             flash('error', $errorMessage);
         }
@@ -2233,7 +2380,7 @@ require_once __DIR__ . '/header.php';
 
                                         <?php if ($emailTabId === 'email-tab-settings'): ?>
                                             <?= adminRenderSettingsGrid($definitions, $settings, 'email', (array) ($emailGroup['keys'] ?? [])) ?>
-                                        <?php else: ?>
+                                        <?php elseif ($emailTabId === 'email-tab-test'): ?>
                                             <?php $currentAdminEmail = trim((string) ($_SESSION['_auth_user_email'] ?? '')); ?>
                                             <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
                                                 <i class="bi bi-info-circle"></i>
@@ -2258,6 +2405,73 @@ require_once __DIR__ . '/header.php';
                                                 <button type="submit" name="action" value="send_email_test" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm">
                                                     <i class="bi bi-send-check"></i> Test Gönder
                                                 </button>
+                                            </div>
+                                        <?php else: ?>
+                                            <?php
+                                                $accountEmailCatalog = \App\Engine\Email\AccountEmailService::catalog();
+                                                $accountEmailBehaviorKeys = [
+                                                    'account_email_system_enabled',
+                                                    'account_email_verification_enabled',
+                                                    'account_email_verification_required',
+                                                    'account_email_verification_ttl_minutes',
+                                                    'account_email_verification_resend_cooldown_minutes',
+                                                ];
+                                            ?>
+                                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
+                                                <i class="bi bi-info-circle"></i>
+                                                <div>
+                                                    <strong>Tek kaynak, duplicate ayar yok</strong><br>
+                                                    SMTP ve gönderen bilgileri E-posta Ayarları sekmesinden kullanılır. Yorum, mesaj ve moderasyon e-postaları <a href="notifications.php?tab=templates">Bildirim Şablonları</a> ekranında kalır.
+                                                </div>
+                                            </div>
+                                            <section class="account-email-behavior admin-section-block ui-section">
+                                                <div class="admin-inline-head ui-panel__head"><i class="bi bi-shield-check"></i><span class="admin-inline-title">Hesap E-posta Davranışı</span></div>
+                                                <?= adminRenderSettingsGrid($definitions, $settings, 'email', $accountEmailBehaviorKeys) ?>
+                                            </section>
+                                            <div class="account-email-template-list">
+                                                <?php foreach ($accountEmailCatalog as $accountTemplateKey => $accountTemplate): ?>
+                                                    <?php
+                                                        $enabledKey = \App\Engine\Email\AccountEmailService::settingKey($accountTemplateKey, 'enabled');
+                                                        $subjectKey = \App\Engine\Email\AccountEmailService::settingKey($accountTemplateKey, 'subject');
+                                                        $bodyKey = \App\Engine\Email\AccountEmailService::settingKey($accountTemplateKey, 'body');
+                                                        $enabledValue = (string) ($settings[$enabledKey] ?? $accountTemplate['enabled']);
+                                                        $subjectValue = (string) ($settings[$subjectKey] ?? $accountTemplate['subject']);
+                                                        $bodyValue = (string) ($settings[$bodyKey] ?? $accountTemplate['body']);
+                                                    ?>
+                                                    <section class="account-email-template-card admin-card ui-panel" data-account-email-card="<?= htmlspecialchars($accountTemplateKey) ?>">
+                                                        <div class="card-header ui-panel__head">
+                                                            <div><strong><?= htmlspecialchars($accountTemplate['label']) ?></strong><small class="d-block"><?= htmlspecialchars($accountTemplate['description']) ?></small></div>
+                                                            <label class="ui-admin-switch">
+                                                                <input type="checkbox" name="<?= htmlspecialchars($enabledKey) ?>" value="1" <?= $enabledValue === '1' ? 'checked' : '' ?>>
+                                                                <span class="ui-admin-switch-label">Aktif</span>
+                                                            </label>
+                                                        </div>
+                                                        <div class="card-body ui-panel__body">
+                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($subjectKey) ?>">E-posta Konusu</label>
+                                                            <input id="<?= htmlspecialchars($subjectKey) ?>" name="<?= htmlspecialchars($subjectKey) ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($subjectValue) ?>" required>
+                                                            <label class="ui-admin-form-label mt-3" for="<?= htmlspecialchars($bodyKey) ?>">HTML E-posta İçeriği</label>
+                                                            <textarea id="<?= htmlspecialchars($bodyKey) ?>" name="<?= htmlspecialchars($bodyKey) ?>" class="ui-admin-form-control account-email-body" rows="10" required><?= htmlspecialchars($bodyValue) ?></textarea>
+                                                            <div class="notification-template-token-list mt-2">
+                                                                <?php foreach (\App\Engine\Email\AccountEmailService::allowedVariables() as $variable): ?>
+                                                                    <button type="button" class="notification-template-token account-email-token" data-token="{{<?= htmlspecialchars($variable) ?>}}">{{<?= htmlspecialchars($variable) ?>}}</button>
+                                                                <?php endforeach; ?>
+                                                            </div>
+                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm mt-2 account-email-preview-button"><i class="bi bi-eye"></i> Önizlemeyi Aç</button>
+                                                            <div class="account-email-preview mt-3" data-account-email-preview></div>
+                                                            <div class="admin-settings-grid ui-grid mt-3">
+                                                                <div class="admin-field-wide">
+                                                                    <label class="ui-admin-form-label" for="account_email_test_recipient_<?= htmlspecialchars($accountTemplateKey) ?>">Test Alıcısı</label>
+                                                                    <input id="account_email_test_recipient_<?= htmlspecialchars($accountTemplateKey) ?>" class="ui-admin-form-control" type="email" value="<?= htmlspecialchars((string) ($_SESSION['_auth_user_email'] ?? '')) ?>">
+                                                                </div>
+                                                            </div>
+                                                            <textarea class="ui-admin-hidden account-email-default-body"><?= htmlspecialchars((string) $accountTemplate['body']) ?></textarea>
+                                                            <div class="d-flex justify-content-between mt-3">
+                                                                <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm account-email-reset" data-default-subject="<?= htmlspecialchars((string) $accountTemplate['subject']) ?>"><i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön</button>
+                                                                <button type="submit" name="action" value="send_account_email_test" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm" data-account-email-template="<?= htmlspecialchars($accountTemplateKey) ?>"><i class="bi bi-send-check"></i> Test Gönder</button>
+                                                            </div>
+                                                        </div>
+                                                    </section>
+                                                <?php endforeach; ?>
                                             </div>
                                         <?php endif; ?>
                                     </div>
@@ -2427,7 +2641,28 @@ require_once __DIR__ . '/header.php';
                                         <?php if (!empty($downloadGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($downloadGroup['description'])) ?></div>
                                         <?php endif; ?>
-                                        <?= adminRenderSettingsGrid($definitions, $settings, 'downloads', (array) ($downloadGroup['keys'] ?? [])) ?>
+                                        <?php if (!empty($downloadGroup['sections']) && is_array($downloadGroup['sections'])): ?>
+                                            <div class="download-access-settings-sections">
+                                                <?php foreach ($downloadGroup['sections'] as $downloadSection): ?>
+                                                    <section class="download-access-settings-section">
+                                                        <header class="download-access-settings-section__header">
+                                                            <span class="download-access-settings-section__icon" aria-hidden="true">
+                                                                <i class="bi <?= htmlspecialchars((string) ($downloadSection['icon'] ?? 'bi-sliders')) ?>"></i>
+                                                            </span>
+                                                            <div>
+                                                                <h3><?= htmlspecialchars((string) ($downloadSection['title'] ?? 'Ayarlar')) ?></h3>
+                                                                <?php if (!empty($downloadSection['description'])): ?>
+                                                                    <p><?= htmlspecialchars((string) $downloadSection['description']) ?></p>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </header>
+                                                        <?= adminRenderSettingsGrid($definitions, $settings, 'downloads', (array) ($downloadSection['keys'] ?? []), 'admin-settings-grid download-access-settings-section__grid ui-grid') ?>
+                                                    </section>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <?= adminRenderSettingsGrid($definitions, $settings, 'downloads', (array) ($downloadGroup['keys'] ?? [])) ?>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php $downloadFirst = false; endforeach; ?>

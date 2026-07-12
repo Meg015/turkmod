@@ -670,6 +670,44 @@ function adminSettingDefinitions(): array
             ],
             'tooltip' => 'Üyelik + Yorum Şartlı modunda yorumun ne zaman geçerli sayılacağını belirler.',
         ],
+        'download_access_grant_mode' => [
+            'label' => 'Yorum Erişimi Süresi',
+            'type' => 'select',
+            'default' => 'permanent',
+            'section' => 'downloads',
+            'options' => [
+                'permanent' => 'Kalıcı erişim',
+                'timed' => 'Belirli süreli erişim',
+            ],
+            'tooltip' => 'Belirli süreli erişimde süre dolduğunda kullanıcının yeniden yorum yapması gerekir.',
+        ],
+        'download_access_grant_duration_value' => [
+            'label' => 'Erişim Süresi Değeri',
+            'type' => 'number',
+            'default' => '24',
+            'section' => 'downloads',
+            'min' => 1,
+            'max' => 525600,
+            'tooltip' => 'Dakika, saat veya gün seçimine uygulanacak pozitif tam sayı.',
+        ],
+        'download_access_grant_duration_unit' => [
+            'label' => 'Erişim Süresi Birimi',
+            'type' => 'select',
+            'default' => 'hours',
+            'section' => 'downloads',
+            'options' => [
+                'minutes' => 'Dakika',
+                'hours' => 'Saat',
+                'days' => 'Gün',
+            ],
+        ],
+        'download_access_relock_on_comment_delete' => [
+            'label' => 'Yorum Silinince Erişimi Tekrar Kilitle',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'downloads',
+            'tooltip' => 'Açıksa erişimi sağlayan yorum silindiğinde indirme bağlantıları tekrar kilitlenir.',
+        ],
         'download_access_login_message' => [
             'label' => 'Giriş Kilidi Mesajı',
             'type' => 'string',
@@ -677,9 +715,16 @@ function adminSettingDefinitions(): array
             'section' => 'downloads',
         ],
         'download_access_comment_message' => [
-            'label' => 'Yorum Kilidi Mesajı',
+            'label' => 'Yorum Gerekli Açıklama Metni',
             'type' => 'string',
             'default' => 'Önce bir yorum gönderin; kilit otomatik açılır.',
+            'section' => 'downloads',
+            'tooltip' => 'Yorum şartı henüz tamamlanmadığında, “Yorum gerekli” başlığının altında gösterilen açıklama metnidir.',
+        ],
+        'download_access_comment_title' => [
+            'label' => 'Yorum Kilidi Başlığı',
+            'type' => 'string',
+            'default' => 'Yorum gerekli',
             'section' => 'downloads',
         ],
         'download_access_locked_button_text' => [
@@ -741,6 +786,90 @@ function adminSettingDefinitions(): array
             'type' => 'string',
             'default' => 'Oturum başarıyla açıldı. Kilitli indirme kartları güncelleniyor.',
             'section' => 'downloads',
+        ],
+        'download_access_success_notice_enabled' => [
+            'label' => 'Erişim Başarı Bildirimini Göster',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'downloads',
+            'tooltip' => 'Üyelik veya yorum şartlarını tamamlayan kullanıcıya indirme alanında yeşil başarı durumu gösterir.',
+        ],
+        'download_access_success_message' => [
+            'label' => 'Erişim Başarı Mesajı',
+            'type' => 'string',
+            'default' => 'Tüm erişim şartlarını tamamladınız. İndirme bağlantıları kullanıma hazır.',
+            'section' => 'downloads',
+        ],
+        'download_access_progress_enabled' => [
+            'label' => 'Erişim İlerlemesini Göster',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'downloads',
+        ],
+        'download_access_progress_template' => [
+            'label' => 'Erişim İlerleme Metni Şablonu',
+            'type' => 'string',
+            'default' => '{{completed}} adımdan {{total}} adımı tamamlandı',
+            'section' => 'downloads',
+            'tooltip' => '{{completed}} tamamlanan, {{total}} toplam adım sayısıyla değiştirilir.',
+        ],
+        'download_access_success_animation_enabled' => [
+            'label' => 'Başarı Animasyonunu Etkinleştir',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'downloads',
+        ],
+        'download_access_success_auto_compact' => [
+            'label' => 'Başarı Alanını Otomatik Daralt',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'downloads',
+        ],
+        'download_access_success_compact_delay' => [
+            'label' => 'Başarı Alanı Daralma Süresi (Saniye)',
+            'type' => 'number',
+            'default' => '5',
+            'section' => 'downloads',
+            'min' => 0,
+            'max' => 60,
+            'tooltip' => '0 seçilirse başarı alanı beklemeden kompakt hale gelir.',
+        ],
+        'download_access_highlight_first_card' => [
+            'label' => 'Kilit Açılınca İlk Kartı Vurgula',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'downloads',
+        ],
+        'download_access_pending_message' => [
+            'label' => 'Yorum Onayı Bekleme Mesajı',
+            'type' => 'string',
+            'default' => 'Yorumunuz gönderildi ve yönetici onayı bekliyor. Onaylandığında indirme bağlantıları otomatik açılacak.',
+            'section' => 'downloads',
+        ],
+        'download_access_pending_button_text' => [
+            'label' => 'Onay Bekleyen Kart Buton Metni',
+            'type' => 'string',
+            'default' => 'Onay Bekleniyor',
+            'section' => 'downloads',
+        ],
+        'download_access_expired_title' => [
+            'label' => 'Süresi Dolan Erişim Başlığı',
+            'type' => 'string',
+            'default' => 'Yorum erişim süreniz doldu',
+            'section' => 'downloads',
+        ],
+        'download_access_expired_message' => [
+            'label' => 'Süresi Dolan Erişim Açıklaması',
+            'type' => 'string',
+            'default' => 'İndirme bağlantılarını yeniden açmak için yeni bir yorum gönderin.',
+            'section' => 'downloads',
+        ],
+        'download_access_active_until_template' => [
+            'label' => 'Aktif Erişim Bitiş Metni',
+            'type' => 'string',
+            'default' => 'İndirme erişiminiz {{expires_at}} tarihine kadar açık.',
+            'section' => 'downloads',
+            'tooltip' => '{{expires_at}} erişimin biteceği tarih ve saatle değiştirilir.',
         ],
 
         'max_upload_size'        => ['label' => 'Maks. Dosya Boyutu (MB)',    'type' => 'number', 'default' => '50',  'section' => 'file_manager', 'group' => 'Dosya Ayarlari', 'tooltip' => 'Dosya Yoneticisi uzerinden yuklenebilecek tekil dosya boyutu. 0 sinirsiz anlamina gelir.'],
@@ -843,8 +972,8 @@ function adminSettingDefinitions(): array
         'notif_require_https_links' => ['label' => 'Harici Linklerde HTTPS Zorunlu', 'type' => 'bool', 'default' => '0', 'section' => 'notifications'],
         'notif_system_sender' => ['label' => 'Sistem Gönderen Adı', 'type' => 'string', 'default' => 'Sistem', 'section' => 'notifications'],
         'notif_retention_days' => ['label' => 'Saklama Süresi Gün', 'type' => 'number', 'default' => '30', 'section' => 'notifications'],
-        'notif_welcome_enabled' => ['label' => 'Yeni Üye Hoş Geldin Bildirimi', 'type' => 'bool', 'default' => '0', 'section' => 'notifications'],
-        'notif_welcome_msg' => ['label' => 'Hoş Geldin Mesajı', 'type' => 'text', 'default' => 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.', 'section' => 'notifications'],
+        'notif_welcome_enabled' => ['label' => 'Site İçi Hoş Geldin Bildirimi', 'type' => 'bool', 'default' => '0', 'section' => 'notifications'],
+        'notif_welcome_msg' => ['label' => 'Site İçi Hoş Geldin Mesajı', 'type' => 'text', 'default' => 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.', 'section' => 'notifications'],
 
         // -- Bildirim Olay Ayarları ------------------------
         'notif_events_enabled' => ['label' => 'Otomatik Olay Bildirimleri', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
@@ -1398,6 +1527,33 @@ function adminSettingDefinitions(): array
         ],
     ];
 
+    $definitions += [
+        'account_email_system_enabled' => ['label' => 'Hesap E-postaları Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'email'],
+        'account_email_verification_enabled' => [
+            'label' => 'E-posta Doğrulama Sistemi',
+            'type' => 'bool',
+            'default' => '0',
+            'section' => 'email',
+            'tooltip' => 'Yeni kayıt olan kullanıcılara e-posta doğrulama bağlantısı gönderir. Kullanıcı bağlantıya tıkladığında e-posta adresi doğrulanmış sayılır. Bu ayar kapalıysa doğrulama e-postası gönderilmez.',
+        ],
+        'account_email_verification_required' => [
+            'label' => 'Giriş İçin Doğrulama Zorunlu',
+            'type' => 'bool',
+            'default' => '0',
+            'section' => 'email',
+            'tooltip' => 'E-posta adresini doğrulamayan kullanıcıların giriş yapmasını engeller. Bu özelliğin çalışması için E-posta Doğrulama Sistemi de açık olmalıdır. Kapalıysa kullanıcılar e-posta adresini doğrulamadan giriş yapabilir.',
+        ],
+        'account_email_verification_ttl_minutes' => ['label' => 'Doğrulama Bağlantısı Süresi (Dakika)', 'type' => 'number', 'default' => '1440', 'section' => 'email', 'min' => 15, 'max' => 10080],
+        'account_email_verification_resend_cooldown_minutes' => ['label' => 'Tekrar Gönderme Bekleme Süresi (Dakika)', 'type' => 'number', 'default' => '10', 'section' => 'email', 'min' => 1, 'max' => 1440],
+    ];
+
+    foreach (\App\Engine\Email\AccountEmailService::catalog() as $templateKey => $template) {
+        $prefix = 'account_email_' . $templateKey . '_';
+        $definitions[$prefix . 'enabled'] = ['label' => $template['label'] . ' Aktif', 'type' => 'bool', 'default' => $template['enabled'], 'section' => 'email'];
+        $definitions[$prefix . 'subject'] = ['label' => 'E-posta Konusu', 'type' => 'string', 'default' => $template['subject'], 'section' => 'email'];
+        $definitions[$prefix . 'body'] = ['label' => 'HTML E-posta İçeriği', 'type' => 'text', 'default' => $template['body'], 'section' => 'email'];
+    }
+
     return $cache = adminNormalizeSettingDefinitions($definitions);
 }
 
@@ -1503,7 +1659,7 @@ function adminRenderSettingField(string $key, array $definition, array $settings
 
     ob_start();
     ?>
-    <div class="<?= htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') ?>">
+    <div class="<?= htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') ?>" data-setting-field="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
         <?php if ($type === 'bool'): ?>
             <label class="ui-admin-switch">
                 <input type="checkbox" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" value="1" <?= $value === '1' ? 'checked' : '' ?>>
@@ -1546,7 +1702,7 @@ function adminRenderSettingField(string $key, array $definition, array $settings
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
-                <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" type="<?= $type === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>">
+                <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" type="<?= $type === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>"<?= $type === 'number' && isset($definition['min']) ? ' min="' . (int) $definition['min'] . '"' : '' ?><?= $type === 'number' && isset($definition['max']) ? ' max="' . (int) $definition['max'] . '"' : '' ?>>
             <?php endif; ?>
         <?php endif; ?>
     </div>
@@ -2435,6 +2591,17 @@ function adminNormalizeSettingValue(string $key, string $value, array $definitio
         return (string)($definition['default'] ?? array_key_first($definition['options']) ?? '');
     }
 
+    if (($definition['type'] ?? '') === 'number') {
+        $number = (int) $value;
+        if (isset($definition['min'])) {
+            $number = max((int) $definition['min'], $number);
+        }
+        if (isset($definition['max'])) {
+            $number = min((int) $definition['max'], $number);
+        }
+        return (string) $number;
+    }
+
     return $value;
 }
 
@@ -2885,6 +3052,18 @@ function saveAdminSettings(?PDO $pdo, array $input): void
         $publicRouteBlocked[$candidate] = true;
     }
 
+    $downloadAccessDurationUnit = strtolower(trim((string) ($input['download_access_grant_duration_unit'] ?? 'hours')));
+    if (!in_array($downloadAccessDurationUnit, ['minutes', 'hours', 'days'], true)) {
+        $downloadAccessDurationUnit = 'hours';
+    }
+    $downloadAccessDurationMaximum = function_exists('topicDownloadGrantDurationMaximum')
+        ? topicDownloadGrantDurationMaximum($downloadAccessDurationUnit)
+        : match ($downloadAccessDurationUnit) {
+            'minutes' => 525600,
+            'days' => 3650,
+            default => 87600,
+        };
+
     foreach ($definitions as $key => $definition) {
         $section = (string)($definition['section'] ?? '');
 
@@ -2927,7 +3106,21 @@ function saveAdminSettings(?PDO $pdo, array $input): void
             $value = sidebarBuilderSanitizeConfigJson($value);
         }
 
+        if (preg_match('/^account_email_[a-z0-9_]+_(subject|body)$/', $key) === 1) {
+            if ($value === '') {
+                throw new RuntimeException('Hesap e-posta konusu ve içeriği boş bırakılamaz.');
+            }
+            preg_match_all('/{{\s*([a-zA-Z0-9_]+)\s*}}/', $value, $matches);
+            $unknownVariables = array_diff(array_unique($matches[1] ?? []), \App\Engine\Email\AccountEmailService::allowedVariables());
+            if ($unknownVariables !== []) {
+                throw new RuntimeException('Bilinmeyen hesap e-posta değişkeni: ' . implode(', ', $unknownVariables));
+            }
+        }
+
         $value = adminNormalizeSettingValue($key, $value, $definition);
+        if ($key === 'download_access_grant_duration_value') {
+            $value = (string) max(1, min($downloadAccessDurationMaximum, (int) $value));
+        }
 
         $stmt->execute(['key' => $key, 'value' => $value]);
         try {
@@ -2937,6 +3130,17 @@ function saveAdminSettings(?PDO $pdo, array $input): void
 
     // Ayar cache'ini invalidate et
     invalidateAdminSettingsCache();
+    try {
+        // Yeni değerleri aynı kaydetme isteğinde yeniden derleyerek sonraki HTTP
+        // isteğinin eski dosya/APCu içeriğine düşmesini engelle.
+        getAdminSettings($pdo);
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['source' => 'saveAdminSettings.cache_warm']);
+        } else {
+            error_log('Admin settings cache warm failed: ' . $e->getMessage());
+        }
+    }
 }
 
 function getAdminCategories(?PDO $pdo, bool $activeOnly = false): array

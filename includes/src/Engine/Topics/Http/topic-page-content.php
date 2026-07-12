@@ -767,7 +767,25 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'İndirme linklerini açmak için giriş yapın')) ?: 'İndirme linklerini açmak için giriş yapın';
         $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giriş Yap')) ?: 'Giriş Yap';
         $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayıt Ol')) ?: 'Kayıt Ol';
-        $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.')) ?: 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.';
+        $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.')) ?: 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.';
+        $downloadSuccessNoticeEnabled = (string) ($settings['download_access_success_notice_enabled'] ?? '1') === '1';
+        $downloadSuccessMessage = trim((string) ($settings['download_access_success_message'] ?? 'Tüm erişim şartlarını tamamladınız. İndirme bağlantıları kullanıma hazır.')) ?: 'Tüm erişim şartlarını tamamladınız. İndirme bağlantıları kullanıma hazır.';
+        $downloadProgressEnabled = (string) ($settings['download_access_progress_enabled'] ?? '1') === '1';
+        $downloadCommentTitle = trim((string) ($settings['download_access_comment_title'] ?? 'Yorum gerekli')) ?: 'Yorum gerekli';
+        $downloadProgressTemplate = function_exists('topicDownloadProgressTemplate')
+            ? topicDownloadProgressTemplate($settings)
+            : '{{completed}} adımdan {{total}} adımı tamamlandı';
+        $downloadSuccessAnimationEnabled = (string) ($settings['download_access_success_animation_enabled'] ?? '1') === '1';
+        $downloadSuccessAutoCompact = (string) ($settings['download_access_success_auto_compact'] ?? '1') === '1';
+        $downloadSuccessCompactDelay = max(0, min(60, (int) ($settings['download_access_success_compact_delay'] ?? 5)));
+        $downloadHighlightFirstCard = (string) ($settings['download_access_highlight_first_card'] ?? '1') === '1';
+        $downloadPendingMessage = trim((string) ($settings['download_access_pending_message'] ?? 'Yorumunuz gönderildi ve yönetici onayı bekliyor. Onaylandığında indirme bağlantıları otomatik açılacak.')) ?: 'Yorumunuz gönderildi ve yönetici onayı bekliyor. Onaylandığında indirme bağlantıları otomatik açılacak.';
+        $downloadPendingButtonText = trim((string) ($settings['download_access_pending_button_text'] ?? 'Onay Bekleniyor')) ?: 'Onay Bekleniyor';
+        $downloadExpiredTitle = trim((string) ($settings['download_access_expired_title'] ?? 'Yorum erişim süreniz doldu')) ?: 'Yorum erişim süreniz doldu';
+        $downloadExpiredMessage = trim((string) ($settings['download_access_expired_message'] ?? 'İndirme bağlantılarını yeniden açmak için yeni bir yorum gönderin.')) ?: 'İndirme bağlantılarını yeniden açmak için yeni bir yorum gönderin.';
+        $downloadAccessUntilText = trim((string) ($downloadAccessState['access_until_text'] ?? ''));
+        $downloadAccessExpiresAt = trim((string) ($downloadAccessState['expires_at'] ?? ''));
+        $downloadCommentStepRequired = !empty($downloadAccessState['comment_step_required']);
         $downloadLoginUrl = routePublicStaticUrl('login');
         $downloadRegisterUrl = routePublicStaticUrl('register');
         $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
@@ -775,21 +793,57 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $downloadTopicId = (int) ($topic['id'] ?? 0);
         $downloadSectionLockMessage = $downloadLockMessage !== ''
             ? $downloadLockMessage
-            : ($downloadLockReason === 'comment_required'
-                ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
-                : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.');
+            : match ($downloadLockReason) {
+                'comment_required' => 'İndirme linklerini görmek için önce yorum yapmanız gerekir.',
+                'comment_pending' => $downloadPendingMessage,
+                'comment_expired' => $downloadExpiredMessage,
+                default => 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.',
+            };
         $downloadAccessStage = function_exists('topicDownloadAccessStage')
             ? topicDownloadAccessStage($downloadLocked, $downloadLockReason)
             : ($downloadLocked
                 ? ($downloadLockReason === 'comment_required' ? 'comment' : 'login')
                 : 'open');
+        $downloadProgressCompleted = max(0, (int) ($downloadAccessState['progress_completed'] ?? 0));
+        $downloadProgressTotal = max(0, (int) ($downloadAccessState['progress_total'] ?? 0));
+        $downloadProgressText = $downloadProgressTotal > 0
+            ? (function_exists('topicDownloadProgressText')
+                ? topicDownloadProgressText($settings, $downloadProgressCompleted, $downloadProgressTotal)
+                : str_replace(['{{completed}}', '{{total}}'], [(string) $downloadProgressCompleted, (string) $downloadProgressTotal], $downloadProgressTemplate))
+            : '';
         $downloadAccessStepClasses = function_exists('topicDownloadAccessStepClasses')
-            ? topicDownloadAccessStepClasses($downloadAccessStage)
+            ? topicDownloadAccessStepClasses($downloadAccessStage, $downloadCommentStepRequired)
             : [
                 'login' => $downloadAccessStage === 'login' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending'),
-                'comment' => $downloadAccessStage === 'comment' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending'),
+                'comment' => !$downloadCommentStepRequired ? 'is-muted' : ($downloadAccessStage === 'comment' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending')),
                 'open' => $downloadAccessStage === 'open' ? 'is-active' : 'is-pending',
             ];
+        $downloadAccessMode = trim((string) ($downloadAccessState['mode'] ?? 'public')) ?: 'public';
+        $downloadAccessSuccess = !$downloadLocked && $downloadAccessMode !== 'public' && $downloadSuccessNoticeEnabled;
+        $downloadShowAccessNotice = $downloadLocked || $downloadAccessSuccess;
+        $downloadAccessNoticeMessage = $downloadAccessSuccess ? $downloadSuccessMessage : $downloadSectionLockMessage;
+        if ($downloadLockReason === 'comment_pending') {
+            $downloadAccessNoticeMessage = $downloadPendingMessage;
+        }
+        if ($downloadLockReason === 'comment_expired') {
+            $downloadAccessNoticeMessage = $downloadExpiredMessage;
+        }
+        $downloadAccessNoticeTitle = $downloadAccessSuccess
+            ? 'İndirmeye hazırsınız'
+            : match ($downloadLockReason) {
+                'comment_required' => $downloadCommentTitle,
+                'comment_pending' => 'Yorum onayı bekleniyor',
+                'comment_expired' => $downloadExpiredTitle,
+                'auth_required' => 'Giriş gerekli',
+                default => 'İndirme erişimi kısıtlı',
+            };
+        if ($downloadAccessSuccess) {
+            $downloadAccessStepClasses = [
+                'login' => 'is-complete',
+                'comment' => $downloadCommentStepRequired ? 'is-complete' : 'is-muted',
+                'open' => 'is-complete',
+            ];
+        }
         $downloadTopicUrl = topicUrl((string) ($topic['slug'] ?? ''), $downloadTopicId);
         $downloadCommentTarget = $downloadTopicUrl . '#comments-heading';
         $downloadCurrentRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
@@ -808,18 +862,25 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
 
             </div>
 
-            <?php if ($downloadLocked): ?>
+            <?php if ($downloadShowAccessNotice): ?>
 
-            <div class="topic-dl-access-notice" data-download-lock-notice data-download-stage="<?= htmlspecialchars($downloadAccessStage, ENT_QUOTES, 'UTF-8') ?>" role="status" aria-live="polite">
+            <div class="topic-dl-access-notice<?= $downloadAccessSuccess ? ' is-success' : '' ?>" data-download-lock-notice data-download-stage="<?= htmlspecialchars($downloadAccessStage, ENT_QUOTES, 'UTF-8') ?>" role="status" aria-live="polite">
 
-                <i class="bi bi-lock-fill" aria-hidden="true"></i>
+                <i class="bi <?= $downloadAccessSuccess ? 'bi-check-circle-fill' : ($downloadLockReason === 'comment_pending' ? 'bi-hourglass-split' : ($downloadLockReason === 'comment_expired' ? 'bi-clock-history' : 'bi-lock-fill')) ?>" aria-hidden="true"></i>
 
                 <div class="topic-dl-access-notice__body">
-                    <span class="topic-dl-access-notice__text"><?= htmlspecialchars($downloadSectionLockMessage, ENT_QUOTES, 'UTF-8') ?></span>
+                    <strong class="topic-dl-access-notice__title"><?= htmlspecialchars($downloadAccessNoticeTitle, ENT_QUOTES, 'UTF-8') ?></strong>
+                    <span class="topic-dl-access-notice__text"><?= htmlspecialchars($downloadAccessNoticeMessage, ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="topic-dl-access-until" data-download-access-until<?= $downloadAccessUntilText === '' ? ' hidden' : '' ?>><?= htmlspecialchars($downloadAccessUntilText, ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php if ($downloadProgressEnabled && $downloadProgressText !== ''): ?>
+                    <span class="topic-dl-access-progress" data-download-progress aria-label="<?= htmlspecialchars($downloadProgressText, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($downloadProgressText, ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endif; ?>
                     <div class="topic-dl-access-steps" aria-label="İndirme kilidi adımları">
                         <span class="topic-dl-access-step <?= htmlspecialchars($downloadAccessStepClasses['login'] ?? 'is-pending', ENT_QUOTES, 'UTF-8') ?>" data-download-step="login" title="Giriş yap"><i class="bi bi-1-circle-fill" aria-hidden="true"></i><span>Giriş</span></span>
+                        <?php if ($downloadCommentStepRequired): ?>
                         <span class="topic-dl-access-step <?= htmlspecialchars($downloadAccessStepClasses['comment'] ?? 'is-pending', ENT_QUOTES, 'UTF-8') ?>" data-download-step="comment" title="Yorum gönder"><i class="bi bi-2-circle-fill" aria-hidden="true"></i><span>Yorum</span></span>
-                        <span class="topic-dl-access-step <?= htmlspecialchars($downloadAccessStepClasses['open'] ?? 'is-pending', ENT_QUOTES, 'UTF-8') ?>" data-download-step="open" title="Bağlantıyı aç"><i class="bi bi-3-circle-fill" aria-hidden="true"></i><span>Aç</span></span>
+                        <?php endif; ?>
+                        <span class="topic-dl-access-step <?= htmlspecialchars($downloadAccessStepClasses['open'] ?? 'is-pending', ENT_QUOTES, 'UTF-8') ?>" data-download-step="open" title="Bağlantıyı aç"><i class="bi <?= $downloadCommentStepRequired ? 'bi-3-circle-fill' : 'bi-2-circle-fill' ?>" aria-hidden="true"></i><span>Aç</span></span>
                     </div>
                 </div>
 
@@ -850,6 +911,44 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                  data-comment-target="<?= htmlspecialchars($downloadCommentTarget, ENT_QUOTES, 'UTF-8') ?>"
 
                  data-current-request-uri="<?= htmlspecialchars($downloadCurrentRequestUri, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-access-mode="<?= htmlspecialchars($downloadAccessMode, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-success-notice-enabled="<?= $downloadSuccessNoticeEnabled ? '1' : '0' ?>"
+
+                 data-success-message="<?= htmlspecialchars($downloadSuccessMessage, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-progress-enabled="<?= $downloadProgressEnabled ? '1' : '0' ?>"
+
+                 data-comment-title="<?= htmlspecialchars($downloadCommentTitle, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-progress-template="<?= htmlspecialchars($downloadProgressTemplate, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-progress-completed="<?= $downloadProgressCompleted ?>"
+
+                 data-progress-total="<?= $downloadProgressTotal ?>"
+
+                 data-comment-step-required="<?= $downloadCommentStepRequired ? '1' : '0' ?>"
+
+                 data-success-animation-enabled="<?= $downloadSuccessAnimationEnabled ? '1' : '0' ?>"
+
+                 data-success-auto-compact="<?= $downloadSuccessAutoCompact ? '1' : '0' ?>"
+
+                 data-success-compact-delay="<?= $downloadSuccessCompactDelay ?>"
+
+                 data-highlight-first-card="<?= $downloadHighlightFirstCard ? '1' : '0' ?>"
+
+                 data-pending-message="<?= htmlspecialchars($downloadPendingMessage, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-pending-button-text="<?= htmlspecialchars($downloadPendingButtonText, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-expired-title="<?= htmlspecialchars($downloadExpiredTitle, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-expired-message="<?= htmlspecialchars($downloadExpiredMessage, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-access-until-text="<?= htmlspecialchars($downloadAccessUntilText, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-access-expires-at="<?= htmlspecialchars($downloadAccessExpiresAt, ENT_QUOTES, 'UTF-8') ?>"
 
                  data-download-stage="<?= htmlspecialchars($downloadAccessStage, ENT_QUOTES, 'UTF-8') ?>"
 
@@ -903,10 +1002,13 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                         $cardLockReason = $cardLocked ? $downloadLockReason : 'none';
                         $cardLockMessage = $cardLocked ? $downloadSectionLockMessage : '';
                         $cardButtonText = $downloadReadyText;
-                        if ($cardLocked) {
-                            $cardButtonText = $cardLockReason === 'comment_required'
-                                ? $downloadCommentCtaLabel
-                                : $downloadLockButtonText;
+                        if ($cardLocked) {
+                            $cardButtonText = match ($cardLockReason) {
+                                'comment_required' => $downloadCommentCtaLabel,
+                                'comment_expired' => $downloadCommentCtaLabel,
+                                'comment_pending' => $downloadPendingButtonText,
+                                default => $downloadLockButtonText,
+                            };
                         }
                         $cardHref = $cardLocked ? '#' : $dlHref;
                         ?>
@@ -923,7 +1025,7 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                        data-comment-cta-label="<?= htmlspecialchars($downloadCommentCtaLabel, ENT_QUOTES, 'UTF-8') ?>"
                        aria-disabled="<?= $cardLocked ? 'true' : 'false' ?>">
 
-                        <div class="download-icon topic-dl-icon"><i class="bi <?= $cardLocked ? 'bi-lock-fill' : 'bi-cloud-arrow-down' ?>" aria-hidden="true"></i></div>
+                        <div class="download-icon topic-dl-icon"><i class="bi <?= $cardLocked ? ($cardLockReason === 'comment_pending' ? 'bi-hourglass-split' : ($cardLockReason === 'comment_expired' ? 'bi-clock-history' : 'bi-lock-fill')) : 'bi-cloud-arrow-down' ?>" aria-hidden="true"></i></div>
 
                         <div class="download-info topic-dl-info">
 

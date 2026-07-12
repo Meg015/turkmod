@@ -98,7 +98,7 @@
 </div>
 {/loop}
 {else}
-<div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-hourglass" aria-hidden="true"></i><p>Henüz aktivite yok.</p><a href="{base_url}/profile.php?tab=settings">Profili tamamla</a></div>
+<div class="profile-empty profile-empty-action ui-empty"><i class="bi bi-hourglass" aria-hidden="true"></i><p>Henüz aktivite yok.</p><a href="{profile.base_url}?tab=settings">Profili tamamla</a></div>
 {/if}
 </div>
 </div>
@@ -169,7 +169,7 @@
 {if profile.tab_favorites}
 <div class="profile-single-column"><div class="profile-section ui-card ui-section">
 <div class="profile-section-title"><i class="bi bi-heart-fill" aria-hidden="true"></i>Favorilerim ({profile.total_favorites})</div>
-<form method="post" action="{base_url}/profile.php?tab=favorites" class="collection-create-form">
+<form method="post" action="{profile.base_url}?tab=favorites" class="collection-create-form">
 <input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="create_collection">
 <div><label for="collection_name">Yeni Koleksiyon</label><input type="text" id="collection_name" name="collection_name" maxlength="120" placeholder="Örn. En iyi kamyon modları" required></div>
 <div><label for="collection_description">Not</label><input type="text" id="collection_description" name="collection_description" maxlength="500" placeholder="İsteğe bağlı kısa açıklama"></div>
@@ -181,8 +181,8 @@
 <div class="collection-summary-card">
 <div><strong>{item.name}</strong><span>{item.count}</span>{if item.description}<small>{item.description}</small>{/if}<small>{item.visibility_label}</small></div>
 <div class="collection-summary-actions">
-<form method="post" action="{base_url}/profile.php?tab=favorites"><input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="update_collection_visibility"><input type="hidden" name="collection_id" value="{item.id}"><input type="hidden" name="visibility" value="{item.toggle_visibility}"><button type="submit" title="{item.toggle_title}"><i class="bi {item.toggle_icon}" aria-hidden="true"></i></button></form>
-<form method="post" action="{base_url}/profile.php?tab=favorites" data-app-confirm="Bu koleksiyonu silmek istiyor musunuz?" data-app-confirm-title="Koleksiyon silinsin mi?" data-app-confirm-ok="Sil"><input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="delete_collection"><input type="hidden" name="collection_id" value="{item.id}"><button type="submit" title="Koleksiyonu sil"><i class="bi bi-trash" aria-hidden="true"></i></button></form>
+<form method="post" action="{profile.base_url}?tab=favorites"><input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="update_collection_visibility"><input type="hidden" name="collection_id" value="{item.id}"><input type="hidden" name="visibility" value="{item.toggle_visibility}"><button type="submit" title="{item.toggle_title}"><i class="bi {item.toggle_icon}" aria-hidden="true"></i></button></form>
+<form method="post" action="{profile.base_url}?tab=favorites" data-app-confirm="Bu koleksiyonu silmek istiyor musunuz?" data-app-confirm-title="Koleksiyon silinsin mi?" data-app-confirm-ok="Sil"><input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="delete_collection"><input type="hidden" name="collection_id" value="{item.id}"><button type="submit" title="Koleksiyonu sil"><i class="bi bi-trash" aria-hidden="true"></i></button></form>
 </div>
 </div>
 {/loop}
@@ -259,7 +259,7 @@
 <div class="row g-4 mb-4">
 <div class="col-lg-8"><section class="ui-card profile-section h-100 mb-0 ui-section">
 <div class="profile-section-title"><i class="bi bi-person-gear" aria-hidden="true"></i>Profil Bilgileri</div>
-<form method="post" action="{base_url}/profile.php?tab=settings">
+<form method="post" action="{profile.base_url}?tab=settings">
 <input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="update_profile">
 <div class="profile-form-row"><div class="profile-form-group"><label for="pf_username">Kullanici Adi</label><input type="text" id="pf_username" name="username" value="{profile.username}" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" autocomplete="username"></div><div class="profile-form-group"><label>E-posta <span class="profile-form-hint">(degistirilemez)</span></label><input type="email" value="{profile.email}" disabled class="profile-disabled-input"></div></div>
 <div class="profile-form-group"><label for="pf_bio">Hakkımda</label><textarea id="pf_bio" name="bio" rows="3" maxlength="500" placeholder="Kendinizi kısaca tanıtın...">{profile.bio}</textarea></div>
@@ -274,7 +274,7 @@
 </section></div>
 <div class="col-lg-4"><section class="ui-card profile-section ui-section">
 <div class="profile-section-title"><i class="bi bi-camera" aria-hidden="true"></i>Profil Fotoğrafı</div>
-<form method="post" action="{base_url}/profile.php?tab=settings" enctype="multipart/form-data" id="profileAvatarForm" class="profile-avatar-form">
+<form method="post" action="{profile.base_url}?tab=settings" enctype="multipart/form-data" id="profileAvatarForm" class="profile-avatar-form">
 <input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="upload_avatar">
 <label class="profile-avatar-upload" for="avatar_input" data-avatar-upload>
 <div class="profile-avatar-preview default-avatar" data-avatar-preview>{if profile.has_avatar}<img src="{profile.avatar}" alt="" width="64" height="64" data-avatar-img data-ui-avatar-img data-ui-avatar-fallback="{profile.avatar_fallback}">{else}<img src="{profile.avatar_fallback}" alt="" width="64" height="64" data-avatar-img data-ui-avatar-img data-ui-avatar-fallback="{profile.avatar_fallback}">{/if}</div>
@@ -297,7 +297,7 @@
 <div class="profile-section-title"><i class="bi bi-key" aria-hidden="true"></i>Şifre Değiştir</div>
 {if profile.pw_success}<div class="ui-admin-alert ui-admin-alert-success profile-alert-sm ui-alert ui-alert--success">{profile.pw_success}</div>{/if}
 {if profile.pw_error}<div class="ui-admin-alert ui-admin-alert-danger profile-alert-sm ui-alert ui-alert--error">{profile.pw_error}</div>{/if}
-<form method="post" action="{base_url}/profile.php?tab=security" id="profilePasswordForm">
+<form method="post" action="{profile.base_url}?tab=security" id="profilePasswordForm">
 <input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="change_password">
 <div class="profile-form-group"><label for="pw_current">Mevcut Şifre</label><input type="password" id="pw_current" name="current_password" required autocomplete="current-password"></div>
 <div class="profile-form-group"><label for="pw_new">Yeni Şifre</label><input type="password" id="pw_new" name="new_password" required minlength="{profile.password_min_length}" autocomplete="new-password" data-password-strength data-password-confirm="#pw_confirm" data-password-require-uppercase="{profile.password_require_uppercase}" data-password-require-numbers="{profile.password_require_numbers}" data-password-require-special="{profile.password_require_special}"><small class="profile-form-hint">{profile.password_policy_hint}</small></div>
@@ -307,7 +307,7 @@
 </section></div>
 <div class="col-lg-6">
 <section class="ui-card profile-section ui-section"><div class="profile-section-title"><i class="bi bi-shield-exclamation" aria-hidden="true"></i>Güvenlik Durumu</div><div class="profile-check-list">{loop profile.security_checks}<div class="profile-check-row"><i class="bi {item.icon} {item.class}" aria-hidden="true"></i><span>{item.label}</span></div>{/loop}</div></section>
-<section class="ui-card profile-section ui-section"><div class="profile-section-title"><i class="bi bi-person-check" aria-hidden="true"></i>Aktif Oturum</div><div class="profile-session-card ui-card">{loop profile.session_info}<div><strong>{item.label}</strong><span>{item.value}</span></div>{/loop}</div><form method="post" action="{base_url}/profile.php?tab=security" class="profile-session-logout-form" data-app-confirm="Bu hesaba bağlı diğer tüm cihaz ve tarayıcılardaki oturumlar kapatılacak. Bu cihazdaki oturumunuz açık kalır. Devam etmek istiyor musunuz?" data-app-confirm-title="Tüm cihazlardan çıkış yapılsın mı?" data-app-confirm-ok="Evet, hepsinden çıkış yap" data-app-confirm-icon="bi-box-arrow-right"><input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="logout_all_devices"><button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-danger w-100"><i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>Tüm Cihazlardan Çıkış Yap</button><p class="profile-session-logout-hint"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Hesabınızın açık olduğu diğer tüm cihazlardaki oturumlar sonlandırılır.</p></form></section>
+<section class="ui-card profile-section ui-section"><div class="profile-section-title"><i class="bi bi-person-check" aria-hidden="true"></i>Aktif Oturum</div><div class="profile-session-card ui-card">{loop profile.session_info}<div><strong>{item.label}</strong><span>{item.value}</span></div>{/loop}</div><form method="post" action="{profile.base_url}?tab=security" class="profile-session-logout-form" data-app-confirm="Bu hesaba bağlı diğer tüm cihaz ve tarayıcılardaki oturumlar kapatılacak. Bu cihazdaki oturumunuz açık kalır. Devam etmek istiyor musunuz?" data-app-confirm-title="Tüm cihazlardan çıkış yapılsın mı?" data-app-confirm-ok="Evet, hepsinden çıkış yap" data-app-confirm-icon="bi-box-arrow-right"><input type="hidden" name="_token" value="{profile.csrf_token}"><input type="hidden" name="action" value="logout_all_devices"><button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-danger w-100"><i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>Tüm Cihazlardan Çıkış Yap</button><p class="profile-session-logout-hint"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Hesabınızın açık olduğu diğer tüm cihazlardaki oturumlar sonlandırılır.</p></form></section>
 <section class="ui-card profile-section ui-section"><div class="profile-section-title"><i class="bi bi-clock-history" aria-hidden="true"></i>Son Güvenlik Olayları</div>{if profile.has_security_events}{loop profile.security_events}<div class="profile-activity-item"><div class="profile-activity-dot {item.tone}"></div><div class="profile-activity-copy"><strong>{if item.url}<a href="{item.url}" class="profile-activity-title-link">{item.title}</a>{else}{item.title}{/if}</strong>{if item.detail}<span class="profile-muted">{item.detail}</span>{/if}</div><span class="profile-date-muted">{item.date}</span></div>{/loop}{else}<div class="profile-empty-mini ui-empty">Kayıt yok</div>{/if}</section>
 </div>
 </div>

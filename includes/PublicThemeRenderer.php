@@ -72,6 +72,10 @@ final class PublicThemeRenderer
             'site_name' => $siteName,
             'site_description' => $siteDescription,
             'base_url' => rtrim($baseUri, '/'),
+            'profile_url' => routePrivateProfileUrl(),
+            'login_url' => routePublicStaticUrl('login'),
+            'register_url' => routePublicStaticUrl('register'),
+            'logout_url' => routePublicStaticUrl('logout'),
             'upload_topic_url' => (string) routePublicStaticUrl('upload_topic'),
             'logo_url' => self::publicSettingAsset(trim((string) ($settings['logo_url'] ?? '')), $baseUri),
             'logo_alt' => $siteName . ' logo',
@@ -971,8 +975,13 @@ final class PublicThemeRenderer
                 'download_show_counts',
                 'download_access_mode',
                 'download_access_comment_requirement',
+                'download_access_grant_mode',
+                'download_access_grant_duration_value',
+                'download_access_grant_duration_unit',
+                'download_access_relock_on_comment_delete',
                 'download_access_login_message',
                 'download_access_comment_message',
+                'download_access_comment_title',
                 'download_access_locked_button_text',
                 'download_access_comment_cta_label',
                 'download_access_open_auth_popup',
@@ -983,6 +992,19 @@ final class PublicThemeRenderer
                 'download_access_auth_login_label',
                 'download_access_auth_register_label',
                 'download_access_auth_success_message',
+                'download_access_success_notice_enabled',
+                'download_access_success_message',
+                'download_access_progress_enabled',
+                'download_access_progress_template',
+                'download_access_success_animation_enabled',
+                'download_access_success_auto_compact',
+                'download_access_success_compact_delay',
+                'download_access_highlight_first_card',
+                'download_access_pending_message',
+                'download_access_pending_button_text',
+                'download_access_expired_title',
+                'download_access_expired_message',
+                'download_access_active_until_template',
             ] as $downloadKey) {
                 if (array_key_exists($downloadKey, $runtimeSettings)) {
                     $settings[$downloadKey] = $runtimeSettings[$downloadKey];
@@ -1005,6 +1027,21 @@ final class PublicThemeRenderer
         $downloadAuthLoginLabel = trim((string) ($settings['download_access_auth_login_label'] ?? 'Giriş Yap')) ?: 'Giriş Yap';
         $downloadAuthRegisterLabel = trim((string) ($settings['download_access_auth_register_label'] ?? 'Kayıt Ol')) ?: 'Kayıt Ol';
         $downloadAuthSuccessMessage = trim((string) ($settings['download_access_auth_success_message'] ?? 'Oturum başarıyla açıldı. Kilitli indirme kartları güncelleniyor.')) ?: 'Oturum başarıyla açıldı. Kilitli indirme kartları güncelleniyor.';
+        $downloadSuccessNoticeEnabled = (string) ($settings['download_access_success_notice_enabled'] ?? '1') === '1';
+        $downloadSuccessMessage = trim((string) ($settings['download_access_success_message'] ?? 'Tüm erişim şartlarını tamamladınız. İndirme bağlantıları kullanıma hazır.')) ?: 'Tüm erişim şartlarını tamamladınız. İndirme bağlantıları kullanıma hazır.';
+        $downloadProgressEnabled = (string) ($settings['download_access_progress_enabled'] ?? '1') === '1';
+        $downloadCommentTitle = trim((string) ($settings['download_access_comment_title'] ?? 'Yorum gerekli')) ?: 'Yorum gerekli';
+        $downloadProgressTemplate = function_exists('topicDownloadProgressTemplate')
+            ? topicDownloadProgressTemplate($settings)
+            : '{{completed}} adımdan {{total}} adımı tamamlandı';
+        $downloadSuccessAnimationEnabled = (string) ($settings['download_access_success_animation_enabled'] ?? '1') === '1';
+        $downloadSuccessAutoCompact = (string) ($settings['download_access_success_auto_compact'] ?? '1') === '1';
+        $downloadSuccessCompactDelay = max(0, min(60, (int) ($settings['download_access_success_compact_delay'] ?? 5)));
+        $downloadHighlightFirstCard = (string) ($settings['download_access_highlight_first_card'] ?? '1') === '1';
+        $downloadPendingMessage = trim((string) ($settings['download_access_pending_message'] ?? 'Yorumunuz gönderildi ve yönetici onayı bekliyor. Onaylandığında indirme bağlantıları otomatik açılacak.')) ?: 'Yorumunuz gönderildi ve yönetici onayı bekliyor. Onaylandığında indirme bağlantıları otomatik açılacak.';
+        $downloadPendingButtonText = trim((string) ($settings['download_access_pending_button_text'] ?? 'Onay Bekleniyor')) ?: 'Onay Bekleniyor';
+        $downloadExpiredTitle = trim((string) ($settings['download_access_expired_title'] ?? 'Yorum erişim süreniz doldu')) ?: 'Yorum erişim süreniz doldu';
+        $downloadExpiredMessage = trim((string) ($settings['download_access_expired_message'] ?? 'İndirme bağlantılarını yeniden açmak için yeni bir yorum gönderin.')) ?: 'İndirme bağlantılarını yeniden açmak için yeni bir yorum gönderin.';
         $downloadOpenAuthPopup = (string) ($settings['download_access_open_auth_popup'] ?? '1') === '1';
         $downloadFocusCommentForm = (string) ($settings['download_access_focus_comment_form'] ?? '1') === '1';
         $downloadUnlockAfterAuth = (string) ($settings['download_access_unlock_after_auth'] ?? '1') === '1';
@@ -1014,8 +1051,21 @@ final class PublicThemeRenderer
             ? topicDownloadAccessState($pdo instanceof PDO ? $pdo : null, $settings, $topicId, $currentUserId)
             : ['locked' => false, 'reason' => 'none', 'message' => '', 'mode' => 'public'];
         $downloadLocked = !empty($downloadAccessState['locked']);
+        $downloadAccessMode = trim((string) ($downloadAccessState['mode'] ?? 'public')) ?: 'public';
+        $downloadAccessSuccess = !$downloadLocked && $downloadAccessMode !== 'public' && $downloadSuccessNoticeEnabled;
+        $downloadShowAccessNotice = $downloadLocked || $downloadAccessSuccess;
         $downloadLockReason = trim((string) ($downloadAccessState['reason'] ?? 'none')) ?: 'none';
         $downloadLockMessage = trim((string) ($downloadAccessState['message'] ?? ''));
+        $downloadAccessUntilText = trim((string) ($downloadAccessState['access_until_text'] ?? ''));
+        $downloadAccessExpiresAt = trim((string) ($downloadAccessState['expires_at'] ?? ''));
+        $downloadCommentStepRequired = !empty($downloadAccessState['comment_step_required']);
+        $downloadProgressCompleted = max(0, (int) ($downloadAccessState['progress_completed'] ?? 0));
+        $downloadProgressTotal = max(0, (int) ($downloadAccessState['progress_total'] ?? 0));
+        $downloadProgressText = $downloadProgressTotal > 0
+            ? (function_exists('topicDownloadProgressText')
+                ? topicDownloadProgressText($settings, $downloadProgressCompleted, $downloadProgressTotal)
+                : str_replace(['{{completed}}', '{{total}}'], [(string) $downloadProgressCompleted, (string) $downloadProgressTotal], $downloadProgressTemplate))
+            : '';
         $downloadAccessStage = (string) ($downloadAccessState['stage'] ?? '');
         if ($downloadAccessStage === '' && function_exists('topicDownloadAccessStage')) {
             $downloadAccessStage = topicDownloadAccessStage($downloadLocked, $downloadLockReason);
@@ -1028,17 +1078,36 @@ final class PublicThemeRenderer
         $downloadAccessStepClasses = is_array($downloadAccessState['step_classes'] ?? null)
             ? $downloadAccessState['step_classes']
             : (function_exists('topicDownloadAccessStepClasses')
-                ? topicDownloadAccessStepClasses($downloadAccessStage)
+                ? topicDownloadAccessStepClasses($downloadAccessStage, $downloadCommentStepRequired)
                 : [
                     'login' => $downloadAccessStage === 'login' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending'),
-                    'comment' => $downloadAccessStage === 'comment' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending'),
+                    'comment' => !$downloadCommentStepRequired ? 'is-muted' : ($downloadAccessStage === 'comment' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending')),
                     'open' => $downloadAccessStage === 'open' ? 'is-active' : 'is-pending',
                 ]);
-        if ($downloadLockMessage === '') {
-            $downloadLockMessage = $downloadLockReason === 'comment_required'
-                ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
-                : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.';
+        if ($downloadAccessSuccess) {
+            $downloadAccessStepClasses = [
+                'login' => 'is-complete',
+                'comment' => $downloadCommentStepRequired ? 'is-complete' : 'is-muted',
+                'open' => 'is-complete',
+            ];
         }
+        if ($downloadLockMessage === '') {
+            $downloadLockMessage = match ($downloadLockReason) {
+                'comment_required' => 'İndirme linklerini görmek için önce yorum yapmanız gerekir.',
+                'comment_pending' => $downloadPendingMessage,
+                'comment_expired' => $downloadExpiredMessage,
+                default => 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.',
+            };
+        }
+        $downloadAccessNoticeTitle = $downloadAccessSuccess
+            ? 'İndirmeye hazırsınız'
+            : match ($downloadLockReason) {
+                'comment_required' => $downloadCommentTitle,
+                'comment_pending' => 'Yorum onayı bekleniyor',
+                'comment_expired' => $downloadExpiredTitle,
+                'auth_required' => 'Giriş gerekli',
+                default => 'İndirme erişimi kısıtlı',
+            };
         $downloadCommentTarget = topicUrl((string) ($topic['slug'] ?? ''), $topicId) . '#comments-heading';
 
         if (($settings['topic_detail_show_download_panel'] ?? '1') !== '1') {
@@ -1081,9 +1150,12 @@ final class PublicThemeRenderer
             }
             $cardButtonText = $readyText;
             if ($downloadLocked) {
-                $cardButtonText = $downloadLockReason === 'comment_required'
-                    ? $downloadCommentCtaLabel
-                    : $downloadLockButtonText;
+                $cardButtonText = match ($downloadLockReason) {
+                    'comment_required' => $downloadCommentCtaLabel,
+                    'comment_expired' => $downloadCommentCtaLabel,
+                    'comment_pending' => $downloadPendingButtonText,
+                    default => $downloadLockButtonText,
+                };
             }
             $rows[] = [
                 'href' => $downloadLocked ? '#' : $href,
@@ -1095,6 +1167,7 @@ final class PublicThemeRenderer
                 'locked' => $downloadLocked,
                 'lock_reason' => $downloadLockReason,
                 'lock_message' => $downloadLockMessage,
+                'lock_icon' => $downloadLockReason === 'comment_pending' ? 'bi-hourglass-split' : ($downloadLockReason === 'comment_expired' ? 'bi-clock-history' : 'bi-lock-fill'),
                 'button_text' => $cardButtonText,
             ];
         }
@@ -1110,7 +1183,33 @@ final class PublicThemeRenderer
             'download_locked' => $downloadLocked,
             'download_lock_reason' => $downloadLockReason,
             'download_lock_message' => $downloadLockMessage,
+            'download_access_mode' => $downloadAccessMode,
+            'download_access_success' => $downloadAccessSuccess,
+            'download_show_access_notice' => $downloadShowAccessNotice,
+            'download_access_notice_message' => $downloadAccessSuccess ? $downloadSuccessMessage : $downloadLockMessage,
+            'download_access_notice_icon' => $downloadAccessSuccess ? 'bi-check-circle-fill' : ($downloadLockReason === 'comment_pending' ? 'bi-hourglass-split' : ($downloadLockReason === 'comment_expired' ? 'bi-clock-history' : 'bi-lock-fill')),
+            'download_access_notice_title' => $downloadAccessNoticeTitle,
+            'download_access_until_text' => $downloadAccessUntilText,
+            'download_access_expires_at' => $downloadAccessExpiresAt,
+            'download_success_notice_enabled' => $downloadSuccessNoticeEnabled ? '1' : '0',
+            'download_success_message' => $downloadSuccessMessage,
+            'download_progress_enabled' => $downloadProgressEnabled,
+            'download_comment_title' => $downloadCommentTitle,
+            'download_progress_template' => $downloadProgressTemplate,
+            'download_progress_completed' => $downloadProgressCompleted,
+            'download_progress_total' => $downloadProgressTotal,
+            'download_progress_text' => $downloadProgressText,
+            'download_success_animation_enabled' => $downloadSuccessAnimationEnabled ? '1' : '0',
+            'download_success_auto_compact' => $downloadSuccessAutoCompact ? '1' : '0',
+            'download_success_compact_delay' => $downloadSuccessCompactDelay,
+            'download_highlight_first_card' => $downloadHighlightFirstCard ? '1' : '0',
+            'download_pending_message' => $downloadPendingMessage,
+            'download_pending_button_text' => $downloadPendingButtonText,
+            'download_expired_title' => $downloadExpiredTitle,
+            'download_expired_message' => $downloadExpiredMessage,
             'download_access_stage' => $downloadAccessStage,
+            'download_comment_step_required' => $downloadCommentStepRequired,
+            'download_access_step_open_icon' => $downloadCommentStepRequired ? 'bi-3-circle-fill' : 'bi-2-circle-fill',
             'download_access_step_login_class' => (string) ($downloadAccessStepClasses['login'] ?? 'is-pending'),
             'download_access_step_comment_class' => (string) ($downloadAccessStepClasses['comment'] ?? 'is-pending'),
             'download_access_step_open_class' => (string) ($downloadAccessStepClasses['open'] ?? 'is-pending'),
@@ -3072,8 +3171,8 @@ final class PublicThemeRenderer
             'is_edit' => $isEdit,
             'is_create' => !$isEdit,
             'form_action' => (string) ($pageVars['upload_form_action'] ?? ($isEdit ? routePublicStaticUrl('edit_topic') : routePublicStaticUrl('upload_topic'))),
-            'cancel_url' => $isEdit ? ($baseUri . '/profile.php?tab=topics') : ($baseUri . '/index.php'),
-            'profile_topics_url' => $baseUri . '/profile.php?tab=topics',
+            'cancel_url' => $isEdit ? routePrivateProfileUrl(['tab' => 'topics']) : ($baseUri . '/index.php'),
+            'profile_topics_url' => routePrivateProfileUrl(['tab' => 'topics']),
             'csrf_token' => (string) ($pageVars['upload_csrf_token'] ?? (function_exists('csrf_token') ? csrf_token() : '')),
             'submit_token' => (string) ($pageVars['upload_submit_token'] ?? ''),
             'has_submit_token' => (string) ($pageVars['upload_submit_token'] ?? '') !== '',
@@ -3415,7 +3514,7 @@ final class PublicThemeRenderer
                 continue;
             }
             $topicStatusOptions[] = [
-                'url' => rtrim($baseUri, '/') . '/profile.php?tab=topics&topic_status=' . rawurlencode((string) $key),
+                'url' => routePrivateProfileUrl(['tab' => 'topics', 'topic_status' => (string) $key]),
                 'class' => 'profile-topic-status-filter-link' . ($topicStatusFilter === (string) $key ? ' active' : ''),
                 'icon' => (string) ($option[1] ?? 'bi-circle'),
                 'label' => (string) ($option[0] ?? $key),
@@ -3429,10 +3528,11 @@ final class PublicThemeRenderer
             if (!is_array($option)) {
                 continue;
             }
-            $url = rtrim($baseUri, '/') . '/profile.php?tab=activity';
+            $activityQuery = ['tab' => 'activity'];
             if ((string) $key !== 'all') {
-                $url .= '&activity_type=' . rawurlencode((string) $key);
+                $activityQuery['activity_type'] = (string) $key;
             }
+            $url = routePrivateProfileUrl($activityQuery);
             $activityFilterOptions[] = [
                 'url' => $url,
                 'class' => 'profile-topic-status-filter-link profile-activity-filter-link' . ($activityFilter === (string) $key ? ' active' : ''),
@@ -3465,6 +3565,7 @@ final class PublicThemeRenderer
         $totalActivity = (int) ($totals['activity'] ?? 0);
 
         return [
+            'base_url' => routePrivateProfileUrl(),
             'active_tab' => $activeTab,
             'success' => !empty($pageVars['profile_private_suppress_success_alert']) ? '' : (string) ($pageVars['profile_private_success'] ?? ''),
             'error' => (string) ($pageVars['profile_private_error'] ?? ''),
@@ -3474,11 +3575,11 @@ final class PublicThemeRenderer
             'followup_message' => (($_GET['submitted'] ?? '') === '1' || ($_GET['edited'] ?? '') === '1') ? 'Onay bekleyen icerikler bu sekmede gorunur. Moderator notu gelirse ayni karttan duzenleyip tekrar gonderebilirsiniz.' : '',
             'tabs' => $tabs,
             'quick_links' => [
-                ['url' => rtrim($baseUri, '/') . '/profile.php?tab=topics', 'icon' => 'bi-file-earmark-text', 'value' => number_format($totalTopics, 0, ',', '.'), 'label' => 'Konularim'],
-                ['url' => rtrim($baseUri, '/') . '/profile.php?tab=favorites', 'icon' => 'bi-heart', 'value' => number_format($totalFavorites, 0, ',', '.'), 'label' => 'Favorilerim'],
-                ['url' => rtrim($baseUri, '/') . '/profile.php?tab=comments', 'icon' => 'bi-chat-dots', 'value' => number_format($totalComments, 0, ',', '.'), 'label' => 'Yorumlarim'],
+                ['url' => routePrivateProfileUrl(['tab' => 'topics']), 'icon' => 'bi-file-earmark-text', 'value' => number_format($totalTopics, 0, ',', '.'), 'label' => 'Konularim'],
+                ['url' => routePrivateProfileUrl(['tab' => 'favorites']), 'icon' => 'bi-heart', 'value' => number_format($totalFavorites, 0, ',', '.'), 'label' => 'Favorilerim'],
+                ['url' => routePrivateProfileUrl(['tab' => 'comments']), 'icon' => 'bi-chat-dots', 'value' => number_format($totalComments, 0, ',', '.'), 'label' => 'Yorumlarim'],
                 ['url' => routePublicStaticUrl('notifications'), 'icon' => 'bi-bell', 'value' => 'Merkez', 'label' => 'Bildirimler'],
-                ['url' => rtrim($baseUri, '/') . '/profile.php?tab=settings', 'icon' => 'bi-gear', 'value' => 'Profil', 'label' => 'Ayarlar'],
+                ['url' => routePrivateProfileUrl(['tab' => 'settings']), 'icon' => 'bi-gear', 'value' => 'Profil', 'label' => 'Ayarlar'],
             ],
             'tab_overview' => $activeTab === 'overview',
             'tab_topics' => $activeTab === 'topics',
@@ -3509,7 +3610,7 @@ final class PublicThemeRenderer
             'topics' => $topics,
             'topics_preview' => array_slice($topics, 0, 5),
             'has_topics' => $topics !== [],
-            'more_topics_url' => count($topics) > 5 ? rtrim($baseUri, '/') . '/profile.php?tab=topics' : '',
+            'more_topics_url' => count($topics) > 5 ? routePrivateProfileUrl(['tab' => 'topics']) : '',
             'pending_topics' => $pending,
             'has_pending_topics' => $pending !== [],
             'topic_status_options' => $topicStatusOptions,
@@ -3527,7 +3628,7 @@ final class PublicThemeRenderer
             'has_activity' => $activity !== [],
             'activity_filter_options' => $activityFilterOptions,
             'activity_empty_text' => $activityFilter === 'all' ? 'Henuz aktivite yok.' : 'Bu filtrede aktivite yok.',
-            'activity_empty_url' => $activityFilter === 'all' ? rtrim($baseUri, '/') . '/profile.php?tab=settings' : rtrim($baseUri, '/') . '/profile.php?tab=activity',
+            'activity_empty_url' => $activityFilter === 'all' ? routePrivateProfileUrl(['tab' => 'settings']) : routePrivateProfileUrl(['tab' => 'activity']),
             'activity_empty_action' => $activityFilter === 'all' ? 'Profil ayarlarina git' : 'Tum aktiviteler',
             'topics_pagination_groups' => self::profilePrivatePaginationGroups($pageVars, $baseUri, 'topics'),
             'comments_pagination_groups' => self::profilePrivatePaginationGroups($pageVars, $baseUri, 'comments'),
@@ -3995,7 +4096,7 @@ final class PublicThemeRenderer
             }
         }
 
-        $baseUrl = rtrim($baseUri, '/') . '/profile.php?' . http_build_query($query);
+        $baseUrl = routePrivateProfileUrl($query);
         $items = self::paginationItems($total, $page, $perPage, $baseUrl, $pageParam, 7);
 
         return $items !== [] ? [['items' => $items]] : [];

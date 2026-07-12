@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Notifications\Services\CommentEditNotificationService;
 use App\Modules\Notifications\Services\NotificationDispatchService;
 use App\Modules\Notifications\Services\NotificationEmailQueueService;
 use App\Modules\Notifications\Services\NotificationPreferenceService;
@@ -46,6 +47,23 @@ function notificationDispatchService(): NotificationDispatchService
         notificationTemplateService(),
         notificationEmailQueueService()
     );
+}
+
+function notificationCommentEditService(): CommentEditNotificationService
+{
+    static $service = null;
+
+    return $service ??= new CommentEditNotificationService(notificationDispatchService());
+}
+
+function notificationDispatchCommentEdited(
+    PDO $pdo,
+    array $comment,
+    int $editorUserId,
+    string $editorName,
+    array $editResult
+): bool {
+    return notificationCommentEditService()->dispatch($pdo, $comment, $editorUserId, $editorName, $editResult);
 }
 
 function notificationEventDefinitions(): array
