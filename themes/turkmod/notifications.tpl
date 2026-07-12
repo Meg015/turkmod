@@ -1,4 +1,4 @@
-<main class="{notifications_shell_class}" data-ui-style-number="--notification-message-lines:{notifications_message_lines}" data-notifications-root data-csrf-token="{notifications_csrf_token}" data-read-endpoint="{notifications_read_endpoint}" data-read-more-enabled="{notifications_read_more_js}" data-auto-mark-on-open="{notifications_auto_mark_js}">
+<main class="{notifications_shell_class}" data-ui-style-number="--notification-message-lines:{notifications_message_lines}" data-notifications-root data-csrf-token="{notifications_csrf_token}" data-read-endpoint="{notifications_read_endpoint}" data-delete-endpoint="{notifications_delete_endpoint}" data-read-more-enabled="{notifications_read_more_js}" data-auto-mark-on-open="{notifications_auto_mark_js}">
     <section class="notifications-hero" aria-labelledby="notifications-title">
         <div>
             <span class="notifications-kicker"><i class="bi bi-bell" aria-hidden="true"></i> Hesap Merkezi</span>
@@ -62,12 +62,27 @@
                     {/loop}
                 </div>
                 <span class="notifications-count">{notifications_result_count} sonuc</span>
+                {if notifications_has_items}
+                <div class="notifications-toolbar-actions">
+                    <label class="notifications-select-all">
+                        <input type="checkbox" data-notif-select-all aria-label="Görünen bildirimlerin hepsini seç">
+                        <span>Tümünü seç</span>
+                    </label>
+                    <button type="button" class="notifications-action notifications-delete-action" data-notif-delete-selected disabled>
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                        <span>Seçilenleri sil</span>
+                    </button>
+                </div>
+                {/if}
             </div>
 
             {if notifications_has_items}
             <div class="notifications-feed" data-notif-feed>
                 {loop notifications_items}
                 <article class="{notifications_item.class}" id="notif-{notifications_item.id}" data-notif-item data-id="{notifications_item.id}">
+                    <label class="notification-select" title="Bildirimi seç">
+                        <input type="checkbox" data-notif-select value="{notifications_item.id}" aria-label="Bildirimi seç">
+                    </label>
                     <span class="{notifications_item.icon_class}" aria-hidden="true"><i class="bi {notifications_item.icon}"></i></span>
                     <div class="notification-body ui-panel__body">
                         <div class="notification-topline">

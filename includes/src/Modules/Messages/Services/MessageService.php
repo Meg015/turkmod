@@ -1062,37 +1062,7 @@ final class MessageService
             return '';
         }
 
-        $now = time();
-        $diff = $now - $timestamp;
-
-        // Just now (< 60s)
-        if ($diff < 60) {
-            return 'Az once';
-        }
-
-        // Minutes ago (< 60 min)
-        if ($diff < 3600) {
-            $mins = floor($diff / 60);
-            return $mins . ' dk once';
-        }
-
-        // Today - show time only
-        if (date('Y-m-d', $timestamp) === date('Y-m-d', $now)) {
-            return date('H:i', $timestamp);
-        }
-
-        // Yesterday
-        if (date('Y-m-d', $timestamp) === date('Y-m-d', $now - 86400)) {
-            return 'Dun ' . date('H:i', $timestamp);
-        }
-
-        // This year - show date without year
-        if (date('Y', $timestamp) === date('Y', $now)) {
-            return date('d M H:i', $timestamp);
-        }
-
-        // Older - full date
-        return date('d M Y H:i', $timestamp);
+        return date('d.m.Y H:i', $timestamp);
     }
 
     private function threadUrl(int $threadId, string $baseUri = ''): string

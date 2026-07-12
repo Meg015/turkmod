@@ -83,6 +83,11 @@ final class ContactMailService
                 $body,
                 [
                     'reply_to' => (string) ($message['sender_email'] ?? ''),
+                    'email_log' => [
+                        'source' => 'contact',
+                        'source_key' => 'admin_notification',
+                        'recipient_name' => (string) ($recipient['name'] ?? $recipient['username'] ?? ''),
+                    ],
                 ],
             );
 
@@ -132,7 +137,13 @@ final class ContactMailService
 
         $subject = $this->replySubject($message, $category);
         $body = $this->replyBody($message, $category, $replyBody, $adminName);
-        $ok = appSendMail($senderEmail, $subject, $body);
+        $ok = appSendMail($senderEmail, $subject, $body, [
+            'email_log' => [
+                'source' => 'contact',
+                'source_key' => 'reply',
+                'recipient_name' => (string) ($message['sender_name'] ?? ''),
+            ],
+        ]);
 
         return [
             'success' => $ok,

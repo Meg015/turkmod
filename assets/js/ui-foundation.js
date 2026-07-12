@@ -461,11 +461,23 @@
     };
     var aliases = { danger: 'error', failed: 'error', warn: 'warning', ok: 'success' };
 
-    function dismissToast(toast) {
+    function dismissToast(toast, reason) {
         if (!toast || toast._dismissed) return;
         toast._dismissed = true;
+        toast._dismissReason = reason || toast._dismissReason || 'dismissed';
+        var onClose = toast._onClose;
+        toast._onClose = null;
         toast.classList.add('toast-out');
-        setTimeout(function () { toast.remove(); }, 350);
+        setTimeout(function () {
+            toast.remove();
+            if (typeof onClose === 'function') {
+                try {
+                    onClose(toast._dismissReason, toast);
+                } catch (error) {
+                    // Kapanış geri çağrısı toast akışını bozmasın.
+                }
+            }
+        }, 350);
     }
 
     function normalizeArgs(message, type, duration) {
@@ -515,13 +527,14 @@
 
         var existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
         while (existing.length >= cfg.maxVisible) {
-            dismissToast(existing[0]);
+            dismissToast(existing[0], 'overflow');
             existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
         }
 
         var toast = document.createElement('div');
         toast.className = 'topic-toast toast-' + type + ' toast-theme-' + cfg.theme + ' toast-anim-' + cfg.animation;
         toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        toast._onClose = typeof options.onClose === 'function' ? options.onClose : null;
 
         var iconEl = document.createElement('i');
         iconEl.className = 'bi ' + (icons[type] || icons.info) + ' toast-icon';
@@ -559,7 +572,7 @@
             action.addEventListener('click', function (event) {
                 event.stopPropagation();
                 if (typeof options.onAction === 'function') options.onAction(event, toast);
-                if (options.dismissOnAction !== false) dismissToast(toast);
+                if (options.dismissOnAction !== false) dismissToast(toast, 'action');
             });
             content.appendChild(action);
         }
@@ -572,7 +585,7 @@
             closeBtn.setAttribute('aria-label', 'Kapat');
             closeBtn.addEventListener('click', function (event) {
                 event.stopPropagation();
-                dismissToast(toast);
+                dismissToast(toast, 'button');
             });
             toast.appendChild(closeBtn);
         }
@@ -591,7 +604,7 @@
         if (cfg.clickToClose && !options.actionLabel) {
             toast.style.cursor = 'pointer';
             toast.addEventListener('click', function () {
-                dismissToast(toast);
+                dismissToast(toast, 'click');
             });
         }
 
@@ -609,7 +622,7 @@
         function startTimer() {
             startTime = Date.now();
             timer = setTimeout(function () {
-                dismissToast(toast);
+                dismissToast(toast, 'timeout');
             }, remaining);
         }
         startTimer();

@@ -23,7 +23,7 @@ require_once $projectRoot . '/includes/src/Engine/Seo/Legacy/helpers.php';
 
 
 
-// Slug tabanlÄ± URL desteÄŸi (eski name parametresi de desteklenir)
+// Slug tabanlı URL desteği (eski name parametresi de desteklenir)
 
 $categorySlug = trim($_GET['slug'] ?? '');
 
@@ -55,7 +55,7 @@ $categoryDescription = '';
 
 if ($categorySlug !== '') {
 
-    // DB'den kategori bilgilerini (parent dahil) Ã§ek
+    // DB'den kategori bilgilerini (parent dahil) çek
 
     if ($pdo) {
 
@@ -104,7 +104,7 @@ if ($categorySlug !== '') {
 
 } elseif ($categoryName !== '') {
 
-    // Eski name parametresi desteÄŸi - slug'a yÃ¶nlendir
+    // Eski name parametresi desteği - slug'a yönlendir
 
     if ($pdo) {
 
@@ -128,7 +128,7 @@ if ($categorySlug !== '') {
 
     
 
-    // Fallback yok: name ile eÅŸleÅŸen kategori DB'de bulunamadÄ±.
+    // Fallback yok: name ile eşleşen kategori DB'de bulunamadı.
 
     $items = [];
 
@@ -154,22 +154,22 @@ $canonicalUrl = $paginationBase . ($page > 1 ? '?page=' . $page : '');
 if ($categorySlug !== '' || $categoryName !== '') {
     $pageTitle = $categorySeoTitle !== ''
         ? $categorySeoTitle
-        : 'Kategori: ' . ($categoryParentName !== '' ? $categoryParentName . ' â€º ' : '') . $categoryName;
+        : 'Kategori: ' . ($categoryParentName !== '' ? $categoryParentName . ' › ' : '') . $categoryName;
 } else {
-    $pageTitle = 'TÃ¼m Kategoriler';
+    $pageTitle = 'Tüm Kategoriler';
 }
-$heroTitle = $isSpecificCategory ? $categoryName : 'TÃ¼m Kategoriler';
+$heroTitle = $isSpecificCategory ? $categoryName : 'Tüm Kategoriler';
 $heroDescription = $isSpecificCategory
-    ? 'Bu kategorideki tÃ¼m yazÄ±lar, eklentiler ve dosyalar aÅŸaÄŸÄ±da listelenmiÅŸtir.'
-    : 'TÃ¼m kategorileri tek ekranda inceleyin ve ilginizi Ã§eken iÃ§erik alanÄ±na hÄ±zlÄ±ca geÃ§in.';
+    ? 'Bu kategorideki tüm yazılar, eklentiler ve dosyalar aşağıda listelenmiştir.'
+    : 'Tüm kategorileri tek ekranda inceleyin ve ilginizi çeken içerik alanına hızlıca geçin.';
 
 $metaDescription = $isSpecificCategory
     ? ($categorySeoDescription !== ''
         ? $categorySeoDescription
         : ($categoryDescription !== ''
             ? $categoryDescription
-            : $categoryName . ' kategorisindeki gÃ¼ncel modlarÄ±, eklentileri ve topluluk paylaÅŸÄ±mlarÄ±nÄ± inceleyin.'))
-    : 'TÃ¼m mod kategorilerini, eklentileri ve topluluk iÃ§eriklerini tek sayfada keÅŸfedin.';
+            : $categoryName . ' kategorisindeki güncel modları, eklentileri ve topluluk paylaşımlarını inceleyin.'))
+    : 'Tüm mod kategorilerini, eklentileri ve topluluk içeriklerini tek sayfada keşfedin.';
 
 // SEO Integration
 $settings = getAdminSettings($pdo);
@@ -414,7 +414,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer() && i
 
         <?php else: ?>
 
-            <span>TÃ¼m Kategoriler</span>
+            <span>Tüm Kategoriler</span>
 
         <?php endif; ?>
     </nav>
@@ -428,19 +428,19 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer() && i
             <h1><?= htmlspecialchars($heroTitle) ?></h1>
             <p><?= htmlspecialchars($heroDescription) ?></p>
         </div>
-        <div class="category-hero-stats" aria-label="Kategori Ã¶zeti">
+        <div class="category-hero-stats" aria-label="Kategori özeti">
             <span><strong><?= number_format($categoryCount) ?></strong><small>Kategori</small></span>
-            <span><strong><?= number_format($allCategoryTopicCount) ?></strong><small>Toplam iÃ§erik</small></span>
+            <span><strong><?= number_format($allCategoryTopicCount) ?></strong><small>Toplam içerik</small></span>
             <?php if ($isSpecificCategory): ?>
                 <span><strong><?= number_format($total) ?></strong><small>Bu kategori</small></span>
             <?php endif; ?>
         </div>
     </div>
-    <section class="public-content ui-section" aria-label="Kategori iÃ§erikleri">
+    <section class="public-content ui-section" aria-label="Kategori içerikleri">
 
         <?php if (empty($items) && ($categorySlug !== '' || $categoryName !== '')): ?>
             <div class="topic-grid topic-grid--list ui-grid" data-contract='class="topic-grid ui-grid"' data-topic-list-container>
-                <?= renderEmptyState('Bu kategoride henÃ¼z iÃ§erik bulunmuyor.', 'Buraya ilk iÃ§eriÄŸi sen ekleyebilirsin.', 'bi-box-seam') ?>
+                <?= renderEmptyState('Bu kategoride henüz içerik bulunmuyor.', 'Buraya ilk içeriği sen ekleyebilirsin.', 'bi-box-seam') ?>
             </div>
         <?php elseif (!empty($items)): ?>
             <div class="topic-grid topic-grid--list ui-grid" data-contract='class="topic-grid ui-grid"'>
@@ -465,7 +465,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer() && i
 
         <?php else: ?>
 
-            <!-- TÃ¼m category listesi -->
+            <!-- Tüm kategori listesi -->
 
             <div class="topic-grid topic-grid--list category-overview topic-all-categories-grid ui-grid" data-contract='class="topic-grid ui-grid"'>
 
@@ -479,7 +479,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer() && i
 
                             <strong><?= htmlspecialchars((string)$cat['name']) ?></strong>
 
-                            <small><?= (int)($cat['topic_count'] ?? 0) ?> iÃ§erik</small>
+                            <small><?= (int)($cat['topic_count'] ?? 0) ?> içerik</small>
 
                         </span>
 
@@ -516,8 +516,4 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer() && i
 
 
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>
-
-
-
-
 

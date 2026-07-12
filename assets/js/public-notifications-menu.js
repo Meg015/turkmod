@@ -26,6 +26,10 @@
         return { icon: "bi-info-circle", state: "" };
     }
 
+    function isApiSuccess(data) {
+        return !!data && (data.ok === true || data.success === true);
+    }
+
     function initNotificationMenu(root) {
         if (!root || root.dataset.publicNotifMenuReady === "1") {
             return;
@@ -54,7 +58,7 @@
         }
 
         function renderNotifications(data) {
-            if (!list || !data || !data.ok) {
+            if (!list || !isApiSuccess(data)) {
                 return;
             }
 
@@ -115,7 +119,23 @@
                             method: "POST",
                             body: formData,
                             headers: { "X-Requested-With": "XMLHttpRequest" }
-                        }).finally(function () {
+                        })
+                        .then(function (response) {
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            if (!isApiSuccess(data)) {
+                                throw new Error(data && data.message ? data.message : "Bildirimler g\\u00fcncellenemedi.");
+                            }
+                            return data;
+                        })
+                        .then(function () {
+                            window.location.href = item.href;
+                        })
+                        .catch(function (error) {
+                            if (window.showToast) {
+                                window.showToast(error && error.message ? error.message : "Bildirimler g\\u00fcncellenemedi.", "error");
+                            }
                             window.location.href = item.href;
                         });
                     });
@@ -163,7 +183,7 @@
                     return response.json();
                 })
                 .then(function (data) {
-                    if (!data.ok) {
+                    if (!isApiSuccess(data)) {
                         throw new Error(data.message || "Bildirimler g\\u00fcncellenemedi.");
                     }
                     if (window.showToast) {

@@ -357,12 +357,12 @@ if ($pdo && $view === 'cron') {
         $listStmt->bindValue(':offset', max(0, $offset), PDO::PARAM_INT);
         $listStmt->execute();
         $rows = $listStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($rows !== [] && function_exists('appLogsDecorateItems')) {
+            $rows = appLogsDecorateItems($pdo, $rows);
+        }
 
         foreach ($rows as $row) {
-            $context = json_decode((string) ($row['context_json'] ?? ''), true);
-            if (!is_array($context)) {
-                $context = [];
-            }
+            $context = is_array($row['context_data'] ?? null) ? $row['context_data'] : [];
 
             $jobKey = trim((string) ($context['job_key'] ?? ''));
             if ($jobKey === '') {
@@ -379,7 +379,6 @@ if ($pdo && $view === 'cron') {
                 };
             }
 
-            $row['context_data'] = $context;
             $row['job_key'] = $jobKey;
             $row['status'] = $status;
             $cronLogs['items'][] = $row;
@@ -650,8 +649,7 @@ require_once __DIR__ . '/header.php';
                                 <th>Yönetici</th>
                                 <th>Eylem</th>
                                 <th>Hedef</th>
-                                <th>Gerekçe</th>
-                                <th>Değişim Detayları</th>
+                                <th>Ayrıntı</th>
                                 <th>Durum</th>
                                 <th>İşlem</th>
                             </tr>
@@ -673,6 +671,8 @@ require_once __DIR__ . '/header.php';
                                 $actionLabel = htmlspecialchars(adminActionLabel($actionType), ENT_QUOTES, 'UTF-8');
                                 $targetType = (string) ($log['target_type'] ?? '');
                                 $targetName = (string) ($log['target_name'] ?? '');
+                                $reason = trim((string) ($log['reason'] ?? ''));
+                                $hasChangeDetails = $old !== [] || $new !== [];
                                 $tone = 'info';
                                 if ($isReverted) {
                                     $tone = 'muted';
@@ -702,8 +702,15 @@ require_once __DIR__ . '/header.php';
                                             <?= htmlspecialchars($adminAuditTargetLabel($targetType, (int) ($log['target_id'] ?? 0), $targetName !== '' ? $targetName : null), ENT_QUOTES, 'UTF-8') ?>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= htmlspecialchars((string) ($log['reason'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td><?= $changeHtml ?></td>
+                                    <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
+                                        <div class="ui-admin-log-summary"><?= htmlspecialchars($reason !== '' ? $reason : 'Gerekçe yok', ENT_QUOTES, 'UTF-8') ?></div>
+                                        <?php if ($hasChangeDetails): ?>
+                                            <details class="ui-admin-log-technical ui-admin-log-technical--activity">
+                                                <summary><i class="bi bi-code-slash"></i> Değişim ayrıntıları</summary>
+                                                <div class="ui-admin-log-technical-body ui-admin-log-technical-body-html"><?= $changeHtml ?></div>
+                                            </details>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <?php if ($isReverted): ?>
                                             <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-arrow-counterclockwise"></i> Geri alındı</span>
@@ -898,25 +905,29 @@ require_once __DIR__ . '/header.php';
                                 $cronContext = is_array($cronLog['context_data'] ?? null) ? $cronLog['context_data'] : [];
                                 $cronStatusValue = strtolower((string) ($cronLog['status'] ?? 'success'));
                                 $cronLevelClass = $cronStatusBadgeClass($cronStatusValue);
-                                $cronSummary = $cronContextSummary($cronContext);
-                                $cronIp = trim((string) ($cronLog['ip_address'] ?? ''));
+                                $cronHumanMessage = trim((string) ($cronLog['human_message'] ?? (string) ($cronLog['message'] ?? '')));
+                                $cronSummary = trim((string) ($cronLog['context_summary'] ?? ''));
+                                $cronTechnical = trim((string) ($cronLog['context_technical'] ?? ''));
+                                $cronJobLabel = function_exists('appLogsPrettyLabel')
+                                    ? appLogsPrettyLabel((string) ($cronLog['job_key'] ?? '-'))
+                                    : (string) ($cronLog['job_key'] ?? '-');
                                 ?>
                                 <tr>
                                     <td class="ui-admin-table-cell-id"><?= (int) ($cronLog['id'] ?? 0) ?></td>
                                     <td class="ui-admin-table-cell-date"><?= date('d.m.Y H:i:s', strtotime((string) ($cronLog['created_at'] ?? 'now'))) ?></td>
                                     <td><span class="badge <?= htmlspecialchars($cronLevelClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($cronStatusLabel($cronStatusValue), ENT_QUOTES, 'UTF-8') ?></span></td>
-                                    <td class="ui-admin-table-cell-strong"><code><?= htmlspecialchars((string) ($cronLog['job_key'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></code></td>
-                                    <td class="ui-admin-table-cell-secondary"><?= htmlspecialchars((string) ($cronLog['message'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="ui-admin-table-cell-strong"><code><?= htmlspecialchars($cronJobLabel !== '' ? $cronJobLabel : '-', ENT_QUOTES, 'UTF-8') ?></code></td>
+                                    <td class="ui-admin-table-cell-desc ui-admin-log-message-cell">
+                                        <div class="ui-admin-log-message-title"><?= htmlspecialchars($cronHumanMessage !== '' ? $cronHumanMessage : '-', ENT_QUOTES, 'UTF-8') ?></div>
+                                    </td>
                                     <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
-                                        <div class="ui-admin-log-desc-scroll">
-                                            <?= nl2br(htmlspecialchars($cronSummary, ENT_QUOTES, 'UTF-8')) ?>
-                                            <?php if ($cronIp !== ''): ?>
-                                                <br><small>ip=<?= htmlspecialchars($cronIp, ENT_QUOTES, 'UTF-8') ?></small>
-                                            <?php endif; ?>
-                                            <?php if (!empty($cronContext['sapi']) && is_scalar($cronContext['sapi'])): ?>
-                                                <br><small>sapi=<?= htmlspecialchars((string) $cronContext['sapi'], ENT_QUOTES, 'UTF-8') ?></small>
-                                            <?php endif; ?>
-                                        </div>
+                                        <div class="ui-admin-log-summary"><?= htmlspecialchars($cronSummary !== '' ? $cronSummary : 'Ek detay yok', ENT_QUOTES, 'UTF-8') ?></div>
+                                        <?php if ($cronTechnical !== ''): ?>
+                                            <details class="ui-admin-log-technical">
+                                                <summary><i class="bi bi-code-slash"></i> Teknik ayrıntı</summary>
+                                                <pre class="ui-admin-log-technical-body"><?= htmlspecialchars($cronTechnical, ENT_QUOTES, 'UTF-8') ?></pre>
+                                            </details>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

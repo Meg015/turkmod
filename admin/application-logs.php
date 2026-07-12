@@ -101,11 +101,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         false
                     );
                 }
-                flash('success', $deleted . ' kayit silindi (' . $days . ' gun onceki ve daha eski).');
+                flash('success', $deleted . ' kayıt silindi (' . $days . ' gün önceki ve daha eski).');
             } else {
                 $hasFilter = $postSearch !== '' || $postLevel !== '' || $postChannel !== '' || $postDateFrom !== '' || $postDateTo !== '';
                 if (!$hasFilter) {
-                    flash('error', 'Filtre secmeden filtreye gore temizleme yapamazsiniz.');
+                    flash('error', 'Filtre seçmeden filtreye göre temizleme yapamazsınız.');
                 } else {
                     $deleted = appLogsClearFiltered($pdo, $postSearch, $postLevel, $postChannel, $postDateFrom, $postDateTo);
                     logActivity($pdo, 'application_logs_cleared', 'logs', null, [
@@ -168,6 +168,9 @@ $channels = [];
 if ($pdo) {
     try {
         $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, 50, $dateFrom, $dateTo);
+        if (!empty($logs['items']) && function_exists('appLogsDecorateItems')) {
+            $logs['items'] = appLogsDecorateItems($pdo, $logs['items']);
+        }
         $stats = appLogsGetStats($pdo);
         if (!isset($stats['total_24h'])) {
             $stats['total_24h'] = (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn();
@@ -222,24 +225,24 @@ require_once __DIR__ . '/header.php';
     <div class="ui-admin-alert ui-admin-alert-info ui-alert">
         <i class="bi bi-info-circle"></i>
         <div>
-            <strong>Hata merkezi guncellendi:</strong>
-            Sistem kaynakli hatalari tek noktadan takip etmek icin
-            <a href="<?= htmlspecialchars(rtrim((string) $baseUri, '/') . '/admin/system-health.php?tab=logs', ENT_QUOTES, 'UTF-8') ?>">Sistem Sagligi > Loglar & Hatalar</a>
-            sekmesini kullanin.
+            <strong>Hata merkezi güncellendi:</strong>
+            Sistem kaynaklı hataları tek noktadan takip etmek için
+            <a href="<?= htmlspecialchars(rtrim((string) $baseUri, '/') . '/admin/system-health.php?tab=logs', ENT_QUOTES, 'UTF-8') ?>">Sistem Sağlığı > Loglar & Hatalar</a>
+            sekmesini kullanın.
         </div>
     </div>
     <div class="admin-stat-grid logs-summary application-logs-summary ui-grid">
         <div class="admin-stat-card stat-info logs-stat ui-card">
             <div class="stat-icon"><i class="bi bi-journal-code"></i></div>
-            <div class="stat-content"><span class="stat-label">Toplam Kayit</span><span class="stat-value"><?= number_format((int) ($stats['total'] ?? 0)) ?></span></div>
+            <div class="stat-content"><span class="stat-label">Toplam Kayıt</span><span class="stat-value"><?= number_format((int) ($stats['total'] ?? 0)) ?></span></div>
         </div>
         <div class="admin-stat-card stat-success logs-stat ui-card">
             <div class="stat-icon"><i class="bi bi-clock"></i></div>
-            <div class="stat-content"><span class="stat-label">Kayit (24s)</span><span class="stat-value"><?= number_format((int) ($stats['total_24h'] ?? 0)) ?></span></div>
+            <div class="stat-content"><span class="stat-label">Kayıt (24s)</span><span class="stat-value"><?= number_format((int) ($stats['total_24h'] ?? 0)) ?></span></div>
         </div>
         <div class="admin-stat-card stat-info logs-stat ui-card">
             <div class="stat-icon"><i class="bi bi-calendar-week"></i></div>
-            <div class="stat-content"><span class="stat-label">Kayit (7g)</span><span class="stat-value"><?= number_format((int) ($stats['total_7d'] ?? 0)) ?></span></div>
+            <div class="stat-content"><span class="stat-label">Kayıt (7g)</span><span class="stat-value"><?= number_format((int) ($stats['total_7d'] ?? 0)) ?></span></div>
         </div>
         <div class="admin-stat-card stat-success logs-stat ui-card">
             <div class="stat-icon"><i class="bi bi-diagram-3"></i></div>
@@ -257,10 +260,10 @@ require_once __DIR__ . '/header.php';
                 <div class="ui-admin-filter-sm">
                     <label class="ui-admin-form-label">Seviye</label>
                     <select name="level" class="ui-admin-form-select">
-                        <option value="">Tum Seviyeler</option>
+                        <option value="">Tüm Seviyeler</option>
                         <?php foreach ($levels as $level): ?>
                             <option value="<?= htmlspecialchars((string) $level, ENT_QUOTES, 'UTF-8') ?>" <?= $filterLevel === (string) $level ? 'selected' : '' ?>>
-                                <?= htmlspecialchars(strtoupper((string) $level), ENT_QUOTES, 'UTF-8') ?>
+                                <?= htmlspecialchars(function_exists('appLogsLevelLabel') ? appLogsLevelLabel((string) $level) : strtoupper((string) $level), ENT_QUOTES, 'UTF-8') ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -268,10 +271,10 @@ require_once __DIR__ . '/header.php';
                 <div class="ui-admin-filter-sm">
                     <label class="ui-admin-form-label">Kanal</label>
                     <select name="channel" class="ui-admin-form-select">
-                        <option value="">Tum Kanallar</option>
+                        <option value="">Tüm Kanallar</option>
                         <?php foreach ($channels as $channel): ?>
                             <option value="<?= htmlspecialchars((string) $channel, ENT_QUOTES, 'UTF-8') ?>" <?= $filterChannel === (string) $channel ? 'selected' : '' ?>>
-                                <?= htmlspecialchars((string) $channel, ENT_QUOTES, 'UTF-8') ?>
+                                <?= htmlspecialchars(function_exists('appLogsChannelLabel') ? appLogsChannelLabel((string) $channel) : (string) $channel, ENT_QUOTES, 'UTF-8') ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -294,26 +297,26 @@ require_once __DIR__ . '/header.php';
                 <div class="application-logs-maintenance">
                     <div class="application-logs-maintenance-label"><i class="bi bi-tools"></i> Bakım işlemleri</div>
                     <div class="application-logs-actions logs-toolbar-actions">
-                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Yalnizca aktif filtreye uyan uygulama loglari silinsin mi?" data-admin-confirm-title="Filtreli loglari temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
+                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Yalnızca aktif filtreye uyan uygulama logları silinsin mi?" data-admin-confirm-title="Filtreli logları temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
                             <?= csrf_field() ?>
                             <input type="hidden" name="action" value="clear_filtered">
                             <?php $renderFilterHiddenFields(); ?>
                             <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs" <?= $hasFilters ? '' : 'disabled' ?>><i class="bi bi-funnel"></i> Filtreyi Temizle</button>
                         </form>
-                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Belirttiginiz gunden daha eski uygulama loglari silinsin mi?" data-admin-confirm-title="Eski loglari temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
+                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Belirttiğiniz günden daha eski uygulama logları silinsin mi?" data-admin-confirm-title="Eski logları temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
                             <?= csrf_field() ?>
                             <input type="hidden" name="action" value="clear_old">
                             <?php $renderFilterHiddenFields(); ?>
                             <div class="application-logs-old-row">
-                                <input type="number" name="days" min="7" max="3650" step="1" value="90" class="ui-admin-form-control application-logs-days-input" aria-label="Gun sayisi">
-                                <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-xs"><i class="bi bi-calendar-minus"></i> Eskiyi Temizle</button>
+                                <input type="number" name="days" min="7" max="3650" step="1" value="90" class="ui-admin-form-control application-logs-days-input" aria-label="Gün sayısı">
+                                <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-xs"><i class="bi bi-calendar-minus"></i> Eski Kayıtları Temizle</button>
                             </div>
                         </form>
-                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Tum uygulama loglari kalici olarak silinecek. Emin misiniz?" data-admin-confirm-title="Tum uygulama loglarini temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
+                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Tüm uygulama logları kalıcı olarak silinecek. Emin misiniz?" data-admin-confirm-title="Tüm uygulama loglarını temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
                             <?= csrf_field() ?>
                             <input type="hidden" name="action" value="clear_all">
                             <?php $renderFilterHiddenFields(); ?>
-                            <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Tümünü Sil</button>
+                        <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Tümünü Sil</button>
                         </form>
                     </div>
                 </div>
@@ -332,20 +335,20 @@ require_once __DIR__ . '/header.php';
             <?php if (empty($logs['items'])): ?>
                 <div class="ui-admin-empty ui-empty">
                     <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-journal-code"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Kayit bulunamadi</h3>
-                    <p class="ui-admin-empty-desc ui-empty"><?= $hasFilters ? 'Secili filtreyle eslesen uygulama logu yok.' : 'Henuz uygulama logu olusmamis.' ?></p>
+                    <h3 class="ui-admin-empty-title ui-empty">Kayıt bulunamadı</h3>
+                    <p class="ui-admin-empty-desc ui-empty"><?= $hasFilters ? 'Seçili filtreyle eşleşen uygulama logu yok.' : 'Henüz uygulama logu oluşmamış.' ?></p>
                 </div>
             <?php else: ?>
                 <div class="table-wrapper ui-table-wrap ui-surface">
                     <table class="admin-table">
                         <thead>
-                        <tr>
+                            <tr>
                             <th>Tarih</th>
                             <th>Seviye</th>
                             <th>Kanal</th>
                             <th>Mesaj</th>
                             <th>IP</th>
-                            <th>Detay</th>
+                            <th>Ayrıntı</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -355,22 +358,32 @@ require_once __DIR__ . '/header.php';
                             $createdAtRaw = (string) ($log['created_at'] ?? '');
                             $createdAtTs = strtotime($createdAtRaw);
                             $createdLabel = $createdAtTs !== false ? date('d.m.Y H:i', $createdAtTs) : $createdAtRaw;
-                            $contextText = appLogsFormatContext($log['context_json'] ?? null);
+                            $levelLabel = (string) ($log['level_label'] ?? (function_exists('appLogsLevelLabel') ? appLogsLevelLabel($level) : strtoupper($level !== '' ? $level : 'unknown')));
+                            $channelLabel = (string) ($log['channel_label'] ?? (function_exists('appLogsChannelLabel') ? appLogsChannelLabel((string) ($log['channel'] ?? '')) : (string) ($log['channel'] ?? '-')));
+                            $humanMessage = trim((string) ($log['human_message'] ?? (string) ($log['message'] ?? '')));
+                            $contextSummary = trim((string) ($log['context_summary'] ?? ''));
+                            $technicalContext = trim((string) ($log['context_technical'] ?? ''));
                             ?>
                             <tr>
                                 <td class="ui-admin-table-cell-date"><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></td>
                                 <td>
                                     <span class="admin-badge <?= htmlspecialchars(applicationLogsLevelBadgeClass($level), ENT_QUOTES, 'UTF-8') ?>">
-                                        <?= htmlspecialchars(strtoupper($level !== '' ? $level : 'unknown'), ENT_QUOTES, 'UTF-8') ?>
+                                        <?= htmlspecialchars($levelLabel !== '' ? $levelLabel : 'Bilinmiyor', ENT_QUOTES, 'UTF-8') ?>
                                     </span>
                                 </td>
-                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm"><?= htmlspecialchars((string) ($log['channel'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
-                                    <div class="ui-admin-log-desc-scroll"><?= nl2br(htmlspecialchars((string) ($log['message'] ?? ''), ENT_QUOTES, 'UTF-8')) ?></div>
+                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm"><?= htmlspecialchars($channelLabel !== '' ? $channelLabel : '-', ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="ui-admin-table-cell-desc ui-admin-log-message-cell">
+                                    <div class="ui-admin-log-message-title"><?= htmlspecialchars($humanMessage !== '' ? $humanMessage : '-', ENT_QUOTES, 'UTF-8') ?></div>
                                 </td>
                                 <td class="ui-admin-table-cell-secondary ui-admin-muted-sm"><?= htmlspecialchars((string) (($log['ip_address'] ?? '') !== '' ? $log['ip_address'] : '-'), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
-                                    <div class="ui-admin-log-desc-scroll"><?= nl2br(htmlspecialchars($contextText, ENT_QUOTES, 'UTF-8')) ?></div>
+                                    <div class="ui-admin-log-summary"><?= htmlspecialchars($contextSummary !== '' ? $contextSummary : 'Ek detay yok', ENT_QUOTES, 'UTF-8') ?></div>
+                                    <?php if ($technicalContext !== ''): ?>
+                                        <details class="ui-admin-log-technical">
+                                            <summary><i class="bi bi-code-slash"></i> Teknik ayrıntı</summary>
+                                            <pre class="ui-admin-log-technical-body"><?= htmlspecialchars($technicalContext, ENT_QUOTES, 'UTF-8') ?></pre>
+                                        </details>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

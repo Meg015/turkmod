@@ -299,11 +299,7 @@ require_once $projectRoot . '/includes/public-header.php';
                             // Date separator
                             $msgDate = date('Y-m-d', strtotime((string) ($msg['created_at'] ?? '')));
                             if ($msgDate !== $prevDate && $msgDate !== '1970-01-01'):
-                                $label = date('d F Y', strtotime($msgDate));
-                                $isToday = $msgDate === date('Y-m-d');
-                                $isYesterday = $msgDate === date('Y-m-d', strtotime('-1 day'));
-                                if ($isToday) $label = 'Bugun';
-                                elseif ($isYesterday) $label = 'Dun';
+                                $label = date('d.m.Y', strtotime($msgDate));
                         ?>
                             <div class="msg-date-separator">
                                 <span><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span>

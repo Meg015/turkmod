@@ -162,7 +162,7 @@ final class ContactMessageService
 
         try {
             $replyAdminSelect = $hasReplyAuditColumn
-                ? 'ra.name AS reply_admin_name'
+                ? 'ra.username AS reply_admin_name'
                 : 'NULL AS reply_admin_name';
             $replyAdminJoin = $hasReplyAuditColumn
                 ? 'LEFT JOIN users ra ON ra.id = m.admin_reply_admin_id'
@@ -211,7 +211,7 @@ final class ContactMessageService
 
         try {
             $replyAdminSelect = $hasReplyAuditColumn
-                ? 'ra.name AS reply_admin_name'
+                ? 'ra.username AS reply_admin_name'
                 : 'NULL AS reply_admin_name';
             $replyAdminJoin = $hasReplyAuditColumn
                 ? 'LEFT JOIN users ra ON ra.id = m.admin_reply_admin_id'

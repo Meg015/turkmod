@@ -32,6 +32,9 @@ final class NotificationCenterService
         $adminSettings = $this->preferences->adminSettings($pdo);
         $userSettings = $this->preferences->userSettings($pdo, $userId);
         $canFilterEvents = $this->canFilterEvents($pdo);
+        $this->schema->ensureNotificationDismissalSchema($pdo);
+        $dismissalSql = $this->dismissalSql($pdo);
+        $dismissalParams = $dismissalSql !== '' ? [$userId] : [];
 
         if (!$this->preferences->bool($adminSettings, 'notif_center_enabled', '1')) {
             return $this->emptyDropdown(true, true, false, false);
@@ -54,15 +57,16 @@ final class NotificationCenterService
         $unreadCount = 0;
         if ($showBadge) {
             $stmtCount = $pdo->prepare("
-                SELECT COUNT(*) FROM notifications n
-                WHERE (n.user_id IS NULL OR n.user_id = ?)
-                {$typeSql}
-                AND NOT EXISTS (
-                    SELECT 1 FROM notification_reads nr
-                    WHERE nr.notification_id = n.id AND nr.user_id = ?
-                )
-            ");
-            $stmtCount->execute(array_merge([$userId], $typeParams, [$userId]));
+            SELECT COUNT(*) FROM notifications n
+            WHERE (n.user_id IS NULL OR n.user_id = ?)
+            {$typeSql}
+            AND NOT EXISTS (
+                SELECT 1 FROM notification_reads nr
+                WHERE nr.notification_id = n.id AND nr.user_id = ?
+            )
+            {$dismissalSql}
+        ");
+            $stmtCount->execute(array_merge([$userId], $typeParams, [$userId], $dismissalParams));
             $unreadCount = (int) $stmtCount->fetchColumn();
         }
 
@@ -80,6 +84,7 @@ final class NotificationCenterService
             LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = ?
             WHERE (n.user_id IS NULL OR n.user_id = ?)
             {$typeSql}
+            {$dismissalSql}
             ORDER BY n.created_at DESC
             LIMIT ?
         ");
@@ -90,8 +95,22 @@ final class NotificationCenterService
             $stmtLatest->bindValue($bindIndex, $typeParam, PDO::PARAM_STR);
             $bindIndex++;
         }
+        foreach ($dismissalParams as $dismissalParam) {
+            $stmtLatest->bindValue($bindIndex, $dismissalParam, PDO::PARAM_INT);
+            $bindIndex++;
+        }
         $stmtLatest->bindValue($bindIndex, $limit, PDO::PARAM_INT);
         $stmtLatest->execute();
+        $latest = $stmtLatest->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($latest as &$notification) {
+            if (isset($notification['id'])) {
+                $notification['id'] = (int) $notification['id'];
+            }
+            if (isset($notification['is_read'])) {
+                $notification['is_read'] = (int) $notification['is_read'];
+            }
+        }
+        unset($notification);
 
         return [
             'ok' => true,
@@ -100,7 +119,7 @@ final class NotificationCenterService
             'show_badge' => $showBadge,
             'auto_mark_on_open' => $autoMarkOnOpen,
             'unread_count' => $unreadCount,
-            'latest' => $stmtLatest->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'latest' => $latest,
         ];
     }
 
@@ -118,8 +137,9 @@ final class NotificationCenterService
                     SELECT 1 FROM notification_reads nr
                     WHERE nr.notification_id = n.id AND nr.user_id = ?
                 )
+                {$this->dismissalSql($pdo)}
             ");
-            $stmtUnread->execute([$userId, $userId]);
+            $stmtUnread->execute(array_merge([$userId, $userId], $this->dismissalSql($pdo) !== '' ? [$userId] : []));
             $unreadIds = $stmtUnread->fetchAll(PDO::FETCH_COLUMN) ?: [];
 
             if ($unreadIds === []) {
@@ -156,6 +176,47 @@ final class NotificationCenterService
     }
 
     /**
+     * @param list<int|string> $notificationIds
+     */
+    public function dismissNotifications(PDO $pdo, int $userId, array $notificationIds): int
+    {
+        if ($userId <= 0 || $notificationIds === []) {
+            return 0;
+        }
+
+        $this->schema->ensureNotificationDismissalSchema($pdo, false);
+
+        $ids = [];
+        foreach ($notificationIds as $notificationId) {
+            $id = (int) $notificationId;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+
+        if ($ids === []) {
+            return 0;
+        }
+
+        $stmtCheck = $pdo->prepare('SELECT id FROM notifications WHERE id = ? AND (user_id IS NULL OR user_id = ?)');
+        $stmtInsert = $pdo->prepare($this->insertIgnorePrefix($pdo) . ' INTO notification_dismissals (notification_id, user_id) VALUES (?, ?)');
+
+        $dismissedCount = 0;
+        foreach ($ids as $notifId) {
+            $stmtCheck->execute([$notifId, $userId]);
+            if (!$stmtCheck->fetchColumn()) {
+                continue;
+            }
+
+            if ($stmtInsert->execute([$notifId, $userId])) {
+                $dismissedCount += max(0, (int) $stmtInsert->rowCount());
+            }
+        }
+
+        return $dismissedCount;
+    }
+
+    /**
      * @param array<string,mixed> $settings
      */
     private function intSetting(array $settings, string $key, int $default, int $min, int $max): int
@@ -176,6 +237,19 @@ final class NotificationCenterService
         }
 
         return false;
+    }
+
+    private function dismissalSql(PDO $pdo): string
+    {
+        if (!$this->schema->tableExists($pdo, 'notification_dismissals')) {
+            return '';
+        }
+
+        return '
+            AND NOT EXISTS (
+                SELECT 1 FROM notification_dismissals nd
+                WHERE nd.notification_id = n.id AND nd.user_id = ?
+            )';
     }
 
     /**

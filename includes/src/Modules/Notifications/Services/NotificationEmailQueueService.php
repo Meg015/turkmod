@@ -258,7 +258,21 @@ final class NotificationEmailQueueService
             return appSendMail(
                 (string) $row['recipient_email'],
                 (string) $row['subject'],
-                $this->buildHtml($row)
+                $this->buildHtml($row),
+                [
+                    'email_log' => [
+                        'source' => 'notifications',
+                        'source_key' => trim((string) ($row['template_key'] ?? 'notification_queue')) !== ''
+                            ? trim((string) ($row['template_key'] ?? 'notification_queue'))
+                            : 'notification_queue',
+                        'recipient_name' => (string) ($row['recipient_name'] ?? ''),
+                        'notification_id' => (int) ($row['notification_id'] ?? 0),
+                        'queue_id' => (int) ($row['id'] ?? 0),
+                        'user_id' => (int) ($row['user_id'] ?? 0),
+                        'attempt_no' => ((int) ($row['attempts'] ?? 0)) + 1,
+                        'max_attempts' => (int) ($row['max_attempts'] ?? 3),
+                    ],
+                ]
             );
         };
 

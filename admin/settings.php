@@ -14,25 +14,25 @@ $sections = [
     'comments' => ['title' => 'Yorum Sistemi', 'icon' => 'bi-chat-dots'],
     'downloads' => ['title' => 'İndirme Yöneticisi', 'icon' => 'bi-download'],
     'file_manager' => ['title' => 'Dosya Yöneticisi', 'icon' => 'bi-folder2-open'],
-    'user_uploads' => ['title' => 'Mod Yükle', 'icon' => 'bi-cloud-plus'],
+    'user_uploads' => ['title' => 'Kullanıcı Gönderimleri', 'icon' => 'bi-cloud-plus'],
     'route_filters' => ['title' => 'Rota Filtreleri', 'icon' => 'bi-signpost-split'],
     'notifications' => ['title' => 'Bildirim Sistemi', 'icon' => 'bi-bell'],
-    'toast_notifications' => ['title' => 'Toast Bildirim', 'icon' => 'bi-chat-square-dots'],
+    'toast_notifications' => ['title' => 'Toast Bildirimleri', 'icon' => 'bi-chat-square-dots'],
     'email' => ['title' => 'E-posta', 'icon' => 'bi-envelope'],
-    'rate_limit' => ['title' => 'Rate Limit', 'icon' => 'bi-speedometer2'],
+    'rate_limit' => ['title' => 'İstek Sınırları', 'icon' => 'bi-speedometer2'],
     'leaderboard' => ['title' => 'Liderlik Tablosu', 'icon' => 'bi-trophy'],
     'performance' => ['title' => 'Performans', 'icon' => 'bi-lightning-charge'],
     'social_features' => ['title' => 'Sosyal Özellikler', 'icon' => 'bi-people'],
     'content_moderation' => ['title' => 'İçerik Moderasyonu', 'icon' => 'bi-exclamation-triangle'],
-    'popup_announcement' => ['title' => 'Popup Duyuru', 'icon' => 'bi-megaphone'],
+    'popup_announcement' => ['title' => 'Açılır Duyuru', 'icon' => 'bi-megaphone'],
     'cron' => ['title' => 'Cron & Görevler', 'icon' => 'bi-clock-history'],
 ];
 
 $sectionDescriptions = [
     'user_system' => 'Kayıt erişimi, oturum süreleri ve şifre politikalarını tek merkezden yönetin.',
-    'route_filters' => 'Konu ve kategori URL on eklerini yönetin. Örnek: /konu/slug-id yerine /topic/slug-id veya /kategori/slug yerine /category/slug kullanabilirsiniz.',
-    'rate_limit' => 'Her satirda iki ana alan vardir: Limit ve Pencere (dakika). Limit, pencere suresinde izin verilen maksimum istek sayisini; pencere ise sayacin ne zaman sifirlanacagini belirler.',
-    'leaderboard' => 'Liderlik tablosu sistemi ayarlarını yönetin. Cache süreleri, minimum gereksinimler ve görünürlük seçeneklerini yapılandırın.',
+    'route_filters' => 'Konu ve kategori URL ön eklerini yönetin. Örnek: /konu/slug-id yerine /topic/slug-id veya /kategori/slug yerine /category/slug kullanabilirsiniz.',
+    'rate_limit' => 'Her satırda iki ana alan vardır: Limit ve Pencere (dakika). Limit, pencere süresinde izin verilen maksimum istek sayısını; pencere ise sayacın ne zaman sıfırlanacağını belirler.',
+    'leaderboard' => 'Liderlik tablosu sistemi ayarlarını yönetin. Önbellek süreleri, minimum gereksinimler ve görünürlük seçeneklerini yapılandırın.',
     'performance' => 'Önbellekleme, GZIP sıkıştırma, CDN, lazy loading ve minifikasyon gibi performans optimizasyonlarını yönetin.',
     'social_features' => 'Sosyal medya bağlantıları ve kullanıcı etkileşimiyle ilgili sosyal özellikleri tek merkezden yönetin.',
     'content_moderation' => 'İçerik kalitesi, otomatik etiketleme, intihal kontrolü ve yinelenen içerik tespiti gibi moderasyon ayarlarını yapılandırın.',
@@ -41,7 +41,7 @@ $sectionDescriptions = [
     'cron' => 'Arka plan görevleri ve zamanlanmış işlemleri (Cron Job) buradan yönetebilirsiniz.',
 ];
 
-$sectionDescriptions['route_filters'] = 'Friendly URL on eklerini ve canonical yonlendirme davranisini tek yerden yonetin. Konu, kategori ve profil rotalari ayni sistemden calisir.';
+$sectionDescriptions['route_filters'] = 'Friendly URL ön eklerini ve canonical yönlendirme davranışını tek yerden yönetin. Konu, kategori ve profil rotaları aynı sistemden çalışır.';
 
 $cronGroups = [
     'cron-tab-general' => [
@@ -51,15 +51,15 @@ $cronGroups = [
         'keys' => ['cron_enabled', 'cron_php_binary', 'cron_secret_key', 'cron_health_scan_interval', 'cron_batch_size']
     ],
     'cron-tab-endpoints' => [
-        'title' => 'Gorev Yoneticisi',
+        'title' => 'Görev Yöneticisi',
         'icon' => 'bi-terminal',
-        'description' => 'Cron komutlarini tek listede gorun, kopyalayin ve manuel tetikleyin. Her görev için CLI, HTTP yedek ve direkt URL görünür.',
+        'description' => 'Cron komutlarını tek listede görün, kopyalayın ve manuel tetikleyin. Her görev için CLI, HTTP yedek ve direkt URL görünür.',
         'keys' => []
     ],
     'cron-tab-health' => [
-        'title' => 'Saglik Durumu',
+        'title' => 'Sağlık Durumu',
         'icon' => 'bi-heart-pulse',
-        'description' => 'Cron gorevlerinin son calisma durumu ve tazeligini tek ekranda izleyin.',
+        'description' => 'Cron görevlerinin son çalışma durumu ve tazeliğini tek ekranda izleyin.',
         'keys' => []
     ],
 ];
@@ -68,13 +68,13 @@ $routeFilterGroups = [
     'route-tab-central' => [
         'title' => 'Merkezi Rotalar',
         'icon' => 'bi-diagram-3',
-        'description' => 'Router tarafindan sunulan public clean URL listesini ve hedef dosyalarini kontrol edin.',
+        'description' => 'Router tarafından sunulan genel temiz URL listesini ve hedef dosyalarını kontrol edin.',
         'keys' => [],
     ],
     'route-tab-prefixes' => [
         'title' => 'URL On Ekleri',
         'icon' => 'bi-link-45deg',
-        'description' => 'Konu, kategori ve profil URL\'lerinin on eklerini yönetin.',
+        'description' => 'Konu, kategori ve profil URL\'lerinin ön eklerini yönetin.',
         'keys' => [
             'route_topic_prefix',
             'route_category_prefix',
@@ -85,7 +85,7 @@ $routeFilterGroups = [
     'route-tab-public-pages' => [
         'title' => 'Sabit Public Sayfalar',
         'icon' => 'bi-globe2',
-        'description' => 'Giris, kayit, sifre sifirlama, liderlik, etkinlik ve diger sabit public sayfalarin URL yollarini yonetin.',
+        'description' => 'Giriş, kayıt, şifre sıfırlama, liderlik, etkinlik ve diğer sabit public sayfaların URL yollarını yönetin.',
         'keys' => [
             'route_login_path',
             'route_register_path',
@@ -211,9 +211,9 @@ $seoGroups = [
         ],
     ],
     'seo-tab-sitemap' => [
-        'title' => 'Sitemap',
+        'title' => 'Site Haritası',
         'icon' => 'bi-diagram-3',
-        'description' => 'XML sitemap, görsel sitemap ve sitemap routing ayarlarını tek yerden yönetin.',
+        'description' => 'XML site haritası, görsel site haritası ve yönlendirme ayarlarını tek yerden yönetin.',
         'keys' => [
             'sitemap_enabled',
             'sitemap_max_urls',
@@ -470,9 +470,9 @@ $emailGroups = [
 
 $rateLimitGroups = [
     'rate-tab-auth' => [
-        'title' => 'Giris ve Hesap Guvenligi',
+        'title' => 'Giriş ve Hesap Güvenliği',
         'icon' => 'bi-person-lock',
-        'description' => 'Giris, kayit ve sifre sifirlama denemeleri icin IP bazli guvenlik limitleri.',
+        'description' => 'Giriş, kayıt ve şifre sıfırlama denemeleri için IP bazlı güvenlik limitleri.',
         'keys' => [
             'login_rate_limit',
             'login_rate_window',
@@ -485,7 +485,7 @@ $rateLimitGroups = [
     'rate-tab-search-api' => [
         'title' => 'Arama ve Veri API',
         'icon' => 'bi-braces',
-        'description' => 'Arama, konu listeleme, mesaj, leaderboard ve analitik API istek limitleri.',
+        'description' => 'Arama, konu listeleme, mesaj, liderlik tablosu ve analitik API istek limitleri.',
         'keys' => [
             'search_rate_limit',
             'search_rate_window',
@@ -500,9 +500,9 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-interactions' => [
-        'title' => 'Etkilesim ve Sikayet',
+        'title' => 'Etkileşim ve Şikayet',
         'icon' => 'bi-hand-thumbs-up',
-        'description' => 'Favori, konu sikayet ve indirme sayaci istekleri icin limitler.',
+        'description' => 'Favori, konu şikayet ve indirme sayacı istekleri için limitler.',
         'keys' => [
             'api_favorite_rate_limit',
             'api_favorite_rate_window',
@@ -515,9 +515,9 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-user-reports' => [
-        'title' => 'Kullanici Sikayet',
+        'title' => 'Kullanıcı Şikayetleri',
         'icon' => 'bi-person-exclamation',
-        'description' => 'Kullanici sikayeti listeleme ve gonderim limitleri.',
+        'description' => 'Kullanıcı şikayeti listeleme ve gönderim limitleri.',
         'keys' => [
             'api_user_reports_rate_limit',
             'api_user_reports_rate_window',
@@ -526,9 +526,9 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-comments' => [
-        'title' => 'Yorum Akisi',
+        'title' => 'Yorum Akışı',
         'icon' => 'bi-chat-left-text',
-        'description' => 'Yorum gonderme, mention arama, duzenleme, reaksiyon ve sikayet limitleri.',
+        'description' => 'Yorum gönderme, mention arama, düzenleme, reaksiyon ve şikayet limitleri.',
         'keys' => [
             'comment_rate_minutes',
             'comment_rate_max',
@@ -544,9 +544,9 @@ $rateLimitGroups = [
         ],
     ],
     'rate-tab-submissions' => [
-        'title' => 'Mod Gonderimleri',
+        'title' => 'Gönderim Limitleri',
         'icon' => 'bi-cloud-arrow-up',
-        'description' => 'Kullanici mod gonderim sikligi icin saatlik ve gunluk limitler.',
+        'description' => 'Kullanıcı gönderim sıklığı için saatlik ve günlük limitler.',
         'keys' => [
             'user_upload_hourly_limit',
             'user_upload_daily_limit',
@@ -678,8 +678,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
             'topic_health_scan' => [
                 'job_key' => 'topic_health_scan',
                 'group' => 'Sistem ve Veri',
-                'title' => 'Konu Sagligi Taramasi',
-                'description' => 'Kirik veya eksik icerik sinyallerini tarar.',
+                'title' => 'Konu Sağlığı Taraması',
+                'description' => 'Kırık veya eksik içerik sinyallerini tarar.',
                 'icon' => 'bi-heart-pulse',
                 'schedule' => '* * * * *',
                 'schedule_label' => 'Her 1 dakika',
@@ -690,8 +690,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
             'notification_email_queue' => [
                 'job_key' => 'notification_email_queue',
                 'group' => 'Sistem ve Veri',
-                'title' => 'Bildirim E-posta Kuyrugu',
-                'description' => 'Bildirim mail kuyrugunu sirayla gonderir.',
+                'title' => 'Bildirim E-posta Kuyruğu',
+                'description' => 'Bildirim e-posta kuyruğunu sırayla gönderir.',
                 'icon' => 'bi-envelope',
                 'schedule' => '* * * * *',
                 'schedule_label' => 'Her 1 dakika',
@@ -702,8 +702,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
             'rate_limits_cleanup' => [
                 'job_key' => 'rate_limits_cleanup',
                 'group' => 'Sistem ve Veri',
-                'title' => 'Rate Limit Expired Temizligi',
-                'description' => 'Suresi dolan request_rate_limits kayitlarini siler.',
+                'title' => 'Süresi Dolmuş İstek Sınırı Temizliği',
+                'description' => 'Süresi dolan request_rate_limits kayıtlarını siler.',
                 'icon' => 'bi-speedometer2',
                 'schedule' => '*/15 * * * *',
                 'schedule_label' => 'Her 15 dakika',
@@ -714,11 +714,11 @@ if (!function_exists('settingsCronTaskCatalog')) {
             'leaderboard_cache_daily' => [
                 'job_key' => 'leaderboard_cache',
                 'group' => 'Sistem ve Veri',
-                'title' => 'Liderlik Onbellek Guncelleme',
-                'description' => 'Liderlik onbellek hesaplamalarini yeniler.',
+                'title' => 'Liderlik Önbellek Güncelleme',
+                'description' => 'Liderlik önbellek hesaplamalarını yeniler.',
                 'icon' => 'bi-trophy',
                 'schedule' => '*/15 * * * *',
-                'schedule_label' => 'Her 15 dakika (daily ornegi)',
+                'schedule_label' => 'Her 15 dakika (daily örneği)',
                 'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('update-leaderboard-cache.php')) . ' --period=daily',
                 'http' => settingsCronHttpCommand($buildUrl('/cron/update-leaderboard-cache.php', ['period' => 'daily'])),
                 'url' => $buildUrl('/cron/update-leaderboard-cache.php', ['period' => 'daily']),
@@ -726,8 +726,8 @@ if (!function_exists('settingsCronTaskCatalog')) {
             'events_master' => [
                 'job_key' => 'events_master',
                 'group' => 'Sistem ve Veri',
-                'title' => 'Etkinlik Master Cron',
-                'description' => 'Etkinlik cleanup, odul gecerlilik ve kuyruk islerini yonetir.',
+                'title' => 'Etkinlik Ana Cron',
+                'description' => 'Etkinlik temizliği, ödül geçerlilik ve kuyruk işlerini yönetir.',
                 'icon' => 'bi-calendar-event',
                 'schedule' => '* * * * *',
                 'schedule_label' => 'Her 1 dakika',
@@ -978,6 +978,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'from_address' => $fromAddress,
                 'reply_to' => $fromAddress,
                 'settings' => $overrideSettings,
+                'email_log' => [
+                    'source' => 'settings',
+                    'source_key' => 'email_test',
+                    'recipient_name' => $recipient,
+                ],
             ]
         );
         $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
@@ -1276,7 +1281,7 @@ require_once __DIR__ . '/header.php';
                                                 <div class="route-public-route-summary">
                                                     <i class="bi bi-signpost-split"></i>
                                                     <div>
-                                                        <strong>Router tarafindan ayrilan public rotalar</strong>
+                                                        <strong>Router tarafından ayrılan public rotalar</strong>
                                                         <span>Bu liste merkezi katalogdan okunur; konu, kategori, profil ve sabit public sayfa yollari bu adreslerle cakismamali.</span>
                                                     </div>
                                                 </div>
@@ -1393,7 +1398,7 @@ require_once __DIR__ . '/header.php';
         <div class="admin-divider-block mt-4">
             <div class="admin-inline-head ui-panel__head">
                 <i class="bi bi-folder2-open text-primary"></i>
-                <?= htmlspecialchars((string) $groupName) ?> Gorevleri
+                <?= htmlspecialchars((string) $groupName) ?> Görevleri
             </div>
             <div class="cron-task-grid ui-grid">
                 <?php foreach ($groupTasks as $task): ?>
@@ -1418,12 +1423,12 @@ require_once __DIR__ . '/header.php';
 
                         <div class="cron-task-meta">
                             <span><strong>Plan:</strong> <?= htmlspecialchars((string) ($task['schedule'] ?? '-')) ?></span>
-                            <span><strong>Oneri:</strong> <?= htmlspecialchars((string) ($task['schedule_label'] ?? '-')) ?></span>
-                            <span><strong>Son Calisma:</strong> <?= htmlspecialchars($runAt) ?> (<?= htmlspecialchars($runAgo) ?>)</span>
+                            <span><strong>Öneri:</strong> <?= htmlspecialchars((string) ($task['schedule_label'] ?? '-')) ?></span>
+                            <span><strong>Son Çalışma:</strong> <?= htmlspecialchars($runAt) ?> (<?= htmlspecialchars($runAgo) ?>)</span>
                         </div>
 
                         <div class="cron-task-command-row">
-                            <label class="ui-admin-form-label fw-bold">CLI Komutu</label>
+                                <label class="ui-admin-form-label fw-bold">CLI Komutu</label>
                             <div class="admin-inline-control">
                                 <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['cli'] ?? '')) ?>" readonly data-ui-select-on-focus>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
@@ -1431,7 +1436,7 @@ require_once __DIR__ . '/header.php';
                         </div>
 
                         <div class="cron-task-command-row">
-                            <label class="ui-admin-form-label fw-bold">HTTP Yedek Komutu</label>
+                                <label class="ui-admin-form-label fw-bold">HTTP Yedek Komutu</label>
                             <div class="admin-inline-control">
                                 <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['http'] ?? '')) ?>" readonly data-ui-select-on-focus>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
@@ -1439,11 +1444,11 @@ require_once __DIR__ . '/header.php';
                         </div>
 
                         <div class="cron-task-command-row">
-                            <label class="ui-admin-form-label fw-bold">URL Endpoint</label>
+                                <label class="ui-admin-form-label fw-bold">URL Endpoint</label>
                             <div class="admin-inline-control">
                                 <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" readonly data-ui-select-on-focus>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
-                                <a href="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Endpoint Ac"><i class="bi bi-box-arrow-up-right"></i></a>
+                                <a href="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Endpoint'i aç"><i class="bi bi-box-arrow-up-right"></i></a>
                             </div>
                         </div>
 
@@ -1472,13 +1477,13 @@ require_once __DIR__ . '/header.php';
         <i class="bi <?= $healthTone === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' ?> fs-4"></i>
         <div>
             <strong><?= htmlspecialchars($healthTitle) ?></strong><br>
-            Toplam <?= (int) $cronHealthTotal ?> gorevden <?= (int) $cronHealthOkCount ?> tanesi son kaydina gore basarili.
+            Toplam <?= (int) $cronHealthTotal ?> görevden <?= (int) $cronHealthOkCount ?> tanesi son kaydına göre başarılı.
             <?php if ($cronLatestAt): ?>
                 Son cron hareketi: <?= htmlspecialchars(date('d.m.Y H:i:s', strtotime((string) $cronLatestAt) ?: time())) ?>.
             <?php else: ?>
-                Henuz cron kaydi gorunmuyor.
+                Henüz cron kaydı görünmüyor.
             <?php endif; ?>
-            <br><a href="logs.php?view=cron">Cron loglarini ac</a>
+            <br><a href="logs.php?view=cron">Cron loglarını aç</a>
         </div>
     </div>
 
@@ -1486,11 +1491,11 @@ require_once __DIR__ . '/header.php';
         <table class="ui-admin-table w-100">
             <thead>
                 <tr>
-                    <th>Gorev</th>
-                    <th>Job Key</th>
+                    <th>Görev</th>
+                    <th>İş Anahtarı</th>
                     <th>Plan</th>
                     <th>Durum</th>
-                    <th>Son Calisma</th>
+                    <th>Son Çalışma</th>
                     <th>Log</th>
                 </tr>
             </thead>
@@ -1508,7 +1513,7 @@ require_once __DIR__ . '/header.php';
                         <td><?= htmlspecialchars((string) ($healthRow['schedule_label'] ?? '-')) ?></td>
                         <td><span class="badge <?= htmlspecialchars($rowBadge) ?>"><?= htmlspecialchars($cronStatusLabel($rowStatus)) ?></span></td>
                         <td><?= htmlspecialchars($rowAt) ?><?php if ($rowAtRaw): ?> <small>(<?= htmlspecialchars($cronAgeLabel($rowAtRaw)) ?>)</small><?php endif; ?></td>
-                        <td><a href="logs.php?view=cron&cron_job=<?= urlencode((string) ($healthRow['job_key'] ?? '')) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Ac</a></td>
+                        <td><a href="logs.php?view=cron&cron_job=<?= urlencode((string) ($healthRow['job_key'] ?? '')) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Aç</a></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -1786,7 +1791,7 @@ require_once __DIR__ . '/header.php';
                                                                         <div class="seo-public-page-sitemap-head">
                                                                             <label class="ui-admin-switch seo-public-page-switch mb-0">
                                                                                 <input type="checkbox" name="seo_public_pages[<?= htmlspecialchars((string) $pageKey) ?>][sitemap_include]" value="1" <?= ($preset['sitemap_include'] ?? '1') === '1' ? 'checked' : '' ?> data-seo-public-page-sitemap>
-                                                                                <span class="ui-admin-switch-label">Sitemap'e Ekle</span>
+                                                                                <span class="ui-admin-switch-label">Site haritasına ekle</span>
                                                                             </label>
                                                                             <div class="small text-muted d-flex align-items-center gap-1 seo-public-page-sitemap-note">
                                                                                 <i class="bi bi-diagram-3"></i>
@@ -1820,11 +1825,11 @@ require_once __DIR__ . '/header.php';
                                             </div>
                                         <?php endif; ?>
                                     <?php elseif ($seoTabId === 'seo-tab-sitemap'): ?>
-                                        <!-- Sitemap Routing Ayarları -->
+                                        <!-- Site Haritası Yönlendirme Ayarları -->
                                         <div class="admin-section-block ui-section">
                                             <div class="admin-inline-head ui-panel__head">
                                                 <i class="bi bi-gear"></i>
-                                                <span class="admin-inline-title">Sitemap Routing</span>
+                                                <span class="admin-inline-title">Site Haritası Yönlendirme</span>
                                             </div>
                                             <div class="admin-settings-grid ui-grid">
                                                 <?php
@@ -1858,11 +1863,11 @@ require_once __DIR__ . '/header.php';
                                             </div>
                                         </div>
 
-                                        <!-- XML Sitemap Ayarları -->
+                                        <!-- XML Site Haritası Ayarları -->
                                         <div class="admin-section-block ui-section">
                                             <div class="admin-inline-head ui-panel__head">
                                                 <i class="bi bi-diagram-3"></i>
-                                                <span class="admin-inline-title">XML Sitemap</span>
+                                                <span class="admin-inline-title">XML Site Haritası</span>
                                             </div>
                                             <div class="admin-settings-grid ui-grid">
                                                 <?php
@@ -1904,11 +1909,11 @@ require_once __DIR__ . '/header.php';
                                             </div>
                                         </div>
 
-                                        <!-- Görsel Sitemap Ayarları -->
+                                        <!-- Görsel Site Haritası Ayarları -->
                                         <div class="admin-section-block ui-section">
                                             <div class="admin-inline-head ui-panel__head">
                                                 <i class="bi bi-images"></i>
-                                                <span class="admin-inline-title">Görsel Sitemap</span>
+                                                <span class="admin-inline-title">Görsel Site Haritası</span>
                                             </div>
                                             <div class="admin-settings-grid ui-grid">
                                                 <?php
@@ -1942,38 +1947,38 @@ require_once __DIR__ . '/header.php';
                                             </div>
                                         </div>
 
-                                        <!-- Sitemap URL'leri -->
+                                        <!-- Site haritası URL'leri -->
                                         <div class="admin-divider-block">
                                             <div class="admin-inline-head ui-panel__head">
-                                                <i class="bi bi-link-45deg"></i>Sitemap & Robots URL'leri
+                                                <i class="bi bi-link-45deg"></i>Site Haritası & Robots URL'leri
                                             </div>
                                             <div class="admin-settings-grid-sm ui-grid">
                                                 <div>
-                                                    <label class="ui-admin-form-label">Sitemap Index</label>
+                                                    <label class="ui-admin-form-label">Site Haritası İndeksi</label>
                                                     <div class="admin-inline-control">
                                                         <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/sitemap.xml" readonly>
-                                                        <a href="<?= $baseUri ?>/sitemap.xml" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Ac"><i class="bi bi-box-arrow-up-right"></i></a>
+                                                        <a href="<?= $baseUri ?>/sitemap.xml" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Aç"><i class="bi bi-box-arrow-up-right"></i></a>
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label class="ui-admin-form-label">Topic Sitemap</label>
+                                                    <label class="ui-admin-form-label">Konu Site Haritası</label>
                                                     <div class="admin-inline-control">
                                                         <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/topic-sitemap.xml" readonly>
-                                                        <a href="<?= $baseUri ?>/topic-sitemap.xml" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Ac"><i class="bi bi-box-arrow-up-right"></i></a>
+                                                        <a href="<?= $baseUri ?>/topic-sitemap.xml" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Aç"><i class="bi bi-box-arrow-up-right"></i></a>
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label class="ui-admin-form-label">Image Sitemap</label>
+                                                    <label class="ui-admin-form-label">Görsel Site Haritası</label>
                                                     <div class="admin-inline-control">
                                                         <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/image-sitemap.xml" readonly>
-                                                        <a href="<?= $baseUri ?>/image-sitemap.xml" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Ac"><i class="bi bi-box-arrow-up-right"></i></a>
+                                                        <a href="<?= $baseUri ?>/image-sitemap.xml" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Aç"><i class="bi bi-box-arrow-up-right"></i></a>
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <label class="ui-admin-form-label">Robots.txt</label>
                                                     <div class="admin-inline-control">
                                                         <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/robots.txt" readonly>
-                                                        <a href="<?= $baseUri ?>/robots.txt" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Ac"><i class="bi bi-box-arrow-up-right"></i></a>
+                                                        <a href="<?= $baseUri ?>/robots.txt" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Aç"><i class="bi bi-box-arrow-up-right"></i></a>
                                                     </div>
                                                 </div>
                                             </div>

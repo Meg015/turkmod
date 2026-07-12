@@ -2872,16 +2872,34 @@ if (typeof module !== 'undefined' && module.exports) {
     // Type aliases
     var aliases = { danger: 'error', failed: 'error', warn: 'warning', ok: 'success' };
 
-    function dismissToast(toast) {
+    function dismissToast(toast, reason) {
         if (toast._dismissed) return;
         toast._dismissed = true;
+        toast._dismissReason = reason || toast._dismissReason || 'dismissed';
+        var onClose = toast._onClose;
+        toast._onClose = null;
         toast.classList.add('toast-out');
-        setTimeout(function () { toast.remove(); }, 350);
+        setTimeout(function () {
+            toast.remove();
+            if (typeof onClose === 'function') {
+                try {
+                    onClose(toast._dismissReason, toast);
+                } catch (error) {
+                    // Toast kapanışındaki hata geri kalan akışı bozmasın.
+                }
+            }
+        }, 350);
     }
 
     window.showToast = function (message, type, duration) {
         var cfg = getConfig();
         if (!cfg) return;
+
+        var options = {};
+        if (duration && typeof duration === 'object') {
+            options = duration;
+            duration = options.duration;
+        }
 
         type = aliases[type] || type || 'info';
 
@@ -2896,7 +2914,7 @@ if (typeof module !== 'undefined' && module.exports) {
         // Enforce max visible
         var existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
         while (existing.length >= cfg.maxVisible) {
-            dismissToast(existing[0]);
+            dismissToast(existing[0], 'overflow');
             existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
         }
 
@@ -2906,6 +2924,7 @@ if (typeof module !== 'undefined' && module.exports) {
             + ' toast-theme-' + cfg.theme
             + ' toast-anim-' + cfg.animation;
         toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        toast._onClose = typeof options.onClose === 'function' ? options.onClose : null;
 
         // Icon
         var iconEl = document.createElement('i');
@@ -2926,7 +2945,7 @@ if (typeof module !== 'undefined' && module.exports) {
             closeBtn.setAttribute('aria-label', 'Kapat');
             closeBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
-                dismissToast(toast);
+                dismissToast(toast, 'button');
             });
             toast.appendChild(closeBtn);
         }
@@ -2947,7 +2966,7 @@ if (typeof module !== 'undefined' && module.exports) {
         if (cfg.clickToClose) {
             toast.style.cursor = 'pointer';
             toast.addEventListener('click', function () {
-                dismissToast(toast);
+                dismissToast(toast, 'click');
             });
         }
 
@@ -2966,7 +2985,7 @@ if (typeof module !== 'undefined' && module.exports) {
         function startTimer() {
             startTime = Date.now();
             timer = setTimeout(function () {
-                dismissToast(toast);
+                dismissToast(toast, 'timeout');
             }, remaining);
         }
 
@@ -5201,20 +5220,35 @@ e.init();
               var csrfMeta = document.querySelector('meta[name="csrf-token"]');
               var csrfToken = csrfMeta ? csrfMeta.getAttribute("content") : "";
               if (!notif.is_read && readApi) {
-                // Immediately update badge
-                el.classList.remove("unread");
-                notif.is_read = true;
-                var badge = document.getElementById("notifBadge");
-                if (badge && badge.classList.contains("is-visible")) {
-                  var cur = parseInt(badge.textContent || "0", 10);
-                  if (cur > 1) { badge.textContent = String(cur - 1); }
-                  else { badge.textContent = "0"; badge.classList.remove("is-visible"); }
-                }
                 var fd = new FormData();
                 fd.append("_token", csrfToken);
                 fd.append("id", notif.id);
                 fetch(readApi, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
-                  .finally(function() { window.location.href = dest; });
+                  .then(function(response) {
+                    return response.json().then(function(data) {
+                      if (!response.ok) {
+                        throw new Error((data && data.message) ? data.message : "Bildirimler guncellenemedi.");
+                      }
+                      return data;
+                    });
+                  })
+                  .then(function() {
+                    el.classList.remove("unread");
+                    notif.is_read = true;
+                    var badge = document.getElementById("notifBadge");
+                    if (badge && badge.classList.contains("is-visible")) {
+                      var cur = parseInt(badge.textContent || "0", 10);
+                      if (cur > 1) { badge.textContent = String(cur - 1); }
+                      else { badge.textContent = "0"; badge.classList.remove("is-visible"); }
+                    }
+                    window.location.href = dest;
+                  })
+                  .catch(function(error) {
+                    if (window.showToast) {
+                      window.showToast(error && error.message ? error.message : "Bildirimler guncellenemedi.", "error");
+                    }
+                    window.location.href = dest;
+                  });
               } else {
                 window.location.href = dest;
               }

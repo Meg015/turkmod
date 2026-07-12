@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/init.php';
 
-adminRequirePermission('rate_limits.view', 'Rate limit kayıtlarını görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
+adminRequirePermission('rate_limits.view', 'İstek sınırı kayıtlarını görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 
-$pageTitle = 'Rate Limit Izleme';
+$pageTitle = 'İstek Sınırı İzleme';
 
 /**
  * Rate key'ini insan okunabilir hale getirir.
@@ -16,7 +16,7 @@ $pageTitle = 'Rate Limit Izleme';
 function rateLimitFormatKey(string $key): array
 {
     $knownTypes = [
-        'login'           => 'Giriş',
+            'login'           => 'Giriş',
         'register'        => 'Kayıt',
         'password_reset'  => 'Şifre Sıfırlama',
         'search'          => 'Arama',
@@ -66,7 +66,7 @@ function rateLimitDeleteByIds(?PDO $pdo, array $ids): int
 
 // --- POST işlemleri ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    adminRequirePermission('rate_limits.manage', 'Rate limit kayıtlarını silmek için gerekli izin hesabınıza tanımlanmamış.');
+adminRequirePermission('rate_limits.manage', 'İstek sınırı kayıtlarını silmek için gerekli izin hesabınıza tanımlanmamış.');
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
         flash('error', 'Güvenlik hatası.');
         header('Location: rate-limits.php');
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $scopeLabels = [
             'single' => 'Tek kayıt silme',
             'selected' => 'Toplu kayıt silme',
-            'login' => 'Login kilitlerini temizleme',
+            'login' => 'Giriş kilitlerini temizleme',
             'expired' => 'Süresi dolanları temizleme',
             'all' => 'Tümünü temizleme',
         ];
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'rate_limit_records_deleted',
             'settings',
             0,
-            'Rate limit kaydı temizleme: ' . $scopeLabel,
+            'İstek sınırı kaydı temizleme: ' . $scopeLabel,
             [],
             ['scope' => $scope, 'deleted' => $deleted],
             false
@@ -106,14 +106,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted]);
                 $auditAction('single', $deleted);
             }
-            flash($deleted > 0 ? 'success' : 'error', $deleted > 0 ? 'Rate limit kaydı silindi.' : 'Silinecek kayıt bulunamadı.');
+            flash($deleted > 0 ? 'success' : 'error', $deleted > 0 ? 'İstek sınırı kaydı silindi.' : 'Silinecek kayıt bulunamadı.');
         } elseif ($action === 'delete_selected') {
             $deleted = rateLimitDeleteByIds($pdo, (array)($_POST['rate_ids'] ?? []));
             if ($deleted > 0) {
                 logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted]);
                 $auditAction('selected', $deleted);
             }
-            flash($deleted > 0 ? 'success' : 'error', $deleted > 0 ? $deleted . ' rate limit kaydı silindi.' : 'Lütfen en az bir kayıt seçin.');
+            flash($deleted > 0 ? 'success' : 'error', $deleted > 0 ? $deleted . ' istek sınırı kaydı silindi.' : 'Lütfen en az bir kayıt seçin.');
         } elseif ($action === 'clear_login') {
             $stmt = $pdo->prepare("DELETE FROM request_rate_limits WHERE LEFT(rate_key, 6) = 'login_'");
             $stmt->execute();
@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted, 'scope' => 'login']);
                 $auditAction('login', $deleted);
             }
-            flash('success', $deleted . ' login rate limit kaydı silindi.');
+            flash('success', $deleted . ' giriş kilidi kaydı silindi.');
         } elseif ($action === 'clear_expired') {
             $stmt = $pdo->prepare('DELETE FROM request_rate_limits WHERE expires_at <= NOW()');
             $stmt->execute();
@@ -141,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logActivity($pdo, 'rate_limit_records_deleted', 'rate_limit', null, ['action' => $action, 'deleted' => $deleted, 'scope' => 'all']);
                 $auditAction('all', $deleted);
             }
-            flash('success', $deleted . ' rate limit kaydı silindi.');
+            flash('success', $deleted . ' istek sınırı kaydı silindi.');
         }
     } catch (Throwable $e) {
         flash('error', 'İşlem başarısız: ' . safeErrorMessage($e));
@@ -191,7 +191,7 @@ if ($pdo) {
         $stmt->execute($params);
         $items = $stmt->fetchAll();
     } catch (Throwable $e) {
-        flash('error', 'Rate limit kayıtları yüklenemedi: ' . safeErrorMessage($e));
+        flash('error', 'İstek sınırı kayıtları yüklenemedi: ' . safeErrorMessage($e));
     }
 }
 
@@ -205,13 +205,13 @@ require_once __DIR__ . '/header.php';
     <section class="ui-admin-page-hero">
         <div class="ui-admin-page-hero-text">
             <span class="ui-admin-kicker"><i class="bi bi-speedometer2"></i> Erişim sınırları</span>
-            <h2>Rate Limit İzleme</h2>
-            <p>Giriş, kayıt ve API limitlerini tek akışta izleyin; süresi dolan kayıtları topluca temizleyin.</p>
+            <h2>İstek Sınırı İzleme</h2>
+            <p>Giriş, kayıt ve API istek sınırlarını tek akışta izleyin; süresi dolan kayıtları topluca temizleyin.</p>
         </div>
     </section>
 
     <!-- İstatistik Kartları -->
-    <section class="rate-limit-hero" aria-label="Rate limit özeti ve filtreler">
+    <section class="rate-limit-hero" aria-label="İstek sınırı özeti ve filtreler">
         <div class="admin-stat-grid logs-summary rate-limit-summary ui-grid">
             <div class="admin-stat-card stat-info logs-stat rate-limit-stat ui-card">
                 <div class="stat-icon"><i class="bi bi-collection"></i></div>
@@ -227,7 +227,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <div class="admin-stat-card stat-danger logs-stat rate-limit-stat ui-card">
                 <div class="stat-icon"><i class="bi bi-unlock-fill"></i></div>
-                <div class="stat-content"><span class="stat-label">Login Kilidi</span><span class="stat-value"><?= number_format($stats['login_active']) ?></span></div>
+                <div class="stat-content"><span class="stat-label">Giriş Kilidi</span><span class="stat-value"><?= number_format($stats['login_active']) ?></span></div>
             </div>
         </div>
     </section>
@@ -253,12 +253,12 @@ require_once __DIR__ . '/header.php';
                     <input type="hidden" name="action" value="clear_expired">
                     <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs"><i class="bi bi-hourglass-split"></i> Dolanları Sil</button>
                 </form>
-                <form method="post" action="rate-limits.php" data-admin-confirm="Tüm login rate limit kayıtları silinsin mi?" data-admin-confirm-title="Login kilitlerini temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
+                <form method="post" action="rate-limits.php" data-admin-confirm="Tüm giriş kilidi kayıtları silinsin mi?" data-admin-confirm-title="Giriş kilitlerini temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="clear_login">
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-xs"><i class="bi bi-unlock"></i> Login Kilitlerini Temizle</button>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-xs"><i class="bi bi-unlock"></i> Giriş Kilitlerini Temizle</button>
                 </form>
-                <form method="post" action="rate-limits.php" data-admin-confirm="Tüm rate limit kayıtları silinsin mi? Bu işlem geri alınamaz!" data-admin-confirm-title="Tüm kayıtları sil" data-admin-confirm-ok="Tümünü Sil" data-admin-confirm-tone="danger">
+                <form method="post" action="rate-limits.php" data-admin-confirm="Tüm istek sınırı kayıtları silinsin mi? Bu işlem geri alınamaz!" data-admin-confirm-title="Tüm kayıtları sil" data-admin-confirm-ok="Tümünü Sil" data-admin-confirm-tone="danger">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="clear_all">
                     <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Tümünü Sil</button>
@@ -273,8 +273,8 @@ require_once __DIR__ . '/header.php';
         <input type="hidden" name="action" value="delete_selected">
         <div class="admin-card rate-limit-card logs-list-card ui-panel">
             <div class="card-header rate-limit-list-head ui-panel__head logs-list-head">
-                <strong class="rate-limit-list-title"><i class="bi bi-speedometer2"></i> Rate Limit Kayıtları</strong>
-                <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Seçilileri Sil</button>
+                <strong class="rate-limit-list-title"><i class="bi bi-speedometer2"></i> İstek Sınırı Kayıtları</strong>
+                <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Seçilenleri Sil</button>
             </div>
             <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
                 <?php if (empty($items)): ?>
@@ -283,7 +283,7 @@ require_once __DIR__ . '/header.php';
                             <i class="bi <?= $search !== '' || $status !== 'all' ? 'bi-search' : 'bi-shield-check' ?>"></i>
                         </div>
                         <h3 class="ui-admin-empty-title ui-empty">
-                            <?= $search !== '' || $status !== 'all' ? 'Filtreye uyan kayıt yok' : 'Henüz rate limit kaydı yok' ?>
+                            <?= $search !== '' || $status !== 'all' ? 'Filtreye uyan kayıt yok' : 'Henüz istek sınırı kaydı yok' ?>
                         </h3>
                         <p class="ui-admin-empty-desc ui-empty">
                             <?= $search !== '' || $status !== 'all'

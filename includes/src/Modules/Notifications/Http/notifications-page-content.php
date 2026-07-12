@@ -251,10 +251,12 @@ if ($pdo) {
 
     try {
         notificationEnsureEventSchema($pdo);
+        notificationEnsureDismissalSchema($pdo);
         $canFilterNotificationEvents = isset(notificationEventTableColumns($pdo)['event_key']);
     } catch (Throwable $e) {
         $canFilterNotificationEvents = false;
     }
+    $canDismissNotifications = function_exists('notificationDismissalTableExists') ? notificationDismissalTableExists($pdo) : false;
 
     if (!$notificationCenterEnabled) {
         $preferenceTypeSql = ' AND 1 = 0';
@@ -263,6 +265,11 @@ if ($pdo) {
         $preferenceTypeSql = (string) ($preferenceWhere['sql'] ?? '');
         $preferenceTypeParams = is_array($preferenceWhere['params'] ?? null) ? $preferenceWhere['params'] : [];
     }
+
+    $dismissalSql = $canDismissNotifications
+        ? ' AND NOT EXISTS (SELECT 1 FROM notification_dismissals nd WHERE nd.notification_id = n.id AND nd.user_id = ?)'
+        : '';
+    $dismissalParams = $canDismissNotifications ? [$userId] : [];
 
     try {
         $statsStmt = $pdo->prepare("
@@ -273,8 +280,9 @@ if ($pdo) {
             LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = ?
             WHERE (n.user_id IS NULL OR n.user_id = ?)
             {$preferenceTypeSql}
+            {$dismissalSql}
         ");
-        $statsStmt->execute(array_merge([$userId, $userId], $preferenceTypeParams));
+        $statsStmt->execute(array_merge([$userId, $userId], $preferenceTypeParams, $dismissalParams));
         $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
         $notificationStats['total'] = (int) ($stats['total_count'] ?? 0);
@@ -300,9 +308,10 @@ if ($pdo && $tab === 'list') {
             LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = ?
             WHERE (n.user_id IS NULL OR n.user_id = ?)
             {$preferenceTypeSql}
+            {$dismissalSql}
             {$filterSql}
         ");
-        $countStmt->execute(array_merge([$userId, $userId], $preferenceTypeParams));
+        $countStmt->execute(array_merge([$userId, $userId], $preferenceTypeParams, $dismissalParams));
         $totalFilteredNotifications = (int) $countStmt->fetchColumn();
         $totalPages = max(1, (int) ceil($totalFilteredNotifications / $perPage));
         $page = min($page, $totalPages);
@@ -321,6 +330,7 @@ if ($pdo && $tab === 'list') {
             LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = ?
             WHERE (n.user_id IS NULL OR n.user_id = ?)
             {$preferenceTypeSql}
+            {$dismissalSql}
             {$filterSql}
             ORDER BY n.created_at DESC
             LIMIT ? OFFSET ?
@@ -330,6 +340,10 @@ if ($pdo && $tab === 'list') {
         $bindIndex = 3;
         foreach ($preferenceTypeParams as $typeParam) {
             $stmt->bindValue($bindIndex, $typeParam, PDO::PARAM_STR);
+            $bindIndex++;
+        }
+        foreach ($dismissalParams as $dismissalParam) {
+            $stmt->bindValue($bindIndex, $dismissalParam, PDO::PARAM_INT);
             $bindIndex++;
         }
         $stmt->bindValue($bindIndex, $perPage, PDO::PARAM_INT);
@@ -348,6 +362,7 @@ if (is_string($errorMsg) && str_contains($errorMsg, 'mod bulunamad')) {
 }
 $csrfToken = csrf_token();
 $notificationsReadEndpoint = rtrim((string) ($baseUri ?? ''), '/') . '/api/notifications-read.php';
+$notificationsDeleteEndpoint = rtrim((string) ($baseUri ?? ''), '/') . '/api/notifications-delete.php';
 
 $pageCssFiles = array_values(array_unique(array_merge(
     $pageCssFiles ?? [],
@@ -355,7 +370,7 @@ $pageCssFiles = array_values(array_unique(array_merge(
 )));
 
 $notifications_compact = notification_bool_setting($userSettings, 'notif_compact_view', '0');
-$notifications_shell_class='notifications-shell ui-section' . ($notifications_compact ? 'is-compact' : '') . ($readMoreEnabled ? '' : ' is-readmore-disabled');
+$notifications_shell_class = 'notifications-shell ui-section' . ($notifications_compact ? ' is-compact' : '') . ($readMoreEnabled ? '' : ' is-readmore-disabled');
 $notifications_message_lines = (int) $messageLineLimit;
 $notifications_total = number_format($notificationStats['total']);
 $notifications_unread = number_format($notificationStats['unread']);
@@ -372,11 +387,12 @@ $notifications_result_count = (string) (int) $totalFilteredNotifications;
 $notifications_center_enabled = $notificationCenterEnabled;
 $notifications_empty_tips_enabled = $emptyStateTipsEnabled;
 $notifications_empty_message = !$notificationCenterEnabled
-    ? 'Bildirim merkezi su anda yonetici tarafindan kapali.'
+    ? 'Bildirim merkezi şu anda yönetici tarafından kapalı.'
     : ($filter === 'unread'
-        ? 'Okunmamis bildiriminiz kalmadi. Yeni bir duyuru geldiginde burada gorunecek.'
-        : 'Henuz hesabiniza ait bir bildirim bulunmuyor. Tercihler sekmesinden gormek istediginiz bildirim turlerini degistirebilirsiniz.');
+        ? 'Okunmamış bildiriminiz kalmadı. Yeni bir duyuru geldiğinde burada görünecek.'
+        : 'Henüz hesabınıza ait bir bildirim bulunmuyor. Tercihler sekmesinden görmek istediğiniz bildirim türlerini değiştirebilirsiniz.');
 $notifications_read_endpoint = $notificationsReadEndpoint;
+$notifications_delete_endpoint = $notificationsDeleteEndpoint;
 $notifications_csrf_token = $csrfToken;
 $notifications_read_more_js = $readMoreEnabled ? 'true' : 'false';
 $notifications_auto_mark_js = ($globalAutoMarkOnOpen && notification_bool_setting($userSettings, 'notif_auto_mark_on_open', '1')) ? 'true' : 'false';
@@ -384,21 +400,21 @@ $notifications_filters = [
     [
         'url' => $notificationsBaseUrl . '?tab=list&filter=all',
         'class' => $filter === 'all' ? 'notifications-filter is-active' : 'notifications-filter',
-        'label' => 'Tumu',
+        'label' => 'Tümü',
         'count' => (string) (int) $notificationStats['total'],
         'data_attr' => '',
     ],
     [
         'url' => $notificationsBaseUrl . '?tab=list&filter=unread',
         'class' => $filter === 'unread' ? 'notifications-filter is-active' : 'notifications-filter',
-        'label' => 'Okunmamis',
+        'label' => 'Okunmamış',
         'count' => (string) (int) $notificationStats['unread'],
         'data_attr' => 'data-filter-unread',
     ],
     [
         'url' => $notificationsBaseUrl . '?tab=list&filter=read',
         'class' => $filter === 'read' ? 'notifications-filter is-active' : 'notifications-filter',
-        'label' => 'Okunmus',
+        'label' => 'Okunmuş',
         'count' => (string) (int) $notificationStats['read'],
         'data_attr' => 'data-filter-read',
     ],
@@ -420,7 +436,7 @@ foreach ($notifications as $notification) {
         'title' => (string) ($notification['title'] ?? ''),
         'status_class' => $isUnread ? 'notification-status is-unread' : 'notification-status is-read',
         'status_icon' => $isUnread ? 'bi-circle-fill' : 'bi-check2-circle',
-        'status_label' => ($isUnread ? 'Okunmamis' : 'Okundu') . ' - ' . (string) ($typeMeta['label'] ?? 'Bilgi'),
+        'status_label' => ($isUnread ? 'Okunmamış' : 'Okundu') . ' - ' . (string) ($typeMeta['label'] ?? 'Bilgi'),
         'type_label' => (string) ($typeMeta['label'] ?? 'Bilgi'),
         'type_chip_class' => 'notification-type-chip is-' . (string) ($typeMeta['class'] ?? 'info'),
         'type_summary' => (string) ($typeMeta['summary'] ?? ''),
@@ -497,6 +513,7 @@ require_once $projectRoot . '/includes/public-header.php';
     data-notifications-page
     data-notifications-csrf="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>"
     data-notifications-read-endpoint="<?= htmlspecialchars($notificationsReadEndpoint, ENT_QUOTES, 'UTF-8') ?>"
+    data-notifications-delete-endpoint="<?= htmlspecialchars($notificationsDeleteEndpoint, ENT_QUOTES, 'UTF-8') ?>"
     data-notifications-read-more="<?= $readMoreEnabled ? '1' : '0' ?>"
     data-notifications-auto-mark="<?= ($globalAutoMarkOnOpen && notification_bool_setting($userSettings, 'notif_auto_mark_on_open', '1')) ? '1' : '0' ?>"
     data-ui-style-number="--notification-message-lines:<?= (int) $messageLineLimit ?>"
@@ -602,6 +619,19 @@ require_once $projectRoot . '/includes/public-header.php';
                     </span>
                 </div>
 
+                    <?php if (!empty($notifications)): ?>
+                        <div class="notifications-toolbar-actions">
+                            <label class="notifications-select-all">
+                                <input type="checkbox" data-notif-select-all aria-label="Görünen bildirimlerin hepsini seç">
+                                <span>Tümünü seç</span>
+                            </label>
+                            <button type="button" class="notifications-action notifications-delete-action" data-notif-delete-selected disabled>
+                                <i class="bi bi-trash"></i>
+                                <span>Seçilenleri sil</span>
+                            </button>
+                        </div>
+                    <?php endif; ?>
+
                 <?php if (empty($notifications)): ?>
                     <div class="notifications-empty">
                         <div>
@@ -630,6 +660,14 @@ require_once $projectRoot . '/includes/public-header.php';
                                 $link = notification_safe_link((string) ($notification['link'] ?? ''), (string) ($baseUri ?? ''));
                             ?>
                             <article class="notification-item <?= $isUnread ? 'is-unread' : 'is-read' ?>" data-notif-item data-id="<?= (int) $notification['id'] ?>">
+                                <label class="notification-select" title="Bildirimi seç">
+                                    <input
+                                        type="checkbox"
+                                        data-notif-select
+                                        value="<?= (int) $notification['id'] ?>"
+                                        aria-label="Bildirimi seç"
+                                    >
+                                </label>
                                 <span class="notification-icon is-<?= htmlspecialchars($typeMeta['class']) ?>" aria-hidden="true">
                                     <i class="bi <?= htmlspecialchars($typeMeta['icon']) ?>"></i>
                                 </span>
@@ -762,7 +800,7 @@ require_once $projectRoot . '/includes/public-header.php';
     </div>
 </main>
 
-<script src="<?= asset_url('assets/js/notifications-page.js', $baseUri) ?>" defer></script>
+<script src="<?= asset_url('assets/js/notifications-page.js', $baseUri) ?>?v=<?= time() ?>" defer></script>
 
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>
 

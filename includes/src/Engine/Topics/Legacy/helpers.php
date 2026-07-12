@@ -228,6 +228,81 @@ function topicDownloadCommentRequirement(array $settings): string
     return $mode === 'approved' ? 'approved' : 'submitted';
 }
 
+function topicDownloadSettingText(array $settings, string $key, string $fallback, array $legacyValues = []): string
+{
+    $value = trim((string) ($settings[$key] ?? ''));
+    if ($value === '') {
+        return $fallback;
+    }
+
+    foreach ($legacyValues as $legacyValue) {
+        if ($value === (string) $legacyValue) {
+            return $fallback;
+        }
+    }
+
+    return $value;
+}
+
+function topicDownloadAccessStage(bool $locked, string $reason): string
+{
+    if (!$locked) {
+        return 'open';
+    }
+
+    $reason = strtolower(trim($reason));
+    if ($reason === 'auth_required') {
+        return 'login';
+    }
+
+    if ($reason === 'comment_required') {
+        return 'comment';
+    }
+
+    return 'locked';
+}
+
+function topicDownloadAccessStepClasses(string $stage): array
+{
+    $stage = in_array($stage, ['login', 'comment', 'open', 'locked'], true) ? $stage : 'locked';
+
+    switch ($stage) {
+        case 'login':
+            return [
+                'login' => 'is-active',
+                'comment' => 'is-pending',
+                'open' => 'is-pending',
+            ];
+        case 'comment':
+            return [
+                'login' => 'is-complete',
+                'comment' => 'is-active',
+                'open' => 'is-pending',
+            ];
+        case 'open':
+            return [
+                'login' => 'is-complete',
+                'comment' => 'is-complete',
+                'open' => 'is-active',
+            ];
+        default:
+            return [
+                'login' => 'is-pending',
+                'comment' => 'is-pending',
+                'open' => 'is-pending',
+            ];
+    }
+}
+
+function topicDownloadAccessFinalizeState(array $state): array
+{
+    $stage = topicDownloadAccessStage((bool) ($state['locked'] ?? false), (string) ($state['reason'] ?? 'none'));
+    $state['stage'] = $stage;
+    $state['step_classes'] = topicDownloadAccessStepClasses($stage);
+
+    return $state;
+}
+
 function topicUserHasTopicComment(?PDO $pdo, int $topicId, int $userId, bool $approvedOnly = false): bool
 {
     if (!$pdo || $topicId <= 0 || $userId <= 0) {
@@ -263,8 +338,18 @@ function topicDownloadAccessState(?PDO $pdo, array $settings, int $topicId, int 
 {
     $mode = topicDownloadAccessMode($settings);
     $commentRequirement = topicDownloadCommentRequirement($settings);
-    $loginMessage = trim((string) ($settings['download_access_login_message'] ?? 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.'));
-    $commentMessage = trim((string) ($settings['download_access_comment_message'] ?? 'Indirme linklerini gormek icin once yorum yapmaniz lazim.'));
+    $loginMessage = topicDownloadSettingText(
+        $settings,
+        'download_access_login_message',
+        'Önce giriş yapın, sonra bir yorum gönderin; kilit otomatik açılır.',
+        ['Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.']
+    );
+    $commentMessage = topicDownloadSettingText(
+        $settings,
+        'download_access_comment_message',
+        'Önce bir yorum gönderin; kilit otomatik açılır.',
+        ['Indirme linklerini gormek icin once yorum yapmaniz lazim.']
+    );
 
     $state = [
         'mode' => $mode,
@@ -277,7 +362,7 @@ function topicDownloadAccessState(?PDO $pdo, array $settings, int $topicId, int 
     ];
 
     if ($topicId <= 0 || $mode === 'public') {
-        return $state;
+        return topicDownloadAccessFinalizeState($state);
     }
 
     if ($userId <= 0) {
@@ -285,24 +370,24 @@ function topicDownloadAccessState(?PDO $pdo, array $settings, int $topicId, int 
         $state['reason'] = 'auth_required';
         $state['message'] = $loginMessage !== '' ? $loginMessage : 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.';
         $state['requires_login'] = true;
-        return $state;
+        return topicDownloadAccessFinalizeState($state);
     }
 
     if ($mode !== 'members_comment') {
-        return $state;
+        return topicDownloadAccessFinalizeState($state);
     }
 
     $approvedOnly = $commentRequirement === 'approved';
     $hasComment = topicUserHasTopicComment($pdo, $topicId, $userId, $approvedOnly);
     $state['has_comment'] = $hasComment;
     if ($hasComment) {
-        return $state;
+        return topicDownloadAccessFinalizeState($state);
     }
 
     $state['locked'] = true;
     $state['reason'] = 'comment_required';
     $state['message'] = $commentMessage !== '' ? $commentMessage : 'Indirme linklerini gormek icin once yorum yapmaniz lazim.';
-    return $state;
+    return topicDownloadAccessFinalizeState($state);
 }
 
 function getTopicDownloadLinks(?PDO $pdo, int $topicId, string $legacyLinks = ''): array

@@ -155,6 +155,9 @@ $messages = $pdo instanceof PDO
         'offset' => $messageOffset,
     ]))
     : [];
+$visibleMessageCount = count($messages);
+$visibleMessageStart = $visibleMessageCount > 0 ? $messageOffset + 1 : 0;
+$visibleMessageEnd = $visibleMessageCount > 0 ? min($messageOffset + $visibleMessageCount, $messageCount) : 0;
 
 if ($pdo instanceof PDO) {
     $selectedMessage = $requestedMessageId > 0 ? contactMessage($pdo, $requestedMessageId) : null;
@@ -403,49 +406,75 @@ require_once __DIR__ . '/header.php';
         </section>
 
         <section class="ui-admin-premium-card contacts-message-list-panel ui-card">
-            <div class="ui-admin-premium-card-header ui-panel__head ui-card">
-                <i class="bi bi-funnel"></i> Mesajlar
+            <div class="ui-admin-premium-card-header ui-panel__head ui-card contacts-message-panel-head">
+                <div class="contacts-message-panel-head-copy">
+                    <span class="contacts-message-kicker"><i class="bi bi-funnel"></i> Mesaj kuyruğu</span>
+                    <strong>Mesajlar</strong>
+                    <span>Arama, durum ve kategori filtreleriyle kayıtları daraltın.</span>
+                </div>
+                <div class="contacts-message-panel-head-summary">
+                    <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-list"></i> <?= number_format($messageCount, 0, ',', '.') ?> kayıt</span>
+                    <span class="ui-admin-badge ui-admin-badge-warning"><i class="bi bi-eye-slash"></i> <?= number_format((int) ($messageStats['unseen'] ?? 0), 0, ',', '.') ?> görülmemiş</span>
+                    <span class="ui-admin-badge ui-admin-badge-info"><i class="bi bi-reply"></i> <?= number_format((int) ($messageStats['replied'] ?? 0), 0, ',', '.') ?> yanıtlanmış</span>
+                </div>
             </div>
-            <div class="ui-admin-premium-card-body ui-panel__body ui-card">
-                <form method="get" action="contacts.php" class="ui-admin-form ui-stack">
+            <div class="ui-admin-premium-card-body ui-panel__body ui-card contacts-message-panel-body">
+                <form method="get" action="contacts.php" class="contacts-message-filter-form">
                     <input type="hidden" name="tab" value="messages">
-                    <div class="ui-admin-form-grid-2 ui-grid">
-                        <div class="ui-admin-field">
-                            <label class="ui-admin-form-label" for="contactSearch">Ara</label>
+                    <label class="contacts-message-filter-field contacts-message-filter-search" for="contactSearch">
+                        <span>Ara</span>
+                        <div class="contacts-message-filter-control">
+                            <i class="bi bi-search"></i>
                             <input id="contactSearch" type="text" name="q" class="ui-admin-form-control" value="<?= htmlspecialchars($messageFilters['q'], ENT_QUOTES, 'UTF-8') ?>" placeholder="Ad, e-posta, konu veya mesaj">
                         </div>
-                        <div class="ui-admin-field">
-                            <label class="ui-admin-form-label" for="contactStatusFilter">Durum</label>
-                            <select id="contactStatusFilter" name="status" class="ui-admin-form-control">
-                                <option value="">Tümü</option>
-                                <?php foreach ($statusLabels as $statusKey => $statusMeta): ?>
-                                    <option value="<?= htmlspecialchars($statusKey, ENT_QUOTES, 'UTF-8') ?>"<?= $messageFilters['status'] === $statusKey ? ' selected' : '' ?>><?= htmlspecialchars((string) $statusMeta['label'], ENT_QUOTES, 'UTF-8') ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="ui-admin-form-grid-2 ui-grid">
-                        <div class="ui-admin-field">
-                            <label class="ui-admin-form-label" for="contactCategoryFilter">Kategori</label>
-                            <select id="contactCategoryFilter" name="category_id" class="ui-admin-form-control">
-                                <option value="0">Tümü</option>
-                                <?php foreach ($categories as $category): ?>
-                                    <option value="<?= (int) $category['id'] ?>"<?= (int) $messageFilters['category_id'] === (int) $category['id'] ? ' selected' : '' ?>>
-                                        <?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="ui-admin-field">
-                            <label class="ui-admin-form-label">Temizle</label>
-                            <a href="contacts.php?tab=messages" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-lg"></i> Filtreleri temizle</a>
-                        </div>
-                    </div>
-                    <div class="ui-admin-form-actions contacts-filter-actions">
+                    </label>
+                    <label class="contacts-message-filter-field" for="contactStatusFilter">
+                        <span>Durum</span>
+                        <select id="contactStatusFilter" name="status" class="ui-admin-form-control">
+                            <option value="">Tümü</option>
+                            <?php foreach ($statusLabels as $statusKey => $statusMeta): ?>
+                                <option value="<?= htmlspecialchars($statusKey, ENT_QUOTES, 'UTF-8') ?>"<?= $messageFilters['status'] === $statusKey ? ' selected' : '' ?>><?= htmlspecialchars((string) $statusMeta['label'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label class="contacts-message-filter-field" for="contactCategoryFilter">
+                        <span>Kategori</span>
+                        <select id="contactCategoryFilter" name="category_id" class="ui-admin-form-control">
+                            <option value="0">Tümü</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?= (int) $category['id'] ?>"<?= (int) $messageFilters['category_id'] === (int) $category['id'] ? ' selected' : '' ?>>
+                                    <?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <div class="contacts-message-filter-actions">
                         <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-search"></i> Filtrele</button>
-                        <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-list"></i> <?= number_format($messageCount, 0, ',', '.') ?> kayıt</span>
+                        <a href="<?= htmlspecialchars(adminContactsUrl('messages'), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-lg"></i> Temizle</a>
                     </div>
                 </form>
+
+                <div class="contacts-message-results-bar">
+                    <div class="contacts-message-results-copy">
+                        <span class="contacts-message-results-kicker">Sonuç özeti</span>
+                        <strong><?= $visibleMessageCount > 0 ? number_format($visibleMessageStart, 0, ',', '.') . ' - ' . number_format($visibleMessageEnd, 0, ',', '.') : '0' ?> / <?= number_format($messageCount, 0, ',', '.') ?> kayıt gösteriliyor</strong>
+                        <span><?= $hasMessageFilters ? 'Filtreler aktif. Liste yalnızca eşleşen kayıtları gösteriyor.' : 'Tüm kayıtlar listeleniyor.' ?></span>
+                    </div>
+                    <div class="contacts-message-results-meta">
+                        <?php if ($messageFilters['status'] !== ''): ?>
+                            <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi <?= htmlspecialchars((string) ($statusLabels[$messageFilters['status']]['icon'] ?? 'bi-funnel'), ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) ($statusLabels[$messageFilters['status']]['label'] ?? $messageFilters['status']), ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php endif; ?>
+                        <?php if ($messageFilters['category_id'] > 0 && $selectedCategory): ?>
+                            <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi <?= htmlspecialchars((string) ($selectedCategory['icon'] ?? 'bi-tags'), ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) ($selectedCategory['name'] ?? 'Kategori'), ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php endif; ?>
+                        <?php if ($messageFilters['q'] !== ''): ?>
+                            <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-search"></i> Arama aktif</span>
+                        <?php endif; ?>
+                        <?php if ($hasMessageFilters): ?>
+                            <span class="ui-admin-badge ui-admin-badge-warning"><i class="bi bi-funnel"></i> Filtre aktif</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
 
                 <?php if ($messages === []): ?>
                     <div class="ui-admin-empty ui-admin-empty-pro contacts-empty-state contacts-empty-state-list">
@@ -665,7 +694,7 @@ require_once __DIR__ . '/header.php';
                                         ?>
                                         <?php if ($replyAdminName !== '' || $replyAdminId > 0): ?>
                                             <span class="ui-admin-table-cell-secondary">
-                                                Yanitlayan: <?= htmlspecialchars($replyAdminName !== '' ? $replyAdminName : ('ID #' . $replyAdminId), ENT_QUOTES, 'UTF-8') ?>
+                                                Yanıtlayan: <?= htmlspecialchars($replyAdminName !== '' ? $replyAdminName : ('ID #' . $replyAdminId), ENT_QUOTES, 'UTF-8') ?>
                                             </span>
                                         <?php endif; ?>
                                         <?php if (!empty($selectedMessage['admin_reply_email_error'])): ?>

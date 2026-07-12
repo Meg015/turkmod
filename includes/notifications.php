@@ -138,6 +138,16 @@ function notificationEnsureEmailQueueSchema(PDO $pdo): void
     notificationSchemaService()->ensureEmailQueueSchema($pdo);
 }
 
+function notificationEnsureDismissalSchema(PDO $pdo, bool $respectRuntimeGate = true): void
+{
+    notificationSchemaService()->ensureNotificationDismissalSchema($pdo, $respectRuntimeGate);
+}
+
+function notificationDismissalTableExists(PDO $pdo): bool
+{
+    return notificationSchemaService()->tableExists($pdo, 'notification_dismissals');
+}
+
 function notificationSeedDefaultTemplates(PDO $pdo): void
 {
     notificationTemplateService()->seedDefaultTemplates($pdo);

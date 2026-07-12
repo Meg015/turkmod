@@ -150,7 +150,15 @@ echo "\n--- 4. Send Email Queue (E-posta Kuyruğu) ---\n";
         $sent = 0; $failed = 0;
         foreach ($rows as $row) {
             try {
-                $ok = function_exists('appSendMail') ? appSendMail((string)$row['email_to'], (string)$row['email_subject'], (string)$row['email_body']) : false;
+                $ok = function_exists('appSendMail') ? appSendMail((string)$row['email_to'], (string)$row['email_subject'], (string)$row['email_body'], [
+                    'email_log' => [
+                        'source' => 'events',
+                        'source_key' => 'master_queue',
+                        'queue_id' => (int) ($row['id'] ?? 0),
+                        'attempt_no' => ((int) ($row['retry_count'] ?? 0)) + 1,
+                        'max_attempts' => $maxRetry,
+                    ],
+                ]) : false;
                 if ($ok) {
                     $pdo->prepare("UPDATE events_email_queue SET status = 'sent', sent_at = NOW(), updated_at = NOW() WHERE id = ?")->execute([(int)$row['id']]);
                     $sent++;

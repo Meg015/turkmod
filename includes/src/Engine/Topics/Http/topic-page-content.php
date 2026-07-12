@@ -773,14 +773,26 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
         $downloadAuthApi = rtrim($baseUri, '/') . '/api/auth-popup.php';
         $downloadTopicId = (int) ($topic['id'] ?? 0);
-        $downloadSectionLockMessage = $downloadLockMessage !== ''
-            ? $downloadLockMessage
-            : ($downloadLockReason === 'comment_required'
+        $downloadSectionLockMessage = $downloadLockMessage !== ''
+            ? $downloadLockMessage
+            : ($downloadLockReason === 'comment_required'
                 ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
                 : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.');
+        $downloadAccessStage = function_exists('topicDownloadAccessStage')
+            ? topicDownloadAccessStage($downloadLocked, $downloadLockReason)
+            : ($downloadLocked
+                ? ($downloadLockReason === 'comment_required' ? 'comment' : 'login')
+                : 'open');
+        $downloadAccessStepClasses = function_exists('topicDownloadAccessStepClasses')
+            ? topicDownloadAccessStepClasses($downloadAccessStage)
+            : [
+                'login' => $downloadAccessStage === 'login' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending'),
+                'comment' => $downloadAccessStage === 'comment' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending'),
+                'open' => $downloadAccessStage === 'open' ? 'is-active' : 'is-pending',
+            ];
         $downloadTopicUrl = topicUrl((string) ($topic['slug'] ?? ''), $downloadTopicId);
-        $downloadCommentTarget = $downloadTopicUrl . '#comments-heading';
-        $downloadCurrentRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+        $downloadCommentTarget = $downloadTopicUrl . '#comments-heading';
+        $downloadCurrentRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
 
         if ($topicDetailShowDownloadPanel && !empty($downloadLinks)): ?>
 
@@ -796,17 +808,24 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
 
             </div>
 
-            <?php if ($downloadLocked): ?>
-
-            <div class="topic-dl-access-notice" data-download-lock-notice role="status" aria-live="polite">
-
-                <i class="bi bi-lock-fill" aria-hidden="true"></i>
-
-                <span><?= htmlspecialchars($downloadSectionLockMessage, ENT_QUOTES, 'UTF-8') ?></span>
-
-            </div>
-
-            <?php endif; ?>
+            <?php if ($downloadLocked): ?>
+
+            <div class="topic-dl-access-notice" data-download-lock-notice data-download-stage="<?= htmlspecialchars($downloadAccessStage, ENT_QUOTES, 'UTF-8') ?>" role="status" aria-live="polite">
+
+                <i class="bi bi-lock-fill" aria-hidden="true"></i>
+
+                <div class="topic-dl-access-notice__body">
+                    <span class="topic-dl-access-notice__text"><?= htmlspecialchars($downloadSectionLockMessage, ENT_QUOTES, 'UTF-8') ?></span>
+                    <div class="topic-dl-access-steps" aria-label="İndirme kilidi adımları">
+                        <span class="topic-dl-access-step <?= htmlspecialchars($downloadAccessStepClasses['login'] ?? 'is-pending', ENT_QUOTES, 'UTF-8') ?>" data-download-step="login" title="Giriş yap"><i class="bi bi-1-circle-fill" aria-hidden="true"></i><span>Giriş</span></span>
+                        <span class="topic-dl-access-step <?= htmlspecialchars($downloadAccessStepClasses['comment'] ?? 'is-pending', ENT_QUOTES, 'UTF-8') ?>" data-download-step="comment" title="Yorum gönder"><i class="bi bi-2-circle-fill" aria-hidden="true"></i><span>Yorum</span></span>
+                        <span class="topic-dl-access-step <?= htmlspecialchars($downloadAccessStepClasses['open'] ?? 'is-pending', ENT_QUOTES, 'UTF-8') ?>" data-download-step="open" title="Bağlantıyı aç"><i class="bi bi-3-circle-fill" aria-hidden="true"></i><span>Aç</span></span>
+                    </div>
+                </div>
+
+            </div>
+
+            <?php endif; ?>
 
             <div class="topic-dl-section ui-section"
 
@@ -828,11 +847,13 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
 
                  data-register-url="<?= htmlspecialchars($downloadRegisterUrl, ENT_QUOTES, 'UTF-8') ?>"
 
-                 data-comment-target="<?= htmlspecialchars($downloadCommentTarget, ENT_QUOTES, 'UTF-8') ?>"
-
-                 data-current-request-uri="<?= htmlspecialchars($downloadCurrentRequestUri, ENT_QUOTES, 'UTF-8') ?>"
-
-                 data-locked="<?= $downloadLocked ? '1' : '0' ?>"
+                 data-comment-target="<?= htmlspecialchars($downloadCommentTarget, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-current-request-uri="<?= htmlspecialchars($downloadCurrentRequestUri, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-download-stage="<?= htmlspecialchars($downloadAccessStage, ENT_QUOTES, 'UTF-8') ?>"
+
+                 data-locked="<?= $downloadLocked ? '1' : '0' ?>"
 
                  data-lock-reason="<?= htmlspecialchars($downloadLockReason, ENT_QUOTES, 'UTF-8') ?>"
 

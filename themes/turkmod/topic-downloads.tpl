@@ -2,7 +2,7 @@
 <section class="topic-section topic-downloads topic-download-links ui-section" aria-labelledby="dl-heading">
 <h2 id="dl-heading">Indirme Baglantilari</h2>
 <div class="topic-dl-trust" role="note"><i class="bi bi-shield-check" aria-hidden="true"></i><span>Indirme baglantisi acilmadan once kisa bir guvenlik beklemesi uygulanir.</span></div>
-{if topic.download_locked}<div class="topic-dl-access-notice" data-download-lock-notice role="status" aria-live="polite"><i class="bi bi-lock-fill" aria-hidden="true"></i><span>{topic.download_lock_message}</span></div>{/if}
+{if topic.download_locked}<div class="topic-dl-access-notice" data-download-lock-notice data-download-stage="{topic.download_access_stage}" role="status" aria-live="polite"><i class="bi bi-lock-fill" aria-hidden="true"></i><div class="topic-dl-access-notice__body"><span class="topic-dl-access-notice__text">{topic.download_lock_message}</span><div class="topic-dl-access-steps" aria-label="İndirme kilidi adımları"><span class="topic-dl-access-step {topic.download_access_step_login_class}" data-download-step="login" title="Giriş yap"><i class="bi bi-1-circle-fill" aria-hidden="true"></i><span>Giriş</span></span><span class="topic-dl-access-step {topic.download_access_step_comment_class}" data-download-step="comment" title="Yorum gönder"><i class="bi bi-2-circle-fill" aria-hidden="true"></i><span>Yorum</span></span><span class="topic-dl-access-step {topic.download_access_step_open_class}" data-download-step="open" title="Bağlantıyı aç"><i class="bi bi-3-circle-fill" aria-hidden="true"></i><span>Aç</span></span></div></div></div>{/if}
 <div class="topic-dl-section ui-section"
      data-topic-id="{topic.download_topic_id}"
      data-csrf="{topic.download_csrf_token}"
@@ -15,6 +15,7 @@
      data-register-url="{topic.download_register_url}"
      data-comment-target="{topic.download_comment_target}"
      data-current-request-uri="{topic.download_current_request_uri}"
+     data-download-stage="{topic.download_access_stage}"
      data-locked="{if topic.download_locked}1{else}0{/if}"
      data-lock-reason="{topic.download_lock_reason}"
      data-lock-message="{topic.download_lock_message}"

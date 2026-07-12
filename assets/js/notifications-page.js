@@ -15,8 +15,13 @@
             return value === "1" || value === "true";
         }
 
+        function isApiSuccess(data) {
+            return !!data && (data.ok === true || data.success === true);
+        }
+
         var csrfToken = rootAttribute("data-notifications-csrf", "data-csrf-token");
         var readEndpoint = rootAttribute("data-notifications-read-endpoint", "data-read-endpoint");
+        var deleteEndpoint = rootAttribute("data-notifications-delete-endpoint", "data-delete-endpoint");
         var readMoreEnabled = boolAttr(rootAttribute("data-notifications-read-more", "data-read-more-enabled"));
         var autoMarkOnOpen = boolAttr(rootAttribute("data-notifications-auto-mark", "data-auto-mark-on-open"));
 
@@ -34,6 +39,76 @@
             }).then(function (response) {
                 return response.json();
             });
+        }
+
+        function postNotificationDelete(ids) {
+            var formData = new FormData();
+            formData.append("_token", csrfToken);
+            ids.forEach(function (id) {
+                formData.append("ids[]", String(id));
+            });
+
+            return fetch(deleteEndpoint, {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            }).then(function (response) {
+                return response.json();
+            });
+        }
+
+        function refreshNotificationsPage() {
+            var refreshUrl;
+            try {
+                var parsedUrl = new URL(window.location.href);
+                parsedUrl.searchParams.set("_r", String(Date.now()));
+                refreshUrl = parsedUrl.toString();
+            } catch (error) {
+                refreshUrl = window.location.href;
+            }
+
+            try {
+                window.location.replace(refreshUrl);
+            } catch (error) {
+                window.location.href = refreshUrl;
+            }
+
+            window.setTimeout(function () {
+                if (window.location.href !== refreshUrl) {
+                    window.location.href = refreshUrl;
+                }
+            }, 500);
+        }
+
+        function getNotificationSelectionInputs() {
+            return Array.from(root.querySelectorAll("[data-notif-select]"));
+        }
+
+        function syncNotificationSelectionState() {
+            var items = getNotificationSelectionInputs();
+            var checkedItems = items.filter(function (input) {
+                return input.checked;
+            });
+            var selectAll = root.querySelector("[data-notif-select-all]");
+            var deleteSelected = root.querySelector("[data-notif-delete-selected]");
+
+            if (selectAll) {
+                selectAll.checked = items.length > 0 && checkedItems.length === items.length;
+                selectAll.indeterminate = checkedItems.length > 0 && checkedItems.length < items.length;
+            }
+
+            if (deleteSelected) {
+                deleteSelected.disabled = checkedItems.length === 0;
+            }
+        }
+
+        function setNotificationSelection(enabled) {
+            getNotificationSelectionInputs().forEach(function (input) {
+                input.checked = enabled;
+            });
+            syncNotificationSelectionState();
         }
 
         function refreshMessageToggles() {
@@ -97,6 +172,21 @@
         initPreferenceGroups();
         refreshMessageToggles();
 
+        root.addEventListener("change", function (event) {
+            var selectAll = event.target.closest("[data-notif-select-all]");
+            if (selectAll && root.contains(selectAll)) {
+                setNotificationSelection(selectAll.checked);
+                return;
+            }
+
+            var select = event.target.closest("[data-notif-select]");
+            if (select && root.contains(select)) {
+                syncNotificationSelectionState();
+            }
+        });
+
+        syncNotificationSelectionState();
+
         document.addEventListener("click", function (event) {
             var toggle = event.target.closest("[data-notif-toggle], [data-notification-message-toggle]");
             if (toggle && root.contains(toggle)) {
@@ -129,124 +219,196 @@
         });
 
         var markAllButton = root.querySelector("[data-mark-all-read]");
-        if (!markAllButton) {
-            return;
+        if (markAllButton) {
+            markAllButton.addEventListener("click", function () {
+                if (markAllButton.disabled) {
+                    return;
+                }
+
+                var originalHtml = markAllButton.innerHTML;
+                var feed = document.querySelector("[data-notif-feed]");
+                var unreadMetric = document.querySelector("[data-notif-unread]");
+                var readMetric = document.querySelector("[data-notif-read]");
+                var totalMetric = document.querySelector("[data-notif-total]");
+                var sidebarUnread = document.querySelector("[data-sidebar-unread]");
+                var filterUnread = document.querySelector("[data-filter-unread]");
+                var filterRead = document.querySelector("[data-filter-read]");
+                var unreadItems = Array.from(document.querySelectorAll("[data-notif-item].is-unread")).map(function (item) {
+                    var status = item.querySelector(".notification-status");
+                    return {
+                        item: item,
+                        status: status,
+                        statusHtml: status ? status.innerHTML : "",
+                        statusClass: status ? status.className : ""
+                    };
+                });
+                var previousState = {
+                    unreadMetric: unreadMetric ? unreadMetric.textContent : "",
+                    readMetric: readMetric ? readMetric.textContent : "",
+                    sidebarUnread: sidebarUnread ? sidebarUnread.textContent : "",
+                    filterUnread: filterUnread ? filterUnread.textContent : "",
+                    filterRead: filterRead ? filterRead.textContent : ""
+                };
+                var total = totalMetric ? parseInt(totalMetric.textContent.replace(/\D/g, ""), 10) || 0 : 0;
+                var previousUnreadCount = parseInt(String(previousState.unreadMetric || previousState.filterUnread || "0").replace(/\D/g, ""), 10) || 0;
+
+                function applyReadState() {
+                    unreadItems.forEach(function (entry) {
+                        entry.item.classList.remove("is-unread");
+                        entry.item.classList.add("is-read");
+
+                        if (entry.status) {
+                            entry.status.classList.remove("is-unread");
+                            entry.status.classList.add("is-read");
+                            var typeLabel = entry.status.getAttribute("data-type-label") || "";
+                            entry.status.innerHTML = '<i class="bi bi-check2-circle"></i> Okundu' + (typeLabel ? " \\u00b7 " + typeLabel : "");
+                        }
+                    });
+
+                    if (unreadMetric) unreadMetric.textContent = "0";
+                    if (readMetric) readMetric.textContent = String(total);
+                    if (sidebarUnread) {
+                        sidebarUnread.textContent = "0";
+                        sidebarUnread.classList.add("is-muted");
+                    }
+                    if (filterUnread) filterUnread.textContent = "0";
+                    if (filterRead) filterRead.textContent = String(total);
+                    if (typeof window.updateNotificationBadge === "function") {
+                        window.updateNotificationBadge(0);
+                    }
+                }
+
+                function restoreReadState() {
+                    unreadItems.forEach(function (entry) {
+                        entry.item.classList.remove("is-read");
+                        entry.item.classList.add("is-unread");
+                        if (entry.status) {
+                            entry.status.className = entry.statusClass;
+                            entry.status.innerHTML = entry.statusHtml;
+                        }
+                    });
+
+                    if (unreadMetric) unreadMetric.textContent = previousState.unreadMetric;
+                    if (readMetric) readMetric.textContent = previousState.readMetric;
+                    if (sidebarUnread) {
+                        sidebarUnread.textContent = previousState.sidebarUnread;
+                        sidebarUnread.classList.remove("is-muted");
+                    }
+                    if (filterUnread) filterUnread.textContent = previousState.filterUnread;
+                    if (filterRead) filterRead.textContent = previousState.filterRead;
+                    if (typeof window.updateNotificationBadge === "function") {
+                        window.updateNotificationBadge(previousUnreadCount);
+                    }
+                }
+
+                markAllButton.disabled = true;
+                markAllButton.innerHTML = '<i class="bi bi-arrow-repeat spin"></i><span>\\u0130\\u015fleniyor...</span>';
+                if (feed) feed.classList.add("is-updating");
+                applyReadState();
+
+                postNotificationRead("all")
+                    .then(function (data) {
+                        if (!isApiSuccess(data)) {
+                            throw new Error(data && data.message ? data.message : "Bildirimler g\\u00fcncellenemedi.");
+                        }
+
+                        if (sidebarUnread) {
+                            sidebarUnread.remove();
+                        }
+
+                        markAllButton.innerHTML = '<i class="bi bi-check2"></i><span>Okundu</span>';
+                        if (feed) feed.classList.remove("is-updating");
+                        if (window.showToast) {
+                            window.showToast("T\\u00fcm bildirimler okundu olarak i\\u015faretlendi.", "success");
+                        }
+                        window.setTimeout(function () {
+                            markAllButton.remove();
+                        }, 1200);
+                    })
+                    .catch(function (error) {
+                        restoreReadState();
+                        if (feed) feed.classList.remove("is-updating");
+                        markAllButton.disabled = false;
+                        markAllButton.innerHTML = originalHtml;
+                        if (window.showToast) {
+                            window.showToast(error && error.message ? error.message : "Bildirimler g\\u00fcncellenemedi.", "error");
+                        }
+                    });
+            });
         }
 
-        markAllButton.addEventListener("click", function () {
-            if (markAllButton.disabled) {
-                return;
-            }
+        var deleteSelectedButton = root.querySelector("[data-notif-delete-selected]");
+        if (deleteSelectedButton) {
+            deleteSelectedButton.addEventListener("click", function () {
+                if (deleteSelectedButton.disabled) {
+                    return;
+                }
 
-            var originalHtml = markAllButton.innerHTML;
-            var feed = document.querySelector("[data-notif-feed]");
-            var unreadMetric = document.querySelector("[data-notif-unread]");
-            var readMetric = document.querySelector("[data-notif-read]");
-            var totalMetric = document.querySelector("[data-notif-total]");
-            var sidebarUnread = document.querySelector("[data-sidebar-unread]");
-            var filterUnread = document.querySelector("[data-filter-unread]");
-            var filterRead = document.querySelector("[data-filter-read]");
-            var unreadItems = Array.from(document.querySelectorAll("[data-notif-item].is-unread")).map(function (item) {
-                var status = item.querySelector(".notification-status");
-                return {
-                    item: item,
-                    status: status,
-                    statusHtml: status ? status.innerHTML : "",
-                    statusClass: status ? status.className : ""
-                };
+                var selectedIds = getNotificationSelectionInputs().filter(function (input) {
+                    return input.checked;
+                }).map(function (input) {
+                    return Number(input.value || 0);
+                }).filter(function (id) {
+                    return id > 0;
+                });
+
+                if (selectedIds.length === 0) {
+                    return;
+                }
+
+                var isSingle = selectedIds.length === 1;
+                var confirmMessage = isSingle
+                    ? "Seçili bildirimi silmek istediğinize emin misiniz?"
+                    : selectedIds.length + " bildirimi silmek istediğinize emin misiniz?";
+                if (!window.confirm(confirmMessage)) {
+                    return;
+                }
+
+                var originalHtml = deleteSelectedButton.innerHTML;
+                deleteSelectedButton.disabled = true;
+                deleteSelectedButton.innerHTML = '<i class="bi bi-arrow-repeat spin"></i><span>Siliniyor...</span>';
+
+                postNotificationDelete(selectedIds)
+                    .then(function (data) {
+                        if (!isApiSuccess(data)) {
+                            throw new Error(data && data.message ? data.message : "Bildirimler silinemedi.");
+                        }
+
+                        var refreshTriggered = false;
+                        function refreshAfterToast() {
+                            if (refreshTriggered) {
+                                return;
+                            }
+                            refreshTriggered = true;
+                            refreshNotificationsPage();
+                        }
+
+                        try {
+                            if (window.showToast) {
+                                var deletedCount = parseInt(String(data.deleted_count || selectedIds.length), 10) || selectedIds.length;
+                                window.showToast(deletedCount + " bildirim silindi.", "success", {
+                                    onClose: function (reason) {
+                                        if (reason !== "overflow") {
+                                            refreshAfterToast();
+                                        }
+                                    }
+                                });
+                            } else {
+                                refreshAfterToast();
+                            }
+                        } catch (toastError) {
+                            refreshAfterToast();
+                        }
+                    })
+                    .catch(function (error) {
+                        deleteSelectedButton.disabled = false;
+                        deleteSelectedButton.innerHTML = originalHtml;
+                        syncNotificationSelectionState();
+                        if (window.showToast) {
+                            window.showToast(error && error.message ? error.message : "Bildirimler silinemedi.", "error");
+                        }
+                    });
             });
-            var previousState = {
-                unreadMetric: unreadMetric ? unreadMetric.textContent : "",
-                readMetric: readMetric ? readMetric.textContent : "",
-                sidebarUnread: sidebarUnread ? sidebarUnread.textContent : "",
-                filterUnread: filterUnread ? filterUnread.textContent : "",
-                filterRead: filterRead ? filterRead.textContent : ""
-            };
-            var total = totalMetric ? parseInt(totalMetric.textContent.replace(/\D/g, ""), 10) || 0 : 0;
-            var previousUnreadCount = parseInt(String(previousState.unreadMetric || previousState.filterUnread || "0").replace(/\D/g, ""), 10) || 0;
-
-            function applyReadState() {
-                unreadItems.forEach(function (entry) {
-                    entry.item.classList.remove("is-unread");
-                    entry.item.classList.add("is-read");
-
-                    if (entry.status) {
-                        entry.status.classList.remove("is-unread");
-                        entry.status.classList.add("is-read");
-                        var typeLabel = entry.status.getAttribute("data-type-label") || "";
-                        entry.status.innerHTML = '<i class="bi bi-check2-circle"></i> Okundu' + (typeLabel ? " \\u00b7 " + typeLabel : "");
-                    }
-                });
-
-                if (unreadMetric) unreadMetric.textContent = "0";
-                if (readMetric) readMetric.textContent = String(total);
-                if (sidebarUnread) {
-                    sidebarUnread.textContent = "0";
-                    sidebarUnread.classList.add("is-muted");
-                }
-                if (filterUnread) filterUnread.textContent = "0";
-                if (filterRead) filterRead.textContent = String(total);
-                if (typeof window.updateNotificationBadge === "function") {
-                    window.updateNotificationBadge(0);
-                }
-            }
-
-            function restoreReadState() {
-                unreadItems.forEach(function (entry) {
-                    entry.item.classList.remove("is-read");
-                    entry.item.classList.add("is-unread");
-                    if (entry.status) {
-                        entry.status.className = entry.statusClass;
-                        entry.status.innerHTML = entry.statusHtml;
-                    }
-                });
-
-                if (unreadMetric) unreadMetric.textContent = previousState.unreadMetric;
-                if (readMetric) readMetric.textContent = previousState.readMetric;
-                if (sidebarUnread) {
-                    sidebarUnread.textContent = previousState.sidebarUnread;
-                    sidebarUnread.classList.remove("is-muted");
-                }
-                if (filterUnread) filterUnread.textContent = previousState.filterUnread;
-                if (filterRead) filterRead.textContent = previousState.filterRead;
-                if (typeof window.updateNotificationBadge === "function") {
-                    window.updateNotificationBadge(previousUnreadCount);
-                }
-            }
-
-            markAllButton.disabled = true;
-            markAllButton.innerHTML = '<i class="bi bi-arrow-repeat spin"></i><span>\\u0130\\u015fleniyor...</span>';
-            if (feed) feed.classList.add("is-updating");
-            applyReadState();
-
-            postNotificationRead("all")
-                .then(function (data) {
-                    if (!data || !data.ok) {
-                        throw new Error(data && data.message ? data.message : "Bildirimler g\\u00fcncellenemedi.");
-                    }
-
-                    if (sidebarUnread) {
-                        sidebarUnread.remove();
-                    }
-
-                    markAllButton.innerHTML = '<i class="bi bi-check2"></i><span>Okundu</span>';
-                    if (feed) feed.classList.remove("is-updating");
-                    if (window.showToast) {
-                        window.showToast("T\\u00fcm bildirimler okundu olarak i\\u015faretlendi.", "success");
-                    }
-                    window.setTimeout(function () {
-                        markAllButton.remove();
-                    }, 1200);
-                })
-                .catch(function (error) {
-                    restoreReadState();
-                    if (feed) feed.classList.remove("is-updating");
-                    markAllButton.disabled = false;
-                    markAllButton.innerHTML = originalHtml;
-                    if (window.showToast) {
-                        window.showToast(error && error.message ? error.message : "Bildirimler g\\u00fcncellenemedi.", "error");
-                    }
-                });
-        });
+        }
     });
 })();

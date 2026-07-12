@@ -367,6 +367,15 @@
             threadMessages = Object.values(map).sort(function(a, b) { return a.id - b.id; });
         }
 
+        function formatDateOnlyLabel(ymd) {
+            var parts = String(ymd || "").split("-");
+            if (parts.length !== 3) {
+                return "";
+            }
+
+            return parts[2] + "." + parts[1] + "." + parts[0];
+        }
+
         function renderStream() {
             if (!stream || !activeThreadData) return;
             if (threadMessages.length === 0) {
@@ -377,12 +386,6 @@
             var html = "";
             var prevDate = null;
             var prevSenderId = null;
-
-            var today = new Date();
-            var yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            var todayStr = today.toISOString().split("T")[0];
-            var yesterdayStr = yesterday.toISOString().split("T")[0];
 
             threadMessages.forEach(function(msg, i) {
                 var isMine = msg.is_mine;
@@ -396,9 +399,7 @@
                 var msgDate = msgDateRaw.split(" ")[0];
 
                 if (msgDate !== prevDate && msgDate !== "1970-01-01") {
-                    var label = msgDate;
-                    if (msgDate === todayStr) label = "Bugun";
-                    else if (msgDate === yesterdayStr) label = "Dun";
+                    var label = formatDateOnlyLabel(msgDate);
                     html += '<div class="msg-date-separator"><span>' + escapeHtml(label) + '</span></div>';
                 }
                 prevDate = msgDate;

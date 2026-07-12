@@ -490,3 +490,622 @@ function appLogsFormatContext(?string $contextJson): string
     return $parts !== [] ? implode(' | ', $parts) : 'Ek detay yok';
 }
 
+if (!function_exists('appLogsDecodeContext')) {
+    function appLogsDecodeContext(?string $contextJson): array
+    {
+        $raw = trim((string) $contextJson);
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+}
+
+if (!function_exists('appLogsPrettyLabel')) {
+    function appLogsPrettyLabel(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $value = str_replace(['_', '-'], ' ', $value);
+        $value = preg_replace('/\s+/', ' ', $value) ?: $value;
+
+        return ucwords(strtolower($value));
+    }
+}
+
+if (!function_exists('appLogsLevelLabel')) {
+    function appLogsLevelLabel(string $level): string
+    {
+        $level = strtolower(trim($level));
+
+        return match ($level) {
+            'emergency' => 'Acil',
+            'alert' => 'Alarm',
+            'critical' => 'Kritik',
+            'error' => 'Hata',
+            'warning', 'warn' => 'Uyarı',
+            'notice' => 'Bildirim',
+            'info' => 'Bilgi',
+            'debug' => 'Hata Ayıklama',
+            default => appLogsPrettyLabel($level),
+        };
+    }
+}
+
+if (!function_exists('appLogsChannelLabel')) {
+    function appLogsChannelLabel(string $channel): string
+    {
+        $channel = strtolower(trim($channel));
+
+        static $map = [
+            'activity' => 'Aktivite',
+            'auth' => 'Giriş',
+            'cron' => 'Cron',
+            'email' => 'E-posta',
+            'maintenance' => 'Bakım',
+            'routing' => 'Rota',
+            'security' => 'Güvenlik',
+            'settings' => 'Ayarlar',
+            'system' => 'Sistem',
+            'template' => 'Şablon',
+            'theme' => 'Tema',
+            'notification' => 'Bildirim',
+            'notifications' => 'Bildirimler',
+        ];
+
+        return $channel !== '' ? ($map[$channel] ?? appLogsPrettyLabel($channel)) : '';
+    }
+}
+
+if (!function_exists('appLogsContextLabel')) {
+    function appLogsContextLabel(string $key): string
+    {
+        static $map = [
+            'actor_id' => 'İşlemi yapan',
+            'actor_user_id' => 'İşlemi yapan',
+            'user_id' => 'Kullanıcı',
+            'target_user_id' => 'Hedef kullanıcı',
+            'subject_type' => 'Hedef tür',
+            'subject_id' => 'Hedef',
+            'method' => 'Yöntem',
+            'path' => 'Yol',
+            'status_code' => 'HTTP',
+            'duration_ms' => 'Süre',
+            'route_group' => 'Rota grubu',
+            'job_key' => 'Job',
+            'status' => 'Durum',
+            'scope' => 'Kapsam',
+            'deleted' => 'Silinen',
+            'deleted_rows' => 'Silinen satır',
+            'expired_count' => 'Süresi dolan',
+            'processed' => 'İşlenen',
+            'sent' => 'Gönderilen',
+            'failed' => 'Başarısız',
+            'total_operations' => 'Toplam işlem',
+            'template_key' => 'Şablon',
+            'theme_id' => 'Tema',
+            'asset' => 'Varlık',
+            'sapi' => 'Çalıştırma',
+            'reason' => 'Sebep',
+            'channel' => 'Kanal',
+            'count' => 'Adet',
+            'days' => 'Gün',
+            'exception' => 'Hata',
+            'cycle' => 'Döngü',
+            'title' => 'Başlık',
+            'name' => 'Ad',
+            'display_name' => 'Ad',
+            'username' => 'Kullanıcı adı',
+            'subject_title' => 'Başlık',
+        ];
+
+        return $map[$key] ?? appLogsPrettyLabel($key);
+    }
+}
+
+if (!function_exists('appLogsSubjectTypeLabel')) {
+    function appLogsSubjectTypeLabel(string $subjectType): string
+    {
+        static $map = [
+            'topic' => 'Konu',
+            'comment' => 'Yorum',
+            'user' => 'Kullanıcı',
+            'category' => 'Kategori',
+            'settings' => 'Ayar',
+            'media' => 'Medya',
+            'leaderboard' => 'Liderlik',
+            'rate_limit' => 'Rate limit',
+            'logs' => 'Günlük',
+        ];
+
+        $subjectType = trim($subjectType);
+        if ($subjectType === '') {
+            return '';
+        }
+
+        return $map[$subjectType] ?? appLogsPrettyLabel($subjectType);
+    }
+}
+
+if (!function_exists('appLogsValueText')) {
+    function appLogsValueText($value, bool $short = false): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        if (is_bool($value)) {
+            $text = $value ? 'Evet' : 'Hayır';
+        } elseif (is_array($value) || is_object($value)) {
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $text = is_string($encoded) ? $encoded : '';
+        } else {
+            $text = trim((string) $value);
+        }
+
+        if ($text === '') {
+            return '';
+        }
+
+        if ($short && function_exists('mb_strlen') && mb_strlen($text, 'UTF-8') > 120) {
+            $text = function_exists('mb_substr')
+                ? mb_substr($text, 0, 117, 'UTF-8') . '...'
+                : substr($text, 0, 117) . '...';
+        }
+
+        return $text;
+    }
+}
+
+if (!function_exists('appLogsContextUserIds')) {
+    function appLogsContextUserIds(array $context): array
+    {
+        $ids = [];
+
+        foreach (['actor_id', 'actor_user_id', 'user_id', 'target_user_id', 'subject_user_id'] as $key) {
+            if (!array_key_exists($key, $context)) {
+                continue;
+            }
+
+            $value = $context[$key];
+            if (is_numeric($value) && (int) $value > 0) {
+                $ids[(int) $value] = (int) $value;
+            }
+        }
+
+        $subjectType = strtolower(trim((string) ($context['subject_type'] ?? '')));
+        if ($subjectType === 'user' && is_numeric($context['subject_id'] ?? null) && (int) $context['subject_id'] > 0) {
+            $ids[(int) $context['subject_id']] = (int) $context['subject_id'];
+        }
+
+        return array_values($ids);
+    }
+}
+
+if (!function_exists('appLogsResolveUserLabels')) {
+    function appLogsResolveUserLabels(PDO $pdo, array $userIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $userIds), static fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return [];
+        }
+
+        try {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $pdo->prepare("SELECT id, username, email FROM users WHERE id IN ({$placeholders})");
+            foreach ($ids as $index => $id) {
+                $stmt->bindValue($index + 1, $id, PDO::PARAM_INT);
+            }
+            $stmt->execute();
+
+            $labels = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                $label = trim((string) ($row['username'] ?? ''));
+                if ($label === '') {
+                    $label = trim((string) ($row['email'] ?? ''));
+                }
+                if ($label === '') {
+                    $label = '#' . (int) ($row['id'] ?? 0);
+                }
+                $labels[(int) ($row['id'] ?? 0)] = $label;
+            }
+
+            return $labels;
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+}
+
+if (!function_exists('appLogsUserLabel')) {
+    function appLogsUserLabel(int $userId, array $userLabels = []): string
+    {
+        if ($userId <= 0) {
+            return '';
+        }
+
+        $label = trim((string) ($userLabels[$userId] ?? ''));
+        if ($label !== '') {
+            return $label . ' (#' . $userId . ')';
+        }
+
+        return '#' . $userId;
+    }
+}
+
+if (!function_exists('appLogsContextParts')) {
+    function appLogsContextParts(array $context, array $preferredKeys = [], int $limit = 3): array
+    {
+        $parts = [];
+        $seen = [];
+
+        foreach ($preferredKeys as $key) {
+            $key = (string) $key;
+            if (!array_key_exists($key, $context)) {
+                continue;
+            }
+
+            $valueText = appLogsValueText($context[$key], true);
+            if ($valueText === '') {
+                continue;
+            }
+
+            $parts[] = appLogsContextLabel($key) . ': ' . $valueText;
+            $seen[$key] = true;
+            if (count($parts) >= $limit) {
+                return $parts;
+            }
+        }
+
+        foreach ($context as $key => $value) {
+            $key = (string) $key;
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $valueText = appLogsValueText($value, true);
+            if ($valueText === '') {
+                continue;
+            }
+
+            $parts[] = appLogsContextLabel($key) . ': ' . $valueText;
+            if (count($parts) >= $limit) {
+                break;
+            }
+        }
+
+        return $parts;
+    }
+}
+
+if (!function_exists('appLogsHumanizeMessage')) {
+    function appLogsHumanizeMessage(string $message, string $channel = '', array $context = []): string
+    {
+        $message = trim($message);
+        if ($message === '') {
+            return 'Kayıt';
+        }
+
+        static $map = [
+            'user_login' => 'Kullanıcı girişi',
+            'user_logout' => 'Kullanıcı çıkışı',
+            'user_registered' => 'Hesap oluşturuldu',
+            'warning' => 'Uyarı',
+            'warn' => 'Uyarı',
+            'notice' => 'Bildirim',
+            'info' => 'Bilgi',
+            'debug' => 'Hata ayıklama',
+            'password_reset_requested' => 'Şifre sıfırlama istendi',
+            'password_changed' => 'Şifre değiştirildi',
+            'profile_updated' => 'Profil güncellendi',
+            'avatar_updated' => 'Profil fotoğrafı güncellendi',
+            'topic_created' => 'Konu oluşturuldu',
+            'topic_updated' => 'Konu güncellendi',
+            'topic_deleted' => 'Konu silindi',
+            'topic_deleted_permanently' => 'Konu kalıcı olarak silindi',
+            'topic_restored' => 'Konu geri yüklendi',
+            'topic_viewed' => 'Konu görüntülendi',
+            'comment_created' => 'Yorum yapıldı',
+            'settings_updated' => 'Ayarlar güncellendi',
+            'category_created' => 'Kategori oluşturuldu',
+            'category_updated' => 'Kategori güncellendi',
+            'category_deleted' => 'Kategori silindi',
+            'media_uploaded' => 'Medya yüklendi',
+            'media_deleted' => 'Medya silindi',
+            'rate_limit_cleanup' => 'Rate limit temizliği',
+            'application_logs_cleared' => 'Uygulama logları temizlendi',
+            'activity_logs_cleared' => 'Aktivite logları temizlendi',
+            'leaderboard_recalculated' => 'Liderlik tablosu yeniden hesaplandı',
+            'leaderboard_cache_cleared' => 'Liderlik önbelleği temizlendi',
+            'admin_action_reverted' => 'Admin işlemi geri alındı',
+            'user_activity_events_cleared' => 'Kullanıcı hareket kayıtları temizlendi',
+            'admin_action_log_cleared' => 'Yönetici işlem kayıtları temizlendi',
+            'bot_import_published' => 'Bot içeriği yayımlandı',
+            'route_dispatch' => 'Rota işlendi',
+            'route_dispatch_failed' => 'Rota yönlendirme hatası',
+            'activity_log_failed' => 'Aktivite kaydı yazılamadı',
+        ];
+
+        if (isset($map[$message])) {
+            return $map[$message];
+        }
+
+        if (str_starts_with($message, 'cron_run:')) {
+            return 'Cron çalıştı';
+        }
+        if (str_starts_with($message, 'TPL Missing Variable:')) {
+            return 'Şablon değişkeni eksik';
+        }
+        if (str_starts_with($message, 'TPL include cycle:')) {
+            return 'Şablon döngüsü tespit edildi';
+        }
+        if (str_starts_with($message, 'Compiled template error:')) {
+            return 'Şablon derleme hatası';
+        }
+        if (str_starts_with($message, 'Theme asset not found:')) {
+            return 'Tema varlığı bulunamadı';
+        }
+
+        return appLogsPrettyLabel($message);
+    }
+}
+
+if (!function_exists('appLogsContextSummary')) {
+    function appLogsContextSummary(array $context, string $channel = '', string $message = '', string $level = '', array $userLabels = []): string
+    {
+        $channel = strtolower(trim($channel));
+        $message = trim($message);
+        $level = strtolower(trim($level));
+
+        if ($channel === 'routing') {
+            $parts = [];
+            $method = strtoupper(trim((string) ($context['method'] ?? '')));
+            $path = trim((string) ($context['path'] ?? ''));
+            if ($method !== '' || $path !== '') {
+                $parts[] = trim($method . ' ' . $path);
+            }
+            $statusCode = appLogsValueText($context['status_code'] ?? null, true);
+            if ($statusCode !== '') {
+                $parts[] = 'HTTP ' . $statusCode;
+            }
+            $duration = appLogsValueText($context['duration_ms'] ?? null, true);
+            if ($duration !== '') {
+                $parts[] = $duration . ' ms';
+            }
+            $routeGroup = trim((string) ($context['route_group'] ?? ''));
+            if ($routeGroup !== '') {
+                $parts[] = 'Grup: ' . $routeGroup;
+            }
+            $exception = trim((string) ($context['exception'] ?? ''));
+            if ($exception !== '') {
+                $parts[] = 'Hata: ' . appLogsValueText($exception, true);
+            }
+
+            return $parts !== [] ? implode(' · ', $parts) : 'Ek detay yok';
+        }
+
+        if ($channel === 'cron' || str_starts_with($message, 'cron_run:')) {
+            $parts = [];
+            $jobKey = trim((string) ($context['job_key'] ?? ''));
+            if ($jobKey === '' && str_starts_with($message, 'cron_run:')) {
+                $jobKey = trim(substr($message, 9));
+            }
+            if ($jobKey !== '') {
+                $parts[] = 'Job: ' . $jobKey;
+            }
+
+            $status = strtolower(trim((string) ($context['status'] ?? '')));
+            if ($status === '') {
+                $status = $level;
+            }
+            if ($status !== '') {
+                $statusLabel = [
+                    'success' => 'Başarılı',
+                    'warning' => 'Uyarı',
+                    'error' => 'Hata',
+                    'skipped' => 'Atlandı',
+                ][$status] ?? appLogsPrettyLabel($status);
+                $parts[] = 'Durum: ' . $statusLabel;
+            }
+
+            foreach (['processed', 'sent', 'failed', 'deleted', 'deleted_rows', 'expired_count', 'total_operations'] as $key) {
+                $valueText = appLogsValueText($context[$key] ?? null, true);
+                if ($valueText === '') {
+                    continue;
+                }
+                $parts[] = appLogsContextLabel($key) . ': ' . $valueText;
+                if (count($parts) >= 4) {
+                    break;
+                }
+            }
+
+            $sapi = trim((string) ($context['sapi'] ?? ''));
+            if ($sapi !== '' && count($parts) < 4) {
+                $parts[] = 'Çalıştırma: ' . $sapi;
+            }
+
+            return $parts !== [] ? implode(' · ', $parts) : 'Ek detay yok';
+        }
+
+        if ($channel === 'activity') {
+            $parts = [];
+            $actorId = is_numeric($context['actor_id'] ?? null) ? (int) $context['actor_id'] : 0;
+            $subjectType = strtolower(trim((string) ($context['subject_type'] ?? '')));
+            $subjectId = is_numeric($context['subject_id'] ?? null) ? (int) $context['subject_id'] : 0;
+            $properties = is_array($context['properties'] ?? null) ? $context['properties'] : [];
+
+            if ($actorId > 0) {
+                $actorLabel = appLogsUserLabel($actorId, $userLabels);
+                if ($subjectType === 'user' && $subjectId > 0 && $subjectId === $actorId) {
+                    $parts[] = 'Kullanıcı: ' . $actorLabel;
+                } else {
+                    $parts[] = 'İşlemi yapan: ' . $actorLabel;
+                }
+            }
+
+            if ($subjectType !== '') {
+                $subjectLabel = appLogsSubjectTypeLabel($subjectType);
+                $subjectName = '';
+                foreach (['subject_title', 'title', 'name', 'display_name', 'username'] as $key) {
+                    $subjectName = appLogsValueText($properties[$key] ?? ($context[$key] ?? null), true);
+                    if ($subjectName !== '') {
+                        break;
+                    }
+                }
+
+                if ($subjectType === 'user' && $subjectId > 0) {
+                    $subjectName = appLogsUserLabel($subjectId, $userLabels);
+                    if (!($actorId > 0 && $actorId === $subjectId)) {
+                        $parts[] = 'Hedef kullanıcı: ' . $subjectName;
+                    }
+                } elseif ($subjectName !== '') {
+                    $parts[] = $subjectLabel . ': ' . $subjectName;
+                } elseif ($subjectId > 0) {
+                    $parts[] = $subjectLabel . ' #' . $subjectId;
+                }
+            }
+
+            if ($properties !== []) {
+                $propertyParts = appLogsContextParts($properties, ['scope', 'deleted', 'count', 'reason', 'status', 'days'], 2);
+                $parts = array_merge($parts, $propertyParts);
+            }
+
+            return $parts !== [] ? implode(' · ', $parts) : 'Ek detay yok';
+        }
+
+        if ($channel === 'maintenance') {
+            $contextForSummary = $context;
+            $targetUserId = is_numeric($context['target_user_id'] ?? null) ? (int) $context['target_user_id'] : 0;
+            if ($targetUserId > 0) {
+                $contextForSummary['target_user_id'] = appLogsUserLabel($targetUserId, $userLabels);
+            }
+
+            $parts = appLogsContextParts($contextForSummary, ['target_user_id', 'scope', 'deleted', 'days', 'reason'], 4);
+            return $parts !== [] ? implode(' · ', $parts) : 'Ek detay yok';
+        }
+
+        if ($channel === 'template') {
+            $parts = [];
+            $templateKey = trim((string) ($context['template_key'] ?? ''));
+            if ($templateKey !== '') {
+                $parts[] = 'Şablon: ' . $templateKey;
+            }
+            $variable = '';
+            foreach (['key', 'variable', 'missing_key', 'name'] as $key) {
+                $variable = appLogsValueText($context[$key] ?? null, true);
+                if ($variable !== '') {
+                    break;
+                }
+            }
+            if ($message !== '' && str_starts_with($message, 'TPL Missing Variable:')) {
+                $variable = trim(substr($message, strlen('TPL Missing Variable:')));
+            }
+            if ($variable !== '') {
+                $parts[] = 'Değişken: ' . $variable;
+            }
+            $cycle = trim((string) ($context['cycle'] ?? ''));
+            if ($cycle !== '') {
+                $parts[] = 'Döngü: ' . $cycle;
+            }
+            return $parts !== [] ? implode(' · ', $parts) : 'Ek detay yok';
+        }
+
+        if ($channel === 'theme') {
+            $parts = appLogsContextParts($context, ['theme_id', 'asset', 'path', 'reason'], 3);
+            return $parts !== [] ? implode(' · ', $parts) : 'Ek detay yok';
+        }
+
+        $parts = appLogsContextParts($context, ['actor_id', 'subject_type', 'subject_id', 'job_key', 'status', 'scope', 'reason'], 3);
+        return $parts !== [] ? implode(' · ', $parts) : 'Ek detay yok';
+    }
+}
+
+if (!function_exists('appLogsFormatContextTechnical')) {
+    function appLogsFormatContextTechnical(?string $contextJson, string $channel = '', string $message = ''): string
+    {
+        $lines = [];
+        $channel = trim($channel);
+        $message = trim($message);
+
+        if ($channel !== '') {
+            $lines[] = 'Kanal: ' . $channel;
+        }
+        if ($message !== '') {
+            $lines[] = 'Mesaj: ' . $message;
+        }
+
+        $raw = trim((string) $contextJson);
+        if ($raw === '') {
+            return implode("\n", $lines);
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded) || $decoded === []) {
+            $lines[] = 'Ham context: ' . $raw;
+            return implode("\n", $lines);
+        }
+
+        foreach ($decoded as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_scalar($value)) {
+                $lines[] = (string) $key . ': ' . (string) $value;
+                continue;
+            }
+
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if (is_string($encoded) && $encoded !== '') {
+                $lines[] = (string) $key . ': ' . $encoded;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+}
+
+if (!function_exists('appLogsDecorateItems')) {
+    function appLogsDecorateItems(PDO $pdo, array $items): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $contexts = [];
+        $userIds = [];
+
+        foreach ($items as $index => $item) {
+            $context = appLogsDecodeContext($item['context_json'] ?? null);
+            $contexts[$index] = $context;
+            foreach (appLogsContextUserIds($context) as $userId) {
+                $userIds[$userId] = $userId;
+            }
+        }
+
+        $userLabels = $userIds !== [] ? appLogsResolveUserLabels($pdo, array_values($userIds)) : [];
+
+        foreach ($items as $index => &$item) {
+            $context = $contexts[$index] ?? [];
+            $channel = (string) ($item['channel'] ?? '');
+            $message = (string) ($item['message'] ?? '');
+            $level = (string) ($item['level'] ?? '');
+
+            $item['context_data'] = $context;
+            $item['level_label'] = appLogsLevelLabel($level);
+            $item['channel_label'] = appLogsChannelLabel($channel);
+            $item['human_message'] = appLogsHumanizeMessage($message, $channel, $context);
+            $item['context_summary'] = appLogsContextSummary($context, $channel, $message, $level, $userLabels);
+            $item['context_technical'] = appLogsFormatContextTechnical($item['context_json'] ?? null, $channel, $message);
+        }
+        unset($item);
+
+        return $items;
+    }
+}
+

@@ -58,6 +58,7 @@ try {
         'user_id' => $currentUserId,
         'logged_in' => $currentUserId > 0,
         'access' => $state,
+        'stage' => (string) ($state['stage'] ?? 'open'),
         'locked' => !empty($state['locked']),
         'reason' => (string) ($state['reason'] ?? 'none'),
         'message' => (string) ($state['message'] ?? ''),

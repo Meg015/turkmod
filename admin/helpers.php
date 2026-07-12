@@ -154,6 +154,12 @@ function adminRenderLogsSubtabs(string $active): void
             'icon' => 'bi-journal-code',
             'permission' => 'logs.view',
         ],
+        'email' => [
+            'label' => 'E-posta Logları',
+            'href' => '/admin/email-logs.php',
+            'icon' => 'bi-envelope-paper',
+            'permission' => 'logs.view',
+        ],
         'cron' => [
             'label' => 'Cron Logları',
             'href' => '/admin/logs.php?view=cron',
@@ -642,98 +648,98 @@ function adminSettingDefinitions(): array
         'download_redirect_error_message' => ['label' => 'Genel Hata Metni', 'type' => 'string', 'default' => 'İndirme işlemi sırasında bir hata oluştu.', 'section' => 'downloads'],
 
         'download_access_mode' => [
-            'label' => 'Indirme Erisim Kilidi',
+            'label' => 'İndirme Erişim Kilidi',
             'type' => 'select',
             'default' => 'public',
             'section' => 'downloads',
             'options' => [
-                'public' => 'Herkese Acik',
-                'members' => 'Sadece Giris Yapan Uyeler',
-                'members_comment' => 'Uyelik + Yorum Sartli',
+                'public' => 'Herkese Açık',
+                'members' => 'Sadece Giriş Yapan Üyeler',
+                'members_comment' => 'Üyelik + Yorum Şartlı',
             ],
-            'tooltip' => 'Konu detayindaki indirme kartlarinin kimlere acik olacagini belirler.',
+            'tooltip' => 'Konu detayındaki indirme kartlarının kimlere açık olacağını belirler.',
         ],
         'download_access_comment_requirement' => [
-            'label' => 'Yorum Dogrulamasi',
+            'label' => 'Yorum Doğrulaması',
             'type' => 'select',
             'default' => 'submitted',
             'section' => 'downloads',
             'options' => [
-                'submitted' => 'Yorum Gonderimi Yeterli',
-                'approved' => 'Yorum Onayi Gerekli',
+                'submitted' => 'Yorum Gönderimi Yeterli',
+                'approved' => 'Yorum Onayı Gerekli',
             ],
-            'tooltip' => 'Uyelik + Yorum Sartli modunda yorumun ne zaman gecerli sayilacagini belirler.',
+            'tooltip' => 'Üyelik + Yorum Şartlı modunda yorumun ne zaman geçerli sayılacağını belirler.',
         ],
         'download_access_login_message' => [
-            'label' => 'Uyelik Kilidi Mesaji',
+            'label' => 'Giriş Kilidi Mesajı',
             'type' => 'string',
-            'default' => 'Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.',
+            'default' => 'Önce giriş yapın, sonra bir yorum gönderin; kilit otomatik açılır.',
             'section' => 'downloads',
         ],
         'download_access_comment_message' => [
-            'label' => 'Yorum Kilidi Mesaji',
+            'label' => 'Yorum Kilidi Mesajı',
             'type' => 'string',
-            'default' => 'Indirme linklerini gormek icin once yorum yapmaniz lazim.',
+            'default' => 'Önce bir yorum gönderin; kilit otomatik açılır.',
             'section' => 'downloads',
         ],
         'download_access_locked_button_text' => [
             'label' => 'Kilitli Kart Buton Metni',
             'type' => 'string',
-            'default' => 'Kilidi Ac',
+            'default' => 'Kilidi Aç',
             'section' => 'downloads',
         ],
         'download_access_comment_cta_label' => [
-            'label' => 'Yorum Cagri Metni',
+            'label' => 'Yorum Çağrı Metni',
             'type' => 'string',
             'default' => 'Yorumlara Git',
             'section' => 'downloads',
         ],
         'download_access_open_auth_popup' => [
-            'label' => 'Kilitte Giris/Kayit Popupu Ac',
+            'label' => 'Kilitte Giriş/Kayıt Penceresini Aç',
             'type' => 'bool',
             'default' => '1',
             'section' => 'downloads',
         ],
         'download_access_focus_comment_form' => [
-            'label' => 'Yorum Sartinda Forma Odakla',
+            'label' => 'Yorum Şartında Forma Odaklan',
             'type' => 'bool',
             'default' => '1',
             'section' => 'downloads',
         ],
         'download_access_unlock_after_auth' => [
-            'label' => 'Giris Sonrasi Sayfa Yenilemeden Ac',
+            'label' => 'Giriş Sonrası Sayfayı Yenile',
             'type' => 'bool',
             'default' => '1',
             'section' => 'downloads',
         ],
         'download_access_unlock_after_comment' => [
-            'label' => 'Yorum Sonrasi Sayfa Yenilemeden Ac',
+            'label' => 'Yorum Sonrası Sayfayı Yenile',
             'type' => 'bool',
             'default' => '1',
             'section' => 'downloads',
         ],
         'download_access_auth_modal_title' => [
-            'label' => 'Auth Popup Basligi',
+            'label' => 'Giriş/Kayıt Penceresi Başlığı',
             'type' => 'string',
-            'default' => 'Indirme linklerini acmak icin giris yapin',
+            'default' => 'İndirme linklerini açmak için giriş yapın',
             'section' => 'downloads',
         ],
         'download_access_auth_login_label' => [
-            'label' => 'Auth Popup Giris Sekmesi',
+            'label' => 'Giriş Sekmesi Metni',
             'type' => 'string',
-            'default' => 'Giris Yap',
+            'default' => 'Giriş Yap',
             'section' => 'downloads',
         ],
         'download_access_auth_register_label' => [
-            'label' => 'Auth Popup Kayit Sekmesi',
+            'label' => 'Kayıt Sekmesi Metni',
             'type' => 'string',
-            'default' => 'Kayit Ol',
+            'default' => 'Kayıt Ol',
             'section' => 'downloads',
         ],
         'download_access_auth_success_message' => [
-            'label' => 'Auth Basari Mesaji',
+            'label' => 'Giriş Başarı Mesajı',
             'type' => 'string',
-            'default' => 'Oturum basariyla acildi. Kilitli indirme kartlari guncelleniyor.',
+            'default' => 'Oturum başarıyla açıldı. Kilitli indirme kartları güncelleniyor.',
             'section' => 'downloads',
         ],
 
@@ -1822,6 +1828,10 @@ function ensureAdminSchema(?PDO $pdo): void
         INDEX application_logs_level_created_index (level, created_at),
         INDEX application_logs_channel_created_index (channel, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    if (function_exists('emailLogsEnsureSchema')) {
+        emailLogsEnsureSchema($pdo);
+    }
 
     // Drop legacy columns if they still exist
     adminDropColumnIfExists($pdo, 'topics', 'summary');

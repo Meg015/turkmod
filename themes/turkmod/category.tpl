@@ -6,7 +6,7 @@
 <p>{category.description}</p>
 </div>
 {if category.stats}
-<div class="ui-theme-category-hero__stats" aria-label="Kategori ozeti">
+<div class="ui-theme-category-hero__stats" aria-label="Kategori özeti">
 {loop category.stats}
 <span><strong>{item.value}</strong><small>{item.label}</small></span>
 {/loop}
@@ -26,7 +26,7 @@
 <strong>{category_family.name}</strong>
 <small>{category_family.description}</small>
 </span>
-<span class="ui-theme-category-family__total"><strong>{category_family.total}</strong><small>icerik</small></span>
+<span class="ui-theme-category-family__total"><strong>{category_family.total}</strong><small>içerik</small></span>
 <span class="ui-theme-category-family__arrow" aria-hidden="true"><i class="bi bi-arrow-right"></i></span>
 </a>
 {if category_family.children}

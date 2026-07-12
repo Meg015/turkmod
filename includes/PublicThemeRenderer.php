@@ -1016,6 +1016,24 @@ final class PublicThemeRenderer
         $downloadLocked = !empty($downloadAccessState['locked']);
         $downloadLockReason = trim((string) ($downloadAccessState['reason'] ?? 'none')) ?: 'none';
         $downloadLockMessage = trim((string) ($downloadAccessState['message'] ?? ''));
+        $downloadAccessStage = (string) ($downloadAccessState['stage'] ?? '');
+        if ($downloadAccessStage === '' && function_exists('topicDownloadAccessStage')) {
+            $downloadAccessStage = topicDownloadAccessStage($downloadLocked, $downloadLockReason);
+        }
+        if ($downloadAccessStage === '') {
+            $downloadAccessStage = $downloadLocked
+                ? ($downloadLockReason === 'comment_required' ? 'comment' : 'login')
+                : 'open';
+        }
+        $downloadAccessStepClasses = is_array($downloadAccessState['step_classes'] ?? null)
+            ? $downloadAccessState['step_classes']
+            : (function_exists('topicDownloadAccessStepClasses')
+                ? topicDownloadAccessStepClasses($downloadAccessStage)
+                : [
+                    'login' => $downloadAccessStage === 'login' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending'),
+                    'comment' => $downloadAccessStage === 'comment' ? 'is-active' : ($downloadAccessStage === 'open' ? 'is-complete' : 'is-pending'),
+                    'open' => $downloadAccessStage === 'open' ? 'is-active' : 'is-pending',
+                ]);
         if ($downloadLockMessage === '') {
             $downloadLockMessage = $downloadLockReason === 'comment_required'
                 ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
@@ -1092,6 +1110,10 @@ final class PublicThemeRenderer
             'download_locked' => $downloadLocked,
             'download_lock_reason' => $downloadLockReason,
             'download_lock_message' => $downloadLockMessage,
+            'download_access_stage' => $downloadAccessStage,
+            'download_access_step_login_class' => (string) ($downloadAccessStepClasses['login'] ?? 'is-pending'),
+            'download_access_step_comment_class' => (string) ($downloadAccessStepClasses['comment'] ?? 'is-pending'),
+            'download_access_step_open_class' => (string) ($downloadAccessStepClasses['open'] ?? 'is-pending'),
             'download_lock_button_text' => $downloadLockButtonText,
             'download_comment_cta_label' => $downloadCommentCtaLabel,
             'download_open_auth_popup' => $downloadOpenAuthPopup ? '1' : '0',

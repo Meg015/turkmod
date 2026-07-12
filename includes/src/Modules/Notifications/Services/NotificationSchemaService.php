@@ -14,6 +14,7 @@ final class NotificationSchemaService
     private bool $eventSchemaEnsured = false;
     private bool $templateSchemaEnsured = false;
     private bool $emailQueueSchemaEnsured = false;
+    private bool $dismissalSchemaEnsured = false;
 
     /** @return array<string,bool> */
     public function eventTableColumns(PDO $pdo, bool $refresh = false): array
@@ -52,6 +53,30 @@ final class NotificationSchemaService
         } catch (Throwable $e) {
             error_log('Notification event index lookup failed: ' . $e->getMessage());
             return true;
+        }
+    }
+
+    public function tableExists(PDO $pdo, string $tableName): bool
+    {
+        $tableName = trim($tableName);
+        if ($tableName === '') {
+            return false;
+        }
+
+        try {
+            $stmt = $pdo->prepare('
+                SELECT COUNT(*)
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+            ');
+            $stmt->execute([$tableName]);
+
+            return ((int) $stmt->fetchColumn()) > 0;
+        } catch (Throwable $e) {
+            error_log('Notification table lookup failed: ' . $e->getMessage());
+
+            return false;
         }
     }
 
@@ -179,6 +204,34 @@ final class NotificationSchemaService
                 INDEX notification_email_queue_template_index (template_key, created_at),
                 CONSTRAINT notification_email_queue_notification_id_foreign FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
                 CONSTRAINT notification_email_queue_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ');
+    }
+
+    public function ensureNotificationDismissalSchema(PDO $pdo, bool $respectRuntimeGate = true): void
+    {
+        if ($this->dismissalSchemaEnsured) {
+            return;
+        }
+        if ($respectRuntimeGate && function_exists('runtimeSchemaUpdatesAllowed') && !runtimeSchemaUpdatesAllowed()) {
+            return;
+        }
+        $this->dismissalSchemaEnsured = true;
+
+        if (!$this->tableExists($pdo, 'notifications')) {
+            return;
+        }
+
+        $pdo->exec('
+            CREATE TABLE IF NOT EXISTS notification_dismissals (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                notification_id BIGINT UNSIGNED NOT NULL,
+                user_id BIGINT UNSIGNED NOT NULL,
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY notification_dismissals_unique (notification_id, user_id),
+                INDEX notification_dismissals_user_index (user_id, created_at),
+                CONSTRAINT notification_dismissals_notification_id_foreign FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+                CONSTRAINT notification_dismissals_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ');
     }

@@ -42,6 +42,49 @@ function healthBoolLabel(bool $ok, string $level = 'required'): string
     return $level === 'warning' ? 'Uyarı' : 'Kontrol';
 }
 
+function healthRuntimeLogLabel(string $level): string
+{
+    return match (strtolower(trim($level))) {
+        'critical' => 'Kritik',
+        'error' => 'Hata',
+        default => 'Kayıt',
+    };
+}
+
+function healthApplicationLogLevelLabel(string $level): string
+{
+    $normalized = strtolower(trim($level));
+    if (function_exists('appLogsLevelLabel')) {
+        return appLogsLevelLabel($normalized);
+    }
+
+    return match ($normalized) {
+        'emergency' => 'Acil',
+        'alert' => 'Alarm',
+        'critical' => 'Kritik',
+        'error' => 'Hata',
+        'warning', 'warn' => 'Uyarı',
+        'notice' => 'Bildirim',
+        'info' => 'Bilgi',
+        'debug' => 'Hata Ayıklama',
+        default => $normalized !== '' ? strtoupper($normalized) : 'Bilinmiyor',
+    };
+}
+
+function healthApplicationLogChannelLabel(string $channel): string
+{
+    $normalized = strtolower(trim($channel));
+    if (function_exists('appLogsChannelLabel')) {
+        return appLogsChannelLabel($normalized);
+    }
+
+    if ($normalized === '') {
+        return '-';
+    }
+
+    return ucwords(str_replace('_', ' ', $normalized));
+}
+
 function healthRow(
     string $section,
     string $label,
@@ -93,7 +136,7 @@ function healthRuntimeLogSummary(string $root): array
         'files' => count($files),
         'critical' => 0,
         'errors' => 0,
-        'latest' => 'son kayit yok',
+        'latest' => 'son kayıt yok',
     ];
     $latestTs = 0;
 
@@ -279,9 +322,18 @@ function healthApplicationErrorContext(?string $contextJson): string
     }
 
     $parts = [];
+    $labelMap = [
+        'file' => 'Dosya',
+        'line' => 'Satır',
+        'url' => 'URL',
+        'route' => 'Rota',
+        'method' => 'Metot',
+        'request_id' => 'İstek ID',
+        'code' => 'Kod',
+    ];
     foreach (['file', 'line', 'url', 'route', 'method', 'request_id', 'code'] as $key) {
         if (array_key_exists($key, $decoded) && is_scalar($decoded[$key])) {
-            $parts[] = $key . '=' . (string) $decoded[$key];
+            $parts[] = ($labelMap[$key] ?? $key) . ': ' . (string) $decoded[$key];
         }
         if (count($parts) >= 3) {
             break;
@@ -291,7 +343,7 @@ function healthApplicationErrorContext(?string $contextJson): string
     if ($parts === []) {
         foreach ($decoded as $key => $value) {
             if (is_scalar($value)) {
-                $parts[] = (string) $key . '=' . (string) $value;
+                $parts[] = (($labelMap[(string) $key] ?? ucwords(str_replace('_', ' ', (string) $key))) . ': ' . (string) $value);
             }
             if (count($parts) >= 3) {
                 break;
@@ -738,7 +790,7 @@ $sections = [
     'overview' => ['Genel Bakış', 'bi-speedometer2', 'Öncelikli aksiyonlar ve genel skor'],
     'security' => ['Ortam & Güvenlik', 'bi-shield-lock', '.env, HTTPS ve dosya erişim kontrolleri'],
     'database' => ['Veritabanı & Schema', 'bi-database-check', 'Tablo, bağlantı ve schema sinyalleri'],
-    'logs' => ['Loglar & Hatalar', 'bi-journal-code', 'Runtime ve uygulama hata özeti'],
+    'logs' => ['Loglar & Hatalar', 'bi-journal-code', 'Çalışma zamanı ve uygulama hata özeti'],
     'queues' => ['Kuyruklar & Cron', 'bi-diagram-3', 'E-posta, bot ve zamanlanmış işler'],
     'content' => ['İçerik Sağlığı', 'bi-clipboard2-pulse', 'Raporlar, linkler ve içerik kuyrukları'],
 ];
@@ -878,7 +930,7 @@ $appErrors7d = $loadLogSection && healthTableExists($pdo, 'application_logs')
     : 0;
 $latestAppLog = $loadLogSection && healthTableExists($pdo, 'application_logs')
     ? healthTextScalar($pdo, "SELECT CONCAT(level, ' / ', channel, ' / ', LEFT(message, 140)) FROM application_logs ORDER BY id DESC LIMIT 1", [], 'kayıt yok')
-    : 'log detayı için Logs sekmesini açın';
+    : 'log detayı için Loglar sekmesini açın';
 $activityToday = $loadLogSection && healthTableExists($pdo, 'user_activity_events')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM user_activity_events e WHERE e.created_at >= CURDATE() AND e.created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.event_group NOT IN ('admin', 'moderation') AND e.event_type NOT IN ('admin_user_updated', 'group_save', 'group_deactivate', 'user_group_changed', 'user_status_changed', 'user_banned', 'user_unbanned', 'user_restricted', 'user_restriction_removed', 'user_restrictions_cleared', 'user_admin_note_added', 'settings_updated', 'topic_settings_updated', 'topic_moderated', 'topic_revision_restored', 'topic_health_scan_completed', 'topic_health_cleared', 'download_link_checked', 'category_created', 'category_updated', 'category_deleted', 'media_uploaded', 'media_deleted', 'leaderboard_recalculated', 'leaderboard_cache_cleared', 'leaderboard_settings_updated', 'application_logs_cleared', 'activity_logs_cleared', 'rate_limit_records_deleted', 'cron_manual_triggered', 'bot_import_published') AND e.event_type NOT LIKE 'topic_bulk_%' AND NOT EXISTS (SELECT 1 FROM user_group_members ugm INNER JOIN user_groups ug ON ug.id = ugm.group_id LEFT JOIN user_group_permissions ugp ON ugp.group_id = ug.id AND ugp.permission_value = 1 AND ugp.permission_key IN ('*', 'admin.access') WHERE ugm.user_id = e.actor_user_id AND ug.is_active = 1 AND (ug.slug = 'admin' OR ugp.permission_key IS NOT NULL))")
     : 0;
@@ -963,57 +1015,57 @@ $checks = [
     healthRow('security', 'PHP sürümü', version_compare(PHP_VERSION, '8.1.0', '>='), PHP_VERSION),
     healthRow('security', 'PDO MySQL', extension_loaded('pdo_mysql'), extension_loaded('pdo_mysql') ? 'aktif' : 'eksik'),
     healthRow('security', 'mbstring', extension_loaded('mbstring'), extension_loaded('mbstring') ? 'aktif' : 'eksik'),
-    healthRow('security', 'GD', extension_loaded('gd'), extension_loaded('gd') ? 'aktif' : 'görsel işlemleri için önerilir', 'warning'),
+    healthRow('security', 'GD Kütüphanesi', extension_loaded('gd'), extension_loaded('gd') ? 'aktif' : 'görsel işlemleri için önerilir', 'warning'),
     healthRow('security', '.env dosyası', is_file($root . DIRECTORY_SEPARATOR . '.env'), is_file($root . DIRECTORY_SEPARATOR . '.env') ? 'mevcut' : 'eksik'),
-    healthRow('security', 'APP_DEBUG', !$appDebug, $appDebug ? 'false olmalı' : 'false'),
-    healthRow('security', 'APP_FORCE_HTTPS', !$isProduction || $forceHttps, $forceHttps ? 'aktif' : ($isProduction ? 'canlıda aktif olmalı' : 'local ortamda kapalı olabilir'), 'warning'),
-    healthRow('security', 'APP_URL', !$isProduction || ($appUrl !== '' && !$isLocalUrl), $appUrl !== '' ? $appUrl : 'boş', 'warning'),
-    healthRow('security', 'TRUSTED_PROXIES', !$isProduction || $trustedProxies !== '', $trustedProxies !== '' ? $trustedProxies : 'reverse proxy varsa tanımlanmalı', 'warning'),
+    healthRow('security', 'Hata ayıklama modu (APP_DEBUG)', !$appDebug, $appDebug ? 'false olmalı' : 'false'),
+    healthRow('security', 'Zorunlu HTTPS (APP_FORCE_HTTPS)', !$isProduction || $forceHttps, $forceHttps ? 'aktif' : ($isProduction ? 'canlıda aktif olmalı' : 'local ortamda kapalı olabilir'), 'warning'),
+    healthRow('security', 'Uygulama adresi (APP_URL)', !$isProduction || ($appUrl !== '' && !$isLocalUrl), $appUrl !== '' ? $appUrl : 'boş', 'warning'),
+    healthRow('security', 'Güvenilir proxyler (TRUSTED_PROXIES)', !$isProduction || $trustedProxies !== '', $trustedProxies !== '' ? $trustedProxies : 'reverse proxy varsa tanımlanmalı', 'warning'),
     healthRow('security', 'Root .htaccess', is_file($root . DIRECTORY_SEPARATOR . '.htaccess'), 'gizli/sistem dosyaları için erişim bariyeri'),
     healthRow('security', 'uploads .htaccess', is_file($root . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . '.htaccess'), 'upload script çalıştırma bariyeri'),
     healthRow('security', 'storage .htaccess', is_file($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . '.htaccess'), 'storage erişim bariyeri'),
     healthRow('security', 'database .htaccess', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . '.htaccess'), 'database klasörü erişim bariyeri'),
-    healthRow('security', 'install klasörü', !is_dir($root . DIRECTORY_SEPARATOR . 'install'), is_dir($root . DIRECTORY_SEPARATOR . 'install') ? 'kurulumdan sonra silinmeli' : 'silinmiş', 'warning'),
-    healthRow('security', 'Yedekleme kalıntısı', count($backupResidues) === 0, count($backupResidues) === 0 ? 'yok' : implode(', ', array_map('healthPath', $backupResidues)), 'warning'),
+    healthRow('security', 'Kurulum klasörü', !is_dir($root . DIRECTORY_SEPARATOR . 'install'), is_dir($root . DIRECTORY_SEPARATOR . 'install') ? 'kurulumdan sonra silinmeli' : 'silinmiş', 'warning'),
+    healthRow('security', 'Yedek dosya kalıntıları', count($backupResidues) === 0, count($backupResidues) === 0 ? 'yok' : implode(', ', array_map('healthPath', $backupResidues)), 'warning'),
     healthRow('security', 'Markdown dosyaları', count($mdFiles) === 0 || !$isProduction, count($mdFiles) === 0 ? 'yok' : count($mdFiles) . ' adet bulundu', 'warning'),
 
     healthRow('database', 'Veritabanı bağlantısı', $pdo instanceof PDO, $pdo instanceof PDO ? 'bağlı' : 'bağlantı yok'),
-    healthRow('database', 'DB sürücüsü', $pdo instanceof PDO, $pdo instanceof PDO ? (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) : 'yok'),
-    healthRow('database', 'Core tablolar', count($missingCoreTables) === 0, count($missingCoreTables) === 0 ? count($coreTables) . ' tablo mevcut' : 'Eksik: ' . implode(', ', $missingCoreTables)),
-    healthRow('database', 'Runtime schema güncellemesi', !$isProduction || !$runtimeSchemaAllowed, $runtimeSchemaAllowed ? 'aktif' : 'kapalı', 'warning'),
-    healthRow('database', 'database/schema.sql', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans schema için gerekli'),
+    healthRow('database', 'Veritabanı sürücüsü', $pdo instanceof PDO, $pdo instanceof PDO ? (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) : 'yok'),
+    healthRow('database', 'Çekirdek tablolar', count($missingCoreTables) === 0, count($missingCoreTables) === 0 ? count($coreTables) . ' tablo mevcut' : 'Eksik: ' . implode(', ', $missingCoreTables)),
+    healthRow('database', 'Çalışma zamanında şema güncelleme', !$isProduction || !$runtimeSchemaAllowed, $runtimeSchemaAllowed ? 'aktif' : 'kapalı', 'warning'),
+    healthRow('database', 'Şema dosyası (database/schema.sql)', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans şema için gerekli'),
     healthRow('database', 'PHP dosyaları', $loadDatabaseSection ? $phpFileCount > 0 : true, $loadDatabaseSection ? $phpFileCount . ' adet PHP dosyası' : 'canlı hızlı görünümde atlandı', $loadDatabaseSection ? 'required' : 'info'),
     healthRow('database', 'storage/cache yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), 'warning'),
     healthRow('database', 'uploads yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'uploads'), healthPath($root . DIRECTORY_SEPARATOR . 'uploads')),
     healthRow('database', 'storage/logs yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs')),
     healthRow('database', 'Disk kapasitesi', true, healthDiskDetail($root), 'info'),
-    healthRow('database', 'Rate limit helper uyumu', $rateLimitHelperReady && healthTableExists($pdo, 'request_rate_limits'), $loadDatabaseSection ? (($rateLimitHelperReady ? 'helper hazır' : 'helper eksik') . ', request_rate_limits=' . $requestRateLimitRows) : 'canlı hızlı görünümde sayım atlandı', $loadDatabaseSection ? 'warning' : 'info', $baseUri . '/admin/rate-limits.php', 'Rate Limit'),
+    healthRow('database', 'İstek sınırı uyumu', $rateLimitHelperReady && healthTableExists($pdo, 'request_rate_limits'), $loadDatabaseSection ? (($rateLimitHelperReady ? 'yardımcı hazır' : 'yardımcı eksik') . ', request_rate_limits=' . $requestRateLimitRows) : 'canlı hızlı görünümde sayım atlandı', $loadDatabaseSection ? 'warning' : 'info', $baseUri . '/admin/rate-limits.php', 'İstek Sınırları'),
 
-    healthRow('logs', 'Runtime kritik loglar', (int) $runtimeLogSummary['critical'] === 0, (int) $runtimeLogSummary['critical'] === 0 ? 'son kayıtlarda kritik hata yok' : $runtimeLogSummary['critical'] . ' kritik sinyal; son: ' . $runtimeLogSummary['latest']),
-    healthRow('logs', 'Runtime hata logları', (int) $runtimeLogSummary['errors'] === 0, (int) $runtimeLogSummary['errors'] === 0 ? $runtimeLogSummary['files'] . ' log dosyası tarandı' : $runtimeLogSummary['errors'] . ' hata/uyarı sinyali; son: ' . $runtimeLogSummary['latest'], 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
-    healthRow('logs', 'Uygulama hataları 24s', $appErrors24h === 0, $appErrors24h . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
-    healthRow('logs', 'Uygulama hataları 7g', $appErrors7d === 0, $appErrors7d . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
-    healthRow('logs', 'Son uygulama logu', true, $latestAppLog, 'info', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
-    healthRow('logs', 'Bugünkü kullanıcı hareketleri', true, $activityToday . ' işlem kaydı', 'info', $baseUri . '/admin/action-log.php', 'Kullanıcı İşlem Günlüğü'),
+    healthRow('logs', 'Çalışma zamanı kritik kayıtları', (int) $runtimeLogSummary['critical'] === 0, (int) $runtimeLogSummary['critical'] === 0 ? 'son kayıtlarda kritik hata yok' : $runtimeLogSummary['critical'] . ' kritik sinyal; son: ' . $runtimeLogSummary['latest']),
+    healthRow('logs', 'Çalışma zamanı hata kayıtları', (int) $runtimeLogSummary['errors'] === 0, (int) $runtimeLogSummary['errors'] === 0 ? $runtimeLogSummary['files'] . ' log dosyası tarandı' : $runtimeLogSummary['errors'] . ' hata/uyarı sinyali; son: ' . $runtimeLogSummary['latest'], 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
+    healthRow('logs', 'Uygulama hataları (24s)', $appErrors24h === 0, $appErrors24h . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
+    healthRow('logs', 'Uygulama hataları (7g)', $appErrors7d === 0, $appErrors7d . ' hata/kritik kayıt', 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
+    healthRow('logs', 'Son uygulama kaydı', true, $latestAppLog, 'info', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
+    healthRow('logs', 'Bugünkü kullanıcı işlemleri', true, $activityToday . ' işlem kaydı', 'info', $baseUri . '/admin/action-log.php', 'Kullanıcı İşlem Günlüğü'),
 
     healthRow('queues', 'E-posta kuyruğu', $emailFailed === 0, $emailQueued . ' bekleyen/işlenen, ' . $emailFailed . ' başarısız', 'warning', $baseUri . '/admin/notifications.php?tab=logs', 'Bildirimler'),
-    healthRow('queues', 'Cron script dosyaları', count($missingCronScripts) === 0, count($missingCronScripts) === 0 ? count($cronScriptPaths) . ' script mevcut' : 'Eksik: ' . implode(', ', $missingCronScripts), 'warning'),
-    healthRow('queues', 'E-posta takılan işlemler', $emailStuckProcessing === 0, $emailStuckProcessing . ' işlem 15 dakikadan uzun süredir processing', 'warning', $baseUri . '/admin/notifications.php?tab=logs&email=processing', 'Kuyruk'),
+    healthRow('queues', 'Cron betik dosyaları', count($missingCronScripts) === 0, count($missingCronScripts) === 0 ? count($cronScriptPaths) . ' betik mevcut' : 'Eksik: ' . implode(', ', $missingCronScripts), 'warning'),
+    healthRow('queues', 'Sıkışan e-posta işlemleri', $emailStuckProcessing === 0, $emailStuckProcessing . ' işlem 15 dakikadan uzun süredir işleniyor', 'warning', $baseUri . '/admin/notifications.php?tab=logs&email=processing', 'Kuyruk'),
     healthRow('queues', 'Son e-posta hatası', $emailFailed === 0, $latestFailedEmail, 'warning', $baseUri . '/admin/notifications.php?tab=logs&email=failed', 'Hatalılar'),
-    healthRow('queues', 'Bildirim e-posta cron', healthCronIsFresh($cronRuns['notification_email_queue'], 30, $notificationEmailEnabled), $notificationEmailEnabled ? healthCronDetail($cronRuns['notification_email_queue'], 'cron kaydı yok; worker çalışmıyor olabilir') : 'e-posta kuyruğu kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/notifications.php', 'Bildirimler'),
-    healthRow('queues', 'Liderlik cron', healthCronIsFresh($cronRuns['leaderboard_cache'], 1440, true), healthCronDetail($cronRuns['leaderboard_cache'], 'son 24 saat için cron kaydı yok'), 'warning', $baseUri . '/admin/leaderboard.php', 'Liderlik'),
-    healthRow('queues', 'Rate limit cleanup cron', healthCronIsFresh($cronRuns['rate_limits_cleanup'], 180, true), healthCronDetail($cronRuns['rate_limits_cleanup'], 'son 3 saat içinde cron kaydı yok; expired rate limit kayıtları birikiyor olabilir'), 'warning', $baseUri . '/admin/rate-limits.php?status=expired', 'Temizle'),
+    healthRow('queues', 'Bildirim e-posta cronu', healthCronIsFresh($cronRuns['notification_email_queue'], 30, $notificationEmailEnabled), $notificationEmailEnabled ? healthCronDetail($cronRuns['notification_email_queue'], 'cron kaydı yok; worker çalışmıyor olabilir') : 'e-posta kuyruğu kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/notifications.php', 'Bildirimler'),
+    healthRow('queues', 'Liderlik cronu', healthCronIsFresh($cronRuns['leaderboard_cache'], 1440, true), healthCronDetail($cronRuns['leaderboard_cache'], 'son 24 saat için cron kaydı yok'), 'warning', $baseUri . '/admin/leaderboard.php', 'Liderlik'),
+    healthRow('queues', 'Süre sınırı temizleme cronu', healthCronIsFresh($cronRuns['rate_limits_cleanup'], 180, true), healthCronDetail($cronRuns['rate_limits_cleanup'], 'son 3 saat içinde cron kaydı yok; süresi dolan kayıtlar birikiyor olabilir'), 'warning', $baseUri . '/admin/rate-limits.php?status=expired', 'Temizle'),
     healthRow('queues', 'Etkinlik e-posta kuyruğu', $eventsEmailFailed === 0, $eventsEmailPending . ' bekleyen, ' . $eventsEmailFailed . ' hatalı', 'warning', $baseUri . '/admin/events.php?tab=settings', 'Etkinlikler'),
-    healthRow('queues', 'Etkinlik Ana Cron', healthCronIsFresh($cronRuns['events_master'], 30, $eventsSystemEnabled), $eventsSystemEnabled ? healthCronDetail($cronRuns['events_master'], 'son 30 dakika içinde cron kaydı yok; master cron çalışmıyor olabilir') : 'events sistemi kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/events.php', 'Etkinlikler'),
+    healthRow('queues', 'Etkinlik ana cronu', healthCronIsFresh($cronRuns['events_master'], 30, $eventsSystemEnabled), $eventsSystemEnabled ? healthCronDetail($cronRuns['events_master'], 'son 30 dakika içinde cron kaydı yok; master cron çalışmıyor olabilir') : 'events sistemi kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/events.php', 'Etkinlikler'),
 
     healthRow('queues', 'Süresi geçmiş ödüller', $expiredRewards === 0, $expiredRewards . ' süresi geçmiş bekleyen ödül', 'warning', $baseUri . '/admin/events-rewards.php', 'Ödüller'),
-    healthRow('queues', 'Süresi dolmuş rate limit', $expiredRateLimits < 500, $expiredRateLimits . ' temizlenebilir kayıt', 'warning', $baseUri . '/admin/rate-limits.php?status=expired', 'Temizle'),
+    healthRow('queues', 'Süresi dolmuş istek sınırı kayıtları', $expiredRateLimits < 500, $expiredRateLimits . ' temizlenebilir kayıt', 'warning', $baseUri . '/admin/rate-limits.php?status=expired', 'Temizle'),
     healthRow('queues', 'Bakım modu', in_array($maintenanceMode, ['0', '1'], true), $maintenanceMode === '1' ? 'aktif: ' . $maintenanceMessage : 'kapalı', 'warning', $baseUri . '/admin/settings.php#general', 'Ayarlar'),
 
     healthRow('content', 'Konu raporları', $topicReportsOpen === 0, $topicReportsOpen . ' açık/incelenen rapor', 'warning', $baseUri . '/admin/complaints-reports.php?tab=topics&status=open', 'Raporlar'),
     healthRow('content', 'Kullanıcı şikayetleri', $userReportsOpen === 0, $userReportsOpen . ' açık/incelenen şikayet', 'warning', $baseUri . '/admin/complaints-reports.php?tab=users&status=open', 'Şikayetler'),
     healthRow('content', 'Taslak konular', $pendingTopics === 0, $pendingTopics . ' taslak konu', 'warning', $baseUri . '/admin/topics.php?status=draft', 'Konular'),
-    healthRow('content', 'Orphan medya kayıtları', $orphanMedia === 0, $orphanMedia . ' konuya bağlı olmayan medya kaydı', 'warning', $baseUri . '/admin/media-manager.php', 'Medya'),
+    healthRow('content', 'Bağlantısız medya kayıtları', $orphanMedia === 0, $orphanMedia . ' konuya bağlı olmayan medya kaydı', 'warning', $baseUri . '/admin/media-manager.php', 'Medya'),
 ];
 
 $problemChecks = array_values(array_filter($checks, static fn (array $check): bool => !$check['ok']));
@@ -1187,30 +1239,35 @@ require_once __DIR__ . '/header.php';
         <div class="health-panel-head">
             <div>
                 <h2>Hata Merkezi</h2>
-                <p>Runtime ve uygulama hatalarini tek ekranda izleyin, filtreleyin ve aksiyon alin.</p>
+                <p>Çalışma zamanı ve uygulama hatalarını tek ekranda izleyin, filtreleyin ve aksiyon alın.</p>
             </div>
-            <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="<?= htmlspecialchars((string) $baseUri . '/admin/application-logs.php', ENT_QUOTES, 'UTF-8') ?>">
-                <i class="bi bi-journal-code"></i> Tüm Uygulama Logları
-            </a>
+            <div class="ui-admin-page-hero-actions">
+                <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="<?= htmlspecialchars((string) $baseUri . '/admin/application-logs.php', ENT_QUOTES, 'UTF-8') ?>">
+                    <i class="bi bi-journal-code"></i> Tüm Uygulama Logları
+                </a>
+                <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="<?= htmlspecialchars((string) $baseUri . '/admin/email-logs.php', ENT_QUOTES, 'UTF-8') ?>">
+                    <i class="bi bi-envelope-paper"></i> E-posta Logları
+                </a>
+            </div>
         </div>
 
         <div class="health-log-center-body">
             <div class="admin-stat-grid health-log-summary ui-grid">
                 <div class="admin-stat-card stat-danger health-log-stat ui-card">
                     <div class="stat-icon"><i class="bi bi-exclamation-octagon"></i></div>
-                    <div class="stat-content"><span class="stat-label">Runtime Critical</span><span class="stat-value"><?= number_format((int) ($runtimeLogSummary['critical'] ?? 0)) ?></span></div>
+                    <div class="stat-content"><span class="stat-label">Çalışma zamanı kritik</span><span class="stat-value"><?= number_format((int) ($runtimeLogSummary['critical'] ?? 0)) ?></span></div>
                 </div>
                 <div class="admin-stat-card stat-warning health-log-stat ui-card">
                     <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
-                    <div class="stat-content"><span class="stat-label">Runtime Error</span><span class="stat-value"><?= number_format((int) ($runtimeLogSummary['errors'] ?? 0)) ?></span></div>
+                    <div class="stat-content"><span class="stat-label">Çalışma zamanı hata</span><span class="stat-value"><?= number_format((int) ($runtimeLogSummary['errors'] ?? 0)) ?></span></div>
                 </div>
                 <div class="admin-stat-card stat-danger health-log-stat ui-card">
                     <div class="stat-icon"><i class="bi bi-calendar2-day"></i></div>
-                    <div class="stat-content"><span class="stat-label">Uygulama Hata (24s)</span><span class="stat-value"><?= number_format((int) $appErrors24h) ?></span></div>
+                    <div class="stat-content"><span class="stat-label">Uygulama hataları (24s)</span><span class="stat-value"><?= number_format((int) $appErrors24h) ?></span></div>
                 </div>
                 <div class="admin-stat-card stat-warning health-log-stat ui-card">
                     <div class="stat-icon"><i class="bi bi-calendar2-week"></i></div>
-                    <div class="stat-content"><span class="stat-label">Uygulama Hata (7g)</span><span class="stat-value"><?= number_format((int) $appErrors7d) ?></span></div>
+                    <div class="stat-content"><span class="stat-label">Uygulama hataları (7g)</span><span class="stat-value"><?= number_format((int) $appErrors7d) ?></span></div>
                 </div>
             </div>
 
@@ -1221,18 +1278,18 @@ require_once __DIR__ . '/header.php';
                         <input type="hidden" name="logs_view" value="center">
                         <input type="text" name="log_q" class="ui-admin-form-control" placeholder="Mesaj, kanal veya IP ara..." value="<?= htmlspecialchars($logSearch, ENT_QUOTES, 'UTF-8') ?>">
                         <select name="log_level" class="ui-admin-form-select">
-                            <option value="">Tum Seviyeler</option>
+                            <option value="">Tüm Seviyeler</option>
                             <?php foreach ($logAllowedLevels as $levelOption): ?>
                                 <option value="<?= htmlspecialchars((string) $levelOption, ENT_QUOTES, 'UTF-8') ?>" <?= $logLevel === (string) $levelOption ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars(strtoupper((string) $levelOption), ENT_QUOTES, 'UTF-8') ?>
+                                    <?= htmlspecialchars(healthApplicationLogLevelLabel((string) $levelOption), ENT_QUOTES, 'UTF-8') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                         <select name="log_channel" class="ui-admin-form-select">
-                            <option value="">Tum Kanallar</option>
+                            <option value="">Tüm Kanallar</option>
                             <?php foreach ($applicationErrorChannels as $channelOption): ?>
                                 <option value="<?= htmlspecialchars((string) $channelOption, ENT_QUOTES, 'UTF-8') ?>" <?= $logChannel === (string) $channelOption ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars((string) $channelOption, ENT_QUOTES, 'UTF-8') ?>
+                                    <?= htmlspecialchars(healthApplicationLogChannelLabel((string) $channelOption), ENT_QUOTES, 'UTF-8') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -1247,8 +1304,8 @@ require_once __DIR__ . '/header.php';
             <div class="health-log-grid">
                 <article class="admin-card ui-panel health-log-block">
                     <div class="card-header ui-panel__head health-log-block-head">
-                        <h3><i class="bi bi-activity"></i> Runtime Hata Akisi</h3>
-                        <span class="ui-admin-badge ui-admin-badge-muted"><?= number_format(count($runtimeLogEntries), 0, ',', '.') ?> kayit</span>
+                        <h3><i class="bi bi-activity"></i> Çalışma Zamanı Hata Akışı</h3>
+                        <span class="ui-admin-badge ui-admin-badge-muted"><?= number_format(count($runtimeLogEntries), 0, ',', '.') ?> kayıt</span>
                     </div>
                     <div class="health-log-table-wrap">
                         <table class="health-table health-log-table">
@@ -1263,13 +1320,13 @@ require_once __DIR__ . '/header.php';
                             <tbody>
                                 <?php if ($runtimeTotalRows === 0): ?>
                                     <tr>
-                                        <td colspan="4" class="health-log-empty">Runtime log dosyalarinda hata sinyali bulunmadi.</td>
+                                        <td colspan="4" class="health-log-empty">Çalışma zamanı log dosyalarında hata sinyali bulunamadı.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($runtimePageItems as $runtimeRow): ?>
                                         <?php
                                         $runtimeTone = ((string) ($runtimeRow['level'] ?? '') === 'critical') ? 'bad' : 'warn';
-                                        $runtimeLevel = strtoupper((string) ($runtimeRow['level'] ?? 'error'));
+                                        $runtimeLevel = healthRuntimeLogLabel((string) ($runtimeRow['level'] ?? 'error'));
                                         $runtimeTs = (int) ($runtimeRow['timestamp'] ?? 0);
                                         ?>
                                         <tr>
@@ -1304,11 +1361,11 @@ require_once __DIR__ . '/header.php';
 
                 <article class="admin-card ui-panel health-log-block">
                     <div class="card-header ui-panel__head health-log-block-head">
-                        <h3><i class="bi bi-journal-code"></i> Uygulama Hata Kayitlari</h3>
+                        <h3><i class="bi bi-journal-code"></i> Uygulama Hata Kayıtları</h3>
                         <span class="ui-admin-badge ui-admin-badge-muted">
                             <?= number_format((int) ($applicationErrorFeed['total'] ?? 0), 0, ',', '.') ?> toplam
                             <?php if ((int) ($applicationErrorFeed['total'] ?? 0) > count($applicationErrorFeed['items'] ?? [])): ?>
-                                / <?= number_format(count($applicationErrorFeed['items'] ?? []), 0, ',', '.') ?> gosterim
+                                / <?= number_format(count($applicationErrorFeed['items'] ?? []), 0, ',', '.') ?> gösterim
                             <?php endif; ?>
                         </span>
                     </div>
@@ -1326,7 +1383,7 @@ require_once __DIR__ . '/header.php';
                             <tbody>
                                 <?php if (empty($applicationErrorFeed['items'])): ?>
                                     <tr>
-                                        <td colspan="5" class="health-log-empty">Filtreye uyan uygulama hata kaydi yok.</td>
+                                        <td colspan="5" class="health-log-empty">Filtreye uyan uygulama hata kaydı yok.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($applicationErrorFeed['items'] as $appRow): ?>
@@ -1340,8 +1397,8 @@ require_once __DIR__ . '/header.php';
                                         ?>
                                         <tr>
                                             <td><?= htmlspecialchars($appDate !== null ? date('d.m.Y H:i:s', $appDate) : '-', ENT_QUOTES, 'UTF-8') ?></td>
-                                            <td><span class="health-badge <?= htmlspecialchars($appTone, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($appLevel !== '' ? $appLevel : 'log'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                                            <td><?= htmlspecialchars((string) ($appRow['channel'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><span class="health-badge <?= htmlspecialchars($appTone, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(healthApplicationLogLevelLabel($appLevel !== '' ? $appLevel : 'log'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                                            <td><?= htmlspecialchars(healthApplicationLogChannelLabel((string) ($appRow['channel'] ?? '-')), ENT_QUOTES, 'UTF-8') ?></td>
                                             <td class="health-log-message"><?= htmlspecialchars((string) ($appRow['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                             <td class="health-log-detail-cell">
                                                 <?php if ($contextExcerpt !== ''): ?>
