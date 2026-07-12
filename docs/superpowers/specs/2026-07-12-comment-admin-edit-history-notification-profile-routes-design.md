@@ -8,6 +8,7 @@ Admin panelinden veya yorum duzenleme yetkisine sahip baska bir hesap tarafindan
 
 - Admin yorum yonetimindeki `edit` islemi, public yorum API'siyle ayni revizyon kaydi davranisini kullanacak.
 - Degisen yorumun eski ve yeni metni, duzenleyen kullanici ve zaman bilgisi `comment_edit_history` kaydinda tutulacak.
+- Admin veya yetkili duzenleyici istege bagli bir duzenleme nedeni girebilecek; girilen neden ayni revizyon kaydinda saklanacak.
 - Public `edit_history` API'si mevcut yetkilendirme kurallarini koruyarak admin kaynakli revizyonlari da dondurecek.
 - Yorum sahibi disinda bir admin veya `comments.edit` yetkilisi yorumu degistirdiginde yorum sahibine bildirim gonderilecek.
 - Kullanicinin kendi yorumunu duzenlemesi bildirim uretmeyecek.
@@ -19,7 +20,9 @@ Admin panelinden veya yorum duzenleme yetkisine sahip baska bir hesap tarafindan
 
 Yorum duzenlemenin ortak davranisi yorum motorunun mevcut legacy helper sinirinda toplanacak. Yardimci; hedef yorumu, yeni metni ve duzenleyen kullanici kimligini alacak, metin gercekten degismisse revizyon kaydini olusturacak ve yorumun `body`, `is_edited`, `edited_at` ve `updated_at` alanlarini mevcut semaya uygun bicimde guncelleyecek.
 
-Admin controller ve public API kendi yetki, CSRF ve istek dogrulamalarini koruyacak; kalici degisiklik icin ortak yardimciyi cagiracak. Mevcut indirme erisimi calismasi dahil kirli calisma agacindaki degisiklikler korunacak.
+Admin controller ve public API kendi yetki, CSRF ve istek dogrulamalarini koruyacak; kalici degisiklik icin ortak yardimciyi cagiracak. Admin formuna istege bagli `edit_reason` alani eklenecek. Bos veya yalnizca bosluk iceren neden `null` olarak saklanacak; neden girilmemesi yorum duzenlemesini engellemeyecek. Mevcut indirme erisimi calismasi dahil kirli calisma agacindaki degisiklikler korunacak.
+
+Public `Gecmisi gor` sunumu, neden mevcutsa editor ve zaman bilgisinin yaninda guvenli metin olarak nedeni da gosterecek. Neden yoksa bos etiket veya gereksiz yer tutucu render edilmeyecek.
 
 ### Bildirim
 
@@ -32,7 +35,7 @@ Bildirim kosullari:
 - metin gercekten degismis olmali;
 - duzenleme basariyla kaydedilmis olmali.
 
-Bildirim; duzenleyenin gorunen adi, konu basligi, yorumdan kisa bir alinti ve `#comment-{id}` hedefli canonical konu baglantisini tasiyacak. Her basarili farkli revizyon bildirim uretebilmeli; dedupe anahtari revizyon kaydi veya duzenleme zamaniyla benzersizlestirilecek. Bildirim hatasi yorum duzenlemesini geri almayacak, fakat uygulama gunlugune yazilacak.
+Bildirim; duzenleyenin gorunen adi, konu basligi, yorumdan kisa bir alinti ve `#comment-{id}` hedefli canonical konu baglantisini tasiyacak. Duzenleme nedeni girilmisse bildirim metnine `Neden: ...` satiri eklenecek; girilmemisse neden satiri gosterilmeyecek. Her basarili farkli revizyon bildirim uretebilmeli; dedupe anahtari revizyon kaydi veya duzenleme zamaniyla benzersizlestirilecek. Bildirim hatasi yorum duzenlemesini geri almayacak, fakat uygulama gunlugune yazilacak.
 
 ### Profil ve benzer dahili rotalar
 
@@ -44,6 +47,7 @@ Sabit `/profile.php` kullanan dahili yonlendirme, form action ve profil sekmesi 
 
 - Admin ve API yetki kontrolleri gevsetilmeyecek.
 - Bos metin ve gecersiz yorum kimligi mevcut davranisla reddedilecek.
+- Duzenleme nedeni istege bagli olacak, trim edilecek ve public cikista HTML olarak yorumlanmadan gosterilecek.
 - Revizyon tablosu kullanilabilir degilse hata sessizce yutulmayacak; duzenleme akisinin nasil davranacagi mevcut runtime schema politikasina uygun ve loglanabilir olacak.
 - Yorum gecmisi yalnizca mevcut API yetki kosullarini saglayan kullanicilara acilacak.
 - Bildirim servisi kullanici tercihlerini ve global bildirim ayarlarini uygulamaya devam edecek.
@@ -54,6 +58,8 @@ Sabit `/profile.php` kullanan dahili yonlendirme, form action ve profil sekmesi 
 - Ortak yorum duzenleme yardimcisi icin geri alinabilir veritabani smoke testi:
   - admin/yetkili duzenlemesinde tek revizyon kaydi;
   - revizyonda dogru editor kimligi, eski ve yeni metin;
+  - neden girildiginde revizyon API'si, public gecmis ve bildirimde gorunmesi;
+  - neden bos oldugunda duzenlemenin basarili olmasi ve bos neden satiri uretilmemesi;
   - yorum sahibi disinda duzenlemede bildirim;
   - kendi yorumunu duzenlemede bildirim olmamasi;
   - ayni metnin yeniden gonderilmesinde gereksiz revizyon/bildirim olmamasi.
@@ -66,6 +72,7 @@ Sabit `/profile.php` kullanan dahili yonlendirme, form action ve profil sekmesi 
 
 - Admin panelinden yapilan yorum duzenlemesi public gecmiste gorunur.
 - Gecmiste duzenleyen admin/yetkilinin adi dogru gorunur.
+- Istege bagli admin duzenleme nedeni girildiginde gecmiste ve bildirimde gorunur.
 - Yorum sahibi yalnizca baska biri yorumunu degistirdiginde bildirim alir.
 - Topbar ve diger dahili ozel profil baglantilari route ayarlarindaki canonical `/profil` yolunu kullanir.
 - Mevcut kullanici degisiklikleri ve indirme erisimi calismasi bozulmaz.
