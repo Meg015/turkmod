@@ -113,7 +113,6 @@ final class ReportsSchemaInstaller
                 )");
                 $pdo->exec('CREATE INDEX IF NOT EXISTS topic_reports_status_created_index ON topic_reports (status, created_at)');
                 $pdo->exec('CREATE INDEX IF NOT EXISTS topic_reports_topic_index ON topic_reports (topic_id)');
-                $pdo->exec('CREATE INDEX IF NOT EXISTS topic_reports_reporter_email_index ON topic_reports (reporter_email)');
             } else {
                 $pdo->exec("CREATE TABLE IF NOT EXISTS topic_reports (
                     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -209,6 +208,7 @@ final class ReportsSchemaInstaller
         }
 
         if ($this->isSqlite($pdo)) {
+            $pdo->exec('CREATE INDEX IF NOT EXISTS topic_reports_reporter_email_index ON topic_reports (reporter_email)');
             return;
         }
 
