@@ -89,12 +89,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     if ($errorMsg === '') {
+                        $hasLegacyRoleId = function_exists('usersColumnExists')
+                            && usersColumnExists($pdo, 'users', 'role_id');
                         $memberRoleId = 3;
-                        $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1');
-                        $roleStmt->execute(['slug' => 'member']);
-                        $resolvedRoleId = (int) $roleStmt->fetchColumn();
-                        if ($resolvedRoleId > 0) {
-                            $memberRoleId = $resolvedRoleId;
+                        if ($hasLegacyRoleId
+                            && function_exists('usersTableExists')
+                            && usersTableExists($pdo, 'roles')) {
+                            $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1');
+                            $roleStmt->execute(['slug' => 'member']);
+                            $resolvedRoleId = (int) $roleStmt->fetchColumn();
+                            if ($resolvedRoleId > 0) {
+                                $memberRoleId = $resolvedRoleId;
+                            }
                         }
 
                         incrementRateLimit($regRateKey, $registerRateWindow);
@@ -107,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'email' => $email,
                             'password' => $hashedPassword,
                         ];
-                        if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'role_id')) {
+                        if ($hasLegacyRoleId) {
                             $insertColumns[] = 'role_id';
                             $insertValues[] = ':role_id';
                             $insertParams['role_id'] = $memberRoleId;

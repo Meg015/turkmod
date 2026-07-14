@@ -238,20 +238,6 @@ try {
 
         incrementRateLimit($regRateKey, $registerRateWindow);
 
-        $memberRoleId = 3;
-        try {
-            $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1');
-            $roleStmt->execute(['slug' => 'member']);
-            $resolvedRoleId = (int) $roleStmt->fetchColumn();
-            if ($resolvedRoleId > 0) {
-                $memberRoleId = $resolvedRoleId;
-            }
-        } catch (Throwable $roleError) {
-            if (function_exists('appLogException')) {
-                appLogException($roleError, ['source' => 'auth-popup register role lookup']);
-            }
-        }
-
         $userColumns = [];
         try {
             foreach ($pdo->query('SHOW COLUMNS FROM users') as $columnMeta) {
@@ -268,6 +254,24 @@ try {
 
         if (empty($userColumns['username']) || empty($userColumns['email']) || empty($userColumns['password'])) {
             sendError('registration_unavailable', 'Kayit semasi eksik oldugu icin kayit islemi tamamlanamadi.', 500);
+        }
+
+        $memberRoleId = 3;
+        if (!empty($userColumns['role_id'])
+            && function_exists('usersTableExists')
+            && usersTableExists($pdo, 'roles')) {
+            try {
+                $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1');
+                $roleStmt->execute(['slug' => 'member']);
+                $resolvedRoleId = (int) $roleStmt->fetchColumn();
+                if ($resolvedRoleId > 0) {
+                    $memberRoleId = $resolvedRoleId;
+                }
+            } catch (Throwable $roleError) {
+                if (function_exists('appLogException')) {
+                    appLogException($roleError, ['source' => 'auth-popup register role lookup']);
+                }
+            }
         }
 
         $insertColumns = [];
