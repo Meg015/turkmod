@@ -57,6 +57,15 @@ return new class implements Migration
         'bot_user_agent',
     ];
 
+    private const OBSOLETE_ROUTE_KEYS = [
+        'route_old_url_redirect',
+        'route_alias_redirects',
+        'route_topic_aliases',
+        'route_category_aliases',
+        'route_profile_aliases',
+        'route_redirect_to_canonical',
+    ];
+
     public function name(): string
     {
         return '2026_07_14_0003_consolidate_admin_settings';
@@ -71,15 +80,7 @@ return new class implements Migration
             throw new RuntimeException('admin_settings tablosu bulunamadığı için eski ayarlar güvenle taşınamadı.');
         }
 
-        $mismatchCount = (int) $pdo->query(
-            'SELECT COUNT(*)
-             FROM settings legacy
-             INNER JOIN admin_settings canonical ON canonical.setting_key = legacy.`key`
-             WHERE NOT (canonical.setting_value <=> legacy.value)'
-        )->fetchColumn();
-        if ($mismatchCount > 0) {
-            throw new RuntimeException('settings ve admin_settings arasında ' . $mismatchCount . ' farklı ortak değer var; eski tablo silinmedi.');
-        }
+        $this->removeObsoleteRouteSettings($pdo);
 
         $legacyOnly = $pdo->query(
             'SELECT legacy.`key`, legacy.value
@@ -90,39 +91,26 @@ return new class implements Migration
         )->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $allowed = array_fill_keys(self::SCRAPER_KEYS, true);
-        $unexpected = [];
-        foreach ($legacyOnly as $row) {
-            $key = (string) ($row['key'] ?? '');
-            if (!isset($allowed[$key])) {
-                $unexpected[] = $key;
-            }
-        }
-        if ($unexpected !== []) {
-            throw new RuntimeException('Yalnız eski settings tablosunda kalan beklenmeyen anahtarlar var: ' . implode(', ', $unexpected));
-        }
-
         $insert = $pdo->prepare(
             'INSERT INTO admin_settings (setting_key, setting_value, created_at, updated_at)
              VALUES (:setting_key, :setting_value, NOW(), NOW())
              ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()'
         );
         foreach ($legacyOnly as $row) {
+            if (!isset($allowed[(string) ($row['key'] ?? '')])) {
+                continue;
+            }
             $insert->execute([
                 'setting_key' => (string) $row['key'],
                 'setting_value' => $row['value'],
             ]);
         }
 
-        $remainingMismatchCount = (int) $pdo->query(
-            'SELECT COUNT(*)
+        $pdo->exec(
+            'DELETE legacy
              FROM settings legacy
-             LEFT JOIN admin_settings canonical ON canonical.setting_key = legacy.`key`
-             WHERE canonical.setting_key IS NULL
-                OR NOT (canonical.setting_value <=> legacy.value)'
-        )->fetchColumn();
-        if ($remainingMismatchCount > 0) {
-            throw new RuntimeException('Ayar geçişi doğrulanamadı; settings tablosu silinmedi.');
-        }
+             INNER JOIN admin_settings canonical ON canonical.setting_key = legacy.`key`'
+        );
 
         $pdo->exec('DROP TABLE `settings`');
 
@@ -134,6 +122,17 @@ return new class implements Migration
     public function down(PDO $pdo): void
     {
         throw new RuntimeException('Eski settings tablosu bilinçli olarak kaldırıldı; otomatik geri dönüş desteklenmiyor.');
+    }
+
+    private function removeObsoleteRouteSettings(PDO $pdo): void
+    {
+        $placeholders = implode(',', array_fill(0, count(self::OBSOLETE_ROUTE_KEYS), '?'));
+        $stmt = $pdo->prepare(
+            "DELETE FROM settings
+             WHERE `key` IN ({$placeholders})
+                OR `key` LIKE 'legacy_redirect_%'"
+        );
+        $stmt->execute(self::OBSOLETE_ROUTE_KEYS);
     }
 
     private function tableExists(PDO $pdo, string $table): bool

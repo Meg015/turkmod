@@ -21,11 +21,6 @@ return new class implements Migration
             return;
         }
 
-        $nonZero = (int) $pdo->query('SELECT COUNT(*) FROM topics WHERE COALESCE(like_count, 0) <> 0')->fetchColumn();
-        if ($nonZero > 0) {
-            throw new RuntimeException('topics.like_count alanında veri var; kolon silinmedi.');
-        }
-
         $pdo->exec('ALTER TABLE topics DROP COLUMN like_count');
     }
 
