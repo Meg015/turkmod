@@ -43,6 +43,12 @@ return [
         ],
     ],
     'config' => [
+        'topic_report_reasons_json' => [
+            'label' => 'Topic Report Reasons',
+            'type' => 'text',
+            'default' => '',
+            'tooltip' => 'JSON map of public topic report reason keys and labels.',
+        ],
         'api_reports_rate_limit' => [
             'label' => 'Topic Reports API Rate Limit',
             'type' => 'number',

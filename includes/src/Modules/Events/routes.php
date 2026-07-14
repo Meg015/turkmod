@@ -13,7 +13,7 @@ $pageMap = [
 return [
     'bootstrap' => 'includes/src/Modules/Events/init.php',
     'assets_base' => 'includes/src/Modules/Events/assets',
-    'api_template' => 'includes/src/Modules/Events/Api/Legacy/%s.php',
+    'api_template' => 'includes/src/Modules/Events/Api/Endpoints/%s.php',
     'page_map' => $pageMap,
     'public' => [
         'events' => [

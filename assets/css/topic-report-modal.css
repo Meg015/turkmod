@@ -1,0 +1,365 @@
+/* Topic report dialog: theme-aligned, page-scoped presentation. */
+#topicReportModal {
+    --report-accent: var(--primary, #8b1538);
+    --report-accent-dark: var(--primary-dark, #69102a);
+    --report-surface: var(--bg-white, #fff);
+    --report-surface-soft: var(--bg-hover, #f7f3f4);
+    --report-text: var(--text, #1f2937);
+    --report-muted: var(--text-dim, #667085);
+    --report-border: var(--border, #e1d9dc);
+    padding: clamp(.75rem, 3vw, 1.5rem);
+}
+
+#topicReportModal .topic-report-backdrop {
+    background: rgba(12, 9, 11, .68);
+    backdrop-filter: blur(6px);
+}
+
+#topicReportModal .topic-report-dialog.ui-panel {
+    width: min(620px, 100%);
+    max-height: min(760px, calc(100dvh - 2rem));
+    display: block;
+    overflow: auto;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--report-border) 86%, var(--report-accent) 14%);
+    border-radius: 16px;
+    background: var(--report-surface);
+    color: var(--report-text);
+    box-shadow: 0 28px 80px rgba(15, 8, 11, .36);
+    scrollbar-width: thin;
+}
+
+#topicReportModal .topic-report-header.ui-panel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.2rem 1.25rem 1rem;
+    border: 0;
+    border-bottom: 1px solid var(--report-border);
+    border-radius: 0;
+    background: var(--report-surface);
+}
+
+#topicReportModal .topic-report-heading {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: .8rem;
+}
+
+#topicReportModal .topic-report-heading-icon {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--report-accent) 22%, var(--report-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--report-accent) 9%, var(--report-surface));
+    color: var(--report-accent);
+    font-size: 1rem;
+}
+
+#topicReportModal .topic-report-titleblock {
+    min-width: 0;
+    display: grid;
+    gap: .18rem;
+}
+
+#topicReportModal .topic-report-kicker {
+    color: var(--report-accent);
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+#topicReportModal .topic-report-header h2 {
+    margin: 0;
+    color: var(--report-text);
+    font-size: clamp(1.15rem, 3vw, 1.35rem);
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+#topicReportModal .topic-report-lead {
+    margin: .12rem 0 0;
+    color: var(--report-muted);
+    font-size: .88rem;
+    line-height: 1.45;
+}
+
+#topicReportModal .topic-report-close {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--report-border);
+    border-radius: 9px;
+    background: var(--report-surface-soft);
+    color: var(--report-muted);
+    cursor: pointer;
+    transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
+}
+
+#topicReportModal .topic-report-close:hover {
+    border-color: color-mix(in srgb, var(--report-accent) 32%, var(--report-border));
+    background: color-mix(in srgb, var(--report-accent) 8%, var(--report-surface));
+    color: var(--report-accent);
+    transform: translateY(-1px);
+}
+
+#topicReportModal .topic-report-form {
+    display: grid;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem 1.25rem;
+}
+
+#topicReportModal .topic-report-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    margin: 0;
+    padding: .78rem .85rem;
+    border: 1px solid color-mix(in srgb, var(--report-accent) 16%, var(--report-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--report-accent) 5%, var(--report-surface));
+    color: var(--report-muted);
+    font-size: .83rem;
+    line-height: 1.45;
+}
+
+#topicReportModal .topic-report-summary i {
+    flex: 0 0 auto;
+    margin-top: .12rem;
+    color: var(--report-accent);
+}
+
+#topicReportModal .topic-report-grid.ui-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .9rem;
+}
+
+#topicReportModal .topic-report-field {
+    min-width: 0;
+    display: grid;
+    gap: .38rem;
+    margin: 0;
+}
+
+#topicReportModal .topic-report-field--full {
+    grid-column: 1 / -1;
+}
+
+#topicReportModal .topic-report-field > span {
+    color: var(--report-text);
+    font-size: .82rem;
+    font-weight: 700;
+}
+
+#topicReportModal .topic-report-field > span small {
+    color: var(--report-muted);
+    font-size: .74rem;
+    font-weight: 500;
+}
+
+#topicReportModal .topic-report-field input,
+#topicReportModal .topic-report-field select,
+#topicReportModal .topic-report-field textarea {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: .7rem .8rem;
+    border: 1px solid var(--report-border);
+    border-radius: 9px;
+    outline: none;
+    background: var(--report-surface);
+    color: var(--report-text);
+    box-shadow: none;
+    font: inherit;
+    font-size: .9rem;
+    transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+#topicReportModal .topic-report-field textarea {
+    min-height: 98px;
+    line-height: 1.45;
+    resize: vertical;
+}
+
+#topicReportModal .topic-report-field input::placeholder,
+#topicReportModal .topic-report-field textarea::placeholder {
+    color: color-mix(in srgb, var(--report-muted) 78%, transparent);
+}
+
+#topicReportModal .topic-report-field input[readonly] {
+    border-color: color-mix(in srgb, var(--report-muted) 34%, var(--report-border)) !important;
+    background: color-mix(in srgb, var(--report-muted) 22%, var(--report-surface)) !important;
+    color: color-mix(in srgb, var(--report-text) 72%, var(--report-muted)) !important;
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--report-muted) 42%, transparent);
+    cursor: default;
+}
+
+#topicReportModal .topic-report-field input[readonly]:focus {
+    border-color: color-mix(in srgb, var(--report-muted) 38%, var(--report-border));
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--report-muted) 52%, transparent);
+}
+
+#topicReportModal .topic-report-field input:focus,
+#topicReportModal .topic-report-field select:focus,
+#topicReportModal .topic-report-field textarea:focus {
+    border-color: var(--report-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--report-accent) 14%, transparent);
+}
+
+#topicReportModal .topic-report-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: .1rem;
+}
+
+#topicReportModal .topic-report-privacy {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: .4rem;
+    max-width: 270px;
+    color: var(--report-muted);
+    font-size: .76rem;
+    line-height: 1.4;
+}
+
+#topicReportModal .topic-report-privacy i {
+    flex: 0 0 auto;
+    margin-top: .08rem;
+    color: var(--report-accent);
+}
+
+#topicReportModal .topic-report-submit {
+    flex: 0 0 auto;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .48rem;
+    padding: .72rem 1rem;
+    border: 1px solid var(--report-accent);
+    border-radius: 9px;
+    background: var(--report-accent);
+    color: var(--on-primary, #fff);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--report-accent) 22%, transparent);
+    font: inherit;
+    font-size: .86rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+#topicReportModal .topic-report-submit:hover:not(:disabled) {
+    border-color: var(--report-accent-dark);
+    background: var(--report-accent-dark);
+    box-shadow: 0 10px 22px color-mix(in srgb, var(--report-accent) 27%, transparent);
+    transform: translateY(-1px);
+}
+
+#topicReportModal .topic-report-submit:disabled {
+    opacity: .68;
+    cursor: wait;
+}
+
+#topicReportModal .topic-report-feedback:empty {
+    display: none;
+}
+
+#topicReportModal .topic-report-feedback {
+    margin: 0;
+    padding: .72rem .8rem;
+    border: 1px solid var(--report-border);
+    border-radius: 9px;
+    background: var(--report-surface-soft);
+    color: var(--report-text);
+    font-size: .82rem;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+#topicReportModal .topic-report-feedback.is-success {
+    border-color: color-mix(in srgb, var(--success, #198754) 28%, var(--report-border));
+    background: color-mix(in srgb, var(--success, #198754) 8%, var(--report-surface));
+    color: var(--success, #198754);
+}
+
+#topicReportModal .topic-report-feedback.is-error {
+    border-color: color-mix(in srgb, var(--danger, #dc3545) 28%, var(--report-border));
+    background: color-mix(in srgb, var(--danger, #dc3545) 8%, var(--report-surface));
+    color: var(--danger, #dc3545);
+}
+
+#topicReportModal :focus-visible {
+    outline: 2px solid var(--report-accent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+    #topicReportModal {
+        align-items: end;
+        padding: .6rem;
+    }
+
+    #topicReportModal .topic-report-dialog.ui-panel {
+        max-height: calc(100dvh - 1.2rem);
+        border-radius: 14px;
+    }
+
+    #topicReportModal .topic-report-header.ui-panel__head {
+        padding: 1rem;
+    }
+
+    #topicReportModal .topic-report-heading-icon {
+        width: 34px;
+        height: 34px;
+    }
+
+    #topicReportModal .topic-report-form {
+        gap: .85rem;
+        padding: .95rem 1rem 1rem;
+    }
+
+    #topicReportModal .topic-report-grid.ui-grid {
+        grid-template-columns: 1fr;
+        gap: .78rem;
+    }
+
+    #topicReportModal .topic-report-field--full {
+        grid-column: auto;
+    }
+
+    #topicReportModal .topic-report-actions {
+        align-items: stretch;
+        flex-direction: column;
+        gap: .75rem;
+    }
+
+    #topicReportModal .topic-report-privacy {
+        max-width: none;
+    }
+
+    #topicReportModal .topic-report-submit {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #topicReportModal .topic-report-backdrop,
+    #topicReportModal .topic-report-dialog,
+    #topicReportModal .topic-report-close,
+    #topicReportModal .topic-report-submit {
+        animation: none;
+        transition: none;
+    }
+}

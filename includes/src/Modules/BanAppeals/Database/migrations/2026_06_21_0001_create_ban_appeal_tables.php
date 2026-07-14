@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Core\Database\Migration;
+use App\Modules\BanAppeals\Database\migrations\Support\BanAppealSchemaInstaller;
+
+require_once __DIR__ . '/Support/BanAppealSchemaInstaller.php';
 
 return new class implements Migration
 {
@@ -13,7 +16,7 @@ return new class implements Migration
 
     public function up(PDO $pdo): void
     {
-        $schema = new App\Modules\BanAppeals\Services\BanAppealSchemaService();
+        $schema = new BanAppealSchemaInstaller();
         $schema->ensureSchema($pdo, false);
     }
 

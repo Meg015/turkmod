@@ -6,12 +6,12 @@ require_once __DIR__ . '/../includes/init.php';
 require_once __DIR__ . '/helpers.php';
 
 // Modülleri yükle
-require_once __DIR__ . '/../includes/src/Engine/Media/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/Users/Legacy/profile-helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/Users/Legacy/users-helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/Scraper/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/AdminQuality/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Modules/Contact/Legacy/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/Media/Support/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/Users/Support/profile-helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/Users/Support/users-helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/Scraper/Support/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/AdminQuality/Support/helpers.php';
+require_once __DIR__ . '/../includes/src/Modules/Contact/Support/helpers.php';
 require_once __DIR__ . '/../includes/src/Modules/Events/init.php';
 
 // Admin panel auth + rol kontrolü
@@ -24,10 +24,3 @@ if (PHP_SAPI === 'cli') {
 } else {
     requireAdmin();
 }
-
-if (isset($pdo) && $pdo instanceof PDO && function_exists('adminNormalizeLegacyTopicStatuses')) {
-    adminNormalizeLegacyTopicStatuses($pdo);
-}
-
-
-

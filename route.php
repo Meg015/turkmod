@@ -156,7 +156,7 @@ function routerEventsRouteConfig(): array
     $defaults = [
         'bootstrap' => 'includes/src/Modules/Events/init.php',
         'assets_base' => 'includes/src/Modules/Events/assets',
-        'api_template' => 'includes/src/Modules/Events/Api/Legacy/%s.php',
+        'api_template' => 'includes/src/Modules/Events/Api/Endpoints/%s.php',
         'page_map' => [
             'events' => 'includes/src/Modules/Events/Pages/index.php',
             'events/wheel' => 'includes/src/Modules/Events/Pages/wheel.php',

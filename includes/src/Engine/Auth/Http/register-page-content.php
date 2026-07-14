@@ -17,6 +17,15 @@ $errorMsg = '';
 $successMsg = '';
 $settings = function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : [];
 $allowRegistration = (string) ($settings['allow_registration'] ?? '1') === '1';
+$usernameBounds = function_exists('usersUsernameLengthBounds')
+    ? usersUsernameLengthBounds($settings)
+    : ['min' => 3, 'max' => 30];
+$registrationRequiresAdminApproval = function_exists('usersRegistrationRequiresAdminApproval')
+    ? usersRegistrationRequiresAdminApproval($settings)
+    : false;
+$registrationPendingMessage = function_exists('usersRegistrationPendingMessage')
+    ? usersRegistrationPendingMessage($settings)
+    : 'Hesabınız oluşturuldu. Yönetici onayından sonra giriş yapabilirsiniz.';
 $registerRateLimit = max(1, (int) ($settings['register_rate_limit'] ?? 3));
 $registerRateWindow = max(1, (int) ($settings['register_rate_window'] ?? 30));
 $passwordPolicy = passwordPolicyConfig($settings);
@@ -40,16 +49,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $usernameRaw = trim((string) ($_POST['username'] ?? ''));
         $username = function_exists('usersValidateUsernameInput')
-            ? usersValidateUsernameInput($usernameRaw)
+            ? usersValidateUsernameInput($usernameRaw, $settings)
+            : '';
+        $usernamePolicyError = function_exists('usersValidateUsernamePolicy')
+            ? usersValidateUsernamePolicy($username, $settings)
             : '';
         $email = trim((string) ($_POST['email'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
         $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
 
         if ($username === '') {
-            $errorMsg = 'Kullanıcı adı 3-30 karakter olmalı ve sadece harf, rakam, _ veya - içermelidir.';
+            $errorMsg = "Kullanıcı adı {$usernameBounds['min']}-{$usernameBounds['max']} karakter olmalı ve sadece harf, rakam, _ veya - içermelidir.";
+        } elseif ($usernamePolicyError !== '') {
+            $errorMsg = $usernamePolicyError;
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errorMsg = 'Geçerli bir e-posta adresi girin.';
+        } elseif (($emailPolicyError = function_exists('usersValidateEmailDomainPolicy') ? usersValidateEmailDomainPolicy($email, $settings) : '') !== '') {
+            $errorMsg = $emailPolicyError;
         } elseif (($policyError = validatePasswordPolicy($password, $settings, 'Şifre')) !== '') {
             $errorMsg = $policyError;
         } elseif ($password !== $passwordConfirm) {
@@ -99,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'status')) {
                             $insertColumns[] = 'status';
                             $insertValues[] = ':status';
-                            $insertParams['status'] = 'active';
+                            $insertParams['status'] = $registrationRequiresAdminApproval ? 'inactive' : 'active';
                         }
                         if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'created_at')) {
                             $insertColumns[] = 'created_at';
@@ -125,6 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
                         logActivity($pdo, 'user_registered', 'user', $newUserId, ['email' => $email]);
+                        if (function_exists('usersNotifyAdminsOnRegistration')) {
+                            usersNotifyAdminsOnRegistration($pdo, $newUserId, $username, $email, $registrationRequiresAdminApproval);
+                        }
                         if (($settings['notif_center_enabled'] ?? '1') === '1' && ($settings['notif_welcome_enabled'] ?? '0') === '1') {
                             try {
                                 $senderName = trim((string) ($settings['notif_system_sender'] ?? 'Sistem'));
@@ -152,11 +171,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         if (function_exists('eventsRecordActivity')) {
                             eventsRecordActivity($pdo, $newUserId, 'user_registered', 'user', $newUserId, [
-                                'is_approved' => true,
+                                'is_approved' => !$registrationRequiresAdminApproval,
                                 'dedupe_key' => 'user_registered:user:' . $newUserId,
                             ]);
                         }
-                        flash('success', 'Hesabınız oluşturuldu. Şimdi giriş yapabilirsiniz.');
+                        flash('success', $registrationRequiresAdminApproval ? $registrationPendingMessage : 'Hesabınız oluşturuldu. Şimdi giriş yapabilirsiniz.');
+                        if (function_exists('usersNotifyAdminsOnSuspiciousRegistrations')) {
+                            usersNotifyAdminsOnSuspiciousRegistrations($pdo, $settings);
+                        }
                         header('Location: ' . $loginUrl . '?registered=1');
                         exit;
                     }
@@ -228,7 +250,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                     <label for="username">Kullanıcı Adı</label>
                     <span class="auth-input-shell ui-section">
                         <i class="bi bi-person" aria-hidden="true"></i>
-                        <input id="username" name="username" type="text" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" aria-required="true" autocomplete="username">
+                        <input id="username" name="username" type="text" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" required minlength="<?= (int) $usernameBounds['min'] ?>" maxlength="<?= (int) $usernameBounds['max'] ?>" pattern="[A-Za-z0-9_-]{<?= (int) $usernameBounds['min'] ?>,<?= (int) $usernameBounds['max'] ?>}" aria-required="true" autocomplete="username">
                     </span>
                 </div>
                 <div class="form-group auth-field">

@@ -89,18 +89,6 @@ CREATE TABLE `ban_appeals` (
   KEY `ban_appeals_status_created_index` (`status`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `blocked_ips` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `ip_address` varchar(45) NOT NULL,
-  `reason` varchar(255) DEFAULT NULL,
-  `expires_at` datetime DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_blocked_ips_ip` (`ip_address`),
-  KEY `idx_blocked_ips_expires` (`expires_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE `bot_category_mappings` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `bot_site_id` bigint(20) unsigned NOT NULL,
@@ -323,6 +311,17 @@ CREATE TABLE `topic_download_access_grants` (
   CONSTRAINT `topic_download_grants_comment_foreign` FOREIGN KEY (`comment_id`) REFERENCES `comments` (`id`) ON DELETE CASCADE,
   CONSTRAINT `topic_download_grants_topic_foreign` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE,
   CONSTRAINT `topic_download_grants_user_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `core_cache` (
+  `cache_key` varchar(191) NOT NULL,
+  `cache_value` longtext NOT NULL,
+  `tags` longtext DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`cache_key`),
+  KEY `cache_expires_index` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `downloads` (
@@ -738,18 +737,6 @@ CREATE TABLE `events_wheel_spins` (
   CONSTRAINT `events_wheel_spins_user_reward_foreign` FOREIGN KEY (`user_reward_id`) REFERENCES `events_user_rewards` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `failed_login_attempts` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) NOT NULL,
-  `ip_address` varchar(45) NOT NULL,
-  `user_agent` text DEFAULT NULL,
-  `attempted_at` timestamp NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `failed_login_email` (`email`,`attempted_at`),
-  KEY `failed_login_ip` (`ip_address`,`attempted_at`),
-  KEY `failed_login_attempted` (`attempted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE `leaderboard_cache` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned NOT NULL,
@@ -901,98 +888,6 @@ CREATE TABLE `notifications` (
   CONSTRAINT `notifications_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `pages` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `title` varchar(255) NOT NULL,
-  `slug` varchar(255) NOT NULL,
-  `body` longtext DEFAULT NULL,
-  `status` varchar(255) NOT NULL DEFAULT 'published',
-  `meta_title` varchar(255) DEFAULT NULL,
-  `meta_description` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `slug` (`slug`),
-  KEY `pages_status_index` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `permissions` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
-  `slug` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `slug` (`slug`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `ratings` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `topic_id` bigint(20) unsigned NOT NULL,
-  `user_id` bigint(20) unsigned NOT NULL,
-  `score` tinyint(3) unsigned NOT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ratings_topic_user_unique` (`topic_id`,`user_id`),
-  KEY `ratings_user_id_foreign` (`user_id`),
-  CONSTRAINT `ratings_topic_id_foreign` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `ratings_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `reactions` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `topic_id` bigint(20) unsigned NOT NULL,
-  `user_id` bigint(20) unsigned NOT NULL,
-  `type` varchar(255) NOT NULL DEFAULT 'like',
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `reactions_topic_user_type_unique` (`topic_id`,`user_id`,`type`),
-  KEY `reactions_user_id_foreign` (`user_id`),
-  CONSTRAINT `reactions_topic_id_foreign` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `reactions_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `report_events` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `report_id` bigint(20) unsigned NOT NULL,
-  `actor_id` bigint(20) unsigned DEFAULT NULL,
-  `event_type` varchar(255) NOT NULL,
-  `old_status` varchar(255) DEFAULT NULL,
-  `new_status` varchar(255) DEFAULT NULL,
-  `note` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `report_events_report_created_index` (`report_id`,`created_at`),
-  KEY `report_events_actor_id_foreign` (`actor_id`),
-  CONSTRAINT `report_events_actor_id_foreign` FOREIGN KEY (`actor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `report_events_report_id_foreign` FOREIGN KEY (`report_id`) REFERENCES `reports` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `reports` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `topic_id` bigint(20) unsigned NOT NULL,
-  `user_id` bigint(20) unsigned DEFAULT NULL,
-  `reason` varchar(255) NOT NULL,
-  `details` text DEFAULT NULL,
-  `status` varchar(255) NOT NULL DEFAULT 'open',
-  `admin_note` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `reports_status_created_index` (`status`,`created_at`),
-  KEY `reports_topic_id_foreign` (`topic_id`),
-  KEY `reports_user_id_foreign` (`user_id`),
-  KEY `idx_reports_status` (`status`),
-  KEY `idx_reports_user_id` (`user_id`),
-  KEY `reports_topic_status` (`topic_id`,`status`,`created_at`),
-  KEY `reports_user_status` (`user_id`,`status`,`created_at`),
-  CONSTRAINT `reports_topic_id_foreign` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `reports_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE `request_rate_limits` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `scope` varchar(100) NOT NULL,
@@ -1023,37 +918,6 @@ CREATE TABLE `security_events` (
   KEY `idx_ip_address` (`ip_address`),
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB AUTO_INCREMENT=239 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `settings` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `key` varchar(255) NOT NULL,
-  `value` longtext DEFAULT NULL,
-  `type` varchar(255) NOT NULL DEFAULT 'string',
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `key` (`key`)
-) ENGINE=InnoDB AUTO_INCREMENT=3272 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `suspicious_activities` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `activity_type` varchar(50) NOT NULL,
-  `risk_score` tinyint(3) unsigned NOT NULL DEFAULT 0,
-  `user_id` bigint(20) unsigned DEFAULT NULL,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`details`)),
-  `status` enum('pending','reviewed','false_positive','confirmed') NOT NULL DEFAULT 'pending',
-  `reviewed_by` bigint(20) unsigned DEFAULT NULL,
-  `reviewed_at` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `suspicious_activities_status` (`status`,`risk_score`,`created_at`),
-  KEY `suspicious_activities_user` (`user_id`,`created_at`),
-  KEY `suspicious_activities_ip` (`ip_address`,`created_at`),
-  KEY `suspicious_activities_reviewer_foreign` (`reviewed_by`),
-  CONSTRAINT `suspicious_activities_reviewer_foreign` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `suspicious_activities_user_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `topic_collection_items` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -1133,6 +997,9 @@ CREATE TABLE `topic_reports` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `topic_id` bigint(20) unsigned NOT NULL,
   `reporter_user_id` bigint(20) unsigned DEFAULT NULL,
+  `reporter_name` varchar(255) DEFAULT NULL,
+  `reporter_email` varchar(255) DEFAULT NULL,
+  `reporter_type` varchar(32) DEFAULT NULL,
   `reason` varchar(255) NOT NULL,
   `details` text DEFAULT NULL,
   `status` varchar(255) NOT NULL DEFAULT 'open',
@@ -1142,6 +1009,7 @@ CREATE TABLE `topic_reports` (
   PRIMARY KEY (`id`),
   KEY `topic_reports_status_created_index` (`status`,`created_at`),
   KEY `topic_reports_topic_index` (`topic_id`),
+  KEY `topic_reports_reporter_email_index` (`reporter_email`),
   KEY `topic_reports_reporter_user_foreign` (`reporter_user_id`),
   CONSTRAINT `topic_reports_reporter_user_foreign` FOREIGN KEY (`reporter_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `topic_reports_topic_foreign` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE
@@ -1159,7 +1027,6 @@ CREATE TABLE `topic_revisions` (
   `author_topic` varchar(255) DEFAULT NULL,
   `topic_version` varchar(255) DEFAULT NULL,
   `topic_descriptions` longtext DEFAULT NULL,
-  `topic_download_links` longtext DEFAULT NULL,
   `status` varchar(255) NOT NULL,
   `meta_title` varchar(255) DEFAULT NULL,
   `meta_description` text DEFAULT NULL,
@@ -1185,16 +1052,12 @@ CREATE TABLE `topics` (
   `author_topic` varchar(255) DEFAULT NULL,
   `topic_version` varchar(255) DEFAULT NULL,
   `topic_descriptions` longtext DEFAULT NULL,
-  `topic_download_links` longtext DEFAULT NULL,
   `status` varchar(255) NOT NULL,
   `published_at` timestamp NULL DEFAULT NULL,
   `updated_content_at` timestamp NULL DEFAULT NULL,
   `download_count` bigint(20) unsigned NOT NULL DEFAULT 0,
   `view_count` bigint(20) unsigned NOT NULL DEFAULT 0,
-  `like_count` bigint(20) unsigned NOT NULL DEFAULT 0,
   `comment_count` bigint(20) unsigned NOT NULL DEFAULT 0,
-  `rating_average` decimal(3,2) NOT NULL DEFAULT 0.00,
-  `rating_count` int(10) unsigned NOT NULL DEFAULT 0,
   `meta_title` varchar(255) DEFAULT NULL,
   `meta_description` text DEFAULT NULL,
   `primary_media_file_id` bigint(20) unsigned DEFAULT NULL,

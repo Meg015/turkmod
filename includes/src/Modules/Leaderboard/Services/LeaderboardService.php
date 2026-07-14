@@ -7,16 +7,52 @@ namespace App\Modules\Leaderboard\Services;
 use DateTime;
 use InvalidArgumentException;
 use PDO;
-use Throwable;
 
 final class LeaderboardService
 {
+    /** @var callable(array<string,mixed>):string */
+    private $profileNameResolver;
+
+    /** @var callable(int,string):string */
+    private $profileUrlResolver;
+
     /** @var array<string,string>|null */
     private ?array $settingsCache = null;
 
     private ?LeaderboardCalculator $calculator = null;
 
     private ?LeaderboardCacheService $cacheService = null;
+
+    public function __construct(?callable $profileNameResolver = null, ?callable $profileUrlResolver = null)
+    {
+        $this->profileNameResolver = $profileNameResolver ?? static function (array $row): string {
+            foreach (['username', 'name', 'author'] as $key) {
+                $value = trim((string) ($row[$key] ?? ''));
+                if ($value !== '') {
+                    return $value;
+                }
+            }
+
+            return '';
+        };
+        $this->profileUrlResolver = $profileUrlResolver ?? static function (int $userId, string $displayName): string {
+            if (function_exists('publicProfileUrl')) {
+                return publicProfileUrl(['id' => $userId, 'username' => $displayName]);
+            }
+
+            $slug = mb_strtolower(trim($displayName), 'UTF-8');
+            $transliterated = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $slug);
+            if (is_string($transliterated) && $transliterated !== '') {
+                $slug = $transliterated;
+            }
+            $slug = trim((string) preg_replace('/[^a-z0-9]+/i', '-', $slug), '-');
+            if ($slug === '') {
+                $slug = 'kullanici';
+            }
+
+            return '/profil/' . $slug . '-' . $userId;
+        };
+    }
 
     public function setCalculator(LeaderboardCalculator $calculator): void
     {
@@ -66,15 +102,12 @@ final class LeaderboardService
             return $this->settingsCache;
         }
 
-        try {
-            $stmt = $pdo->query("SELECT `key`, value FROM settings WHERE `key` LIKE 'leaderboard_%'");
-            while ($row = $stmt->fetch()) {
-                $key = (string) ($row['key'] ?? '');
-                if (array_key_exists($key, $this->settingsCache)) {
-                    $this->settingsCache[$key] = (string) ($row['value'] ?? '');
-                }
+        $stmt = $pdo->query("SELECT setting_key, setting_value FROM admin_settings WHERE setting_key LIKE 'leaderboard_%'");
+        while ($row = $stmt->fetch()) {
+            $key = (string) ($row['setting_key'] ?? '');
+            if (array_key_exists($key, $this->settingsCache)) {
+                $this->settingsCache[$key] = (string) ($row['setting_value'] ?? '');
             }
-        } catch (Throwable) {
         }
 
         return $this->settingsCache;
@@ -128,15 +161,12 @@ final class LeaderboardService
             return '#';
         }
 
-        $displayName = publicProfileDisplayName($row);
+        $displayName = (string) ($this->profileNameResolver)($row);
         if ($displayName === '') {
             $displayName = 'kullanici';
         }
 
-        return publicProfileUrl([
-            'id' => $userId,
-            'username' => $displayName,
-        ]);
+        return (string) ($this->profileUrlResolver)($userId, $displayName);
     }
 
     /**

@@ -4,10 +4,13 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
 
         function openTopicReportModal(modal, trigger) {
             topicReportLastTrigger = trigger || document.activeElement;
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
             if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
                 topicReportController = window.TMUI.openDialog(modal, {
                     bodyClass: 'topic-report-modal-open',
-                    initialFocus: 'select[name="reason"]',
+                    initialFocus: 'input[name="reporter_name"], select[name="reason"]',
                     returnFocus: topicReportLastTrigger,
                     onClose: function () {
                         topicReportController = null;
@@ -80,7 +83,9 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
             const button = form.querySelector('button[type="submit"]');
             const original = button.innerHTML;
             button.disabled = true;
-            button.innerHTML = '<i class="bi bi-hourglass-split"></i> Gönderiliyor...';
+            button.setAttribute('aria-busy', 'true');
+            const loadingLabel = button.getAttribute('data-loading-label') || 'Gönderiliyor...';
+            button.innerHTML = '<i class="bi bi-hourglass-split" aria-hidden="true"></i> ' + loadingLabel;
             const body = Object.fromEntries(new FormData(form).entries());
             const endpoint = form.getAttribute('action');
             fetch(endpoint, {
@@ -124,6 +129,7 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
                 }
             }).finally(function() {
                 button.disabled = false;
+                button.removeAttribute('aria-busy');
                 button.innerHTML = original;
             });
         });

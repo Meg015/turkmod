@@ -333,7 +333,10 @@
                 fetch(apiUrl, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
-                    if (data.ok) pollThread(false); // refresh thread
+                    if (data.ok) {
+                        if (typeof window.showToast === "function") window.showToast(data.message || "Mesaj silindi.", "success");
+                        pollThread(false); // refresh thread
+                    }
                     else if (typeof window.showToast === "function") window.showToast(data.message || "Hata oluştu", "error");
                 });
             } else if (action === 'edit') {
@@ -349,7 +352,10 @@
                     fetch(apiUrl, { method: "POST", body: fd2, headers: { "X-Requested-With": "XMLHttpRequest" } })
                     .then(function(res) { return res.json(); })
                     .then(function(data) {
-                        if (data.ok) pollThread(false); // refresh thread
+                        if (data.ok) {
+                            if (typeof window.showToast === "function") window.showToast(data.message || "Mesaj duzenlendi.", "success");
+                            pollThread(false); // refresh thread
+                        }
                         else if (typeof window.showToast === "function") window.showToast(data.message || "Hata oluştu", "error");
                     });
                 }
@@ -536,6 +542,9 @@
                             composerTextarea.value = "";
                             composerTextarea.style.height = "auto";
                             composerTextarea.focus();
+                        }
+                        if (typeof window.showToast === "function") {
+                            window.showToast(data.message || "Mesaj gonderildi.", "success");
                         }
                         // Mesaj gönderilince "yazıyor..." göstergesini hemen temizle
                         if (activeThreadData) {

@@ -18,17 +18,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($user && empty($user['email_verified_at'])) {
-                $lastSent = !empty($user['email_verification_sent_at']) ? strtotime((string) $user['email_verification_sent_at']) : 0;
-                if ($lastSent <= time() - ($cooldown * 60)) {
+                $remaining = function_exists('usersEmailVerificationResendCooldownRemainingSeconds')
+                    ? usersEmailVerificationResendCooldownRemainingSeconds($user, $cooldown)
+                    : 0;
+                if ($remaining <= 0) {
+                    $sent = false;
                     try {
-                        accountEmailService($pdo)->issueVerification((int) $user['id'], (string) $user['email'], (string) $user['username']);
+                        $sent = accountEmailService($pdo)->issueVerification((int) $user['id'], (string) $user['email'], (string) $user['username']);
                     } catch (Throwable $e) {
                         if (function_exists('appLogException')) appLogException($e, ['source' => 'resend_verification']);
                     }
+                    $message = $sent
+                        ? 'Adres kayıtlı ve doğrulanmamışsa yeni bağlantı gönderildi.'
+                        : 'Doğrulama e-postası gönderilemedi.';
+                } else {
+                    $minutesLeft = (int) ceil($remaining / 60);
+                    $message = 'Yeni doğrulama bağlantısı için ' . $minutesLeft . ' dakika beklemeniz gerekiyor.';
                 }
             }
         }
-        $message = 'Adres kayıtlı ve doğrulanmamışsa yeni bağlantı gönderildi.';
+        if ($message === '') {
+            $message = 'Adres kayıtlı ve doğrulanmamışsa yeni bağlantı gönderildi.';
+        }
     }
 }
 

@@ -8,10 +8,10 @@ if (!isset($pdo) || !isset($userId)) {
     return;
 }
 
-require_once __DIR__ . '/../src/Modules/Leaderboard/Legacy/helpers.php';
-require_once __DIR__ . '/../src/Modules/Leaderboard/Legacy/calculator.php';
+require_once __DIR__ . '/../src/Modules/Leaderboard/Support/helpers.php';
+require_once __DIR__ . '/../src/Modules/Leaderboard/Support/calculator.php';
 
-$settings = leaderboardGetSettings($pdo);
+$settings = leaderboardGetSettings($pdo);
 $leaderboardUrl = routePublicStaticUrl('leaderboard');
 
 if (($settings['leaderboard_enabled'] ?? '1') !== '1') {
@@ -126,5 +126,5 @@ $rankCount = count($userRanks);
         </a>
     </div>
 </div>
-
-
+
+

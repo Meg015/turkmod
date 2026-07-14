@@ -282,9 +282,9 @@ final class NotificationTemplateService
             throw new RuntimeException(implode(' ', $errors));
         }
 
-        $fallback = $existing ?: $default;
-        $variables = $fallback['variables'] ?? array_keys($this->allowedVariables());
-        $samplePayload = $fallback['sample_payload_array'] ?? $fallback['sample_payload'] ?? $this->samplePayload();
+        $baseTemplate = $existing ?: $default;
+        $variables = $baseTemplate['variables'] ?? array_keys($this->allowedVariables());
+        $samplePayload = $baseTemplate['sample_payload_array'] ?? $baseTemplate['sample_payload'] ?? $this->samplePayload();
         $boolInput = static function (string $key) use ($input): int {
             return isset($input[$key]) && (string) $input[$key] !== '0' ? 1 : 0;
         };
@@ -374,36 +374,16 @@ final class NotificationTemplateService
     /** @return array<string,mixed>|null */
     public function forDispatch(PDO $pdo, string $eventKey, array $definition): ?array
     {
-        try {
-            $template = $this->get($pdo, $eventKey);
-            if (!$template) {
-                return [
-                    'type' => (string) ($definition['type'] ?? 'info'),
-                    'title_template' => (string) ($definition['title'] ?? ''),
-                    'message_template' => (string) ($definition['message'] ?? ''),
-                    'link_template' => '{{link}}',
-                    'in_app_enabled' => 1,
-                    'email_enabled' => 0,
-                ];
-            }
-
-            if ((int) ($template['is_active'] ?? 1) !== 1 || (int) ($template['in_app_enabled'] ?? 1) !== 1) {
-                return null;
-            }
-
-            return $template;
-        } catch (Throwable $e) {
-            error_log('Notification template dispatch fallback: ' . $e->getMessage());
-
-            return [
-                'type' => (string) ($definition['type'] ?? 'info'),
-                'title_template' => (string) ($definition['title'] ?? ''),
-                'message_template' => (string) ($definition['message'] ?? ''),
-                'link_template' => '{{link}}',
-                'in_app_enabled' => 1,
-                'email_enabled' => 0,
-            ];
+        $template = $this->get($pdo, $eventKey);
+        if (!$template) {
+            return null;
         }
+
+        if ((int) ($template['is_active'] ?? 1) !== 1 || (int) ($template['in_app_enabled'] ?? 1) !== 1) {
+            return null;
+        }
+
+        return $template;
     }
 
     public function render(string $template, array $payload): string

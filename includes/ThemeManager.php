@@ -941,9 +941,9 @@ final class ThemeManager
 
         $allowedRawSlots = array_fill_keys($this->rawSlots($themeId), true);
         $rawWarnings = [];
-        $legacyWarnings = [];
+        $unsupportedWarnings = [];
         $includeGraph = [];
-        $legacyPatterns = [
+        $unsupportedPatterns = [
             '/(?<!\[)\[(?:\/)?(?:not-)?logged\]/i' => 'DLE login block',
             '/(?<!\[)\[(?:\/)?(?:not-)?available[^\]]*\]/i' => 'DLE available block',
             '/(?<!\[)\[(?:\/)?(?:not-)?aviable[^\]]*\]/i' => 'DLE aviable block',
@@ -979,15 +979,15 @@ final class ThemeManager
             $this->validateTemplateSyntax($relative, $content, $errors, $warnings);
             $includeGraph[$relative] = $this->validateTemplateIncludes($themeId, $relative, $content, $errors, $warnings);
 
-            foreach ($legacyPatterns as $pattern => $label) {
+            foreach ($unsupportedPatterns as $pattern => $label) {
                 if (preg_match($pattern, $content) !== 1) {
                     continue;
                 }
 
                 $warningKey = $relative . ':' . $label;
-                if (!isset($legacyWarnings[$warningKey])) {
+                if (!isset($unsupportedWarnings[$warningKey])) {
                     $warnings[] = "TPL contains {$label}: {$relative}";
-                    $legacyWarnings[$warningKey] = true;
+                    $unsupportedWarnings[$warningKey] = true;
                 }
             }
 

@@ -3,45 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/init.php';
-if (!function_exists('topicReportReasonLabels') || !function_exists('userReportReasonLabels')) {
-    try {
-        $reportHelpersFile = __DIR__ . '/../includes/src/Modules/Reports/Legacy/helpers.php';
-        if (is_file($reportHelpersFile)) {
-            require_once $reportHelpersFile;
-        }
-    } catch (Throwable $e) {
-        // Local fallbacks below keep the page usable if the report helpers fail to load.
-    }
-}
-
-if (!function_exists('topicReportReasonLabels')) {
-    function topicReportReasonLabels(): array
-    {
-        return [
-            'broken_link' => 'Bozuk / Kırık Link',
-            'outdated' => 'Eski Sürüm',
-            'malware' => 'Virüslü Dosya',
-            'spam' => 'Spam / Reklam',
-            'inappropriate' => 'Uygunsuz İçerik',
-            'wrong_category' => 'Yanlış Kategori',
-            'other' => 'Diğer',
-        ];
-    }
-}
-
-if (!function_exists('userReportReasonLabels')) {
-    function userReportReasonLabels(): array
-    {
-        return [
-            'harassment' => 'Taciz / hakaret',
-            'spam' => 'Spam',
-            'impersonation' => 'Taklit hesap',
-            'unsafe' => 'Güvensiz davranış',
-            'inappropriate' => 'Uygunsuz profil',
-            'other' => 'Diğer',
-        ];
-    }
-}
+require_once __DIR__ . '/../includes/src/Modules/Reports/Support/helpers.php';
 
 adminRequirePermission('reports.view', 'Şikayetleri görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 
@@ -59,7 +21,7 @@ function adminComplaintsStatusLabels(): array
 
 function adminComplaintsUrl(string $tab, array $params = []): string
 {
-    $tab = $tab === 'users' ? 'users' : 'topics';
+    $tab = in_array($tab, ['topics', 'users', 'reasons'], true) ? $tab : 'topics';
     $allowed = ['status', 'q', 'reason', 'date_from', 'date_to'];
     $query = ['tab' => $tab];
     foreach ($allowed as $key) {
@@ -75,11 +37,11 @@ function adminComplaintsUrl(string $tab, array $params = []): string
 
 function adminComplaintsRedirectAfterPost(string $fallbackTab, string $returnQuery = ''): void
 {
-    $tab = $fallbackTab === 'users' ? 'users' : 'topics';
+    $tab = in_array($fallbackTab, ['topics', 'users', 'reasons'], true) ? $fallbackTab : 'topics';
     $params = [];
     if ($returnQuery !== '') {
         parse_str(ltrim($returnQuery, '?'), $params);
-        if (($params['tab'] ?? '') === 'users' || ($params['tab'] ?? '') === 'topics') {
+        if (in_array(($params['tab'] ?? ''), ['topics', 'users', 'reasons'], true)) {
             $tab = (string) $params['tab'];
         }
     }
@@ -88,59 +50,63 @@ function adminComplaintsRedirectAfterPost(string $fallbackTab, string $returnQue
     exit;
 }
 
-function adminComplaintsReportHelperCall(string $function, array $arguments = [], mixed $fallback = null): mixed
+function adminComplaintsReportHelperCall(string $function, array $arguments = []): mixed
 {
-    if (!function_exists($function)) {
-        return $fallback;
+    if (!is_callable($function)) {
+        throw new LogicException('Report service adapter is unavailable: ' . $function);
     }
-
-    try {
-        return $function(...$arguments);
-    } catch (Throwable $e) {
-        return $fallback;
-    }
+    return $function(...$arguments);
 }
 
 function adminComplaintsReasonLabels(string $scope): array
 {
-    $scope = $scope === 'users' ? 'users' : 'topics';
-    $fallback = $scope === 'users'
-        ? [
-            'harassment' => 'Taciz / hakaret',
-            'spam' => 'Spam',
-            'impersonation' => 'Taklit hesap',
-            'unsafe' => 'Güvensiz davranış',
-            'inappropriate' => 'Uygunsuz profil',
-            'other' => 'Diğer',
-        ]
-        : [
-            'broken_link' => 'Bozuk / Kırık Link',
-            'outdated' => 'Eski Sürüm',
-            'malware' => 'Virüslü Dosya',
-            'spam' => 'Spam / Reklam',
-            'inappropriate' => 'Uygunsuz İçerik',
-            'wrong_category' => 'Yanlış Kategori',
-            'other' => 'Diğer',
-        ];
+    return $scope === 'users' ? userReportReasonLabels() : topicReportReasonLabels();
+}
 
-    $labels = adminComplaintsReportHelperCall($scope === 'users' ? 'userReportReasonLabels' : 'topicReportReasonLabels', [], $fallback);
-    return is_array($labels) && $labels !== [] ? $labels : $fallback;
+/** @return array<string,string> */
+function adminComplaintsNormalizeTopicReasons(array $keys, array $labels): array
+{
+    $reasons = [];
+    $total = max(count($keys), count($labels));
+    for ($index = 0; $index < $total && count($reasons) < 20; $index++) {
+        $label = trim((string) ($labels[$index] ?? ''));
+        $key = strtolower(trim((string) ($keys[$index] ?? '')));
+        if ($label === '') {
+            continue;
+        }
+        if ($key === '') {
+            $key = function_exists('slugify') ? slugify($label) : $label;
+            $key = str_replace('-', '_', strtolower((string) $key));
+        }
+        $key = preg_replace('/[^a-z0-9_]+/', '_', $key) ?? '';
+        $key = trim($key, '_');
+        if (preg_match('/^[a-z0-9_]{2,40}$/', $key) !== 1 || isset($reasons[$key])) {
+            throw new RuntimeException('Her rapor nedeni benzersiz, 2-40 karakterlik bir anahtara sahip olmalıdır.');
+        }
+        $reasons[$key] = mb_substr($label, 0, 80, 'UTF-8');
+    }
+
+    if ($reasons === []) {
+        throw new RuntimeException('En az bir rapor nedeni tanımlayın.');
+    }
+
+    return $reasons;
 }
 
 function adminComplaintsEnsureReportTable(?PDO $pdo, string $scope): void
 {
-    adminComplaintsReportHelperCall($scope === 'users' ? 'ensureUserReportsTable' : 'ensureTopicReportsTable', [$pdo], null);
+    adminComplaintsReportHelperCall($scope === 'users' ? 'ensureUserReportsTable' : 'ensureTopicReportsTable', [$pdo]);
 }
 
 function adminComplaintsFetchReports(?PDO $pdo, string $scope, string $status, int $limit, array $filters): array
 {
-    $reports = adminComplaintsReportHelperCall($scope === 'users' ? 'getUserReports' : 'getTopicReports', [$pdo, $status, $limit, $filters], []);
+    $reports = adminComplaintsReportHelperCall($scope === 'users' ? 'getUserReports' : 'getTopicReports', [$pdo, $status, $limit, $filters]);
     return is_array($reports) ? $reports : [];
 }
 
 function adminComplaintsFetchReportEvents(?PDO $pdo, string $scope, array $reportIds): array
 {
-    $events = adminComplaintsReportHelperCall($scope === 'users' ? 'getUserReportEventsForReports' : 'getTopicReportEventsForReports', [$pdo, $reportIds], []);
+    $events = adminComplaintsReportHelperCall($scope === 'users' ? 'getUserReportEventsForReports' : 'getTopicReportEventsForReports', [$pdo, $reportIds]);
     return is_array($events) ? $events : [];
 }
 
@@ -148,11 +114,27 @@ function adminComplaintsUpdateReportStatus(?PDO $pdo, string $scope, int $report
 {
     $updated = adminComplaintsReportHelperCall(
         $scope === 'users' ? 'updateUserReportStatus' : 'updateTopicReportStatus',
-        [$pdo, $reportId, $status, $adminNote, $actorId],
-        false
+        [$pdo, $reportId, $status, $adminNote, $actorId]
     );
 
     return (bool) $updated;
+}
+
+/** @return array{reports:int,events:int,notifications:int,activities:int,user_activities:int} */
+function adminComplaintsDeleteAllTopicReports(?PDO $pdo, ?int $actorId = null): array
+{
+    $result = adminComplaintsReportHelperCall('deleteAllTopicReports', [$pdo, $actorId]);
+    if (!is_array($result)) {
+        throw new RuntimeException('Konu raporları silinemedi.');
+    }
+
+    return [
+        'reports' => (int) ($result['reports'] ?? 0),
+        'events' => (int) ($result['events'] ?? 0),
+        'notifications' => (int) ($result['notifications'] ?? 0),
+        'activities' => (int) ($result['activities'] ?? 0),
+        'user_activities' => (int) ($result['user_activities'] ?? 0),
+    ];
 }
 
 function adminComplaintsStatusCounts(?PDO $pdo, string $scope): array
@@ -203,14 +185,14 @@ function adminComplaintsStatusLabel(array $statusLabels, string $status): string
 
 $statusLabels = adminComplaintsStatusLabels();
 $allowedStatuses = array_keys($statusLabels);
-$allowedTabs = ['topics', 'users'];
+$allowedTabs = ['topics', 'users', 'reasons'];
 $activeTab = (string) ($_GET['tab'] ?? 'topics');
 $activeTab = in_array($activeTab, $allowedTabs, true) ? $activeTab : 'topics';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     adminRequirePermission('reports.manage', 'Şikayetleri yönetmek için gerekli izin hesabınıza tanımlanmamış.');
     $postScope = (string) ($_POST['report_scope'] ?? $activeTab);
-    $postScope = $postScope === 'users' ? 'users' : 'topics';
+    $postScope = in_array($postScope, ['topics', 'users', 'reasons'], true) ? $postScope : 'topics';
     $returnQuery = (string) ($_POST['_return'] ?? '');
 
     try {
@@ -221,6 +203,36 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         $action = (string) ($_POST['action'] ?? 'update');
         $actorId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+
+        if ($action === 'save_topic_reasons') {
+            $topicReasons = adminComplaintsNormalizeTopicReasons(
+                array_values((array) ($_POST['reason_keys'] ?? [])),
+                array_values((array) ($_POST['reason_labels'] ?? []))
+            );
+            saveAdminSettings($pdo, [
+                '_sections' => 'reports',
+                'topic_report_reasons_json' => json_encode($topicReasons, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+            flash('success', 'Konu rapor nedenleri güncellendi.');
+            adminComplaintsRedirectAfterPost('reasons');
+        }
+
+        if ($action === 'delete_all_topic_reports') {
+            $deleted = adminComplaintsDeleteAllTopicReports($pdo, $actorId);
+            flash(
+                'success',
+                $deleted['reports'] > 0
+                    ? sprintf(
+                        '%d konu raporu; %d geçmiş, %d bildirim ve %d aktivite kaydıyla birlikte kalıcı olarak silindi.',
+                        $deleted['reports'],
+                        $deleted['events'],
+                        $deleted['notifications'],
+                        $deleted['activities'] + $deleted['user_activities']
+                    )
+                    : 'Silinecek konu raporu bulunamadı.'
+            );
+            adminComplaintsRedirectAfterPost('topics');
+        }
 
         if ($postScope === 'users') {
             if ($action === 'bulk_update') {
@@ -316,19 +328,25 @@ if ($activeTab === 'users') {
     $reports = adminComplaintsFetchReports($pdo, 'users', $currentStatus, 150, $filters);
     $reportEvents = adminComplaintsFetchReportEvents($pdo, 'users', array_column($reports, 'id'));
     $scopeTitle = 'Kullanıcı Şikayetleri';
-    $scopeDesc = 'Üyelerle ilgili güvenlik, davranış ve topluluk bildirimlerini değerlendirin.';
     $scopeIcon = 'bi-person-exclamation';
     $scopeCounts = $userStatusCounts;
     $scopeTotal = array_sum($userStatusCounts);
-} else {
+} elseif ($activeTab === 'topics') {
     $reasonLabels = adminComplaintsReasonLabels('topics');
     $reports = adminComplaintsFetchReports($pdo, 'topics', $currentStatus, 150, $filters);
     $reportEvents = adminComplaintsFetchReportEvents($pdo, 'topics', array_column($reports, 'id'));
     $scopeTitle = 'Konu Raporları';
-    $scopeDesc = 'Bozuk link, eski sürüm, güvenlik ve içerik bildirimlerini inceleyin.';
     $scopeIcon = 'bi-flag';
     $scopeCounts = $topicStatusCounts;
     $scopeTotal = array_sum($topicStatusCounts);
+} else {
+    $reasonLabels = adminComplaintsReasonLabels('topics');
+    $reports = [];
+    $reportEvents = [];
+    $scopeTitle = 'Rapor Nedenleri';
+    $scopeIcon = 'bi-list-check';
+    $scopeCounts = $topicStatusCounts;
+    $scopeTotal = count($reasonLabels);
 }
 
 $successMsg = get_flash('success');
@@ -379,7 +397,80 @@ require_once __DIR__ . '/header.php';
             </span>
             <span class="ui-admin-badge <?= $userActiveCount > 0 ? 'ui-admin-badge-danger' : 'ui-admin-badge-muted' ?>"><?= number_format($userActiveCount, 0, ',', '.') ?></span>
         </a>
+        <a class="complaints-tab <?= $activeTab === 'reasons' ? 'is-active' : '' ?>" href="<?= htmlspecialchars(adminComplaintsUrl('reasons')) ?>" <?= $activeTab === 'reasons' ? 'aria-current="page"' : '' ?>>
+            <span class="complaints-tab-main">
+                <span class="complaints-tab-icon"><i class="bi bi-list-check"></i></span>
+                <span>
+                    <span class="complaints-tab-title">Rapor Nedenleri</span>
+                    <span class="complaints-tab-desc">Public rapor seçeneklerini düzenle</span>
+                </span>
+            </span>
+            <span class="ui-admin-badge ui-admin-badge-muted"><?= number_format(count(adminComplaintsReasonLabels('topics')), 0, ',', '.') ?></span>
+        </a>
     </nav>
+
+    <?php if ($activeTab === 'reasons'): ?>
+    <section class="admin-card complaints-reasons-panel ui-panel">
+        <div class="complaints-reasons-head">
+            <div>
+                <span class="complaints-hero-kicker"><i class="bi bi-sliders"></i> Public raporlama ayarı</span>
+                <h3>Konu rapor nedenleri</h3>
+                <p>Buradaki sıralama ve başlıklar public konu raporlama penceresine doğrudan yansır. Mevcut anahtarlar geçmiş raporlarla uyum için sabit tutulur.</p>
+            </div>
+            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-report-reason-add><i class="bi bi-plus-lg"></i> Yeni neden</button>
+        </div>
+        <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl('reasons')) ?>" class="complaints-reasons-form" data-report-reasons-form>
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="save_topic_reasons">
+            <input type="hidden" name="report_scope" value="reasons">
+            <div class="complaints-reasons-list" data-report-reasons-list>
+                <?php foreach ($reasonLabels as $reasonKey => $reasonLabel): ?>
+                <div class="complaints-reason-row" data-report-reason-row>
+                    <span class="complaints-reason-handle" aria-hidden="true"><i class="bi bi-grip-vertical"></i></span>
+                    <div class="complaints-reason-key">
+                        <label class="ui-admin-form-label">Sistem anahtarı</label>
+                        <input class="ui-admin-form-control" name="reason_keys[]" value="<?= htmlspecialchars((string) $reasonKey) ?>" readonly aria-readonly="true">
+                    </div>
+                    <div class="complaints-reason-label">
+                        <label class="ui-admin-form-label">Public başlık</label>
+                        <input class="ui-admin-form-control" name="reason_labels[]" value="<?= htmlspecialchars((string) $reasonLabel) ?>" maxlength="80" required>
+                    </div>
+                    <div class="complaints-reason-actions">
+                        <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-report-reason-up title="Yukarı taşı"><i class="bi bi-arrow-up"></i></button>
+                        <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-report-reason-down title="Aşağı taşı"><i class="bi bi-arrow-down"></i></button>
+                        <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm complaints-reason-remove" data-report-reason-remove title="Nedeni kaldır"><i class="bi bi-trash3"></i></button>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="complaints-reasons-foot">
+                <span><i class="bi bi-info-circle"></i> En az bir, en fazla 20 neden tanımlanabilir.</span>
+                <button type="submit" class="ui-admin-btn complaints-save-btn"><i class="bi bi-save"></i> Rapor nedenlerini kaydet</button>
+            </div>
+        </form>
+        <template data-report-reason-template>
+            <div class="complaints-reason-row is-new" data-report-reason-row>
+                <span class="complaints-reason-handle" aria-hidden="true"><i class="bi bi-grip-vertical"></i></span>
+                <div class="complaints-reason-key">
+                    <label class="ui-admin-form-label">Sistem anahtarı</label>
+                    <input class="ui-admin-form-control" name="reason_keys[]" placeholder="ornek_neden" maxlength="40" pattern="[a-z0-9_]{2,40}" required>
+                </div>
+                <div class="complaints-reason-label">
+                    <label class="ui-admin-form-label">Public başlık</label>
+                    <input class="ui-admin-form-control" name="reason_labels[]" placeholder="Örn. Yanıltıcı bilgi" maxlength="80" required>
+                </div>
+                <div class="complaints-reason-actions">
+                    <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-report-reason-up title="Yukarı taşı"><i class="bi bi-arrow-up"></i></button>
+                    <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-report-reason-down title="Aşağı taşı"><i class="bi bi-arrow-down"></i></button>
+                    <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm complaints-reason-remove" data-report-reason-remove title="Nedeni kaldır"><i class="bi bi-trash3"></i></button>
+                </div>
+            </div>
+        </template>
+    </section>
+</div>
+<script src="<?= asset_url('admin/assets/complaints-reports-page.js', $baseUri) ?>" defer></script>
+<?php require_once __DIR__ . '/footer.php'; exit; ?>
+    <?php endif; ?>
 
     <section class="admin-stat-grid complaints-summary-row ui-grid" aria-label="<?= htmlspecialchars($scopeTitle) ?> özeti">
         <a href="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="admin-stat-card stat-info complaints-summary-card<?= $currentStatus === '' ? ' is-active' : '' ?> ui-card">
@@ -407,7 +498,14 @@ require_once __DIR__ . '/header.php';
                     <strong><?= htmlspecialchars($scopeTitle) ?> · <?= htmlspecialchars($currentStatusLabel) ?></strong>
                     <span><?= number_format(count($reports), 0, ',', '.') ?> kayıt listeleniyor</span>
                 </div>
-                <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi <?= htmlspecialchars($scopeIcon) ?>"></i><?= htmlspecialchars($scopeDesc) ?></span>
+                <?php if ($activeTab === 'topics'): ?>
+                <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl('topics')) ?>" class="ui-admin-inline-form complaints-delete-all-form" data-admin-confirm="Tüm konu raporları; geçmişleri, rapora bağlı bildirimleri ve aktivite kayıtlarıyla birlikte kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?" data-admin-confirm-title="Tüm konu raporları silinsin mi?" data-admin-confirm-ok="Tümünü Kalıcı Sil" data-admin-confirm-tone="danger">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="delete_all_topic_reports">
+                    <input type="hidden" name="report_scope" value="topics">
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-danger ui-admin-btn-sm" <?= $scopeTotal <= 0 ? 'disabled' : '' ?>><i class="bi bi-trash3"></i> Tümünü Sil</button>
+                </form>
+                <?php endif; ?>
             </div>
 
             <form method="get" class="complaints-filter">
@@ -544,7 +642,6 @@ require_once __DIR__ . '/header.php';
                         <aside class="complaints-actions" aria-label="Rapor işlemleri">
                             <div class="complaints-actions-title">
                                 <span>İşlem paneli</span>
-                                <span class="ui-admin-badge ui-admin-badge-muted">#<?= $reportId ?></span>
                             </div>
                             <div class="complaints-quick-actions" aria-label="Hızlı işlem">
                                 <?php foreach (['reviewing', 'resolved', 'rejected'] as $quickStatus): ?>

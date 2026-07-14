@@ -45,10 +45,8 @@ require_once __DIR__ . "/RateLimitHelpers.php";
 require_once __DIR__ . "/ActivityLoggingHelpers.php";
 
 require_once __DIR__ . "/ApiResponse.php";
-require_once __DIR__ . "/Database.php";
-
 // Load .env configuration before bootstrapping handlers that inspect runtime env.
-$envConfig = \App\Core\Database::getEnvConfig();
+$envConfig = \App\Core\DatabaseConnection::getEnvConfig();
 foreach ($envConfig as $envKey => $envValue) {
     if (!is_string($envKey)) {
         continue;
@@ -78,18 +76,18 @@ require_once __DIR__ . "/ThemeConverter.php";
 require_once __DIR__ . "/SessionSecurity.php";
 require_once __DIR__ . "/UploadSecurity.php";
 
-require_once __DIR__ . "/src/Engine/UserActivity/Legacy/helpers.php";
+require_once __DIR__ . "/src/Engine/UserActivity/Support/helpers.php";
 require_once __DIR__ . "/notifications.php";
-require_once __DIR__ . "/src/Modules/Reports/Legacy/helpers.php";
+require_once __DIR__ . "/src/Modules/Reports/Support/helpers.php";
 
 // Modüller (sadece init.php'de tanımlı olmayan fonksiyonları yükle)
-require_once __DIR__ . "/src/Engine/Categories/Legacy/helpers.php";
-require_once __DIR__ . "/src/Engine/Topics/Legacy/helpers.php";
-require_once __DIR__ . "/src/Engine/Topics/Legacy/core_helpers.php";
-require_once __DIR__ . "/src/Engine/Comments/Legacy/helpers.php";
-require_once __DIR__ . "/src/Engine/Email/Legacy/helpers.php";
-require_once __DIR__ . "/src/Engine/Sidebar/Legacy/helpers.php";
-require_once __DIR__ . "/src/Engine/Users/Legacy/users-helpers.php";
+require_once __DIR__ . "/src/Engine/Categories/Support/helpers.php";
+require_once __DIR__ . "/src/Engine/Topics/Support/helpers.php";
+require_once __DIR__ . "/src/Engine/Topics/Support/core_helpers.php";
+require_once __DIR__ . "/src/Engine/Comments/Support/helpers.php";
+require_once __DIR__ . "/src/Engine/Email/Support/helpers.php";
+require_once __DIR__ . "/src/Engine/Sidebar/Support/helpers.php";
+require_once __DIR__ . "/src/Engine/Users/Support/users-helpers.php";
 
 // Admin helpers (getAdminSettings, adminSettingDefinitions, vb.)
 if (file_exists(__DIR__ . "/../admin/helpers.php")) {
@@ -641,7 +639,7 @@ if ($productionConfigIssues !== []) {
 }
 
 // Database connection
-$pdo = \App\Core\Database::connection();
+$pdo = \App\Core\DatabaseConnection::connection();
 if (!$pdo instanceof PDO) {
     http_response_code(503);
     header('Retry-After: 60');
@@ -712,7 +710,7 @@ if ($pdo) {
     ensureSecurityEventsTable($pdo);
 }
 
-// Public theme engine. Existing PHP pages stay compatible while themes can
+// Public theme engine. Existing PHP pages remain available while themes can
 // provide assets, safe TPL files, and future page-level overrides.
 $themeManager = new ThemeManager(dirname(__DIR__), $baseUri, $appDebug);
 $themeDebugEnabled = ($adminSettingsGlobal['theme_debug_mode'] ?? '0') === '1';
@@ -797,13 +795,13 @@ try {
 $GLOBALS['themeManager'] = $themeManager;
 
 // Seed demo data only for controlled first-run scenarios
-require_once __DIR__ . "/src/Engine/Seeder/Legacy/helpers.php";
+require_once __DIR__ . "/src/Engine/Seeder/Support/helpers.php";
 if ($pdo && ($envConfig["APP_AUTO_SEED"] ?? "false") === "true") {
     seederRun($pdo);
 }
 
 // Auth helpers are needed before the global auth/session gate.
-require_once __DIR__ . "/src/Engine/Auth/Legacy/helpers.php";
+require_once __DIR__ . "/src/Engine/Auth/Support/helpers.php";
 
 if (!$skipSessionBootstrap && $pdo && empty($_SESSION["_auth_user_id"]) && function_exists('authAttemptRememberLogin')) {
     authAttemptRememberLogin($pdo, $adminSettingsGlobal);
@@ -904,7 +902,7 @@ if ($pdo) {
 }
 
 // Admin eylem audit log (grup/ban/durum geri-alınabilir kayıt)
-require_once __DIR__ . "/src/Engine/AdminAudit/Legacy/helpers.php";
+require_once __DIR__ . "/src/Engine/AdminAudit/Support/helpers.php";
 
 // Rate limiting
 if (!function_exists('renderPagination')) {
@@ -968,7 +966,6 @@ function renderPagination(
 }
 }
 
-require_once __DIR__ . "/src/Engine/Auth/Legacy/rate-limit-helpers.php";
 
 /**
  * Generate clean URL for topic or category.
@@ -1642,11 +1639,11 @@ function routeShouldUseCompiledRouteCache(): bool
         return in_array(strtolower(trim((string) $envOverride)), ["1", "true", "yes", "on"], true);
     }
 
-    if (!class_exists(\App\Core\Database::class) || !method_exists(\App\Core\Database::class, "getEnvConfig")) {
+    if (!class_exists(\App\Core\DatabaseConnection::class) || !method_exists(\App\Core\DatabaseConnection::class, "getEnvConfig")) {
         return false;
     }
 
-    $env = \App\Core\Database::getEnvConfig();
+    $env = \App\Core\DatabaseConnection::getEnvConfig();
     $appEnv = strtolower((string) ($env["APP_ENV"] ?? "local"));
     $rawValue = strtolower((string) ($env["APP_ROUTE_CACHE"] ?? ($appEnv === "production" ? "true" : "false")));
 
@@ -2535,8 +2532,8 @@ function getSeoMeta(
     }
 
     if (empty(trim($title))) {
-        $legacyTitle = trim((string) ($settings['default_meta_title'] ?? ''));
-        $title = $legacyTitle !== '' ? $legacyTitle : $siteName;
+        $defaultTitle = trim((string) ($settings['default_meta_title'] ?? ''));
+        $title = $defaultTitle !== '' ? $defaultTitle : $siteName;
     }
 
     $titleSuffix = trim((string) ($settings['meta_title_suffix'] ?? ''));
@@ -2548,7 +2545,7 @@ function getSeoMeta(
         $description = seoDescriptionFallback($settings);
     }
 
-    $maxLength = max(3, (int) ($settings['meta_description_max_length'] ?? ($settings['meta_description_length'] ?? 160)));
+    $maxLength = max(3, (int) ($settings['meta_description_max_length'] ?? 160));
     if (mb_strlen($description, 'UTF-8') > $maxLength) {
         $truncated = mb_substr($description, 0, $maxLength - 3, 'UTF-8');
         $lastSentenceEnd = max(
@@ -2679,7 +2676,7 @@ function seoSettings(?array $settings = null): array
     return [];
 }
 
-function seoIndexToggleValue(array $settings, string $indexKey, string $default = '1', ?string $legacyNoindexKey = null): string
+function seoIndexToggleValue(array $settings, string $indexKey, string $default = '1'): string
 {
     $normalize = static function ($value): ?string {
         $normalized = strtolower(trim((string) $value));
@@ -2695,13 +2692,6 @@ function seoIndexToggleValue(array $settings, string $indexKey, string $default 
     $canonical = $normalize($settings[$indexKey] ?? null);
     if ($canonical !== null) {
         return $canonical;
-    }
-
-    if ($legacyNoindexKey !== null) {
-        $legacy = $normalize($settings[$legacyNoindexKey] ?? null);
-        if ($legacy !== null) {
-            return $legacy === '1' ? '0' : '1';
-        }
     }
 
     return $default === '0' ? '0' : '1';
@@ -2803,7 +2793,7 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
     }
 
     // Public page catalog now owns homepage, search, topic, category and profile rules.
-    // Legacy index_* toggles remain in storage for compatibility, but the page preset
+    // Canonical index toggles and the page preset
     // layer is the source of truth for these public routes.
 
     // Archive pages check
@@ -2932,16 +2922,6 @@ function getTopicStructuredDataJson(array $topic, ?array $settings = null): stri
             "name" => (string) $topic["author"],
         ];
     }
-    if (($topic["rating_average"] ?? 0) > 0) {
-        $data["aggregateRating"] = [
-            "@type" => "AggregateRating",
-            "ratingValue" => (float) $topic["rating_average"],
-            "ratingCount" => max(1, (int) ($topic["rating_count"] ?? 0)),
-            "bestRating" => 5,
-            "worstRating" => 1,
-        ];
-    }
-
     return (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 

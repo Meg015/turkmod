@@ -4,19 +4,7 @@ declare(strict_types=1);
 
 namespace App\Core;
 
-/**
- * Centralized application settings service.
- *
- * Wraps the legacy getAdminSettings() function behind an OOP interface and
- * integrates with the Container for dependency injection. This is the first
- * step toward migrating global state ($pdo, $baseUri, $GLOBALS) into the
- * container-based architecture.
- *
- * Usage:
- *   $settings = AppSettings::instance();
- *   $value = $settings->get('items_per_page', '20');
- *   $timezone = $settings->timezone();
- */
+/** Canonical reader and request-local cache for the admin_settings table. */
 final class AppSettings
 {
     private static ?self $instance = null;
@@ -24,6 +12,10 @@ final class AppSettings
     private array $settings = [];
 
     private bool $loaded = false;
+
+    private const APCU_KEY = 'admin_settings_v1';
+
+    private const CACHE_TTL = 300;
 
     private function __construct(private ?\PDO $pdo = null)
     {
@@ -34,8 +26,10 @@ final class AppSettings
      */
     public static function instance(?\PDO $pdo = null): self
     {
-        if (self::$instance === null) {
-            self::$instance = new self($pdo ?? ($GLOBALS['pdo'] ?? null));
+        $resolvedPdo = $pdo ?? ($GLOBALS['pdo'] ?? null);
+        if (self::$instance === null
+            || ($resolvedPdo instanceof \PDO && self::$instance->pdo !== $resolvedPdo)) {
+            self::$instance = new self($resolvedPdo instanceof \PDO ? $resolvedPdo : null);
         }
         return self::$instance;
     }
@@ -75,7 +69,7 @@ final class AppSettings
     }
 
     /**
-     * Get all settings as an array (compatibility with legacy getAdminSettings).
+     * Get all settings as an array for procedural callers.
      *
      * @return array<string, string>
      */
@@ -140,24 +134,98 @@ final class AppSettings
     {
         $this->loaded = false;
         $this->settings = [];
-        if (function_exists('invalidateAdminSettingsCache')) {
-            invalidateAdminSettingsCache();
+        if (function_exists('apcu_delete')) {
+            apcu_delete(self::APCU_KEY);
+        }
+        $cacheFile = $this->cacheFile();
+        if (is_file($cacheFile)) {
+            @unlink($cacheFile);
         }
     }
 
-    /**
-     * Load settings from the legacy getAdminSettings function.
-     */
     private function ensureLoaded(): void
     {
         if ($this->loaded) {
             return;
         }
 
-        if (function_exists('getAdminSettings')) {
-            $this->settings = getAdminSettings($this->pdo);
+        $definitions = function_exists('adminSettingDefinitions') ? adminSettingDefinitions() : [];
+        $settings = [];
+        foreach ($definitions as $key => $definition) {
+            $default = (string) ($definition['default'] ?? '');
+            $settings[(string) $key] = function_exists('adminNormalizeSettingValue')
+                ? adminNormalizeSettingValue((string) $key, $default, $definition)
+                : $default;
         }
 
+        if (!$this->pdo instanceof \PDO) {
+            $this->settings = $this->applyAliases($settings, $definitions);
+            $this->loaded = true;
+            return;
+        }
+
+        if (function_exists('apcu_fetch')) {
+            $cached = apcu_fetch(self::APCU_KEY, $success);
+            if ($success && is_array($cached)) {
+                $this->settings = $cached;
+                $this->loaded = true;
+                return;
+            }
+        }
+
+        $cacheFile = $this->cacheFile();
+        if (is_file($cacheFile) && (time() - (int) filemtime($cacheFile)) < self::CACHE_TTL) {
+            $cached = require $cacheFile;
+            if (is_array($cached) && $cached !== []) {
+                $this->settings = $cached;
+                $this->loaded = true;
+                if (function_exists('apcu_store')) {
+                    apcu_store(self::APCU_KEY, $cached, self::CACHE_TTL);
+                }
+                return;
+            }
+        }
+
+        try {
+            $statement = $this->pdo->query('SELECT setting_key, setting_value FROM admin_settings');
+            while ($row = $statement->fetch(\PDO::FETCH_ASSOC)) {
+                $key = (string) ($row['setting_key'] ?? '');
+                $value = (string) ($row['setting_value'] ?? '');
+                if ($key === '') {
+                    continue;
+                }
+                if (array_key_exists($key, $definitions)) {
+                    $settings[$key] = function_exists('adminNormalizeSettingValue')
+                        ? adminNormalizeSettingValue($key, $value, $definitions[$key])
+                        : $value;
+                }
+            }
+        } catch (\Throwable $exception) {
+            error_log('admin_settings read failed: ' . $exception->getMessage());
+        }
+
+        $this->settings = $this->applyAliases($settings, $definitions);
         $this->loaded = true;
+
+        $cacheDir = dirname($cacheFile);
+        if (!is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0775, true);
+        }
+        @file_put_contents($cacheFile, "<?php\nreturn " . var_export($this->settings, true) . ";\n", LOCK_EX);
+        if (function_exists('apcu_store')) {
+            apcu_store(self::APCU_KEY, $this->settings, self::CACHE_TTL);
+        }
+    }
+
+    private function applyAliases(array $settings, array $definitions): array
+    {
+        return function_exists('adminApplySettingAliases')
+            ? adminApplySettingAliases($settings, $definitions)
+            : $settings;
+    }
+
+    private function cacheFile(): string
+    {
+        return dirname(__DIR__, 3) . '/storage/cache/admin_settings_compiled.php';
     }
 }

@@ -226,11 +226,6 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
                     </div>
                     <?php endif; ?>
                 </div>
-                <div class="topic-grid--list ui-grid" hidden aria-hidden="true"></div>
-                <div class="feed-card--list" hidden aria-hidden="true"></div>
-                <div class="topic-list-bottom-row topic-read-more topic-compat-markers" hidden aria-hidden="true">
-                    <i class="bi bi-person"></i><i class="bi bi-calendar3"></i><i class="bi bi-eye"></i><span>Devamını Oku</span>
-                </div>
             </div>
         </footer>
     </div>
@@ -254,10 +249,12 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
     $fSuccess = $successMsg ?? ($_SESSION["_flash_success"] ?? "");
     $fError = $errorMsg ?? ($_SESSION["_flash_error"] ?? "");
     $fInfo = $infoMsg ?? ($_SESSION["_flash_info"] ?? "");
+    $fWarning = $warningMsg ?? ($_SESSION["_flash_warning"] ?? "");
     unset(
         $_SESSION["_flash_success"],
         $_SESSION["_flash_error"],
         $_SESSION["_flash_info"],
+        $_SESSION["_flash_warning"],
     );
     ?>
 
@@ -277,6 +274,7 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
              data-toast-dur-warning="<?= $_tDurWarning ?>"
              data-toast-success="<?= htmlspecialchars((string) $fSuccess) ?>"
              data-toast-error="<?= htmlspecialchars((string) $fError) ?>"
+             data-toast-warning="<?= htmlspecialchars((string) $fWarning) ?>"
              data-toast-info="<?= htmlspecialchars((string) $fInfo) ?>"></div>
     <?php else: ?>
         <div class="topic-toast-container is-hidden ui-panel__foot" id="toastContainer"></div>

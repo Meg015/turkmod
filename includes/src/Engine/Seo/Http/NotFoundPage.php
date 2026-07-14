@@ -41,10 +41,10 @@ final class NotFoundPage implements Handler
             return (string) ($this->bodyRenderer)($request);
         }
 
-        return $this->renderLegacyBody();
+        return $this->renderBodyTemplate();
     }
 
-    private function renderLegacyBody(): string
+    private function renderBodyTemplate(): string
     {
         $rootPath = $this->resolveRootPath();
         $bufferLevel = ob_get_level();

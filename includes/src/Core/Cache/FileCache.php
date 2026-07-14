@@ -126,14 +126,7 @@ final class FileCache implements TaggableCache
 
         $entry = json_decode($raw, true);
         if (!is_array($entry) || !array_key_exists('value', $entry)) {
-            $legacy = unserialize($raw, ['allowed_classes' => false]);
-            if ($legacy === false && $raw !== serialize(false)) {
-                return null;
-            }
-            if (!is_array($legacy) || !array_key_exists('value', $legacy)) {
-                return null;
-            }
-            $entry = $legacy;
+            return null;
         }
 
         $expiresAt = (int) ($entry['expires_at'] ?? 0);

@@ -32,7 +32,7 @@
     --theme-info: #2563eb;
     --theme-info-soft: #dbeafe;
 
-    /* Color aliases for new components. Keep legacy aliases below intact. */
+    /* Shared semantic color aliases used across components. */
     --color-canvas: var(--theme-bg);
     --color-surface: var(--theme-surface);
     --color-surface-muted: var(--theme-surface-muted);

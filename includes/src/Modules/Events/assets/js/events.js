@@ -1205,44 +1205,6 @@
     }, true);
 
     document.addEventListener('click', async function (event) {
-        var spinButton = event.target.closest('[data-ui-events-spin-legacy-disabled]');
-        if (!spinButton) return;
-
-        var wheel = document.querySelector('[data-ui-events-wheel]');
-        var result = document.querySelector('[data-ui-events-result]');
-        var spinStartedAt = Date.now();
-        spinButton.disabled = true;
-        showResult(result, 'Çark dönüyor...', 'info');
-        
-        var spinInfo = updateWheelSpin(wheel);
-        var totalDegrees = spinInfo.totalDegrees;
-        var actualDurationMs = spinInfo.actualDurationMs;
-        
-        playWheelTrr(actualDurationMs, totalDegrees, wheel);
-
-        try {
-            var data = await postJson(baseUri() + '/events/api/wheel-spin', {_token: csrfToken()});
-            var reward = data.reward || {};
-            setTimeout(function () {
-                renderWheelResultCard(result, reward, data);
-                spinButton.disabled = false;
-                
-                playWheelResultSound();
-                
-                var isPremium = reward && (reward.is_premium === true || reward.is_premium === 1 || reward.is_premium === '1');
-                fireGuaranteedConfetti(isPremium);
-                eventsToast('Kazandınız: ' + (reward.name || 'Ödül'), 'success');
-            }, remainingSpinDelay(spinStartedAt, actualDurationMs));
-        } catch (error) {
-            setTimeout(function () {
-                showResult(result, error.message, 'error');
-                eventsToast(error.message, 'error');
-                spinButton.disabled = false;
-            }, remainingSpinDelay(spinStartedAt, actualDurationMs));
-        }
-    });
-
-    document.addEventListener('click', async function (event) {
         var joinButton = event.target.closest('[data-ui-events-raffle-join]');
         if (!joinButton) return;
 

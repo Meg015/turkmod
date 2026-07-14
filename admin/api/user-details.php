@@ -36,7 +36,6 @@ $stats = [
     'total_topics' => 0,
     'total_comments' => 0,
     'total_downloads' => 0,
-    'helpful_count' => 0,
 ];
 
 try {
@@ -50,9 +49,6 @@ try {
     $commentStmt->execute([$userId]);
     $stats['total_comments'] = (int)$commentStmt->fetchColumn();
 
-    $helpfulStmt = $pdo->prepare("SELECT COUNT(*) FROM reactions WHERE user_id = ? AND type = 'helpful'");
-    $helpfulStmt->execute([$userId]);
-    $stats['helpful_count'] = (int)$helpfulStmt->fetchColumn();
 } catch (Throwable $e) {
     appLogException($e, ["source" => "user-details-api", "user_id" => $userId]);
 }

@@ -15,6 +15,9 @@
 <span><i class="bi bi-chat-left-text" aria-hidden="true"></i>{topic.comments_count}</span>
 </div>
 <div class="ui-theme-topic-toolbar__actions">
+<button type="button" class="ui-theme-topic-action ui-theme-topic-action--report" data-report-modal-open title="Konuyu raporla">
+<i class="bi bi-flag" aria-hidden="true"></i><span>Konuyu Raporla</span>
+</button>
 <button type="button" class="ui-theme-topic-action ttb-favorite-btn {if topic.is_favorited}is-active{/if}" data-favorite-topic-id="{topic.id}" title="Favorilere ekle">
 <i class="bi {if topic.is_favorited}bi-heart-fill{else}bi-heart{/if}" aria-hidden="true"></i><span data-favorite-label>Favori</span><span class="ttb-favorite-count">{topic.favorites_count}</span>
 </button>

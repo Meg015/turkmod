@@ -8,11 +8,9 @@ translations, and future migrations for events must live here.
 
 - `Pages/` owns public events page aliases for `/events`, `/events/wheel`,
   `/events/raffle`, `/events/rewards`, and `/events/tasks`.
-- `Api/EventsApiHandler.php` owns the `/events/api/*` Handler adapter while
-  compatibility API scripts live under `LegacyRuntime/api/`.
-- `Legacy/LegacyEventsBridge.php` is the only bridge for legacy events includes.
-- `LegacyRuntime/` owns migrated legacy-compatible page/admin/api/helper runtime
-  files that wrappers delegate to.
+- `Api/EventsApiHandler.php` owns the `/events/api/*` Handler adapter and
+  endpoint scripts live under `Api/Endpoints/`.
+- `Support/` owns shared procedural helpers while focused reusable logic belongs in services.
 - `Services/` owns events lifecycle and future non-trivial events business logic.
 - `Database/migrations/` owns events-specific schema migrations only.
 - `lang/` owns module translations.
@@ -22,10 +20,9 @@ translations, and future migrations for events must live here.
 
 ## Do Not Re-Introduce
 
-- Do not add new business logic directly into `LegacyRuntime/*`; treat it as a
-  compatibility boundary while extracting reusable logic into module services.
+- Keep reusable business rules in module services; page/admin/API files should remain orchestration and views.
 - Do not add new hardcoded events route maps directly in `route.php`; update
-  `routes.php` and keep `route.php` as the compatibility dispatcher.
+  `routes.php` and keep `route.php` as the application dispatcher.
 - Do not bypass `EventsApiHandler` for `/events/api/*`.
 - Do not bypass `App\Core\Routing\AssetRouteAdapter` for `/events/assets/*`.
 - Do not duplicate events feature gates, rate limits, reward logic, raffle draw
@@ -34,8 +31,7 @@ translations, and future migrations for events must live here.
 ## Security and Behavior Contracts
 
 - Keep POST API CSRF checks through `eventsApiVerifyCsrf()` / `verify_csrf_token()`.
-- Keep anonymous API behavior backward compatible; protected endpoints return
-  JSON 401 via the legacy API response helper.
+- Protected anonymous API requests return the stable JSON 401 envelope.
 - Keep events API response helpers on the existing JSON envelope:
   `success`, `message`, optional `error`, optional `code`, optional `_token`,
   and endpoint-specific data keys.
@@ -43,16 +39,15 @@ translations, and future migrations for events must live here.
   `api_rate_limit_window` and `api_rate_limit_max`.
 - Permission gates are `events.view` and `events.manage`.
 - Missing `/events/api/*` targets must keep the themed 404 behavior.
-- Event assets must keep legacy MIME behavior and
+- Event assets must keep the current MIME behavior and
   `Cache-Control: public, max-age=3600`.
 
 ## Migration Rules
 
-- Legacy lowercase `includes/modules/events` has been removed in Phase 11;
-  do not re-introduce that tree.
+- Do not introduce a second lowercase Events tree.
 - New PHP classes must use the `App\Modules\Events\*` namespace and PSR-4 paths.
-- Legacy page/API shims may include existing files, but new reusable logic must
-  move into `Services/` or another module-owned class.
+- Page/API entrypoints may load support files, but reusable logic must move into
+  `Services/` or another focused module-owned class.
 - Future raffle/task/reward services should receive explicit dependencies where
   practical and keep direct SQL in one service boundary per behavior.
 - Module migrations may create/drop events-owned tables only; do not mutate

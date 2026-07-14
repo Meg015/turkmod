@@ -43,7 +43,6 @@ final class ThemeConverter
             'views' => 'topic.views',
             'comments-num' => 'topic.comments_count',
             'favorites-count' => 'topic.favorites_count',
-            'rating' => 'topic.rating',
             'author' => 'topic.author',
             'author-url' => 'topic.author_url',
             'login-link' => 'login_url',

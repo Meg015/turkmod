@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 require_once __DIR__ . '/init.php';
-require_once __DIR__ . '/../includes/src/Engine/Logs/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/AdminAudit/Legacy/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/Logs/Support/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/AdminAudit/Support/helpers.php';
 
 $pageTitle = 'Dashboard';
 adminRequirePermission('dashboard.view', 'Dashboard goruntulemek icin gerekli izin hesabiniza tanimlanmamis.');
@@ -102,7 +102,7 @@ function dashboardActivityIcon(string $action): array
 require_once __DIR__ . '/header.php';
 ?>
 
-<!-- Legacy test labels: SEO Uyarıları Bekleyen Moderasyon Link Sağlığı Operasyon Sinyalleri -->
+
 <div class="admin-stat-grid ui-grid">
     <a href="<?= $baseUri ?>/admin/topics.php?status=published" class="admin-stat-card stat-success ui-admin-link-plain ui-card">
         <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>

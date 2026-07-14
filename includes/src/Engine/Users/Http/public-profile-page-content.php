@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 require_once $projectRoot . '/includes/init.php';
-require_once $projectRoot . '/includes/src/Engine/Users/Legacy/profile-helpers.php';
-require_once $projectRoot . '/includes/src/Engine/Seo/Legacy/helpers.php';
+require_once $projectRoot . '/includes/src/Engine/Users/Support/profile-helpers.php';
+require_once $projectRoot . '/includes/src/Engine/Seo/Support/helpers.php';
 
 $profileSlug = trim((string) ($_GET['profile'] ?? ''));
 $user = ($pdo instanceof PDO && function_exists('publicProfileResolveUserBySlug'))

@@ -54,5 +54,4 @@ if (!defined('ASSET_VERSION_MANUAL')) {
 
 // Marka / UI varsayilan degerleri (admin_settings uzerinden runtime'da override edilir)
 define('BRAND_DEFAULT_ACCENT', '#8b1538');     // Varsayilan marka vurgu rengi
-define('BRAND_LEGACY_ACCENT', '#f2a51a');     // Eski/deprecated vurgu rengi (normalize edilir)
 define('BRAND_TOPBAR_BG_DEFAULT', '#0f172a'); // Varsayilan topbar arka plan rengi

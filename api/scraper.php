@@ -2,14 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Engine\Scraper\Support\ScraperEngine;
+
 /**
  * Scraper Bot AJAX API Endpoint
  * Handles all async operations for the content scraper module.
  */
 
 require_once __DIR__ . '/../admin/init.php';
-require_once __DIR__ . '/../includes/src/Engine/Scraper/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/Scraper/Legacy/engine.php';
+require_once __DIR__ . '/../includes/src/Engine/Scraper/Support/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/Scraper/Support/ScraperEngine.php';
 
 header('Content-Type: application/json; charset=utf-8');
 

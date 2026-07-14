@@ -7,24 +7,10 @@ declare(strict_types=1);
  */
 
 if (! function_exists('runtimeSchemaUpdatesAllowed')) {
-    /**
-     * Runtime DDL stays enabled locally and for explicit CLI migrations only.
-     */
+    /** Runtime DDL is disabled; only an explicit migration process may opt in. */
     function runtimeSchemaUpdatesAllowed(): bool
     {
-        if (defined('ALLOW_RUNTIME_SCHEMA_UPDATES') && ALLOW_RUNTIME_SCHEMA_UPDATES === true) {
-            return true;
-        }
-
-        if (! class_exists(\App\Core\Database::class)) {
-            return true;
-        }
-
-        $env = \App\Core\Database::getEnvConfig();
-        $appEnv = strtolower((string) ($env['APP_ENV'] ?? 'local'));
-        $rawAllow = strtolower((string) ($env['APP_ALLOW_RUNTIME_SCHEMA_UPDATES'] ?? ($appEnv === 'production' ? 'false' : 'true')));
-
-        return in_array($rawAllow, ['1', 'true', 'yes', 'on'], true);
+        return defined('ALLOW_RUNTIME_SCHEMA_UPDATES') && ALLOW_RUNTIME_SCHEMA_UPDATES === true;
     }
 }
 
@@ -251,7 +237,7 @@ if (! function_exists('asset_url')) {
         if (!$isBackOffice) {
             static $cdnBaseUrl = null;
             if ($cdnBaseUrl === null) {
-                $cdnBaseUrl = rtrim((string) (\App\Core\Database::getEnvConfig()['CDN_BASE_URL'] ?? ''), '/');
+                $cdnBaseUrl = rtrim((string) (\App\Core\DatabaseConnection::getEnvConfig()['CDN_BASE_URL'] ?? ''), '/');
             }
             if ($cdnBaseUrl !== '' && !str_starts_with($relativePath, 'http')) {
                 return $cdnBaseUrl . '/' . $relativePath . '?v=' . rawurlencode(asset_version($relativePath));

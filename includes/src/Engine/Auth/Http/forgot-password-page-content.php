@@ -16,6 +16,9 @@ $successMsg = '';
 $settings = function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : [];
 $passwordResetRateLimit = max(1, (int)($settings['password_reset_rate_limit'] ?? 3));
 $passwordResetRateWindow = max(1, (int)($settings['password_reset_rate_window'] ?? 30));
+$passwordResetTokenTtlMinutes = function_exists('usersPasswordResetTokenTtlMinutes')
+    ? usersPasswordResetTokenTtlMinutes($settings)
+    : 60;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $forgotRateKey = 'forgot_pw_' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
@@ -40,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     if ($user) {
                         $token = bin2hex(random_bytes(32));
-                        $expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
+                        $expiry = date('Y-m-d H:i:s', time() + ($passwordResetTokenTtlMinutes * 60));
 
                         $pdo->prepare('UPDATE users SET password_reset_token = :token, password_reset_expires_at = :expires_at, updated_at = NOW() WHERE id = :id')
                             ->execute([
@@ -59,8 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         $resetUrl = rtrim($publicBaseUrl, '/') . '/' . ltrim(routePublicStaticPath('reset_password'), '/') . '?token=' . $token . '&email=' . urlencode($email);
 
-                        require_once $projectRoot . '/includes/src/Engine/Email/Legacy/helpers.php';
-                        sendPasswordResetEmail($email, (string) ($user['username'] ?? ''), $resetUrl);
+                        require_once $projectRoot . '/includes/src/Engine/Email/Support/helpers.php';
+                        sendPasswordResetEmail($email, (string) ($user['username'] ?? ''), $resetUrl, $passwordResetTokenTtlMinutes);
 
                         if ($appDebug) {
                             $successMsg = 'Şifre sıfırlama bağlantısı: ' . $resetUrl;
@@ -133,6 +136,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                         <i class="bi bi-envelope" aria-hidden="true"></i>
                         <input id="email" name="email" type="email" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" placeholder="ornek@email.com" required aria-required="true" autocomplete="email">
                     </span>
+                    <small>Bağlantı <?= (int) $passwordResetTokenTtlMinutes ?> dakika geçerlidir.</small>
                 </div>
                 <button class="btn-auth" type="submit">
                     <span>Sıfırlama Bağlantısı Gönder</span>

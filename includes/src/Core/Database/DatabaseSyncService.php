@@ -137,17 +137,6 @@ final class DatabaseSyncService
                 }
                 unset($migration);
 
-                if ((string) ($module['id'] ?? '') === 'events' && function_exists('eventsEnsureSchema')) {
-                    try {
-                        eventsEnsureSchema($pdo);
-                        $module['legacy_seed'] = 'applied';
-                    } catch (Throwable $exception) {
-                        $module['legacy_seed'] = 'failed';
-                        $warnings[] = 'eventsEnsureSchema failed: ' . $exception->getMessage();
-                        appLogException($exception, ['source' => __CLASS__, 'module' => 'eventsEnsureSchema']);
-                    }
-                }
-
                 $module['status'] = $applied > 0 ? 'applied' : 'up_to_date';
                 $module['message'] = $applied > 0
                     ? $applied . ' migration applied'
@@ -215,7 +204,6 @@ final class DatabaseSyncService
                 'migration_table' => '-',
                 'requires_modules' => array_values(array_map('strval', $metadata['requires_modules'] ?? [])),
                 'migrations' => [],
-                'legacy_seed' => null,
             ];
 
             if (!$enabled) {
@@ -259,10 +247,6 @@ final class DatabaseSyncService
             } else {
                 $entry['status'] = 'pending';
                 $entry['message'] = $pendingCount . ' pending migration(s)';
-            }
-
-            if ($moduleId === 'events' && !function_exists('eventsEnsureSchema')) {
-                $warnings[] = 'Events legacy schema seeding helper is unavailable.';
             }
 
             $modules[] = $entry;
@@ -446,7 +430,7 @@ final class DatabaseSyncService
 
     private function pdo(): PDO
     {
-        $pdo = \App\Core\Database::connection();
+        $pdo = \App\Core\DatabaseConnection::connection();
         if (!$pdo instanceof PDO) {
             throw new RuntimeException('Database sync requires an active PDO connection.');
         }

@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Events\Services;
 
-use App\Core\Database;
+use App\Core\DatabaseConnection;
 use App\Core\Database\Migration;
 use App\Core\Database\MigrationRunner;
 use App\Core\Modules\ModuleLifecycle;
 use PDO;
 use RuntimeException;
-use Throwable;
 
 final class EventsLifecycle implements ModuleLifecycle
 {
@@ -20,8 +19,6 @@ final class EventsLifecycle implements ModuleLifecycle
         foreach ($this->migrations() as $migration) {
             $runner->apply($migration);
         }
-
-        $this->seedLegacySchema();
     }
 
     public function onEnable(): void
@@ -38,25 +35,6 @@ final class EventsLifecycle implements ModuleLifecycle
         $migrations = array_reverse($this->migrations());
         foreach ($migrations as $migration) {
             $runner->rollback($migration);
-        }
-    }
-
-    private function seedLegacySchema(): void
-    {
-        $bootstrap = dirname(__DIR__) . '/init.php';
-        if (!is_file($bootstrap)) {
-            return;
-        }
-
-        require_once $bootstrap;
-        if (!function_exists('eventsEnsureSchema')) {
-            return;
-        }
-
-        try {
-            eventsEnsureSchema($this->pdo());
-        } catch (Throwable $exception) {
-            error_log('EventsLifecycle schema seed failed: ' . $exception->getMessage());
         }
     }
 
@@ -85,7 +63,7 @@ final class EventsLifecycle implements ModuleLifecycle
 
     private function pdo(): PDO
     {
-        $pdo = Database::connection();
+        $pdo = DatabaseConnection::connection();
         if (!$pdo instanceof PDO) {
             throw new RuntimeException('Events lifecycle requires an active PDO connection.');
         }

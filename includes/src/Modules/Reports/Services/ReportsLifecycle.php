@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Reports\Services;
 
-use App\Core\Database;
+use App\Core\DatabaseConnection;
 use App\Core\Database\Migration;
 use App\Core\Database\MigrationRunner;
 use App\Core\Modules\ModuleLifecycle;
@@ -60,7 +60,7 @@ final class ReportsLifecycle implements ModuleLifecycle
 
     private function pdo(): PDO
     {
-        $pdo = Database::connection();
+        $pdo = DatabaseConnection::connection();
         if (!$pdo instanceof PDO) {
             throw new RuntimeException('Reports lifecycle requires an active PDO connection.');
         }

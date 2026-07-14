@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\TopicWorkflow\Services;
 
 use App\Core\Events\EventDispatcher;
-use App\Engine\Media\LegacyTopicMediaGateway;
+use App\Engine\Media\PdoTopicMediaGateway;
 use App\Engine\Media\TopicMediaGateway;
-use App\Engine\Topics\LegacyTopicWriteGateway;
+use App\Engine\Topics\PdoTopicWriteGateway;
 use App\Engine\Topics\TopicWriteGateway;
 use App\Modules\TopicWorkflow\Events\TopicWorkflowEvent;
 use PDO;
@@ -31,8 +31,8 @@ final class TopicSubmissionService
      */
     public function submit(PDO $pdo, array $input, array $files = []): array
     {
-        $topics = $this->topics ?? new LegacyTopicWriteGateway();
-        $media = $this->media ?? new LegacyTopicMediaGateway();
+        $topics = $this->topics ?? new PdoTopicWriteGateway();
+        $media = $this->media ?? new PdoTopicMediaGateway();
         $categoryId = (int) ($input['category_id'] ?? 0);
         $authorId = (int) ($input['author_id'] ?? 0);
         $title = trim((string) ($input['title'] ?? ''));
@@ -44,7 +44,7 @@ final class TopicSubmissionService
         }
         $status = (string) ($input['status'] ?? 'published');
         $moderationFlagsJson = $input['moderation_flags_json'] ?? null;
-        $topicDownloadLinks = trim((string) ($input['topic_download_links'] ?? ''));
+        $downloadLines = trim((string) ($input['download_lines'] ?? ''));
         $videoUrl = trim((string) ($input['video_url'] ?? ''));
         $maxImages = max(1, (int) ($input['max_images'] ?? 10));
 
@@ -70,7 +70,7 @@ final class TopicSubmissionService
                 'moderation_flags_json' => $moderationFlagsJson,
             ]);
 
-            $topics->syncDownloadLinks($pdo, $topicId, $topicDownloadLinks);
+            $topics->syncDownloadLinks($pdo, $topicId, $downloadLines);
 
             if ($this->isUploadedFile($attachmentFile)) {
                 $attachment = $media->upload(

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Mod paketi gorseli">
   <rect width="640" height="360" fill="#f9f5e8"/>
-  <path d="M118 120 L320 36 L522 120 V256 L320 334 L118 256 Z" fill="#f2a51a"/>
+  <path d="M118 120 L320 36 L522 120 V256 L320 334 L118 256 Z" fill="#8b1538"/>
   <path d="M320 36 L522 120 L320 204 L118 120 Z" fill="#ffd166"/>
   <path d="M118 120 L320 204 V334 L118 256 Z" fill="#d97706"/>
   <path d="M522 120 L320 204 V334 L522 256 Z" fill="#b45309"/>

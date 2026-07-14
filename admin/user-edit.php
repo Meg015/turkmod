@@ -32,6 +32,10 @@ if (function_exists('usersDecorateUserWithPrimaryGroup')) {
 }
 
 $displayUsername = (string) ($user['username'] ?? '');
+$adminSettings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
+$usernameBounds = function_exists('usersUsernameLengthBounds')
+    ? usersUsernameLengthBounds($adminSettings)
+    : ['min' => 3, 'max' => 30];
 
 $groups = function_exists('usersGetGroups') ? usersGetGroups($pdo, false) : [];
 $validGroupIds = array_map('intval', array_column($groups, 'id'));
@@ -76,8 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Prepare data
     $rawUsername = sanitizeInput($_POST['username'] ?? '');
     $username = function_exists('usersValidateUsernameInput')
-        ? usersValidateUsernameInput($rawUsername)
+        ? usersValidateUsernameInput($rawUsername, $adminSettings)
         : trim((string) $rawUsername);
+    $usernamePolicyError = function_exists('usersValidateUsernamePolicy')
+        ? usersValidateUsernamePolicy($username, $adminSettings)
+        : '';
     $email = filter_var($_POST['email'] ?? '', FILTER_SANITIZE_EMAIL);
     $groupId = (int)($_POST['group_id'] ?? ($user['group_id'] ?? 0));
     $status = $_POST['status'] ?? 'active';
@@ -106,10 +113,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $editReason = trim((string)($_POST['edit_reason'] ?? ''));
 
     if ($username === '') {
-        $formErrors['username'] = "Kullanici adi 3-30 karakter olmali ve sadece harf, rakam, _ veya - icermelidir.";
+        $formErrors['username'] = "Kullanici adi {$usernameBounds['min']}-{$usernameBounds['max']} karakter olmali ve sadece harf, rakam, _ veya - icermelidir.";
+    } elseif ($usernamePolicyError !== '') {
+        $formErrors['username'] = $usernamePolicyError;
     }
     if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         $formErrors['email'] = "Geçerli bir email adresi girin.";
+    } elseif (($emailPolicyError = function_exists('usersValidateEmailDomainPolicy') ? usersValidateEmailDomainPolicy($email, $adminSettings) : '') !== '') {
+        $formErrors['email'] = $emailPolicyError;
     }
     if (!in_array($groupId, $validGroupIds, true)) {
         $formErrors['group_id'] = "Gecersiz grup.";
@@ -320,7 +331,7 @@ require_once __DIR__ . "/header.php";
                 <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
                     <div class="ui-admin-form-group">
                         <label class="ui-admin-form-label">Kullanıcı Adı <span class="ui-admin-required">*</span></label>
-                        <input type="text" name="username" class="ui-admin-input" value="<?= htmlspecialchars((string) ($user['username'] ?? '')) ?>" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" aria-invalid="<?= isset($formErrors['username']) ? 'true' : 'false' ?>" aria-describedby="user-edit-username-error">
+                        <input type="text" name="username" class="ui-admin-input" value="<?= htmlspecialchars((string) ($user['username'] ?? '')) ?>" required minlength="<?= (int) $usernameBounds['min'] ?>" maxlength="<?= (int) $usernameBounds['max'] ?>" pattern="[A-Za-z0-9_-]{<?= (int) $usernameBounds['min'] ?>,<?= (int) $usernameBounds['max'] ?>}" aria-invalid="<?= isset($formErrors['username']) ? 'true' : 'false' ?>" aria-describedby="user-edit-username-error">
                         <?php if (isset($formErrors['username'])): ?><small class="ui-admin-form-error" id="user-edit-username-error"><?= htmlspecialchars($formErrors['username']) ?></small><?php endif; ?>
                     </div>
 

@@ -11,11 +11,6 @@ use RuntimeException;
 
 final class DatabaseCache implements TaggableCache
 {
-    /**
-     * @var array<string,bool>
-     */
-    private static array $schemaEnsured = [];
-
     public function __construct(
         private PDO $pdo,
         private string $table = 'core_cache',
@@ -31,7 +26,7 @@ final class DatabaseCache implements TaggableCache
             throw new InvalidArgumentException('Database cache prefix cannot be empty.');
         }
 
-        $this->ensureSchema();
+        $this->assertSchemaReady();
     }
 
     public function get(string $key, mixed $default = null): mixed
@@ -236,34 +231,18 @@ final class DatabaseCache implements TaggableCache
         return $prefix . ':%';
     }
 
-    private function ensureSchema(): void
+    private function assertSchemaReady(): void
     {
-        if (isset(self::$schemaEnsured[$this->table])) {
-            return;
-        }
-
-        if (function_exists('runtimeSchemaUpdatesAllowed') && !runtimeSchemaUpdatesAllowed()) {
-            self::$schemaEnsured[$this->table] = true;
-            return;
-        }
-
-        $tableName = $this->table;
-        $sql = "CREATE TABLE IF NOT EXISTS `{$tableName}` (
-            `cache_key` varchar(191) NOT NULL,
-            `cache_value` longtext NOT NULL,
-            `tags` longtext DEFAULT NULL,
-            `expires_at` datetime DEFAULT NULL,
-            `created_at` datetime DEFAULT NULL,
-            `updated_at` datetime DEFAULT NULL,
-            PRIMARY KEY (`cache_key`),
-            KEY `cache_expires_index` (`expires_at`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-
         try {
-            $this->pdo->exec($sql);
-            self::$schemaEnsured[$this->table] = true;
+            $stmt = $this->pdo->prepare(
+                'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name'
+            );
+            $stmt->execute(['table_name' => $this->table]);
+            if ((int) $stmt->fetchColumn() === 0) {
+                throw new RuntimeException('Database cache schema is missing; run Database Synchronization.');
+            }
         } catch (PDOException $exception) {
-            throw new RuntimeException('Database cache schema could not be created.', 0, $exception);
+            throw new RuntimeException('Database cache schema readiness could not be verified.', 0, $exception);
         }
     }
 }

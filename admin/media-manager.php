@@ -3,7 +3,7 @@
 declare(strict_types=1);
 /**
  * Dosya Yöneticisi — Controller
- * İş mantığı: includes/src/Engine/Media/Legacy/helpers.php
+ * İş mantığı: includes/src/Engine/Media/Support/helpers.php
  */
 require_once __DIR__ . '/init.php';
 adminRequirePermission('media.view', 'Dosya yoneticisini goruntulemek icin gerekli izin hesabiniza tanimlanmamis.');
@@ -194,12 +194,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'check_usage') {
     }
     
     // Ayarlar
-    $stmt = $pdo->prepare("SELECT id, `key` FROM settings WHERE value LIKE ? OR value LIKE ? LIMIT 5");
+    $stmt = $pdo->prepare("SELECT id, setting_key FROM admin_settings WHERE setting_value LIKE ? OR setting_value LIKE ? LIMIT 5");
     $stmt->execute([$likeUrl, $likeFilename]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $setting) {
-        $key = 'setting_' . $setting['key'];
+        $key = 'setting_' . $setting['setting_key'];
         if (!isset($added[$key])) {
-            $usages[] = ['type' => 'setting', 'name' => 'Site Ayarı: ' . $setting['key'], 'link' => 'settings.php'];
+            $usages[] = ['type' => 'setting', 'name' => 'Site Ayarı: ' . $setting['setting_key'], 'link' => 'settings.php'];
             $added[$key] = true;
         }
     }

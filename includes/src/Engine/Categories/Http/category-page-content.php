@@ -19,7 +19,7 @@ if ($cacheEnabled && empty($_SESSION['_auth_user_id'])) {
 }
 
 
-require_once $projectRoot . '/includes/src/Engine/Seo/Legacy/helpers.php';
+require_once $projectRoot . '/includes/src/Engine/Seo/Support/helpers.php';
 
 
 

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/init.php';
-require_once __DIR__ . '/../../includes/src/Engine/AdminQuality/Legacy/helpers.php';
+require_once __DIR__ . '/../../includes/src/Engine/AdminQuality/Support/helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendMethodNotAllowed(['POST']);

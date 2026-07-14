@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Core\Database\Migration;
-use App\Modules\Messages\Services\MessageSchemaService;
+use App\Modules\Messages\Database\migrations\Support\MessageSchemaInstaller;
+
+require_once __DIR__ . '/Support/MessageSchemaInstaller.php';
 
 return new class implements Migration
 {
@@ -14,7 +16,7 @@ return new class implements Migration
 
     public function up(PDO $pdo): void
     {
-        (new MessageSchemaService())->ensureSchema($pdo, false);
+        (new MessageSchemaInstaller())->ensureSchema($pdo, false);
     }
 
     public function down(PDO $pdo): void
@@ -24,4 +26,3 @@ return new class implements Migration
         $pdo->exec('DROP TABLE IF EXISTS `message_threads`');
     }
 };
-

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Leaderboard Sidebar Widget
  * Shows top 5 users in selected category/period
@@ -8,10 +8,10 @@ if (!isset($pdo)) {
     return;
 }
 
-require_once __DIR__ . '/../src/Modules/Leaderboard/Legacy/helpers.php';
-require_once __DIR__ . '/../src/Modules/Leaderboard/Legacy/cache-manager.php';
+require_once __DIR__ . '/../src/Modules/Leaderboard/Support/helpers.php';
+require_once __DIR__ . '/../src/Modules/Leaderboard/Support/cache-manager.php';
 
-$settings = leaderboardGetSettings($pdo);
+$settings = leaderboardGetSettings($pdo);
 $leaderboardUrl = routePublicStaticUrl('leaderboard');
 
 // Check if sidebar widget is enabled
@@ -85,10 +85,10 @@ if (empty($topUsers)) {
                             <span class="rank-number"><?= $rank ?></span>
                         <?php endif; ?>
                     </div>
-                    <a href="<?= htmlspecialchars($profileUrl, ENT_QUOTES, 'UTF-8') ?>" class="leaderboard-avatar">
+                    <a href="<?= htmlspecialchars($profileUrl, ENT_QUOTES, 'UTF-8') ?>" class="leaderboard-avatar">
                         <img src="<?= htmlspecialchars($avatarUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?>" width="48" height="48" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="<?= htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8') ?>">
-                    </a>
-                    <div class="leaderboard-info">
+                    </a>
+                    <div class="leaderboard-info">
                         <a href="<?= htmlspecialchars($profileUrl, ENT_QUOTES, 'UTF-8') ?>" class="leaderboard-username"><?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?></a>
                         <span class="leaderboard-score"><?= $count ?> giriş</span>
                     </div>
@@ -101,6 +101,6 @@ if (empty($topUsers)) {
         </a>
     </div>
 </div>
-
-
+
+
 

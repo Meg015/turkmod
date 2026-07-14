@@ -29,18 +29,24 @@
     $_tDurError = (int)($adminSettingsForToast['toast_duration_error'] ?? 0);
     $_tDurWarning = (int)($adminSettingsForToast['toast_duration_warning'] ?? 0);
     
+    $suppressAdminFooterToasts = !empty($suppressAdminFooterToasts);
     // Catch any flashes that might be floating around
-    $fSuccess = $successMsg ?? $_SESSION['_flash_success'] ?? $_SESSION['_flash']['success'] ?? '';
-    $fError = $errorMsg ?? $_SESSION['_flash_error'] ?? $_SESSION['_flash']['error'] ?? '';
-    $fInfo = $infoMsg ?? $_SESSION['_flash_info'] ?? $_SESSION['_flash']['info'] ?? '';
-    if (isset($_SESSION['_flash_success'])) unset($_SESSION['_flash_success']);
-    if (isset($_SESSION['_flash_error'])) unset($_SESSION['_flash_error']);
-    if (isset($_SESSION['_flash_info'])) unset($_SESSION['_flash_info']);
-    if (isset($_SESSION['_flash']['success'])) unset($_SESSION['_flash']['success']);
-    if (isset($_SESSION['_flash']['error'])) unset($_SESSION['_flash']['error']);
-    if (isset($_SESSION['_flash']['info'])) unset($_SESSION['_flash']['info']);
+    $fSuccess = $suppressAdminFooterToasts ? '' : ($successMsg ?? $_SESSION['_flash_success'] ?? $_SESSION['_flash']['success'] ?? '');
+    $fError = $suppressAdminFooterToasts ? '' : ($errorMsg ?? $_SESSION['_flash_error'] ?? $_SESSION['_flash']['error'] ?? '');
+    $fInfo = $suppressAdminFooterToasts ? '' : ($infoMsg ?? $_SESSION['_flash_info'] ?? $_SESSION['_flash']['info'] ?? '');
+    $fWarning = $suppressAdminFooterToasts ? '' : ($warningMsg ?? $_SESSION['_flash_warning'] ?? $_SESSION['_flash']['warning'] ?? '');
+    if (!$suppressAdminFooterToasts) {
+        if (isset($_SESSION['_flash_success'])) unset($_SESSION['_flash_success']);
+        if (isset($_SESSION['_flash_error'])) unset($_SESSION['_flash_error']);
+        if (isset($_SESSION['_flash_info'])) unset($_SESSION['_flash_info']);
+        if (isset($_SESSION['_flash_warning'])) unset($_SESSION['_flash_warning']);
+        if (isset($_SESSION['_flash']['success'])) unset($_SESSION['_flash']['success']);
+        if (isset($_SESSION['_flash']['error'])) unset($_SESSION['_flash']['error']);
+        if (isset($_SESSION['_flash']['info'])) unset($_SESSION['_flash']['info']);
+        if (isset($_SESSION['_flash']['warning'])) unset($_SESSION['_flash']['warning']);
+    }
     // Flash mesaji varsa toast'i zorla aktif et
-    if ($fSuccess || $fError || $fInfo) { $_tEnabled = true; }
+    if ((!$suppressAdminFooterToasts && ($fSuccess || $fError || $fInfo || $fWarning))) { $_tEnabled = true; }
     ?>
     <?php if ($_tEnabled): ?>
     <div class="topic-toast-container toast-pos-<?= htmlspecialchars($_tPos) ?> ui-panel__foot" id="toastContainer" aria-live="polite" aria-atomic="true"
@@ -58,6 +64,7 @@
          data-toast-dur-warning="<?= $_tDurWarning ?>"
          data-toast-success="<?= htmlspecialchars((string)$fSuccess) ?>"
          data-toast-error="<?= htmlspecialchars((string)$fError) ?>"
+         data-toast-warning="<?= htmlspecialchars((string)$fWarning) ?>"
          data-toast-info="<?= htmlspecialchars((string)$fInfo) ?>"></div>
     <?php else: ?>
     <div class="topic-toast-container ui-admin-hidden ui-panel__foot" id="toastContainer"></div>

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 $pageTitle = 'Sistem Sağlığı';
 require_once __DIR__ . '/init.php';
-require_once __DIR__ . '/../includes/src/Engine/UserActivity/Legacy/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/UserActivity/Support/helpers.php';
+
+$settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
+
+
 
 adminRequirePermission('system.view', 'Sistem sağlığını görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 
@@ -632,7 +636,6 @@ function healthPhpFileCount(string $root): int
         'includes',
         'themes',
         'index.php',
-        'messages.php',
         'route.php',
     ];
     $skipDirs = ['.git', 'node_modules', 'storage', 'tmp', 'uploads', 'vendor'];
@@ -813,7 +816,6 @@ $appDebug = (($envConfig['APP_DEBUG'] ?? 'false') === 'true');
 $forceHttps = (($envConfig['APP_FORCE_HTTPS'] ?? 'false') === 'true');
 $appUrl = (string) ($envConfig['APP_URL'] ?? '');
 $isLocalUrl = preg_match('~localhost|127\.0\.0\.1|\.test(?:/|$)~i', $appUrl) === 1;
-$runtimeSchemaAllowed = function_exists('runtimeSchemaUpdatesAllowed') && runtimeSchemaUpdatesAllowed();
 $trustedProxies = trim((string) ($envConfig['TRUSTED_PROXIES'] ?? ''));
 $loadLogSection = !$isProduction || $activeTab === 'logs';
 $loadQueueSection = !$isProduction || $activeTab === 'queues';
@@ -967,9 +969,20 @@ $rateLimitHelperReady = function_exists('checkRateLimit')
     && function_exists('incrementRateLimit')
     && function_exists('resetRateLimit')
     && function_exists('getRateLimitRemainingSeconds');
+$verificationReminderEnabled = (($settings['account_email_verification_enabled'] ?? '0') === '1')
+    && (($settings['account_email_verification_required'] ?? '0') === '1')
+    && (($settings['account_email_verification_reminder_enabled'] ?? '1') === '1');
+$verificationReminderAfterMinutes = max(60, min(10080, (int) ($settings['account_email_verification_reminder_after_minutes'] ?? 1440)));
+$verificationReminderEligibleUsers = $loadDatabaseSection && $verificationReminderEnabled && healthTableExists($pdo, 'users')
+    ? healthScalar(
+        $pdo,
+        "SELECT COUNT(*) FROM users WHERE email_verified_at IS NULL AND email_verification_sent_at IS NOT NULL AND email_verification_sent_at <= DATE_SUB(NOW(), INTERVAL {$verificationReminderAfterMinutes} MINUTE)"
+    )
+    : 0;
 $cronScriptPaths = [
     'Bildirim e-posta' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'send-notification-email-queue.php',
     'Liderlik cache' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'update-leaderboard-cache.php',
+    'Doğrulama hatırlatma' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'send-verification-reminders.php',
     'Rate limit cleanup' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'cleanup-expired-rate-limits.php',
     'Etkinlik Ana Cron' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'events-master.php',
 ];
@@ -983,12 +996,14 @@ $cronRuns = $loadQueueSection
     ? [
         'notification_email_queue' => healthCronLastRun($pdo, 'notification_email_queue'),
         'leaderboard_cache' => healthCronLastRun($pdo, 'leaderboard_cache'),
+        'verification_reminders' => healthCronLastRun($pdo, 'verification_reminders'),
         'rate_limits_cleanup' => healthCronLastRun($pdo, 'rate_limits_cleanup'),
         'events_master' => healthCronLastRun($pdo, 'events_master'),
     ]
     : [
         'notification_email_queue' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
         'leaderboard_cache' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
+        'verification_reminders' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
         'rate_limits_cleanup' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
         'events_master' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
     ];
@@ -1032,8 +1047,7 @@ $checks = [
     healthRow('database', 'Veritabanı bağlantısı', $pdo instanceof PDO, $pdo instanceof PDO ? 'bağlı' : 'bağlantı yok'),
     healthRow('database', 'Veritabanı sürücüsü', $pdo instanceof PDO, $pdo instanceof PDO ? (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) : 'yok'),
     healthRow('database', 'Çekirdek tablolar', count($missingCoreTables) === 0, count($missingCoreTables) === 0 ? count($coreTables) . ' tablo mevcut' : 'Eksik: ' . implode(', ', $missingCoreTables)),
-    healthRow('database', 'Çalışma zamanında şema güncelleme', !$isProduction || !$runtimeSchemaAllowed, $runtimeSchemaAllowed ? 'aktif' : 'kapalı', 'warning'),
-    healthRow('database', 'Şema dosyası (database/schema.sql)', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans şema için gerekli'),
+    healthRow('database', '�?ema dosyası (database/schema.sql)', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans şema için gerekli'),
     healthRow('database', 'PHP dosyaları', $loadDatabaseSection ? $phpFileCount > 0 : true, $loadDatabaseSection ? $phpFileCount . ' adet PHP dosyası' : 'canlı hızlı görünümde atlandı', $loadDatabaseSection ? 'required' : 'info'),
     healthRow('database', 'storage/cache yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), 'warning'),
     healthRow('database', 'uploads yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'uploads'), healthPath($root . DIRECTORY_SEPARATOR . 'uploads')),
@@ -1053,6 +1067,7 @@ $checks = [
     healthRow('queues', 'Sıkışan e-posta işlemleri', $emailStuckProcessing === 0, $emailStuckProcessing . ' işlem 15 dakikadan uzun süredir işleniyor', 'warning', $baseUri . '/admin/notifications.php?tab=logs&email=processing', 'Kuyruk'),
     healthRow('queues', 'Son e-posta hatası', $emailFailed === 0, $latestFailedEmail, 'warning', $baseUri . '/admin/notifications.php?tab=logs&email=failed', 'Hatalılar'),
     healthRow('queues', 'Bildirim e-posta cronu', healthCronIsFresh($cronRuns['notification_email_queue'], 30, $notificationEmailEnabled), $notificationEmailEnabled ? healthCronDetail($cronRuns['notification_email_queue'], 'cron kaydı yok; worker çalışmıyor olabilir') : 'e-posta kuyruğu kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/notifications.php', 'Bildirimler'),
+    healthRow('queues', 'Doğrulama hatırlatma cronu', healthCronIsFresh($cronRuns['verification_reminders'], 180, $verificationReminderEnabled), $verificationReminderEnabled ? healthCronDetail($cronRuns['verification_reminders'], 'son 3 saat içinde cron kaydı yok; doğrulama hatırlatmaları gecikiyor olabilir') . ' • bekleyen hesap: ' . $verificationReminderEligibleUsers : 'e-posta doğrulama hatırlatma kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/settings.php#user_system', 'Kullanıcı Sistemi'),
     healthRow('queues', 'Liderlik cronu', healthCronIsFresh($cronRuns['leaderboard_cache'], 1440, true), healthCronDetail($cronRuns['leaderboard_cache'], 'son 24 saat için cron kaydı yok'), 'warning', $baseUri . '/admin/leaderboard.php', 'Liderlik'),
     healthRow('queues', 'Süre sınırı temizleme cronu', healthCronIsFresh($cronRuns['rate_limits_cleanup'], 180, true), healthCronDetail($cronRuns['rate_limits_cleanup'], 'son 3 saat içinde cron kaydı yok; süresi dolan kayıtlar birikiyor olabilir'), 'warning', $baseUri . '/admin/rate-limits.php?status=expired', 'Temizle'),
     healthRow('queues', 'Etkinlik e-posta kuyruğu', $eventsEmailFailed === 0, $eventsEmailPending . ' bekleyen, ' . $eventsEmailFailed . ' hatalı', 'warning', $baseUri . '/admin/events.php?tab=settings', 'Etkinlikler'),
@@ -1063,7 +1078,7 @@ $checks = [
     healthRow('queues', 'Bakım modu', in_array($maintenanceMode, ['0', '1'], true), $maintenanceMode === '1' ? 'aktif: ' . $maintenanceMessage : 'kapalı', 'warning', $baseUri . '/admin/settings.php#general', 'Ayarlar'),
 
     healthRow('content', 'Konu raporları', $topicReportsOpen === 0, $topicReportsOpen . ' açık/incelenen rapor', 'warning', $baseUri . '/admin/complaints-reports.php?tab=topics&status=open', 'Raporlar'),
-    healthRow('content', 'Kullanıcı şikayetleri', $userReportsOpen === 0, $userReportsOpen . ' açık/incelenen şikayet', 'warning', $baseUri . '/admin/complaints-reports.php?tab=users&status=open', 'Şikayetler'),
+    healthRow('content', 'Kullanıcı şikayetleri', $userReportsOpen === 0, $userReportsOpen . ' açık/incelenen şikayet', 'warning', $baseUri . '/admin/complaints-reports.php?tab=users&status=open', '�?ikayetler'),
     healthRow('content', 'Taslak konular', $pendingTopics === 0, $pendingTopics . ' taslak konu', 'warning', $baseUri . '/admin/topics.php?status=draft', 'Konular'),
     healthRow('content', 'Bağlantısız medya kayıtları', $orphanMedia === 0, $orphanMedia . ' konuya bağlı olmayan medya kaydı', 'warning', $baseUri . '/admin/media-manager.php', 'Medya'),
 ];
@@ -1151,7 +1166,7 @@ require_once __DIR__ . '/header.php';
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="optimize_db">
             <button type="submit" class="btn-primary <?= $dbOverheadMb <= 10 ? 'ui-admin-disabled-soft' : '' ?>" data-ui-confirm="Veritabanını optimize etmek istiyor musunuz? Bu işlem tablo sayısına göre biraz zaman alabilir." <?= $dbOverheadMb <= 10 ? 'disabled' : '' ?>>
-                <i class="bi bi-magic"></i> Şimdi Optimize Et
+                <i class="bi bi-magic"></i> �?imdi Optimize Et
             </button>
         </form>
     </section>
@@ -1324,7 +1339,7 @@ require_once __DIR__ . '/header.php';
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($runtimePageItems as $runtimeRow): ?>
-                                        <?php
+<?php
                                         $runtimeTone = ((string) ($runtimeRow['level'] ?? '') === 'critical') ? 'bad' : 'warn';
                                         $runtimeLevel = healthRuntimeLogLabel((string) ($runtimeRow['level'] ?? 'error'));
                                         $runtimeTs = (int) ($runtimeRow['timestamp'] ?? 0);

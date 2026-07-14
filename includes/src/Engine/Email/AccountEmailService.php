@@ -21,7 +21,7 @@ final class AccountEmailService
 
     public static function catalog(): array
     {
-        $button = static fn (string $label, string $url): string => '<p style="margin:24px 0;text-align:center"><a href="' . $url . '" style="display:inline-block;background:#f2a51a;color:#fff;padding:12px 22px;border-radius:7px;text-decoration:none;font-weight:700">' . $label . '</a></p>';
+        $button = static fn (string $label, string $url): string => '<p style="margin:24px 0;text-align:center"><a href="' . $url . '" style="display:inline-block;background:#8b1538;color:#fff;padding:12px 22px;border-radius:7px;text-decoration:none;font-weight:700">' . $label . '</a></p>';
         $wrap = static fn (string $title, string $content): string => '<!doctype html><html lang="tr"><head><meta charset="UTF-8"></head><body style="margin:0;background:#f6f8fb;font-family:Arial,sans-serif;color:#172033"><div style="max-width:620px;margin:0 auto;padding:30px 16px"><div data-account-email-editable="1" style="background:#fff;border:1px solid #e4e8ef;border-radius:12px;padding:28px"><div style="font-size:13px;color:#8791a5;margin-bottom:8px">{{site_name}}</div><h1 style="font-size:22px;margin:0 0 18px">' . $title . '</h1>' . $content . '<p style="margin:24px 0 0;color:#8791a5;font-size:12px">Bu e-posta otomatik olarak gönderilmiştir.</p></div></div></body></html>';
 
         return [

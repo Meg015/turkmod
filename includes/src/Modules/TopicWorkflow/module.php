@@ -14,13 +14,9 @@ return [
         'topic.created' => [
             \App\Modules\TopicWorkflow\Listeners\TopicCreatedActivityListener::class,
             \App\Modules\TopicWorkflow\Listeners\TopicCreatedAuditLogListener::class,
-            \App\Modules\TopicWorkflow\Listeners\TopicCreatedLeaderboardBridgeListener::class,
         ],
         'topic.updated' => [
             \App\Modules\TopicWorkflow\Listeners\TopicUpdatedAuditLogListener::class,
-        ],
-        'topic.published' => [
-            \App\Modules\TopicWorkflow\Listeners\TopicPublishedSearchIndexer::class,
         ],
     ],
 ];

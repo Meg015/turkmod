@@ -6,7 +6,7 @@ $GLOBALS['_skip_session_bootstrap'] = true;
 $GLOBALS['_cache_control_set'] = true;
 
 require_once __DIR__ . '/../../includes/init.php';
-require_once __DIR__ . '/../../includes/src/Engine/Analytics/Legacy/helpers.php';
+require_once __DIR__ . '/../../includes/src/Engine/Analytics/Support/helpers.php';
 
 // Analytics endpoint responses must not set session cookies or no-store headers,
 // otherwise browser back/forward cache eligibility is reduced.

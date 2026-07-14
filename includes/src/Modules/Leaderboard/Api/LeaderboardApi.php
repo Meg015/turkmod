@@ -16,9 +16,9 @@ final class LeaderboardApi implements Handler
     {
         $projectRoot = dirname(__DIR__, 5);
 
-        require_once $projectRoot . '/includes/src/Modules/Leaderboard/Legacy/helpers.php';
-        require_once $projectRoot . '/includes/src/Modules/Leaderboard/Legacy/cache-manager.php';
-        require_once $projectRoot . '/includes/src/Modules/Leaderboard/Legacy/calculator.php';
+        require_once $projectRoot . '/includes/src/Modules/Leaderboard/Support/helpers.php';
+        require_once $projectRoot . '/includes/src/Modules/Leaderboard/Support/cache-manager.php';
+        require_once $projectRoot . '/includes/src/Modules/Leaderboard/Support/calculator.php';
 
         $pdo = requireDatabaseConnection($GLOBALS['pdo'] ?? null);
         $GLOBALS['pdo'] = $pdo;

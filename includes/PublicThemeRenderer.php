@@ -101,6 +101,9 @@ final class PublicThemeRenderer
             ThemeHeaderViewData::notificationMenu($baseUri, $isLoggedIn),
             ThemeHeaderViewData::messageMenu($baseUri, $isLoggedIn),
         );
+        if ($pageKey === 'leaderboard' && isset($headerVars['menu_items']) && is_array($headerVars['menu_items'])) {
+            $headerVars['menu_items'] = array_slice($headerVars['menu_items'], 0, 2);
+        }
 
         $unreadCount = 0;
         if ($isLoggedIn && $pdo instanceof \PDO && $currentUserId > 0) {
@@ -116,6 +119,9 @@ final class PublicThemeRenderer
         $headerVars['notifications_unread_count_text'] = $unreadCount > 99 ? '99+' : (string) $unreadCount;
 
         $footerData = self::buildFooterData($context);
+        if ($pageKey === 'leaderboard') {
+            $footerData['footer_copyright'] = 'TürkMod. Tüm hakları saklıdır.';
+        }
         $sidebarConfig = function_exists('sidebarBuilderConfigFromSettings') ? sidebarBuilderConfigFromSettings($settings) : [];
         $sidebarSourceVars = array_merge($headerVars, $footerData, [
             'page_key' => $pageKey,
@@ -544,7 +550,7 @@ final class PublicThemeRenderer
             'date' => $published,
             'excerpt' => $summary,
             'views' => number_format($views, 0, ',', '.'),
-            'likes' => number_format((int) ($item['likes'] ?? $item['rating_count'] ?? 0), 0, ',', '.'),
+            'likes' => number_format((int) ($item['likes'] ?? 0), 0, ',', '.'),
             'comments_count' => number_format((int) ($item['comment_count'] ?? $item['comments_count'] ?? 0), 0, ',', '.'),
             'author' => $author !== '' ? $author : 'Admin',
             'author_url' => $authorUrl,
@@ -726,7 +732,11 @@ final class PublicThemeRenderer
         $pageVars = self::arrayValue($context, 'page_vars');
         $topic = isset($pageVars['topic']) && is_array($pageVars['topic']) ? $pageVars['topic'] : [];
         if ($topic === []) {
-            return self::renderThemeErrorPanel(new RuntimeException('Topic data is missing for theme render.'), 'topic', $context);
+            if (function_exists('appLogException')) {
+                appLogException(new RuntimeException('Topic data is missing for theme render.'), ['source' => 'PublicThemeRenderer topic template']);
+            }
+
+            return trim($capturedContent);
         }
 
         try {
@@ -942,15 +952,22 @@ final class PublicThemeRenderer
     {
         $reasons = [];
         $reasonLabels = function_exists('topicReportReasonLabels') ? topicReportReasonLabels() : ['other' => 'Diger'];
+        $reporterName = trim((string) ($_SESSION['_auth_user_name'] ?? ''));
+        $reporterEmail = trim((string) ($_SESSION['_auth_user_email'] ?? ''));
         foreach ($reasonLabels as $value => $label) {
             $reasons[] = ['value' => (string) $value, 'label' => (string) $label];
         }
 
         return [
-            'report_logged_in' => $isLoggedIn,
+            'report_logged_in' => true,
+            'report_is_member' => $isLoggedIn ? '1' : '0',
             'report_endpoint' => rtrim($baseUri, '/') . '/api/reports.php',
             'report_reasons' => $reasons,
             'csrf_token' => function_exists('csrf_token') ? csrf_token() : '',
+            'reporter_name' => $isLoggedIn ? $reporterName : '',
+            'reporter_email' => $isLoggedIn ? $reporterEmail : '',
+            'reporter_name_readonly' => $isLoggedIn ? '1' : '0',
+            'reporter_email_readonly' => $isLoggedIn ? '1' : '0',
         ];
     }
 
@@ -1125,7 +1142,7 @@ final class PublicThemeRenderer
         }
 
         $links = function_exists('getTopicDownloadLinks')
-            ? getTopicDownloadLinks($pdo instanceof PDO ? $pdo : null, (int) ($topic['id'] ?? 0), (string) ($topic['download_links'] ?? ''))
+            ? getTopicDownloadLinks($pdo instanceof PDO ? $pdo : null, (int) ($topic['id'] ?? 0))
             : [];
         if (!is_array($links)) {
             $links = [];
@@ -1633,11 +1650,16 @@ final class PublicThemeRenderer
      */
     private static function topicReportSection(array $topic, string $baseUri, bool $isLoggedIn): string
     {
+        $reporterName = trim((string) ($_SESSION['_auth_user_name'] ?? ''));
+        $reporterEmail = trim((string) ($_SESSION['_auth_user_email'] ?? ''));
+        $reporterNameReadonly = $isLoggedIn ? ' readonly aria-readonly="true"' : '';
+        $reporterEmailReadonly = $isLoggedIn ? ' readonly aria-readonly="true"' : '';
+
         $html = '<div class="topic-report-modal" id="topicReportModal" role="dialog" aria-modal="true" aria-labelledby="report-heading" hidden aria-hidden="true"><div class="topic-report-backdrop" data-report-modal-close data-ui-modal-close></div><div class="topic-report-dialog ui-panel"><div class="topic-report-header ui-panel__head"><h2 id="report-heading"><i class="bi bi-flag" aria-hidden="true"></i> İçeriği Raporla</h2><button type="button" class="topic-report-close" data-report-modal-close data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>';
-        if ($isLoggedIn) {
+        if (true) {
             $html .= '<form class="topic-report-form" action="' . htmlspecialchars(rtrim($baseUri, '/') . '/api/reports.php', ENT_QUOTES, 'UTF-8') . '" method="post">';
             $html .= function_exists('csrf_field') ? csrf_field() : '';
-            $html .= '<input type="hidden" name="action" value="create"><input type="hidden" name="topic_id" value="' . (int) ($topic['id'] ?? 0) . '"><div class="topic-report-grid ui-grid"><label><span>Neden</span><select name="reason" required>';
+            $html .= '<input type="hidden" name="action" value="create"><input type="hidden" name="topic_id" value="' . (int) ($topic['id'] ?? 0) . '"><div class="topic-report-grid topic-report-grid--identity ui-grid"><label class="topic-report-field"><span>Ad Soyad</span><input type="text" name="reporter_name" value="' . htmlspecialchars($reporterName, ENT_QUOTES, 'UTF-8') . '" placeholder="Ad soyad" maxlength="255" required' . $reporterNameReadonly . '></label><label class="topic-report-field"><span>E-posta</span><input type="email" name="reporter_email" value="' . htmlspecialchars($reporterEmail, ENT_QUOTES, 'UTF-8') . '" placeholder="E-posta" maxlength="255" required' . $reporterEmailReadonly . '></label><label class="topic-report-field topic-report-field--full"><span>Neden</span><select name="reason" required>';
             $reasons = function_exists('topicReportReasonLabels') ? topicReportReasonLabels() : ['other' => 'Diğer'];
             foreach ($reasons as $value => $label) {
                 $html .= '<option value="' . htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string) $label, ENT_QUOTES, 'UTF-8') . '</option>';
@@ -1661,7 +1683,7 @@ final class PublicThemeRenderer
         }
 
         $links = function_exists('getTopicDownloadLinks')
-            ? getTopicDownloadLinks($pdo instanceof PDO ? $pdo : null, (int) ($topic['id'] ?? 0), (string) ($topic['download_links'] ?? ''))
+            ? getTopicDownloadLinks($pdo instanceof PDO ? $pdo : null, (int) ($topic['id'] ?? 0))
             : [];
         if (!is_array($links) || $links === []) {
             return '';
@@ -2035,7 +2057,7 @@ final class PublicThemeRenderer
         $commentsCount = (int) ($topic['comment_count'] ?? $topic['comments_count'] ?? $schemaData['commentCount'] ?? count($comments));
         $views = (int) ($topic['view_count'] ?? 0);
         $downloads = (int) ($topic['download_count'] ?? $topic['downloads_count'] ?? 0);
-        $favorites = (int) ($pageVars['favoritesCount'] ?? $topic['favorites_count'] ?? $topic['likes'] ?? $topic['rating_count'] ?? 0);
+        $favorites = (int) ($pageVars['favoritesCount'] ?? $topic['favorites_count'] ?? $topic['likes'] ?? 0);
         $topicUrl = topicUrlForRow($topic);
         if ($topicUrl !== '#' && !preg_match('~^(https?:)?//|^/~i', $topicUrl)) {
             $topicUrl = rtrim($baseUri, '/') . '/' . ltrim($topicUrl, '/');
@@ -2265,12 +2287,8 @@ final class PublicThemeRenderer
         }
 
         $robotsMeta = function_exists('seoRobotsMeta') ? seoRobotsMeta($settings, null, $seoPageKey) : 'index, follow';
-        $indexDraftTopics = function_exists('seoIndexToggleValue')
-            ? seoIndexToggleValue($settings, 'index_draft_topics', '0', 'noindex_draft_topics')
-            : (((string) ($settings['noindex_draft_topics'] ?? '1')) === '1' ? '0' : '1');
-        $indexEmptyCategories = function_exists('seoIndexToggleValue')
-            ? seoIndexToggleValue($settings, 'index_empty_categories', '0', 'noindex_empty_categories')
-            : (((string) ($settings['noindex_empty_categories'] ?? '1')) === '1' ? '0' : '1');
+        $indexDraftTopics = seoIndexToggleValue($settings, 'index_draft_topics', '0');
+        $indexEmptyCategories = seoIndexToggleValue($settings, 'index_empty_categories', '0');
 
         if (isset($pageVars['topic']) && is_array($pageVars['topic']) && ($pageVars['topic']['status'] ?? 'published') !== 'published' && $indexDraftTopics !== '1') {
             $robotsMeta = 'noindex, nofollow';
@@ -2946,7 +2964,12 @@ final class PublicThemeRenderer
         $success = (string) ($pageVars['successMsg'] ?? ($_SESSION['_flash_success'] ?? ''));
         $error = (string) ($pageVars['errorMsg'] ?? ($_SESSION['_flash_error'] ?? ''));
         $info = (string) ($pageVars['infoMsg'] ?? ($_SESSION['_flash_info'] ?? ''));
-        unset($_SESSION['_flash_success'], $_SESSION['_flash_error'], $_SESSION['_flash_info']);
+        $warning = (string) ($pageVars['warningMsg'] ?? ($_SESSION['_flash_warning'] ?? ''));
+        unset($_SESSION['_flash_success'], $_SESSION['_flash_error'], $_SESSION['_flash_info'], $_SESSION['_flash_warning']);
+
+        if (!$enabled && ($success !== '' || $error !== '' || $info !== '' || $warning !== '')) {
+            $enabled = true;
+        }
 
         if (!$enabled) {
             return '<div class="topic-toast-container is-hidden ui-panel__foot" id="toastContainer"></div>';
@@ -2967,6 +2990,7 @@ final class PublicThemeRenderer
             . ' data-toast-dur-warning="' . $warningDuration . '"'
             . ' data-toast-success="' . htmlspecialchars($success, ENT_QUOTES, 'UTF-8') . '"'
             . ' data-toast-error="' . htmlspecialchars($error, ENT_QUOTES, 'UTF-8') . '"'
+            . ' data-toast-warning="' . htmlspecialchars($warning, ENT_QUOTES, 'UTF-8') . '"'
             . ' data-toast-info="' . htmlspecialchars($info, ENT_QUOTES, 'UTF-8') . '"></div>';
     }
 
@@ -3817,9 +3841,6 @@ final class PublicThemeRenderer
     private static function profilePendingTopicItem(array $row, string $baseUri): array
     {
         $status = (string) ($row['status'] ?? 'draft');
-        if ($status === 'pending') {
-            $status = 'draft';
-        }
         $labels = [
             'draft' => ['Taslak', 'bi-pencil-square'],
             'revision' => ['Revizyon Istendi', 'bi-arrow-repeat'],

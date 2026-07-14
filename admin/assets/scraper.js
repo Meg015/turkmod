@@ -1487,9 +1487,8 @@ function setBulkProgress(mappingId, progress) {
 function getBulkPageRange(mappingId) {
     const startInput = document.getElementById('bulk-page-start-' + mappingId);
     const endInput = document.getElementById('bulk-page-end-' + mappingId);
-    const legacyInput = document.getElementById('bulk-page-count-' + mappingId);
     const startValue = parseInt(startInput?.value || '1', 10) || 1;
-    const endValue = parseInt(endInput?.value || legacyInput?.value || startValue, 10) || startValue;
+    const endValue = parseInt(endInput?.value || startValue, 10) || startValue;
     const start = Math.max(1, Math.min(startValue, endValue));
     const end = Math.max(1, Math.max(startValue, endValue));
 

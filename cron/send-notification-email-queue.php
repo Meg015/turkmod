@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Core\Queue\SyncQueue;
-use App\Modules\Notifications\Jobs\NotificationEmailQueueWorkerJob;
-
 /**
  * Notification email queue worker.
  *
@@ -79,9 +76,7 @@ if (!$isCli) {
 }
 $startedAt = date('Y-m-d H:i:s');
 
-$workerJob = new NotificationEmailQueueWorkerJob($pdo, notificationEmailQueueService(), $limit, $dryRun);
-(new SyncQueue())->push($workerJob);
-$result = $workerJob->result();
+$result = notificationEmailQueueService()->process($pdo, $limit, $dryRun);
 $stats = notificationEmailQueueStats($pdo);
 
 echo "Notification email queue worker\n";

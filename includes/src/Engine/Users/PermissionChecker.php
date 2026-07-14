@@ -21,18 +21,6 @@ final class PermissionChecker
             return false;
         }
 
-        if (userHasPermission($pdo, $userId, $permission)) {
-            return true;
-        }
-
-        if ($permission === 'leaderboard.admin') {
-            foreach (['leaderboard.manage', 'leaderboard.view'] as $legacyPermission) {
-                if (userHasPermission($pdo, $userId, $legacyPermission)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return userHasPermission($pdo, $userId, $permission);
     }
 }

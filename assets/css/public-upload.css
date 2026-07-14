@@ -451,7 +451,7 @@
     .dl-row .form-control.w-25 { width: 100% !important; }
 }
 
-/* Premium upload revision - scoped over the legacy inline theme. */
+/* Premium upload surface scoped to the public upload shell. */
 body:has(.public-upload-shell) {
     background:
         linear-gradient(180deg, rgba(244, 184, 68, 0.07), transparent 250px),

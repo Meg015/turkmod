@@ -204,7 +204,7 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
     $categoryId = (int) ($_POST["category_id"] ?? 0);
     $defaultStatus = (string) ($settings["user_upload_default_status"] ?? "published");
     $status = $userUploadRequiresApproval ? "draft" : (in_array($defaultStatus, ["published", "draft"], true) ? $defaultStatus : "published");
-    $topicDownloadLinks = trim($_POST["topic_download_links"] ?? "");
+    $downloadLines = trim($_POST["download_lines"] ?? "");
     $videoUrl = trim($_POST["topic_video_url"] ?? "");
 
     $requireCover =
@@ -243,7 +243,7 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
     if ($requireVersion && $topicVersion === "") {
         uploadTopicRespond(false, "Oyun sürümü alanı zorunludur.", 422);
     }
-    if ($requireDownloadLink && !uploadTopicHasDownloadLink($topicDownloadLinks)) {
+    if ($requireDownloadLink && !uploadTopicHasDownloadLink($downloadLines)) {
         uploadTopicRespond(false, "En az bir geçerli indirme bağlantısı eklemelisiniz.", 422);
     }
     if (!$allowVideoUrl) {
@@ -351,7 +351,7 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
                 "content" => $content,
                 "status" => $status,
                 "moderation_flags_json" => $moderationFlagsJson,
-                "topic_download_links" => $topicDownloadLinks,
+                "download_lines" => $downloadLines,
                 "video_url" => $videoUrl,
                 "max_images" => $maxImages,
             ], [
@@ -722,7 +722,7 @@ require_once $projectRoot . "/includes/public-header.php";
                             </div>
                         </div>
                         <button type="button" class="btn-add-link mt-2" data-ui-action="addDlRow"><i class="bi bi-plus-circle"></i> Yeni Bağlantı Ekle</button>
-                        <input type="hidden" name="topic_download_links" id="dlHidden">
+                        <input type="hidden" name="download_lines" id="dlHidden">
                         <div class="upload-field-rules">
                             <span><i class="bi bi-link-45deg"></i> <?= $requireDownloadLink ? "En az 1 geçerli link zorunlu" : "Link isteğe bağlı" ?></span>
                         </div>

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/init.php';
-require_once __DIR__ . '/../includes/src/Engine/UserActivity/Legacy/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/UserActivity/Support/helpers.php';
 
 adminRequirePermission('logs.view', 'Kullanıcı işlem günlüğünü görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 

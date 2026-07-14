@@ -8,20 +8,43 @@ $GLOBALS['pdo'] = $pdo;
 $baseUri = (string) ($GLOBALS['baseUri'] ?? '');
 $isLoggedIn = (bool) ($GLOBALS['isLoggedIn'] ?? false);
 
-require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Legacy/helpers.php';
-require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Legacy/cache-manager.php';
+require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Support/helpers.php';
+require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Support/cache-manager.php';
 
 $pageTitle = 'Lider Tablosu';
 
-$settings = leaderboardGetSettings($pdo);
+$leaderboardSettings = leaderboardGetSettings($pdo);
 
-$leaderboard_disabled = (($settings['leaderboard_enabled'] ?? '1') !== '1');
-$leaderboard_disabled_message = trim((string) ($settings['leaderboard_disabled_message'] ?? ''));
+$leaderboard_disabled = (($leaderboardSettings['leaderboard_enabled'] ?? '1') !== '1');
+$leaderboard_disabled_message = trim((string) ($leaderboardSettings['leaderboard_disabled_message'] ?? ''));
 if ($leaderboard_disabled_message === '') {
     $leaderboard_disabled_message = 'Liderlik tablosu su anda kapali. Lutfen daha sonra tekrar kontrol edin.';
 }
 $leaderboard_disabled_contact_url = routePublicStaticUrl('contact');
 $leaderboard_disabled_categories_url = categoryListUrl();
+
+$leaderboardThemeShellSettings = isset($_lay) && is_array($_lay)
+    ? $_lay
+    : (isset($settings) && is_array($settings)
+        ? $settings
+        : (function_exists('getAdminSettings') && isset($pdo)
+            ? getAdminSettings($pdo)
+            : []));
+$leaderboardThemeShellSettings['site_name'] = trim((string) ($leaderboardThemeShellSettings['site_name'] ?? '')) !== ''
+    ? (string) $leaderboardThemeShellSettings['site_name']
+    : 'TurkMod';
+$leaderboardThemeShellSettings['header_brand_text'] = trim((string) ($leaderboardThemeShellSettings['header_brand_text'] ?? '')) !== ''
+    ? (string) $leaderboardThemeShellSettings['header_brand_text']
+    : 'TurkMod';
+$leaderboardThemeShellSettings['footer_brand_text'] = trim((string) ($leaderboardThemeShellSettings['footer_brand_text'] ?? '')) !== ''
+    ? (string) $leaderboardThemeShellSettings['footer_brand_text']
+    : 'TurkMod';
+$leaderboardThemeShellSettings['menu_items'] = "Anasayfa|/index.php|bi-house\nKategoriler|{category_list}|bi-grid";
+$leaderboardThemeShellSettings['footer_nav_links'] = "Ana sayfa|{base_url}/index.php\nKategoriler|{base_url}/kategoriler";
+$leaderboardThemeShellSettings['footer_copyright'] = '&copy; {current_year}. <a href="{base_url}/index.php" class="site-footer-brand-link">{site_name}</a> - Tüm hakları saklıdır.';
+$__leaderboardThemeShellSettings = $leaderboardThemeShellSettings;
+$GLOBALS['_lay'] = $__leaderboardThemeShellSettings;
+$_lay = $__leaderboardThemeShellSettings;
 
 /**
  * Keep the structured theme template in sync with the variables prepared by
@@ -127,6 +150,7 @@ $periods = [
     'all_time' => 'Tüm Zamanlar'
 ];
 $leaderboardBaseUrl = routePublicStaticUrl('leaderboard');
+$leaderboard_base_url = $leaderboardBaseUrl;
 
 try {
     $fetchLimit = $perPage;
@@ -332,7 +356,9 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
 </div>
 <?php endif; ?>
 
+<?php if (!function_exists('usesPublicThemeRenderer') || !usesPublicThemeRenderer()): ?>
 <link rel="stylesheet" href="<?= asset_url('assets/css/leaderboard-page.css', $baseUri) ?>">
+<?php endif; ?>
 
 <div class="leaderboard-container ui-container ui-section">
     <div class="ui-panel">
@@ -576,7 +602,7 @@ $leaderboardScriptUrl = rtrim($baseUri, '/') . '/assets/js/leaderboard.js?v=' . 
 <script src="<?= htmlspecialchars($leaderboardScriptUrl, ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <?php require_once $leaderboardProjectRoot . '/includes/public-footer.php'; ?>
-
-
+
+
 
 

@@ -74,3 +74,77 @@ document.addEventListener('keydown', function(event) {
     rowChecks.forEach(function(input) { input.addEventListener('change', sync); });
     sync();
 })();
+
+(function(){
+    var form = document.querySelector('[data-report-reasons-form]');
+    if (!form) return;
+    var list = form.querySelector('[data-report-reasons-list]');
+    var template = document.querySelector('[data-report-reason-template]');
+    var addButton = document.querySelector('[data-report-reason-add]');
+
+    function rows() {
+        return Array.prototype.slice.call(list.querySelectorAll('[data-report-reason-row]'));
+    }
+
+    function slug(value) {
+        var map = {'ç':'c','ğ':'g','ı':'i','i':'i','ö':'o','ş':'s','ü':'u'};
+        return String(value || '').toLocaleLowerCase('tr-TR').split('').map(function(char) {
+            return map[char] || char;
+        }).join('').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+    }
+
+    function syncButtons() {
+        var currentRows = rows();
+        currentRows.forEach(function(row, index) {
+            var up = row.querySelector('[data-report-reason-up]');
+            var down = row.querySelector('[data-report-reason-down]');
+            var remove = row.querySelector('[data-report-reason-remove]');
+            if (up) up.disabled = index === 0;
+            if (down) down.disabled = index === currentRows.length - 1;
+            if (remove) remove.disabled = currentRows.length <= 1;
+        });
+        if (addButton) addButton.disabled = currentRows.length >= 20;
+    }
+
+    if (addButton && template) {
+        addButton.addEventListener('click', function() {
+            if (rows().length >= 20) return;
+            list.appendChild(template.content.cloneNode(true));
+            var newRow = rows()[rows().length - 1];
+            newRow.querySelector('input[name="reason_labels[]"]')?.focus();
+            syncButtons();
+        });
+    }
+
+    list.addEventListener('input', function(event) {
+        var labelInput = event.target.closest('input[name="reason_labels[]"]');
+        if (!labelInput) return;
+        var row = labelInput.closest('[data-report-reason-row]');
+        var keyInput = row?.querySelector('input[name="reason_keys[]"]');
+        if (row?.classList.contains('is-new') && keyInput && !keyInput.dataset.manualKey) {
+            keyInput.value = slug(labelInput.value);
+        }
+    });
+
+    list.addEventListener('input', function(event) {
+        var keyInput = event.target.closest('input[name="reason_keys[]"]');
+        if (keyInput && !keyInput.readOnly) keyInput.dataset.manualKey = '1';
+    });
+
+    list.addEventListener('click', function(event) {
+        var row = event.target.closest('[data-report-reason-row]');
+        if (!row) return;
+        if (event.target.closest('[data-report-reason-remove]')) {
+            if (rows().length > 1) row.remove();
+        } else if (event.target.closest('[data-report-reason-up]')) {
+            var previous = row.previousElementSibling;
+            if (previous) list.insertBefore(row, previous);
+        } else if (event.target.closest('[data-report-reason-down]')) {
+            var next = row.nextElementSibling;
+            if (next) list.insertBefore(next, row);
+        }
+        syncButtons();
+    });
+
+    syncButtons();
+})();

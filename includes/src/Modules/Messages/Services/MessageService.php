@@ -14,6 +14,9 @@ final class MessageService
     /** @var callable|null */
     private $notificationDispatcher;
 
+    /** @var callable(string,string):string */
+    private $routeUrlResolver;
+
     /** @var array<int,bool> */
     private array $schemaReadyByConnection = [];
 
@@ -23,20 +26,24 @@ final class MessageService
     public function __construct(
         private ?MessageSchemaService $schema = null,
         ?callable $notificationDispatcher = null,
+        ?callable $routeUrlResolver = null,
     ) {
         $this->schema ??= new MessageSchemaService();
         $this->notificationDispatcher = $notificationDispatcher;
+        $this->routeUrlResolver = $routeUrlResolver ?? static function (string $routeKey, string $baseUri): string {
+            if (function_exists('routePublicStaticUrl')) {
+                return routePublicStaticUrl($routeKey);
+            }
+
+            return rtrim($baseUri, '/') . '/mesajlar';
+        };
     }
 
     public function ensureSchema(PDO $pdo, bool $respectRuntimeGate = true): void
     {
         $key = spl_object_id($pdo);
 
-        try {
-            $this->schema->ensureSchema($pdo, $respectRuntimeGate);
-        } catch (Throwable) {
-            // Graceful fallback: callers check readiness before any table query.
-        }
+        $this->schema->ensureSchema($pdo, $respectRuntimeGate);
 
         $this->schemaReadyByConnection[$key] = $this->hasRequiredTables($pdo);
     }
@@ -83,7 +90,7 @@ final class MessageService
 
         $typingSelect = $this->participantTypingSelectSql($pdo, 'other_p');
         $otherUserNameSql = $this->userDisplayNameSql($pdo, 'u');
-        $otherUserAvatarSql = $this->userColumnSql($pdo, 'avatar', 'u', "''");
+        $otherUserAvatarSql = $this->userColumnSql($pdo, 'avatar', 'u');
 
         try {
             $stmt = $pdo->prepare("
@@ -154,7 +161,7 @@ final class MessageService
 
         $typingSelect = $this->participantTypingSelectSql($pdo, 'other_p');
         $otherUserNameSql = $this->userDisplayNameSql($pdo, 'u');
-        $otherUserAvatarSql = $this->userColumnSql($pdo, 'avatar', 'u', "''");
+        $otherUserAvatarSql = $this->userColumnSql($pdo, 'avatar', 'u');
 
         try {
             $stmt = $pdo->prepare("
@@ -500,10 +507,10 @@ final class MessageService
         $limit = max(1, min(20, $limit));
         $rows = [];
         $displayNameSql = $this->userDisplayNameSql($pdo);
-        $avatarSql = $this->userColumnSql($pdo, 'avatar', '', "''");
-        $statusSql = $this->userColumnSql($pdo, 'status', '', "'active'");
-        $isBannedSql = $this->userColumnSql($pdo, 'is_banned', '', '0');
-        $deletedAtSql = $this->userColumnSql($pdo, 'deleted_at', '', 'NULL');
+        $avatarSql = $this->userColumnSql($pdo, 'avatar');
+        $statusSql = $this->userColumnSql($pdo, 'status');
+        $isBannedSql = $this->userColumnSql($pdo, 'is_banned');
+        $deletedAtSql = $this->userColumnSql($pdo, 'deleted_at');
         $sql = "
             SELECT id, {$displayNameSql} AS username, {$avatarSql} AS avatar, {$statusSql} AS status, {$isBannedSql} AS is_banned, {$deletedAtSql} AS deleted_at
             FROM users
@@ -513,31 +520,12 @@ final class MessageService
             LIMIT :limit
         ";
 
-        try {
-            $stmt = $pdo->prepare($sql);
-            $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
-            $stmt->bindValue(':query', '%' . $query . '%', PDO::PARAM_STR);
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-            $stmt->execute();
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        } catch (Throwable) {
-            // Minimal fallback for older schemas.
-            $displayNameSql = $this->userDisplayNameSql($pdo);
-            $avatarSql = $this->userColumnSql($pdo, 'avatar', '', "''");
-            $fallback = $pdo->prepare("
-                SELECT id, {$displayNameSql} AS username, {$avatarSql} AS avatar
-                FROM users
-                WHERE id <> :user_id
-                  AND {$displayNameSql} LIKE :query
-                ORDER BY {$displayNameSql} ASC
-                LIMIT :limit
-            ");
-            $fallback->bindValue(':user_id', $userId, PDO::PARAM_INT);
-            $fallback->bindValue(':query', '%' . $query . '%', PDO::PARAM_STR);
-            $fallback->bindValue(':limit', $limit, PDO::PARAM_INT);
-            $fallback->execute();
-            $rows = $fallback->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        }
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':query', '%' . $query . '%', PDO::PARAM_STR);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $users = [];
         foreach ($rows as $row) {
@@ -906,10 +894,10 @@ final class MessageService
 
         try {
             $displayNameSql = $this->userDisplayNameSql($pdo);
-            $avatarSql = $this->userColumnSql($pdo, 'avatar', '', "''");
-            $statusSql = $this->userColumnSql($pdo, 'status', '', "'active'");
-            $isBannedSql = $this->userColumnSql($pdo, 'is_banned', '', '0');
-            $deletedAtSql = $this->userColumnSql($pdo, 'deleted_at', '', 'NULL');
+            $avatarSql = $this->userColumnSql($pdo, 'avatar');
+            $statusSql = $this->userColumnSql($pdo, 'status');
+            $isBannedSql = $this->userColumnSql($pdo, 'is_banned');
+            $deletedAtSql = $this->userColumnSql($pdo, 'deleted_at');
             $stmt = $pdo->prepare('
                 SELECT id, ' . $displayNameSql . ' AS username, ' . $avatarSql . ' AS avatar, ' . $statusSql . ' AS status, ' . $isBannedSql . ' AS is_banned, ' . $deletedAtSql . ' AS deleted_at
                 FROM users
@@ -932,22 +920,12 @@ final class MessageService
     {
         $prefix = $alias !== '' ? $alias . '.' : '';
 
-        foreach (['username', 'name', 'author'] as $column) {
-            if ($this->schema->columnExists($pdo, 'users', $column)) {
-                return $prefix . $column;
-            }
-        }
-
-        return "'Kullanici'";
+        return $prefix . 'username';
     }
 
-    private function userColumnSql(PDO $pdo, string $column, string $alias = '', string $fallbackSql = 'NULL'): string
+    private function userColumnSql(PDO $pdo, string $column, string $alias = ''): string
     {
-        if ($this->schema->columnExists($pdo, 'users', $column)) {
-            return ($alias !== '' ? $alias . '.' : '') . $column;
-        }
-
-        return $fallbackSql;
+        return ($alias !== '' ? $alias . '.' : '') . $column;
     }
 
     /**
@@ -1072,7 +1050,7 @@ final class MessageService
             return '';
         }
 
-        $base = (string) routePublicStaticUrl('messages');
+        $base = (string) ($this->routeUrlResolver)('messages', $baseUri);
 
         return $base . '?thread=' . $threadId;
     }
@@ -1139,7 +1117,7 @@ final class MessageService
     public function deleteMessage(PDO $pdo, int $messageId, int $userId): array
     {
         if ($messageId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
-            return ['success' => false, 'message' => 'GeÃ§ersiz istek.'];
+            return ['success' => false, 'message' => 'Geçersiz istek.'];
         }
 
         // Fetch message
@@ -1148,21 +1126,21 @@ final class MessageService
         $msg = $stmt->fetch();
 
         if (!$msg) {
-            return ['success' => false, 'message' => 'Mesaj bulunamadÄ±.'];
+            return ['success' => false, 'message' => 'Mesaj bulunamadı.'];
         }
 
         if ((int)$msg['sender_user_id'] !== $userId) {
-            return ['success' => false, 'message' => 'Sadece kendi mesajlarÄ±nÄ±zÄ± silebilirsiniz.'];
+            return ['success' => false, 'message' => 'Sadece kendi mesajlarınızı silebilirsiniz.'];
         }
 
         if (!empty($msg['is_deleted'])) {
-            return ['success' => false, 'message' => 'Mesaj zaten silinmiÅŸ.'];
+            return ['success' => false, 'message' => 'Mesaj zaten silinmiş.'];
         }
 
         // 15 minute limit
         $createdAt = strtotime((string)$msg['created_at']);
         if (time() - $createdAt > 15 * 60) {
-            return ['success' => false, 'message' => 'Mesajlar sadece ilk 15 dakika iÃ§inde silinebilir.'];
+            return ['success' => false, 'message' => 'Mesajlar sadece ilk 15 dakika içinde silinebilir.'];
         }
 
         $nowSql = $this->schema->nowSql($pdo);
@@ -1180,18 +1158,18 @@ final class MessageService
             'message_id' => $messageId
         ]);
 
-        return ['success' => true, 'message' => 'Mesaj baÅŸarÄ±yla silindi.'];
+        return ['success' => true, 'message' => 'Mesaj başarıyla silindi.'];
     }
 
     public function editMessage(PDO $pdo, int $messageId, int $userId, string $newBody): array
     {
         if ($messageId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
-            return ['success' => false, 'message' => 'GeÃ§ersiz istek.'];
+            return ['success' => false, 'message' => 'Geçersiz istek.'];
         }
 
         $newBody = trim($newBody);
         if ($newBody === '') {
-            return ['success' => false, 'message' => 'Mesaj iÃ§eriÄŸi boÅŸ olamaz.'];
+            return ['success' => false, 'message' => 'Mesaj içeriği boş olamaz.'];
         }
 
         // Fetch message
@@ -1200,21 +1178,21 @@ final class MessageService
         $msg = $stmt->fetch();
 
         if (!$msg) {
-            return ['success' => false, 'message' => 'Mesaj bulunamadÄ±.'];
+            return ['success' => false, 'message' => 'Mesaj bulunamadı.'];
         }
 
         if ((int)$msg['sender_user_id'] !== $userId) {
-            return ['success' => false, 'message' => 'Sadece kendi mesajlarÄ±nÄ±zÄ± dÃ¼zenleyebilirsiniz.'];
+            return ['success' => false, 'message' => 'Sadece kendi mesajlarınızı düzenleyebilirsiniz.'];
         }
 
         if (!empty($msg['is_deleted'])) {
-            return ['success' => false, 'message' => 'SilinmiÅŸ mesajÄ± dÃ¼zenleyemezsiniz.'];
+            return ['success' => false, 'message' => 'Silinmiş mesajı düzenleyemezsiniz.'];
         }
 
         // 15 minute limit
         $createdAt = strtotime((string)$msg['created_at']);
         if (time() - $createdAt > 15 * 60) {
-            return ['success' => false, 'message' => 'Mesajlar sadece ilk 15 dakika iÃ§inde dÃ¼zenlenebilir.'];
+            return ['success' => false, 'message' => 'Mesajlar sadece ilk 15 dakika içinde düzenlenebilir.'];
         }
 
         $nowSql = $this->schema->nowSql($pdo);
@@ -1230,7 +1208,7 @@ final class MessageService
             'body' => $newBody
         ]);
 
-        return ['success' => true, 'message' => 'Mesaj baÅŸarÄ±yla dÃ¼zenlendi.'];
+        return ['success' => true, 'message' => 'Mesaj başarıyla düzenlendi.'];
     }
 
     public function getHistory(PDO $pdo, int $userId, int $threadId, int $beforeId): array

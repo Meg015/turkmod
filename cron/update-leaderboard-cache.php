@@ -36,9 +36,9 @@ $isCli = php_sapi_name() === 'cli';
 
 // Initialize
 require_once __DIR__ . '/../includes/init.php';
-require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/cache-manager.php';
-require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/calculator.php';
+require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Support/helpers.php';
+require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Support/cache-manager.php';
+require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Support/calculator.php';
 require_once __DIR__ . '/../admin/helpers.php';
 
 if (!$isCli) {

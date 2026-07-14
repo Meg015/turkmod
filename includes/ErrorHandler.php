@@ -18,8 +18,8 @@ class ErrorHandler {
         }
 
         $envValue = (string) ($_ENV['APP_ENV'] ?? '');
-        if ($envValue === '' && class_exists(\App\Core\Database::class) && method_exists(\App\Core\Database::class, 'getEnvConfig')) {
-            $env = \App\Core\Database::getEnvConfig();
+        if ($envValue === '' && class_exists(\App\Core\DatabaseConnection::class) && method_exists(\App\Core\DatabaseConnection::class, 'getEnvConfig')) {
+            $env = \App\Core\DatabaseConnection::getEnvConfig();
             $envValue = (string) ($env['APP_ENV'] ?? '');
         }
 

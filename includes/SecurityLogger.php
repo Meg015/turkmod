@@ -125,28 +125,9 @@ function logSuspiciousActivity(PDO $pdo, string $activityType, array $details = 
  */
 function ensureSecurityEventsTable(PDO $pdo): void
 {
-    if (function_exists('runtimeSchemaUpdatesAllowed') && !runtimeSchemaUpdatesAllowed()) {
-        return;
-    }
-
-    try {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS security_events (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                event_type VARCHAR(50) NOT NULL,
-                user_id INT NULL,
-                ip_address VARCHAR(45) NOT NULL,
-                user_agent VARCHAR(255),
-                request_uri VARCHAR(255),
-                context JSON,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_event_type (event_type),
-                INDEX idx_user_id (user_id),
-                INDEX idx_ip_address (ip_address),
-                INDEX idx_created_at (created_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
-    } catch (Throwable $e) {
-        error_log("Failed to create security_events table: " . $e->getMessage());
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?');
+    $stmt->execute(['security_events']);
+    if ((int) $stmt->fetchColumn() === 0) {
+        throw new RuntimeException('Missing security_events; run Admin Panel > Database Synchronization.');
     }
 }

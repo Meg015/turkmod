@@ -1,4 +1,4 @@
-/* Shared UI behavior and toast/action compatibility layer. */
+/* Shared UI behavior and toast/action foundation. */
 (function () {
     'use strict';
 
@@ -655,6 +655,7 @@
         [
             ['success', container.getAttribute('data-toast-success')],
             ['error', container.getAttribute('data-toast-error')],
+            ['warning', container.getAttribute('data-toast-warning')],
             ['info', container.getAttribute('data-toast-info')]
         ].forEach(function (entry) {
             if (entry[1]) {

@@ -11,11 +11,6 @@ use RuntimeException;
 
 final class DatabaseRateLimiter implements RateLimiter
 {
-    /**
-     * @var array<string,bool>
-     */
-    private static array $schemaEnsured = [];
-
     public function __construct(
         private PDO $pdo,
         private string $scope = 'default',
@@ -31,7 +26,7 @@ final class DatabaseRateLimiter implements RateLimiter
             throw new InvalidArgumentException('Rate limiter table name is invalid.');
         }
 
-        $this->ensureSchema();
+        $this->assertSchemaReady();
     }
 
     public function check(string $key, int $limit, int $windowSeconds): bool
@@ -165,8 +160,8 @@ final class DatabaseRateLimiter implements RateLimiter
                 'rate_key' => $this->normalizeKey($key),
             ]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException) {
-            return null;
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Rate limiter state could not be read.', 0, $exception);
         }
 
         if (!is_array($row)) {
@@ -193,38 +188,18 @@ final class DatabaseRateLimiter implements RateLimiter
         return 'sha256:' . hash('sha256', $key);
     }
 
-    private function ensureSchema(): void
+    private function assertSchemaReady(): void
     {
-        if (isset(self::$schemaEnsured[$this->table])) {
-            return;
-        }
-
-        if (function_exists('runtimeSchemaUpdatesAllowed') && !runtimeSchemaUpdatesAllowed()) {
-            self::$schemaEnsured[$this->table] = true;
-            return;
-        }
-
-        $tableName = $this->table;
-        $sql = "CREATE TABLE IF NOT EXISTS `{$tableName}` (
-            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            `scope` varchar(100) NOT NULL,
-            `rate_key` varchar(191) NOT NULL,
-            `attempt_count` int(10) unsigned NOT NULL DEFAULT 0,
-            `first_attempt_at` timestamp NULL DEFAULT NULL,
-            `last_attempt_at` timestamp NULL DEFAULT NULL,
-            `expires_at` timestamp NULL DEFAULT NULL,
-            `created_at` timestamp NULL DEFAULT NULL,
-            `updated_at` timestamp NULL DEFAULT NULL,
-            PRIMARY KEY (`id`),
-            UNIQUE KEY `scope_key_unique` (`scope`, `rate_key`),
-            KEY `expires_index` (`expires_at`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-
         try {
-            $this->pdo->exec($sql);
-            self::$schemaEnsured[$this->table] = true;
+            $stmt = $this->pdo->prepare(
+                'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name',
+            );
+            $stmt->execute(['table_name' => $this->table]);
+            if ((int) $stmt->fetchColumn() === 0) {
+                throw new RuntimeException('Rate limiter schema is missing; run Database Synchronization.');
+            }
         } catch (PDOException $exception) {
-            throw new RuntimeException('Rate limiter schema could not be created.', 0, $exception);
+            throw new RuntimeException('Rate limiter schema readiness could not be verified.', 0, $exception);
         }
     }
 }

@@ -34,16 +34,6 @@ final class LeaderboardCacheService
         $ttl = (int) ($settings[$ttlKey] ?? 0);
 
         if ($ttl === 0) {
-            try {
-                $stmt = $pdo->prepare("SELECT value FROM settings WHERE `key` = ?");
-                $stmt->execute([$ttlKey]);
-                $ttl = (int) $stmt->fetchColumn();
-            } catch (Throwable) {
-                $ttl = 0;
-            }
-        }
-
-        if ($ttl === 0) {
             $defaultTtls = [
                 'daily' => 900,
                 'weekly' => 3600,

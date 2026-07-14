@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Engine\Scraper\Support\ScraperEngine;
+
 require_once __DIR__ . '/../includes/init.php';
-require_once __DIR__ . '/../includes/src/Engine/Scraper/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/Scraper/Legacy/engine.php';
+require_once __DIR__ . '/../includes/src/Engine/Scraper/Support/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/Scraper/Support/ScraperEngine.php';
 
 function scraperImageCacheDirectory(): string
 {

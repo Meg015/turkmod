@@ -19,13 +19,6 @@ function adminThemesSaveSetting(PDO $pdo, string $key, string $value): void
         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
     $stmt->execute(['key' => $key, 'value' => $value]);
 
-    try {
-        $legacy = $pdo->prepare("INSERT INTO settings (`key`, value, type, created_at, updated_at)
-            VALUES (:key, :value, 'string', NOW(), NOW())
-            ON DUPLICATE KEY UPDATE value = VALUES(value), type = VALUES(type), updated_at = NOW()");
-        $legacy->execute(['key' => $key, 'value' => $value]);
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-
     if (function_exists('invalidateAdminSettingsCache')) {
         invalidateAdminSettingsCache();
     }
@@ -36,13 +29,6 @@ function adminThemesDeleteSetting(PDO $pdo, string $key): void
     try {
         $stmt = $pdo->prepare("DELETE FROM admin_settings WHERE setting_key = :key");
         $stmt->execute(['key' => $key]);
-    } catch (Throwable $e) {
-        error_log('[silent-catch] ' . $e->getMessage());
-    }
-
-    try {
-        $legacy = $pdo->prepare("DELETE FROM settings WHERE `key` = :key");
-        $legacy->execute(['key' => $key]);
     } catch (Throwable $e) {
         error_log('[silent-catch] ' . $e->getMessage());
     }
@@ -94,7 +80,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 throw new RuntimeException('Tema aktif edilemez: ' . implode(' ', $validation['errors']));
             }
             adminThemesSaveSetting($pdo, 'theme_active_id', $postTheme);
-            adminThemesDeleteSetting($pdo, 'active_public_theme');
             unset($_SESSION['_theme_preview_id']);
             flash('success', 'Tema aktif edildi.');
             adminThemesRedirect($postTheme);

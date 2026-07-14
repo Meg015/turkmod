@@ -1,7 +1,7 @@
 /* ============================================================
    UNIFIED DESIGN SYSTEM - Single Source of Truth
    Merges admin and user design systems
-   Maintains 100% backward compatibility via aliases
+   Exposes shared semantic aliases for admin and public components
    ============================================================ */
 
 :root {

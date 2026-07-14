@@ -19,7 +19,7 @@ final class Dispatcher
     /**
      * @param array<int,Middleware|string> $middleware
      */
-    public function dispatch(Request $request, string|Handler|LegacyFileHandler $target, array $middleware = []): Response
+    public function dispatch(Request $request, string|Handler|FileHandler $target, array $middleware = []): Response
     {
         $handler = $this->resolveHandler($target);
         if ($middleware === []) {
@@ -34,9 +34,9 @@ final class Dispatcher
         $response->send();
     }
 
-    private function resolveHandler(string|Handler|LegacyFileHandler $target): Handler
+    private function resolveHandler(string|Handler|FileHandler $target): Handler
     {
-        if ($target instanceof LegacyFileHandler) {
+        if ($target instanceof FileHandler) {
             return $target;
         }
 
@@ -57,7 +57,7 @@ final class Dispatcher
         }
 
         if (is_file($target)) {
-            return LegacyFileHandler::for($target);
+            return FileHandler::for($target);
         }
 
         throw new InvalidArgumentException('Unsupported route target: ' . $target);

@@ -32,10 +32,6 @@ if (!verify_csrf_token((string) $csrf)) {
     sendCsrfError();
 }
 
-if (empty($_SESSION['_auth_user_id'])) {
-    sendUnauthorized('Bu işlem için giriş yapmalısınız.');
-}
-
 session_write_close();
 
 $action = (string) (($payload['action'] ?? $_POST['action'] ?? 'create'));
@@ -46,15 +42,51 @@ if ($action !== 'create') {
 $topicId = (int) ($payload['topic_id'] ?? $_POST['topic_id'] ?? 0);
 $reason = (string) ($payload['reason'] ?? $_POST['reason'] ?? '');
 $details = (string) ($payload['details'] ?? $_POST['details'] ?? '');
+$reporterUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+$reporterName = trim((string) ($payload['reporter_name'] ?? $_POST['reporter_name'] ?? ($_SESSION['_auth_user_name'] ?? '')));
+$reporterEmail = trim((string) ($payload['reporter_email'] ?? $_POST['reporter_email'] ?? ($_SESSION['_auth_user_email'] ?? '')));
 
-$clientKey = 'api_report_' . (int) $_SESSION['_auth_user_id'];
+if ($reporterUserId > 0 && function_exists('usersGetById')) {
+    try {
+        $member = usersGetById($pdo, $reporterUserId);
+        if (is_array($member)) {
+            if ($reporterName === '') {
+                $reporterName = trim((string) ($member['username'] ?? ''));
+            }
+            if ($reporterEmail === '') {
+                $reporterEmail = trim((string) ($member['email'] ?? ''));
+            }
+        }
+    } catch (Throwable) {
+        // Fall back to the session snapshot.
+    }
+}
+
+if ($reporterUserId <= 0) {
+    if ($reporterName === '' || $reporterEmail === '') {
+        sendError('invalid_reporter', 'Ad soyad ve e-posta alanları zorunludur.', 422);
+    }
+    if (filter_var($reporterEmail, FILTER_VALIDATE_EMAIL) === false) {
+        sendError('invalid_reporter_email', 'Geçerli bir e-posta adresi girin.', 422);
+    }
+}
+
+$reporterName = mb_substr($reporterName, 0, 255, 'UTF-8');
+$reporterEmail = mb_substr($reporterEmail, 0, 255, 'UTF-8');
+
+$clientKey = $reporterUserId > 0
+    ? 'api_report_' . $reporterUserId
+    : 'api_report_guest_' . md5((string) ($_SERVER['REMOTE_ADDR'] ?? 'guest') . '|' . mb_strtolower($reporterEmail, 'UTF-8'));
 if (!checkRateLimit($clientKey, $reportSubmitRateLimit, $reportSubmitRateWindow)) {
     sendRateLimitError(max(60, $reportSubmitRateWindow * 60));
 }
 incrementRateLimit($clientKey, $reportSubmitRateWindow);
 
 try {
-    $result = submitTopicReport($pdo, $topicId, (int) $_SESSION['_auth_user_id'], $reason, $details);
+    $result = submitTopicReport($pdo, $topicId, $reporterUserId, $reason, $details, [
+        'name' => $reporterName,
+        'email' => $reporterEmail,
+    ]);
     $success = (bool) ($result['success'] ?? false);
     $message = (string) ($result['message'] ?? ($success ? 'Rapor alındı.' : 'Rapor gönderilemedi.'));
     $data = $result;

@@ -57,7 +57,7 @@
                         {/loop}
                     </div>
                     <div class="leaderboard-search">
-                        <form method="get" action="{base_url}/leaderboard.php">
+                        <form method="get" action="{leaderboard_base_url}">
                             <input type="hidden" name="category" value="{leaderboard_category}">
                             <input type="hidden" name="period" value="{leaderboard_period}">
                             <div class="search-input-group">

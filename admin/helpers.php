@@ -17,14 +17,6 @@ declare(strict_types=1);
  * dikkat). Bu dokumantasyon, sonraki bakimci icin yol isaretidir.
  */
 
-function adminSafeIdentifier(string $identifier): string
-{
-    if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $identifier)) {
-        throw new InvalidArgumentException("Invalid identifier: {$identifier}");
-    }
-    return "`{$identifier}`";
-}
-
 function adminRenderForbiddenPage(string $message = 'Bu sayfaya erişim yetkiniz yok.'): void
 {
     global $pdo, $baseUri;
@@ -215,6 +207,11 @@ function adminSettingDefinitions(): array
         'site_description'       => ['label' => 'Site Açıklaması',       'type' => 'text',   'default' => 'Topluluk içerikleri ve paylaşım platformu.',     'section' => 'general'],
 
         // -- SEO ------------------------------------------------
+        'default_meta_title'       => ['label' => 'Varsayilan Meta Basligi',      'type' => 'string', 'default' => '',    'section' => 'seo'],
+        'meta_title_suffix'        => ['label' => 'Meta Baslik Son Eki',          'type' => 'string', 'default' => '',    'section' => 'seo'],
+        'default_meta_description' => ['label' => 'Varsayilan Meta Aciklamasi',   'type' => 'text',   'default' => '',    'section' => 'seo'],
+        'meta_description_max_length' => ['label' => 'Meta Aciklama Azami Uzunluk', 'type' => 'number', 'default' => '160', 'section' => 'seo', 'min' => 80, 'max' => 320],
+        'allow_indexing'           => ['label' => 'Arama Motoru Indekslemesi',    'type' => 'bool',   'default' => '1',   'section' => 'seo'],
         'canonical_base_url'       => ['label' => 'Canonical Ana URL',            'type' => 'string', 'default' => '',                               'section' => 'seo', 'tooltip' => 'Canonical URL\'ler için kullanılacak temel URL (boş bırakılırsa otomatik tespit edilir)'],
         'canonical_trailing_slash' => ['label' => 'Canonical Sonda Slash Kullan', 'type' => 'bool',   'default' => '0',                                                  'section' => 'seo', 'tooltip' => 'Canonical URL\'lerin sonuna "/" ekler (örn: /sayfa/ yerine /sayfa)'],
         'og_image'                 => ['label' => 'Open Graph Görsel URL',        'type' => 'string', 'default' => '',                                                   'section' => 'seo', 'tooltip' => 'Sosyal medyada paylaşımlarda kullanılacak varsayılan Open Graph görseli (1200x630px)'],
@@ -243,7 +240,6 @@ function adminSettingDefinitions(): array
         'robots_disallow_database' => ['label' => 'Robots: /database/ Engelle', 'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Veritabanı klasörünü arama motorlarından gizler (güvenlik için önerilir)'],
         'robots_crawl_delay'       => ['label' => 'Robots Crawl Delay (sn)',    'type' => 'number', 'default' => '0',                                                    'section' => 'seo', 'tooltip' => 'Botların istekler arasında beklemesi gereken süre (0=sınırsız, sunucu yükünü azaltır)'],
         'robots_custom_rules'      => ['label' => 'Robots Özel Kurallar',       'type' => 'text',   'default' => '',                                                     'section' => 'seo', 'tooltip' => 'Robots.txt\'e eklenecek özel kurallar (her satır bir kural)'],
-        'robots_noindex_search'    => ['label' => 'Arama Sonuçlarını Noindexle (Eski Uyumluluk)',  'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Eski sürümlerle uyumluluk içindir. Yeni ayar: "Arama Sonuçları İndekslensin"'],
         'robots_noindex_profiles'  => ['label' => 'Profil Sayfalarına Noindex', 'type' => 'bool',   'default' => '0',                                                    'section' => 'seo', 'tooltip' => 'Tüm profil sayfalarına noindex ekler (genellikle kapalı tutulur)'],
         'structured_data'          => ['label' => 'Yapısal Veri (JSON-LD)',       'type' => 'bool',   'default' => '1',                                                  'section' => 'seo', 'tooltip' => 'Schema.org yapısal veri (JSON-LD) ekleme özelliğini aktif eder (rich snippets için önemli)'],
         'schema_site_search'       => ['label' => 'Site Search Schema',         'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Google\'da site içi arama kutusu gösterilmesini sağlar (SearchAction schema)'],
@@ -460,20 +456,6 @@ function adminSettingDefinitions(): array
             'section' => 'seo',
             'tooltip' => 'Kapalıysa 2. ve sonraki sayfalara otomatik olarak noindex eklenir. (Crawl bütçesi için önerilir)'
         ],
-        'noindex_empty_categories' => [
-            'label' => 'Boş Kategorileri İndeksleme',
-            'type' => 'bool',
-            'default' => '1',
-            'section' => 'seo',
-            'tooltip' => 'İçeriği olmayan kategori sayfalarına otomatik olarak noindex etiketi ekler'
-        ],
-        'noindex_draft_topics' => [
-            'label' => 'Taslak Konuları İndeksleme',
-            'type' => 'bool',
-            'default' => '1',
-            'section' => 'seo',
-            'tooltip' => 'Taslak konuların detay sayfalarına noindex etiketi ekler'
-        ],
 
         // -- Görünüm --------------------------------------------
         'accent_color'           => ['label' => 'Vurgu Rengi',            'type' => 'color',  'default' => '#8b1538',  'section' => 'appearance'],
@@ -570,6 +552,7 @@ function adminSettingDefinitions(): array
 
         // -- Moderasyon -----------------------------------------
         'banned_words'              => ['label' => 'Yasakli Kelimeler (satır başına bir)', 'type' => 'text', 'default' => '', 'section' => 'moderation'],
+        'topic_report_reasons_json' => ['label' => 'Konu Rapor Nedenleri', 'type' => 'text', 'default' => '', 'section' => 'reports', 'tooltip' => 'Public konu raporlama penceresinde gösterilecek nedenleri belirler.'],
 
         // -- Yorum Sistemi -------------------------------------
         // Genel açma/kapama + onay anahtarları kolay erişim için bu sekmede.
@@ -609,11 +592,27 @@ function adminSettingDefinitions(): array
         'comment_mentions_enabled'   => ['label' => 'Mention (@kullanıcı) Sistemi', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => '@kullaniciadi şeklinde kullanıcı etiketlemeye izin verir. Etiketlenen kullanıcı bildirim alır.'],
         'comment_edit_history'       => ['label' => 'Düzenleme Geçmişi Kaydet', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yorumlarda yapılan düzenlemelerin geçmişini saklar ve görüntülemeye izin verir.'],
         'comment_media_enabled'      => ['label' => 'Görsel Yükleme İzni', 'type' => 'bool', 'default' => '0', 'section' => 'comments', 'tooltip' => 'Kullanıcıların yorumlara görsel (screenshot) eklemesine izin verir.'],
-        'comment_spam_detection'     => ['label' => 'Otomatik Spam Tespiti', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Tekrarlayan yorumları ve spam içeriği otomatik tespit eder.'],
+        'comment_spam_detection'     => ['label' => 'Spam Denetimi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Tekrar, anlamsız ifade, noktalama-only, büyük harf ve bağlantı kalıplarını denetler.'],
+        'comment_spam_action'        => ['label' => 'Spam Eylemi', 'type' => 'select', 'default' => 'reject', 'section' => 'comments', 'options' => ['reject' => 'Reddet ve kaydetme', 'pending' => 'Onaya gönder', 'store_rejected' => 'Reddedilmiş olarak kaydet'], 'tooltip' => 'Spam tespit edildiğinde yorumun nasıl işleneceğini seçin.'],
+        'comment_spam_reject_message'=> ['label' => 'Spam Hata Mesajı', 'type' => 'string', 'default' => 'Yorumunuz spam veya anlamsız içerik olarak algılandı. Lütfen daha açıklayıcı bir yorum yazın.', 'section' => 'comments', 'tooltip' => 'Spam reddedildiğinde kullanıcıya gösterilecek genel hata metni.'],
+        'comment_spam_pending_message'=> ['label' => 'Spam Onay Mesajı', 'type' => 'string', 'default' => 'Yorumunuz spam filtresine takıldı ve onaya gönderildi.', 'section' => 'comments', 'tooltip' => 'Spam nedeniyle onaya gönderilen yorumlarda kullanıcıya gösterilecek toast metni.'],
+        'comment_spam_exempt_usernames' => ['label' => 'Spam Muaf Kullanıcı Adları', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgül, satır sonu veya noktalı virgülle ayırın. Bu kullanıcı adları yorum spam kontrollerinden tamamen muaf tutulur.'],
+        'comment_spam_exempt_groups'    => ['label' => 'Spam Muaf Gruplar', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgül, satır sonu veya noktalı virgülle ayırın. Grup adı veya slug değeri ile eşleşir; eşleşen kullanıcılar yorum spam kontrollerinden tamamen muaf tutulur.'],
+        'comment_spam_punctuation_only_enabled' => ['label' => 'Yalnız Noktalama Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yalnızca noktalama, sembol, boşluk veya emoji içeren yorumları spam sayar.'],
+        'comment_spam_min_meaningful_chars' => ['label' => 'Minimum Harf/Rakam Sayısı', 'type' => 'number', 'default' => '2', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Spam kararı vermeden önce yorumda bulunması gereken en az Unicode harf veya rakam sayısı.'],
+        'comment_spam_meaningless_enabled' => ['label' => 'Anlamsız İfade Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Listedeki kısa ve anlamsız ifadeleri tek başına yazılmışsa spam sayar.'],
+        'comment_spam_meaningless_phrases' => ['label' => 'Anlamsız İfadeler', 'type' => 'text', 'default' => "vv\nsa\nas", 'section' => 'comments', 'tooltip' => 'Her satıra bir ifade yazın. Yorum sadece bu ifadelerden biri ise spam sayılır.'],
+        'comment_spam_repeated_chars_enabled' => ['label' => 'Tekrar Karakter Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Aynı karakterin art arda aşırı kullanımını denetler.'],
+        'comment_spam_repeated_chars_limit' => ['label' => 'Tekrar Limiti', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Aynı karakterin art arda kaç kez kullanılabileceğini belirler.'],
+        'comment_spam_duplicate_window_minutes' => ['label' => 'Tekrar Penceresi (dk)', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Aynı kullanıcının aynı normalleştirilmiş yorumu yeniden göndermesi için denetim penceresi.'],
+        'comment_spam_max_links'     => ['label' => 'Maks. Bağlantı Sayısı', 'type' => 'number', 'default' => '3', 'section' => 'comments', 'min' => -1, 'tooltip' => '-1 ile kontrol kapanır. 0, yorumda bağlantıya izin verilmediği anlamına gelir.'],
+        'comment_spam_caps_enabled'  => ['label' => 'Büyük Harf Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Aşırı büyük harf oranını spam olarak işaretler.'],
+        'comment_spam_caps_min_letters' => ['label' => 'Büyük Harf Min. Harf Sayısı', 'type' => 'number', 'default' => '10', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Büyük harf oranı uygulanmadan önce gereken en az harf sayısı.'],
+        'comment_spam_caps_percent'  => ['label' => 'Büyük Harf Yüzdesi', 'type' => 'number', 'default' => '70', 'section' => 'comments', 'min' => 1, 'max' => 100, 'tooltip' => 'Büyük harf oranı bu eşiği geçerse yorum spam sayılır.'],
         'comment_report_enabled'     => ['label' => 'Şikayet Sistemi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Kullanıcıların yorumları şikayet etmesine izin verir.'],
-        'comment_auto_hide_reports'  => ['label' => 'Oto-Gizleme Şikayet Sayısı', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'tooltip' => 'Bir yorum bu sayıda şikayet alırsa otomatik gizlenir (0 = kapalı).'],
+        'comment_auto_hide_reports'  => ['label' => 'Oto-Gizleme Şikayet Sayısı', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Bir yorum bu sayıda şikayet alırsa otomatik gizlenir (0 = kapalı).'],
         'comment_word_filter'        => ['label' => 'Kelime Filtresi', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgülle ayırın. Bu kelimeleri içeren yorumlar engellenir veya sansürlenir.'],
-        'comment_auto_ban_words'     => ['label' => 'Yasaklı Kelime Eylemi', 'type' => 'select', 'default' => 'pending', 'section' => 'comments', 'options' => ['pending' => 'Onaya Düşür', 'reject' => 'Reddet (Kaydetme)', 'censor' => 'Sansürle (***)'], 'tooltip' => 'Yasaklı kelime bulunduğunda ne yapılacağını seçin.'],
+        'comment_auto_ban_words'     => ['label' => 'Kelime Filtresi Eylemi', 'type' => 'select', 'default' => 'pending', 'section' => 'comments', 'options' => ['pending' => 'Onaya Düşür', 'reject' => 'Reddet (Kaydetme)', 'censor' => 'Sansürle (***)'], 'tooltip' => 'Kelime filtresine takılan yorum için uygulanacak davranış.'],
 
         // -- Dosya Yoneticisi -----------------------------------
         // Download Manager
@@ -1215,6 +1214,52 @@ function adminSettingDefinitions(): array
 
         // -- Kullanıcı Sistemi -----------------------------------
         'allow_registration'            => ['label' => 'Kayıt Olma İzni',                'type' => 'bool',   'default' => '1',     'section' => 'user_system'],
+        'register_username_min_length'  => ['label' => 'Kayıt Kullanıcı Adı Minimum',   'type' => 'number', 'default' => '3',     'section' => 'user_system', 'min' => 3, 'max' => 30, 'tooltip' => 'Kayit formunda izin verilen en dusuk kullanici adi uzunlugu.'],
+        'register_username_max_length'  => ['label' => 'Kayıt Kullanıcı Adı Maksimum',   'type' => 'number', 'default' => '30',    'section' => 'user_system', 'min' => 3, 'max' => 30, 'tooltip' => 'Kayit formunda izin verilen en yuksek kullanici adi uzunlugu.'],
+        'register_allowed_email_domains' => [
+            'label' => 'İzin Verilen E-posta Domainleri',
+            'type' => 'textarea',
+            'default' => '',
+            'section' => 'user_system',
+            'tooltip' => 'Her satira bir domain yazin. Ornek: gmail.com veya @gmail.com. Liste doluysa sadece bu domainler kayit olabilir.',
+        ],
+        'account_email_verification_enabled' => [
+            'label' => 'E-posta Doğrulama Sistemi',
+            'type' => 'bool',
+            'default' => '0',
+            'section' => 'user_system',
+            'tooltip' => 'Yeni kayıt olan kullanıcılara e-posta doğrulama bağlantısı gönderir. Kullanıcı bağlantıya tıkladığında e-posta adresi doğrulanmış sayılır.',
+        ],
+        'account_email_verification_required' => [
+            'label' => 'Giriş İçin Doğrulama Zorunlu',
+            'type' => 'bool',
+            'default' => '0',
+            'section' => 'user_system',
+            'tooltip' => 'E-posta adresini doğrulamayan kullanıcıların giriş yapmasını engeller. E-posta Doğrulama Sistemi açık olmalıdır.',
+        ],
+        'account_email_verification_ttl_minutes' => ['label' => 'Doğrulama Bağlantısı Süresi (Dakika)', 'type' => 'number', 'default' => '1440', 'section' => 'user_system', 'min' => 15, 'max' => 10080, 'tooltip' => 'Doğrulama bağlantısının kaç dakika geçerli olacağını belirler.'],
+        'account_email_verification_resend_cooldown_minutes' => ['label' => 'Tekrar Gönderme Bekleme Süresi (Dakika)', 'type' => 'number', 'default' => '10', 'section' => 'user_system', 'min' => 1, 'max' => 1440, 'tooltip' => 'Aynı e-posta için yeni doğrulama bağlantısı isteyebilmek için beklenecek süre.'],
+        'account_email_verification_reminder_enabled' => ['label' => 'Doğrulama Hatırlatma Cronu', 'type' => 'bool', 'default' => '1', 'section' => 'user_system', 'tooltip' => 'E-posta doğrulama bekleyen hesaplara belirli aralıklarla yeniden doğrulama mesajı gönderir.'],
+        'account_email_verification_reminder_after_minutes' => ['label' => 'Hatırlatma Eşiği (Dakika)', 'type' => 'number', 'default' => '1440', 'section' => 'user_system', 'min' => 60, 'max' => 10080, 'tooltip' => 'İlk doğrulama e-postasından sonra kaç dakika geçince hatırlatma gönderileceğini belirler.'],
+        'account_email_verification_reminder_batch_size' => ['label' => 'Hatırlatma Parti Boyutu', 'type' => 'number', 'default' => '50', 'section' => 'user_system', 'min' => 1, 'max' => 500, 'tooltip' => 'Cron çalıştığında tek turda kaç hesabın yeniden doğrulama mesajı alacağını belirler.'],
+        'registration_requires_admin_approval' => [
+            'label' => 'Yeni Kayıtlar Yönetici Onayı Beklesin',
+            'type' => 'bool',
+            'default' => '0',
+            'section' => 'user_system',
+            'tooltip' => 'Açıkken yeni hesaplar pasif oluşturulur ve yönetici onayı olmadan giriş yapamaz.',
+        ],
+        'registration_pending_message' => [
+            'label' => 'Onay Bekleyen Hesap Mesajı',
+            'type' => 'textarea',
+            'default' => 'Hesabınız oluşturuldu. Yönetici onayından sonra giriş yapabilirsiniz.',
+            'section' => 'user_system',
+            'tooltip' => 'Kayıt sonrası kullanıcıya gösterilecek bekleme mesajı.',
+        ],
+        'registration_suspicious_alert_enabled' => ['label' => 'Şüpheli Kayıt Bildirimi', 'type' => 'bool', 'default' => '1', 'section' => 'user_system', 'tooltip' => 'Kısa süre içinde aynı IP üzerinden gelen yoğun kayıt sinyallerinde yöneticilere bildirim gönderir.'],
+        'registration_suspicious_window_minutes' => ['label' => 'İnceleme Penceresi (Dakika)', 'type' => 'number', 'default' => '15', 'section' => 'user_system', 'min' => 5, 'max' => 1440, 'tooltip' => 'Şüpheli kayıt kontrolü için taranacak zaman aralığı.'],
+        'registration_suspicious_ip_threshold' => ['label' => 'IP Eşik Sayısı', 'type' => 'number', 'default' => '3', 'section' => 'user_system', 'min' => 2, 'max' => 100, 'tooltip' => 'Aynı IP adresinden gelen kayıt sayısı bu eşiği aşarsa alarm üretilir.'],
+        'registration_suspicious_cooldown_minutes' => ['label' => 'Bildirim Soğuma Süresi (Dakika)', 'type' => 'number', 'default' => '60', 'section' => 'user_system', 'min' => 5, 'max' => 1440, 'tooltip' => 'Aynı tür alarmın tekrar gönderilmeden önce bekleyeceği süre.'],
         'login_identifier_mode'         => [
             'label' => 'Giris Kimligi',
             'type' => 'select',
@@ -1227,6 +1272,8 @@ function adminSettingDefinitions(): array
             ],
             'tooltip' => 'Kullanici girisinde hangi kimlik bilgisinin kullanilacagini belirler.',
         ],
+        'login_show_remember_session'   => ['label' => 'Oturumumu Hatirla Alanini Goster', 'type' => 'bool',   'default' => '1',     'section' => 'user_system', 'tooltip' => 'Giris formunda oturumu bu cihazda hatirla kutusunu gosterir.'],
+        'login_remember_session_default'=> ['label' => 'Oturumu Hatirla Varsayilan',      'type' => 'bool',   'default' => '0',     'section' => 'user_system', 'tooltip' => 'Giris formunda oturum hatirlama kutusunu varsayilan olarak secili getirir.'],
         'password_min_length'           => ['label' => 'Minimum Şifre Uzunluğu',          'type' => 'number', 'default' => '8',     'section' => 'user_system', 'tooltip' => 'Kullanıcı şifrelerinin minimum karakter sayısı'],
         'password_require_uppercase'    => ['label' => 'Büyük Harf Gerekli',              'type' => 'bool',   'default' => '1',     'section' => 'user_system', 'tooltip' => 'Şifrelerde en az bir büyük harf zorunlu'],
         'password_require_numbers'      => ['label' => 'Sayı Gerekli',                    'type' => 'bool',   'default' => '1',     'section' => 'user_system', 'tooltip' => 'Şifrelerde en az bir sayı zorunlu'],
@@ -1251,6 +1298,57 @@ function adminSettingDefinitions(): array
             'default' => '43200',
             'section' => 'user_system',
             'tooltip' => 'Oturumumu acik tut secildiginde kalici girisin kac dakika gecerli olacagi. 43200 = 30 gun.'
+        ],
+        'spam_blocked_usernames' => [
+            'label' => 'Yasakli Kullanici Adlari',
+            'type' => 'textarea',
+            'default' => "admin\nroot\nsystem\nmoderator\nsupport\nofficial\nowner\ntest\ndemo\nguest\nstaff",
+            'section' => 'user_system',
+            'tooltip' => 'Virgul veya satir ile ayirarak kayit ve profil degisikliginde engellenecek kullanici adlarini girin.'
+        ],
+        'spam_blocked_username_fragments' => [
+            'label' => 'Yasakli Kullanici Adi Parcalari',
+            'type' => 'textarea',
+            'default' => "admin\nmoderator\nsupport\nofficial\nsystem\nstaff\nowner",
+            'section' => 'user_system',
+            'tooltip' => 'Kullanici adinda gecmesi halinde engel olacak parcalari girin. Ornek: admin, moderator, support.'
+        ],
+        'spam_profanity_words' => [
+            'label' => 'Kufur / Argo Kelimeler',
+            'type' => 'textarea',
+            'default' => "kufur\nargo\nhakaret\nsalak\naptal\ngerizekali\namk\norospu",
+            'section' => 'user_system',
+            'tooltip' => 'Kullanici adinda gecmesi halinde otomatik engellenecek kufur veya argo kelimeleri girin.'
+        ],
+        'spam_meaningless_words' => [
+            'label' => 'Anlamsiz Kelimeler',
+            'type' => 'textarea',
+            'default' => "vv\naa\nss\nxx\nqq\nzz\naaaa\nbbbb\ncccc",
+            'section' => 'user_system',
+            'tooltip' => 'Gibberish, rastgele harf dizisi veya anlamsiz kelimeleri girin.'
+        ],
+        'spam_meaningless_patterns' => [
+            'label' => 'Anlamsiz Desenler',
+            'type' => 'textarea',
+            'default' => "qwerty\nasdf\nzxcv\nqaz\nwsx\nedc\nrfv\ntgb\nyhn\nujm\n1234\n1111\n0000",
+            'section' => 'user_system',
+            'tooltip' => 'qwerty, asdf, zx gibi otomatik kalip veya desenleri girin.'
+        ],
+        'spam_blocked_email_domains' => [
+            'label' => 'Yasakli E-posta Alan Adlari',
+            'type' => 'textarea',
+            'default' => '',
+            'section' => 'user_system',
+            'tooltip' => 'Kayit formunda engellenecek e-posta alan adlarini girin. Ornek: temppost.test, mailinator.com'
+        ],
+        'password_reset_token_ttl_minutes' => [
+            'label' => 'Şifre Sıfırlama Bağlantısı Süresi (Dakika)',
+            'type' => 'number',
+            'default' => '60',
+            'section' => 'user_system',
+            'min' => 15,
+            'max' => 1440,
+            'tooltip' => 'Şifremi unuttum bağlantısının kaç dakika geçerli olacağını belirler.',
         ],
 
         // -- Konu Yönetimi -----------------------------------------
@@ -1529,22 +1627,6 @@ function adminSettingDefinitions(): array
 
     $definitions += [
         'account_email_system_enabled' => ['label' => 'Hesap E-postaları Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'email'],
-        'account_email_verification_enabled' => [
-            'label' => 'E-posta Doğrulama Sistemi',
-            'type' => 'bool',
-            'default' => '0',
-            'section' => 'email',
-            'tooltip' => 'Yeni kayıt olan kullanıcılara e-posta doğrulama bağlantısı gönderir. Kullanıcı bağlantıya tıkladığında e-posta adresi doğrulanmış sayılır. Bu ayar kapalıysa doğrulama e-postası gönderilmez.',
-        ],
-        'account_email_verification_required' => [
-            'label' => 'Giriş İçin Doğrulama Zorunlu',
-            'type' => 'bool',
-            'default' => '0',
-            'section' => 'email',
-            'tooltip' => 'E-posta adresini doğrulamayan kullanıcıların giriş yapmasını engeller. Bu özelliğin çalışması için E-posta Doğrulama Sistemi de açık olmalıdır. Kapalıysa kullanıcılar e-posta adresini doğrulamadan giriş yapabilir.',
-        ],
-        'account_email_verification_ttl_minutes' => ['label' => 'Doğrulama Bağlantısı Süresi (Dakika)', 'type' => 'number', 'default' => '1440', 'section' => 'email', 'min' => 15, 'max' => 10080],
-        'account_email_verification_resend_cooldown_minutes' => ['label' => 'Tekrar Gönderme Bekleme Süresi (Dakika)', 'type' => 'number', 'default' => '10', 'section' => 'email', 'min' => 1, 'max' => 1440],
     ];
 
     foreach (\App\Engine\Email\AccountEmailService::catalog() as $templateKey => $template) {
@@ -1623,7 +1705,7 @@ function adminDefaultSettingTooltip(string $key, array $definition): string
         return "{$label} için kullanılacak seçenek değerini belirler; değişiklik {$sectionText} etkiler.";
     }
 
-    if ($type === 'text') {
+    if ($type === 'text' || $type === 'textarea') {
         return "{$label} alanında kullanılacak çok satırlı metin veya yapılandırma içeriğini belirler.";
     }
 
@@ -1651,7 +1733,8 @@ function adminRenderSettingField(string $key, array $definition, array $settings
     $tooltip = trim((string) ($definition['tooltip'] ?? ''));
     $value = (string) ($settings[$key] ?? ($definition['default'] ?? ''));
     $fieldId = preg_replace('/[^a-zA-Z0-9_-]/', '_', $key) ?: $key;
-    $classes = trim($gridItemClass . ' ' . (($type === 'text' || $type === 'richtext') ? 'admin-field-wide' : ''));
+    $isTextareaType = in_array($type, ['text', 'textarea', 'richtext'], true);
+    $classes = trim($gridItemClass . ' ' . ($isTextareaType ? 'admin-field-wide' : ''));
 
     $helpIcon = $tooltip !== ''
         ? ' <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="' . htmlspecialchars($tooltip, ENT_QUOTES, 'UTF-8') . '"></i>'
@@ -1683,7 +1766,7 @@ function adminRenderSettingField(string $key, array $definition, array $settings
             </div>
         <?php else: ?>
             <label class="ui-admin-form-label" for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?><?= $helpIcon ?></label>
-            <?php if ($type === 'text' || $type === 'richtext'): ?>
+            <?php if ($isTextareaType): ?>
                 <textarea id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" rows="3" class="ui-admin-form-control<?= ($type === 'richtext' || !empty($definition['rich'])) ? ' rich-editor' : '' ?>"><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?></textarea>
             <?php elseif ($type === 'select'): ?>
                 <select id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-form-select">
@@ -1842,308 +1925,42 @@ function ensureAdminSchema(?PDO $pdo): void
         return;
     }
 
-    if (!adminRuntimeSchemaUpdatesAllowed()) {
-        return;
-    }
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS admin_settings (
-        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        setting_key VARCHAR(255) NOT NULL UNIQUE,
-        setting_value LONGTEXT NULL,
-        created_at TIMESTAMP NULL,
-        updated_at TIMESTAMP NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-    $legacyCategories = adminLegacyIdentifier('a2F0ZWdvcmlsZXI=');
-    $legacyTopics = adminLegacyIdentifier('a29udWxhcg==');
-    $legacySubcategories = adminLegacyIdentifier('YWx0X2thdGVnb3JpbGVy');
-    $legacyTopicVersions = adminLegacyIdentifier('a29udV92ZXJzaW9ucw==');
-    $legacyCategoryId = adminLegacyIdentifier('a2F0ZWdvcmlfaWQ=');
-    $legacySubcategoryId = adminLegacyIdentifier('YWx0X2thdGVnb3JpX2lk');
-    $legacyTopicId = adminLegacyIdentifier('a29udV9pZA==');
-    $legacyDefaultCategoryId = adminLegacyIdentifier('ZGVmYXVsdF9rYXRlZ29yaV9pZA==');
-    $legacyTrustedTopic = adminLegacyIdentifier('dHJ1c3RlZF9tb2Q=');
-
-    adminRenameTableIfNeeded($pdo, $legacyCategories, 'categories');
-    adminRenameTableIfNeeded($pdo, $legacyTopics, 'topics');
-    adminDropTableIfExists($pdo, $legacyTopicVersions);
-    adminDropTableIfExists($pdo, 'topic_versions');
-
-    adminRenameColumnIfNeeded($pdo, 'topics', $legacyCategoryId, 'category_id', 'BIGINT UNSIGNED NOT NULL');
-    adminRenameColumnIfNeeded($pdo, 'topics', $legacyTrustedTopic, 'trusted_topic', 'TINYINT(1) NOT NULL DEFAULT 0');
-    adminDropColumnIfExists($pdo, 'topics', 'trusted_mod');
-    adminDropColumnIfExists($pdo, 'topics', $legacySubcategoryId);
-    adminDropColumnIfExists($pdo, 'topics', 'subcategory_id');
-    adminDropTableIfExists($pdo, $legacySubcategories);
-    adminRenameColumnIfNeeded($pdo, 'media_files', $legacyTopicId, 'topic_id', 'BIGINT UNSIGNED NULL');
-    adminRenameColumnIfNeeded($pdo, 'downloads', $legacyTopicId, 'topic_id', 'BIGINT UNSIGNED NOT NULL');
-    adminRenameColumnIfNeeded($pdo, 'comments', $legacyTopicId, 'topic_id', 'BIGINT UNSIGNED NOT NULL');
-    adminRenameColumnIfNeeded($pdo, 'ratings', $legacyTopicId, 'topic_id', 'BIGINT UNSIGNED NOT NULL');
-    adminRenameColumnIfNeeded($pdo, 'reactions', $legacyTopicId, 'topic_id', 'BIGINT UNSIGNED NOT NULL');
-    adminRenameColumnIfNeeded($pdo, 'reports', $legacyTopicId, 'topic_id', 'BIGINT UNSIGNED NOT NULL');
-    adminRenameColumnIfNeeded($pdo, 'bot_imports', $legacyTopicId, 'topic_id', 'BIGINT UNSIGNED NULL');
-
-    $columns = [
-        'parent_id' => 'BIGINT UNSIGNED NULL',
-        'display_order' => 'INT NOT NULL DEFAULT 0',
-        'seo_title' => 'VARCHAR(255) NULL',
-        'seo_description' => 'TEXT NULL',
-        'deleted_at' => 'TIMESTAMP NULL',
+    $requiredTables = [
+        'admin_settings', 'categories', 'topics', 'comments', 'users', 'media_files',
+        'topic_download_links', 'topic_revisions', 'request_rate_limits', 'application_logs',
     ];
-
-    foreach ($columns as $name => $definition) {
-        if (!adminColumnExists($pdo, 'categories', $name)) {
-            $safeName = adminSafeIdentifier($name);
-            $pdo->exec("ALTER TABLE categories ADD COLUMN {$safeName} {$definition}");
+    $missing = [];
+    foreach ($requiredTables as $table) {
+        if (!adminTableExists($pdo, $table)) {
+            $missing[] = $table;
         }
     }
 
-    // Rename legacy portal_ columns to topic_ for live DB compatibility.
-    $renameMap = [
+    $requiredColumns = [
+        'categories' => ['parent_id', 'display_order', 'seo_title', 'seo_description', 'deleted_at'],
+        'topics' => ['category_id', 'author_topic', 'topic_version', 'topic_descriptions', 'primary_media_file_id', 'moderation_flags'],
+        'comments' => ['parent_id', 'user_id', 'topic_id'],
+        'users' => ['username', 'status', 'remember_token', 'deleted_at'],
+        'media_files' => ['topic_id', 'display_order', 'health_status'],
     ];
-    foreach ($renameMap as $old => $meta) {
-        if (adminColumnExists($pdo, 'topics', $old) && !adminColumnExists($pdo, 'topics', $meta['new'])) {
-            $pdo->exec("ALTER TABLE topics CHANGE COLUMN `{$old}` `{$meta['new']}` {$meta['type']}");
-        }
-    }
-
-    // Recreate FULLTEXT index if it still references portal_descriptions
-    try {
-        $idxStmt = $pdo->query("SHOW INDEX FROM topics WHERE Key_name = 'topics_search_fulltext'");
-        $idxCols = [];
-        while ($r = $idxStmt->fetch()) { $idxCols[] = $r['Column_name']; }
-        if (in_array('portal_descriptions', $idxCols, true)) {
-            $pdo->exec("ALTER TABLE topics DROP INDEX topics_search_fulltext");
-            $pdo->exec("ALTER TABLE topics ADD FULLTEXT INDEX topics_search_fulltext (title, topic_descriptions)");
-        }
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-
-    // Ensure topics table has topic columns
-    $topicColumns = [
-        'author_topic' => 'VARCHAR(255) NULL AFTER slug',
-        'topic_version' => 'VARCHAR(255) NULL AFTER author_topic',
-        'topic_descriptions' => 'LONGTEXT NULL AFTER topic_version',
-        'topic_download_links' => 'LONGTEXT NULL AFTER topic_descriptions',
-        'primary_media_file_id' => 'BIGINT UNSIGNED NULL AFTER meta_description',
-        'trusted_topic' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'last_checked_at' => 'TIMESTAMP NULL',
-        'health_status' => "VARCHAR(32) NOT NULL DEFAULT 'unchecked'",
-        'health_summary' => 'JSON NULL',
-        'moderation_flags' => 'JSON NULL',
-    ];
-
-    foreach ($topicColumns as $name => $definition) {
-        if (!adminColumnExists($pdo, 'topics', $name)) {
-            $safeName = adminSafeIdentifier($name);
-            $pdo->exec("ALTER TABLE topics ADD COLUMN {$safeName} {$definition}");
-        }
-    }
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS topic_download_links (
-        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        topic_id BIGINT UNSIGNED NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        url VARCHAR(2048) NOT NULL,
-        download_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
-        display_order INT UNSIGNED NOT NULL DEFAULT 0,
-        created_at TIMESTAMP NULL,
-        updated_at TIMESTAMP NULL,
-        last_checked_at TIMESTAMP NULL,
-        last_status_code INT NULL,
-        health_status VARCHAR(32) NOT NULL DEFAULT 'unchecked',
-        last_health_message VARCHAR(255) NULL,
-        last_final_url VARCHAR(2048) NULL,
-        INDEX topic_download_links_topic_order_index (topic_id, display_order),
-        CONSTRAINT topic_download_links_topic_id_foreign FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-    topicRevisionEnsureSchema($pdo);
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS request_rate_limits (
-        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        scope VARCHAR(100) NOT NULL,
-        rate_key VARCHAR(191) NOT NULL,
-        attempt_count INT UNSIGNED NOT NULL DEFAULT 0,
-        first_attempt_at TIMESTAMP NULL,
-        last_attempt_at TIMESTAMP NULL,
-        expires_at TIMESTAMP NULL,
-        created_at TIMESTAMP NULL,
-        updated_at TIMESTAMP NULL,
-        UNIQUE KEY request_rate_limits_scope_key_unique (scope, rate_key),
-        INDEX request_rate_limits_expires_index (expires_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS application_logs (
-        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        level VARCHAR(20) NOT NULL,
-        channel VARCHAR(100) NOT NULL,
-        message TEXT NOT NULL,
-        context_json JSON NULL,
-        ip_address VARCHAR(255) NULL,
-        created_at TIMESTAMP NULL,
-        INDEX application_logs_level_created_index (level, created_at),
-        INDEX application_logs_channel_created_index (channel, created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-    if (function_exists('emailLogsEnsureSchema')) {
-        emailLogsEnsureSchema($pdo);
-    }
-
-    // Drop legacy columns if they still exist
-    adminDropColumnIfExists($pdo, 'topics', 'summary');
-    adminDropColumnIfExists($pdo, 'topics', 'body');
-    adminDropColumnIfExists($pdo, 'topics', 'topic_first_image');
-    adminDropColumnIfExists($pdo, 'topics', 'topic_images_videos');
-    adminDropColumnIfExists($pdo, 'topics', 'portal_detail_hero');
-    adminDropColumnIfExists($pdo, 'topics', 'portal_images_videos');
-    adminDropColumnIfExists($pdo, 'topics', 'topic_detail_hero');
-
-    // Ensure comments table has parent_id for nested comments
-    if (!adminColumnExists($pdo, 'comments', 'parent_id')) {
-        $pdo->exec("ALTER TABLE comments ADD COLUMN parent_id BIGINT UNSIGNED NULL AFTER user_id");
-        try { $pdo->exec("ALTER TABLE comments ADD CONSTRAINT comments_parent_id_foreign FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE"); } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-    }
-
-    if (adminColumnExists($pdo, 'comments', 'user_id')) {
-        try {
-            $pdo->exec("ALTER TABLE comments MODIFY COLUMN user_id BIGINT UNSIGNED NULL");
-        } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-    }
-
-    try {
-        $pdo->exec("ALTER TABLE comments DROP FOREIGN KEY comments_user_id_foreign");
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-    try {
-        $pdo->exec("ALTER TABLE comments ADD CONSTRAINT comments_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL");
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-
-    $topicIndexStatements = [
-        "ALTER TABLE topics ADD INDEX topics_status_deleted_downloads_index (status, deleted_at, download_count)",
-        "ALTER TABLE topics ADD INDEX topics_status_deleted_published_index (status, deleted_at, published_at)",
-    ];
-    foreach ($topicIndexStatements as $sql) {
-        try { $pdo->exec($sql); } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-    }
-
-    $commentIndexStatements = [
-        "ALTER TABLE comments ADD INDEX comments_topic_status_created_index (topic_id, status, created_at)",
-    ];
-    foreach ($commentIndexStatements as $sql) {
-        try { $pdo->exec($sql); } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-    }
-
-    $mediaIndexStatements = [
-        "ALTER TABLE media_files ADD COLUMN display_order INT UNSIGNED NOT NULL DEFAULT 0 AFTER size",
-        "ALTER TABLE media_files ADD INDEX media_files_topic_primary_index (topic_id, is_primary, display_order)",
-        "ALTER TABLE media_files ADD COLUMN last_checked_at TIMESTAMP NULL",
-        "ALTER TABLE media_files ADD COLUMN last_status_code INT NULL",
-        "ALTER TABLE media_files ADD COLUMN health_status VARCHAR(32) NOT NULL DEFAULT 'unchecked'",
-        "ALTER TABLE media_files ADD COLUMN last_health_message VARCHAR(255) NULL",
-    ];
-    foreach ($mediaIndexStatements as $sql) {
-        try { $pdo->exec($sql); } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-    }
-
-    $logIndexStatements = [
-        "ALTER TABLE activity_logs ADD INDEX activity_logs_action_created_index (action, created_at)",
-    ];
-    foreach ($logIndexStatements as $sql) {
-        try { $pdo->exec($sql); } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-    }
-
-    // Ensure users table has required account/profile/security columns
-    $userColumns = [
-        'username' => "VARCHAR(30) NULL",
-        'status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
-        'is_banned' => "TINYINT(1) NOT NULL DEFAULT 0",
-        'banned_at' => "TIMESTAMP NULL",
-        'ban_reason' => "VARCHAR(500) NULL",
-        'avatar' => "VARCHAR(500) NULL",
-        'bio' => "TEXT NULL",
-        'website' => "VARCHAR(500) NULL",
-        'location' => "VARCHAR(255) NULL",
-        'social_github' => "VARCHAR(255) NULL",
-        'social_twitter' => "VARCHAR(255) NULL",
-        'social_discord' => "VARCHAR(255) NULL",
-        'remember_token' => "VARCHAR(100) NULL",
-        'password_reset_token' => "VARCHAR(255) NULL",
-        'password_reset_expires_at' => "TIMESTAMP NULL",
-        'password_changed_at' => "TIMESTAMP NULL",
-        'last_login_at' => "TIMESTAMP NULL",
-        'last_login_ip' => "VARCHAR(45) NULL",
-        'deleted_at' => "TIMESTAMP NULL",
-    ];
-    foreach ($userColumns as $name => $definition) {
-        if (!adminColumnExists($pdo, 'users', $name)) {
-            $pdo->exec("ALTER TABLE users ADD COLUMN {$name} {$definition}");
-        }
-    }
-
-    if (function_exists('usersEnsureUsernameSchema')) {
-        usersEnsureUsernameSchema($pdo);
-    }
-
-    if (function_exists('usersEnsureBanAppealSchema')) {
-        usersEnsureBanAppealSchema($pdo);
-    }
-
-    if (function_exists('usersEnsureGroupSchema')) {
-        try {
-            usersEnsureGroupSchema($pdo);
-            $adminGroupId = function_exists('usersGroupIdBySlug') ? usersGroupIdBySlug($pdo, 'admin') : 0;
-            if ($adminGroupId > 0) {
-                $adminCount = (int)$pdo->query("SELECT COUNT(DISTINCT m.user_id)
-                    FROM user_group_members m
-                    INNER JOIN user_group_permissions p ON p.group_id = m.group_id
-                    WHERE p.permission_key IN ('*', 'admin.access') AND p.permission_value = 1")->fetchColumn();
-                if ($adminCount === 0) {
-                    $firstUserId = (int)$pdo->query("SELECT MIN(id) FROM users")->fetchColumn();
-                    if ($firstUserId > 0 && function_exists('usersSyncUserGroups')) {
-                        usersSyncUserGroups($pdo, $firstUserId, [$adminGroupId], 0, 'ensure_first_admin_group');
-                    }
-                }
-            }
-        } catch (Throwable $e) {
-            if (function_exists('appLogException')) {
-                appLogException($e, ['source' => 'ensureAdminSchema.user_groups']);
+    foreach ($requiredColumns as $table => $columns) {
+        foreach ($columns as $column) {
+            if (!adminColumnExists($pdo, $table, $column)) {
+                $missing[] = $table . '.' . $column;
             }
         }
+    }
+
+    if ($missing !== []) {
+        throw new RuntimeException('Database schema is incomplete: ' . implode(', ', $missing) . '; run Admin Panel > Database Synchronization.');
     }
 }
 
 function topicRevisionEnsureSchema(?PDO $pdo): void
 {
-    if (!$pdo) {
-        return;
+    if ($pdo && !adminTableExists($pdo, 'topic_revisions')) {
+        throw new RuntimeException('Missing topic_revisions; run Admin Panel > Database Synchronization.');
     }
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS topic_revisions (
-        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        topic_id BIGINT UNSIGNED NOT NULL,
-        actor_user_id BIGINT UNSIGNED NULL,
-        revision_number INT UNSIGNED NOT NULL DEFAULT 1,
-        reason VARCHAR(80) NOT NULL DEFAULT 'admin_update',
-        category_id BIGINT UNSIGNED NULL,
-        title VARCHAR(255) NOT NULL,
-        slug VARCHAR(255) NOT NULL,
-        author_topic VARCHAR(255) NULL,
-        topic_version VARCHAR(255) NULL,
-        topic_descriptions LONGTEXT NULL,
-        topic_download_links LONGTEXT NULL,
-        status VARCHAR(255) NOT NULL,
-        meta_title VARCHAR(255) NULL,
-        meta_description TEXT NULL,
-        primary_media_file_id BIGINT UNSIGNED NULL,
-        links_json JSON NULL,
-        media_json JSON NULL,
-        ip_address VARCHAR(45) NULL,
-        user_agent TEXT NULL,
-        created_at TIMESTAMP NULL,
-        INDEX topic_revisions_topic_created_index (topic_id, created_at),
-        INDEX topic_revisions_actor_index (actor_user_id),
-        CONSTRAINT topic_revisions_topic_id_foreign FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
-        CONSTRAINT topic_revisions_actor_user_id_foreign FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
 function topicRevisionNextNumber(PDO $pdo, int $topicId): int
@@ -2155,7 +1972,7 @@ function topicRevisionNextNumber(PDO $pdo, int $topicId): int
 
 function topicRevisionCapture(PDO $pdo, int $topicId, ?int $actorUserId, string $reason = 'admin_update'): ?int
 {
-    $stmt = $pdo->prepare("SELECT id, category_id, title, slug, author_topic, topic_version, topic_descriptions, topic_download_links, status, meta_title, meta_description, primary_media_file_id
+    $stmt = $pdo->prepare("SELECT id, category_id, title, slug, author_topic, topic_version, topic_descriptions, status, meta_title, meta_description, primary_media_file_id
                            FROM topics
                            WHERE id = ? AND deleted_at IS NULL
                            LIMIT 1");
@@ -2180,9 +1997,9 @@ function topicRevisionCapture(PDO $pdo, int $topicId, ?int $actorUserId, string 
     $media = $mediaStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $insert = $pdo->prepare("INSERT INTO topic_revisions
-        (topic_id, actor_user_id, revision_number, reason, category_id, title, slug, author_topic, topic_version, topic_descriptions, topic_download_links, status, meta_title, meta_description, primary_media_file_id, links_json, media_json, ip_address, user_agent, created_at)
+        (topic_id, actor_user_id, revision_number, reason, category_id, title, slug, author_topic, topic_version, topic_descriptions, status, meta_title, meta_description, primary_media_file_id, links_json, media_json, ip_address, user_agent, created_at)
         VALUES
-        (:topic_id, :actor_user_id, :revision_number, :reason, :category_id, :title, :slug, :author_topic, :topic_version, :topic_descriptions, :topic_download_links, :status, :meta_title, :meta_description, :primary_media_file_id, :links_json, :media_json, :ip_address, :user_agent, NOW())");
+        (:topic_id, :actor_user_id, :revision_number, :reason, :category_id, :title, :slug, :author_topic, :topic_version, :topic_descriptions, :status, :meta_title, :meta_description, :primary_media_file_id, :links_json, :media_json, :ip_address, :user_agent, NOW())");
     $insert->execute([
         'topic_id' => $topicId,
         'actor_user_id' => $actorUserId ?: null,
@@ -2194,7 +2011,6 @@ function topicRevisionCapture(PDO $pdo, int $topicId, ?int $actorUserId, string 
         'author_topic' => $topic['author_topic'] ?? null,
         'topic_version' => $topic['topic_version'] ?? null,
         'topic_descriptions' => $topic['topic_descriptions'] ?? null,
-        'topic_download_links' => $topic['topic_download_links'] ?? null,
         'status' => (string)$topic['status'],
         'meta_title' => $topic['meta_title'] ?? null,
         'meta_description' => $topic['meta_description'] ?? null,
@@ -2273,7 +2089,6 @@ function topicRevisionRestore(PDO $pdo, int $revisionId, ?int $actorUserId): int
             author_topic = :author_topic,
             topic_version = :topic_version,
             topic_descriptions = :topic_descriptions,
-            topic_download_links = :topic_download_links,
             status = :status,
             meta_title = :meta_title,
             meta_description = :meta_description,
@@ -2288,7 +2103,6 @@ function topicRevisionRestore(PDO $pdo, int $revisionId, ?int $actorUserId): int
         'author_topic' => $revision['author_topic'],
         'topic_version' => $revision['topic_version'],
         'topic_descriptions' => $revision['topic_descriptions'],
-        'topic_download_links' => $revision['topic_download_links'],
         'status' => $revision['status'],
         'status_published' => $revision['status'],
         'meta_title' => $revision['meta_title'],
@@ -2316,23 +2130,6 @@ function topicRevisionRestore(PDO $pdo, int $revisionId, ?int $actorUserId): int
     return $topicId;
 }
 
-function adminLegacyIdentifier(string $encoded): string
-{
-    return base64_decode($encoded, true) ?: '';
-}
-
-/**
- * Validate identifier (table/column name) to prevent SQL injection.
- */
-function adminValidateIdentifier(string $name): string
-{
-    // Only allow alphanumeric and underscore characters
-    if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name)) {
-        throw new \InvalidArgumentException("Invalid identifier: {$name}");
-    }
-    return '`' . $name . '`';
-}
-
 function adminTableExists(PDO $pdo, string $table): bool
 {
     $stmt = $pdo->prepare("SELECT COUNT(*)
@@ -2354,88 +2151,6 @@ function adminColumnExists(PDO $pdo, string $table, string $column): bool
     $stmt->execute([$table, $column]);
 
     return (int)$stmt->fetchColumn() > 0;
-}
-
-function adminRenameTableIfNeeded(PDO $pdo, string $from, string $to): void
-{
-    if (adminTableExists($pdo, $from) && !adminTableExists($pdo, $to)) {
-        $fromSafe = adminValidateIdentifier($from);
-        $toSafe = adminValidateIdentifier($to);
-        $pdo->exec("RENAME TABLE {$fromSafe} TO {$toSafe}");
-    }
-}
-
-function adminDropTableIfExists(PDO $pdo, string $table): void
-{
-    if (adminTableExists($pdo, $table)) {
-        $tableSafe = adminValidateIdentifier($table);
-        try {
-            $pdo->exec("DROP TABLE {$tableSafe}");
-        } catch (Throwable $e) {
-            $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
-            $pdo->exec("DROP TABLE IF EXISTS {$tableSafe}");
-            $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
-        }
-    }
-}
-
-function adminRenameColumnIfNeeded(PDO $pdo, string $table, string $from, string $to, string $definition): void
-{
-    if (!adminTableExists($pdo, $table) || !adminColumnExists($pdo, $table, $from) || adminColumnExists($pdo, $table, $to)) {
-        return;
-    }
-
-    $tableSafe = adminValidateIdentifier($table);
-    $fromSafe = adminValidateIdentifier($from);
-    $toSafe = adminValidateIdentifier($to);
-
-    // Validate definition against allowed patterns
-    $allowedDefinitions = [
-        'BIGINT UNSIGNED NOT NULL',
-        'BIGINT UNSIGNED NULL',
-        'INT NOT NULL DEFAULT 0',
-        'VARCHAR(255) NULL',
-        'TEXT NULL',
-    ];
-    if (!in_array($definition, $allowedDefinitions, true)) {
-        return;
-    }
-
-    try {
-        $pdo->exec("ALTER TABLE {$tableSafe} RENAME COLUMN {$fromSafe} TO {$toSafe}");
-    } catch (Throwable $e) {
-        $pdo->exec("ALTER TABLE {$tableSafe} CHANGE {$fromSafe} {$toSafe} {$definition}");
-    }
-}
-
-function adminDropColumnIfExists(PDO $pdo, string $table, string $column): void
-{
-    if (!adminTableExists($pdo, $table) || !adminColumnExists($pdo, $table, $column)) {
-        return;
-    }
-
-    $tableSafe = adminValidateIdentifier($table);
-    $columnSafe = adminValidateIdentifier($column);
-
-    adminDropForeignKeysForColumn($pdo, $table, $column);
-    $pdo->exec("ALTER TABLE {$tableSafe} DROP COLUMN {$columnSafe}");
-}
-
-function adminDropForeignKeysForColumn(PDO $pdo, string $table, string $column): void
-{
-    $stmt = $pdo->prepare("SELECT CONSTRAINT_NAME
-        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = ?
-          AND COLUMN_NAME = ?
-          AND REFERENCED_TABLE_NAME IS NOT NULL");
-    $stmt->execute([$table, $column]);
-
-    $tableSafe = adminValidateIdentifier($table);
-    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $constraint) {
-        $constraintSafe = adminValidateIdentifier($constraint);
-        $pdo->exec("ALTER TABLE {$tableSafe} DROP FOREIGN KEY {$constraintSafe}");
-    }
 }
 
 if (!function_exists('adminCronPhpBinaryNormalizeValue')) {
@@ -2633,35 +2348,6 @@ function adminApplySettingAliases(array $settings, array $definitions): array
         $settings[$alias] = $value;
     }
 
-    $inversePairs = [
-        'index_search_results' => 'robots_noindex_search',
-        'index_empty_categories' => 'noindex_empty_categories',
-        'index_draft_topics' => 'noindex_draft_topics',
-    ];
-
-    foreach ($inversePairs as $canonical => $legacyNoindex) {
-        if (!array_key_exists($canonical, $settings) || !array_key_exists($legacyNoindex, $settings)) {
-            continue;
-        }
-
-        $canonicalValue = (string) $settings[$canonical];
-        $legacyValue = (string) $settings[$legacyNoindex];
-        $canonicalDefault = (string) ($definitions[$canonical]['default'] ?? '0');
-        $legacyDefault = (string) ($definitions[$legacyNoindex]['default'] ?? '1');
-
-        $value = in_array($canonicalValue, ['0', '1'], true) ? $canonicalValue : $canonicalDefault;
-        $canonicalIsDefault = $canonicalValue === '' || $canonicalValue === $canonicalDefault;
-        $legacyIsBool = in_array($legacyValue, ['0', '1'], true);
-        $legacyHasSignal = $legacyValue !== '' && $legacyValue !== $legacyDefault;
-
-        if ($canonicalIsDefault && $legacyIsBool && $legacyHasSignal) {
-            $value = $legacyValue === '1' ? '0' : '1';
-        }
-
-        $settings[$canonical] = $value;
-        $settings[$legacyNoindex] = $value === '1' ? '0' : '1';
-    }
-
     if (array_key_exists('site_language', $settings)) {
         $settings['site_language'] = 'tr';
     }
@@ -2669,188 +2355,9 @@ function adminApplySettingAliases(array $settings, array $definitions): array
     return $settings;
 }
 
-if (!function_exists('adminLegacySeoSettingDefinitions')) {
-    function adminLegacySeoSettingDefinitions(): array
-    {
-        return [
-            'default_meta_title' => ['type' => 'string', 'default' => '', 'section' => 'seo'],
-            'default_meta_description' => ['type' => 'text', 'default' => '', 'section' => 'seo'],
-            'meta_title_suffix' => ['type' => 'string', 'default' => '', 'section' => 'seo'],
-            'meta_description_max_length' => ['type' => 'number', 'default' => '160', 'section' => 'seo'],
-            'meta_description_length' => ['type' => 'number', 'default' => '160', 'section' => 'seo'],
-            'allow_indexing' => ['type' => 'bool', 'default' => '1', 'section' => 'seo'],
-        ];
-    }
-}
-
-function adminNormalizeLegacyTopicStatuses(?PDO $pdo): void
-{
-    static $ran = false;
-    if ($ran || !$pdo) {
-        return;
-    }
-    $ran = true;
-
-    $changed = false;
-    try {
-        $affected = $pdo->exec("UPDATE topics SET status = 'draft' WHERE status = 'pending'");
-        if ($affected !== false && $affected > 0) {
-            $changed = true;
-        }
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-
-    try {
-        $affected = $pdo->exec("UPDATE topics SET status = 'published', published_at = COALESCE(published_at, created_at, NOW()) WHERE status = 'archived'");
-        if ($affected !== false && $affected > 0) {
-            $changed = true;
-        }
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-
-    if ($changed && function_exists('invalidatePublicContentCache')) {
-        invalidatePublicContentCache();
-    }
-
-    if ($changed) {
-        seoInvalidateSitemapCaches();
-    }
-}
-
-function adminProcessLegacySeoSetting(string $key, string $value, array $legacySeoDefinitions, array &$settings): bool
-{
-    if (array_key_exists($key, $legacySeoDefinitions)) {
-        $settings[$key] = adminNormalizeSettingValue(
-            $key,
-            $value,
-            $legacySeoDefinitions[$key]
-        );
-        return true;
-    }
-    return false;
-}
-
-function adminProcessActiveThemeSetting(string $key, string $value, array $definitions, array &$settings): bool
-{
-    if ($key === 'active_public_theme' && array_key_exists('theme_active_id', $settings)) {
-        $settings['theme_active_id'] = adminNormalizeSettingValue(
-            'theme_active_id',
-            $value,
-            $definitions['theme_active_id']
-        );
-        return true;
-    }
-    return false;
-}
-
 function getAdminSettings(?PDO $pdo): array
 {
-    // Static cache: aynı request içinde tekrar sorgu atmayı önler
-    static $cache = null;
-
-    // Invalidation flag varsa static cache'i sıfırla
-    if (!empty($GLOBALS['_admin_settings_cache_invalid'])) {
-        $cache = null;
-        unset($GLOBALS['_admin_settings_cache_invalid']);
-    }
-
-    if ($cache !== null) {
-        return $cache;
-    }
-    unset($GLOBALS['_admin_settings_cache_invalid']);
-
-    // File-based cache: DB sorgusunu atlamak için dosya cache kullan
-    $cacheFile = dirname(__DIR__) . '/storage/cache/admin_settings_compiled.php';
-    $cacheTtl = 300; // 5 dakika
-    if (!$pdo) {
-        // PDO yoksa sadece defaults dön
-        $definitions = adminSettingDefinitions();
-        $settings = [];
-        foreach ($definitions as $key => $definition) {
-            $settings[$key] = adminNormalizeSettingValue((string)$key, (string)$definition['default'], $definition);
-        }
-        return adminApplySettingAliases($settings, $definitions);
-    }
-
-    // APCu cache (en hızlı katman)
-    $apcuKey = 'admin_settings_v1';
-    if (function_exists('apcu_fetch') && empty($GLOBALS['_admin_settings_cache_invalid'])) {
-        $apcuData = apcu_fetch($apcuKey, $apcuSuccess);
-        if ($apcuSuccess && is_array($apcuData)) {
-            $cache = $apcuData;
-            return $cache;
-        }
-    }
-
-    // Dosya cache kontrolü
-    if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTtl) {
-        $fileCached = require $cacheFile;
-        if (is_array($fileCached) && !empty($fileCached)) {
-            // APCu'ya da yaz
-            if (function_exists('apcu_store')) {
-                apcu_store($apcuKey, $fileCached, $cacheTtl);
-            }
-            $cache = $fileCached;
-            return $cache;
-        }
-    }
-
-    $definitions = adminSettingDefinitions();
-    $settings = [];
-
-    foreach ($definitions as $key => $definition) {
-        $settings[$key] = adminNormalizeSettingValue((string)$key, (string)$definition['default'], $definition);
-    }
-
-    try {
-        $legacyStmt = $pdo->query("SELECT `key`, value FROM settings");
-        $legacySeoDefinitions = adminLegacySeoSettingDefinitions();
-        while ($row = $legacyStmt->fetch(PDO::FETCH_ASSOC)) {
-            $key = (string)$row['key'];
-            if (adminProcessActiveThemeSetting($key, (string)($row['value'] ?? ''), $definitions, $settings)) {
-                continue;
-            }
-            if (adminProcessLegacySeoSetting($key, (string)($row['value'] ?? ''), $legacySeoDefinitions, $settings)) {
-                continue;
-            }
-            if (array_key_exists($key, $settings)) {
-                $settings[$key] = adminNormalizeSettingValue($key, (string)($row['value'] ?? ''), $definitions[$key]);
-            }
-        }
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-
-    try {
-        $stmt = $pdo->query("SELECT setting_key, setting_value FROM admin_settings");
-        $legacySeoDefinitions = $legacySeoDefinitions ?? adminLegacySeoSettingDefinitions();
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $key = (string)$row['setting_key'];
-            if (adminProcessActiveThemeSetting($key, (string)($row['setting_value'] ?? ''), $definitions, $settings)) {
-                continue;
-            }
-            if (adminProcessLegacySeoSetting($key, (string)($row['setting_value'] ?? ''), $legacySeoDefinitions, $settings)) {
-                continue;
-            }
-            if (array_key_exists($key, $settings)) {
-                $settings[$key] = adminNormalizeSettingValue($key, (string)($row['setting_value'] ?? ''), $definitions[$key]);
-            }
-        }
-    } catch (Throwable $e) {
-        return adminApplySettingAliases($settings, $definitions);
-    }
-
-    $cache = adminApplySettingAliases($settings, $definitions);
-
-    // Dosya cache'ine yaz
-    $cacheDir = dirname($cacheFile);
-    if (!is_dir($cacheDir)) {
-        mkdir($cacheDir, 0775, true);
-    }
-    file_put_contents($cacheFile, "<?php\nreturn " . var_export($cache, true) . ";\n", LOCK_EX);
-
-    // APCu'ya da yaz
-    if (function_exists('apcu_store')) {
-        apcu_store($apcuKey, $cache, $cacheTtl);
-    }
-
-    return $cache;
+    return \App\Core\AppSettings::instance($pdo)->all();
 }
 
 function adminSettingValue(?PDO $pdo, string $key, ?string $fallback = null): string
@@ -2872,19 +2379,7 @@ function adminSettingValue(?PDO $pdo, string $key, ?string $fallback = null): st
  */
 function invalidateAdminSettingsCache(): void
 {
-    // Static variable reset: in-memory cache'i geçersiz kıl
-    $GLOBALS['_admin_settings_cache_invalid'] = true;
-
-    // APCu cache'i temizle
-    if (function_exists('apcu_delete')) {
-        apcu_delete('admin_settings_v1');
-    }
-
-    // Dosya cache'i temizle
-    $cacheFile = dirname(__DIR__) . '/storage/cache/admin_settings_compiled.php';
-    if (is_file($cacheFile)) {
-        @unlink($cacheFile);
-    }
+    \App\Core\AppSettings::instance($GLOBALS['pdo'] ?? null)->invalidate();
 }
 
 function saveAdminSettings(?PDO $pdo, array $input): void
@@ -2904,40 +2399,9 @@ function saveAdminSettings(?PDO $pdo, array $input): void
         $input['default_og_image'] = $input['og_image'];
     }
 
-    $normalizeBoolInput = static function ($value): string {
-        if (is_array($value)) {
-            $value = reset($value);
-        }
-        $normalized = strtolower(trim((string) $value));
-        return in_array($normalized, ['1', 'true', 'on', 'yes'], true) ? '1' : '0';
-    };
-
-    $inverseSeoPairs = [
-        'index_search_results' => 'robots_noindex_search',
-        'index_empty_categories' => 'noindex_empty_categories',
-        'index_draft_topics' => 'noindex_draft_topics',
-    ];
-    foreach ($inverseSeoPairs as $canonical => $legacyNoindex) {
-        if (array_key_exists($canonical, $input)) {
-            $canonicalValue = $normalizeBoolInput($input[$canonical]);
-        } elseif (array_key_exists($legacyNoindex, $input)) {
-            $legacyValue = $normalizeBoolInput($input[$legacyNoindex]);
-            $canonicalValue = $legacyValue === '1' ? '0' : '1';
-        } else {
-            $canonicalValue = '0';
-        }
-
-        $input[$canonical] = $canonicalValue;
-        $input[$legacyNoindex] = $canonicalValue === '1' ? '0' : '1';
-    }
-
     $stmt = $pdo->prepare("INSERT INTO admin_settings (setting_key, setting_value, created_at, updated_at)
         VALUES (:key, :value, NOW(), NOW())
         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
-    $legacyStmt = $pdo->prepare("INSERT INTO settings (`key`, value, type, created_at, updated_at)
-        VALUES (:key, :value, :type, NOW(), NOW())
-        ON DUPLICATE KEY UPDATE value = VALUES(value), type = VALUES(type), updated_at = NOW()");
-
     // Hangi section'lar bu formda var? _sections alanından veya _active_tab'dan belirle
     $allowedSections = [];
     if (!empty($input['_sections'])) {
@@ -3091,7 +2555,15 @@ function saveAdminSettings(?PDO $pdo, array $input): void
         }
 
         if ($type === 'number') {
-            $value = (string)max(0, (int)$value);
+            $numericValue = (int) $value;
+            if ($key === 'comment_spam_max_links') {
+                $numericValue = max(-1, $numericValue);
+            } elseif ($key === 'comment_spam_caps_percent') {
+                $numericValue = max(1, min(100, $numericValue));
+            } else {
+                $numericValue = max(0, $numericValue);
+            }
+            $value = (string) $numericValue;
         }
 
         if (in_array($key, ['route_topic_prefix', 'route_category_prefix', 'route_category_list_prefix', 'route_profile_prefix'], true)) {
@@ -3123,9 +2595,6 @@ function saveAdminSettings(?PDO $pdo, array $input): void
         }
 
         $stmt->execute(['key' => $key, 'value' => $value]);
-        try {
-            $legacyStmt->execute(['key' => $key, 'value' => $value, 'type' => $type]);
-        } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
     }
 
     // Ayar cache'ini invalidate et

@@ -74,7 +74,10 @@ $invalidCredentialMessage = $loginIdentifierMode === 'email'
     ? 'Geçersiz e-posta veya şifre.'
     : 'Geçersiz giriş bilgisi veya şifre.';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$showRememberSession = (string) ($settings['login_show_remember_session'] ?? '1') === '1';
+$rememberSessionDefault = (string) ($settings['login_remember_session_default'] ?? '0') === '1';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
         logCsrfFailure($pdo, $loginAuditPath);
         flash('error', 'Güvenlik doğrulaması başarısız. Lütfen tekrar deneyin.');
@@ -116,7 +119,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['_auth_user_name'] = (string) ($user['username'] ?? '');
         $_SESSION['_auth_role_id'] = (int) ($user['role_id'] ?? 0);
         $_SESSION['_auth_role_slug'] = (string) ($user['role_slug'] ?? '');
-        if (!empty($_POST['remember_session']) && $pdo instanceof PDO) {
+        $rememberSession = $showRememberSession
+            ? !empty($_POST['remember_session'])
+            : $rememberSessionDefault;
+
+        if ($rememberSession && $pdo instanceof PDO) {
             $_SESSION['_auth_remember_session'] = 1;
             if (function_exists('authIssueRememberToken')) {
                 authIssueRememberToken($pdo, (int)$user['id'], $settings);
@@ -242,12 +249,14 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                         <input type="checkbox" name="remember_email" value="1" data-remember-email-check>
                         <span><?= htmlspecialchars($rememberIdentifierLabel) ?></span>
                     </label>
-                    <label class="auth-checkbox auth-checkbox-stacked">
-                        <input type="checkbox" name="remember_session" value="1">
-                        <span>Oturumumu bu cihazda hatırla</span>
-                        <small>Paylaşılan cihazlarda kullanmayın.</small>
-                    </label>
-                </div>
+                    <?php if ($showRememberSession): ?>
+                        <label class="auth-checkbox auth-checkbox-stacked">
+                            <input type="checkbox" name="remember_session" value="1" <?= $rememberSessionDefault ? 'checked' : '' ?>>
+                            <span>Oturumumu bu cihazda hatırla</span>
+                            <small>Paylaşılan cihazlarda kullanmayın.</small>
+                        </label>
+                    <?php endif; ?>
+                </div>
                 <button class="btn-auth" type="submit">
                     <span>Giriş Yap</span>
                     <i class="bi bi-arrow-right" aria-hidden="true"></i>

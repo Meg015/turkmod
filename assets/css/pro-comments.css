@@ -302,7 +302,7 @@
     letter-spacing: .2px !important;
 }
 
-/* Legacy avatar selectors (backward compat) */
+/* Comment item layout selectors shared by the current theme template. */
 .topic-comments .ui-comment-avatar {
     display: none !important;
 }

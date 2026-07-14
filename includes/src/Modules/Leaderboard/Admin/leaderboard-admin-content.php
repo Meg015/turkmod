@@ -3,27 +3,25 @@
 declare(strict_types=1);
 $leaderboardProjectRoot = dirname(__DIR__, 5);
 
-adminRequirePermission('leaderboard.view', 'Liderlik tablosunu görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
+adminRequirePermission('leaderboard.admin', 'Liderlik tablosunu yönetmek için gerekli izin hesabınıza tanımlanmamış.');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-    adminRequirePermission('leaderboard.manage', 'Liderlik tablosu ayarlarını yönetmek için gerekli izin hesabınıza tanımlanmamış.');
+    adminRequirePermission('leaderboard.admin', 'Liderlik tablosu ayarlarını yönetmek için gerekli izin hesabınıza tanımlanmamış.');
 }
 
 $pdo = requireDatabaseConnection($GLOBALS['pdo'] ?? null);
 $GLOBALS['pdo'] = $pdo;
 $baseUri = (string) ($GLOBALS['baseUri'] ?? '');
-$canManageLeaderboard = function_exists('adminCurrentUserCan') && adminCurrentUserCan('leaderboard.manage');
+$canManageLeaderboard = function_exists('adminCurrentUserCan') && adminCurrentUserCan('leaderboard.admin');
 $leaderboardActivityUrl = static function (int $page): string {
     $page = max(1, $page);
     return 'leaderboard.php' . ($page > 1 ? '?activity_page=' . $page : '') . '#leaderboard-status';
 };
 
-require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Legacy/helpers.php';
-require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Legacy/cache-manager.php';
+require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Support/helpers.php';
+require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Support/cache-manager.php';
 
-if (!\App\Engine\Users\PermissionChecker::can('leaderboard.admin', $pdo)) {
-    adminRequirePermission('leaderboard.manage', 'Liderlik tablosu ayarlarını yönetmek için gerekli izin hesabınıza tanımlanmamış.');
-}
+adminRequirePermission('leaderboard.admin', 'Liderlik tablosu ayarlarını yönetmek için gerekli izin hesabınıza tanımlanmamış.');
 
 $pageTitle = 'Liderlik Tablosu Yönetimi';
 $leaderboardSettingKeys = [
@@ -61,10 +59,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_leaderboard_se
         $stmt = $pdo->prepare("INSERT INTO admin_settings (setting_key, setting_value, created_at, updated_at)
             VALUES (:key, :value, NOW(), NOW())
             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
-        $legacyStmt = $pdo->prepare("INSERT INTO settings (`key`, value, type, created_at, updated_at)
-            VALUES (:key, :value, :type, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE value = VALUES(value), type = VALUES(type), updated_at = NOW()");
-
         foreach ($leaderboardSettingDefs as $key => $definition) {
             $type = (string)$definition['type'];
             if ($type === 'bool') {
@@ -78,11 +72,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_leaderboard_se
             }
 
             $stmt->execute(['key' => $key, 'value' => $value]);
-            try {
-                $legacyStmt->execute(['key' => $key, 'value' => $value, 'type' => $type]);
-            } catch (Throwable $e) {
-                appLogException($e, ['source' => 'admin/leaderboard.php', 'setting_key' => (string) $key]);
-            }
         }
 
         invalidateAdminSettingsCache();

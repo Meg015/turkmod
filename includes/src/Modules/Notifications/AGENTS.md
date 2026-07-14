@@ -2,20 +2,18 @@
 
 This folder is the module-owned boundary for `App\Modules\Notifications`.
 Notification center, preference filtering, template rendering, email
-queue fan-out, and event subscription behavior must live here. Legacy
-procedural helpers in `includes/notifications.php` stay as thin
-compatibility wrappers only.
+queue fan-out, and event subscription behavior must live here. Procedural
+helpers in `includes/notifications.php` stay as thin service delegates only.
 
 ## Ownership Boundary
 
 - `Services/NotificationCenterService.php` owns dropdown payload and read-marking.
 - `Services/NotificationPreferenceService.php` owns event definitions, preference filtering, and where-SQL generation.
-- `Services/NotificationSchemaService.php` owns runtime schema (event columns, email queue table).
+- `Services/NotificationSchemaService.php` owns schema readiness checks; module migrations own DDL.
 - `Services/NotificationTemplateService.php` owns template CRUD, render, validate, and defaults.
 - `Services/NotificationEmailQueueService.php` owns email queue stats, recipient lookup, queue/build/process.
-- `Services/NotificationDispatchService.php` owns dispatch orchestration and email fan-out via Core\Queue.
-- `Jobs/NotificationEmailJob.php` owns the queue job for email fan-out.
-- `Jobs/NotificationEmailQueueWorkerJob.php` owns the cron-driven queue processing job.
+- `Services/NotificationDispatchService.php` owns dispatch orchestration and synchronous email-queue fan-out.
+- `cron/send-notification-email-queue.php` invokes the email queue service directly.
 - `Listeners/NotificationEventSubscriber.php` owns event subscriptions for topic.published, comment.created, report.created.
 - `module.php` is the single metadata source for permissions, config, events, lifecycle, migrations, and lang.
 
@@ -34,15 +32,15 @@ compatibility wrappers only.
 - `NotificationCenterService::markRead()` must validate notification ownership before marking read (cross-user rejection).
 - `NotificationDispatchService` must respect user preference filtering before dispatching.
 
-## Events and Queue Contracts
+## Events and Delivery Contracts
 
 - `module.php` event subscriptions are canonical:
   - `topic.published` -> `NotificationEventSubscriber` (dispatches `topic_approved` to topic author)
   - `comment.created` -> `NotificationEventSubscriber` (dispatches `comment_on_topic`/`comment_reply`)
   - `report.created` -> `NotificationEventSubscriber` (dispatches report-specific notification events)
 - `NotificationEventSubscriber` handlers safely no-op when required payload data is missing.
-- `NotificationDispatchService` pushes `NotificationEmailJob` through an injectable `Core\Queue\Queue` dependency (default `SyncQueue`).
-- `cron/send-notification-email-queue.php` runs `NotificationEmailQueueWorkerJob` through `SyncQueue`.
+- `NotificationDispatchService` writes email work to `notification_email_queue` synchronously.
+- `cron/send-notification-email-queue.php` processes persisted email work directly through `NotificationEmailQueueService`.
 - Listener/job failures must be logged (`appLogException` or `error_log`), not silently swallowed.
 
 ## Permissions

@@ -39,5 +39,4 @@ ALTER TABLE `users` DROP INDEX `idx_users_email`;
 
 -- ADDITIONAL PERFORMANCE INDEXES
 ALTER TABLE `topics` ADD INDEX `idx_topics_author_deleted_created` (`author_id`, `deleted_at`, `created_at`);
-ALTER TABLE `reactions` ADD INDEX `idx_reactions_user_type` (`user_id`, `type`);
 ALTER TABLE `users` ADD INDEX `idx_users_sitemap_lookup` (`status`, `public_profile`, `is_banned`, `deleted_at`);

@@ -21,8 +21,6 @@ $menuRouteMap = [
     'admin/categories.php'              => 'categories',
     'admin/comments-manager.php'        => 'comments',
     'admin/complaints-reports.php'      => 'reports',
-    'admin/reports.php'                 => 'reports',
-    'admin/user-reports.php'            => 'reports',
     'admin/contacts.php'                => 'contacts',
 
     // Araçlar
@@ -183,7 +181,7 @@ function sidebarBadge(?int $count, int $max = 99): string {
             <?php if ($adminCan('notifications.view')): ?>
                 <a class="admin-menu-item<?= sidebarActiveClass('notifications') ?>" href="<?= $baseUri ?>/admin/notifications.php"><i class="bi bi-bell"></i><span>Bildirim Merkezi</span></a>
             <?php endif; ?>
-            <?php if ($adminCan('leaderboard.view')): ?>
+            <?php if ($adminCan('leaderboard.admin')): ?>
                 <a class="admin-menu-item<?= sidebarActiveClass('leaderboard') ?>" href="<?= $baseUri ?>/admin/leaderboard.php"><i class="bi bi-trophy"></i><span>Liderlik Tablosu</span></a>
             <?php endif; ?>
             <?php if ($adminCan('media.view')): ?>

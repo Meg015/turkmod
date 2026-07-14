@@ -2,16 +2,15 @@
 
 This folder is the module-owned boundary for `App\Modules\BanAppeals`.
 Ban appeal submission, user reply, admin moderation, status
-notification, and unban-on-accept behavior must live here. Legacy
-procedural helpers in `includes/modules/users/helpers.php` (ban appeal
-functions) stay as thin compatibility wrappers only. Ban restriction
+notification, and unban-on-accept behavior must live here. Procedural helpers
+for ban appeals stay as thin service delegates only. Ban restriction
 checks and ban/unban write operations belong in `Engine\Users`, not
 this module.
 
 ## Ownership Boundary
 
 - `Services/BanAppealService.php` owns appeal CRUD, user submission/reply, admin moderation, status labels, and unban-on-accept delegation.
-- `Services/BanAppealSchemaService.php` owns runtime schema for `ban_appeals` and `ban_appeal_messages` tables.
+- `Services/BanAppealSchemaService.php` owns schema readiness checks; module migrations own DDL.
 - `Services/BanAppealNotificationService.php` owns appeal status-update notification dispatch.
 - `Services/BanAppealsLifecycle.php` owns module install/uninstall migrations.
 - `module.php` is the single metadata source for permissions, events, lifecycle, migrations, routes, and lang.
@@ -19,7 +18,7 @@ this module.
 ## Do Not Re-Introduce
 
 - Do not move appeal business logic back into `includes/modules/users/helpers.php` inline implementations.
-- Do not duplicate ban/unban SQL inside this module; delegate to `Engine\Users\BanService` via `usersUnban()` compatibility shim.
+- Do not duplicate ban/unban SQL inside this module; delegate to `Engine\Users\BanService`.
 - Do not write appeal SQL directly in page controllers; delegate through service helpers.
 - Do not add ban restriction check logic to this module; ban checks belong in `Engine\Users\BanCheck`.
 

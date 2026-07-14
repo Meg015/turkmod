@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Core\Database\Migration;
+use App\Modules\Reports\Database\migrations\Support\ReportsSchemaInstaller;
+
+require_once __DIR__ . '/Support/ReportsSchemaInstaller.php';
 
 return new class implements Migration
 {
@@ -13,7 +16,7 @@ return new class implements Migration
 
     public function up(PDO $pdo): void
     {
-        $schema = new App\Modules\Reports\Services\ReportsSchemaService();
+        $schema = new ReportsSchemaInstaller();
         $schema->ensureUserReports($pdo, false);
         $schema->ensureTopicReports($pdo, false);
     }

@@ -2,7 +2,7 @@
 -- Events group-scope columns for task/activity rules (2026-07-03)
 -- ============================================================================
 -- Ensures Events task readiness checks can pass when runtime schema updates are
--- disabled (APP_ALLOW_RUNTIME_SCHEMA_UPDATES=false).
+-- Runtime schema mutation is disabled; this migration is the only owner.
 --
 -- Required by:
 -- - events_tasks.group_id

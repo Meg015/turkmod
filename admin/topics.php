@@ -90,6 +90,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         exit;
     }
 
+    if ($postAction === 'topic_report_action') {
+        header('Location: complaints-reports.php?tab=topics');
+        exit;
+    }
+
     if ($postAction === 'check_download_link') {
         if (!adminCurrentUserCan('topics.edit')) {
             adminDenyAction('Konu baglanti kontrolu icin gerekli izin hesabiniza tanimlanmamis.', 'topics.php');
@@ -189,6 +194,10 @@ $search = trim((string) ($_GET['q'] ?? ''));
 $statusFilter = trim((string) ($_GET['status'] ?? ''));
 $viewFilter = trim((string) ($_GET['view'] ?? 'active'));
 $activeTab = trim((string) ($_GET['tab'] ?? 'list'));
+if ($activeTab === 'reports') {
+    header('Location: complaints-reports.php?tab=topics');
+    exit;
+}
 $activeTab = in_array($activeTab, ['list', 'health', 'settings'], true) ? $activeTab : 'list';
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
@@ -671,7 +680,10 @@ require_once __DIR__ . '/header.php';
 </div>
 <?php endif; ?>
 
-<?php elseif ($activeTab === 'settings'): ?>
+<?php endif; ?>
+
+
+<?php if ($activeTab === 'settings'): ?>
 <section class="admin-card admin-card-spaced topic-settings-panel ui-panel">
     <div class="card-header ui-panel__head">
         <div>
@@ -699,7 +711,8 @@ require_once __DIR__ . '/header.php';
     </div>
 </section>
 
-<?php else: ?>
+<?php endif; ?>
+<?php if ($activeTab === 'health'): ?>
 <?php
 $healthStatusMeta = [
     'ok' => ['Sağlam', 'success', 'bi-check-circle-fill'],

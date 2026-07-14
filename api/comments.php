@@ -1,17 +1,9 @@
 <?php
 
 declare(strict_types=1);
-/**
- * AJAX Comment API
- * GET  ?topic_id=X           → list comments
- * POST {topic_id, body}      → add comment
- * POST {action=delete, id}   → delete comment (admin/owner)
- */
+
 require_once __DIR__ . '/../includes/init.php';
 require_once __DIR__ . '/../includes/notifications.php';
-// admin/helpers.php saf fonksiyon tanımları içeriyor (requireAdmin gibi yan etkisiz);
-// burada getAdminSettings(), adminSettingDefinitions() vb. fonksiyonları kullanabilmek için include ediyoruz.
-require_once __DIR__ . '/../admin/helpers.php';
 if (is_file(__DIR__ . '/../includes/src/Modules/Events/init.php')) {
     require_once __DIR__ . '/../includes/src/Modules/Events/init.php';
 }
@@ -19,72 +11,60 @@ if (is_file(__DIR__ . '/../includes/src/Modules/Events/init.php')) {
 header('Content-Type: application/json; charset=utf-8');
 
 $pdo = requireDatabaseConnection($pdo ?? null);
+$settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 
-// Settings
-$settings = function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : [];
-$allowComments       = ($settings['allow_comments'] ?? '1') === '1';
-$approvalRequired    = ($settings['comment_approval_required'] ?? '0') === '1';
-$maxLength           = (int)($settings['max_comment_length'] ?? 2000);
-$minLength           = (int)($settings['comment_min_length'] ?? 1);
-$guestComments       = ($settings['comment_allow_guest'] ?? '0') === '1';
-$editWindow          = (int)($settings['comment_edit_window'] ?? 0);
-$nestedComments      = ($settings['comment_nested'] ?? '0') === '1';
-$maxNestDepth        = (int)($settings['comment_max_depth'] ?? 3);
-$commentsPerPage     = (int)($settings['comment_per_page'] ?? 50);
-$commentOrder        = $settings['comment_sort_order'] ?? 'asc';
-$rateMinutes         = (int)($settings['comment_rate_minutes'] ?? 5);
-$rateMax             = (int)($settings['comment_rate_max'] ?? 5);
-$rateAdminBypass     = ($settings['comment_rate_admin_bypass'] ?? '1') === '1';
-$mentionRateMax      = max(1, (int)($settings['comment_mention_rate_max'] ?? 30));
-$mentionRateWindow   = max(1, (int)($settings['comment_mention_rate_window'] ?? 1));
-$commentEditRateMax  = max(1, (int)($settings['comment_edit_rate_max'] ?? 20));
-$commentEditRateWindow = max(1, (int)($settings['comment_edit_rate_window'] ?? 1));
-$commentReactionRateMax = max(1, (int)($settings['comment_reaction_rate_max'] ?? 60));
-$commentReactionRateWindow = max(1, (int)($settings['comment_reaction_rate_window'] ?? 1));
-$commentReportRateMax = max(1, (int)($settings['comment_report_rate_max'] ?? 5));
-$commentReportRateWindow = max(1, (int)($settings['comment_report_rate_window'] ?? 10));
-$bannedWords         = array_filter(array_map('trim', explode("\n", $settings['banned_words'] ?? '')));
+$allowComments = ($settings['allow_comments'] ?? '1') === '1';
+$approvalRequired = ($settings['comment_approval_required'] ?? '0') === '1';
+$maxLength = max(1, (int) ($settings['max_comment_length'] ?? 2000));
+$minLength = max(1, (int) ($settings['comment_min_length'] ?? 1));
+$guestComments = ($settings['comment_allow_guest'] ?? '0') === '1';
+$editWindow = max(0, (int) ($settings['comment_edit_window'] ?? 0));
+$nestedComments = ($settings['comment_nested'] ?? '0') === '1';
+$maxNestDepth = max(0, (int) ($settings['comment_max_depth'] ?? 3));
+$commentsPerPage = max(1, min(200, (int) ($settings['comment_per_page'] ?? 50)));
+$commentOrder = (string) ($settings['comment_sort_order'] ?? 'asc');
+$rateMinutes = max(1, (int) ($settings['comment_rate_minutes'] ?? 5));
+$rateMax = max(0, (int) ($settings['comment_rate_max'] ?? 5));
+$rateAdminBypass = ($settings['comment_rate_admin_bypass'] ?? '1') === '1';
+$mentionRateMax = max(1, (int) ($settings['comment_mention_rate_max'] ?? 30));
+$mentionRateWindow = max(1, (int) ($settings['comment_mention_rate_window'] ?? 1));
+$commentEditRateMax = max(1, (int) ($settings['comment_edit_rate_max'] ?? 20));
+$commentEditRateWindow = max(1, (int) ($settings['comment_edit_rate_window'] ?? 1));
+$commentReactionRateMax = max(1, (int) ($settings['comment_reaction_rate_max'] ?? 60));
+$commentReactionRateWindow = max(1, (int) ($settings['comment_reaction_rate_window'] ?? 1));
+$commentReportRateMax = max(1, (int) ($settings['comment_report_rate_max'] ?? 5));
+$commentReportRateWindow = max(1, (int) ($settings['comment_report_rate_window'] ?? 10));
+$bannedWords = array_filter(array_map('trim', explode("\n", (string) ($settings['banned_words'] ?? ''))));
 
-// Enhanced comment features
-$reactionsEnabled    = ($settings['comment_reactions_enabled'] ?? '1') === '1';
-$reactionTypes       = ['like', 'dislike'];
-$markdownEnabled     = ($settings['comment_markdown_enabled'] ?? '1') === '1';
-$mentionsEnabled     = ($settings['comment_mentions_enabled'] ?? '1') === '1';
-$editHistoryEnabled  = ($settings['comment_edit_history'] ?? '1') === '1';
-$mediaEnabled        = ($settings['comment_media_enabled'] ?? '0') === '1';
-$spamDetection       = ($settings['comment_spam_detection'] ?? '1') === '1';
+$reactionsEnabled = ($settings['comment_reactions_enabled'] ?? '1') === '1';
+$reactionTypes = ['like', 'dislike'];
+$markdownEnabled = ($settings['comment_markdown_enabled'] ?? '1') === '1';
+$mentionsEnabled = ($settings['comment_mentions_enabled'] ?? '1') === '1';
+$editHistoryEnabled = ($settings['comment_edit_history'] ?? '1') === '1';
+$spamDetection = ($settings['comment_spam_detection'] ?? '1') === '1';
 
-$wordFilterStr       = trim($settings['comment_word_filter'] ?? '');
-$wordFilter          = $wordFilterStr !== '' ? array_filter(array_map('trim', explode(',', $wordFilterStr))) : [];
-$autoBanAction       = $settings['comment_auto_ban_words'] ?? 'pending';
-$autoHideCount       = (int)($settings['comment_auto_hide_reports'] ?? 5);
-$currentUserIsAdmin = isset($_SESSION['_auth_user_id']) && function_exists('userHasPermission') && userHasPermission($pdo, (int) $_SESSION['_auth_user_id'], 'admin.access');
-$isLoggedIn = isset($_SESSION['_auth_user_id']) && !empty($_SESSION['_auth_user_id']);
-
-// Release session lock early as this API only reads from session
-session_write_close();
-
-/**
- * Cached schema column check — runs SHOW COLUMNS at most once per request.
- * Replaces repeated per-call SHOW COLUMNS queries (performance item #7).
- */
-function _commentsSchemaHas(PDO $pdo, string $column): bool
-{
-    static $columns = null;
-    if ($columns === null) {
-        $columns = [];
-        try {
-            $stmt = $pdo->query("SHOW COLUMNS FROM comments");
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $columns[(string) ($row['Field'] ?? '')] = true;
-            }
-        } catch (Throwable) {
-            // Schema is stable — assume current schema.sql columns exist
-            $columns = ['is_edited' => true, 'edited_at' => true, 'reaction_count' => true, 'is_markdown' => true, 'mention_count' => true];
-        }
-    }
-    return isset($columns[$column]);
+$wordFilterValue = trim((string) ($settings['comment_word_filter'] ?? ''));
+$wordFilter = $wordFilterValue !== ''
+    ? array_filter(array_map('trim', explode(',', $wordFilterValue)))
+    : [];
+$autoBanAction = (string) ($settings['comment_auto_ban_words'] ?? 'pending');
+$autoHideCount = max(0, (int) ($settings['comment_auto_hide_reports'] ?? 5));
+$spamAction = (string) ($settings['comment_spam_action'] ?? 'reject');
+$spamAction = in_array($spamAction, ['reject', 'pending', 'store_rejected'], true) ? $spamAction : 'reject';
+$spamRejectMessage = trim((string) ($settings['comment_spam_reject_message'] ?? ''));
+if ($spamRejectMessage === '') {
+    $spamRejectMessage = 'Yorumunuz spam veya anlamsız içerik olarak algılandı. Lütfen daha açıklayıcı bir yorum yazın.';
 }
+$spamPendingMessage = trim((string) ($settings['comment_spam_pending_message'] ?? ''));
+if ($spamPendingMessage === '') {
+    $spamPendingMessage = 'Yorumunuz spam filtresine takıldı ve onaya gönderildi.';
+}
+$isLoggedIn = !empty($_SESSION['_auth_user_id']);
+$currentUserIsAdmin = $isLoggedIn
+    && function_exists('userHasPermission')
+    && userHasPermission($pdo, (int) $_SESSION['_auth_user_id'], 'admin.access');
+
+session_write_close();
 
 function jsonResponse(int $code, array $data): void
 {
@@ -276,14 +256,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $totalRoot = (int)$countRootStmt->fetchColumn();
 
         // Fetch all comments for this topic (flat)
-        // Use cached schema check instead of per-request SHOW COLUMNS
-        $hasNewColumns = _commentsSchemaHas($pdo, 'is_edited');
         $authorNameExpr = _commentsUserNameExpr($pdo, 'u');
-
-        $selectCols = $hasNewColumns
-            ? "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name"
-            : "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name";
-
+        $selectCols = "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name";
         // Add sorting by likes-dislikes if popular, liked, or disliked
         if ($orderByPopular) {
             $orderClause = "(COALESCE(cr_agg.likes_cnt, 0) - COALESCE(cr_agg.dislikes_cnt, 0)) DESC, c.created_at ASC";
@@ -325,20 +299,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $rootComments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch ALL REPLIES for the entire topic
-        $sqlReplies = $hasNewColumns
-            ? "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name
-               FROM comments c LEFT JOIN users u ON c.user_id = u.id
-               LEFT JOIN user_group_members ugm ON ugm.user_id = u.id AND ugm.is_primary = 1
-               LEFT JOIN user_groups ug ON ug.id = ugm.group_id
-               WHERE c.topic_id = :tid AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NOT NULL
-               ORDER BY c.created_at ASC"
-            : "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name
+        $sqlReplies = "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name
                FROM comments c LEFT JOIN users u ON c.user_id = u.id
                LEFT JOIN user_group_members ugm ON ugm.user_id = u.id AND ugm.is_primary = 1
                LEFT JOIN user_groups ug ON ug.id = ugm.group_id
                WHERE c.topic_id = :tid AND c.status = 'approved' AND c.deleted_at IS NULL AND c.parent_id IS NOT NULL
                ORDER BY c.created_at ASC";
-
         $stmtReplies = $pdo->prepare($sqlReplies);
         $stmtReplies->bindValue(':tid', $topicId, PDO::PARAM_INT);
         $stmtReplies->execute();
@@ -717,52 +683,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $topicId = (int)($input['topic_id'] ?? 0);
         $body = trim($input['body'] ?? '');
         $parentId = ((int)($input['parent_id'] ?? 0)) ?: null;
+        $userId = $isLoggedIn ? (int) ($_SESSION['_auth_user_id'] ?? 0) : 0;
+        $commentSpamExempt = $isLoggedIn && $userId > 0 && function_exists('commentSpamIsUserExempt')
+            ? commentSpamIsUserExempt($pdo, $settings, $userId)
+            : false;
+        $status = $approvalRequired ? 'pending' : 'approved';
 
         if ($topicId <= 0) jsonResponse(400, ['error' => 'Geçersiz konu.']);
         if (mb_strlen($body) < $minLength) jsonResponse(400, ['error' => "Yorum en az {$minLength} karakter olmalı."]);
         if (mb_strlen($body) > $maxLength) jsonResponse(400, ['error' => "Yorum en fazla {$maxLength} karakter olabilir."]);
 
-    // Banned words check (Old array)
-    if (filterBannedWords($body, $bannedWords)) {
-        jsonResponse(400, ['error' => 'Yorumunuz yasaklı kelimeler içeriyor.']);
-    }
+        if (!$commentSpamExempt) {
+            // Banned words check (Old array)
+            if (filterBannedWords($body, $bannedWords)) {
+                jsonResponse(400, ['error' => 'Yorumunuz yasaklı kelimeler içeriyor.']);
+            }
 
-    $status = $approvalRequired ? 'pending' : 'approved';
-
-    // New Word Filter check
-    if (!empty($wordFilter) && filterBannedWords($body, $wordFilter)) {
-        if ($autoBanAction === 'reject') {
-            jsonResponse(400, ['error' => 'Yorumunuz izin verilmeyen kelimeler içerdiği için reddedildi.']);
-        } elseif ($autoBanAction === 'censor') {
-            foreach ($wordFilter as $word) {
-                if (mb_stripos($body, $word) !== false) {
-                    $body = preg_replace('/' . preg_quote($word, '/') . '/iu', str_repeat('*', mb_strlen($word)), $body);
+            // New Word Filter check
+            if (!empty($wordFilter) && filterBannedWords($body, $wordFilter)) {
+                if ($autoBanAction === 'reject') {
+                    jsonResponse(400, ['error' => 'Yorumunuz izin verilmeyen kelimeler içerdiği için reddedildi.']);
+                } elseif ($autoBanAction === 'censor') {
+                    foreach ($wordFilter as $word) {
+                        if (mb_stripos($body, $word) !== false) {
+                            $body = preg_replace('/' . preg_quote($word, '/') . '/iu', str_repeat('*', mb_strlen($word)), $body);
+                        }
+                    }
+                } elseif ($autoBanAction === 'pending') {
+                    $status = 'pending';
                 }
             }
-        } elseif ($autoBanAction === 'pending') {
-            $status = 'pending';
-        }
-    }
 
-    // Spam detection
-    if ($spamDetection && $isLoggedIn) {
-        if (detectSpam($body, $pdo, (int)$_SESSION['_auth_user_id'])) {
-            jsonResponse(429, ['error' => 'Spam tespit edildi. Lütfen farklı bir yorum yazın.']);
-        }
-    }
+            $spamAction = in_array($spamAction, ['reject', 'pending', 'store_rejected'], true) ? $spamAction : 'reject';
+            $guestDuplicateKey = !$isLoggedIn ? commentSpamGuestDuplicateKey($body) : null;
+            $spamResult = commentSpamEvaluate($body, $settings, $isLoggedIn ? $pdo : null, $userId, $guestDuplicateKey);
+            $spamDetected = !empty($spamResult['is_spam']);
+            $spamReasons = $spamDetected ? array_values(array_filter(array_map('strval', (array) ($spamResult['reasons'] ?? [])))) : [];
+            if ($spamDetected) {
+                $spamLogPayload = [
+                    'reasons' => $spamReasons,
+                    'body_length' => mb_strlen($body),
+                    'spam_action' => $spamAction,
+                    'topic_id' => $topicId,
+                    'user_id' => $userId,
+                ];
 
-    // Rate limit (0 = devre dışı; admin'ler comment_rate_admin_bypass açıkken muaf)
-    $skipRate = $rateAdminBypass && $currentUserIsAdmin;
-    if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
-        $rateSubject = $isLoggedIn
-            ? 'user_' . (int) ($_SESSION['_auth_user_id'] ?? 0)
-            : 'guest_' . preg_replace('/[^a-zA-Z0-9_.:-]/', '', getRealIp());
-        $rateKey = 'comment_' . $rateSubject;
-        if (!checkRateLimit($rateKey, $rateMax, $rateMinutes)) {
-            $remaining = getRateLimitRemainingSeconds($rateKey, $rateMinutes);
-            jsonResponse(429, ['error' => "Çok hızlı yorum yapıyorsunuz. {$remaining} saniye bekleyin."]);
+                if ($spamAction === 'reject') {
+                    logActivity($pdo, 'comment_spam_blocked', 'topic', $topicId, $spamLogPayload);
+                    jsonResponse(422, ['error' => $spamRejectMessage, 'message' => $spamRejectMessage, 'code' => 'comment_spam_rejected']);
+                }
+
+                $spamLogPayload['comment_status'] = $spamAction === 'pending' ? 'pending' : 'rejected';
+                $status = $spamAction === 'pending' ? 'pending' : 'rejected';
+            }
+
+            // Rate limit (0 = devre dışı; admin'ler comment_rate_admin_bypass açıkken muaf)
+            $skipRate = ($rateAdminBypass && $currentUserIsAdmin) || $commentSpamExempt;
+            if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
+                $rateSubject = $isLoggedIn
+                    ? 'user_' . $userId
+                    : 'guest_' . preg_replace('/[^a-zA-Z0-9_.:-]/', '', getRealIp());
+                $rateKey = 'comment_' . $rateSubject;
+                if (!checkRateLimit($rateKey, $rateMax, $rateMinutes)) {
+                    $remaining = getRateLimitRemainingSeconds($rateKey, $rateMinutes);
+                    jsonResponse(429, ['error' => "Çok hızlı yorum yapıyorsunuz. {$remaining} saniye bekleyin."]);
+                }
+            }
+        } else {
+            $spamAction = in_array($spamAction, ['reject', 'pending', 'store_rejected'], true) ? $spamAction : 'reject';
+            $guestDuplicateKey = null;
+            $spamDetected = false;
+            $spamReasons = [];
+            $skipRate = ($rateAdminBypass && $currentUserIsAdmin) || $commentSpamExempt;
         }
-    }
 
     if ($parentId && !$nestedComments) {
         jsonResponse(400, ['error' => 'Yanıt yorumları devre dışı.']);
@@ -797,31 +790,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
     try {
-        $userId = $isLoggedIn ? (int)$_SESSION['_auth_user_id'] : null;
-
         // Parse mentions if enabled
         $mentionedUsers = [];
         if ($mentionsEnabled && $userId) {
             $mentionedUsers = parseMentions($body, $pdo);
         }
 
-        // Use cached schema check instead of per-request SHOW COLUMNS
-        $hasNewColumns = _commentsSchemaHas($pdo, 'is_markdown');
+        $mentionCount = $status === 'approved' ? count($mentionedUsers) : 0;
+        $stmt = $pdo->prepare("INSERT INTO comments (topic_id, user_id, parent_id, body, status, is_markdown, mention_count, created_at, updated_at)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([$topicId, $userId, $parentId, $body, $status, $markdownEnabled ? 1 : 0, $mentionCount]);        $newId = (int)$pdo->lastInsertId();
 
-        // Insert comment (with or without new columns)
-        if ($hasNewColumns) {
-            $stmt = $pdo->prepare("INSERT INTO comments (topic_id, user_id, parent_id, body, status, is_markdown, mention_count, created_at, updated_at)
-                                   VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
-            $stmt->execute([$topicId, $userId, $parentId, $body, $status, $markdownEnabled ? 1 : 0, count($mentionedUsers)]);
-        } else {
-            // Fallback to old schema
-            $stmt = $pdo->prepare("INSERT INTO comments (topic_id, user_id, parent_id, body, status, created_at, updated_at)
-                                   VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
-            $stmt->execute([$topicId, $userId, $parentId, $body, $status]);
-        }
-        $newId = (int)$pdo->lastInsertId();
-
-        if ($userId && function_exists('topicDownloadCreateAccessGrant')) {
+        if ($status === 'approved' && $userId && function_exists('topicDownloadCreateAccessGrant')) {
             $createdAt = date('Y-m-d H:i:s');
             topicDownloadCreateAccessGrant($pdo, $settings, [
                 'id' => $newId,
@@ -834,8 +814,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ], $createdAt);
         }
 
+        if (!$isLoggedIn && $guestDuplicateKey !== null && function_exists('incrementRateLimit')) {
+            $guestDuplicateWindowMinutes = max(0, (int) ($settings['comment_spam_duplicate_window_minutes'] ?? 5));
+            if ($guestDuplicateWindowMinutes > 0) {
+                incrementRateLimit($guestDuplicateKey, $guestDuplicateWindowMinutes);
+            }
+        }
+
         // Save mentions (only if table exists)
-        if (!empty($mentionedUsers)) {
+        if ($status === 'approved' && !empty($mentionedUsers)) {
             try {
                 $mentionStmt = $pdo->prepare("INSERT INTO comment_mentions (comment_id, mentioned_user_id, mentioner_user_id, created_at) VALUES (?, ?, ?, NOW())");
                 foreach ($mentionedUsers as $mentionedUserId => $mentionedName) {
@@ -939,18 +926,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Update leaderboard stats for user
-        if ($userId && file_exists(__DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php')) {
-            require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php';
-            leaderboardTriggerComment($pdo, $userId);
-        }
-
-        // Rate limit sayacını yorum başarıyla eklendikten SONRA artır
+        if ($status === 'approved') {
+        // Rate limit sayacını yorum başarıyla eklendikten SONRA artır.
         if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
             incrementRateLimit($rateKey, $rateMinutes);
         }
 
         logActivity($pdo, 'comment_created', 'comment', $newId, ['topic_id' => $topicId]);
+        } else {
+            if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
+                incrementRateLimit($rateKey, $rateMinutes);
+            }
+
+            logActivity($pdo, $spamDetected ? ($status === 'pending' ? 'comment_spam_pending' : 'comment_spam_rejected') : 'comment_pending', 'comment', $newId, [
+                'topic_id' => $topicId,
+                'status' => $status,
+                'spam' => $spamDetected ? 1 : 0,
+                'spam_reasons' => $spamReasons,
+            ]);
+
+        if ($status === 'rejected') {
+            jsonResponse(422, [
+                'error' => $spamRejectMessage,
+                'message' => $spamRejectMessage,
+                'code' => 'comment_spam_rejected',
+                '_token' => csrf_token(),
+            ]);
+            }
+        }
 
         // Fetch the newly created comment
         $newAuthorExpr = _commentsUserNameExpr($pdo, 'u');
@@ -959,7 +962,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newStmt->execute([$newId]);
         $newComment = $newStmt->fetch(PDO::FETCH_ASSOC);
 
-        $message = $status === 'pending' ? 'Yorumunuz onay bekliyor.' : 'Yorumunuz eklendi.';
+        $message = $status === 'pending'
+            ? ($spamDetected ? $spamPendingMessage : 'Yorumunuz onay bekliyor.')
+            : 'Yorumunuz eklendi.';
         jsonResponse(201, [
             'success' => true,
             'message' => $message,
@@ -1011,11 +1016,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'react
             $pdo->prepare("UPDATE comments SET reaction_count = GREATEST(reaction_count - 1, 0) WHERE id = ?")->execute([$commentId]);
             $action = 'removed';
 
-            // Update leaderboard stats for comment owner (decrement helpful count)
-            if ($reactionType === 'like' && $commentOwnerId > 0 && file_exists(__DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php')) {
-                require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php';
-                leaderboardTriggerHelpfulRemoved($pdo, $commentOwnerId);
-            }
         } else {
             // Add reaction
             $pdo->prepare("INSERT INTO comment_reactions (comment_id, user_id, reaction_type, created_at) VALUES (?, ?, ?, NOW())")
@@ -1030,11 +1030,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'react
                 ]);
             }
 
-            // Update leaderboard stats for comment owner (increment helpful count)
-            if ($reactionType === 'like' && $commentOwnerId > 0 && file_exists(__DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php')) {
-                require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php';
-                leaderboardTriggerHelpful($pdo, $commentOwnerId);
-            }
         }
 
         // Get updated reaction counts

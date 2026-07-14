@@ -52,11 +52,17 @@ $loginIdentifierMode = strtolower(trim((string) ($settings['login_identifier_mod
 if (!in_array($loginIdentifierMode, ['email', 'username', 'both'], true)) {
     $loginIdentifierMode = 'email';
 }
+$registrationRequiresAdminApproval = function_exists('usersRegistrationRequiresAdminApproval')
+    ? usersRegistrationRequiresAdminApproval($settings)
+    : false;
+$registrationPendingMessage = function_exists('usersRegistrationPendingMessage')
+    ? usersRegistrationPendingMessage($settings)
+    : 'Hesabınız oluşturuldu. Yönetici onayından sonra giriş yapabilirsiniz.';
 
-$respondAuthSuccess = static function (array $user, string $message) use ($redirectHint): void {
+$respondAuthSuccess = static function (array $user, string $message, bool $loggedIn = true) use ($redirectHint): void {
     sendSuccess($message, [
         'auth' => [
-            'logged_in' => true,
+            'logged_in' => $loggedIn,
             'user' => [
                 'id' => (int) ($user['id'] ?? 0),
                 'username' => (string) ($user['username'] ?? ''),
@@ -180,18 +186,30 @@ try {
         }
 
         $usernameRaw = trim((string) ($payload['username'] ?? ''));
+        $usernameBounds = function_exists('usersUsernameLengthBounds')
+            ? usersUsernameLengthBounds($settings)
+            : ['min' => 3, 'max' => 30];
         $username = function_exists('usersValidateUsernameInput')
-            ? usersValidateUsernameInput($usernameRaw)
+            ? usersValidateUsernameInput($usernameRaw, $settings)
+            : '';
+        $usernamePolicyError = function_exists('usersValidateUsernamePolicy')
+            ? usersValidateUsernamePolicy($username, $settings)
             : '';
         $email = trim((string) ($payload['email'] ?? ''));
         $password = (string) ($payload['password'] ?? '');
         $passwordConfirm = (string) ($payload['password_confirm'] ?? '');
 
         if ($username === '') {
-            sendValidationError('Kayit bilgileri gecersiz.', ['username' => 'Kullanici adi 3-30 karakter olmali ve sadece harf, rakam, _ veya - icermelidir.']);
+            sendValidationError('Kayit bilgileri gecersiz.', ['username' => "Kullanici adi {$usernameBounds['min']}-{$usernameBounds['max']} karakter olmali ve sadece harf, rakam, _ veya - icermelidir."]);
+        }
+        if ($usernamePolicyError !== '') {
+            sendValidationError('Kayit bilgileri gecersiz.', ['username' => $usernamePolicyError]);
         }
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             sendValidationError('Kayit bilgileri gecersiz.', ['email' => 'Gecerli bir e-posta adresi girin.']);
+        }
+        if (($emailPolicyError = function_exists('usersValidateEmailDomainPolicy') ? usersValidateEmailDomainPolicy($email, $settings) : '') !== '') {
+            sendValidationError('Kayit bilgileri gecersiz.', ['email' => $emailPolicyError]);
         }
         if (function_exists('validatePasswordPolicy')) {
             $policyError = validatePasswordPolicy($password, $settings, 'Sifre');
@@ -268,7 +286,7 @@ try {
         $pushParam('email', ':email', $email);
         $pushParam('password', ':password', password_hash($password, PASSWORD_DEFAULT));
         if (!empty($userColumns['status'])) {
-            $pushParam('status', ':status', 'active');
+            $pushParam('status', ':status', $registrationRequiresAdminApproval ? 'inactive' : 'active');
         }
         if (!empty($userColumns['created_at'])) {
             $insertColumns[] = 'created_at';
@@ -296,6 +314,9 @@ try {
         if (function_exists('logActivity')) {
             logActivity($pdo, 'user_registered', 'user', $newUserId, ['email' => $email]);
         }
+        if (function_exists('usersNotifyAdminsOnRegistration')) {
+            usersNotifyAdminsOnRegistration($pdo, $newUserId, $username, $email, $registrationRequiresAdminApproval);
+        }
         try {
             $accountMailer = accountEmailService($pdo);
             $accountMailer->send('welcome', $email, [
@@ -310,9 +331,12 @@ try {
         }
         if (function_exists('eventsRecordActivity')) {
             eventsRecordActivity($pdo, $newUserId, 'user_registered', 'user', $newUserId, [
-                'is_approved' => true,
+                'is_approved' => !$registrationRequiresAdminApproval,
                 'dedupe_key' => 'user_registered:user:' . $newUserId,
             ]);
+        }
+        if (function_exists('usersNotifyAdminsOnSuspiciousRegistrations')) {
+            usersNotifyAdminsOnSuspiciousRegistrations($pdo, $settings);
         }
 
         $freshUserSql = 'SELECT id, username, email, status, password_changed_at FROM users WHERE id = :id LIMIT 1';
@@ -321,6 +345,10 @@ try {
         $freshUser = $freshUserStmt->fetch(PDO::FETCH_ASSOC);
         if (!is_array($freshUser) || !$freshUser) {
             sendError('registration_failed', 'Kayit tamamlandi ancak oturum acilamadi. Lutfen giris yapin.', 500);
+        }
+
+        if ($registrationRequiresAdminApproval) {
+            $respondAuthSuccess($freshUser, $registrationPendingMessage, false);
         }
 
         if (function_exists('authSessionUserContext')) {

@@ -26,7 +26,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if (!in_array($status, ['draft', 'published'], true)) {
         $status = 'draft';
     }
-    $topicDownloadLinks = trim($_POST['topic_download_links'] ?? '');
+    $downloadLines = trim($_POST['download_lines'] ?? '');
     $videoUrl = trim($_POST['topic_video_url'] ?? '');
 
     if ($pdo && $categoryId <= 0) {
@@ -56,7 +56,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 ]);
 
             $topicId = (int) $pdo->lastInsertId();
-            syncTopicDownloadLinks($pdo, $topicId, $topicDownloadLinks);
+            syncTopicDownloadLinks($pdo, $topicId, $downloadLines);
 
             if (!empty($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
                 $attachment = handleFileUpload($pdo, $topicId, $_FILES['attachment'], 'attachment', 0, false, $title);
@@ -118,12 +118,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_created', 'topic', $topicId, ['title' => $title]);
             adminAuditLogger()->logAction($pdo, 'topic_created', 'topic', $topicId, 'Konu oluşturuldu', [], ['title' => $title], false);
-
-            // Update leaderboard stats for author
-            if ($authorId > 0 && file_exists(__DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php')) {
-                require_once __DIR__ . '/../includes/src/Modules/Leaderboard/Legacy/triggers.php';
-                leaderboardTriggerTopicCreated($pdo, $authorId);
-            }
 
             flash('success', 'Konu başarıyla eklendi.');
             header('Location: topics.php');
@@ -248,7 +242,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                 </div>
                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm ui-admin-btn-offset-top" data-ui-action="addDlRow"><i class="bi bi-plus-lg"></i> Bağlantı Ekle</button>
-                <input type="hidden" name="topic_download_links" id="dlHidden">
+                <input type="hidden" name="download_lines" id="dlHidden">
             </div>
 
             <div class="ui-admin-mb-md">

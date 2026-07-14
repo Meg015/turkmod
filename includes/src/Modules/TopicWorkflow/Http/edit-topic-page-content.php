@@ -307,7 +307,7 @@ foreach ($mediaRecords as $record) {
     }
 }
 $videoUrl = editTopicExistingVideo($mediaRecords);
-$downloadLinks = getTopicDownloadLinks($pdo, $topicId, (string)($topic['topic_download_links'] ?? ''));
+$downloadLinks = getTopicDownloadLinks($pdo, $topicId);
 $moderationFlags = !empty($topic['moderation_flags']) ? json_decode((string)$topic['moderation_flags'], true) : [];
 $moderationNote = is_array($moderationFlags) ? trim((string)($moderationFlags['note'] ?? '')) : '';
 $statusLabel = match ((string)($topic['status'] ?? '')) {

@@ -8,15 +8,15 @@ declare(strict_types=1);
 
  * Kullanıcı Profili — Detaylı profil sayfası
 
- * İş mantığı: includes/src/Engine/Users/Legacy/profile-helpers.php
+ * İş mantığı: includes/src/Engine/Users/Support/profile-helpers.php
 
  */
 
 require_once $projectRoot . "/includes/init.php";
 
-require_once $projectRoot . "/includes/src/Engine/Users/Legacy/profile-helpers.php";
+require_once $projectRoot . "/includes/src/Engine/Users/Support/profile-helpers.php";
 
-require_once $projectRoot . "/includes/src/Engine/Logs/Legacy/helpers.php";
+require_once $projectRoot . "/includes/src/Engine/Logs/Support/helpers.php";
 
 
 
@@ -1509,9 +1509,6 @@ require_once $projectRoot . "/includes/public-header.php";
             <?php
 
                 $pendingStatus = (string)($t["status"] ?? "draft");
-                if ($pendingStatus === "pending") {
-                    $pendingStatus = "draft";
-                }
                 $pendingStatusLabels = [
                     "draft" => ["Taslak", "bi-pencil-square"],
                     "revision" => ["Revizyon İstendi", "bi-arrow-repeat"],

@@ -78,15 +78,6 @@ Options -Indexes
     # Serve font files directly (bypass router)
     RewriteRule \.(woff2?|ttf|eot|otf)$ - [L]
 
-    # topic-sitemap-2.xml, topic-sitemap-3.xml, etc. -> topic-sitemap.php
-    RewriteRule ^topic-sitemap-(\d+)\.xml$ topic-sitemap.php [L,QSA]
-
-    # profile-sitemap-2.xml, profile-sitemap-3.xml, etc. -> profile-sitemap.php
-    RewriteRule ^profile-sitemap-(\d+)\.xml$ profile-sitemap.php [L,QSA]
-
-    # image-sitemap-2.xml, image-sitemap-3.xml, etc. -> image-sitemap.php
-    RewriteRule ^image-sitemap-(\d+)\.xml$ image-sitemap.php [L,QSA]
-
     # Route non-existent files/dirs to the front controller.
     # This replaces FallbackResource and works with relative paths.
     RewriteCond %{REQUEST_FILENAME} !-f

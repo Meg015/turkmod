@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/init.php';
-require_once __DIR__ . '/../../includes/src/Engine/Auth/Legacy/helpers.php';
-require_once __DIR__ . '/../../includes/src/Modules/Leaderboard/Legacy/helpers.php';
-require_once __DIR__ . '/../../includes/src/Modules/Leaderboard/Legacy/cache-manager.php';
-require_once __DIR__ . '/../../includes/src/Modules/Leaderboard/Legacy/calculator.php';
+require_once __DIR__ . '/../../includes/src/Engine/Auth/Support/helpers.php';
+require_once __DIR__ . '/../../includes/src/Modules/Leaderboard/Support/helpers.php';
+require_once __DIR__ . '/../../includes/src/Modules/Leaderboard/Support/cache-manager.php';
+require_once __DIR__ . '/../../includes/src/Modules/Leaderboard/Support/calculator.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendMethodNotAllowed(['POST']);
@@ -15,9 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $currentUserId = (int)($_SESSION['_auth_user_id'] ?? 0);
 $hasAdminAccess = $currentUserId > 0
     && function_exists('userHasPermission')
-    && userHasPermission($pdo, $currentUserId, 'leaderboard.manage');
+    && userHasPermission($pdo, $currentUserId, 'leaderboard.admin');
 if (!$hasAdminAccess) {
-    sendForbidden('Liderlik tablosunu yönetme yetkiniz (leaderboard.manage) yok.');
+    sendForbidden('Liderlik tablosunu yönetme yetkiniz (leaderboard.admin) yok.');
 }
 
 if (!verify_csrf_token($_POST['_token'] ?? ($_POST['csrf_token'] ?? ''))) {

@@ -401,15 +401,15 @@ require_once __DIR__ . '/header.php';
                     'sb_search'   => ['title' => 'Arama',      'icon' => 'bi-search',        'keys' => ['sidebar_search_sticky','sidebar_search_template','sidebar_search_filters','sidebar_search_categories','sidebar_search_popular','sidebar_search_custom']],
                     'sb_widget'   => ['title' => 'Widget',     'icon' => 'bi-puzzle',        'keys' => ['sidebar_popular_count','sidebar_popular_sort','sidebar_widget_position']],
                 ];
-                $sidebarLegacyKeys = [];
+                $sidebarSettingKeys = [];
                 foreach ($sidebarSubTabs as $sbTab) {
                     foreach ($sbTab['keys'] as $sbKey) {
-                        $sidebarLegacyKeys[$sbKey] = true;
+                        $sidebarSettingKeys[$sbKey] = true;
                     }
                 }
                 ?>
                 <div hidden aria-hidden="true">
-                    <?php foreach (array_keys($sidebarLegacyKeys) as $sbKey): ?>
+                    <?php foreach (array_keys($sidebarSettingKeys) as $sbKey): ?>
                         <?php
                             if (!isset($definitions[$sbKey])) {
                                 continue;

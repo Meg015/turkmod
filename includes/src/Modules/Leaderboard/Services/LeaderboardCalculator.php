@@ -6,7 +6,6 @@ namespace App\Modules\Leaderboard\Services;
 
 use PDO;
 use PDOException;
-use Throwable;
 
 final class LeaderboardCalculator
 {
@@ -87,26 +86,7 @@ final class LeaderboardCalculator
             return $value;
         }
 
-        try {
-            $stmt = $pdo->prepare("SELECT value, type FROM settings WHERE `key` = ?");
-            $stmt->execute([$key]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (Throwable) {
-            $result = false;
-        }
-
-        if (!$result) {
-            return $default;
-        }
-
-        $value = $result['value'] ?? null;
-        $type = (string) ($result['type'] ?? 'string');
-
-        return match ($type) {
-            'boolean', 'bool' => (string) $value === '1',
-            'number', 'int' => is_numeric($value) ? (int) $value : $default,
-            default => $value,
-        };
+        return $default;
     }
 
     public function buildAdminExclusionClause(bool $excludeAdmins): string

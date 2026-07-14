@@ -62,8 +62,8 @@ class SecurityHeaders {
         }
 
         if (function_exists('buildSecurityHeaders')) {
-            $envConfig = class_exists(\App\Core\Database::class)
-                ? \App\Core\Database::getEnvConfig()
+            $envConfig = class_exists(\App\Core\DatabaseConnection::class)
+                ? \App\Core\DatabaseConnection::getEnvConfig()
                 : [];
             $appDebug = $this->envBool($envConfig, 'APP_DEBUG', false);
             $forceHttps = $this->envBool($envConfig, 'APP_FORCE_HTTPS', false);

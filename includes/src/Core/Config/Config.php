@@ -26,7 +26,7 @@ final class Config
      */
     public static function load(array $defaults = []): self
     {
-        $env = class_exists(\App\Core\Database::class) ? \App\Core\Database::getEnvConfig() : [];
+        $env = class_exists(\App\Core\DatabaseConnection::class) ? \App\Core\DatabaseConnection::getEnvConfig() : [];
 
         return new self(array_replace_recursive($defaults, $env));
     }

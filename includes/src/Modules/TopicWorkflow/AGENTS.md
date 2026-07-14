@@ -3,7 +3,7 @@
 This folder is the module-owned boundary for `App\Modules\TopicWorkflow`.
 Public upload/edit/download flows, service orchestration, and
 TopicWorkflow-owned event/listener/job behavior must live here.
-Legacy root entrypoints stay as thin compatibility wrappers only.
+Root entrypoints stay as thin adapters only.
 
 ## Ownership Boundary
 
@@ -22,7 +22,7 @@ Legacy root entrypoints stay as thin compatibility wrappers only.
   - `routePublicStaticUrl('upload_topic')`
   - `routePublicStaticUrl('edit_topic')`
   - `download.php`
-- Do not add new business logic to legacy helpers under `includes/modules/topics/*`
+- Do not add new business logic to procedural helpers under `includes/modules/topics/*`
   or `includes/modules/media/*`.
 - Do not duplicate create/edit orchestration across wrapper, HTTP content, and service layers.
 
@@ -47,7 +47,7 @@ Legacy root entrypoints stay as thin compatibility wrappers only.
   - `topic.updated` (after successful edit commit)
   - `topic.published` (when edited topic is published/approved)
 - `module.php` event map is canonical:
-  - `topic.created` -> activity/audit/leaderboard bridge listeners
+  - `topic.created` -> activity and audit listeners
   - `topic.updated` -> edit audit listener
   - `topic.published` -> `TopicPublishedSearchIndexer`
 - `TopicPublishedSearchIndexer` enqueues `SearchIndexJob` only; indexing happens in the job.

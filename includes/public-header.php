@@ -56,17 +56,13 @@ $_publicCustomCss = trim($_lay["custom_css"] ?? "");
 $_faviconUrl = trim($_lay["favicon_url"] ?? "");
 $_logoUrl = trim($_lay["logo_url"] ?? "");
 $_defaultAccentColor = defined('BRAND_DEFAULT_ACCENT') ? BRAND_DEFAULT_ACCENT : "#8b1538";
-$_legacyAccentColor = defined('BRAND_LEGACY_ACCENT') ? BRAND_LEGACY_ACCENT : "#f2a51a";
-$_normalizeDefaultAccent = static function (?string $color) use ($_defaultAccentColor, $_legacyAccentColor): string {
+$_resolveAccentColor = static function (?string $color) use ($_defaultAccentColor): string {
     $color = trim((string) $color);
-    if ($color === "" || strtolower($color) === $_legacyAccentColor) {
-        return $_defaultAccentColor;
-    }
-    return $color;
+    return $color === "" ? $_defaultAccentColor : $color;
 };
-$_hAccent = $_normalizeDefaultAccent($_hAccent);
-$_hBorder = $_normalizeDefaultAccent($_hBorder);
-$_accentColor = $_normalizeDefaultAccent($_lay["accent_color"] ?? "");
+$_hAccent = $_resolveAccentColor($_hAccent);
+$_hBorder = $_resolveAccentColor($_hBorder);
+$_accentColor = $_resolveAccentColor($_lay["accent_color"] ?? "");
 $_secondaryColor = trim($_lay["secondary_color"] ?? "");
 $_fontFamily = $_lay["font_family"] ?? "roboto";
 $_themeMode = $_lay["dark_mode"] ?? "auto";
@@ -121,7 +117,7 @@ $_menuCatLimit = (int) ($_lay["menu_category_limit"] ?? 8);
 $_menuCta = ($_lay["menu_cta_enabled"] ?? "0") === "1";
 $_menuCtaTxt = $_lay["menu_cta_text"] ?? "İçerik Yükle";
 $_menuCtaUrl = $_lay["menu_cta_url"] ?? "";
-$_menuCtaClr = $_normalizeDefaultAccent($_lay["menu_cta_color"] ?? "");
+$_menuCtaClr = $_resolveAccentColor($_lay["menu_cta_color"] ?? "");
 $_menuCtaIco = $_lay["menu_cta_icon"] ?? "bi-cloud-arrow-up";
 
 $_fontStacks = [
@@ -332,12 +328,8 @@ try {
 <?php endif; ?>
     <?php
 $robotsMeta = seoRobotsMeta($_lay, null, $_seoPageKey);
-$indexDraftTopics = function_exists('seoIndexToggleValue')
-    ? seoIndexToggleValue($_lay, 'index_draft_topics', '0', 'noindex_draft_topics')
-    : (((string) ($_lay['noindex_draft_topics'] ?? '1')) === '1' ? '0' : '1');
-$indexEmptyCategories = function_exists('seoIndexToggleValue')
-    ? seoIndexToggleValue($_lay, 'index_empty_categories', '0', 'noindex_empty_categories')
-    : (((string) ($_lay['noindex_empty_categories'] ?? '1')) === '1' ? '0' : '1');
+$indexDraftTopics = seoIndexToggleValue($_lay, 'index_draft_topics', '0');
+$indexEmptyCategories = seoIndexToggleValue($_lay, 'index_empty_categories', '0');
 
 if (isset($topic) && ($topic['status'] ?? 'published') !== 'published' && $indexDraftTopics !== '1') {
     $robotsMeta = "noindex, nofollow";

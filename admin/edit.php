@@ -48,7 +48,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
     $keepMedia = $_POST['keep_media'] ?? [];
     $videoUrl = trim($_POST['topic_video_url'] ?? '');
-    $topicDownloadLinks = trim($_POST['topic_download_links'] ?? '');
+    $downloadLines = trim($_POST['download_lines'] ?? '');
     $keepMediaIds = array_values(array_filter(array_map('intval', is_array($keepMedia) ? $keepMedia : [])));
 
     if ($pdo && $categoryId <= 0) {
@@ -143,14 +143,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 SET category_id = ?, title = ?, slug = ?, author_topic = ?, topic_version = ?, topic_descriptions = ?, primary_media_file_id = ?, status = ?, updated_at = NOW(), published_at = COALESCE(published_at, ?)
                 WHERE id = ?")
                 ->execute([$categoryId, $title, $slug, $authorTopic !== '' ? $authorTopic : null, $topicVersion !== '' ? $topicVersion : null, $content, $primaryMediaId, $status, $status === 'published' ? date('Y-m-d H:i:s') : null, $id]);
-            syncTopicDownloadLinks($pdo, $id, $topicDownloadLinks);
+            syncTopicDownloadLinks($pdo, $id, $downloadLines);
 
             $pdo->commit();
             seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_updated', 'topic', $id, ['title' => $title]);
             adminAuditLogger()->logAction($pdo, 'topic_updated', 'topic', $id, 'Konu güncellendi', [], ['title' => $title], false);
             flash('success', 'Konu başarıyla güncellendi.');
-            header('Location: topics.php');
+            $redirectUrl = $status === 'published'
+                ? topicUrl($slug, $id)
+                : 'topics.php';
+            header('Location: ' . $redirectUrl);
             exit;
         } catch (Throwable $e) {
             if ($pdo && $pdo->inTransaction()) {
@@ -344,7 +347,7 @@ require_once __DIR__ . '/header.php';
             <div class="ui-admin-mb-md">
                 <label class="ui-admin-form-label">İndirme Bağlantıları (opsiyonel)</label>
                 <?php
-                $existingDl = getTopicDownloadLinks($pdo, $id, (string)($topic['topic_download_links'] ?? ''));
+                $existingDl = getTopicDownloadLinks($pdo, $id);
                 ?>
                 <div id="dlRows">
                     <?php if (empty($existingDl)): ?>
@@ -367,7 +370,7 @@ require_once __DIR__ . '/header.php';
                     <?php endif; ?>
                 </div>
                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm ui-admin-btn-offset-top" data-ui-action="addDlRow"><i class="bi bi-plus-lg"></i> Bağlantı Ekle</button>
-                <input type="hidden" name="topic_download_links" id="dlHidden">
+                <input type="hidden" name="download_lines" id="dlHidden">
                 <script src="<?= asset_url('admin/assets/edit-page-editor.js', $baseUri) ?>" defer></script>
                 <script src="<?= asset_url('admin/assets/edit-page-media.js', $baseUri) ?>" defer></script>
             </div>

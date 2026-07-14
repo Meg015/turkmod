@@ -1,4 +1,4 @@
-/* Leaderboard page theme compatibility. Extracted from leaderboard.php. */
+/* Leaderboard page theme rules. */
 /* Lider Tablosu Genişlik ve Tema Uyumluluk Kuralları */
 html[data-public-theme="turkmod"] body.public-page-leaderboard .site-main--focus .layout.grid--focus {
     width: 100% !important;
@@ -9,6 +9,22 @@ html[data-public-theme="turkmod"] body.public-page-leaderboard .site-main--focus
     width: min(var(--container-wide), calc(100% - var(--space-8))) !important;
     margin: var(--space-5) auto var(--space-10) !important;
     padding: 0 !important;
+}
+
+html[data-public-theme="turkmod"] body.public-page-leaderboard .site-header .navbar-nav > .nav-item:nth-child(n + 3) {
+    display: none !important;
+}
+
+html[data-public-theme="turkmod"] body.public-page-leaderboard .site-footer .site-footer-copy {
+    display: none !important;
+}
+
+html[data-public-theme="turkmod"] body.public-page-leaderboard .site-footer .site-footer-bar::after {
+    content: "© 2026. TurkMod - Tüm hakları saklıdır.";
+    display: block;
+    color: var(--public-footer-muted, var(--text-dim));
+    font-size: 0.95rem;
+    line-height: 1.5;
 }
 
 html[data-public-theme="turkmod"] .leaderboard-container .ui-panel {

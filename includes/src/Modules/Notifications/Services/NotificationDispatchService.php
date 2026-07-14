@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Services;
 
-use App\Core\Queue\Queue;
-use App\Core\Queue\SyncQueue;
-use App\Modules\Notifications\Jobs\NotificationEmailJob;
 use PDO;
 use Throwable;
 
@@ -17,13 +14,11 @@ final class NotificationDispatchService
         private ?NotificationSchemaService $schema = null,
         private ?NotificationTemplateService $templates = null,
         private ?NotificationEmailQueueService $emailQueue = null,
-        private ?Queue $queue = null,
     ) {
         $this->preferences ??= new NotificationPreferenceService();
         $this->schema ??= new NotificationSchemaService();
         $this->templates ??= new NotificationTemplateService($this->preferences, $this->schema);
         $this->emailQueue ??= new NotificationEmailQueueService($this->schema);
-        $this->queue ??= new SyncQueue();
     }
 
     public function dispatch(
@@ -231,9 +226,8 @@ final class NotificationDispatchService
         array $columnsAvailable
     ): void {
         try {
-            $this->queue->push(new NotificationEmailJob(
+            $emailQueued = $this->emailQueue->queue(
                 $pdo,
-                $this->emailQueue,
                 $notificationId,
                 $recipientId,
                 (string) ($dispatchTemplate['template_key'] ?? $eventKey),
@@ -248,11 +242,15 @@ final class NotificationDispatchService
                     'dedupe_key' => $dedupeKey,
                     'payload' => $payload,
                 ],
-                $emailQueueMaxAttempts,
-                isset($columnsAvailable['delivery_channels'])
-            ));
+                $emailQueueMaxAttempts
+            );
+            if (isset($columnsAvailable['delivery_channels'])) {
+                $deliveryChannels = ['in_app', $emailQueued ? 'email_queue' : 'email_queue_failed'];
+                $update = $pdo->prepare('UPDATE notifications SET delivery_channels = ? WHERE id = ?');
+                $update->execute([json_encode($deliveryChannels, JSON_UNESCAPED_UNICODE), $notificationId]);
+            }
         } catch (Throwable $e) {
-            error_log('Notification email fan-out queue push failed: ' . $e->getMessage());
+            error_log('Notification email fan-out failed: ' . $e->getMessage());
         }
     }
 }

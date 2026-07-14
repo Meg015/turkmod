@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Messages\Services;
 
-use App\Core\Database;
+use App\Core\DatabaseConnection;
 use App\Core\Database\Migration;
 use App\Core\Database\MigrationRunner;
 use App\Core\Modules\ModuleLifecycle;
@@ -62,7 +62,7 @@ final class MessagesLifecycle implements ModuleLifecycle
 
     private function pdo(): PDO
     {
-        $pdo = Database::connection();
+        $pdo = DatabaseConnection::connection();
         if (!$pdo instanceof PDO) {
             throw new RuntimeException('Messages lifecycle requires an active PDO connection.');
         }
@@ -70,4 +70,3 @@ final class MessagesLifecycle implements ModuleLifecycle
         return $pdo;
     }
 }
-

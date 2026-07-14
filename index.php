@@ -29,7 +29,7 @@ $search = function_exists("sanitizeSearchQuery")
 $requestedSort = (string) ($_GET["sort"] ?? "newest");
 $sort = in_array(
     $requestedSort,
-    ["newest", "popular", "downloads", "rating", "comments"],
+    ["newest", "popular", "downloads", "comments"],
     true,
 )
     ? $requestedSort
@@ -325,7 +325,6 @@ $sortInsightMessages = [
     "newest" => "Yeni içerikler yayın tarihine göre en güncelden eskiye sıralanır.",
     "popular" => "Popüler sıralama görüntülenme ve indirme ilgisine göre listelenir.",
     "downloads" => "Trend içerikler en çok indirilen modlara göre öne çıkar.",
-    "rating" => "En iyi içerikler puan ortalaması ve puan sayısına göre sıralanır.",
     "comments" => "En çok konuşulan içerikler yorum sayısına göre sıralanır.",
 ];
 $sortInsight = $sortInsightMessages[$sort] ?? $sortInsightMessages["newest"];
@@ -363,7 +362,6 @@ if ($usesThemeRenderer) {
         'newest' => 'Yeni',
         'popular' => 'Populer',
         'downloads' => 'Trend',
-        'rating' => 'En Iyi',
         'comments' => 'Yorumlar',
     ];
     $sortOptions = [];
@@ -628,9 +626,6 @@ if ($usesThemeRenderer) {
                         <option value="downloads"<?= $sort === "downloads"
                             ? " selected"
                             : "" ?>>En Çok İndirilen</option>
-                        <option value="rating"<?= $sort === "rating"
-                            ? " selected"
-                            : "" ?>>En Yüksek Puan</option>
                         <option value="comments"<?= $sort === "comments"
                             ? " selected"
                             : "" ?>>En Çok Yorumlanan</option>
@@ -654,9 +649,6 @@ if ($usesThemeRenderer) {
                     <button class="<?= $sort === "downloads"
                         ? "active"
                         : "" ?>" data-filter="sort" data-value="downloads" type="button">Trend</button>
-                    <button class="<?= $sort === "rating"
-                        ? "active"
-                        : "" ?>" data-filter="sort" data-value="rating" type="button">En İyi</button>
                 </div>
                 <select class="sort-select" data-filter="sort" aria-label="İçerik sıralama">
                     <option value="newest"<?= $sort === "newest"
@@ -668,9 +660,6 @@ if ($usesThemeRenderer) {
                     <option value="downloads"<?= $sort === "downloads"
                         ? " selected"
                         : "" ?>>En Çok İndirilen</option>
-                    <option value="rating"<?= $sort === "rating"
-                        ? " selected"
-                        : "" ?>>En Yüksek Puan</option>
                     <option value="comments"<?= $sort === "comments"
                         ? " selected"
                         : "" ?>>En Çok Yorumlanan</option>

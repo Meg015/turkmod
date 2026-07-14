@@ -84,7 +84,7 @@ if ($_cardThemeManager instanceof ThemeManager && $_cardThemeManager->usesPublic
             "date" => $_cardPublished,
             "excerpt" => $_cardSummary,
             "views" => $_cardViewsFormatted,
-            "likes" => number_format((int) ($item["likes"] ?? $item["rating_count"] ?? 0), 0, ",", "."),
+            "likes" => number_format((int) ($item["likes"] ?? 0), 0, ",", "."),
             "comments_count" => number_format((int) ($item["comment_count"] ?? $item["comments_count"] ?? 0), 0, ",", "."),
             "author" => $_cardAuthor !== "" ? $_cardAuthor : "Admin",
             "author_url" => $_cardAuthorUrl,

@@ -8,6 +8,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     adminRequirePermission('notifications.manage', 'Bildirimleri yönetmek için gerekli izin hesabınıza tanımlanmamış.');
 }
 
+$suppressAdminFooterToasts = true;
+
 require_once __DIR__ . '/../includes/notifications.php';
 
 $pageTitle = 'Bildirim Merkezi';
@@ -287,6 +289,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 $stmt->execute([$id]);
                 flash('success', 'Bildirim silindi.');
             }
+            header('Location: notifications.php?tab=history');
+            exit;
+        }
+
+        if ($action === 'clear_all') {
+            $deletedCount = (int) $pdo->exec("DELETE FROM notifications");
+            flash('success', $deletedCount > 0 ? 'Tüm bildirimler silindi.' : 'Silinecek bildirim bulunmuyor.');
             header('Location: notifications.php?tab=history');
             exit;
         }
@@ -716,12 +725,23 @@ $csrfToken = csrf_token();
 
     <?php if ($tab === 'history'): ?>
         <div class="notif-card notif-card-flush">
-            <div class="notif-card-header notif-card-header-flush">
+            <div class="notif-card-header notif-card-header-flush ui-admin-card-header-actions">
                 <div>
                     <h3>Gönderilmiş Bildirimler</h3>
                     <p>Mesaj önizleme uzunluğu ve sayfa başına kayıt sayısı ayarlardan yönetilir.</p>
                 </div>
-                <span class="notif-badge notif-badge-global"><?= (int) $totalNotifications ?> kayıt</span>
+                <div class="ui-admin-action-row">
+                    <span class="notif-badge notif-badge-global"><?= (int) $totalNotifications ?> kayıt</span>
+                    <?php if ($totalNotifications > 0): ?>
+                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form" data-admin-confirm="Tüm bildirim geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz." data-admin-confirm-title="Tüm geçmiş silinsin mi?" data-admin-confirm-ok="Tümünü Sil" data-admin-confirm-tone="danger">
+                            <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                            <input type="hidden" name="action" value="clear_all">
+                            <button type="submit" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger-outline" title="Tümünü Sil">
+                                <i class="bi bi-trash"></i> Tümünü Sil
+                            </button>
+                        </form>
+                    <?php endif; ?>
+                </div>
             </div>
             <div class="ui-admin-table-wrapper ui-table-wrap ui-surface">
                 <table class="ui-admin-table">

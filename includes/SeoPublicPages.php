@@ -1071,10 +1071,7 @@ if (!function_exists('seoSitemapTopicStatuses')) {
 
         $statuses = ['published'];
         $allowDraftsInSitemap = ((string) ($settings['sitemap_exclude_drafts'] ?? '1')) !== '1';
-        $draftsIndexable = function_exists('seoIndexToggleValue')
-            ? seoIndexToggleValue($settings, 'index_draft_topics', '0', 'noindex_draft_topics') === '1'
-            : (((string) ($settings['index_draft_topics'] ?? '0')) === '1'
-                && ((string) ($settings['noindex_draft_topics'] ?? '1')) !== '1');
+        $draftsIndexable = seoIndexToggleValue($settings, 'index_draft_topics', '0') === '1';
 
         if ($allowDraftsInSitemap && $draftsIndexable) {
             $statuses[] = 'draft';
@@ -1133,11 +1130,6 @@ if (!function_exists('seoCategoryShouldAppearInSitemap')) {
             return true;
         }
 
-        if (function_exists('seoIndexToggleValue')) {
-            return seoIndexToggleValue($settings, 'index_empty_categories', '0', 'noindex_empty_categories') === '1';
-        }
-
-        return ((string) ($settings['index_empty_categories'] ?? '0')) === '1'
-            || ((string) ($settings['noindex_empty_categories'] ?? '1')) !== '1';
+        return seoIndexToggleValue($settings, 'index_empty_categories', '0') === '1';
     }
 }

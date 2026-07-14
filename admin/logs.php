@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/init.php';
-require_once __DIR__ . '/../includes/src/Engine/Logs/Legacy/helpers.php';
-require_once __DIR__ . '/../includes/src/Engine/AdminAudit/Legacy/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/Logs/Support/helpers.php';
+require_once __DIR__ . '/../includes/src/Engine/AdminAudit/Support/helpers.php';
 
 adminRequirePermission('logs.view', 'Günlükleri görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 

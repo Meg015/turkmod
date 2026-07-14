@@ -114,7 +114,7 @@ function sendRateLimitError(int $retryAfter = 60): void
 function sendDatabaseUnavailable(?string $detail = null): void
 {
     $data = [];
-    $env = class_exists(\App\Core\Database::class) ? \App\Core\Database::getEnvConfig() : [];
+    $env = class_exists(\App\Core\DatabaseConnection::class) ? \App\Core\DatabaseConnection::getEnvConfig() : [];
     $appDebug = (($env['APP_DEBUG'] ?? 'false') === 'true');
     if ($appDebug && $detail !== null && $detail !== '') {
         $data['detail'] = $detail;
@@ -132,7 +132,7 @@ function requireDatabaseConnection(?PDO $pdo = null): PDO
         return $pdo;
     }
 
-    $detail = class_exists(\App\Core\Database::class) ? \App\Core\Database::lastError() : null;
+    $detail = class_exists(\App\Core\DatabaseConnection::class) ? \App\Core\DatabaseConnection::lastError() : null;
     sendDatabaseUnavailable($detail);
 }
 

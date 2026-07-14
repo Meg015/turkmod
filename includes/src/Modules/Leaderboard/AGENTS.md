@@ -2,7 +2,7 @@
 
 This folder is the module-owned boundary for `App\Modules\Leaderboard`.
 Public, API, admin, service, lifecycle, and migration logic for leaderboard
-must live here. Legacy root/admin/api entrypoints must remain thin wrappers.
+must live here. Root/admin/API entrypoints must remain thin adapters.
 
 ## Ownership Boundary
 
@@ -19,7 +19,7 @@ must live here. Legacy root/admin/api entrypoints must remain thin wrappers.
   - `leaderboard.php`
   - `api/leaderboard.php`
   - `admin/leaderboard.php`
-  - `includes/src/Modules/Leaderboard/Legacy/*.php` (these are compatibility shims)
+  - `includes/src/Modules/Leaderboard/Support/*.php` (these are procedural adapters)
 - Do not duplicate leaderboard logic across service and wrapper layers.
 - Do not add direct SQL/business logic into shim files; keep wrappers delegation-only.
 
@@ -27,11 +27,10 @@ must live here. Legacy root/admin/api entrypoints must remain thin wrappers.
 
 - Keep POST CSRF checks (`verify_csrf_token`) in admin update flows.
 - Keep rate limit behavior in leaderboard API.
-- Keep API response shape backward compatible:
+- Keep the stable API response shape:
   - `success`, `category`, `period`, `data`, `total`, `limit`, `offset`,
     `calculated_at`, `is_cached`, `period_range.start`, `period_range.end`.
 - Permission gate for module admin is `leaderboard.admin`
-  (transition compatibility with legacy permissions is currently retained).
 
 ## Events and Lifecycle
 

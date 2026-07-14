@@ -22,7 +22,7 @@ $cronRunContext = ['reason' => 'cron_not_completed'];
 $cronRunLogged = false;
 $cronPdo = $pdo ?? null;
 
-$pdo = \App\Core\Database::connection();
+$pdo = \App\Core\DatabaseConnection::connection();
 if ($pdo instanceof PDO) {
     $cronPdo = $pdo;
 }

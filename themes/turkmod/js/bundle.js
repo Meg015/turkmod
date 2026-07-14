@@ -272,16 +272,6 @@ class Analytics {
     }
 
     /**
-     * Track rating
-     */
-    trackRating(topicId, rating) {
-        this.track('rating', {
-            topic_id: topicId,
-            rating,
-        });
-    }
-
-    /**
      * Track comment
      */
     trackComment(topicId, commentLength) {
@@ -1495,7 +1485,6 @@ if (typeof module !== 'undefined' && module.exports) {
                 newest: 'Yeni içerikler yayın tarihine göre en güncelden eskiye sıralanır.',
                 popular: 'Popüler sıralama görüntülenme ve indirme ilgisine göre listelenir.',
                 downloads: 'Trend içerikler en çok indirilen modlara göre öne çıkar.',
-                rating: 'En iyi içerikler puan ortalaması ve puan sayısına göre sıralanır.',
                 comments: 'En çok konuşulan içerikler yorum sayısına göre sıralanır.',
             };
         }

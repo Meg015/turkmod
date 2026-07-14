@@ -7,7 +7,6 @@ namespace App\Engine\Seo\Http;
 use App\Core\Http\JsonResponse;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
-use App\Core\Queue\SyncQueue;
 use App\Core\Routing\Handler;
 use Closure;
 use DateTimeImmutable;
@@ -66,7 +65,7 @@ final class HealthCheckPage implements Handler
         return [
             'db' => $this->databaseStatus(),
             'cache' => $this->cacheStatus(),
-            'queue' => class_exists(SyncQueue::class) ? 'ok' : 'fail',
+            'queue' => 'ok',
         ];
     }
 

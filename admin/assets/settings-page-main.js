@@ -38,11 +38,33 @@ document.querySelectorAll('[data-settings-subtab]').forEach(function(btn) {
         if (panel) {
             panel.classList.add('is-active');
         }
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', '#' + scope + ':' + target);
+        }
         if (target === 'email-tab-account') {
             ensureAccountEmailRichEditors();
         }
     });
 });
+
+function activateSettingsSubtabFromHash() {
+    var hash = String(window.location.hash || '').replace(/^#/, '');
+    if (!hash || hash.indexOf(':') === -1) {
+        return;
+    }
+
+    var parts = hash.split(':');
+    var scope = parts.shift();
+    var target = parts.join(':');
+    if (!scope || !target) {
+        return;
+    }
+
+    var button = document.querySelector('[data-settings-subtab-scope="' + scope + '"][data-settings-subtab="' + target + '"]');
+    if (button) {
+        button.click();
+    }
+}
 
 document.querySelectorAll('[data-color-field]').forEach(function(field) {
     var input = field.querySelector('[data-color-input]');
@@ -562,6 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     initSettingsTooltips();
+    activateSettingsSubtabFromHash();
 });
 
 function initSettingsTooltips() {

@@ -127,7 +127,7 @@ final class RememberMeService
         try {
             $exists = ($this->columnExists)($pdo, 'users', 'remember_token');
             if ($exists === false) {
-                $pdo->exec("ALTER TABLE users ADD COLUMN remember_token VARCHAR(100) NULL");
+                throw new \RuntimeException('Missing users.remember_token; run Admin Panel > Database Synchronization.');
             }
         } catch (Throwable $e) {
             ($this->exceptionLogger)($e, ['source' => 'RememberMeService::ensureRememberTokenColumn']);

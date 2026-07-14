@@ -11,20 +11,15 @@ use App\Core\Cache\RedisCache;
 use App\Core\Cache\TaggableCache;
 use App\Core\Config\Config;
 use App\Core\Container\Container;
-use App\Core\Database;
+use App\Core\DatabaseConnection;
 use App\Core\Events\Dispatcher;
 use App\Core\Modules\ModuleLoader;
-use App\Core\Queue\Queue;
-use App\Core\Queue\SyncQueue;
 use App\Core\Security\DatabaseRateLimiter;
-use App\Core\Security\FileRateLimiter;
 use App\Core\Security\RateLimiter;
 use App\Core\Support\Logger as AppLogger;
 use App\Core\Security\SecurityHeadersMiddleware;
 use App\Engine\Auth\DisabledTwoFactor;
 use App\Engine\Auth\TwoFactor;
-use App\Engine\Search\DisabledSearchEngine;
-use App\Engine\Search\SearchEngine;
 use RuntimeException;
 use Throwable;
 
@@ -50,8 +45,6 @@ final class Boot
     public static function make(?string $projectRoot = null): Container
     {
         $projectRoot = self::projectRoot($projectRoot);
-        self::requireLegacyDatabase($projectRoot);
-
         $container = new Container();
         $container->instance(Container::class, $container);
         self::registerBindings($container, $projectRoot);
@@ -70,18 +63,15 @@ final class Boot
         $storageRoot = $projectRoot . DIRECTORY_SEPARATOR . 'storage';
         $cacheRoot = $storageRoot . DIRECTORY_SEPARATOR . 'cache';
         $logRoot = $storageRoot . DIRECTORY_SEPARATOR . 'logs';
-        $env = Database::getEnvConfig();
+        $env = DatabaseConnection::getEnvConfig();
         $cacheBackend = self::normalizeBackend((string) ($env['CORE_CACHE_BACKEND'] ?? 'file'));
-        $rateLimitBackend = self::normalizeBackend((string) ($env['CORE_RATE_LIMIT_BACKEND'] ?? 'file'));
         $cacheTable = trim((string) ($env['CORE_CACHE_TABLE'] ?? 'core_cache'));
         $rateLimitTable = trim((string) ($env['CORE_RATE_LIMIT_TABLE'] ?? 'request_rate_limits'));
         $rateLimitScope = trim((string) ($env['CORE_RATE_LIMIT_SCOPE'] ?? 'default'));
 
         self::ensureDirectory($cacheRoot);
         self::ensureDirectory($logRoot);
-        self::requireRateLimiterContract();
-
-        $container->singleton(Database::class, static fn (): Database => new Database());
+        $container->singleton(DatabaseConnection::class, static fn (): DatabaseConnection => new DatabaseConnection());
         $container->singleton(Config::class, static fn (): Config => Config::load([
             'paths' => [
                 'root' => $projectRoot,
@@ -100,15 +90,11 @@ final class Boot
             $cacheTable,
         ));
         $container->bind(TaggableCache::class, Cache::class);
-        $container->singleton(Queue::class, static fn (): SyncQueue => new SyncQueue());
         $container->singleton(RateLimiter::class, static fn (): RateLimiter => self::makeRateLimiter(
-            $rateLimitBackend,
-            $cacheRoot,
             $rateLimitScope,
             $rateLimitTable,
         ));
         $container->singleton(TwoFactor::class, static fn (): DisabledTwoFactor => new DisabledTwoFactor());
-        $container->singleton(SearchEngine::class, static fn (): DisabledSearchEngine => new DisabledSearchEngine());
         $container->singleton(Dispatcher::class, static fn (Container $container): Dispatcher => self::makeEventDispatcher(
             $container,
             $projectRoot,
@@ -133,7 +119,7 @@ final class Boot
     {
         if ($backend === 'database') {
             try {
-                $pdo = Database::connection();
+                $pdo = DatabaseConnection::connection();
                 if ($pdo instanceof \PDO) {
                     return new DatabaseCache($pdo, $cacheTable, 'core-cache');
                 }
@@ -144,7 +130,7 @@ final class Boot
 
         if ($backend === 'redis') {
             try {
-                $env = Database::getEnvConfig();
+                $env = DatabaseConnection::getEnvConfig();
                 return new RedisCache(
                     host: (string) ($env['REDIS_HOST'] ?? '127.0.0.1'),
                     port: (int) ($env['REDIS_PORT'] ?? 6379),
@@ -163,25 +149,15 @@ final class Boot
     }
 
     private static function makeRateLimiter(
-        string $backend,
-        string $cacheRoot,
         string $scope,
         string $table,
     ): RateLimiter {
-        if ($backend === 'database') {
-            try {
-                $pdo = Database::connection();
-                if ($pdo instanceof \PDO) {
-                    return new DatabaseRateLimiter($pdo, $scope, $table);
-                }
-            } catch (Throwable $exception) {
-                error_log('Database rate-limit backend failed, falling back to file limiter: ' . $exception->getMessage());
-            }
+        $pdo = DatabaseConnection::connection();
+        if (!$pdo instanceof \PDO) {
+            throw new RuntimeException('Database rate-limit backend could not obtain a PDO connection.');
         }
 
-        return new FileRateLimiter(
-            $cacheRoot . DIRECTORY_SEPARATOR . 'rate-limits',
-        );
+        return new DatabaseRateLimiter($pdo, $scope, $table);
     }
 
     private static function projectRoot(?string $projectRoot): string
@@ -192,32 +168,6 @@ final class Boot
         }
 
         return rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $projectRoot), DIRECTORY_SEPARATOR);
-    }
-
-    private static function requireLegacyDatabase(string $projectRoot): void
-    {
-        $candidates = [
-            $projectRoot . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'Database.php',
-            dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'Database.php',
-        ];
-
-        foreach (array_unique($candidates) as $candidate) {
-            if (is_file($candidate)) {
-                require_once $candidate;
-
-                return;
-            }
-        }
-
-        throw new RuntimeException('Legacy App\\Core\\Database bootstrap file could not be found.');
-    }
-
-    private static function requireRateLimiterContract(): void
-    {
-        $rateLimiterFile = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR . 'Security' . DIRECTORY_SEPARATOR . 'RateLimiter.php';
-        if (is_file($rateLimiterFile)) {
-            require_once $rateLimiterFile;
-        }
     }
 
     private static function ensureDirectory(string $directory): void

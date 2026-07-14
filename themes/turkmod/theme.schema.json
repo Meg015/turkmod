@@ -29,7 +29,7 @@
             "additionalProperties": true,
             "properties": {
                 "renderer": {
-                    "enum": ["public", "legacy"]
+                    "const": "public"
                 },
                 "mode": {
                     "type": "string"

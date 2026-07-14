@@ -29,7 +29,7 @@ $sections = [
 ];
 
 $sectionDescriptions = [
-    'user_system' => 'Kayıt erişimi, oturum süreleri ve şifre politikalarını tek merkezden yönetin.',
+    'user_system' => 'Giriş, kayıt ve spam kurallarını tek merkezden yönetin. Form davranışı, parola kuralları, yasaklı kullanıcı adları ve içerik filtreleri burada toplanır.',
     'route_filters' => 'Konu ve kategori URL ön eklerini yönetin. Örnek: /konu/slug-id yerine /topic/slug-id veya /kategori/slug yerine /category/slug kullanabilirsiniz.',
     'rate_limit' => 'Her satırda iki ana alan vardır: Limit ve Pencere (dakika). Limit, pencere süresinde izin verilen maksimum istek sayısını; pencere ise sayacın ne zaman sıfırlanacağını belirler.',
     'leaderboard' => 'Liderlik tablosu sistemi ayarlarını yönetin. Önbellek süreleri, minimum gereksinimler ve görünürlük seçeneklerini yapılandırın.',
@@ -298,11 +298,54 @@ $commentGroups = [
         'description' => 'Reaksiyonlar, markdown ve medya izinleri.',
         'keys' => ['comment_reactions_enabled', 'comment_reactions_types', 'comment_markdown_enabled', 'comment_mentions_enabled', 'comment_edit_history', 'comment_media_enabled', 'comment_realtime_poll']
     ],
+    'comments-tab-spam' => [
+        'title' => 'Spam Yönetimi',
+        'icon' => 'bi-shield-exclamation',
+        'description' => 'Yorum kalitesi, spam kuralları ve spam tespit edildiğinde uygulanacak davranış.',
+        'sections' => [
+            [
+                'title' => 'Spam Davranışı',
+                'icon' => 'bi-sliders',
+                'description' => 'Spam bulunduğunda yorumun nasıl işleneceğini ve kullanıcıya gösterilecek toast metnini belirleyin.',
+                'keys' => ['comment_spam_detection', 'comment_spam_action', 'comment_spam_reject_message', 'comment_spam_pending_message'],
+            ],
+            [
+                'title' => 'İçerik Kuralları',
+                'icon' => 'bi-filter-circle',
+                'description' => 'Anlamsız, tekrar eden, aşırı büyük harfli veya bağlantı ağırlıklı yorumları filtreleyin.',
+                'keys' => [
+                    'comment_spam_punctuation_only_enabled',
+                    'comment_spam_min_meaningful_chars',
+                    'comment_spam_meaningless_enabled',
+                    'comment_spam_meaningless_phrases',
+                    'comment_spam_repeated_chars_enabled',
+                    'comment_spam_repeated_chars_limit',
+                    'comment_spam_duplicate_window_minutes',
+                    'comment_spam_max_links',
+                    'comment_spam_caps_enabled',
+                    'comment_spam_caps_min_letters',
+                    'comment_spam_caps_percent',
+                ],
+            ],
+            [
+                'title' => 'Kelime Filtresi',
+                'icon' => 'bi-chat-square-text',
+                'description' => 'Eski kelime filtresi ve bu filtreden etkilenen eylem ayarlarını yönetin.',
+                'keys' => ['comment_word_filter', 'comment_auto_ban_words'],
+            ],
+            [
+                'title' => 'Spam Muafiyetleri',
+                'icon' => 'bi-person-check',
+                'description' => 'Belirli kullanıcı adları ve gruplar tüm yorum spam kontrollerinden muaf tutulur.',
+                'keys' => ['comment_spam_exempt_usernames', 'comment_spam_exempt_groups'],
+            ],
+        ],
+    ],
     'comments-tab-moderation' => [
         'title' => 'Moderasyon & Şikayet',
         'icon' => 'bi-shield-check',
-        'description' => 'Spam tespiti, otomatik gizleme ve şikayet sistemi.',
-        'keys' => ['comment_spam_detection', 'comment_report_enabled', 'comment_auto_hide_reports', 'comment_word_filter', 'comment_auto_ban_words']
+        'description' => 'Şikayet sistemi ve şikayet sayısına bağlı otomatik gizleme.',
+        'keys' => ['comment_report_enabled', 'comment_auto_hide_reports']
     ]
 ];
 
@@ -484,22 +527,88 @@ $contentModerationGroups = [
 ];
 
 $userSystemGroups = [
-    'user-system-tab-access' => [
-        'title' => 'Erişim & Oturum',
-        'icon' => 'bi-person-check',
-        'description' => 'Kayıt erişimi, normal oturum ve oturumu açık tut sürelerini yönetin.',
-        'keys' => ['allow_registration', 'login_identifier_mode', 'session_timeout_minutes', 'remember_session_timeout_minutes'],
+    'user-system-tab-login' => [
+        'title' => 'Giriş',
+        'icon' => 'bi-box-arrow-in-right',
+        'description' => 'Giriş kimliği, oturum davranışı ve bu cihazda oturum açık tutma tercihini yönetin.',
+        'keys' => ['login_identifier_mode', 'login_show_remember_session', 'login_remember_session_default', 'session_timeout_minutes', 'remember_session_timeout_minutes'],
     ],
-    'user-system-tab-passwords' => [
-        'title' => 'Şifre Politikası',
-        'icon' => 'bi-key',
-        'description' => 'Şifre karmaşıklığı ve geçerlilik politikasını yönetin.',
+    'user-system-tab-register' => [
+        'title' => 'Kayıt',
+        'icon' => 'bi-person-plus',
+        'description' => 'Kayıt izni, kullanıcı adı boyutu, şifre politikası ve e-posta domain izinlerini yönetin.',
         'keys' => [
+            'allow_registration',
+            'register_username_min_length',
+            'register_username_max_length',
+            'register_allowed_email_domains',
             'password_min_length',
             'password_require_uppercase',
             'password_require_numbers',
             'password_require_special',
             'password_expiry_days',
+        ],
+    ],
+    'user-system-tab-approvals' => [
+        'title' => 'Kayıt Onayları',
+        'icon' => 'bi-patch-check',
+        'description' => 'Yeni hesapların otomatik mi yoksa yönetici onayıyla mı açılacağını ve e-posta doğrulama davranışını yönetin.',
+        'sections' => [
+            [
+                'title' => 'Kayıt Onayları',
+                'icon' => 'bi-patch-check',
+                'description' => 'Yeni kayıtların otomatik mi yoksa yönetici onayıyla mı açılacağını ve bekleme mesajını belirleyin.',
+                'keys' => [
+                    'registration_requires_admin_approval',
+                    'registration_pending_message',
+                ],
+            ],
+            [
+                'title' => 'Şüpheli Kayıt Bildirimleri',
+                'icon' => 'bi-shield-exclamation',
+                'description' => 'Aynı IP üzerinden yoğun kayıt sinyali algılandığında yöneticilere bildirim ve e-posta gönderin.',
+                'keys' => [
+                    'registration_suspicious_alert_enabled',
+                    'registration_suspicious_window_minutes',
+                    'registration_suspicious_ip_threshold',
+                    'registration_suspicious_cooldown_minutes',
+                ],
+            ],
+            [
+                'title' => 'Doğrulama Hatırlatma Cron',
+                'icon' => 'bi-clock-history',
+                'description' => 'Doğrulama bekleyen hesaplara belirli aralıklarla yeniden doğrulama e-postası gönderin.',
+                'keys' => [
+                    'account_email_verification_enabled',
+                    'account_email_verification_required',
+                    'account_email_verification_ttl_minutes',
+                    'account_email_verification_resend_cooldown_minutes',
+                    'account_email_verification_reminder_enabled',
+                    'account_email_verification_reminder_after_minutes',
+                    'account_email_verification_reminder_batch_size',
+                ],
+            ],
+        ],
+    ],
+    'user-system-tab-password-reset' => [
+        'title' => 'Şifre Sıfırlama',
+        'icon' => 'bi-key',
+        'description' => 'Şifre sıfırlama bağlantısının geçerlilik süresini ve kullanıcıya gösterilecek davranışı yönetin.',
+        'keys' => [
+            'password_reset_token_ttl_minutes',
+        ],
+    ],
+    'user-system-tab-spam' => [
+        'title' => 'Spam Yönetimi',
+        'icon' => 'bi-shield-exclamation',
+        'description' => 'Yasaklı kullanıcı adları, parçaları, küfür/argo kelimeler, anlamsız ifadeler ve e-posta alan adlarını tek yerden yönetin.',
+        'keys' => [
+            'spam_blocked_usernames',
+            'spam_blocked_username_fragments',
+            'spam_profanity_words',
+            'spam_meaningless_words',
+            'spam_meaningless_patterns',
+            'spam_blocked_email_domains',
         ],
     ],
 ];
@@ -764,6 +873,18 @@ if (!function_exists('settingsBuildEmailTestHtml')) {
                 'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('send-notification-email-queue.php')) . ' --limit=25',
                 'http' => settingsCronHttpCommand($buildUrl('/cron/send-notification-email-queue.php', ['limit' => '25'])),
                 'url' => $buildUrl('/cron/send-notification-email-queue.php', ['limit' => '25']),
+            ],
+            'verification_reminders' => [
+                'job_key' => 'verification_reminders',
+                'group' => 'Hesap Güvenliği',
+                'title' => 'Doğrulama Hatırlatma Cronu',
+                'description' => 'Doğrulanmamış hesaplara belirlenen süreden sonra yeniden doğrulama e-postası gönderir.',
+                'icon' => 'bi-envelope-arrow-up',
+                'schedule' => '0 * * * *',
+                'schedule_label' => 'Her 1 saat',
+                'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('send-verification-reminders.php')) . ' --limit=50',
+                'http' => settingsCronHttpCommand($buildUrl('/cron/send-verification-reminders.php', ['limit' => '50'])),
+                'url' => $buildUrl('/cron/send-verification-reminders.php', ['limit' => '50']),
             ],
             'rate_limits_cleanup' => [
                 'job_key' => 'rate_limits_cleanup',
@@ -2291,53 +2412,68 @@ require_once __DIR__ . '/header.php';
                                         <?php if (!empty($commentGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($commentGroup['description'])) ?></div>
                                         <?php endif; ?>
-                                        <div class="admin-settings-grid ui-grid">
-                                            <?php foreach (($commentGroup['keys'] ?? []) as $key): ?>
-                                                <?php if (!isset($definitions[$key])) { continue; } ?>
-                                                <?php $definition = $definitions[$key]; ?>
-                                                <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                    <?php if ($definition['type'] === 'bool'): ?>
-                                                        <label class="ui-admin-switch">
-                                                            <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                            <span class="ui-admin-switch-label">
+
+                                        <?php if (!empty($commentGroup['sections']) && is_array($commentGroup['sections'])): ?>
+                                            <?php foreach ($commentGroup['sections'] as $commentSection): ?>
+                                                <div class="admin-settings-subsection mb-4">
+                                                    <div class="ui-panel__head">
+                                                        <i class="bi <?= htmlspecialchars((string) ($commentSection['icon'] ?? 'bi-gear')) ?> me-2"></i><?= htmlspecialchars((string) ($commentSection['title'] ?? 'Ayarlar')) ?>
+                                                    </div>
+                                                    <?php if (!empty($commentSection['description'])): ?>
+                                                        <div class="admin-section-desc"><?= htmlspecialchars((string) ($commentSection['description'])) ?></div>
+                                                    <?php endif; ?>
+                                                    <?= adminRenderSettingsGrid($definitions, $settings, 'comments', (array) ($commentSection['keys'] ?? [])) ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <div class="admin-settings-grid ui-grid">
+                                                <?php foreach (($commentGroup['keys'] ?? []) as $key): ?>
+                                                    <?php if (!isset($definitions[$key])) { continue; } ?>
+                                                    <?php $definition = $definitions[$key]; ?>
+                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
+                                                        <?php if ($definition['type'] === 'bool'): ?>
+                                                            <label class="ui-admin-switch">
+                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
+                                                                <span class="ui-admin-switch-label">
+                                                                    <?= htmlspecialchars($definition['label']) ?>
+                                                                    <?php if (!empty($definition['tooltip'])): ?>
+                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
+                                                                    <?php endif; ?>
+                                                                </span>
+                                                            </label>
+                                                        <?php else: ?>
+                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
                                                                 <?= htmlspecialchars($definition['label']) ?>
                                                                 <?php if (!empty($definition['tooltip'])): ?>
                                                                     <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
                                                                 <?php endif; ?>
-                                                            </span>
-                                                        </label>
-                                                    <?php else: ?>
-                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                            <?= htmlspecialchars($definition['label']) ?>
-                                                            <?php if (!empty($definition['tooltip'])): ?>
-                                                                <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
+                                                            </label>
+                                                            <?php if ($definition['type'] === 'text'): ?>
+                                                                <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
+                                                            <?php elseif ($definition['type'] === 'select'): ?>
+                                                                <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
+                                                                    <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
+                                                                        <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+                                                                    <?php endforeach; ?>
+                                                                </select>
+                                                            <?php elseif ($definition['type'] === 'multicheck'): ?>
+                                                                <?php $currentValues = array_map('trim', explode(',', $settings[$key] ?? $definition['default'])); ?>
+                                                                <div class="admin-multicheck-group">
+                                                                    <?php foreach (($definition['options'] ?? []) as $val => $lbl): ?>
+                                                                        <label class="ui-admin-switch">
+                                                                            <input type="checkbox" name="<?= htmlspecialchars($key) ?>[]" value="<?= htmlspecialchars($val) ?>" <?= in_array($val, $currentValues) ? 'checked' : '' ?>>
+                                                                            <span class="ui-admin-switch-label"><?= htmlspecialchars($lbl) ?></span>
+                                                                        </label>
+                                                                    <?php endforeach; ?>
+                                                                </div>
+                                                            <?php else: ?>
+                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
                                                             <?php endif; ?>
-                                                        </label>
-                                                        <?php if ($definition['type'] === 'text'): ?>
-                                                            <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                                        <?php elseif ($definition['type'] === 'select'): ?>
-                                                            <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                                <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                    <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        <?php elseif ($definition['type'] === 'multicheck'): ?>
-                                                            <?php $currentValues = array_map('trim', explode(',', $settings[$key] ?? $definition['default'])); ?>
-                                                            <div class="admin-multicheck-group">
-                                                                <?php foreach (($definition['options'] ?? []) as $val => $lbl): ?>
-                                                                    <label class="ui-admin-switch">
-                                                                        <input type="checkbox" name="<?= htmlspecialchars($key) ?>[]" value="<?= htmlspecialchars($val) ?>" <?= in_array($val, $currentValues) ? 'checked' : '' ?>>
-                                                                        <span class="ui-admin-switch-label"><?= htmlspecialchars($lbl) ?></span>
-                                                                    </label>
-                                                                <?php endforeach; ?>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
                                                         <?php endif; ?>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php $commentFirst = false; endforeach; ?>
@@ -2358,7 +2494,47 @@ require_once __DIR__ . '/header.php';
                                         <?php if (!empty($userSystemGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($userSystemGroup['description'])) ?></div>
                                         <?php endif; ?>
-                                        <?= adminRenderSettingsGrid($definitions, $settings, 'user_system', (array) ($userSystemGroup['keys'] ?? [])) ?>
+                                        <?php if ($userSystemTabId === 'user-system-tab-approvals'): ?>
+                                            <?php
+                                                $registrationApprovalEnabled = ($settings['registration_requires_admin_approval'] ?? '0') === '1';
+                                                $emailVerificationEnabled = ($settings['account_email_verification_enabled'] ?? '0') === '1';
+                                                $emailVerificationRequired = ($settings['account_email_verification_required'] ?? '0') === '1';
+                                                $emailVerificationTtlMinutes = max(15, min(10080, (int) ($settings['account_email_verification_ttl_minutes'] ?? 1440)));
+                                                $emailVerificationCooldownMinutes = max(1, min(1440, (int) ($settings['account_email_verification_resend_cooldown_minutes'] ?? 10)));
+                                            ?>
+                                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert-spaced">
+                                                <i class="bi bi-shield-check"></i>
+                                                <div>
+                                                    <strong>Kısa durum özeti</strong><br>
+                                                    <?= $registrationApprovalEnabled ? 'Yeni kayıtlar yönetici onayına düşer.' : 'Yeni kayıtlar otomatik olarak aktif açılır.' ?>
+                                                    <?= $emailVerificationEnabled ? ' E-posta doğrulama aktiftir.' : ' E-posta doğrulama kapalıdır.' ?>
+                                                    <?= $emailVerificationRequired ? ' Girişte doğrulama zorunludur.' : ' Girişte doğrulama zorunlu değildir.' ?>
+                                                    Doğrulama bağlantısı <?= (int) $emailVerificationTtlMinutes ?> dakika, tekrar gönderme bekleme süresi <?= (int) $emailVerificationCooldownMinutes ?> dakikadır.
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if ($userSystemTabId === 'user-system-tab-approvals'): ?>
+                                            <div class="admin-section-stack">
+                                                <?php foreach ((array) ($userSystemGroup['sections'] ?? []) as $userSystemSection): ?>
+                                                    <section class="admin-card admin-card-spaced ui-panel">
+                                                        <div class="card-body ui-panel__body">
+                                                            <?php if (!empty($userSystemSection['title'])): ?>
+                                                                <div class="admin-inline-head ui-panel__head">
+                                                                    <i class="bi <?= htmlspecialchars((string) ($userSystemSection['icon'] ?? 'bi-gear')) ?>"></i>
+                                                                    <span class="admin-inline-title"><?= htmlspecialchars((string) $userSystemSection['title']) ?></span>
+                                                                </div>
+                                                            <?php endif; ?>
+                                                            <?php if (!empty($userSystemSection['description'])): ?>
+                                                                <div class="admin-section-desc"><?= htmlspecialchars((string) $userSystemSection['description']) ?></div>
+                                                            <?php endif; ?>
+                                                            <?= adminRenderSettingsGrid($definitions, $settings, 'user_system', (array) ($userSystemSection['keys'] ?? [])) ?>
+                                                        </div>
+                                                    </section>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <?= adminRenderSettingsGrid($definitions, $settings, 'user_system', (array) ($userSystemGroup['keys'] ?? [])) ?>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php $userSystemFirst = false; endforeach; ?>
@@ -2407,16 +2583,7 @@ require_once __DIR__ . '/header.php';
                                                 </button>
                                             </div>
                                         <?php else: ?>
-                                            <?php
-                                                $accountEmailCatalog = \App\Engine\Email\AccountEmailService::catalog();
-                                                $accountEmailBehaviorKeys = [
-                                                    'account_email_system_enabled',
-                                                    'account_email_verification_enabled',
-                                                    'account_email_verification_required',
-                                                    'account_email_verification_ttl_minutes',
-                                                    'account_email_verification_resend_cooldown_minutes',
-                                                ];
-                                            ?>
+                                            <?php $accountEmailCatalog = \App\Engine\Email\AccountEmailService::catalog(); ?>
                                             <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
                                                 <i class="bi bi-info-circle"></i>
                                                 <div>
@@ -2426,7 +2593,7 @@ require_once __DIR__ . '/header.php';
                                             </div>
                                             <section class="account-email-behavior admin-section-block ui-section">
                                                 <div class="admin-inline-head ui-panel__head"><i class="bi bi-shield-check"></i><span class="admin-inline-title">Hesap E-posta Davranışı</span></div>
-                                                <?= adminRenderSettingsGrid($definitions, $settings, 'email', $accountEmailBehaviorKeys) ?>
+                                                <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert-spaced">Kayıt onayı ve şifre sıfırlama davranışı artık Kullanıcı Sistemi alt sekmelerinde yönetiliyor.</div>
                                             </section>
                                             <div class="account-email-template-list">
                                                 <?php foreach ($accountEmailCatalog as $accountTemplateKey => $accountTemplate): ?>

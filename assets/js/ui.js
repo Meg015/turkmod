@@ -239,6 +239,7 @@
         [
             ['success', container.getAttribute('data-toast-success')],
             ['error', container.getAttribute('data-toast-error')],
+            ['warning', container.getAttribute('data-toast-warning')],
             ['info', container.getAttribute('data-toast-info')]
         ].forEach(function (entry) {
             if (entry[1]) {

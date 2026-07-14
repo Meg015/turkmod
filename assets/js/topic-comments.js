@@ -778,7 +778,7 @@
                             loadComments(1);
                         }
                     } else {
-                        showAlert(data.error||'Hata oluştu.','error');
+                        showAlert(data.error||data.message||'Hata oluştu.','error');
                         submitBtn.disabled = false;
                     }
                 }).catch(()=>{
@@ -868,11 +868,11 @@
                                 dispatchCommentCreatedEvent({ pending: false, source: 'reply' });
                                 loadComments(1);
                             }
-                        } else {
-                            showAlert(data.error||'Hata','error');
-                            clearButtonBusy(btn);
-                            btn.disabled = false;
-                        }
+                    } else {
+                        showAlert(data.error||data.message||'Hata','error');
+                        clearButtonBusy(btn);
+                        btn.disabled = false;
+                    }
                     }).catch(()=>{
                         showAlert('Bağlantı hatası.','error');
                         clearButtonBusy(btn);
