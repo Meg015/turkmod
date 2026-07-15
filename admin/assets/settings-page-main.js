@@ -585,7 +585,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initSettingsTooltips();
     activateSettingsSubtabFromHash();
+    initConditionalSettingsFields();
 });
+
+function initConditionalSettingsFields() {
+    var fields = document.querySelectorAll('[data-setting-enabled-when]');
+
+    fields.forEach(function(field) {
+        var controllerName = field.getAttribute('data-setting-enabled-when');
+        var enabledValue = field.getAttribute('data-setting-enabled-value') || '1';
+        var controller = controllerName ? document.querySelector('[name="' + controllerName + '"]') : null;
+        var control = field.querySelector('input:not([type="hidden"]), select, textarea');
+
+        if (!controller || !control) return;
+
+        var sync = function() {
+            var controllerValue = controller.type === 'checkbox'
+                ? (controller.checked ? (controller.value || '1') : '0')
+                : controller.value;
+            var inactive = String(controllerValue) !== String(enabledValue);
+
+            field.classList.toggle('is-conditionally-disabled', inactive);
+            control.readOnly = inactive;
+            control.setAttribute('aria-disabled', inactive ? 'true' : 'false');
+        };
+
+        controller.addEventListener('change', sync);
+        sync();
+    });
+}
 
 function initSettingsTooltips() {
     var tooltipTriggers = document.querySelectorAll('[data-bs-toggle="tooltip"]');

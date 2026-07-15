@@ -403,6 +403,28 @@ body.is-admin-sidebar-open { overflow: hidden; }
 .ui-admin-db-status-note.is-danger { color: var(--danger); }
 .ui-admin-db-status-note.is-success { color: var(--success); }
 .ui-admin-disabled-soft { opacity: .5; cursor: not-allowed; }
+
+[data-setting-field].is-conditionally-disabled .ui-admin-form-label,
+[data-setting-field].is-conditionally-disabled .ui-admin-form-control {
+    opacity: .58;
+}
+
+[data-setting-field].is-conditionally-disabled .ui-admin-form-control {
+    cursor: not-allowed;
+    background: var(--ui-admin-surface-alt);
+}
+
+.admin-setting-conditional-help {
+    display: none;
+    margin-top: .4rem;
+    color: var(--ui-admin-text-muted);
+    font-size: .78rem;
+    line-height: 1.45;
+}
+
+[data-setting-field].is-conditionally-disabled .admin-setting-conditional-help {
+    display: block;
+}
 .ui-admin-width-date { width: 150px; }
 .ui-admin-width-action { width: 100px; }
 .ui-admin-tabs-spaced { margin-bottom: 18px; border-bottom: 1px solid var(--ui-admin-border,#d8dee8); }

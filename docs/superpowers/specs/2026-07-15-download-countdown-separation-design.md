@@ -13,6 +13,7 @@ Konu içindeki indirme kartı geri sayımı ile dış bağlantı yönlendirme sa
 - Yeni alanın varsayılan değeri `5` saniyedir.
 - Her iki alanda da `0`, ilgili akışın beklemeden devam etmesi anlamına gelir.
 - Her iki alan en fazla `300` saniye kabul eder; admin kayıt katmanı sınır dışı değerleri güvenli aralığa çeker.
+- `Otomatik Yönlendirme Aktif` kapalıyken yönlendirme sayfası süre alanı kayıtlı değerini koruyarak salt okunur ve görsel olarak pasif gösterilir; alan altında nasıl yeniden etkinleştirileceğini açıklayan kısa bir bilgi yer alır.
 
 ## Ayar ve Veri Akışı
 

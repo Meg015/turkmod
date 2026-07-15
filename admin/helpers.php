@@ -617,7 +617,7 @@ function adminSettingDefinitions(): array
         // -- Dosya Yoneticisi -----------------------------------
         // Download Manager
         'download_countdown_seconds' => ['label' => 'Konu İçi Geri Sayım Süresi (sn)', 'type' => 'number', 'default' => '5', 'section' => 'downloads', 'min' => 0, 'max' => 300, 'tooltip' => 'Konu içindeki indirme kartında uygulanacak bekleme süresi. 0 beklemeyi kapatır.'],
-        'download_redirect_countdown_seconds' => ['label' => 'Yönlendirme Sayfası Geri Sayım Süresi (sn)', 'type' => 'number', 'default' => '5', 'section' => 'downloads', 'min' => 0, 'max' => 300, 'tooltip' => 'Dış bağlantı yönlendirme sayfasındaki bekleme süresi. 0 beklemeyi kapatır.'],
+        'download_redirect_countdown_seconds' => ['label' => 'Yönlendirme Sayfası Geri Sayım Süresi (sn)', 'type' => 'number', 'default' => '5', 'section' => 'downloads', 'min' => 0, 'max' => 300, 'tooltip' => 'Dış bağlantı yönlendirme sayfasındaki bekleme süresi. 0 beklemeyi kapatır.', 'enabled_when' => ['key' => 'download_redirect_auto_enabled', 'value' => '1'], 'disabled_help' => 'Bu süreyi kullanmak için Otomatik Yönlendirme Aktif ayarını açın.'],
         'download_ready_text'        => ['label' => 'Tiklama Oncesi Metin', 'type' => 'string', 'default' => 'İndirmek için tıklayınız', 'section' => 'downloads'],
         'download_wait_text'         => ['label' => 'Geri Sayım Metni', 'type' => 'string', 'default' => 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz', 'section' => 'downloads'],
         'download_show_counts'       => ['label' => 'Link Bazli İndirme Sayacıni Goster', 'type' => 'bool', 'default' => '1', 'section' => 'downloads'],
@@ -1735,7 +1735,16 @@ function adminRenderSettingField(string $key, array $definition, array $settings
     $value = (string) ($settings[$key] ?? ($definition['default'] ?? ''));
     $fieldId = preg_replace('/[^a-zA-Z0-9_-]/', '_', $key) ?: $key;
     $isTextareaType = in_array($type, ['text', 'textarea', 'richtext'], true);
-    $classes = trim($gridItemClass . ' ' . ($isTextareaType ? 'admin-field-wide' : ''));
+    $enabledWhen = isset($definition['enabled_when']) && is_array($definition['enabled_when']) ? $definition['enabled_when'] : [];
+    $enabledWhenKey = trim((string) ($enabledWhen['key'] ?? ''));
+    $enabledWhenValue = (string) ($enabledWhen['value'] ?? '1');
+    $isConditionallyDisabled = $enabledWhenKey !== ''
+        && (string) ($settings[$enabledWhenKey] ?? '0') !== $enabledWhenValue;
+    $disabledHelp = trim((string) ($definition['disabled_help'] ?? ''));
+    $classes = trim($gridItemClass . ' ' . ($isTextareaType ? 'admin-field-wide' : '') . ($isConditionallyDisabled ? ' is-conditionally-disabled' : ''));
+    $conditionalAttributes = $enabledWhenKey !== ''
+        ? ' data-setting-enabled-when="' . htmlspecialchars($enabledWhenKey, ENT_QUOTES, 'UTF-8') . '" data-setting-enabled-value="' . htmlspecialchars($enabledWhenValue, ENT_QUOTES, 'UTF-8') . '"'
+        : '';
 
     $helpIcon = $tooltip !== ''
         ? ' <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="' . htmlspecialchars($tooltip, ENT_QUOTES, 'UTF-8') . '"></i>'
@@ -1743,7 +1752,7 @@ function adminRenderSettingField(string $key, array $definition, array $settings
 
     ob_start();
     ?>
-    <div class="<?= htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') ?>" data-setting-field="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
+    <div class="<?= htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') ?>" data-setting-field="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"<?= $conditionalAttributes ?>>
         <?php if ($type === 'bool'): ?>
             <label class="ui-admin-switch">
                 <input type="checkbox" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" value="1" <?= $value === '1' ? 'checked' : '' ?>>
@@ -1786,8 +1795,11 @@ function adminRenderSettingField(string $key, array $definition, array $settings
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
-                <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" type="<?= $type === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>"<?= $type === 'number' && isset($definition['min']) ? ' min="' . (int) $definition['min'] . '"' : '' ?><?= $type === 'number' && isset($definition['max']) ? ' max="' . (int) $definition['max'] . '"' : '' ?>>
+                <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" type="<?= $type === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>"<?= $type === 'number' && isset($definition['min']) ? ' min="' . (int) $definition['min'] . '"' : '' ?><?= $type === 'number' && isset($definition['max']) ? ' max="' . (int) $definition['max'] . '"' : '' ?><?= $isConditionallyDisabled ? ' readonly aria-disabled="true"' : '' ?>>
             <?php endif; ?>
+        <?php endif; ?>
+        <?php if ($enabledWhenKey !== '' && $disabledHelp !== ''): ?>
+            <small class="admin-setting-conditional-help" data-setting-conditional-help><?= htmlspecialchars($disabledHelp, ENT_QUOTES, 'UTF-8') ?></small>
         <?php endif; ?>
     </div>
     <?php
