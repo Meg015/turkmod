@@ -616,7 +616,8 @@ function adminSettingDefinitions(): array
 
         // -- Dosya Yoneticisi -----------------------------------
         // Download Manager
-        'download_countdown_seconds' => ['label' => 'Geri Sayım Suresi (sn)', 'type' => 'number', 'default' => '5', 'section' => 'downloads'],
+        'download_countdown_seconds' => ['label' => 'Geri Sayım Suresi (sn)', 'type' => 'number', 'default' => '5', 'section' => 'downloads', 'min' => 0],
+        'download_redirect_countdown_seconds' => ['label' => 'Yönlendirme Sayfası Geri Sayım Süresi (sn)', 'type' => 'number', 'default' => '5', 'section' => 'downloads', 'min' => 0],
         'download_ready_text'        => ['label' => 'Tiklama Oncesi Metin', 'type' => 'string', 'default' => 'İndirmek için tıklayınız', 'section' => 'downloads'],
         'download_wait_text'         => ['label' => 'Geri Sayım Metni', 'type' => 'string', 'default' => 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz', 'section' => 'downloads'],
         'download_show_counts'       => ['label' => 'Link Bazli İndirme Sayacıni Goster', 'type' => 'bool', 'default' => '1', 'section' => 'downloads'],

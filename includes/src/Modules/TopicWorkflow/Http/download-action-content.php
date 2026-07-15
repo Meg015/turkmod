@@ -218,7 +218,7 @@ try {
         $targetScheme = strtoupper((string) $scheme);
         $downloadCountdownSeconds = max(
             0,
-            (int) ($downloadSettings['download_countdown_seconds'] ?? (defined('DOWNLOAD_COUNTDOWN_SECONDS') ? DOWNLOAD_COUNTDOWN_SECONDS : 5))
+            (int) ($downloadSettings['download_redirect_countdown_seconds'] ?? 5)
         );
         $downloadAutoRedirectEnabled = (string) ($downloadSettings['download_redirect_auto_enabled'] ?? '1') === '1';
         $downloadShowTargetUrl = (string) ($downloadSettings['download_redirect_show_target_url'] ?? '1') === '1';

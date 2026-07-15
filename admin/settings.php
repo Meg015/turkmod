@@ -356,6 +356,7 @@ $downloadGroups = [
         'description' => 'Konu detayındaki indirme kartları ve sayaç davranışı.',
         'keys' => [
             'download_countdown_seconds',
+            'download_redirect_countdown_seconds',
             'download_ready_text',
             'download_wait_text',
             'download_done_text',
