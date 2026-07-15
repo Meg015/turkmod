@@ -8,10 +8,11 @@ Konu içindeki indirme kartı geri sayımı ile dış bağlantı yönlendirme sa
 
 `Admin Paneli > Gelişmiş Ayarlar > İndirme Yöneticisi > Mevcut Ayarlar` bölümünde:
 
-- Mevcut `Geri Sayım Süresi (sn)` alanı konu içindeki indirme kartı geri sayımını yönetmeye devam eder.
+- Mevcut alan `Konu İçi Geri Sayım Süresi (sn)` olarak netleştirilir ve konu içindeki indirme kartı geri sayımını yönetmeye devam eder.
 - Mevcut alanın hemen altına `Yönlendirme Sayfası Geri Sayım Süresi (sn)` alanı eklenir.
 - Yeni alanın varsayılan değeri `5` saniyedir.
 - Her iki alanda da `0`, ilgili akışın beklemeden devam etmesi anlamına gelir.
+- Her iki alan en fazla `300` saniye kabul eder; admin kayıt katmanı sınır dışı değerleri güvenli aralığa çeker.
 
 ## Ayar ve Veri Akışı
 
@@ -24,9 +25,9 @@ Yeni ayar anahtarı `download_redirect_countdown_seconds` olacaktır.
 
 ## Çalışma Davranışı
 
-Yönlendirme sayfası kapalıysa yeni sayaç ayarı kullanılmaz ve mevcut doğrudan yönlendirme davranışı korunur. Otomatik yönlendirme kapalıysa sayaç arayüzü ve manuel devam butonunun mevcut davranışı korunur; süre yalnızca bu sayfaya ait yeni ayardan okunur.
+Yönlendirme sayfası kapalıysa yeni sayaç ayarı kullanılmaz ve mevcut doğrudan yönlendirme davranışı korunur. Otomatik yönlendirme kapalıysa sayaç alanı gösterilmez ve manuel devam butonunun mevcut davranışı korunur; süre yalnızca bu sayfaya ait yeni ayardan okunur.
 
-Negatif veya geçersiz değerler çalışma katmanında en az `0` olacak şekilde güvenli hale getirilir. Admin alanı mevcut sayı alanı doğrulama ve kayıt kurallarını kullanır.
+Negatif veya geçersiz değerler çalışma katmanında en az `0` olacak şekilde güvenli hale getirilir. Admin alanı mevcut sayı alanı doğrulama ve kayıt kurallarını kullanarak değeri `0-300` aralığında tutar.
 
 ## Doğrulama
 
