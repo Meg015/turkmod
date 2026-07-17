@@ -48,13 +48,7 @@ if (!function_exists('seoGenerateCategoryMeta')) {
             ]);
         }
 
-        $ogImage = trim((string) ($settings['default_og_image'] ?? ''));
-        if ($ogImage === '' || $ogImage === '/assets/og-default.jpg') {
-            $activeThemeManager = $GLOBALS['themeManager'] ?? null;
-            if (class_exists(ThemeManager::class) && $activeThemeManager instanceof ThemeManager) {
-                $ogImage = $activeThemeManager->themeUrl($activeThemeManager->activeThemeId()) . '/images/preview.png';
-            }
-        }
+        $ogImage = trim((string) ($settings['og_image'] ?? ''));
 
         if ($canonicalUrl === '') {
             $canonicalUrl = categoryUrl((string) ($category['slug'] ?? ''), (string) ($category['parent_slug'] ?? ''));
@@ -113,13 +107,7 @@ if (!function_exists('seoGenerateProfileMeta')) {
 
         $ogImage = !empty($user['avatar'])
             ? profileAvatarUrl($baseUri, (string) $user['avatar'])
-            : trim((string) ($settings['default_og_image'] ?? ''));
-        if ($ogImage === '' || $ogImage === '/assets/og-default.jpg') {
-            $activeThemeManager = $GLOBALS['themeManager'] ?? null;
-            if (class_exists(ThemeManager::class) && $activeThemeManager instanceof ThemeManager) {
-                $ogImage = $activeThemeManager->themeUrl($activeThemeManager->activeThemeId()) . '/images/preview.png';
-            }
-        }
+            : trim((string) ($settings['og_image'] ?? ''));
 
         if ($canonicalUrl === '') {
             $canonicalUrl = publicProfileUrl($user);
@@ -187,13 +175,7 @@ if (!function_exists('seoGenerateTopicMeta')) {
             $ogImage = trim((string) ($topic['topic_first_image'] ?? ''));
         }
         if ($ogImage === '') {
-            $ogImage = trim((string) ($settings['default_og_image'] ?? ''));
-        }
-        if ($ogImage === '' || $ogImage === '/assets/og-default.jpg') {
-            $activeThemeManager = $GLOBALS['themeManager'] ?? null;
-            if (class_exists(ThemeManager::class) && $activeThemeManager instanceof ThemeManager) {
-                $ogImage = $activeThemeManager->themeUrl($activeThemeManager->activeThemeId()) . '/images/preview.png';
-            }
+            $ogImage = trim((string) ($settings['og_image'] ?? ''));
         }
 
         if ($canonicalUrl === '') {

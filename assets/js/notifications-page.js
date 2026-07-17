@@ -7,8 +7,8 @@
             return;
         }
 
-        function rootAttribute(primaryName, fallbackName) {
-            return root.getAttribute(primaryName) || (fallbackName ? root.getAttribute(fallbackName) : "") || "";
+        function rootAttribute(name) {
+            return root.getAttribute(name) || "";
         }
 
         function boolAttr(value) {
@@ -19,11 +19,11 @@
             return !!data && (data.ok === true || data.success === true);
         }
 
-        var csrfToken = rootAttribute("data-notifications-csrf", "data-csrf-token");
-        var readEndpoint = rootAttribute("data-notifications-read-endpoint", "data-read-endpoint");
-        var deleteEndpoint = rootAttribute("data-notifications-delete-endpoint", "data-delete-endpoint");
-        var readMoreEnabled = boolAttr(rootAttribute("data-notifications-read-more", "data-read-more-enabled"));
-        var autoMarkOnOpen = boolAttr(rootAttribute("data-notifications-auto-mark", "data-auto-mark-on-open"));
+        var csrfToken = rootAttribute("data-notifications-csrf");
+        var readEndpoint = rootAttribute("data-notifications-read-endpoint");
+        var deleteEndpoint = rootAttribute("data-notifications-delete-endpoint");
+        var readMoreEnabled = boolAttr(rootAttribute("data-notifications-read-more"));
+        var autoMarkOnOpen = boolAttr(rootAttribute("data-notifications-auto-mark"));
 
         function postNotificationRead(id) {
             var formData = new FormData();

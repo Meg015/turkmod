@@ -161,11 +161,6 @@
         document.querySelectorAll('textarea.rich-editor').forEach(function(textarea) {
             if (textarea.quillInstance) {
                 textarea.value = textarea.quillInstance.root.innerHTML;
-                return;
-            }
-            const fallbackEditor = textarea.parentNode ? textarea.parentNode.querySelector('.upload-rich-editor') : null;
-            if (fallbackEditor) {
-                textarea.value = fallbackEditor.innerHTML.trim();
             }
         });
 

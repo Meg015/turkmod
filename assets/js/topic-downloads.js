@@ -19,6 +19,11 @@
         console.log('[topic-downloads]', message);
     }
 
+    function appBaseUri() {
+        const meta = document.querySelector('meta[name="app-base-uri"]');
+        return meta ? (meta.getAttribute('content') || '').replace(/\/+$/, '') : '';
+    }
+
     function sectionState(section) {
         const topicId = parseInt(section.dataset.topicId || '0', 10) || 0;
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
@@ -876,6 +881,13 @@
         const changed = nextToken !== state.csrf;
         state.csrf = nextToken;
         section.dataset.csrf = nextToken;
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) {
+            csrfMeta.setAttribute('content', nextToken);
+        }
+        document.querySelectorAll('input[name="_token"], input[name="csrf_token"]').forEach(function (input) {
+            input.value = nextToken;
+        });
         return changed;
     }
 
@@ -887,10 +899,25 @@
             return false;
         }
         const code = String(data.error || data.code || '').toLowerCase();
-        return code === 'csrf_token_invalid' || code === 'csrf_failed' || code === 'csrf_invalid';
+        return code === 'csrf_token_invalid' || code === 'csrf_failed' || code === 'csrf_invalid' || code === 'csrf_refresh_required';
     }
 
     async function refreshAuthCsrfToken(section, state) {
+        try {
+            const tokenResponse = await fetch(appBaseUri() + '/api/csrf-token.php', {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            const tokenData = await tokenResponse.json().catch(function () { return null; });
+            if (updateCsrfTokenFromResponse(state, section, tokenData)) {
+                return true;
+            }
+        } catch (error) {}
+
         if (!state.statusApi || !state.topicId) {
             return false;
         }
@@ -961,7 +988,7 @@
         try {
             let response = null;
             let data = null;
-            let retriedAfterCsrf = false;
+            let csrfRetryCount = 0;
 
             while (true) {
                 payload._token = state.csrf;
@@ -977,10 +1004,10 @@
                 data = await response.json().catch(function () { return null; });
 
                 const tokenChanged = updateCsrfTokenFromResponse(state, section, data);
-                if (!retriedAfterCsrf && isCsrfFailureResponse(response, data)) {
+                if (csrfRetryCount < 2 && isCsrfFailureResponse(response, data)) {
                     const refreshed = tokenChanged || await refreshAuthCsrfToken(section, state);
                     if (refreshed) {
-                        retriedAfterCsrf = true;
+                        csrfRetryCount += 1;
                         continue;
                     }
                 }
@@ -988,9 +1015,11 @@
             }
 
             if (!response.ok || !data || data.success === false) {
-                const errorMsg = isCsrfFailureResponse(response, data)
-                    ? 'Guvenlik dogrulamasi yenilenemedi. Lutfen sayfayi yenileyip tekrar deneyin.'
-                    : (data && (data.message || data.error) ? String(data.message || data.error) : 'Kimlik dogrulama basarisiz.');
+                if (isCsrfFailureResponse(response, data)) {
+                    setModalFeedback(state, 'Form yenilendi. Lutfen tekrar gonderin.', 'info');
+                    return;
+                }
+                const errorMsg = data && (data.message || data.error) ? String(data.message || data.error) : 'Kimlik dogrulama basarisiz.';
                 setModalFeedback(state, errorMsg, 'error');
                 return;
             }

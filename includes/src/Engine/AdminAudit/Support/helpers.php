@@ -416,6 +416,7 @@ if (!function_exists('adminActionLabel')) {
             'bot_import_published'        => 'Bot İçeriği Yayınlandı',
             'activity_logs_cleared'       => 'Aktivite Logları Temizlendi',
             'application_logs_cleared'    => 'Uygulama Logları Temizlendi',
+            'email_logs_cleared'          => 'E-posta Logları Temizlendi',
             'admin_action_log_cleared'    => 'Yönetici İşlem Günlüğü Temizlendi',
             'rate_limit_records_deleted'  => 'Rate Limit Kayıtları Temizlendi',
         ];

@@ -69,6 +69,73 @@ if (!function_exists('authPopulateSessionUser')) {
     }
 }
 
+if (!function_exists('authEmailVerificationRequiredForLogin')) {
+    function authEmailVerificationRequiredForLogin(?array $settings = null): bool
+    {
+        $settings = is_array($settings) ? $settings : [];
+
+        return (string) ($settings['account_email_verification_enabled'] ?? '0') === '1'
+            && (string) ($settings['account_email_verification_required'] ?? '0') === '1';
+    }
+}
+
+if (!function_exists('authEmailVerificationEnabled')) {
+    function authEmailVerificationEnabled(?array $settings = null): bool
+    {
+        $settings = is_array($settings) ? $settings : [];
+
+        return (string) ($settings['account_email_verification_enabled'] ?? '0') === '1';
+    }
+}
+
+if (!function_exists('authRegistrationAutoLoginAllowed')) {
+    function authRegistrationAutoLoginAllowed(?array $settings = null, bool $registrationRequiresAdminApproval = false): bool
+    {
+        return !$registrationRequiresAdminApproval
+            && !authEmailVerificationRequiredForLogin($settings);
+    }
+}
+
+if (!function_exists('authRegistrationPreservedInput')) {
+    /**
+     * Preserve only safe, non-sensitive registration fields after validation failures.
+     *
+     * @param array<string, mixed> $source
+     * @return array{username: string, email: string}
+     */
+    function authRegistrationPreservedInput(array $source): array
+    {
+        $clean = static function (mixed $value, int $maxLength): string {
+            if (!is_scalar($value) && !$value instanceof Stringable) {
+                return '';
+            }
+
+            $value = trim(str_replace(["\0", "\r", "\n"], '', (string) $value));
+
+            return function_exists('mb_substr')
+                ? mb_substr($value, 0, $maxLength)
+                : substr($value, 0, $maxLength);
+        };
+
+        return [
+            'username' => $clean($source['username'] ?? '', 120),
+            'email' => $clean($source['email'] ?? '', 254),
+        ];
+    }
+}
+
+if (!function_exists('authUrlWithRedirect')) {
+    function authUrlWithRedirect(string $url, string $redirect, string $fallback = ''): string
+    {
+        $redirect = trim($redirect);
+        if ($redirect === '' || ($fallback !== '' && $redirect === $fallback)) {
+            return $url;
+        }
+
+        return $url . (str_contains($url, '?') ? '&' : '?') . http_build_query(['redirect' => $redirect]);
+    }
+}
+
 if (!function_exists('loginSafeRedirect')) {
     function loginSafeRedirect(string $candidate, string $fallback): string
     {
@@ -176,7 +243,7 @@ if (!function_exists('authenticateUser')) {
             if (function_exists('usersEnsureUsernameSchema')) {
                 usersEnsureUsernameSchema($pdo);
             }
-            $sql = "SELECT id, username, email, email_verified_at, password, status, password_changed_at
+            $sql = "SELECT id, username, email, email_verified_at, password, status, is_banned, banned_at, ban_reason, password_changed_at
                     FROM users
                     WHERE deleted_at IS NULL";
             $params = [];
@@ -199,8 +266,12 @@ if (!function_exists('authenticateUser')) {
             if (!$user) {
                 return ['success' => false, 'error' => 'Kullanıcı bulunamadı'];
             }
-
-            if ((string)($user['status'] ?? '') !== 'active') {
+            if (!password_verify($password, $user['password'])) {
+                return ['success' => false, 'error' => 'Şifre hatalı'];
+            }
+
+            $isBanned = (int) ($user['is_banned'] ?? 0) === 1 || (string) ($user['status'] ?? '') === 'banned';
+            if (!$isBanned && (string)($user['status'] ?? '') !== 'active') {
                 $approvalRequired = function_exists('usersRegistrationRequiresAdminApproval')
                     && usersRegistrationRequiresAdminApproval($settings);
                 if ($approvalRequired) {
@@ -209,12 +280,7 @@ if (!function_exists('authenticateUser')) {
                 return ['success' => false, 'error' => 'Hesabınız aktif değil'];
             }
 
-            if (!password_verify($password, $user['password'])) {
-                return ['success' => false, 'error' => 'Şifre hatalı'];
-            }
-
-            if (($settings['account_email_verification_enabled'] ?? '0') === '1'
-                && ($settings['account_email_verification_required'] ?? '0') === '1'
+            if (authEmailVerificationRequiredForLogin($settings)
                 && empty($user['email_verified_at'])) {
                 return ['success' => false, 'error' => 'Giriş için e-posta adresinizi doğrulamanız gerekiyor. Yeni bağlantı isteyebilirsiniz.'];
             }

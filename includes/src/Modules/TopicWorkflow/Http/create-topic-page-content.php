@@ -77,6 +77,17 @@ function uploadTopicInt(array $settings, string $key, int $default = 0, int $min
     return max($min, (int) ($settings[$key] ?? $default));
 }
 
+/**
+ * @return array{limit:int,window:int}
+ */
+function uploadTopicSubmissionRateConfig(array $settings, ?PDO $pdo): array
+{
+    return [
+        "limit" => uploadTopicInt($settings, "user_upload_rate_limit", 0),
+        "window" => min(10080, uploadTopicInt($settings, "user_upload_rate_window", 60)),
+    ];
+}
+
 function uploadTopicList(array $settings, string $key, string $default = ""): array
 {
     return array_values(array_filter(array_map(static fn($value) => strtolower(trim((string) $value)), explode(",", (string) ($settings[$key] ?? $default)))));
@@ -287,20 +298,14 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
     }
 
     if ($pdo && $authorId > 0) {
-        $hourlyLimit = uploadTopicInt($settings, "user_upload_hourly_limit", 0);
-        if ($hourlyLimit > 0) {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM topics WHERE author_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+        $submissionRateConfig = uploadTopicSubmissionRateConfig($settings, $pdo);
+        $submissionRateLimit = (int) $submissionRateConfig["limit"];
+        $submissionRateWindow = (int) $submissionRateConfig["window"];
+        if ($submissionRateLimit > 0 && $submissionRateWindow > 0) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM topics WHERE author_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL {$submissionRateWindow} MINUTE)");
             $stmt->execute([$authorId]);
-            if ((int) $stmt->fetchColumn() >= $hourlyLimit) {
-                uploadTopicRespond(false, "Saatlik mod gönderim limitine ulaştınız.", 429);
-            }
-        }
-        $dailyLimit = uploadTopicInt($settings, "user_upload_daily_limit", 0);
-        if ($dailyLimit > 0) {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM topics WHERE author_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)");
-            $stmt->execute([$authorId]);
-            if ((int) $stmt->fetchColumn() >= $dailyLimit) {
-                uploadTopicRespond(false, "Günlük mod gönderim limitine ulaştınız.", 429);
+            if ((int) $stmt->fetchColumn() >= $submissionRateLimit) {
+                uploadTopicRespond(false, $submissionRateWindow . " dakika içinde mod gönderim limitine ulaştınız.", 429);
             }
         }
         if (uploadTopicBool($settings, "user_upload_block_duplicate_titles", "1") && $title !== "") {
@@ -432,27 +437,18 @@ $allowStepSkip = uploadTopicBool($settings, "user_upload_allow_step_skip");
 $showProfileFollowup = uploadTopicBool($settings, "user_upload_show_profile_followup", "1");
 $showProfileButton = uploadTopicBool($settings, "user_upload_show_profile_button", "1");
 $lockAfterSubmit = uploadTopicBool($settings, "user_upload_lock_after_submit", "1");
-$hourlyLimit = uploadTopicInt($settings, "user_upload_hourly_limit", 0);
-$dailyLimit = uploadTopicInt($settings, "user_upload_daily_limit", 0);
+$submissionRateConfig = uploadTopicSubmissionRateConfig($settings, $pdo);
+$submissionRateLimit = (int) $submissionRateConfig["limit"];
+$submissionRateWindow = (int) $submissionRateConfig["window"];
 $blockDuplicateTitles = uploadTopicBool($settings, "user_upload_block_duplicate_titles", "1");
 $currentUploadUserId = (int) ($_SESSION["_auth_user_id"] ?? 0);
-$usedHourlyUploads = null;
-$usedDailyUploads = null;
-$remainingHourlyUploads = null;
-$remainingDailyUploads = null;
-if ($pdo && $currentUploadUserId > 0) {
-    if ($hourlyLimit > 0) {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM topics WHERE author_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
-        $stmt->execute([$currentUploadUserId]);
-        $usedHourlyUploads = (int) $stmt->fetchColumn();
-        $remainingHourlyUploads = max(0, $hourlyLimit - $usedHourlyUploads);
-    }
-    if ($dailyLimit > 0) {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM topics WHERE author_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)");
-        $stmt->execute([$currentUploadUserId]);
-        $usedDailyUploads = (int) $stmt->fetchColumn();
-        $remainingDailyUploads = max(0, $dailyLimit - $usedDailyUploads);
-    }
+$usedSubmissionUploads = null;
+$remainingSubmissionUploads = null;
+if ($pdo && $currentUploadUserId > 0 && $submissionRateLimit > 0 && $submissionRateWindow > 0) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM topics WHERE author_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL {$submissionRateWindow} MINUTE)");
+    $stmt->execute([$currentUploadUserId]);
+    $usedSubmissionUploads = (int) $stmt->fetchColumn();
+    $remainingSubmissionUploads = max(0, $submissionRateLimit - $usedSubmissionUploads);
 }
 $submissionNotice = trim((string) ($settings["user_upload_submission_notice"] ?? "Onay durumunu Profil > Konularım menüsünden takip edebilirsiniz."));
 $defaultContentAlign = (string) ($settings["user_upload_default_content_align"] ?? "center");
@@ -532,7 +528,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
 
             <div class="public-upload-body ui-panel__body">
-                <form id="uploadForm" method="post" action="<?= htmlspecialchars($upload_form_action, ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-upload-topic-standalone="1" data-ui-progress-form="1" data-loading-label="Gönderiliyor..." data-lock-after-submit="<?= $lockAfterSubmit ? "1" : "0" ?>" data-max-images="<?= (int) $maxImages ?>" data-cover-max-size-mb="<?= (int) $coverMaxSizeMb ?>" data-gallery-max-size-mb="<?= (int) $galleryMaxSizeMb ?>" data-attachment-max-size-mb="<?= (int) $attachmentMaxSizeMb ?>" data-allowed-image-ext="<?= htmlspecialchars(implode(",", $allowedImageExt), ENT_QUOTES, "UTF-8") ?>" data-image-min-width="<?= (int) $imageMinWidth ?>" data-image-min-height="<?= (int) $imageMinHeight ?>" data-image-max-width="<?= (int) $imageMaxWidth ?>" data-image-max-height="<?= (int) $imageMaxHeight ?>" data-min-title-length="<?= (int) $minTitleLength ?>" data-max-title-length="<?= (int) $maxTitleLength ?>" data-min-content-length="<?= (int) $minContentLength ?>" data-require-cover="<?= $requireCover ? "1" : "0" ?>" data-require-gallery="<?= $requireGallery ? "1" : "0" ?>" data-require-author="<?= $requireAuthor ? "1" : "0" ?>" data-require-version="<?= $requireVersion ? "1" : "0" ?>" data-require-download-link="<?= $requireDownloadLink ? "1" : "0" ?>" data-allow-video-url="<?= $allowVideoUrl ? "1" : "0" ?>" data-allowed-video-hosts="<?= htmlspecialchars(implode(",", $allowedVideoHosts), ENT_QUOTES, "UTF-8") ?>" data-hourly-limit="<?= (int) $hourlyLimit ?>" data-daily-limit="<?= (int) $dailyLimit ?>" data-block-duplicate-titles="<?= $blockDuplicateTitles ? "1" : "0" ?>" data-wizard-enabled="<?= $wizardEnabled ? "1" : "0" ?>" data-allow-step-skip="<?= $allowStepSkip ? "1" : "0" ?>" data-profile-topics-url="<?= htmlspecialchars(routePrivateProfileUrl(['tab' => 'topics']), ENT_QUOTES, 'UTF-8') ?>" data-profile-draft-url="<?= htmlspecialchars(routePrivateProfileUrl(['tab' => 'topics', 'topic_status' => 'draft']), ENT_QUOTES, 'UTF-8') ?>">
+                <form id="uploadForm" method="post" action="<?= htmlspecialchars($upload_form_action, ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-upload-topic-standalone="1" data-ui-progress-form="1" data-loading-label="Gönderiliyor..." data-lock-after-submit="<?= $lockAfterSubmit ? "1" : "0" ?>" data-max-images="<?= (int) $maxImages ?>" data-cover-max-size-mb="<?= (int) $coverMaxSizeMb ?>" data-gallery-max-size-mb="<?= (int) $galleryMaxSizeMb ?>" data-attachment-max-size-mb="<?= (int) $attachmentMaxSizeMb ?>" data-allowed-image-ext="<?= htmlspecialchars(implode(",", $allowedImageExt), ENT_QUOTES, "UTF-8") ?>" data-image-min-width="<?= (int) $imageMinWidth ?>" data-image-min-height="<?= (int) $imageMinHeight ?>" data-image-max-width="<?= (int) $imageMaxWidth ?>" data-image-max-height="<?= (int) $imageMaxHeight ?>" data-min-title-length="<?= (int) $minTitleLength ?>" data-max-title-length="<?= (int) $maxTitleLength ?>" data-min-content-length="<?= (int) $minContentLength ?>" data-require-cover="<?= $requireCover ? "1" : "0" ?>" data-require-gallery="<?= $requireGallery ? "1" : "0" ?>" data-require-author="<?= $requireAuthor ? "1" : "0" ?>" data-require-version="<?= $requireVersion ? "1" : "0" ?>" data-require-download-link="<?= $requireDownloadLink ? "1" : "0" ?>" data-allow-video-url="<?= $allowVideoUrl ? "1" : "0" ?>" data-allowed-video-hosts="<?= htmlspecialchars(implode(",", $allowedVideoHosts), ENT_QUOTES, "UTF-8") ?>" data-upload-rate-limit="<?= (int) $submissionRateLimit ?>" data-upload-rate-window="<?= (int) $submissionRateWindow ?>" data-block-duplicate-titles="<?= $blockDuplicateTitles ? "1" : "0" ?>" data-wizard-enabled="<?= $wizardEnabled ? "1" : "0" ?>" data-allow-step-skip="<?= $allowStepSkip ? "1" : "0" ?>" data-profile-topics-url="<?= htmlspecialchars(routePrivateProfileUrl(['tab' => 'topics']), ENT_QUOTES, 'UTF-8') ?>" data-profile-draft-url="<?= htmlspecialchars(routePrivateProfileUrl(['tab' => 'topics', 'topic_status' => 'draft']), ENT_QUOTES, 'UTF-8') ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="upload_submit_token" value="<?= htmlspecialchars($uploadSubmitToken, ENT_QUOTES, "UTF-8") ?>">
 
@@ -754,21 +750,15 @@ require_once $projectRoot . "/includes/public-header.php";
                         <div><i class="bi bi-send-check"></i><span>İçerik moderatör onayına gönderilecek.</span></div>
                         <div><i class="bi bi-asterisk"></i><span>Zorunlu alanları, kapak ve galeri kurallarını kontrol edin.</span></div>
                         <div><i class="bi bi-shield-lock"></i><span>Telif hakları, güvenli içerik ve site politikasına uygunluk sizin sorumluluğunuzdadır.</span></div>
-                        <?php if ($hourlyLimit > 0): ?><div><i class="bi bi-clock-history"></i><span>Saatlik gönderim limiti: <?= (int) $hourlyLimit ?> mod.</span></div><?php endif; ?>
-                        <?php if ($dailyLimit > 0): ?><div><i class="bi bi-calendar-day"></i><span>Günlük gönderim limiti: <?= (int) $dailyLimit ?> mod.</span></div><?php endif; ?>
+                        <?php if ($submissionRateLimit > 0 && $submissionRateWindow > 0): ?><div><i class="bi bi-clock-history"></i><span><?= (int) $submissionRateWindow ?> dakika içinde gönderim limiti: <?= (int) $submissionRateLimit ?> mod.</span></div><?php endif; ?>
                         <?php if ($blockDuplicateTitles): ?><div><i class="bi bi-copy"></i><span>Aynı başlıkla tekrar gönderim sunucuda engellenir.</span></div><?php endif; ?>
                     </div>
-                    <?php if ($hourlyLimit > 0 || $dailyLimit > 0): ?>
+                    <?php if ($submissionRateLimit > 0 && $submissionRateWindow > 0): ?>
                     <div class="upload-limit-summary" aria-live="polite">
                         <i class="bi bi-speedometer2"></i>
                         <div>
                             <strong>Gönderim hakkı</strong>
-                            <?php if ($hourlyLimit > 0): ?>
-                                <span>Saatlik: <?= $remainingHourlyUploads === null ? 'kontrol edilecek' : (int) $remainingHourlyUploads . ' / ' . (int) $hourlyLimit . ' kaldı' ?></span>
-                            <?php endif; ?>
-                            <?php if ($dailyLimit > 0): ?>
-                                <span>Günlük: <?= $remainingDailyUploads === null ? 'kontrol edilecek' : (int) $remainingDailyUploads . ' / ' . (int) $dailyLimit . ' kaldı' ?></span>
-                            <?php endif; ?>
+                            <span><?= (int) $submissionRateWindow ?> dakika: <?= $remainingSubmissionUploads === null ? 'kontrol edilecek' : (int) $remainingSubmissionUploads . ' / ' . (int) $submissionRateLimit . ' kaldı' ?></span>
                         </div>
                     </div>
                     <?php endif; ?>

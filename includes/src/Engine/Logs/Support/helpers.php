@@ -10,12 +10,15 @@ function logsGetList(
     string $search = '',
     string $filterAction = '',
     int $page = 1,
-    int $perPage = 50,
+    int $perPage = 10,
     string $filterSubject = '',
     string $dateFrom = '',
     string $dateTo = ''
 ): array
 {
+    $page = max(1, $page);
+    $perPage = max(1, min(10, $perPage));
+
     $where = ["1=1"];
     $params = [];
 
@@ -233,8 +236,11 @@ function logsFormatAction(string $action): string
         'media_uploaded' => 'Medya yüklendi',
         'media_deleted' => 'Medya silindi',
         'rate_limit_records_deleted' => 'Rate limit kayıtları temizlendi',
+        'cron_logs_cleared' => 'Cron logları temizlendi',
         'application_logs_cleared' => 'Uygulama logları temizlendi',
+        'email_logs_cleared' => 'E-posta logları temizlendi',
         'activity_logs_cleared' => 'Aktivite logları temizlendi',
+        'admin_action_log_cleared' => 'Yönetici işlem kayıtları temizlendi',
         'leaderboard_recalculated' => 'Liderlik hesaplandı',
         'leaderboard_cache_cleared' => 'Liderlik önbelleği temizlendi',
         'admin_action_reverted' => 'Admin işlemi geri alındı',
@@ -371,10 +377,13 @@ function appLogsGetList(
     string $level = '',
     string $channel = '',
     int $page = 1,
-    int $perPage = 50,
+    int $perPage = 10,
     string $dateFrom = '',
     string $dateTo = ''
 ): array {
+    $page = max(1, $page);
+    $perPage = max(1, min(10, $perPage));
+
     $filter = appLogsBuildWhere($search, $level, $channel, $dateFrom, $dateTo, 'a.');
     $offset = ($page - 1) * $perPage;
 
@@ -818,7 +827,9 @@ if (!function_exists('appLogsHumanizeMessage')) {
             'media_uploaded' => 'Medya yüklendi',
             'media_deleted' => 'Medya silindi',
             'rate_limit_cleanup' => 'Rate limit temizliği',
+            'cron_logs_cleared' => 'Cron logları temizlendi',
             'application_logs_cleared' => 'Uygulama logları temizlendi',
+            'email_logs_cleared' => 'E-posta logları temizlendi',
             'activity_logs_cleared' => 'Aktivite logları temizlendi',
             'leaderboard_recalculated' => 'Liderlik tablosu yeniden hesaplandı',
             'leaderboard_cache_cleared' => 'Liderlik önbelleği temizlendi',

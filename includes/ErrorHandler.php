@@ -211,7 +211,9 @@ class ErrorHandler {
      * Kullanıcıya güvenli hata sayfası göster
      */
     private function showErrorPage() {
-        http_response_code(500);
+        if (!headers_sent()) {
+            http_response_code(500);
+        }
 
         if (file_exists(__DIR__ . '/public-500.php')) {
             include __DIR__ . '/public-500.php';

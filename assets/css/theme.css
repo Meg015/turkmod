@@ -10,9 +10,9 @@
    Section 1: Homepage Styles (from anasayfa-style.css)
    ============================================================ */
 /* Theme System - Light & Dark Mode Support */
-* {
-    margin: 0;
-    padding: 0;
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -8778,11 +8778,12 @@ body.topic-report-modal-open {
 
 .topic-info-row {
     display: grid;
-    grid-template-columns: 28px minmax(0, 0.72fr) minmax(0, 1fr);
-    gap: 8px;
+    grid-template-columns: 28px minmax(82px, 96px) minmax(0, 1fr);
+    column-gap: 7px;
+    row-gap: 0;
     align-items: center;
     min-height: 44px;
-    padding: 10px;
+    padding: 9px 10px;
     color: var(--text);
     background: var(--bg);
     border: 1px solid transparent;
@@ -8808,10 +8809,16 @@ a.topic-info-row:hover {
 }
 
 .topic-info-row span {
+    display: flex;
+    align-items: center;
     min-width: 0;
+    overflow: hidden;
     color: var(--text-dim);
     font-size: 0.76rem;
     font-weight: 600;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .topic-info-row strong {
@@ -8820,8 +8827,18 @@ a.topic-info-row:hover {
     color: var(--text);
     font-size: 0.82rem;
     font-weight: 700;
-    text-align: right;
+    line-height: 1.2;
+    text-align: left;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.topic-info-row strong a {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: top;
     white-space: nowrap;
 }
 
@@ -35576,9 +35593,9 @@ body {
    SECTION 3: Additional Styles (style-new.css)
    ============================================================ */
 /* Theme System - Light & Dark Mode Support */
-* {
-    margin: 0;
-    padding: 0;
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -46332,7 +46349,6 @@ body {
     .upload-limit-summary,
     .upload-profile-followup,
     .upload-review-list > div,
-    .upload-rich-fallback,
     .quill-container,
     .appeal-hero,
     .appeal-card,
@@ -46559,7 +46575,6 @@ body {
     .user-report-form select,
     .user-report-form textarea,
     .ui-comment-textarea,
-    .upload-rich-editor,
     .quill-container .ql-container,
     .quill-container .ql-toolbar) {
     color: var(--text) !important;
@@ -46575,7 +46590,6 @@ body {
     .user-report-form select:focus,
     .user-report-form textarea:focus,
     .ui-comment-textarea:focus,
-    .upload-rich-editor:focus,
     .quill-container:focus-within) {
     background: var(--ui-surface) !important;
     border-color: var(--primary) !important;
@@ -50734,6 +50748,32 @@ body.public-page-edit-topic .content-area > .upload-topic-form-container .public
     margin-inline: auto !important;
 }
 
+/* Ban appeal tabs and panels stay on the same rail for every tab. */
+body.public-page-ban-appeals .site-main--focus .layout.grid--focus {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+body.public-page-ban-appeals .site-main--focus .content-area > .appeal-shell {
+    align-self: center !important;
+    width: min(100%, 920px) !important;
+    max-width: 920px !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+}
+
+body.public-page-ban-appeals .appeal-tabs,
+body.public-page-ban-appeals .appeal-hero,
+body.public-page-ban-appeals .appeal-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+body.public-page-ban-appeals .appeal-tabs {
+    justify-self: stretch !important;
+}
+
 @media (max-width: 767.98px) {
     body.public-page-upload-topic .content-area > .upload-topic-form-container,
     body.public-page-edit-topic .content-area > .upload-topic-form-container {
@@ -51671,5 +51711,54 @@ body.public-page-messages .content-area {
 
 body.public-page-messages .ui-theme-messages-full-width {
     width: 100% !important;
+}
+
+/* Topic info rows: keep label and value on the same compact baseline. */
+.topic-details .topic-info-row {
+    display: grid !important;
+    grid-template-columns: 28px fit-content(108px) minmax(0, 1fr) !important;
+    column-gap: 6px !important;
+    row-gap: 0 !important;
+    align-items: center !important;
+    min-height: 44px !important;
+    padding: 8px 10px !important;
+}
+
+.topic-details .topic-info-row > i,
+.topic-details .topic-info-row > span,
+.topic-details .topic-info-row > strong {
+    align-self: center !important;
+}
+
+.topic-details .topic-info-row > span {
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 108px !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    line-height: 1.15 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.topic-details .topic-info-row > strong {
+    display: block !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    line-height: 1.2 !important;
+    text-align: left !important;
+    text-overflow: ellipsis !important;
+    transform: translateY(-2px) !important;
+    white-space: nowrap !important;
+}
+
+.topic-details .topic-info-row > strong a {
+    display: inline-block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    vertical-align: top !important;
+    white-space: nowrap !important;
 }
 

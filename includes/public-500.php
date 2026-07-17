@@ -5,7 +5,9 @@
  * Tek başına çağrılırsa güvenli fallback gösterir.
  */
 
-http_response_code(500);
+if (!headers_sent()) {
+    http_response_code(500);
+}
 
 $projectRoot = dirname(__DIR__);
 

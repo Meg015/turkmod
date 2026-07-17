@@ -44,7 +44,20 @@ final class BanAppealService
 
     public function submitForUser(PDO $pdo, int $userId, string $message): string
     {
+        $message = trim($message);
+        if (mb_strlen($message) < 10) {
+            return 'Itiraz mesaji en az 10 karakter olmalidir.';
+        }
+        if (mb_strlen($message) > 3000) {
+            return 'Itiraz mesaji en fazla 3000 karakter olabilir.';
+        }
+
         $this->schema->ensureSchema($pdo);
+        $rateLimit = $this->checkUserSubmitRateLimit($pdo, $userId);
+        if ($rateLimit['error'] !== '') {
+            return $rateLimit['error'];
+        }
+
         $activeAppealId = $this->activeId($pdo, $userId);
         if ($activeAppealId) {
             $error = $this->addMessage($pdo, $activeAppealId, $userId, 'user', $message);
@@ -57,11 +70,18 @@ final class BanAppealService
             if (function_exists('userActivityLog')) {
                 userActivityLog($pdo, $userId, 'ban_appeal_message_added', 'appeal', 'ban_appeal', $activeAppealId, 'Ban itirazi mesaji eklendi', [], $userId);
             }
+            $this->notifications->dispatchAdminSubmission($pdo, $userId, $activeAppealId, $message, true);
+            $this->hitUserSubmitRateLimit($rateLimit['key'], $rateLimit['window']);
 
             return '';
         }
 
-        return $this->create($pdo, $userId, $message);
+        $error = $this->create($pdo, $userId, $message);
+        if ($error === '') {
+            $this->hitUserSubmitRateLimit($rateLimit['key'], $rateLimit['window']);
+        }
+
+        return $error;
     }
 
     public function addMessage(PDO $pdo, int $appealId, ?int $senderUserId, string $senderType, string $message): string
@@ -140,6 +160,7 @@ final class BanAppealService
             if (function_exists('userActivityLog')) {
                 userActivityLog($pdo, $userId, 'ban_appeal_created', 'appeal', 'ban_appeal', $appealId, 'Ban itirazi olusturuldu', [], $userId);
             }
+            $this->notifications->dispatchAdminSubmission($pdo, $userId, $appealId, $message, false);
         }
 
         return '';
@@ -149,7 +170,7 @@ final class BanAppealService
     public function forUser(PDO $pdo, int $userId): array
     {
         $this->schema->ensureSchema($pdo);
-        $stmt = $pdo->prepare('SELECT id, message, status, admin_note, created_at FROM ban_appeals WHERE user_id = :user_id ORDER BY created_at DESC LIMIT 50');
+        $stmt = $pdo->prepare('SELECT id, message, status, admin_note, created_at, reviewed_at, updated_at FROM ban_appeals WHERE user_id = :user_id ORDER BY created_at DESC LIMIT 50');
         $stmt->execute(['user_id' => $userId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -197,9 +218,12 @@ final class BanAppealService
         }
 
         $whereStr = $where !== [] ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $pdo->prepare("SELECT ba.*, u.username AS user_name, u.email AS user_email
+        $stmt = $pdo->prepare("SELECT ba.*, u.username AS user_name, u.email AS user_email,
+                   u.status AS user_status, u.is_banned AS user_is_banned, u.ban_reason AS user_ban_reason,
+                   reviewer.username AS reviewer_name
             FROM ban_appeals ba
             LEFT JOIN users u ON u.id = ba.user_id
+            LEFT JOIN users reviewer ON reviewer.id = ba.reviewed_by
             {$whereStr}
             ORDER BY CASE ba.status WHEN 'open' THEN 1 WHEN 'reviewing' THEN 2 WHEN 'accepted' THEN 3 WHEN 'rejected' THEN 4 ELSE 5 END,
                      ba.created_at DESC
@@ -207,6 +231,28 @@ final class BanAppealService
         $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /** @return array<string,mixed>|null */
+    public function forAdminById(PDO $pdo, int $appealId): ?array
+    {
+        if ($appealId <= 0) {
+            return null;
+        }
+
+        $this->schema->ensureSchema($pdo);
+        $stmt = $pdo->prepare("SELECT ba.*, u.username AS user_name, u.email AS user_email,
+                   u.status AS user_status, u.is_banned AS user_is_banned, u.ban_reason AS user_ban_reason,
+                   reviewer.username AS reviewer_name
+            FROM ban_appeals ba
+            LEFT JOIN users u ON u.id = ba.user_id
+            LEFT JOIN users reviewer ON reviewer.id = ba.reviewed_by
+            WHERE ba.id = :id
+            LIMIT 1");
+        $stmt->execute(['id' => $appealId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $row : null;
     }
 
     public function update(PDO $pdo, int $appealId, string $status, string $adminNote, int $adminId): string
@@ -265,6 +311,68 @@ final class BanAppealService
         return '';
     }
 
+    public function reply(PDO $pdo, int $appealId, int $adminId, string $message): string
+    {
+        $message = trim($message);
+        if ($appealId <= 0) {
+            return 'Itiraz bulunamadi.';
+        }
+        if ($adminId <= 0) {
+            return 'Gecersiz yonetici.';
+        }
+        if (mb_strlen($message) < 2) {
+            return 'Cevap en az 2 karakter olmalidir.';
+        }
+        if (mb_strlen($message) > 3000) {
+            return 'Cevap en fazla 3000 karakter olabilir.';
+        }
+
+        $this->schema->ensureSchema($pdo);
+        $appealStmt = $pdo->prepare('SELECT user_id, status FROM ban_appeals WHERE id = :id LIMIT 1');
+        $appealStmt->execute(['id' => $appealId]);
+        $appealRow = $appealStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$appealRow) {
+            return 'Itiraz bulunamadi.';
+        }
+
+        $status = (string) ($appealRow['status'] ?? 'open');
+        if (!in_array($status, ['open', 'reviewing'], true)) {
+            return 'Kapanmis itiraza yeni cevap eklenemez.';
+        }
+
+        $error = $this->addMessage($pdo, $appealId, $adminId, 'admin', $message);
+        if ($error !== '') {
+            return $error;
+        }
+
+        $nowSql = $this->schema->nowSql($pdo);
+        $nextStatus = $status === 'open' ? 'reviewing' : $status;
+        $pdo->prepare("UPDATE ban_appeals SET status = :status, updated_at = {$nowSql} WHERE id = :id")
+            ->execute([
+                'status' => $nextStatus,
+                'id' => $appealId,
+            ]);
+
+        $appealUserId = (int) ($appealRow['user_id'] ?? 0);
+        if (function_exists('userActivityLog')) {
+            userActivityLog($pdo, $appealUserId, 'ban_appeal_admin_reply_added', 'appeal', 'ban_appeal', $appealId, 'Ban itirazina yonetici cevabi eklendi', [
+                'old_status' => $status,
+                'new_status' => $nextStatus,
+            ], $adminId);
+        }
+
+        $this->notifications->dispatchUpdate(
+            $pdo,
+            $appealUserId,
+            $adminId,
+            $appealId,
+            'Ban itiraziniza yonetim cevabi eklendi.',
+            $nextStatus
+        );
+
+        return '';
+    }
+
     private function unbanUser(PDO $pdo, int $userId): void
     {
         if (function_exists('usersUnban')) {
@@ -273,5 +381,80 @@ final class BanAppealService
         }
 
         \App\Engine\Users\BanService::unban($pdo, $userId);
+    }
+
+    /** @return array{key:string,window:int,error:string} */
+    private function checkUserSubmitRateLimit(PDO $pdo, int $userId): array
+    {
+        $limit = $this->appealMessageLimit($pdo);
+        $window = $this->appealMessageCooldownMinutes($pdo);
+        $key = 'ban_appeal_message:' . $userId;
+        if ($limit <= 0 || $window <= 0 || !function_exists('checkRateLimit')) {
+            return ['key' => $key, 'window' => $window, 'error' => ''];
+        }
+
+        try {
+            if (checkRateLimit($key, $limit, $window)) {
+                return ['key' => $key, 'window' => $window, 'error' => ''];
+            }
+
+            $remainingSeconds = function_exists('getRateLimitRemainingSeconds')
+                ? max(1, (int) getRateLimitRemainingSeconds($key, $window))
+                : $window * 60;
+            $remainingText = $remainingSeconds >= 60
+                ? (int) ceil($remainingSeconds / 60) . ' dakika'
+                : $remainingSeconds . ' saniye';
+
+            return [
+                'key' => $key,
+                'window' => $window,
+                'error' => 'Cok hizli mesaj gonderiyorsunuz. Lutfen ' . $remainingText . ' sonra tekrar deneyin.',
+            ];
+        } catch (Throwable $e) {
+            error_log('Ban appeal rate limit check failed: ' . $e->getMessage());
+
+            return ['key' => $key, 'window' => $window, 'error' => ''];
+        }
+    }
+
+    private function hitUserSubmitRateLimit(string $key, int $window): void
+    {
+        if ($window <= 0 || $key === '' || !function_exists('incrementRateLimit')) {
+            return;
+        }
+
+        try {
+            incrementRateLimit($key, $window);
+        } catch (Throwable $e) {
+            error_log('Ban appeal rate limit hit failed: ' . $e->getMessage());
+        }
+    }
+
+    private function appealMessageLimit(PDO $pdo): int
+    {
+        try {
+            $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
+            $value = (int) ($settings['ban_appeal_message_limit'] ?? 1);
+
+            return max(0, min(100, $value));
+        } catch (Throwable $e) {
+            error_log('Ban appeal limit setting lookup failed: ' . $e->getMessage());
+
+            return 1;
+        }
+    }
+
+    private function appealMessageCooldownMinutes(PDO $pdo): int
+    {
+        try {
+            $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
+            $value = (int) ($settings['ban_appeal_message_cooldown_minutes'] ?? 5);
+
+            return max(0, min(1440, $value));
+        } catch (Throwable $e) {
+            error_log('Ban appeal cooldown setting lookup failed: ' . $e->getMessage());
+
+            return 5;
+        }
     }
 }

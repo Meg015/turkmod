@@ -100,7 +100,7 @@
 
         const baseUri = getBaseUri();
         const fallbackAvatarUrl = getLocalAssetUrl('assets/images/noavatar-neon-helmet.svg');
-        const apiUrl = `${baseUri}/api/leaderboard.php?category=daily_login&period=${period}&limit=5`;
+        const apiUrl = `${baseUri}/api/leaderboard?category=daily_login&period=${period}&limit=5`;
 
         fetch(apiUrl)
             .then(response => response.json())

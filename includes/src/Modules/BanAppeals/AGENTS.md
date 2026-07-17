@@ -24,7 +24,7 @@ this module.
 
 ## Security and Behavior Contracts
 
-- `ban-appeals.php` POST must call `verify_csrf_token()`.
+- Public ban appeal POST handling must call `verify_csrf_token()`.
 - Appeal submission is auth-gated (login required).
 - Admin appeal moderation in `admin/users.php` POST must call `verify_csrf_token()`.
 - `admin/users.php` appeal actions (`appeal_update`, `bulk_appeal_update`) delegate to `usersUpdateBanAppeal()`.
@@ -48,7 +48,7 @@ this module.
 
 - New module classes use `App\Modules\BanAppeals\*` namespace with PSR-4 paths.
 - Compatibility helpers in `includes/modules/users/helpers.php` (ban appeal functions) must delegate to module services, not contain inline logic.
-- `ban-appeals.php` page entrypoint must remain a thin-to-moderate wrapper.
+- Public ban appeal page handling must stay inside `Http/BanAppealsPage.php` and its content file.
 - `admin/users-tabs/appeals.php` is a view partial that must not contain inline SQL.
 - Ban restriction checks (`usersGetAccessRestriction`, `usersHasRestriction`, `usersRestrictedPathAllowed`) are owned by `Engine\Users\BanCheck`, not this module.
 - Ban/unban write operations (`usersBan`, `usersUnban`) are owned by `Engine\Users\BanService`, not this module.

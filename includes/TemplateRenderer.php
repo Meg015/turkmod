@@ -45,7 +45,7 @@ final class TemplateRenderer
     private function compiledCacheFile(string $templatePath, string $template): string
     {
         $fingerprint = $this->templateFingerprint($template);
-        $cacheKey = hash('sha256', $templatePath . "\n" . $fingerprint);
+        $cacheKey = hash('sha256', 'tpl-cache-v2' . "\n" . $templatePath . "\n" . $fingerprint);
         return $this->compiledCacheDir . '/' . $cacheKey . '.php';
     }
 
@@ -73,7 +73,7 @@ final class TemplateRenderer
                 mkdir($this->compiledCacheDir, 0775, true);
             }
 
-            $header = "<?php\n// Compiled template cache - DO NOT EDIT\n// Generated: " . date('Y-m-d H:i:s') . "\n";
+            $header = "<?php\n// Compiled template cache - DO NOT EDIT\n// Generated: " . date('Y-m-d H:i:s') . "\n?>\n";
             file_put_contents($cacheFile, $header . $compiled, LOCK_EX);
 
             return $this->executeCompiledTemplate($cacheFile, $variables, $rawKeys);
@@ -120,7 +120,7 @@ final class TemplateRenderer
         };
         }
 
-        $header = "<?php\n// Compiled template cache - DO NOT EDIT\n// Generated: " . date('Y-m-d H:i:s') . "\n";
+        $header = "<?php\n// Compiled template cache - DO NOT EDIT\n// Generated: " . date('Y-m-d H:i:s') . "\n?>\n";
         file_put_contents($cacheFile, $header . $compiled, LOCK_EX);
 
         return $this->executeCompiledTemplate($cacheFile, $variables, $rawKeys);

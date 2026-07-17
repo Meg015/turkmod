@@ -7,14 +7,15 @@
 <div class="admin-card ui-admin-mb-md ui-panel">
     <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
         <form method="get" action="users.php" class="ui-admin-filter-row">
-            <input type="hidden" name="tab" value="restricted">
+            <input type="hidden" name="tab" value="moderation">
+            <input type="hidden" name="moderation" value="restricted">
             <div class="ui-admin-filter-grow">
                 <label class="ui-admin-form-label">Ara</label>
                 <input type="text" name="q" class="ui-admin-form-control" placeholder="Kullanici adi veya e-posta..." value="<?= htmlspecialchars($search) ?>">
             </div>
             <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-search"></i> Ara</button>
             <?php if ($search): ?>
-                <a href="users.php?tab=restricted" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
+                <a href="users.php?tab=moderation&amp;moderation=restricted" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
             <?php endif; ?>
         </form>
     </div>
@@ -24,8 +25,8 @@
     <div class="admin-card ui-panel">
         <div class="card-body ui-admin-empty ui-panel__body ui-empty">
             <div class="ui-admin-empty-icon tone-success ui-empty"><i class="bi bi-shield-check"></i></div>
-            <h3 class="ui-admin-empty-title ui-empty">Kısıtlı kullanıcı yok 🎉</h3>
-            <p class="ui-admin-empty-desc ui-empty">Hiçbir kullanıcıda aktif yorum/upload/indirme kısıtlaması bulunmuyor.</p>
+            <h3 class="ui-admin-empty-title ui-empty">Kısıtlı kullanıcı bulunmuyor</h3>
+            <p class="ui-admin-empty-desc ui-empty">Aktif kısıtlama kaydı yok. Yeni bir kısıtlama eklendiğinde burada listelenir.</p>
         </div>
     </div>
 <?php else: ?>
@@ -100,7 +101,7 @@
                                 <a href="users.php?tab=activity&user_id=<?= $userId ?>" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" title="Kullanıcı İzleme">
                                     <i class="bi bi-person-lines-fill"></i>
                                 </a>
-                                <a href="users.php?tab=restricted&view_restrictions=<?= $userId ?>" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" title="Kısıtlama Detayları">
+                                <a href="users.php?tab=moderation&amp;moderation=restricted&amp;view_restrictions=<?= $userId ?>" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" title="Kısıtlama Detayları">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" title="Düzenle" 

@@ -12,10 +12,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 $pdo = requireDatabaseConnection($GLOBALS['pdo'] ?? null);
 $GLOBALS['pdo'] = $pdo;
 $baseUri = (string) ($GLOBALS['baseUri'] ?? '');
+$leaderboardAdminUrl = rtrim($baseUri, '/') . '/admin/leaderboard';
 $canManageLeaderboard = function_exists('adminCurrentUserCan') && adminCurrentUserCan('leaderboard.admin');
-$leaderboardActivityUrl = static function (int $page): string {
+$leaderboardActivityUrl = static function (int $page) use ($leaderboardAdminUrl): string {
     $page = max(1, $page);
-    return 'leaderboard.php' . ($page > 1 ? '?activity_page=' . $page : '') . '#leaderboard-status';
+    return $leaderboardAdminUrl . ($page > 1 ? '?activity_page=' . $page : '') . '#leaderboard-status';
 };
 
 require_once $leaderboardProjectRoot . '/includes/src/Modules/Leaderboard/Support/helpers.php';
@@ -51,7 +52,7 @@ $leaderboardSettingDefs = array_intersect_key($adminDefinitions, array_flip($lea
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_leaderboard_settings'] ?? '') === '1') {
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
         flash('error', 'Güvenlik hatası.');
-        header('Location: leaderboard.php#leaderboard-settings');
+        header('Location: ' . $leaderboardAdminUrl . '#leaderboard-settings');
         exit;
     }
 
@@ -80,7 +81,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_leaderboard_se
             adminAuditLogger()->logAction($pdo, 'leaderboard_settings_updated', 'settings', 0, 'Liderlik tablosu ayarları güncellendi', [], ['keys' => array_keys($leaderboardSettingDefs)], false);
         }
         flash('success', 'Liderlik tablosu ayarları kaydedildi.');
-        header('Location: leaderboard.php#leaderboard-settings');
+        header('Location: ' . $leaderboardAdminUrl . '#leaderboard-settings');
         exit;
     } catch (Throwable $e) {
         flash('error', 'Ayarlar kaydedilemedi: ' . $e->getMessage());
@@ -147,7 +148,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_leaderboard_ac
             } catch (Throwable $auditException) {
                 if (function_exists('appLogException')) {
                     appLogException($auditException, [
-                        'source' => 'admin/leaderboard.php',
+                        'source' => 'admin/leaderboard',
                         'action' => 'leaderboard_activity_delete',
                         'activity_id' => $activityLogId,
                     ]);
@@ -210,7 +211,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_leaderboard_ac
             } catch (Throwable $auditException) {
                 if (function_exists('appLogException')) {
                     appLogException($auditException, [
-                        'source' => 'admin/leaderboard.php',
+                        'source' => 'admin/leaderboard',
                         'action' => 'leaderboard_activity_clear_all',
                         'count' => $deletedCount,
                     ]);
@@ -286,7 +287,7 @@ foreach ($categories as $catKey => $catData) {
 
 // Get activity log (recent calculations)
 $activityPage = max(1, (int) ($_GET['activity_page'] ?? 1));
-$activityPerPage = 20;
+$activityPerPage = function_exists('adminPaginationPerPage') ? adminPaginationPerPage() : 10;
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_logs WHERE action LIKE 'leaderboard_%'");
 $stmt->execute();
 $activityTotal = (int) $stmt->fetchColumn();
@@ -501,7 +502,7 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                 <form
                     id="leaderboardActivityClearAllForm"
                     method="post"
-                    action="leaderboard.php"
+                    action="<?= htmlspecialchars($leaderboardAdminUrl, ENT_QUOTES, 'UTF-8') ?>"
                     class="leaderboard-activity-bulk-bar"
                     data-admin-confirm="Son aktivite kayıtlarının tamamı kalıcı olarak silinecek. Devam edilsin mi?"
                     data-admin-confirm-title="Tüm aktiviteler silinsin mi?"
@@ -559,7 +560,7 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                                 </td>
                                 <?php if ($canManageLeaderboard): ?>
                                     <td>
-                                        <form method="post" action="leaderboard.php" class="ui-admin-inline-form" data-admin-confirm="Bu aktivite kaydı kalıcı olarak silinecek. Devam edilsin mi?" data-admin-confirm-title="Aktivite kaydı silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
+                                        <form method="post" action="<?= htmlspecialchars($leaderboardAdminUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form" data-admin-confirm="Bu aktivite kaydı kalıcı olarak silinecek. Devam edilsin mi?" data-admin-confirm-title="Aktivite kaydı silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
                                             <?= csrf_field() ?>
                                             <input type="hidden" name="_leaderboard_activity_action" value="delete">
                                             <input type="hidden" name="activity_log_id" value="<?= (int) $log['id'] ?>">
@@ -576,33 +577,11 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                 </table>
             </div>
             <?php if ($activityTotalPages > 1): ?>
-                <div class="ui-admin-pagination-center">
-                    <?php if ($activityPage > 1): ?>
-                        <a href="<?= htmlspecialchars($leaderboardActivityUrl($activityPage - 1), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline"><i class="bi bi-chevron-left"></i></a>
-                    <?php endif; ?>
-                    <?php
-                        $startPage = max(1, $activityPage - 2);
-                        $endPage = min($activityTotalPages, $activityPage + 2);
-                        if ($startPage > 1) {
-                            echo '<a href="' . htmlspecialchars($leaderboardActivityUrl(1), ENT_QUOTES, 'UTF-8') . '" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline">1</a>';
-                            if ($startPage > 2) {
-                                echo '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" disabled>…</button>';
-                            }
-                        }
-                        for ($i = $startPage; $i <= $endPage; $i++) {
-                            echo '<a href="' . htmlspecialchars($leaderboardActivityUrl($i), ENT_QUOTES, 'UTF-8') . '" class="ui-admin-btn ui-admin-btn-sm ' . ($i === $activityPage ? 'ui-admin-btn-primary' : 'ui-admin-btn-outline') . '">' . $i . '</a>';
-                        }
-                        if ($endPage < $activityTotalPages) {
-                            if ($endPage < $activityTotalPages - 1) {
-                                echo '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" disabled>…</button>';
-                            }
-                            echo '<a href="' . htmlspecialchars($leaderboardActivityUrl($activityTotalPages), ENT_QUOTES, 'UTF-8') . '" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline">' . $activityTotalPages . '</a>';
-                        }
-                    ?>
-                    <?php if ($activityPage < $activityTotalPages): ?>
-                        <a href="<?= htmlspecialchars($leaderboardActivityUrl($activityPage + 1), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline"><i class="bi bi-chevron-right"></i></a>
-                    <?php endif; ?>
-                </div>
+                <?= adminRenderPagination($activityTotalPages, $activityPage, $leaderboardActivityUrl, [
+                    'wrapper_class' => 'ui-admin-pagination-center leaderboard-activity-pagination',
+                    'inner_class' => 'leaderboard-activity-pagination-list',
+                    'aria_label' => 'Liderlik aktivite sayfalama',
+                ]) ?>
             <?php endif; ?>
         <?php endif; ?>
     </div>
@@ -610,20 +589,20 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
 </section>
 
 <section id="leaderboard-settings" class="leaderboard-admin-tab-panel ui-panel" role="tabpanel" hidden>
-    <form method="post" action="leaderboard.php#leaderboard-settings" class="admin-card leaderboard-admin-panel leaderboard-settings-card ui-panel">
+    <form method="post" action="<?= htmlspecialchars($leaderboardAdminUrl, ENT_QUOTES, 'UTF-8') ?>#leaderboard-settings" class="admin-card leaderboard-admin-panel leaderboard-settings-card ui-panel">
         <?= csrf_field() ?>
         <input type="hidden" name="_leaderboard_settings" value="1">
         <div class="card-header ui-panel__head">
-            <i class="bi bi-sliders me-2"></i>Liderlik Ayarlari
+            <i class="bi bi-sliders me-2"></i>Liderlik Ayarları
         </div>
         <div class="card-body ui-panel__body">
             <div class="leaderboard-settings-intro">
                 <div>
-                    <h3>Gorunum ve cache davranisi</h3>
-                    <p>Bu ayarlar sayac tabanli liderlik tablosunun gorunurlugunu ve cache surelerini yonetir.</p>
+                    <h3>Görünüm ve önbellek davranışı</h3>
+                    <p>Bu ayarlar sayaç tabanlı liderlik tablosunun görünürlüğünü ve önbellek sürelerini yönetir.</p>
                 </div>
                 <button type="submit" class="ui-admin-btn ui-admin-btn-primary">
-                    <i class="bi bi-check2-circle"></i> Ayarlari Kaydet
+                    <i class="bi bi-check2-circle"></i> Ayarları Kaydet
                 </button>
             </div>
 

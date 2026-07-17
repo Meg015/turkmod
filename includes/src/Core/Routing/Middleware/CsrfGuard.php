@@ -83,12 +83,12 @@ final class CsrfGuard implements Middleware
 
         if ($isJson) {
             return new Response(
-                '{"success":false,"error":"csrf_token_invalid","message":"Invalid CSRF token."}',
+                '{"success":false,"error":"csrf_token_invalid","message":"Güvenlik doğrulaması yenilendi. Lütfen işlemi tekrar deneyin.","retryable":true}',
                 419,
                 ['Content-Type' => 'application/json; charset=utf-8'],
             );
         }
 
-        return new Response('Invalid CSRF token.', 419, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return new Response('Güvenlik doğrulaması yenilendi. Lütfen işlemi tekrar deneyin.', 419, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

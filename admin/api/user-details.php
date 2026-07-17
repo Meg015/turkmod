@@ -60,7 +60,15 @@ $reportsAbout = 0;
 $restrictions = [];
 $loginIps = [];
 $auditHistory = [];
+$recentActivity = [];
+$adminNotes = [];
+$restrictionHistory = [];
+$lastActivityAt = null;
 $banInfo = ['is_banned' => 0, 'banned_at' => null, 'ban_reason' => null, 'last_login_ip' => null];
+$formatDetailDate = static function ($value): string {
+    $value = trim((string)($value ?? ''));
+    return $value !== '' ? formatAppDateTime($value) : '';
+};
 
 try {
     // Son konular
@@ -132,6 +140,78 @@ try {
             ];
         }
     }
+
+    if (function_exists('userActivityList')) {
+        $activityGroups = function_exists('userActivityGroupLabels') ? userActivityGroupLabels() : [];
+        foreach (userActivityList($pdo, ['user_id' => $userId], 6, 0) as $row) {
+            $eventType = (string)($row['event_type'] ?? '');
+            $eventGroup = (string)($row['event_group'] ?? '');
+            $createdAt = (string)($row['created_at'] ?? '');
+            if ($lastActivityAt === null && $createdAt !== '') {
+                $lastActivityAt = $createdAt;
+            }
+            $deviceParts = array_values(array_filter([
+                trim((string)($row['browser'] ?? '')),
+                trim((string)($row['platform'] ?? '')),
+            ]));
+
+            $recentActivity[] = [
+                'event' => function_exists('userActivityEventLabel') ? userActivityEventLabel($eventType) : $eventType,
+                'group' => (string)($activityGroups[$eventGroup] ?? $eventGroup),
+                'title' => trim((string)($row['title'] ?? '')),
+                'ip_address' => (string)($row['ip_address'] ?? ''),
+                'device' => implode(' / ', $deviceParts),
+                'actor' => (string)($row['actor_name'] ?? ''),
+                'created_at' => $formatDetailDate($createdAt),
+            ];
+        }
+    }
+
+    if ($lastActivityAt === null) {
+        foreach (['last_activity_at', 'last_login_at', 'updated_at', 'created_at'] as $column) {
+            if (!empty($userInfo[$column])) {
+                $lastActivityAt = (string)$userInfo[$column];
+                break;
+            }
+        }
+    }
+
+    if (function_exists('usersGetAdminNotes')) {
+        foreach (usersGetAdminNotes($pdo, $userId, 5) as $note) {
+            $adminNotes[] = [
+                'note' => (string)($note['note'] ?? ''),
+                'tone' => (string)($note['tone'] ?? 'info'),
+                'tags' => (string)($note['tags'] ?? ''),
+                'admin' => (string)($note['admin_name'] ?? ($note['admin_email'] ?? '')),
+                'created_at' => $formatDetailDate($note['created_at'] ?? ''),
+            ];
+        }
+    }
+
+    if (usersTableExists($pdo, 'user_restrictions')) {
+        try {
+            $rh = $pdo->prepare("SELECT r.*, a.username AS admin_name
+                FROM user_restrictions r
+                LEFT JOIN users a ON a.id = r.admin_id
+                WHERE r.user_id = ?
+                ORDER BY r.created_at DESC, r.id DESC
+                LIMIT 8");
+            $rh->execute([$userId]);
+            foreach ($rh->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                $expiresAt = (string)($row['expires_at'] ?? '');
+                $restrictionHistory[] = [
+                    'type' => function_exists('usersGetRestrictionTypeLabel') ? usersGetRestrictionTypeLabel((string)$row['restriction_type']) : (string)$row['restriction_type'],
+                    'reason' => (string)($row['reason'] ?? ''),
+                    'admin' => (string)($row['admin_name'] ?? ''),
+                    'created_at' => $formatDetailDate($row['created_at'] ?? ''),
+                    'expires_at' => $expiresAt !== '' ? $formatDetailDate($expiresAt) : 'Süresiz',
+                    'active' => $expiresAt === '' || strtotime($expiresAt) > time(),
+                ];
+            }
+        } catch (Throwable $e) {
+            $restrictionHistory = [];
+        }
+    }
 } catch (Throwable $e) {
     appLogException($e, ["source" => "user-details-api-360", "user_id" => $userId]);
 }
@@ -148,7 +228,8 @@ sendSuccess('Kullanici detaylari basariyla getirildi.', [
         'group_slug' => $userInfo['group_slug'] ?? '',
         'status' => $userInfo['status'],
         'created_at' => formatAppDateTime($userInfo['created_at']),
-        'last_login_at' => $userInfo['last_login_at'] ? formatAppDateTime($userInfo['last_login_at']) : 'Hic giris yapmadi',
+        'last_login_at' => $userInfo['last_login_at'] ? formatAppDateTime($userInfo['last_login_at']) : 'Hiç giriş yapmadı',
+        'last_activity_at' => $lastActivityAt ? $formatDetailDate($lastActivityAt) : '',
         'bio' => $userInfo['bio'],
         'website' => $userInfo['website'],
         'location' => $userInfo['location'],
@@ -165,8 +246,13 @@ sendSuccess('Kullanici detaylari basariyla getirildi.', [
         'reports_about' => $reportsAbout,
         'recent_topics' => $recentTopics,
         'recent_comments' => $recentComments,
+        'recent_activity' => $recentActivity,
+        'admin_notes' => $adminNotes,
+        'restriction_history' => $restrictionHistory,
         'restrictions' => $restrictions,
         'login_ips' => $loginIps,
         'audit_history' => $auditHistory,
+        'can_manage_users' => $canManageUsers,
+        'can_moderate' => $canManageUsers && $userId !== $currentUserId,
     ],
 ]);

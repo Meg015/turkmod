@@ -420,109 +420,10 @@ class ScraperEngine
             }
         }
 
-        if ($this->isSteamCommunityUrl($baseUrl)) {
-            $result = $this->applySteamCommunityFallback($doc, $xpath, $result, $baseUrl);
-        }
-
         // Parse sonucunu önbelleğe kaydet
         self::$parseCache[$cacheKey] = $result;
 
         return $result;
-    }
-
-    private function applySteamCommunityFallback(DOMDocument $doc, DOMXPath $xpath, array $result, string $pageUrl): array
-    {
-        if (trim((string)$result['title']) === '') {
-            $title = $this->firstXPathText($xpath, [
-                '//*[contains(concat(" ", normalize-space(@class), " "), " workshopItemTitle ")]',
-                '//*[@id="ig_bottom"]//*[contains(concat(" ", normalize-space(@class), " "), " apphub_AppName ")]',
-                '//meta[@property="og:title"]/@content',
-            ]);
-            $result['title'] = preg_replace('/\s+/', ' ', trim($title)) ?: $result['title'];
-        }
-
-        if (trim(strip_tags((string)$result['content'])) === '') {
-            $contentNode = $this->firstXPathElement($xpath, [
-                '//*[@id="highlightContent"]',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " workshopItemDescription ")]',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " workshopItemDescriptionForCollection ")]',
-            ]);
-            if ($contentNode) {
-                $result['content'] = $this->cleanHtmlWithSettings($this->getInnerHtml($doc, $contentNode));
-            }
-        }
-
-        if (empty($result['images'])) {
-            $imageQueries = [
-                '//*[@id="previewImage"]',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " workshopItemPreviewImageMain ")]//img',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " highlight_player_item ")]//img',
-                '//meta[@property="og:image"]/@content',
-                '//img[contains(@src, "steamusercontent") or contains(@src, "steamstatic")]',
-            ];
-            foreach ($imageQueries as $query) {
-                $nodes = $xpath->query($query);
-                if (!$nodes) continue;
-                foreach ($nodes as $node) {
-                    $src = $node instanceof DOMAttr
-                        ? $node->value
-                        : ($node instanceof DOMElement ? $this->extractImageSource($node) : '');
-                    if ($src === '' || str_contains($src, '/public/images/sharedfiles/')) {
-                        continue;
-                    }
-                    $resolved = $this->resolveUrl($src, $pageUrl);
-                    if (!in_array($resolved, $result['images'], true)) {
-                        $result['images'][] = $resolved;
-                    }
-                }
-                if (!empty($result['images'])) {
-                    break;
-                }
-            }
-        }
-
-        if (empty($result['download_links']) && $pageUrl !== '') {
-            $result['download_links'][] = [
-                'name' => 'Steam Workshop',
-                'url' => $pageUrl,
-            ];
-        }
-
-        return $result;
-    }
-
-    private function firstXPathText(DOMXPath $xpath, array $queries): string
-    {
-        foreach ($queries as $query) {
-            $nodes = $xpath->query($query);
-            if (!$nodes || $nodes->length === 0) {
-                continue;
-            }
-            $node = $nodes->item(0);
-            $text = $node instanceof DOMAttr ? $node->value : ($node ? $node->textContent : '');
-            $text = trim((string)$text);
-            if ($text !== '') {
-                return $text;
-            }
-        }
-
-        return '';
-    }
-
-    private function firstXPathElement(DOMXPath $xpath, array $queries): ?DOMElement
-    {
-        foreach ($queries as $query) {
-            $nodes = $xpath->query($query);
-            if (!$nodes || $nodes->length === 0) {
-                continue;
-            }
-            $node = $nodes->item(0);
-            if ($node instanceof DOMElement) {
-                return $node;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -897,7 +798,6 @@ class ScraperEngine
         $translateTitle = ($botSettings['bot_translate_title'] ?? '1') === '1';
         $translateContent = ($botSettings['bot_translate_content'] ?? '1') === '1';
         $translateDownloadNames = ($botSettings['bot_translate_download_names'] ?? '0') === '1';
-        $translationFallbackOriginal = ($botSettings['bot_translation_fallback_original'] ?? '1') === '1';
         $replacementRules = is_array($settings['replacements'] ?? null) ? $settings['replacements'] : [];
         $this->translationErrors = [];
 
@@ -1002,7 +902,7 @@ class ScraperEngine
         // Translate
         if ($doTranslate && $this->deeplApiKey) {
             if ($translateTitle && $result['title']) {
-                $result['translated_title'] = $this->translateText($result['title'], $srcLang, $tgtLang) ?? ($translationFallbackOriginal ? $result['title'] : '');
+                $result['translated_title'] = $this->translateText($result['title'], $srcLang, $tgtLang) ?? '';
             }
             if ($translateContent && $result['content']) {
                 // Translate in chunks for long content
@@ -1012,16 +912,16 @@ class ScraperEngine
                     $translated = '';
                     foreach ($chunks as $chunk) {
                         $t = $this->translateText($chunk, $srcLang, $tgtLang);
-                        $translated .= ($t ?? $chunk);
+                        $translated .= ($t ?? '');
                     }
                     $result['translated_content'] = $this->applyContentAlignment($translated, $contentAlign);
                 } else {
                     $translatedContent = $this->translateText($contentText, $srcLang, $tgtLang);
-                    $result['translated_content'] = $this->applyContentAlignment($translatedContent ?? ($translationFallbackOriginal ? $contentText : ''), $contentAlign);
+                    $result['translated_content'] = $this->applyContentAlignment($translatedContent ?? '', $contentAlign);
                 }
             }
             if ($translateDownloadNames && $result['download_links']) {
-                $result['download_links'] = $this->translateDownloadLinkNames($result['download_links'], $srcLang, $tgtLang, $translationFallbackOriginal);
+                $result['download_links'] = $this->translateDownloadLinkNames($result['download_links'], $srcLang, $tgtLang);
             }
         }
 
@@ -1434,8 +1334,7 @@ class ScraperEngine
     }
 
     /**
-     * Public wrapper — fallback'lerin (örn. DOM içerik çekme) cleanHtmlWithSettings'i
-     * engine dışından çağırabilmesi için.
+     * Public wrapper for external HTML cleanup callers.
      */
     public function cleanHtmlWithSettingsOverride(string $html): string
     {
@@ -1516,7 +1415,7 @@ class ScraperEngine
             }
         }
 
-        // 3. Normal img tag'lerini ara (fallback)
+        // 3. Normal img/source tag'lerini ara
         foreach (['img', 'source'] as $tagName) {
             $imgs = $node->getElementsByTagName($tagName);
             if ($imgs->length === 0) {
@@ -2033,13 +1932,13 @@ class ScraperEngine
         return preg_match('/^[a-z0-9.-]+\.[a-z0-9-]{2,}$/i', $host) ? $host : '';
     }
 
-    private function translateDownloadLinkNames(string $links, string $sourceLang, string $targetLang, bool $fallbackOriginal): string
+    private function translateDownloadLinkNames(string $links, string $sourceLang, string $targetLang): string
     {
         $translatedLines = [];
         foreach (array_filter(explode("\n", $links)) as $line) {
             [$name, $url] = array_pad(explode('|', $line, 2), 2, '');
             $translatedName = $this->translateText($name, $sourceLang, $targetLang);
-            $translatedLines[] = (($translatedName !== null && $translatedName !== '') ? $translatedName : ($fallbackOriginal ? $name : 'Link')) . '|' . $url;
+            $translatedLines[] = (($translatedName !== null && $translatedName !== '') ? $translatedName : '') . '|' . $url;
         }
         return implode("\n", $translatedLines);
     }

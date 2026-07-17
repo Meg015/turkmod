@@ -15,46 +15,28 @@ $csrfToken = csrf_token();
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $postAction = (string) ($_POST['action'] ?? '');
     if ($postAction === 'clear_activity_logs') {
-        $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
         $scope = trim((string) ($_POST['scope'] ?? ''));
         $targetUserId = max(0, (int) ($_POST['target_user_id'] ?? 0));
         $redirectParams = array_filter($_GET, static fn ($value): bool => $value !== '' && $value !== null);
+        $redirectUrl = 'action-log.php' . ($redirectParams !== [] ? '?' . http_build_query($redirectParams) : '');
 
-        $respond = static function (bool $ok, string $message) use ($isAjax, $redirectParams): void {
-            if ($isAjax) {
-                header('Content-Type: application/json; charset=utf-8');
-                echo json_encode(['ok' => $ok, 'message' => $message], JSON_UNESCAPED_UNICODE);
-                exit;
-            }
-
-            flash($ok ? 'success' : 'error', $message);
-            header('Location: action-log.php' . ($redirectParams !== [] ? '?' . http_build_query($redirectParams) : ''));
-            exit;
-        };
-
-        if (!verify_csrf_token($_POST['_token'] ?? '')) {
-            $respond(false, 'Güvenlik doğrulaması başarısız.');
-        }
-        if (!adminCurrentUserCan('logs.manage')) {
-            $respond(false, 'Bu işlemi yapmak için logs.manage izni gereklidir.');
-        }
-        if (!in_array($scope, ['older_than_30_days', 'user', 'all'], true)) {
-            $respond(false, 'Geçersiz temizleme kapsamı.');
-        }
-        if ($scope === 'user' && $targetUserId <= 0) {
-            $respond(false, 'Kullanıcı seçilmedi.');
-        }
-
-        $deleted = userActivityClear($pdo, $scope, $targetUserId > 0 ? $targetUserId : null);
-        if (function_exists('appLog')) {
-            appLog($pdo, 'info', 'maintenance', 'user_activity_events_cleared', [
-                'scope' => $scope,
-                'deleted' => $deleted,
-                'target_user_id' => $targetUserId,
-            ]);
-        }
-
-        $respond(true, $deleted . ' kullanıcı işlem kaydı temizlendi.');
+        adminRunLogCleanup($pdo, [
+            'action_type' => 'activity_logs_cleared',
+            'scope' => $scope,
+            'allowed_scopes' => ['older_than_30_days', 'user', 'all'],
+            'permission' => 'logs.manage',
+            'permission_message' => 'Bu işlemi yapmak için logs.manage izni gereklidir.',
+            'redirect_url' => $redirectUrl,
+            'source' => 'action_log',
+            'validate' => static fn (string $scope): string => $scope === 'user' && $targetUserId <= 0 ? 'Kullanıcı seçilmedi.' : '',
+            'delete' => static fn (PDO $pdo, string $scope): int => userActivityClear($pdo, $scope, $targetUserId > 0 ? $targetUserId : null),
+            'context' => [
+                'target_user_id' => $targetUserId > 0 ? $targetUserId : null,
+            ],
+            'app_log' => true,
+            'app_log_message' => 'user_activity_events_cleared',
+            'success_message' => static fn (int $deleted): string => $deleted . ' kullanıcı işlem kaydı temizlendi.',
+        ]);
     }
 }
 

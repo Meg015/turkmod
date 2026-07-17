@@ -559,8 +559,6 @@ if (typeof module !== 'undefined' && module.exports) {
   function uploadContentText(form) {
     var editor = form.querySelector(".ql-editor");
     if (editor) return editor.textContent.trim();
-    var fallbackEditor = form.querySelector(".upload-rich-editor");
-    if (fallbackEditor) return fallbackEditor.textContent.trim();
     var textarea = form.querySelector('textarea[name="content"]');
     return textarea ? textarea.value.replace(/<[^>]*>/g, "").trim() : "";
   }
@@ -1014,7 +1012,6 @@ if (typeof module !== 'undefined' && module.exports) {
         }
         return;
       }
-      if (textarea.dataset._fallbackEditorInit === "1") return;
       if (typeof Quill !== "undefined" && textarea.dataset._quillInit !== "1") {
         try {
                 var alignAttributor = Quill.import("attributors/style/align");
@@ -1063,63 +1060,6 @@ if (typeof module !== 'undefined' && module.exports) {
         textarea.quillInstance = quill;
         return;
       }
-
-      textarea.dataset._fallbackEditorInit = "1";
-      textarea.dataset._quillInit = "1";
-      var fallback = document.createElement("div");
-      fallback.className = "upload-rich-fallback";
-      fallback.innerHTML = [
-        '<div class="upload-rich-toolbar" aria-label="Metin bicimlendirme">',
-        '<button type="button" data-command="bold"><i class="bi bi-type-bold"></i></button>',
-        '<button type="button" data-command="italic"><i class="bi bi-type-italic"></i></button>',
-        '<button type="button" data-command="underline"><i class="bi bi-type-underline"></i></button>',
-        '<button type="button" data-command="insertUnorderedList"><i class="bi bi-list-ul"></i></button>',
-        '<button type="button" data-command="insertOrderedList"><i class="bi bi-list-ol"></i></button>',
-        '<button type="button" data-command="formatBlock" data-value="blockquote"><i class="bi bi-quote"></i></button>',
-        '<button type="button" data-command="createLink"><i class="bi bi-link-45deg"></i></button>',
-        '<button type="button" data-command="removeFormat"><i class="bi bi-eraser"></i></button>',
-        '</div>',
-        '<div class="upload-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>'
-      ].join("");
-      var richEditor = fallback.querySelector(".upload-rich-editor");
-      richEditor.innerHTML = textarea.value || "";
-      textarea.parentNode.insertBefore(fallback, textarea.nextSibling);
-      textarea.classList.add("is-hidden");
-
-      function syncEditor() {
-        textarea.value = richEditor.innerHTML.trim();
-      }
-
-      fallback.querySelectorAll("[data-command]").forEach(function (button) {
-        button.addEventListener("click", function () {
-          richEditor.focus();
-          var command = button.dataset.command;
-          var value = button.dataset.value || null;
-          if (command === "createLink") {
-            if (window.appPrompt) {
-              window.appPrompt("Baglanti adresi", { title: "Baglanti ekle" }).then(function (url) {
-                if (!url) return;
-                document.execCommand(command, false, url);
-                syncEditor();
-              });
-            }
-            return;
-          }
-          document.execCommand(command, false, value);
-          syncEditor();
-        });
-      });
-      ["input", "blur"].forEach(function (eventName) {
-        richEditor.addEventListener(eventName, function () {
-          syncEditor();
-          var form = textarea.closest("form");
-          if (form) {
-            validateUploadFieldRules(form, false);
-            scheduleDraftSave(form);
-          }
-        });
-      });
-      if (textarea.form) textarea.form.addEventListener("submit", syncEditor);
     });
   };
 
@@ -1342,10 +1282,7 @@ if (typeof module !== 'undefined' && module.exports) {
       form.querySelectorAll("textarea.rich-editor").forEach(function (textarea) {
         if (textarea.quillInstance) {
           textarea.value = textarea.quillInstance.root.innerHTML;
-          return;
         }
-        var fallbackEditor = textarea.parentNode ? textarea.parentNode.querySelector(".upload-rich-editor") : null;
-        if (fallbackEditor) textarea.value = fallbackEditor.innerHTML.trim();
       });
       syncDownloadLinksHidden(form);
       if (!validateUploadFieldRules(form, true)) return;
@@ -2527,7 +2464,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
         const baseUri = getBaseUri();
         const fallbackAvatarUrl = getLocalAssetUrl('assets/images/noavatar-neon-helmet.svg');
-        const apiUrl = `${baseUri}/api/leaderboard.php?category=daily_login&period=${period}&limit=5`;
+        const apiUrl = `${baseUri}/api/leaderboard?category=daily_login&period=${period}&limit=5`;
 
         fetch(apiUrl)
             .then(response => response.json())
@@ -5095,12 +5032,12 @@ e.init();
     return document.querySelector("[data-notif-dropdown]");
   }
 
-  function fallbackUrl(root) {
-    return (root && root.getAttribute("data-notif-fallback-url")) || "/notifications.php";
+  function notificationUrl(root) {
+    return (root && root.getAttribute("data-notif-url")) || "";
   }
 
-  function safeNotificationUrl(url, fallback) {
-    if (!url) return fallback;
+  function safeNotificationUrl(url, defaultUrl) {
+    if (!url) return defaultUrl;
     try {
       var parsed = new URL(url, window.location.origin);
       if (parsed.protocol === "http:" || parsed.protocol === "https:") {
@@ -5109,7 +5046,7 @@ e.init();
     } catch (error) {
       if (url.charAt(0) === "/" || url.charAt(0) === "#") return url;
     }
-    return fallback;
+    return defaultUrl;
   }
 
   function setState(list, iconClass, label) {
@@ -5182,7 +5119,7 @@ e.init();
           item.className = "notif-item " + (notification.is_read ? "" : "unread");
           item.setAttribute("data-notif-dropdown-item", "true");
           item.setAttribute("data-id", notification.id);
-          item.href = safeNotificationUrl(notification.link || "", fallbackUrl(root));
+          item.href = safeNotificationUrl(notification.link || "", notificationUrl(root));
 
           var iconWrap = document.createElement("div");
           iconWrap.className = "notif-item-icon" + iconState;
@@ -5211,7 +5148,7 @@ e.init();
               e.stopPropagation();
               e.stopImmediatePropagation();
               var readApi = root.getAttribute("data-notif-read-api") || "";
-              var dest = fallbackUrl(root) + "#notif-" + notif.id;
+              var dest = notificationUrl(root) + "#notif-" + notif.id;
               var csrfMeta = document.querySelector('meta[name="csrf-token"]');
               var csrfToken = csrfMeta ? csrfMeta.getAttribute("content") : "";
               if (!notif.is_read && readApi) {
@@ -5672,7 +5609,7 @@ e.init();
     }
 
     function show(el) {
-        var text = el.getAttribute('title') || el.getAttribute('data-info-full') || el.textContent || '';
+        var text = el.getAttribute('data-info-full') || el.getAttribute('title') || el.textContent || '';
         text = text.trim();
         if (!text || !isTruncated(el)) return;
         // native title'ı geçici kaldır ki çift tooltip olmasın

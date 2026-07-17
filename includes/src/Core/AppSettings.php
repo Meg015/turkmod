@@ -159,7 +159,7 @@ final class AppSettings
         }
 
         if (!$this->pdo instanceof \PDO) {
-            $this->settings = $this->applyAliases($settings, $definitions);
+            $this->settings = $settings;
             $this->loaded = true;
             return;
         }
@@ -175,7 +175,15 @@ final class AppSettings
 
         $cacheFile = $this->cacheFile();
         if (is_file($cacheFile) && (time() - (int) filemtime($cacheFile)) < self::CACHE_TTL) {
-            $cached = require $cacheFile;
+            try {
+                $cached = require $cacheFile;
+            } catch (\Throwable) {
+                @unlink($cacheFile);
+                if (function_exists('apcu_delete')) {
+                    apcu_delete(self::APCU_KEY);
+                }
+                $cached = null;
+            }
             if (is_array($cached) && $cached !== []) {
                 $this->settings = $cached;
                 $this->loaded = true;
@@ -204,24 +212,26 @@ final class AppSettings
             error_log('admin_settings read failed: ' . $exception->getMessage());
         }
 
-        $this->settings = $this->applyAliases($settings, $definitions);
+        $this->settings = $settings;
         $this->loaded = true;
 
         $cacheDir = dirname($cacheFile);
         if (!is_dir($cacheDir)) {
             @mkdir($cacheDir, 0775, true);
         }
-        @file_put_contents($cacheFile, "<?php\nreturn " . var_export($this->settings, true) . ";\n", LOCK_EX);
+        $cachePayload = "<?php\nreturn " . var_export($this->settings, true) . ";\n";
+        $tmpFile = $cacheFile . '.' . getmypid() . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        if (@file_put_contents($tmpFile, $cachePayload, LOCK_EX) !== false) {
+            if (!@rename($tmpFile, $cacheFile)) {
+                @unlink($cacheFile);
+                if (!@rename($tmpFile, $cacheFile)) {
+                    @unlink($tmpFile);
+                }
+            }
+        }
         if (function_exists('apcu_store')) {
             apcu_store(self::APCU_KEY, $this->settings, self::CACHE_TTL);
         }
-    }
-
-    private function applyAliases(array $settings, array $definitions): array
-    {
-        return function_exists('adminApplySettingAliases')
-            ? adminApplySettingAliases($settings, $definitions)
-            : $settings;
     }
 
     private function cacheFile(): string

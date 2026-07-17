@@ -19,7 +19,7 @@
                     </div>
                     {/if}
 
-                    <form class="ui-form ui-theme-auth-form" method="post" action="{base_url}/giris" novalidate data-remember-email-form>
+                    <form class="ui-form ui-theme-auth-form" method="post" action="{auth_login_url}" novalidate data-remember-email-form data-auth-csrf-refresh>
                         <input type="hidden" name="_token" value="{auth_csrf_token}">
                         <input type="hidden" name="redirect" value="{auth_redirect}">
 
@@ -63,7 +63,7 @@
 
                     <div class="ui-theme-auth-switch">
                         <span>Henüz hesabın yok mu?</span>
-                        <a href="{base_url}/kayit">Ücretsiz kayıt ol</a>
+                        <a href="{auth_register_url}">Ücretsiz kayıt ol</a>
                     </div>
 
                     {if auth_demo_visible}<div class="ui-theme-auth-demo"><strong>Demo bilgileri:</strong> admin@topic.test / password</div>{/if}

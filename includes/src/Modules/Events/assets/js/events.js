@@ -304,12 +304,13 @@
         var usage = data && data.wheel_usage ? data.wheel_usage : null;
         var cooldownRemaining = usage ? wheelUsageNumber(usage.cooldown_remaining, 0) : 0;
         var rewardStatus = reward && reward.status === 'claimed' ? 'Teslim edildi' : 'Bekliyor';
-        var nextSpinText = Number(remaining.daily || 0) > 0
-            ? 'Bugün kalan hak: ' + remaining.daily
-            : 'Günlük hak doldu';
+        var remainingRate = remaining.rate !== undefined ? remaining.rate : remaining.daily;
+        var nextSpinText = Number(remainingRate || 0) > 0
+            ? 'Kalan çark hakkı: ' + remainingRate
+            : 'Çark hakkı doldu';
         nextSpinText = cooldownRemaining > 0
             ? 'Tekrar çevirme: ' + formatWheelCooldown(cooldownRemaining)
-            : 'Bugün kalan hak: ' + formatWheelLimit(remaining.daily);
+            : 'Kalan çark hakkı: ' + formatWheelLimit(remainingRate);
         var rewardMeta = wheelRewardTypeMeta(reward);
         var rewardValue = reward && reward.value !== undefined && reward.value !== null && String(reward.value) !== ''
             ? String(reward.value)

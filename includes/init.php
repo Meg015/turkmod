@@ -29,8 +29,12 @@ declare(strict_types=1);
 require_once __DIR__ . "/autoloader.php";
 
 // Asset versioning — single timestamp per request instead of per-file filemtime().
-define('ASSET_VERSION_METHOD', 'manual');
-define('ASSET_VERSION_MANUAL', (string) time());
+if (!defined('ASSET_VERSION_METHOD')) {
+    define('ASSET_VERSION_METHOD', 'manual');
+}
+if (!defined('ASSET_VERSION_MANUAL')) {
+    define('ASSET_VERSION_MANUAL', (string) time());
+}
 
 // Base helpers
 require_once __DIR__ . "/helpers.php";
@@ -350,13 +354,15 @@ if (!$skipSessionBootstrap) {
         $GLOBALS['_stateless_home_request'] = true;
         // Defensive hardening: if any downstream helper accidentally starts a session,
         // prevent emitting a session cookie on anonymous default-home requests.
-        ini_set('session.use_cookies', '0');
-        ini_set('session.use_only_cookies', '0');
-        ini_set('session.use_trans_sid', '0');
+        if (!headers_sent()) {
+            ini_set('session.use_cookies', '0');
+            ini_set('session.use_only_cookies', '0');
+            ini_set('session.use_trans_sid', '0');
+        }
     }
 }
 
-if (!$skipSessionBootstrap && session_status() === PHP_SESSION_NONE) {
+if (!$skipSessionBootstrap && session_status() === PHP_SESSION_NONE && !headers_sent()) {
     ini_set("session.cookie_httponly", "1");
     ini_set("session.cookie_samesite", "Lax");
     ini_set("session.use_strict_mode", "1");
@@ -522,19 +528,21 @@ $bootstrapHeaders = $securityMiddleware->buildHeaders();
 
 // Report-To header for CSP violation reporting
 $reportTo = $securityMiddleware->getReportToConfig();
-if ($reportTo !== null) {
+if ($reportTo !== null && !headers_sent()) {
     header('Report-To: ' . json_encode($reportTo, JSON_UNESCAPED_SLASHES));
 }
 
-foreach ($bootstrapHeaders as $name => $value) {
-    header($name . ': ' . $value);
-}
+if (!headers_sent()) {
+    foreach ($bootstrapHeaders as $name => $value) {
+        header($name . ': ' . $value);
+    }
 
-// Cache-Control is still page-specific in index/topic handlers.
-if (!isset($GLOBALS['_cache_control_set'])) {
-    header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-    header("Pragma: no-cache");
-    header("Expires: 0");
+    // Cache-Control is still page-specific in index/topic handlers.
+    if (!isset($GLOBALS['_cache_control_set'])) {
+        header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+        header("Pragma: no-cache");
+        header("Expires: 0");
+    }
 }
 
 // Base URI is auto-detected from the install folder so folder renames do not
@@ -827,7 +835,15 @@ if ($pdo && $isLoggedIn && function_exists('refreshAuthenticatedSession') && (ti
     }
 }
 
-if ($pdo && $isLoggedIn && !usersRestrictedPathAllowed($_SERVER["SCRIPT_NAME"] ?? "")) {
+$restrictedGatePathAllowed = false;
+if ($isLoggedIn) {
+    $restrictedGateScriptPath = (string) ($_SERVER["SCRIPT_NAME"] ?? "");
+    $restrictedGateRequestPath = parse_url((string) ($_SERVER["REQUEST_URI"] ?? ""), PHP_URL_PATH);
+    $restrictedGatePathAllowed = usersRestrictedPathAllowed($restrictedGateScriptPath)
+        || (is_string($restrictedGateRequestPath) && usersRestrictedPathAllowed($restrictedGateRequestPath));
+}
+
+if ($pdo && $isLoggedIn && !$restrictedGatePathAllowed) {
     try {
         $restriction = usersGetAccessRestriction($pdo, (int) $_SESSION["_auth_user_id"]);
         if ($restriction) {
@@ -2563,17 +2579,8 @@ function getSeoMeta(
 
     $fullUrl = seoCanonicalUrl($url !== "" ? $url : null, $settings);
 
-    // Use og_image from settings if no image provided.
-    // If still empty, fall back to active theme preview so social crawlers
-    // always receive a valid og:image value.
     if ($image === "") {
         $image = trim((string) ($settings['og_image'] ?? ''));
-    }
-    if ($image === '' || $image === '/assets/og-default.jpg' || $image === 'assets/og-default.jpg') {
-        $themeManager = $GLOBALS['themeManager'] ?? null;
-        if ($themeManager instanceof ThemeManager) {
-            $image = rtrim((string) $themeManager->themeUrl($themeManager->activeThemeId()), '/') . '/images/preview.png';
-        }
     }
 
     // og:image normalize: relative ise canonicalBase'e ekle

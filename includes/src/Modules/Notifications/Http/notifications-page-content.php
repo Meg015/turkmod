@@ -393,6 +393,8 @@ $notifications_empty_message = !$notificationCenterEnabled
         : 'Henüz hesabınıza ait bir bildirim bulunmuyor. Tercihler sekmesinden görmek istediğiniz bildirim türlerini değiştirebilirsiniz.');
 $notifications_read_endpoint = $notificationsReadEndpoint;
 $notifications_delete_endpoint = $notificationsDeleteEndpoint;
+$notifications_list_url = $notificationsBaseUrl . '?tab=list';
+$notifications_settings_url = $notificationsBaseUrl . '?tab=settings';
 $notifications_csrf_token = $csrfToken;
 $notifications_read_more_js = $readMoreEnabled ? 'true' : 'false';
 $notifications_auto_mark_js = ($globalAutoMarkOnOpen && notification_bool_setting($userSettings, 'notif_auto_mark_on_open', '1')) ? 'true' : 'false';
@@ -450,8 +452,8 @@ foreach ($notifications as $notification) {
 }
 $notifications_has_items = $notifications_items !== [];
 $notifications_has_pagination = $totalPages > 1;
-$notifications_prev_url = '?tab=list&filter=' . rawurlencode($filter) . '&page=' . max(1, $page - 1);
-$notifications_next_url = '?tab=list&filter=' . rawurlencode($filter) . '&page=' . min($totalPages, $page + 1);
+$notifications_prev_url = $notificationsBaseUrl . '?tab=list&filter=' . rawurlencode($filter) . '&page=' . max(1, $page - 1);
+$notifications_next_url = $notificationsBaseUrl . '?tab=list&filter=' . rawurlencode($filter) . '&page=' . min($totalPages, $page + 1);
 $notifications_has_prev = $page > 1;
 $notifications_has_next = $page < $totalPages;
 $notifications_page_label = (string) (int) $page;
@@ -660,14 +662,20 @@ require_once $projectRoot . '/includes/public-header.php';
                                 $link = notification_safe_link((string) ($notification['link'] ?? ''), (string) ($baseUri ?? ''));
                             ?>
                             <article class="notification-item <?= $isUnread ? 'is-unread' : 'is-read' ?>" data-notif-item data-id="<?= (int) $notification['id'] ?>">
-                                <label class="notification-select" title="Bildirimi seç">
-                                    <input
-                                        type="checkbox"
-                                        data-notif-select
-                                        value="<?= (int) $notification['id'] ?>"
-                                        aria-label="Bildirimi seç"
-                                    >
-                                </label>
+                                <div class="notification-meta-actions">
+                                    <time class="notification-time" datetime="<?= htmlspecialchars((string) ($notification['created_at'] ?? '')) ?>" title="<?= htmlspecialchars($dateTitle) ?>">
+                                        <i class="bi bi-clock"></i>
+                                        <?= htmlspecialchars($dateShort) ?>
+                                    </time>
+                                    <label class="notification-select" title="Bildirimi seç">
+                                        <input
+                                            type="checkbox"
+                                            data-notif-select
+                                            value="<?= (int) $notification['id'] ?>"
+                                            aria-label="Bildirimi seç"
+                                        >
+                                    </label>
+                                </div>
                                 <span class="notification-icon is-<?= htmlspecialchars($typeMeta['class']) ?>" aria-hidden="true">
                                     <i class="bi <?= htmlspecialchars($typeMeta['icon']) ?>"></i>
                                 </span>
@@ -684,10 +692,6 @@ require_once $projectRoot . '/includes/public-header.php';
                                                 <?= htmlspecialchars($typeMeta['summary']) ?>
                                             </span>
                                         </div>
-                                        <time class="notification-time" datetime="<?= htmlspecialchars((string) ($notification['created_at'] ?? '')) ?>" title="<?= htmlspecialchars($dateTitle) ?>">
-                                            <i class="bi bi-clock"></i>
-                                            <?= htmlspecialchars($dateShort) ?>
-                                        </time>
                                     </div>
 
                                     <p class="notification-message" data-notif-message><?= nl2br(htmlspecialchars((string) $notification['message'])) ?></p>

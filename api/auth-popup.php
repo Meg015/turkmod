@@ -39,7 +39,12 @@ if ($action === '') {
 
 $token = (string) ($payload['_token'] ?? ($payload['csrf_token'] ?? ''));
 if (!verify_csrf_token($token)) {
-    sendCsrfError();
+    if (function_exists('logCsrfFailure') && isset($GLOBALS['pdo'])) {
+        logCsrfFailure($GLOBALS['pdo'], $_SERVER['REQUEST_URI'] ?? 'api/auth-popup.php');
+    }
+    sendError('csrf_token_invalid', 'Güvenlik doğrulaması yenilendi. Lütfen tekrar deneyin.', 419, [
+        'retryable' => true,
+    ]);
 }
 
 $baseUri = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
@@ -59,7 +64,7 @@ $registrationPendingMessage = function_exists('usersRegistrationPendingMessage')
     ? usersRegistrationPendingMessage($settings)
     : 'Hesabınız oluşturuldu. Yönetici onayından sonra giriş yapabilirsiniz.';
 
-$respondAuthSuccess = static function (array $user, string $message, bool $loggedIn = true) use ($redirectHint): void {
+$respondAuthSuccess = static function (array $user, string $message, bool $loggedIn = true, ?string $redirect = null) use ($redirectHint): void {
     sendSuccess($message, [
         'auth' => [
             'logged_in' => $loggedIn,
@@ -71,7 +76,7 @@ $respondAuthSuccess = static function (array $user, string $message, bool $logge
                 'role_id' => (int) ($user['role_id'] ?? 0),
                 'role_slug' => (string) ($user['role_slug'] ?? ''),
             ],
-            'redirect' => $redirectHint,
+            'redirect' => $redirect ?? $redirectHint,
         ],
     ]);
 };
@@ -155,7 +160,13 @@ try {
             ]);
         }
 
-        $respondAuthSuccess($user, 'Oturum basariyla acildi.');
+        $isBannedUser = (int) ($user['is_banned'] ?? 0) === 1 || (string) ($user['status'] ?? '') === 'banned';
+        $respondAuthSuccess(
+            $user,
+            'Oturum basariyla acildi.',
+            true,
+            $isBannedUser && function_exists('routePublicStaticUrl') ? routePublicStaticUrl('ban_appeals') : null
+        );
     }
 
     if ($action === 'register') {
@@ -238,42 +249,6 @@ try {
 
         incrementRateLimit($regRateKey, $registerRateWindow);
 
-        $userColumns = [];
-        try {
-            foreach ($pdo->query('SHOW COLUMNS FROM users') as $columnMeta) {
-                $columnName = strtolower((string) ($columnMeta['Field'] ?? ''));
-                if ($columnName !== '') {
-                    $userColumns[$columnName] = true;
-                }
-            }
-        } catch (Throwable $schemaError) {
-            if (function_exists('appLogException')) {
-                appLogException($schemaError, ['source' => 'auth-popup register users schema']);
-            }
-        }
-
-        if (empty($userColumns['username']) || empty($userColumns['email']) || empty($userColumns['password'])) {
-            sendError('registration_unavailable', 'Kayit semasi eksik oldugu icin kayit islemi tamamlanamadi.', 500);
-        }
-
-        $memberRoleId = 3;
-        if (!empty($userColumns['role_id'])
-            && function_exists('usersTableExists')
-            && usersTableExists($pdo, 'roles')) {
-            try {
-                $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1');
-                $roleStmt->execute(['slug' => 'member']);
-                $resolvedRoleId = (int) $roleStmt->fetchColumn();
-                if ($resolvedRoleId > 0) {
-                    $memberRoleId = $resolvedRoleId;
-                }
-            } catch (Throwable $roleError) {
-                if (function_exists('appLogException')) {
-                    appLogException($roleError, ['source' => 'auth-popup register role lookup']);
-                }
-            }
-        }
-
         $insertColumns = [];
         $insertValues = [];
         $insertParams = [];
@@ -283,23 +258,14 @@ try {
             $insertParams[$column] = $value;
         };
 
-        if (!empty($userColumns['role_id'])) {
-            $pushParam('role_id', ':role_id', $memberRoleId);
-        }
         $pushParam('username', ':username', $username);
         $pushParam('email', ':email', $email);
         $pushParam('password', ':password', password_hash($password, PASSWORD_DEFAULT));
-        if (!empty($userColumns['status'])) {
-            $pushParam('status', ':status', $registrationRequiresAdminApproval ? 'inactive' : 'active');
-        }
-        if (!empty($userColumns['created_at'])) {
-            $insertColumns[] = 'created_at';
-            $insertValues[] = 'NOW()';
-        }
-        if (!empty($userColumns['updated_at'])) {
-            $insertColumns[] = 'updated_at';
-            $insertValues[] = 'NOW()';
-        }
+        $pushParam('status', ':status', $registrationRequiresAdminApproval ? 'inactive' : 'active');
+        $insertColumns[] = 'created_at';
+        $insertValues[] = 'NOW()';
+        $insertColumns[] = 'updated_at';
+        $insertValues[] = 'NOW()';
 
         $quotedColumns = array_map(static fn (string $column): string => '`' . $column . '`', $insertColumns);
         $insertSql = 'INSERT INTO users (' . implode(', ', $quotedColumns) . ') VALUES (' . implode(', ', $insertValues) . ')';

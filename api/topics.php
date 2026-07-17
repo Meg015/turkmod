@@ -16,7 +16,8 @@ if (!checkRateLimit($clientKey, $apiTopicsRateLimit, $apiTopicsRateWindow)) {
 incrementRateLimit($clientKey, $apiTopicsRateWindow);
 
 $search = function_exists('sanitizeSearchQuery') ? sanitizeSearchQuery($_GET['q'] ?? '') : trim((string)($_GET['q'] ?? ''));
-$sort = in_array(($_GET['sort'] ?? 'newest'), ['newest', 'popular', 'downloads', 'comments'], true) ? (string)$_GET['sort'] : 'newest';
+$sortInput = (string) ($_GET['sort'] ?? 'newest');
+$sort = in_array($sortInput, ['newest', 'popular', 'downloads', 'comments'], true) ? $sortInput : 'newest';
 $category = function_exists('validateSlug') ? (validateSlug($_GET['category'] ?? '') ?? '') : '';
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = min(60, max(1, (int)($_GET['per_page'] ?? TOPICS_PER_PAGE)));

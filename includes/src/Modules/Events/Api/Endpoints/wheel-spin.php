@@ -12,8 +12,6 @@ eventsApiVerifyCsrf($payload);
 eventsApiEnsureReady($pdo, 'wheel');
 
 $config = eventsGetConfig($pdo, true);
-$dailyLimit = max(0, (int)$config['wheel_daily_limit']);
-$hourlyLimit = max(0, (int)$config['wheel_hourly_limit']);
 $now = date('Y-m-d H:i:s');
 
 try {
@@ -36,14 +34,6 @@ try {
         ]);
     }
 
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM events_wheel_spins WHERE user_id = ? AND created_at >= CURDATE()");
-    $stmt->execute([$userId]);
-    $dailyCount = (int)$stmt->fetchColumn();
-    
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM events_wheel_spins WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
-    $stmt->execute([$userId]);
-    $hourlyCount = (int)$stmt->fetchColumn();
-    
     $cooldownSeconds = max(0, (int)($config['wheel_spin_cooldown_seconds'] ?? 30));
     if ($cooldownSeconds > 0) {
         $stmt = $pdo->prepare("SELECT created_at FROM events_wheel_spins WHERE user_id = ? ORDER BY id DESC LIMIT 1");
@@ -65,16 +55,13 @@ try {
     }
 
     $extraSpinCost = (int)($config['wheel_extra_spin_cost'] ?? 0);
-    $limitExceeded = false;
+    $limitExceeded = !empty($wheelUsage['rate_limit_exceeded']);
     $limitMessage = '';
     $bonusSpin = null;
 
-    if ($dailyLimit > 0 && $dailyCount >= $dailyLimit) {
-        $limitExceeded = true;
-        $limitMessage = 'Bugün için çark çevirme limitiniz doldu.';
-    } elseif ($hourlyLimit > 0 && $hourlyCount >= $hourlyLimit) {
-        $limitExceeded = true;
-        $limitMessage = 'Saatlik çark çevirme limitiniz doldu.';
+    if ($limitExceeded) {
+        $rateWindowMinutes = max(1, (int)($wheelUsage['rate_window_minutes'] ?? 0));
+        $limitMessage = $rateWindowMinutes . ' dakika içindeki çark çevirme limitiniz doldu.';
     }
 
     if ($limitExceeded) {
@@ -147,9 +134,12 @@ try {
         }
     }
 
-    // Fallback if pity was triggered but no premium rewards are eligible (e.g. out of stock or insufficient points),
-    // or if pity was not triggered at all.
-    if (!$reward) {
+    if ($needsPity && !$reward) {
+        $pdo->rollBack();
+        sendError('wheel_pity_reward_unavailable', 'Garanti odul kosulunu karsilayan aktif odul bulunamadi.', 422);
+    }
+
+    if (!$needsPity) {
         $reward = eventsPickWeightedReward($rewards);
     }
     if (!$reward) {
@@ -247,6 +237,7 @@ try {
             'is_premium' => (float)$reward['probability'] <= $premiumThreshold,
         ],
         'remaining_spins' => [
+            'rate' => $postSpinUsage['remaining_rate'],
             'daily' => $postSpinUsage['remaining_daily'],
             'hourly' => $postSpinUsage['remaining_hourly'],
         ],

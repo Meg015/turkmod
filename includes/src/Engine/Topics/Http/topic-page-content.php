@@ -9,8 +9,11 @@ $cacheEnabled = ($settings['cache_enabled'] ?? '1') === '1';
 
 if ($cacheEnabled && empty($_SESSION['_auth_user_id'])) {
 
-    $ttl = (int)($settings['cache_ttl'] ?? 3600);
-    header("Cache-Control: public, max-age={$ttl}, must-revalidate");
+    // Topic pages can render CSRF-backed comment/download/auth controls.
+    // Keep them out of shared caches so one visitor's token is never reused by another.
+    header("Cache-Control: private, no-cache, no-store, must-revalidate, max-age=0");
+    header("Pragma: no-cache");
+    header("Expires: 0");
     header('Vary: Accept-Encoding, Cookie');
 } else {
 
@@ -1315,6 +1318,8 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $downloadReadyText = trim((string) ($settings['download_ready_text'] ?? 'İndirmek için tıklayınız')) ?: 'İndirmek için tıklayınız';
         $downloadWaitText = trim((string) ($settings['download_wait_text'] ?? 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz')) ?: 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz';
         $downloadDoneText = trim((string) ($settings['download_done_text'] ?? 'İndirme linkiniz hazır, indirmek için tıklayın')) ?: 'İndirme linkiniz hazır, indirmek için tıklayın';
+        $downloadSecurityNoticeDefault = 'İndirme bağlantısı açılmadan önce kısa bir güvenlik beklemesi uygulanır. Hedef alan adını kontrol edip dış bağlantı onay ekranından devam edebilirsiniz.';
+        $downloadSecurityNoticeText = trim((string) ($settings['download_security_notice_text'] ?? $downloadSecurityNoticeDefault)) ?: $downloadSecurityNoticeDefault;
         $downloadShowCounts = (string) ($settings['download_show_counts'] ?? '1') === '1';
 
 
@@ -1368,6 +1373,11 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $downloadLoginUrl = routePublicStaticUrl('login');
 
         $downloadRegisterUrl = routePublicStaticUrl('register');
+        if (function_exists('loginSafeRedirect') && function_exists('authUrlWithRedirect')) {
+            $downloadRedirect = loginSafeRedirect((string) ($_SERVER['REQUEST_URI'] ?? ($baseUri . '/index.php')), $baseUri . '/index.php');
+            $downloadLoginUrl = authUrlWithRedirect($downloadLoginUrl, $downloadRedirect, $baseUri . '/index.php');
+            $downloadRegisterUrl = authUrlWithRedirect($downloadRegisterUrl, $downloadRedirect, $baseUri . '/index.php');
+        }
 
         $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
 
@@ -1452,7 +1462,7 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
 
 
 
-                <span>İndirme bağlantısı açılmadan önce kısa bir güvenlik beklemesi uygulanır. Hedef alan adını kontrol edip dış bağlantı onay ekranından devam edebilirsiniz.</span>
+                <span><?= htmlspecialchars($downloadSecurityNoticeText, ENT_QUOTES, 'UTF-8') ?></span>
 
 
             </div>

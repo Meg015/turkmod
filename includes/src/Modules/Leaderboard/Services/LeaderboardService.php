@@ -75,7 +75,7 @@ final class LeaderboardService
 
         $defaults = [
             'leaderboard_enabled' => '1',
-            'leaderboard_disabled_message' => 'Liderlik tablosu su anda kapali. Lutfen daha sonra tekrar kontrol edin.',
+            'leaderboard_disabled_message' => 'Liderlik tablosu şu anda kapalı. Lütfen daha sonra tekrar kontrol edin.',
             'leaderboard_cache_ttl_daily' => '900',
             'leaderboard_cache_ttl_weekly' => '3600',
             'leaderboard_cache_ttl_monthly' => '21600',

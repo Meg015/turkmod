@@ -18,7 +18,10 @@ require_once __DIR__ . '/../includes/src/Modules/Events/init.php';
 // CLI scripts must explicitly set ALLOW_CLI_ADMIN constant before including this file
 if (PHP_SAPI === 'cli') {
     if (!defined('ALLOW_CLI_ADMIN') || ALLOW_CLI_ADMIN !== true) {
-        fwrite(STDERR, "Error: CLI access to admin functions requires ALLOW_CLI_ADMIN constant\n");
+        $adminInitErrorStream = defined('STDERR') ? STDERR : @fopen('php://stderr', 'wb');
+        if (is_resource($adminInitErrorStream)) {
+            fwrite($adminInitErrorStream, "Error: CLI access to admin functions requires ALLOW_CLI_ADMIN constant\n");
+        }
         exit(1);
     }
 } else {

@@ -385,10 +385,10 @@ function healthApplicationErrorFeed(
     string $level = '',
     string $channel = '',
     int $page = 1,
-    int $perPage = 20
+    ?int $perPage = null
 ): array {
     $safePage = max(1, $page);
-    $safePerPage = max(10, min(100, $perPage));
+    $safePerPage = min(adminPaginationPerPage(), max(1, $perPage ?? adminPaginationPerPage()));
     $result = ['total' => 0, 'page' => $safePage, 'perPage' => $safePerPage, 'items' => []];
     if (!$pdo || !healthTableExists($pdo, 'application_logs')) {
         return $result;
@@ -863,8 +863,8 @@ $logLevel = strtolower(trim((string) ($_GET['log_level'] ?? '')));
 $logChannel = trim((string) ($_GET['log_channel'] ?? ''));
 $runtimePage = max(1, (int) ($_GET['runtime_page'] ?? 1));
 $appPage = max(1, (int) ($_GET['app_page'] ?? 1));
-$runtimePerPage = 15;
-$appPerPage = 20;
+$runtimePerPage = adminPaginationPerPage();
+$appPerPage = adminPaginationPerPage();
 $logAllowedLevels = healthApplicationErrorLevels();
 if ($logLevel !== '' && !in_array($logLevel, $logAllowedLevels, true)) {
     $logLevel = '';
@@ -901,8 +901,8 @@ $logsCenterBaseParams = array_filter([
     'log_channel' => $logChannel,
 ], static fn ($value): bool => $value !== '' && $value !== null);
 $logsCenterUrl = 'system-health.php?' . http_build_query($logsCenterBaseParams);
-$runtimePageBase = 'system-health.php?' . http_build_query($logsCenterBaseParams + ['app_page' => $appPage]) . '&runtime_page=';
-$appPageBase = 'system-health.php?' . http_build_query($logsCenterBaseParams + ['runtime_page' => $runtimePage]) . '&app_page=';
+$runtimePageBase = 'system-health.php?' . http_build_query(array_merge($logsCenterBaseParams, ['app_page' => $appPage])) . '&runtime_page=';
+$appPageBase = 'system-health.php?' . http_build_query(array_merge($logsCenterBaseParams, ['runtime_page' => $runtimePage])) . '&app_page=';
 $coreTables = ['users', 'user_groups', 'user_group_members', 'user_group_permissions', 'categories', 'topics', 'media_files', 'admin_settings', 'activity_logs', 'user_activity_events', 'admin_action_log', 'application_logs', 'request_rate_limits'];
 $missingCoreTables = [];
 foreach ($coreTables as $table) {
@@ -934,7 +934,7 @@ $latestAppLog = $loadLogSection && healthTableExists($pdo, 'application_logs')
     ? healthTextScalar($pdo, "SELECT CONCAT(level, ' / ', channel, ' / ', LEFT(message, 140)) FROM application_logs ORDER BY id DESC LIMIT 1", [], 'kayıt yok')
     : 'log detayı için Loglar sekmesini açın';
 $activityToday = $loadLogSection && healthTableExists($pdo, 'user_activity_events')
-    ? healthScalar($pdo, "SELECT COUNT(*) FROM user_activity_events e WHERE e.created_at >= CURDATE() AND e.created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.event_group NOT IN ('admin', 'moderation') AND e.event_type NOT IN ('admin_user_updated', 'group_save', 'group_deactivate', 'user_group_changed', 'user_status_changed', 'user_banned', 'user_unbanned', 'user_restricted', 'user_restriction_removed', 'user_restrictions_cleared', 'user_admin_note_added', 'settings_updated', 'topic_settings_updated', 'topic_moderated', 'topic_revision_restored', 'topic_health_scan_completed', 'topic_health_cleared', 'download_link_checked', 'category_created', 'category_updated', 'category_deleted', 'media_uploaded', 'media_deleted', 'leaderboard_recalculated', 'leaderboard_cache_cleared', 'leaderboard_settings_updated', 'application_logs_cleared', 'activity_logs_cleared', 'rate_limit_records_deleted', 'cron_manual_triggered', 'bot_import_published') AND e.event_type NOT LIKE 'topic_bulk_%' AND NOT EXISTS (SELECT 1 FROM user_group_members ugm INNER JOIN user_groups ug ON ug.id = ugm.group_id LEFT JOIN user_group_permissions ugp ON ugp.group_id = ug.id AND ugp.permission_value = 1 AND ugp.permission_key IN ('*', 'admin.access') WHERE ugm.user_id = e.actor_user_id AND ug.is_active = 1 AND (ug.slug = 'admin' OR ugp.permission_key IS NOT NULL))")
+    ? healthScalar($pdo, "SELECT COUNT(*) FROM user_activity_events e WHERE e.created_at >= CURDATE() AND e.created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.event_group NOT IN ('admin', 'moderation') AND e.event_type NOT IN ('admin_user_updated', 'group_save', 'group_deactivate', 'user_group_changed', 'user_status_changed', 'user_banned', 'user_unbanned', 'user_restricted', 'user_restriction_removed', 'user_restrictions_cleared', 'user_admin_note_added', 'settings_updated', 'topic_settings_updated', 'topic_moderated', 'topic_revision_restored', 'topic_health_scan_completed', 'topic_health_cleared', 'download_link_checked', 'category_created', 'category_updated', 'category_deleted', 'media_uploaded', 'media_deleted', 'leaderboard_recalculated', 'leaderboard_cache_cleared', 'leaderboard_settings_updated', 'admin_action_log_cleared', 'application_logs_cleared', 'email_logs_cleared', 'activity_logs_cleared', 'rate_limit_records_deleted', 'cron_logs_cleared', 'cron_manual_triggered', 'bot_import_published') AND e.event_type NOT LIKE 'topic_bulk_%' AND NOT EXISTS (SELECT 1 FROM user_group_members ugm INNER JOIN user_groups ug ON ug.id = ugm.group_id LEFT JOIN user_group_permissions ugp ON ugp.group_id = ug.id AND ugp.permission_value = 1 AND ugp.permission_key IN ('*', 'admin.access') WHERE ugm.user_id = e.actor_user_id AND ug.is_active = 1 AND (ug.slug = 'admin' OR ugp.permission_key IS NOT NULL))")
     : 0;
 
 $emailQueued = $loadQueueSection && healthTableExists($pdo, 'notification_email_queue')
@@ -1047,7 +1047,7 @@ $checks = [
     healthRow('database', 'Veritabanı bağlantısı', $pdo instanceof PDO, $pdo instanceof PDO ? 'bağlı' : 'bağlantı yok'),
     healthRow('database', 'Veritabanı sürücüsü', $pdo instanceof PDO, $pdo instanceof PDO ? (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) : 'yok'),
     healthRow('database', 'Çekirdek tablolar', count($missingCoreTables) === 0, count($missingCoreTables) === 0 ? count($coreTables) . ' tablo mevcut' : 'Eksik: ' . implode(', ', $missingCoreTables)),
-    healthRow('database', '�?ema dosyası (database/schema.sql)', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans şema için gerekli'),
+    healthRow('database', 'Şema dosyası (database/schema.sql)', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans şema için gerekli'),
     healthRow('database', 'PHP dosyaları', $loadDatabaseSection ? $phpFileCount > 0 : true, $loadDatabaseSection ? $phpFileCount . ' adet PHP dosyası' : 'canlı hızlı görünümde atlandı', $loadDatabaseSection ? 'required' : 'info'),
     healthRow('database', 'storage/cache yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), 'warning'),
     healthRow('database', 'uploads yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'uploads'), healthPath($root . DIRECTORY_SEPARATOR . 'uploads')),
@@ -1068,7 +1068,7 @@ $checks = [
     healthRow('queues', 'Son e-posta hatası', $emailFailed === 0, $latestFailedEmail, 'warning', $baseUri . '/admin/notifications.php?tab=logs&email=failed', 'Hatalılar'),
     healthRow('queues', 'Bildirim e-posta cronu', healthCronIsFresh($cronRuns['notification_email_queue'], 30, $notificationEmailEnabled), $notificationEmailEnabled ? healthCronDetail($cronRuns['notification_email_queue'], 'cron kaydı yok; worker çalışmıyor olabilir') : 'e-posta kuyruğu kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/notifications.php', 'Bildirimler'),
     healthRow('queues', 'Doğrulama hatırlatma cronu', healthCronIsFresh($cronRuns['verification_reminders'], 180, $verificationReminderEnabled), $verificationReminderEnabled ? healthCronDetail($cronRuns['verification_reminders'], 'son 3 saat içinde cron kaydı yok; doğrulama hatırlatmaları gecikiyor olabilir') . ' • bekleyen hesap: ' . $verificationReminderEligibleUsers : 'e-posta doğrulama hatırlatma kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/settings.php#user_system', 'Kullanıcı Sistemi'),
-    healthRow('queues', 'Liderlik cronu', healthCronIsFresh($cronRuns['leaderboard_cache'], 1440, true), healthCronDetail($cronRuns['leaderboard_cache'], 'son 24 saat için cron kaydı yok'), 'warning', $baseUri . '/admin/leaderboard.php', 'Liderlik'),
+    healthRow('queues', 'Liderlik cronu', healthCronIsFresh($cronRuns['leaderboard_cache'], 1440, true), healthCronDetail($cronRuns['leaderboard_cache'], 'son 24 saat için cron kaydı yok'), 'warning', $baseUri . '/admin/leaderboard', 'Liderlik'),
     healthRow('queues', 'Süre sınırı temizleme cronu', healthCronIsFresh($cronRuns['rate_limits_cleanup'], 180, true), healthCronDetail($cronRuns['rate_limits_cleanup'], 'son 3 saat içinde cron kaydı yok; süresi dolan kayıtlar birikiyor olabilir'), 'warning', $baseUri . '/admin/rate-limits.php?status=expired', 'Temizle'),
     healthRow('queues', 'Etkinlik e-posta kuyruğu', $eventsEmailFailed === 0, $eventsEmailPending . ' bekleyen, ' . $eventsEmailFailed . ' hatalı', 'warning', $baseUri . '/admin/events.php?tab=settings', 'Etkinlikler'),
     healthRow('queues', 'Etkinlik ana cronu', healthCronIsFresh($cronRuns['events_master'], 30, $eventsSystemEnabled), $eventsSystemEnabled ? healthCronDetail($cronRuns['events_master'], 'son 30 dakika içinde cron kaydı yok; master cron çalışmıyor olabilir') : 'events sistemi kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/events.php', 'Etkinlikler'),
@@ -1078,7 +1078,7 @@ $checks = [
     healthRow('queues', 'Bakım modu', in_array($maintenanceMode, ['0', '1'], true), $maintenanceMode === '1' ? 'aktif: ' . $maintenanceMessage : 'kapalı', 'warning', $baseUri . '/admin/settings.php#general', 'Ayarlar'),
 
     healthRow('content', 'Konu raporları', $topicReportsOpen === 0, $topicReportsOpen . ' açık/incelenen rapor', 'warning', $baseUri . '/admin/complaints-reports.php?tab=topics&status=open', 'Raporlar'),
-    healthRow('content', 'Kullanıcı şikayetleri', $userReportsOpen === 0, $userReportsOpen . ' açık/incelenen şikayet', 'warning', $baseUri . '/admin/complaints-reports.php?tab=users&status=open', '�?ikayetler'),
+    healthRow('content', 'Kullanıcı şikayetleri', $userReportsOpen === 0, $userReportsOpen . ' açık/incelenen şikayet', 'warning', $baseUri . '/admin/complaints-reports.php?tab=users&status=open', 'Şikayetler'),
     healthRow('content', 'Taslak konular', $pendingTopics === 0, $pendingTopics . ' taslak konu', 'warning', $baseUri . '/admin/topics.php?status=draft', 'Konular'),
     healthRow('content', 'Bağlantısız medya kayıtları', $orphanMedia === 0, $orphanMedia . ' konuya bağlı olmayan medya kaydı', 'warning', $baseUri . '/admin/media-manager.php', 'Medya'),
 ];
@@ -1166,7 +1166,7 @@ require_once __DIR__ . '/header.php';
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="optimize_db">
             <button type="submit" class="btn-primary <?= $dbOverheadMb <= 10 ? 'ui-admin-disabled-soft' : '' ?>" data-ui-confirm="Veritabanını optimize etmek istiyor musunuz? Bu işlem tablo sayısına göre biraz zaman alabilir." <?= $dbOverheadMb <= 10 ? 'disabled' : '' ?>>
-                <i class="bi bi-magic"></i> �?imdi Optimize Et
+                <i class="bi bi-magic"></i> Şimdi Optimize Et
             </button>
         </form>
     </section>
@@ -1286,9 +1286,9 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
 
-            <div class="admin-card ui-panel health-log-filter-panel">
-                <div class="card-header logs-toolbar-head ui-panel__head">
-                    <form method="get" action="system-health.php" class="logs-filter-form health-log-filter-form">
+            <div class="admin-card ui-panel health-log-filter-panel logs-toolbar-card">
+                <div class="card-header logs-toolbar-head ui-panel__head logs-toolbar-shell">
+                    <form method="get" action="system-health.php" class="logs-filter-form health-log-filter-form admin-log-filter-form">
                         <input type="hidden" name="tab" value="logs">
                         <input type="hidden" name="logs_view" value="center">
                         <input type="text" name="log_q" class="ui-admin-form-control" placeholder="Mesaj, kanal veya IP ara..." value="<?= htmlspecialchars($logSearch, ENT_QUOTES, 'UTF-8') ?>">
@@ -1317,13 +1317,13 @@ require_once __DIR__ . '/header.php';
             </div>
 
             <div class="health-log-grid">
-                <article class="admin-card ui-panel health-log-block">
-                    <div class="card-header ui-panel__head health-log-block-head">
+                <article class="admin-card ui-panel health-log-block logs-list-card">
+                    <div class="card-header ui-panel__head health-log-block-head logs-list-head">
                         <h3><i class="bi bi-activity"></i> Çalışma Zamanı Hata Akışı</h3>
                         <span class="ui-admin-badge ui-admin-badge-muted"><?= number_format(count($runtimeLogEntries), 0, ',', '.') ?> kayıt</span>
                     </div>
-                    <div class="health-log-table-wrap">
-                        <table class="health-table health-log-table">
+                    <div class="health-log-table-wrap ui-table-wrap ui-surface admin-log-table-wrap">
+                        <table class="health-table health-log-table admin-log-table">
                             <thead>
                                 <tr>
                                     <th>Tarih</th>
@@ -1335,7 +1335,7 @@ require_once __DIR__ . '/header.php';
                             <tbody>
                                 <?php if ($runtimeTotalRows === 0): ?>
                                     <tr>
-                                        <td colspan="4" class="health-log-empty">Çalışma zamanı log dosyalarında hata sinyali bulunamadı.</td>
+                                        <td colspan="4" class="admin-log-empty-row">Çalışma zamanı log dosyalarında hata sinyali bulunamadı.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($runtimePageItems as $runtimeRow): ?>
@@ -1356,26 +1356,15 @@ require_once __DIR__ . '/header.php';
                         </table>
                     </div>
                     <?php if ($runtimeTotalPages > 1): ?>
-                        <div class="pagination-wrapper">
-                            <div class="pagination">
-                                <?php if ($runtimePage > 1): ?>
-                                    <a href="<?= htmlspecialchars($runtimePageBase . ($runtimePage - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki"><i class="bi bi-chevron-left"></i></a>
-                                <?php endif; ?>
-
-                                <?php for ($i = max(1, $runtimePage - 2); $i <= min($runtimeTotalPages, $runtimePage + 2); $i++): ?>
-                                    <a href="<?= htmlspecialchars($runtimePageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $runtimePage ? 'active' : '' ?>"><?= $i ?></a>
-                                <?php endfor; ?>
-
-                                <?php if ($runtimePage < $runtimeTotalPages): ?>
-                                    <a href="<?= htmlspecialchars($runtimePageBase . ($runtimePage + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
+                        <?= adminRenderPagination($runtimeTotalPages, $runtimePage, static fn (int $targetPage): string => $runtimePageBase . $targetPage, [
+                            'wrapper_class' => 'health-log-pagination',
+                            'aria_label' => 'PHP çalışma zamanı log sayfalama',
+                        ]) ?>
                     <?php endif; ?>
                 </article>
 
-                <article class="admin-card ui-panel health-log-block">
-                    <div class="card-header ui-panel__head health-log-block-head">
+                <article class="admin-card ui-panel health-log-block logs-list-card">
+                    <div class="card-header ui-panel__head health-log-block-head logs-list-head">
                         <h3><i class="bi bi-journal-code"></i> Uygulama Hata Kayıtları</h3>
                         <span class="ui-admin-badge ui-admin-badge-muted">
                             <?= number_format((int) ($applicationErrorFeed['total'] ?? 0), 0, ',', '.') ?> toplam
@@ -1384,8 +1373,8 @@ require_once __DIR__ . '/header.php';
                             <?php endif; ?>
                         </span>
                     </div>
-                    <div class="health-log-table-wrap">
-                        <table class="health-table health-log-table">
+                    <div class="health-log-table-wrap ui-table-wrap ui-surface admin-log-table-wrap">
+                        <table class="health-table health-log-table admin-log-table">
                             <thead>
                                 <tr>
                                     <th>Tarih</th>
@@ -1398,7 +1387,7 @@ require_once __DIR__ . '/header.php';
                             <tbody>
                                 <?php if (empty($applicationErrorFeed['items'])): ?>
                                     <tr>
-                                        <td colspan="5" class="health-log-empty">Filtreye uyan uygulama hata kaydı yok.</td>
+                                        <td colspan="5" class="admin-log-empty-row">Filtreye uyan uygulama hata kaydı yok.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($applicationErrorFeed['items'] as $appRow): ?>
@@ -1430,21 +1419,10 @@ require_once __DIR__ . '/header.php';
                         </table>
                     </div>
                     <?php if ($appTotalPages > 1): ?>
-                        <div class="pagination-wrapper">
-                            <div class="pagination">
-                                <?php if ($appPage > 1): ?>
-                                    <a href="<?= htmlspecialchars($appPageBase . ($appPage - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki"><i class="bi bi-chevron-left"></i></a>
-                                <?php endif; ?>
-
-                                <?php for ($i = max(1, $appPage - 2); $i <= min($appTotalPages, $appPage + 2); $i++): ?>
-                                    <a href="<?= htmlspecialchars($appPageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $appPage ? 'active' : '' ?>"><?= $i ?></a>
-                                <?php endfor; ?>
-
-                                <?php if ($appPage < $appTotalPages): ?>
-                                    <a href="<?= htmlspecialchars($appPageBase . ($appPage + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
+                        <?= adminRenderPagination($appTotalPages, $appPage, static fn (int $targetPage): string => $appPageBase . $targetPage, [
+                            'wrapper_class' => 'health-log-pagination',
+                            'aria_label' => 'Uygulama log sayfalama',
+                        ]) ?>
                     <?php endif; ?>
                 </article>
             </div>

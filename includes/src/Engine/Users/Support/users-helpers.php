@@ -1438,30 +1438,6 @@ function usersPermissionDescriptions(): array
     return $cached;
 }
 
-function usersPermissionAliases(string $permission): array
-{
-    $permission = trim($permission);
-    if ($permission === '') {
-        return [];
-    }
-
-    $aliases = [$permission];
-    if (str_ends_with($permission, '.view')) {
-        $prefix = substr($permission, 0, -5);
-        foreach (['manage', 'edit', 'create', 'delete'] as $suffix) {
-            $aliases[] = $prefix . '.' . $suffix;
-        }
-    }
-    if (str_ends_with($permission, '.edit')) {
-        $aliases[] = substr($permission, 0, -5) . '.manage';
-    }
-    if (str_ends_with($permission, '.delete')) {
-        $aliases[] = substr($permission, 0, -7) . '.manage';
-    }
-
-    return array_values(array_unique($aliases));
-}
-
 function usersNormalizePermissionKeys(array $permissions): array
 {
     $known = array_fill_keys(array_keys(usersPermissionCatalog()), true);
@@ -1901,13 +1877,13 @@ function usersUserHasGroupPermission(PDO $pdo, int $userId, string $permission):
     }
 
     try {
-        $aliases = usersPermissionAliases($permission);
+        $permissionKeys = [$permission];
 
         // 1. Bireysel yetki ezme (override) kontrolleri (Grup yetkilerinden once degerlendirilir)
         $overrideStmt = $pdo->prepare("SELECT permission_key, permission_value 
             FROM user_group_permission_overrides 
-            WHERE user_id = ? AND (permission_key = '*' OR permission_key IN (" . implode(',', array_fill(0, count($aliases), '?')) . "))");
-        $overrideStmt->execute(array_merge([$userId], $aliases));
+            WHERE user_id = ? AND (permission_key = '*' OR permission_key IN (" . implode(',', array_fill(0, count($permissionKeys), '?')) . "))");
+        $overrideStmt->execute(array_merge([$userId], $permissionKeys));
         $overrides = $overrideStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         if (!empty($overrides)) {
@@ -1951,8 +1927,8 @@ function usersUserHasGroupPermission(PDO $pdo, int $userId, string $permission):
                 return true;
             }
 
-            $permissionStmt = $pdo->prepare("SELECT 1 FROM user_group_permissions WHERE group_id = ? AND permission_value = 1 AND permission_key IN (" . implode(',', array_fill(0, count($aliases), '?')) . ") LIMIT 1");
-            $permissionStmt->execute(array_merge([(int) $group['id']], $aliases));
+            $permissionStmt = $pdo->prepare("SELECT 1 FROM user_group_permissions WHERE group_id = ? AND permission_value = 1 AND permission_key IN (" . implode(',', array_fill(0, count($permissionKeys), '?')) . ") LIMIT 1");
+            $permissionStmt->execute(array_merge([(int) $group['id']], $permissionKeys));
             if ($permissionStmt->fetchColumn()) {
                 return true;
             }
@@ -2162,13 +2138,43 @@ function usersCountList(PDO $pdo, string $search = '', string $filterGroup = '',
     return (int) $stmt->fetchColumn();
 }
 
-function usersGetList(PDO $pdo, string $search = '', string $filterGroup = '', string $filterStatus = '', int $limit = 50, int $offset = 0): array
+function usersGetList(PDO $pdo, string $search = '', string $filterGroup = '', string $filterStatus = '', int $limit = 50, int $offset = 0, string $sort = 'id', string $dir = 'asc'): array
 {
     try {
         usersEnsureGroupSchema($pdo);
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
     [$whereStr, $params] = usersBuildListFilters($search, $filterGroup, $filterStatus, $pdo);
-    $stmt = $pdo->prepare("SELECT u.*,\n                           (SELECT GROUP_CONCAT(DISTINCT restriction_type SEPARATOR ',')\n                            FROM user_restrictions\n                            WHERE user_id = u.id AND (expires_at IS NULL OR expires_at > NOW())) AS restrictions\n                           FROM users u\n                           WHERE {$whereStr}\n                           ORDER BY u.id ASC\n                           LIMIT :limit OFFSET :offset");
+    $lastActivitySources = [];
+    if (usersTableExists($pdo, 'user_activity_events')) {
+        $lastActivitySources[] = '(SELECT MAX(e.created_at) FROM user_activity_events e WHERE e.user_id = u.id)';
+    }
+    if (usersColumnExists($pdo, 'users', 'last_activity_at')) {
+        $lastActivitySources[] = 'u.last_activity_at';
+    }
+    if (usersColumnExists($pdo, 'users', 'last_login_at')) {
+        $lastActivitySources[] = 'u.last_login_at';
+    }
+    if (usersColumnExists($pdo, 'users', 'updated_at')) {
+        $lastActivitySources[] = 'u.updated_at';
+    }
+    $lastActivitySources[] = 'u.created_at';
+    $lastActivitySql = count($lastActivitySources) > 1
+        ? 'COALESCE(' . implode(', ', $lastActivitySources) . ')'
+        : $lastActivitySources[0];
+    $direction = strtolower($dir) === 'desc' ? 'DESC' : 'ASC';
+    $orderMap = [
+        'id' => 'u.id',
+        'user' => "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))",
+        'email' => 'u.email',
+        'group' => 'primary_group_name',
+        'status' => 'user_status_rank',
+        'restrictions' => 'active_restriction_count',
+        'activity' => 'computed_last_activity_at',
+        'created' => 'u.created_at',
+    ];
+    $sortKey = array_key_exists($sort, $orderMap) ? $sort : 'id';
+    $orderBy = $orderMap[$sortKey] . ' ' . $direction . ', u.id ASC';
+    $stmt = $pdo->prepare("SELECT u.*,\n                           (SELECT GROUP_CONCAT(DISTINCT restriction_type SEPARATOR ',')\n                            FROM user_restrictions\n                            WHERE user_id = u.id AND (expires_at IS NULL OR expires_at > NOW())) AS restrictions,\n                           (SELECT COUNT(*)\n                            FROM user_restrictions\n                            WHERE user_id = u.id AND (expires_at IS NULL OR expires_at > NOW())) AS active_restriction_count,\n                           (SELECT g.name\n                            FROM user_group_members m\n                            INNER JOIN user_groups g ON g.id = m.group_id\n                            WHERE m.user_id = u.id AND g.is_active = 1\n                            ORDER BY m.is_primary DESC, g.display_order ASC, g.name ASC\n                            LIMIT 1) AS primary_group_name,\n                           CASE\n                               WHEN u.is_banned = 1 THEN 4\n                               WHEN EXISTS (SELECT 1 FROM user_restrictions ur WHERE ur.user_id = u.id AND (ur.expires_at IS NULL OR ur.expires_at > NOW())) THEN 3\n                               WHEN u.status = 'inactive' THEN 2\n                               ELSE 1\n                           END AS user_status_rank,\n                           {$lastActivitySql} AS computed_last_activity_at\n                           FROM users u\n                           WHERE {$whereStr}\n                           ORDER BY {$orderBy}\n                           LIMIT :limit OFFSET :offset");
     foreach ($params as $key => $value) {
         $stmt->bindValue(':' . $key, $value);
     }
@@ -2344,14 +2350,14 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
 
     switch ($action) {
         case 'activate':
-            $stmt = $pdo->prepare('UPDATE users SET status = \"active\", updated_at = NOW() WHERE id = ?');
+            $stmt = $pdo->prepare("UPDATE users SET status = 'active', updated_at = NOW() WHERE id = ?");
             foreach ($userIds as $id) {
                 $stmt->execute([$id]);
             }
             return '';
 
         case 'deactivate':
-            $stmt = $pdo->prepare('UPDATE users SET status = \"inactive\", updated_at = NOW() WHERE id = ?');
+            $stmt = $pdo->prepare("UPDATE users SET status = 'inactive', updated_at = NOW() WHERE id = ?");
             foreach ($userIds as $id) {
                 if ($id === $currentUserId) {
                     continue;
@@ -2362,6 +2368,9 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
 
         case 'ban':
             $reason = trim((string) ($payload['ban_reason'] ?? ''));
+            if ($reason === '') {
+                return 'Toplu ban icin gerekce zorunludur.';
+            }
             $stmt = $pdo->prepare('UPDATE users SET is_banned = 1, banned_at = NOW(), ban_reason = ?, updated_at = NOW() WHERE id = ?');
             foreach ($userIds as $id) {
                 if ($id === $currentUserId) {
@@ -2380,6 +2389,9 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
 
         case 'change_group':
             $groupId = (int) ($payload['group_id'] ?? 0);
+            if (!in_array($groupId, $validGroupIds, true)) {
+                return 'Toplu grup degisimi icin gecerli bir grup secin.';
+            }
             foreach ($userIds as $id) {
                 $err = usersChangeGroup($pdo, $id, $groupId, $currentUserId, $validGroupIds);
                 if ($err !== '') {
@@ -2705,17 +2717,15 @@ function usersDispatchAccountNotification(
     ?int $actorId,
     string $message,
     string $type = 'info',
-    string $link = '/notifications.php',
+    string $link = '/bildirimler',
     ?int $entityId = null
 ): void {
     if (!function_exists('notificationDispatch') || $userId <= 0) {
         return;
     }
 
-    if ($link === '/notifications.php' || $link === '/bildirimler') {
-        $link = function_exists('routePublicStaticPath')
-            ? '/' . ltrim((string) routePublicStaticPath('notifications'), '/')
-            : '/notifications.php';
+    if ($link === '/bildirimler') {
+        $link = '/' . ltrim((string) routePublicStaticPath('notifications'), '/');
     }
 
     try {
@@ -2799,9 +2809,19 @@ function usersGetBanAppealsForAdmin(PDO $pdo, string $statusFilter = ''): array
     return usersBanAppealService()->forAdmin($pdo, $statusFilter);
 }
 
+function usersGetBanAppealForAdmin(PDO $pdo, int $appealId): ?array
+{
+    return usersBanAppealService()->forAdminById($pdo, $appealId);
+}
+
 function usersUpdateBanAppeal(PDO $pdo, int $appealId, string $status, string $adminNote, int $adminId): string
 {
     return usersBanAppealService()->update($pdo, $appealId, $status, $adminNote, $adminId);
+}
+
+function usersReplyBanAppeal(PDO $pdo, int $appealId, int $adminId, string $message): string
+{
+    return usersBanAppealService()->reply($pdo, $appealId, $adminId, $message);
 }
 
 function usersRestrictedPathAllowed(string $path): bool

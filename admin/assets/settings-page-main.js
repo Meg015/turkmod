@@ -19,6 +19,41 @@ document.querySelectorAll('.seo-subtab-btn').forEach(function(btn) {
     });
 });
 
+(function() {
+    var cards = document.querySelectorAll('[data-seo-public-page-card]');
+
+    function syncCard(card) {
+        var noindex = card.querySelector('[data-seo-public-page-noindex]');
+        var sitemap = card.querySelector('[data-seo-public-page-sitemap]');
+        var sitemapRow = card.querySelector('[data-seo-public-page-sitemap-row]');
+        if (!noindex || !sitemap) {
+            return;
+        }
+
+        var locked = !!noindex.disabled;
+        var blocked = !!noindex.checked || locked;
+        sitemap.disabled = blocked;
+        sitemap.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+        if (blocked) {
+            sitemap.checked = false;
+        }
+        if (sitemapRow) {
+            sitemapRow.classList.toggle('is-disabled', blocked);
+        }
+        card.classList.toggle('is-noindex', blocked);
+    }
+
+    cards.forEach(function(card) {
+        var noindex = card.querySelector('[data-seo-public-page-noindex]');
+        if (noindex) {
+            noindex.addEventListener('change', function() {
+                syncCard(card);
+            });
+        }
+        syncCard(card);
+    });
+})();
+
 document.querySelectorAll('[data-settings-subtab]').forEach(function(btn) {
     btn.addEventListener('click', function() {
         var target = this.getAttribute('data-settings-subtab');
@@ -65,6 +100,221 @@ function activateSettingsSubtabFromHash() {
         button.click();
     }
 }
+
+function userSystemRuleField(rule, name) {
+    return rule ? rule.querySelector('[name="' + name + '"]') : null;
+}
+
+function userSystemNumber(rule, name, fallback) {
+    var field = userSystemRuleField(rule, name);
+    if (!field || String(field.value || '').trim() === '') {
+        return fallback || 0;
+    }
+    var value = parseInt(String(field.value || '').trim(), 10);
+    return Number.isFinite(value) ? value : (fallback || 0);
+}
+
+function userSystemChecked(rule, name) {
+    var field = userSystemRuleField(rule, name);
+    return !!(field && field.checked);
+}
+
+function userSystemValue(rule, name) {
+    var field = userSystemRuleField(rule, name);
+    return field ? String(field.value || '') : '';
+}
+
+function userSystemMinuteText(minutes) {
+    return Number(minutes) === 1 ? '1 dakika' : minutes + ' dakika';
+}
+
+function userSystemDayText(days) {
+    return Number(days) === 1 ? '1 gün' : days + ' gün';
+}
+
+function userSystemListCount(rule, name) {
+    var raw = userSystemValue(rule, name);
+    if (raw.trim() === '') {
+        return 0;
+    }
+    return raw.split(/[\r\n,;]+/).map(function (item) {
+        return item.trim();
+    }).filter(Boolean).length;
+}
+
+function updateUserSystemSummary(rule) {
+    var summary = rule.querySelector('[data-user-system-summary]');
+    if (!summary) {
+        return;
+    }
+
+    var mode = rule.getAttribute('data-user-summary-mode') || '';
+    var text = '';
+    var warnings = [];
+
+    if (mode === 'login_identity') {
+        var loginMode = userSystemValue(rule, 'login_identifier_mode');
+        if (loginMode === 'both') {
+            text = 'Kullanıcı e-posta veya kullanıcı adıyla giriş yapabilir.';
+        } else if (loginMode === 'username') {
+            text = 'Kullanıcı sadece kullanıcı adıyla giriş yapabilir.';
+        } else {
+            text = 'Kullanıcı sadece e-posta adresiyle giriş yapabilir.';
+        }
+    } else if (mode === 'session_behavior') {
+        var sessionMinutes = userSystemNumber(rule, 'session_timeout_minutes', 0);
+        var rememberMinutes = userSystemNumber(rule, 'remember_session_timeout_minutes', 0);
+        if (userSystemChecked(rule, 'login_show_remember_session')) {
+            text = userSystemMinuteText(sessionMinutes) + ' hareketsizlikte oturum kapanır; açık tut seçilirse ' + userSystemMinuteText(rememberMinutes) + ' geçerli olur';
+            text += userSystemChecked(rule, 'login_remember_session_default') ? ' ve varsayılan seçili gelir.' : '.';
+            if (rememberMinutes > 0 && sessionMinutes > 0 && rememberMinutes <= sessionMinutes) {
+                warnings.push('Açık tut süresi normal oturum süresinden uzun olmalı; aksi halde kalıcı oturum beklenen farkı yaratmaz.');
+            }
+        } else {
+            text = userSystemMinuteText(sessionMinutes) + ' hareketsizlikte oturum kapanır; açık tut seçeneği girişte görünmez.';
+            if (userSystemChecked(rule, 'login_remember_session_default')) {
+                warnings.push('Açık tut seçeneği gizliyken varsayılan seçili ayarı etkisiz kalır.');
+            }
+        }
+        if (sessionMinutes <= 0) {
+            warnings.push('Oturum zaman aşımı 1 dakika veya daha yüksek olmalı.');
+        }
+    } else if (mode === 'registration_status') {
+        text = userSystemChecked(rule, 'allow_registration')
+            ? 'Yeni kullanıcı kaydı açık.'
+            : 'Yeni kullanıcı kaydı kapalı.';
+    } else if (mode === 'username_length') {
+        var usernameMin = userSystemNumber(rule, 'register_username_min_length', 0);
+        var usernameMax = userSystemNumber(rule, 'register_username_max_length', 0);
+        text = 'Kullanıcı adı ' + usernameMin + '-' + usernameMax + ' karakter aralığında olmalı.';
+        if (usernameMin > usernameMax) {
+            warnings.push('Minimum kullanıcı adı uzunluğu maksimum değerden büyük olamaz.');
+        }
+        if (usernameMin < 3) {
+            warnings.push('Çok kısa kullanıcı adları taklit ve spam riskini artırır; 3 veya üzeri önerilir.');
+        }
+    } else if (mode === 'password_policy') {
+        var requirements = [];
+        if (userSystemChecked(rule, 'password_require_uppercase')) requirements.push('büyük harf');
+        if (userSystemChecked(rule, 'password_require_numbers')) requirements.push('sayı');
+        if (userSystemChecked(rule, 'password_require_special')) requirements.push('özel karakter');
+        var expiryDays = userSystemNumber(rule, 'password_expiry_days', 0);
+        var passwordMin = userSystemNumber(rule, 'password_min_length', 0);
+        text = 'Şifre en az ' + passwordMin + ' karakter olmalı';
+        text += requirements.length ? '; ' + requirements.join(', ') + ' zorunlu.' : '; ek karakter zorunluluğu yok.';
+        text += expiryDays > 0 ? ' ' + userSystemDayText(expiryDays) + ' sonra süresi dolar.' : ' Süre sonu uygulanmaz.';
+        if (passwordMin < 8) {
+            warnings.push('Minimum şifre uzunluğu güvenlik için düşük; 8 veya üzeri önerilir.');
+        }
+        if (requirements.length === 0) {
+            warnings.push('Hiçbir karakter zorunluluğu yok; en az sayı veya büyük harf zorunluluğu önerilir.');
+        }
+        if (expiryDays > 0 && expiryDays < 30) {
+            warnings.push('Şifre geçerlilik süresi çok kısa; sık parola değişimi kullanıcıları zayıf parola seçmeye itebilir.');
+        }
+    } else if (mode === 'email_allow_list') {
+        var allowedDomains = userSystemListCount(rule, 'register_allowed_email_domains');
+        text = allowedDomains > 0
+            ? 'Sadece listedeki ' + allowedDomains + ' e-posta domaini kayıt olabilir.'
+            : 'Domain izin listesi boş; tüm e-posta domainleri kayıt olabilir.';
+    } else if (mode === 'registration_approval') {
+        text = userSystemChecked(rule, 'registration_requires_admin_approval')
+            ? 'Yeni kayıtlar yönetici onayına düşer ve bekleme mesajı gösterilir.'
+            : 'Yeni kayıtlar otomatik olarak aktif açılır.';
+    } else if (mode === 'suspicious_registration') {
+        if (!userSystemChecked(rule, 'registration_suspicious_alert_enabled')) {
+            text = 'Şüpheli kayıt bildirimi kapalı.';
+        } else {
+            var suspiciousWindow = userSystemNumber(rule, 'registration_suspicious_window_minutes', 0);
+            var suspiciousThreshold = userSystemNumber(rule, 'registration_suspicious_ip_threshold', 0);
+            var suspiciousCooldown = userSystemNumber(rule, 'registration_suspicious_cooldown_minutes', 0);
+            text = userSystemMinuteText(suspiciousWindow) + ' içinde ' + suspiciousThreshold + ' kayıt sinyali görülürse uyarı gönderilir; ' + userSystemMinuteText(suspiciousCooldown) + ' soğuma uygulanır.';
+            if (suspiciousWindow <= 0) {
+                warnings.push('İnceleme penceresi 1 dakika veya daha yüksek olmalı.');
+            }
+            if (suspiciousThreshold < 2) {
+                warnings.push('IP eşik sayısı çok düşük; 1 değeri normal tekil kayıtları da alarm yapabilir.');
+            }
+            if (suspiciousCooldown <= 0) {
+                warnings.push('Bildirim soğuma süresi 1 dakika veya daha yüksek olmalı.');
+            }
+        }
+    } else if (mode === 'email_verification') {
+        var verificationEnabled = userSystemChecked(rule, 'account_email_verification_enabled');
+        var verificationRequired = userSystemChecked(rule, 'account_email_verification_required');
+        var reminderEnabled = userSystemChecked(rule, 'account_email_verification_reminder_enabled');
+        var verificationTtl = userSystemNumber(rule, 'account_email_verification_ttl_minutes', 0);
+        var verificationCooldown = userSystemNumber(rule, 'account_email_verification_resend_cooldown_minutes', 0);
+        var reminderAfter = userSystemNumber(rule, 'account_email_verification_reminder_after_minutes', 0);
+        var reminderBatch = userSystemNumber(rule, 'account_email_verification_reminder_batch_size', 0);
+        if (!verificationEnabled) {
+            text = 'E-posta doğrulama sistemi kapalı.';
+            if (verificationRequired) {
+                warnings.push('E-posta doğrulama kapalıyken giriş için doğrulama zorunlu ayarı etkisiz veya çelişkili kalır.');
+            }
+            if (reminderEnabled) {
+                warnings.push('Doğrulama sistemi kapalıyken hatırlatma cron ayarı çalışmaz.');
+            }
+        } else {
+            text = 'Doğrulama bağlantısı ' + userSystemMinuteText(verificationTtl) + ' geçerli; ' + userSystemMinuteText(verificationCooldown) + ' sonra tekrar istenebilir.';
+            text += verificationRequired ? ' Giriş için doğrulama zorunlu.' : ' Giriş için doğrulama zorunlu değil.';
+            if (reminderEnabled) {
+                text += ' Hatırlatma ' + userSystemMinuteText(reminderAfter) + ' sonra, parti başına ' + reminderBatch + ' hesapla çalışır.';
+            }
+            if (verificationTtl <= 0 || verificationCooldown <= 0) {
+                warnings.push('Doğrulama bağlantısı süresi ve tekrar gönderme bekleme süresi 1 dakika veya daha yüksek olmalı.');
+            }
+            if (verificationCooldown >= verificationTtl) {
+                warnings.push('Tekrar gönderme bekleme süresi bağlantı geçerlilik süresinden kısa olmalı.');
+            }
+            if (reminderEnabled && reminderAfter < verificationTtl) {
+                warnings.push('Hatırlatma eşiği bağlantı süresinden önceyse kullanıcı geçerli link varken tekrar e-posta alabilir.');
+            }
+            if (reminderEnabled && reminderBatch <= 0) {
+                warnings.push('Hatırlatma parti boyutu 1 veya daha yüksek olmalı.');
+            }
+        }
+    } else if (mode === 'password_reset_ttl') {
+        var passwordResetTtl = userSystemNumber(rule, 'password_reset_token_ttl_minutes', 0);
+        text = 'Şifre sıfırlama bağlantısı ' + userSystemMinuteText(passwordResetTtl) + ' geçerli olur.';
+        if (passwordResetTtl < 15) {
+            warnings.push('Şifre sıfırlama bağlantısı süresi çok kısa; kullanıcıların işlemi tamamlaması zorlaşabilir.');
+        }
+        if (passwordResetTtl > 1440) {
+            warnings.push('Şifre sıfırlama bağlantısı süresi çok uzun; güvenlik için 24 saat veya altı önerilir.');
+        }
+    } else if (mode === 'username_block_lists') {
+        text = userSystemListCount(rule, 'spam_blocked_usernames') + ' tam kullanıcı adı ve ' + userSystemListCount(rule, 'spam_blocked_username_fragments') + ' kullanıcı adı parçası engelleniyor.';
+    } else if (mode === 'text_block_lists') {
+        text = userSystemListCount(rule, 'spam_profanity_words') + ' argo/küfür kelimesi, ' + userSystemListCount(rule, 'spam_meaningless_words') + ' anlamsız kelime ve ' + userSystemListCount(rule, 'spam_meaningless_patterns') + ' desen kontrol ediliyor.';
+    } else if (mode === 'email_block_list') {
+        var blockedDomains = userSystemListCount(rule, 'spam_blocked_email_domains');
+        text = blockedDomains > 0
+            ? blockedDomains + ' e-posta domaini kayıt sırasında engelleniyor.'
+            : 'E-posta domain engel listesi boş.';
+    }
+
+    summary.textContent = text;
+
+    var warning = rule.querySelector('[data-user-system-warning]');
+    if (warning) {
+        if (warnings.length) {
+            warning.innerHTML = '<i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span>' + warnings.join('<br>') + '</span>';
+            warning.hidden = false;
+        } else {
+            warning.textContent = '';
+            warning.hidden = true;
+        }
+    }
+}
+
+document.querySelectorAll('[data-user-summary-mode]').forEach(function (rule) {
+    rule.querySelectorAll('input, select, textarea').forEach(function (field) {
+        field.addEventListener('input', function () { updateUserSystemSummary(rule); });
+        field.addEventListener('change', function () { updateUserSystemSummary(rule); });
+    });
+    updateUserSystemSummary(rule);
+});
 
 document.querySelectorAll('[data-color-field]').forEach(function(field) {
     var input = field.querySelector('[data-color-input]');
@@ -248,10 +498,6 @@ function setAccountEmailEditorValue(textarea, value) {
         textarea.quillInstance.clipboard.dangerouslyPasteHTML(editableValue, 'silent');
         textarea.accountEmailInitialEditorHtml = textarea.quillInstance.root.innerHTML;
     }
-    if (textarea.accountEmailFallbackEditor) {
-        textarea.accountEmailFallbackEditor.innerHTML = editableValue;
-        textarea.accountEmailInitialEditorHtml = textarea.accountEmailFallbackEditor.innerHTML;
-    }
 }
 
 function syncAccountEmailEditor(textarea) {
@@ -259,8 +505,6 @@ function syncAccountEmailEditor(textarea) {
     var editorHtml = '';
     if (textarea.quillInstance) {
         editorHtml = textarea.quillInstance.root.innerHTML;
-    } else if (textarea.accountEmailFallbackEditor) {
-        editorHtml = textarea.accountEmailFallbackEditor.innerHTML;
     } else {
         return;
     }
@@ -272,47 +516,6 @@ function syncAllAccountEmailEditors() {
     document.querySelectorAll('textarea.account-email-body').forEach(syncAccountEmailEditor);
 }
 
-function initAccountEmailFallback(textarea) {
-    if (!textarea || textarea.dataset.accountEmailEditorInit === '1') return;
-    textarea.dataset.accountEmailEditorInit = '1';
-    var shell = document.createElement('div');
-    shell.className = 'account-email-fallback-shell';
-    var toolbar = document.createElement('div');
-    toolbar.className = 'account-email-fallback-toolbar';
-    [
-        ['bold', 'Kalın', 'B'], ['italic', 'İtalik', 'I'], ['underline', 'Altı çizili', 'U'],
-        ['insertOrderedList', 'Numaralı liste', '1.'], ['insertUnorderedList', 'Madde listesi', '•']
-    ].forEach(function(item) {
-        var button = document.createElement('button');
-        button.type = 'button';
-        button.setAttribute('aria-label', item[1]);
-        button.textContent = item[2];
-        button.addEventListener('click', function() {
-            editor.focus();
-            document.execCommand(item[0], false, null);
-            syncAccountEmailEditor(textarea);
-        });
-        toolbar.appendChild(button);
-    });
-    var editor = document.createElement('div');
-    editor.className = 'account-email-fallback-editor';
-    editor.contentEditable = 'true';
-    var sourceDocument = textarea.value || '';
-    var editableHtml = accountEmailEditableHtml(sourceDocument);
-    textarea.accountEmailDocumentTemplate = sourceDocument;
-    textarea.accountEmailInitialEditorHtml = editableHtml;
-    editor.innerHTML = editableHtml;
-    editor.addEventListener('input', function() {
-        syncAccountEmailEditor(textarea);
-        var card = textarea.closest('[data-account-email-card]');
-        if (card && card.querySelector('[data-account-email-preview] iframe')) refreshAccountEmailPreview(card);
-    });
-    shell.appendChild(toolbar);
-    shell.appendChild(editor);
-    textarea.insertAdjacentElement('afterend', shell);
-    textarea.classList.add('ui-admin-hidden');
-    textarea.accountEmailFallbackEditor = editor;
-}
 
 function initAccountEmailQuill(textarea) {
     if (!textarea || textarea.dataset.accountEmailEditorInit === '1') return;
@@ -365,8 +568,11 @@ function ensureAccountEmailRichEditors(attempt) {
     }
     accountEmailEditorInitStarted = true;
     document.querySelectorAll('textarea.account-email-body').forEach(function(textarea) {
-        if (typeof window.Quill !== 'undefined') initAccountEmailQuill(textarea);
-        else initAccountEmailFallback(textarea);
+        if (typeof window.Quill !== 'undefined') {
+            initAccountEmailQuill(textarea);
+        } else {
+            console.error('Quill is not loaded. Account email editor cannot be initialized.');
+        }
     });
 }
 
@@ -413,13 +619,6 @@ document.querySelectorAll('[data-account-email-card]').forEach(function(card) {
                 var index = range ? range.index : Math.max(0, body.quillInstance.getLength() - 1);
                 body.quillInstance.insertText(index, token, 'user');
                 body.quillInstance.setSelection(index + token.length, 0, 'silent');
-                syncAccountEmailEditor(body);
-                refreshAccountEmailPreview(card);
-                return;
-            }
-            if (body.accountEmailFallbackEditor) {
-                body.accountEmailFallbackEditor.focus();
-                document.execCommand('insertText', false, token);
                 syncAccountEmailEditor(body);
                 refreshAccountEmailPreview(card);
                 return;

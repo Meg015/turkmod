@@ -18,14 +18,22 @@ if ($ready && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     try {
         if ($action === 'save_config') {
-            $keys = ['wheel_daily_limit', 'wheel_hourly_limit', 'wheel_min_points', 'wheel_extra_spin_cost', 'wheel_reward_expiry_days'];
+            $keys = ['wheel_spin_rate_limit', 'wheel_spin_rate_window_minutes', 'wheel_min_points', 'wheel_extra_spin_cost', 'wheel_reward_expiry_days'];
+            $values = [];
+            foreach ($keys as $key) {
+                $values[$key] = (string)max(0, (int)($_POST[$key] ?? 0));
+            }
+            if ((int)$values['wheel_spin_rate_limit'] > 0 && (int)$values['wheel_spin_rate_window_minutes'] <= 0) {
+                throw new RuntimeException('Çark limit süresi 1 dakika veya daha yüksek olmalı.');
+            }
+            $values['wheel_spin_rate_window_minutes'] = (string)max(1, min(10080, (int)$values['wheel_spin_rate_window_minutes']));
             $stmt = $pdo->prepare("INSERT INTO events_config (config_key, config_value, value_type, created_at, updated_at)
                 VALUES (:key, :value, 'int', NOW(), NOW())
                 ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = NOW()");
-            foreach ($keys as $key) {
-                $stmt->execute(['key' => $key, 'value' => (string)max(0, (int)($_POST[$key] ?? 0))]);
+            foreach ($values as $key => $value) {
+                $stmt->execute(['key' => $key, 'value' => $value]);
             }
-            eventsAuditLog($pdo, 'wheel_config_update', 'events_config', null, array_intersect_key($_POST, array_flip($keys)));
+            eventsAuditLog($pdo, 'wheel_config_update', 'events_config', null, $values);
             flash('success', 'Çark ayarları kaydedildi.');
             header('Location: events-wheel.php');
             exit;
@@ -184,8 +192,8 @@ $renderWheelConfigForm = static function (array $config, string $baseUri): void 
             </div>
 
             <div class="ui-events-rule-detail-summary">
-                <div class="ui-events-rule-summary-card is-primary ui-card"><span>Günlük limit</span><strong><?= e(eventsConfigReadableNumberValue($config['wheel_daily_limit'] ?? 0, ['key' => 'wheel_daily_limit', 'type' => 'number', 'min' => 0, 'max' => 1000])) ?></strong></div>
-                <div class="ui-events-rule-summary-card ui-card"><span>Saatlik limit</span><strong><?= e(eventsConfigReadableNumberValue($config['wheel_hourly_limit'] ?? 0, ['key' => 'wheel_hourly_limit', 'type' => 'number', 'min' => 0, 'max' => 1000])) ?></strong></div>
+                <div class="ui-events-rule-summary-card is-primary ui-card"><span>Çark limiti</span><strong><?= e(eventsWheelRateSummary($config)) ?></strong></div>
+                <div class="ui-events-rule-summary-card ui-card"><span>Limit süresi</span><strong><?= e(eventsConfigReadableNumberValue($config['wheel_spin_rate_window_minutes'] ?? 1440, ['key' => 'wheel_spin_rate_window_minutes', 'type' => 'number', 'min' => 1, 'max' => 10080])) ?></strong></div>
                 <div class="ui-events-rule-summary-card ui-card"><span>Min puan</span><strong><?= e(eventsConfigReadableNumberValue($config['wheel_min_points'] ?? 0, ['key' => 'wheel_min_points', 'type' => 'number', 'min' => 0, 'max' => 1000000000])) ?></strong></div>
             </div>
         </div>
@@ -194,14 +202,14 @@ $renderWheelConfigForm = static function (array $config, string $baseUri): void 
             <div class="ui-events-rule-section-title">Çark ayarları</div>
             <div class="ui-events-rule-form-grid ui-grid">
                 <div class="ui-events-rule-field">
-                    <label for="wheel-daily-limit">Günlük limit</label>
-                    <input id="wheel-daily-limit" class="ui-events-rule-soft-control is-accent" type="number" name="wheel_daily_limit" min="0" max="1000" value="<?= e((string)($config['wheel_daily_limit'] ?? 0)) ?>" <?= eventsReadableNumberDataAttributes(['key' => 'wheel_daily_limit', 'type' => 'number', 'min' => 0, 'max' => 1000]) ?>>
-                    <?= eventsRenderReadableNumberValue($config['wheel_daily_limit'] ?? 0, ['key' => 'wheel_daily_limit', 'type' => 'number', 'min' => 0, 'max' => 1000]) ?>
+                    <label for="wheel-spin-rate-limit">Çark çevirme limiti</label>
+                    <input id="wheel-spin-rate-limit" class="ui-events-rule-soft-control is-accent" type="number" name="wheel_spin_rate_limit" min="0" max="1000" value="<?= e((string)($config['wheel_spin_rate_limit'] ?? 0)) ?>" <?= eventsReadableNumberDataAttributes(['key' => 'wheel_spin_rate_limit', 'type' => 'number', 'min' => 0, 'max' => 1000]) ?>>
+                    <?= eventsRenderReadableNumberValue($config['wheel_spin_rate_limit'] ?? 0, ['key' => 'wheel_spin_rate_limit', 'type' => 'number', 'min' => 0, 'max' => 1000]) ?>
                 </div>
                 <div class="ui-events-rule-field">
-                    <label for="wheel-hourly-limit">Saatlik limit</label>
-                    <input id="wheel-hourly-limit" class="ui-events-rule-soft-control" type="number" name="wheel_hourly_limit" min="0" max="1000" value="<?= e((string)($config['wheel_hourly_limit'] ?? 0)) ?>" <?= eventsReadableNumberDataAttributes(['key' => 'wheel_hourly_limit', 'type' => 'number', 'min' => 0, 'max' => 1000]) ?>>
-                    <?= eventsRenderReadableNumberValue($config['wheel_hourly_limit'] ?? 0, ['key' => 'wheel_hourly_limit', 'type' => 'number', 'min' => 0, 'max' => 1000]) ?>
+                    <label for="wheel-spin-rate-window">Çark limit süresi (dakika)</label>
+                    <input id="wheel-spin-rate-window" class="ui-events-rule-soft-control" type="number" name="wheel_spin_rate_window_minutes" min="1" max="10080" value="<?= e((string)($config['wheel_spin_rate_window_minutes'] ?? 1440)) ?>" <?= eventsReadableNumberDataAttributes(['key' => 'wheel_spin_rate_window_minutes', 'type' => 'number', 'min' => 1, 'max' => 10080]) ?>>
+                    <?= eventsRenderReadableNumberValue($config['wheel_spin_rate_window_minutes'] ?? 1440, ['key' => 'wheel_spin_rate_window_minutes', 'type' => 'number', 'min' => 1, 'max' => 10080]) ?>
                 </div>
                 <div class="ui-events-rule-field">
                     <label for="wheel-min-points">Min puan</label>

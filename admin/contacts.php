@@ -132,7 +132,7 @@ $messageFilters = [
 ];
 $hasMessageFilters = $messageFilters['status'] !== '' || $messageFilters['q'] !== '' || $messageFilters['category_id'] > 0;
 $messagePage = max(1, (int) ($_GET['page'] ?? 1));
-$messagePerPage = 15;
+$messagePerPage = adminPaginationPerPage();
 
 if ($pdo instanceof PDO) {
     $messageStats = contactMessageStats($pdo);
@@ -573,35 +573,20 @@ require_once __DIR__ . '/header.php';
                     </div>
 
                     <?php if ($totalMessagePages > 1): ?>
-                        <div class="ui-admin-pagination-center">
-                            <?php $prevPage = max(1, $messagePage - 1); ?>
-                            <?php $nextPage = min($totalMessagePages, $messagePage + 1); ?>
-                            <?php if ($messagePage > 1): ?>
-                                <a href="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $prevPage, 'message_id' => $requestedMessageId]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline"><i class="bi bi-chevron-left"></i></a>
-                            <?php endif; ?>
-                            <?php
-                                $startPage = max(1, $messagePage - 2);
-                                $endPage = min($totalMessagePages, $messagePage + 2);
-                                if ($startPage > 1) {
-                                    echo '<a href="' . htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => 1, 'message_id' => $requestedMessageId]), ENT_QUOTES, 'UTF-8') . '" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline">1</a>';
-                                    if ($startPage > 2) {
-                                        echo '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" disabled>…</button>';
-                                    }
-                                }
-                                for ($i = $startPage; $i <= $endPage; $i++) {
-                                    echo '<a href="' . htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $i, 'message_id' => $requestedMessageId]), ENT_QUOTES, 'UTF-8') . '" class="ui-admin-btn ui-admin-btn-sm ' . ($i === $messagePage ? 'ui-admin-btn-primary' : 'ui-admin-btn-outline') . '">' . $i . '</a>';
-                                }
-                                if ($endPage < $totalMessagePages) {
-                                    if ($endPage < $totalMessagePages - 1) {
-                                        echo '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" disabled>…</button>';
-                                    }
-                                    echo '<a href="' . htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $totalMessagePages, 'message_id' => $requestedMessageId]), ENT_QUOTES, 'UTF-8') . '" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline">' . $totalMessagePages . '</a>';
-                                }
-                            ?>
-                            <?php if ($messagePage < $totalMessagePages): ?>
-                                <a href="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $nextPage, 'message_id' => $requestedMessageId]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline"><i class="bi bi-chevron-right"></i></a>
-                            <?php endif; ?>
-                        </div>
+                        <?php
+                        echo adminRenderPagination($totalMessagePages, $messagePage, static function (int $targetPage) use ($messageFilters, $requestedMessageId): string {
+                            $params = array_merge($messageFilters, ['page' => $targetPage]);
+                            if ((int) $requestedMessageId > 0) {
+                                $params['message_id'] = (int) $requestedMessageId;
+                            }
+
+                            return adminContactsUrl('messages', $params);
+                        }, [
+                            'wrapper_class' => 'ui-admin-pagination-center contacts-pagination',
+                            'inner_class' => 'contacts-pagination-list',
+                            'aria_label' => 'İletişim mesajları sayfalama',
+                        ]);
+                        ?>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>

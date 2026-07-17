@@ -16,7 +16,7 @@
 <div class="profile-restriction-panel-head ui-panel__head">
 <span class="profile-restriction-icon"><i class="bi bi-shield-exclamation" aria-hidden="true"></i></span>
 <div><strong>Hesabınızda aktif kısıtlama var</strong><span>İşlem yapmadan önce kapsam ve bitiş tarihini kontrol edin.</span></div>
-<a href="{base_url}/ban-appeals.php" class="profile-restriction-appeal"><i class="bi bi-envelope" aria-hidden="true"></i> İtiraz</a>
+<a href="{profile.ban_appeals_url}" class="profile-restriction-appeal"><i class="bi bi-envelope" aria-hidden="true"></i> İtiraz</a>
 </div>
 <div class="profile-restriction-list">
 {loop profile.restrictions}

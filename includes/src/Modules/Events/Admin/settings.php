@@ -137,8 +137,8 @@ $summaryCards = [
     ],
     [
         'label' => 'Çark limiti',
-        'value' => 'Günlük ' . $readableSetting('wheel_daily_limit', (string)($config['wheel_daily_limit'] ?? '0')),
-        'detail' => 'Saatlik ' . $readableSetting('wheel_hourly_limit', (string)($config['wheel_hourly_limit'] ?? '0')) . ', bekleme ' . $readableSetting('wheel_spin_cooldown_seconds', (string)($config['wheel_spin_cooldown_seconds'] ?? '0') . ' sn'),
+        'value' => eventsWheelRateSummary($config),
+        'detail' => 'Bekleme ' . $readableSetting('wheel_spin_cooldown_seconds', (string)($config['wheel_spin_cooldown_seconds'] ?? '0') . ' sn'),
         'icon' => 'bi-arrow-clockwise',
         'tone' => 'accent',
     ],

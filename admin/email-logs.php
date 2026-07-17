@@ -14,6 +14,7 @@ if (function_exists('emailLogsEnsureSchema')) {
 
 $emailLogsSchemaReady = $pdo instanceof PDO && (!function_exists('emailLogsTableExists') || emailLogsTableExists($pdo));
 $pageError = '';
+$canManageLogs = adminCurrentUserCan('logs.manage');
 
 $normalizeDate = static function ($value): string {
     $date = trim((string) $value);
@@ -58,6 +59,27 @@ $emailLogPrettyJson = static function (?string $json) use ($emailLogText): strin
     return $emailLogText($raw, '');
 };
 
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $postAction = (string) ($_POST['action'] ?? '');
+    if ($postAction === 'clear_all_email_logs') {
+        $redirectUrl = 'email-logs.php';
+        adminRunLogCleanup($pdo, [
+            'action_type' => 'email_logs_cleared',
+            'scope' => 'all',
+            'allowed_scopes' => ['all'],
+            'permission' => 'logs.manage',
+            'permission_message' => 'E-posta loglarını temizlemek için gerekli izin hesabınıza tanımlanmamış.',
+            'redirect_url' => $redirectUrl,
+            'ready' => $emailLogsSchemaReady && function_exists('emailLogsClearAll'),
+            'ready_message' => 'E-posta log tablosu hazır olmadığı için temizleme yapılamadı.',
+            'source' => 'email_logs',
+            'delete' => static fn (PDO $pdo): int => emailLogsClearAll($pdo),
+            'success_message' => static fn (int $deleted): string => $deleted . ' e-posta logu tamamen silindi.',
+            'error_prefix' => 'E-posta logları temizlenemedi: ',
+        ]);
+    }
+}
+
 $search = trim((string) ($_GET['q'] ?? ''));
 $statusFilter = trim((string) ($_GET['status'] ?? 'all'));
 $sourceFilter = trim((string) ($_GET['source'] ?? 'all'));
@@ -65,7 +87,7 @@ $driverFilter = trim((string) ($_GET['driver'] ?? 'all'));
 $dateFrom = $normalizeDate($_GET['date_from'] ?? '');
 $dateTo = $normalizeDate($_GET['date_to'] ?? '');
 $page = max(1, (int) ($_GET['page'] ?? 1));
-$perPage = 50;
+$perPage = adminPaginationPerPage();
 
 $emailStatusOptions = [
     'sent' => 'Gönderildi',
@@ -259,7 +281,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="admin-card logs-toolbar-card ui-panel">
         <div class="card-body ui-admin-card-compact ui-panel__body ui-card logs-toolbar-shell">
-            <form method="get" action="email-logs.php" class="logs-filter-form ui-admin-filter-row">
+            <form method="get" action="email-logs.php" class="logs-filter-form ui-admin-filter-row admin-log-filter-form">
                 <div class="ui-admin-filter-grow-lg">
                     <label class="ui-admin-form-label" for="email-log-q">Ara</label>
                     <input id="email-log-q" type="text" name="q" class="ui-admin-form-control" placeholder="Alıcı, konu, kaynak, hata veya yanıt ara..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
@@ -307,9 +329,16 @@ require_once __DIR__ . '/header.php';
                 </div>
                 <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-search"></i> Filtrele</button>
             </form>
-            <?php if ($hasFilters): ?>
+            <?php if ($hasFilters || $canManageLogs): ?>
                 <div class="logs-toolbar-actions">
-                    <a href="email-logs.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-lg"></i> Temizle</a>
+                    <?php if ($hasFilters): ?>
+                        <a href="email-logs.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-lg"></i> Temizle</a>
+                    <?php endif; ?>
+                    <?php if ($canManageLogs): ?>
+                        <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm" data-clear-logs-open>
+                            <i class="bi bi-trash"></i> Günlüğü Temizle
+                        </button>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </div>
@@ -324,14 +353,14 @@ require_once __DIR__ . '/header.php';
         </div>
         <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
             <?php if (empty($emailLogs['items'])): ?>
-                <div class="ui-admin-empty ui-empty email-logs-empty">
+                <div class="ui-admin-empty ui-empty admin-log-empty">
                     <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-envelope-paper"></i></div>
                     <h3 class="ui-admin-empty-title ui-empty">Kayıt bulunamadı</h3>
                     <p class="ui-admin-empty-desc ui-empty"><?= $hasFilters ? 'Seçili filtrelerle eşleşen e-posta kaydı yok.' : 'Henüz e-posta gönderim kaydı oluşmamış.' ?></p>
                 </div>
             <?php else: ?>
-                <div class="table-wrapper ui-table-wrap ui-surface">
-                    <table class="admin-table">
+                <div class="table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
+                    <table class="admin-table admin-log-table">
                         <thead>
                             <tr>
                                 <th>Tarih</th>
@@ -358,6 +387,7 @@ require_once __DIR__ . '/header.php';
                                 $subject = trim((string) ($emailLog['subject'] ?? ''));
                                 $driver = trim((string) ($emailLog['driver'] ?? ''));
                                 $transport = trim((string) ($emailLog['transport'] ?? ''));
+                                $showTransport = $transport !== '' && ($driver === '' || strcasecmp($driver, $transport) !== 0);
                                 $providerMessageId = trim((string) ($emailLog['provider_message_id'] ?? ''));
                                 $providerResponse = trim((string) ($emailLog['provider_response'] ?? ''));
                                 $smtpResponse = trim((string) ($emailLog['smtp_response'] ?? ''));
@@ -396,6 +426,11 @@ require_once __DIR__ . '/header.php';
                                     'Konu uzunluğu' => $emailLogText($contextData['subject_length'] ?? null),
                                     'Gövde uzunluğu' => $emailLogText($contextData['body_length'] ?? null),
                                 ];
+                                $detailDriver = trim((string) ($contextData['driver'] ?? $driver));
+                                $detailTransport = trim((string) ($contextData['transport'] ?? $transport));
+                                if ($detailDriver !== '' && $detailTransport !== '' && strcasecmp($detailDriver, $detailTransport) === 0) {
+                                    unset($detailRows['Aktarım']);
+                                }
                                 ?>
                                 <tr>
                                     <td class="ui-admin-table-cell-date"><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></td>
@@ -431,7 +466,7 @@ require_once __DIR__ . '/header.php';
                                                 <?php if ($driver !== ''): ?>
                                                     <span class="ui-admin-badge ui-admin-badge-secondary"><?= htmlspecialchars(mb_strtoupper($driver, 'UTF-8'), ENT_QUOTES, 'UTF-8') ?></span>
                                                 <?php endif; ?>
-                                                <?php if ($transport !== ''): ?>
+                                                <?php if ($showTransport): ?>
                                                     <span class="ui-admin-badge ui-admin-badge-info"><?= htmlspecialchars(mb_strtoupper($transport, 'UTF-8'), ENT_QUOTES, 'UTF-8') ?></span>
                                                 <?php endif; ?>
                                                 <?php if ($smtpCode !== null): ?>
@@ -494,28 +529,39 @@ require_once __DIR__ . '/header.php';
                         'date_to' => $dateTo,
                     ], static fn ($value): bool => $value !== '' && $value !== null);
                     $pageBase = 'email-logs.php?' . ($pageParams ? http_build_query($pageParams) . '&' : '') . 'page=';
+                    echo adminRenderPagination($emailLogsTotalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
+                        'wrapper_class' => 'logs-pagination-wrapper',
+                        'aria_label' => 'E-posta logları sayfalama',
+                    ]);
+                endif;
                 ?>
-                    <div class="pagination-wrapper logs-pagination-wrapper">
-                        <div class="pagination">
-                            <?php if ($page > 1): ?>
-                                <a href="<?= htmlspecialchars($pageBase . ($page - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
-                            <?php endif; ?>
-
-                            <?php for ($i = max(1, $page - 2); $i <= min($emailLogsTotalPages, $page + 2); $i++): ?>
-                                <a href="<?= htmlspecialchars($pageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"<?= $i === $page ? ' aria-current="page"' : '' ?>>
-                                    <?= (int) $i ?>
-                                </a>
-                            <?php endfor; ?>
-
-                            <?php if ($page < $emailLogsTotalPages): ?>
-                                <a href="<?= htmlspecialchars($pageBase . ($page + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if ($canManageLogs): ?>
+    <?php
+    $logClearModal = [
+        'aria_label' => 'E-posta günlüğünü temizle',
+        'title' => 'Günlüğü Temizle',
+        'form_action' => 'email-logs.php',
+        'hidden_fields' => [
+            ['name' => 'action', 'value' => 'clear_all_email_logs'],
+        ],
+        'scope_name' => 'scope',
+        'options' => [
+            [
+                'value' => 'all',
+                'label' => 'Tüm e-posta günlüğünü sil (Tehlikeli)',
+                'confirm_title' => 'Günlüğü Temizle',
+            ],
+        ],
+        'warning' => 'Tüm e-posta logları kalıcı olarak silinir. SMTP yanıtları ve teknik hata ayrıntıları dahil bu işlem geri alınamaz.',
+    ];
+    include __DIR__ . '/partials/log-clear-modal.php';
+    unset($logClearModal);
+    ?>
+    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

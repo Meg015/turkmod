@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { readFile, writeFile, rm } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -12,36 +12,60 @@ const watchMode = args.has('--watch');
 
 const fromRoot = (...parts) => path.join(root, ...parts);
 
-async function concatenate(files, output) {
-    const chunks = [];
-    for (const file of files) {
-        chunks.push(await readFile(fromRoot(file), 'utf8'));
+async function listCssSourceFiles(directory) {
+    const files = [];
+    const entries = await readdir(directory, { withFileTypes: true });
+
+    for (const entry of entries) {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...await listCssSourceFiles(entryPath));
+        } else if (entry.isFile() && entry.name.endsWith('.css') && !entry.name.endsWith('.min.css')) {
+            files.push(entryPath);
+        }
     }
-    await writeFile(fromRoot(output), chunks.join('\n'), 'utf8');
+
+    return files;
+}
+
+async function assertNoDestructiveUniversalCssReset() {
+    const sourceRoots = [
+        fromRoot('assets', 'css'),
+        fromRoot('themes', 'turkmod', 'css'),
+    ];
+
+    for (const sourceRoot of sourceRoots) {
+        for (const cssPath of await listCssSourceFiles(sourceRoot)) {
+            const css = await readFile(cssPath, 'utf8');
+            const universalRulePattern = /(?:html\[data-public-theme\s*=\s*["']?turkmod["']?\]\s*)?\*\s*\{([^}]*)\}/gi;
+            let match;
+
+            while ((match = universalRulePattern.exec(css)) !== null) {
+                const declarations = match[1];
+                const resetsMargin = /(?:^|;)\s*margin\s*:\s*0(?:\s*!important)?\s*(?:;|$)/i.test(declarations);
+                const resetsPadding = /(?:^|;)\s*padding\s*:\s*0(?:\s*!important)?\s*(?:;|$)/i.test(declarations);
+
+                if (resetsMargin && resetsPadding) {
+                    throw new Error(
+                        `Destructive universal CSS reset detected in ${path.relative(root, cssPath)}. ` +
+                        'Do not reset margin and padding through *; scope spacing resets to the exact component.'
+                    );
+                }
+            }
+        }
+    }
 }
 
 async function buildJavaScript() {
-    const publicEntry = fromRoot('assets', 'dist', '.public-bundle-entry.js');
-    await concatenate([
-        'assets/js/app.js',
-        'assets/js/ui.js',
-        'assets/js/ui-foundation.js',
-    ], 'assets/dist/.public-bundle-entry.js');
-
-    try {
-        await build({
-            entryPoints: [publicEntry],
-            outfile: fromRoot('assets', 'dist', 'public.min.js'),
-            bundle: false,
-            minify: true,
-            legalComments: 'none',
-            sourcemap: false,
-            target: ['es2020'],
-        });
-    } finally {
-        await rm(publicEntry, { force: true });
-        await rm(fromRoot('assets', 'dist', 'public.min.js.map'), { force: true });
-    }
+    await build({
+        entryPoints: [fromRoot('assets', 'js', 'app.js')],
+        outfile: fromRoot('assets', 'dist', 'public.min.js'),
+        bundle: true,
+        minify: true,
+        legalComments: 'none',
+        sourcemap: false,
+        target: ['es2020'],
+    });
 
     await build({
         entryPoints: [fromRoot('themes', 'turkmod', 'js', 'bundle.js')],
@@ -55,6 +79,8 @@ async function buildJavaScript() {
 }
 
 async function buildCssAssets() {
+    await assertNoDestructiveUniversalCssReset();
+
     await build({
         entryPoints: [fromRoot('assets', 'css', 'general.css')],
         outfile: fromRoot('assets', 'dist', 'public.min.css'),

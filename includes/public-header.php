@@ -130,6 +130,10 @@ $_isAuthPage = function_exists("routeIsAuthPage")
     ? routeIsAuthPage($_currentScript)
     : in_array($_currentScript, ["giris", "kayit", "sifremi-unuttum", "sifre-sifirla"], true);
 $_loginHref = $_loginBaseHref . (!$_isAuthPage ? "?redirect=" . rawurlencode($_currentRequestUri) : "");
+if (!$_isAuthPage && function_exists('loginSafeRedirect') && function_exists('authUrlWithRedirect')) {
+    $_registerRedirect = loginSafeRedirect($_currentRequestUri, $baseUri . "/index.php");
+    $_registerHref = authUrlWithRedirect($_registerHref, $_registerRedirect, $baseUri . "/index.php");
+}
 $_pageCssMap = [];
 $_extraPageCssFiles = isset($pageCssFiles) && is_array($pageCssFiles)
     ? $pageCssFiles
@@ -238,6 +242,8 @@ $authVars = [
     'auth_success',
     'auth_show_onboarding',
     'auth_redirect',
+    'auth_login_url',
+    'auth_register_url',
     'auth_csrf_token',
     'auth_demo_visible',
     'auth_login_identifier_mode',
@@ -384,6 +390,9 @@ if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && $
     <script src="<?= asset_url("assets/js/ui-foundation.js", $baseUri) ?>" defer></script>
     <?php endif; ?>
     <script src="<?= asset_url("assets/js/public-toast-bridge.js", $baseUri) ?>" defer></script>
+    <?php if ($_isAuthPage): ?>
+    <script src="<?= asset_url("assets/js/auth-csrf-refresh.js", $baseUri) ?>" defer></script>
+    <?php endif; ?>
     <?php if ($_themeManager instanceof ThemeManager): ?>
     <?= $_themeManager->renderAssetTags("js") . "\n" ?>
     <?php endif; ?>
@@ -556,7 +565,6 @@ echo htmlspecialchars($_mLabel);
                             id="messagesDropdown"
                             data-messages-dropdown
                             data-messages-api="<?= htmlspecialchars($baseUri . '/api/messages.php', ENT_QUOTES, 'UTF-8') ?>"
-                            data-messages-fallback-url="<?= htmlspecialchars($_messagesUrl, ENT_QUOTES, 'UTF-8') ?>"
                         >
                             <button class="notif-toggle" type="button" aria-expanded="false" aria-label="Mesajlari ac" data-messages-toggle>
                                 <i class="bi bi-chat-left-text-fill"></i>
@@ -582,7 +590,7 @@ echo htmlspecialchars($_mLabel);
                             data-notif-dropdown
                             data-notif-api="<?= htmlspecialchars($baseUri . '/api/notifications.php', ENT_QUOTES, 'UTF-8') ?>"
                             data-notif-read-api="<?= htmlspecialchars($baseUri . '/api/notifications-read.php', ENT_QUOTES, 'UTF-8') ?>"
-                            data-notif-fallback-url="<?= htmlspecialchars($_notificationsUrl, ENT_QUOTES, 'UTF-8') ?>"
+                            data-notif-url="<?= htmlspecialchars($_notificationsUrl, ENT_QUOTES, 'UTF-8') ?>"
                         >
                             <button class="notif-toggle" type="button" aria-expanded="false" aria-label="Bildirimleri aç" data-notif-toggle>
                                 <i class="bi bi-bell-fill"></i>

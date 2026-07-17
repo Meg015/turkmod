@@ -72,7 +72,7 @@ function admin_notification_settings_schema(): array
             'title' => 'Geçmiş ve Bakım',
             'description' => 'Geçmiş tablosunun yoğunluğunu ve eski kayıt temizliğini kontrol eder.',
             'items' => [
-                ['key' => 'notif_history_per_page', 'type' => 'number', 'label' => 'Geçmiş Sayfa Başına', 'help' => 'Admin geçmiş tablosunda her sayfada gösterilecek kayıt sayısı.', 'default' => '20', 'min' => 10, 'max' => 100],
+                ['key' => 'notif_history_per_page', 'type' => 'number', 'label' => 'Geçmiş Sayfa Başına', 'help' => 'Admin geçmiş tablosunda her sayfada gösterilecek kayıt sayısı.', 'default' => '10', 'min' => 10, 'max' => 10],
                 ['key' => 'notif_history_message_preview', 'type' => 'number', 'label' => 'Mesaj Önizleme Uzunluğu', 'help' => 'Geçmiş tablosunda mesaj metninin kaç karakter görüneceği.', 'default' => '140', 'min' => 40, 'max' => 500],
                 ['key' => 'notif_retention_days', 'type' => 'number', 'label' => 'Saklama Süresi Gün', 'help' => 'Ayar kaydedildiğinde bu günden eski bildirimler silinir. 0 sınırsız saklar.', 'default' => '30', 'min' => 0, 'max' => 3650],
             ],
@@ -211,18 +211,60 @@ function admin_notification_log_filter(string $key, array $allowed, string $defa
     return in_array($value, $allowed, true) ? $value : $default;
 }
 
+function admin_notifications_delete_related(PDO $pdo, ?int $notificationId = null): void
+{
+    $tables = ['notification_email_queue', 'notification_reads', 'notification_dismissals'];
+    foreach ($tables as $table) {
+        if (function_exists('adminTableExists') && !adminTableExists($pdo, $table)) {
+            continue;
+        }
+
+        if ($notificationId !== null) {
+            $stmt = $pdo->prepare("DELETE FROM {$table} WHERE notification_id = ?");
+            $stmt->execute([$notificationId]);
+            continue;
+        }
+
+        $pdo->exec("DELETE FROM {$table}");
+    }
+}
+
+function admin_notifications_delete_one(PDO $pdo, int $notificationId): int
+{
+    if ($notificationId <= 0) {
+        return 0;
+    }
+
+    admin_notifications_delete_related($pdo, $notificationId);
+    $stmt = $pdo->prepare('DELETE FROM notifications WHERE id = ?');
+    $stmt->execute([$notificationId]);
+
+    return $stmt->rowCount();
+}
+
+function admin_notifications_clear_all(PDO $pdo): int
+{
+    admin_notifications_delete_related($pdo);
+    $deleted = $pdo->exec('DELETE FROM notifications');
+
+    return is_int($deleted) ? $deleted : 0;
+}
+
 $adminSettings = function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : [];
 $settingsSchema = admin_notification_settings_schema();
 $flatSettingsSchema = admin_notification_flat_settings_schema();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
+    $action = (string) ($_POST['action'] ?? '');
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
+        if (in_array($action, ['delete', 'clear_all'], true)) {
+            adminLogCleanupRespond(false, 'Güvenlik doğrulaması başarısız.', 'notifications.php?tab=history', 403);
+        }
+
         flash('error', 'Güvenlik hatası.');
         header('Location: notifications.php?tab=' . $tab);
         exit;
     }
-
-    $action = $_POST['action'] ?? '';
 
     try {
         if ($action === 'create') {
@@ -284,20 +326,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
 
         if ($action === 'delete') {
             $id = (int) ($_POST['id'] ?? 0);
-            if ($id > 0) {
-                $stmt = $pdo->prepare("DELETE FROM notifications WHERE id = ?");
-                $stmt->execute([$id]);
-                flash('success', 'Bildirim silindi.');
-            }
-            header('Location: notifications.php?tab=history');
-            exit;
+            adminRunLogCleanup($pdo, [
+                'action_type' => 'notification_records_deleted',
+                'scope' => 'single',
+                'allowed_scopes' => ['single'],
+                'permission' => 'notifications.manage',
+                'permission_message' => 'Bildirimleri yönetmek için gerekli izin hesabınıza tanımlanmamış.',
+                'redirect_url' => 'notifications.php?tab=history',
+                'source' => 'notification_history',
+                'activity_subject' => 'notifications',
+                'delete' => static fn (PDO $pdo): int => admin_notifications_delete_one($pdo, $id),
+                'context' => [
+                    'action' => 'delete',
+                    'notification_id' => $id,
+                ],
+                'require_deleted' => true,
+                'failure_message' => 'Silinecek bildirim bulunamadı.',
+                'success_message' => 'Bildirim silindi.',
+            ]);
         }
 
         if ($action === 'clear_all') {
-            $deletedCount = (int) $pdo->exec("DELETE FROM notifications");
-            flash('success', $deletedCount > 0 ? 'Tüm bildirimler silindi.' : 'Silinecek bildirim bulunmuyor.');
-            header('Location: notifications.php?tab=history');
-            exit;
+            adminRunLogCleanup($pdo, [
+                'action_type' => 'notification_records_deleted',
+                'scope' => 'all',
+                'allowed_scopes' => ['all'],
+                'permission' => 'notifications.manage',
+                'permission_message' => 'Bildirimleri yönetmek için gerekli izin hesabınıza tanımlanmamış.',
+                'redirect_url' => 'notifications.php?tab=history',
+                'source' => 'notification_history',
+                'activity_subject' => 'notifications',
+                'delete' => static fn (PDO $pdo): int => admin_notifications_clear_all($pdo),
+                'context' => [
+                    'action' => 'clear_all',
+                ],
+                'success_message' => static fn (int $deleted): string => $deleted > 0 ? 'Tüm bildirimler silindi.' : 'Silinecek bildirim bulunmuyor.',
+            ]);
         }
 
         if (in_array($action, ['save_template', 'reset_template', 'delete_template', 'send_template_test'], true)) {
@@ -397,7 +461,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
 }
 
 $page = max(1, (int) ($_GET['page'] ?? 1));
-$perPage = admin_notification_int($adminSettings, 'notif_history_per_page', 20, 10, 100);
+$perPage = adminPaginationPerPage();
 $offset = ($page - 1) * $perPage;
 $previewLength = admin_notification_int($adminSettings, 'notif_history_message_preview', 140, 40, 500);
 $maxTitleLength = admin_notification_int($adminSettings, 'notif_max_title_length', 120, 20, 255);
@@ -724,8 +788,8 @@ $csrfToken = csrf_token();
     <?php endif; ?>
 
     <?php if ($tab === 'history'): ?>
-        <div class="notif-card notif-card-flush">
-            <div class="notif-card-header notif-card-header-flush ui-admin-card-header-actions">
+        <div class="notif-card notif-card-flush logs-list-card ui-panel ui-card">
+            <div class="notif-card-header notif-card-header-flush ui-admin-card-header-actions logs-list-head ui-panel__head">
                 <div>
                     <h3>Gönderilmiş Bildirimler</h3>
                     <p>Mesaj önizleme uzunluğu ve sayfa başına kayıt sayısı ayarlardan yönetilir.</p>
@@ -733,7 +797,7 @@ $csrfToken = csrf_token();
                 <div class="ui-admin-action-row">
                     <span class="notif-badge notif-badge-global"><?= (int) $totalNotifications ?> kayıt</span>
                     <?php if ($totalNotifications > 0): ?>
-                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form" data-admin-confirm="Tüm bildirim geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz." data-admin-confirm-title="Tüm geçmiş silinsin mi?" data-admin-confirm-ok="Tümünü Sil" data-admin-confirm-tone="danger">
+                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form" data-admin-confirm="Tüm bildirim geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz." data-admin-confirm-title="Günlüğü Temizle" data-admin-confirm-ok="Tümünü Kalıcı Olarak Sil" data-admin-confirm-cancel="İptal" data-admin-confirm-tone="danger" data-admin-confirm-kind="logs-clear" data-admin-confirm-icon="bi-trash">
                             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                             <input type="hidden" name="action" value="clear_all">
                             <button type="submit" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger-outline" title="Tümünü Sil">
@@ -743,8 +807,8 @@ $csrfToken = csrf_token();
                     <?php endif; ?>
                 </div>
             </div>
-            <div class="ui-admin-table-wrapper ui-table-wrap ui-surface">
-                <table class="ui-admin-table">
+            <div class="ui-admin-table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
+                <table class="ui-admin-table admin-log-table">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -757,7 +821,7 @@ $csrfToken = csrf_token();
                     <tbody>
                         <?php if (empty($notifications)): ?>
                         <tr>
-                            <td colspan="5" class="notif-table-empty">
+                            <td colspan="5" class="admin-log-empty-row">
                                 <i class="bi bi-inbox"></i>
                                 Henüz hiç bildirim gönderilmemiş.
                             </td>
@@ -793,7 +857,7 @@ $csrfToken = csrf_token();
                                     </td>
                                     <td class="notif-date-cell"><?= date('d.m.Y H:i', strtotime((string) $notification['created_at'])) ?></td>
                                     <td class="notif-action-cell">
-                                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form" data-admin-confirm="Bu bildirimi silmek istediğinize emin misiniz? Kullanıcılardan da silinir." data-admin-confirm-title="Bildirim silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
+                                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form" data-admin-confirm="Bu bildirim kalıcı olarak silinecek ve kullanıcılardan da kaldırılacak. Bu işlem geri alınamaz." data-admin-confirm-title="Kayıtları Temizle" data-admin-confirm-ok="Seçilenleri Kalıcı Olarak Sil" data-admin-confirm-cancel="İptal" data-admin-confirm-tone="danger" data-admin-confirm-kind="logs-clear" data-admin-confirm-icon="bi-trash">
                                             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="id" value="<?= (int) $notification['id'] ?>">
@@ -812,14 +876,11 @@ $csrfToken = csrf_token();
             <?php if ($totalPages > 1): ?>
             <div class="notif-pagination-bar">
                 <span class="notif-pagination-meta">Sayfa <?= (int) $page ?> / <?= (int) $totalPages ?> (Toplam <?= (int) $totalNotifications ?> bildirim)</span>
-                <div class="notif-pagination-actions">
-                    <?php if ($page > 1): ?>
-                        <a href="?tab=history&page=<?= $page - 1 ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline"><i class="bi bi-chevron-left"></i> Önceki</a>
-                    <?php endif; ?>
-                    <?php if ($page < $totalPages): ?>
-                        <a href="?tab=history&page=<?= $page + 1 ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline">Sonraki <i class="bi bi-chevron-right"></i></a>
-                    <?php endif; ?>
-                </div>
+                <?= adminRenderPagination($totalPages, $page, static fn (int $targetPage): string => '?tab=history&page=' . $targetPage, [
+                    'wrapper_class' => 'notif-pagination-actions',
+                    'inner_class' => 'notif-pagination-list',
+                    'aria_label' => 'Bildirim geçmişi sayfalama',
+                ]) ?>
             </div>
             <?php endif; ?>
         </div>
@@ -835,8 +896,8 @@ $csrfToken = csrf_token();
                 'q' => $logFilters['q'],
             ];
         ?>
-        <div class="notif-card notif-card-flush">
-            <div class="notif-card-header notif-card-header-flush">
+        <div class="notif-card notif-card-flush logs-list-card ui-panel ui-card">
+            <div class="notif-card-header notif-card-header-flush logs-list-head ui-panel__head">
                 <div>
                     <h3><i class="bi bi-activity"></i> Bildirim Logları</h3>
                     <p>Site içi gönderim, okunma ve e-posta kuyruğu durumlarını tek ekranda izleyin.</p>
@@ -844,7 +905,7 @@ $csrfToken = csrf_token();
                 <span class="notif-badge notif-badge-global"><?= (int) $totalNotificationLogs ?> log</span>
             </div>
 
-            <div class="notif-filter-wrap">
+            <div class="notif-filter-wrap logs-toolbar-shell admin-log-filter-panel">
                 <div class="notification-log-summary">
                     <div class="notification-log-stat"><strong><?= (int) $notificationLogStats['total'] ?></strong><span>Toplam kayıt</span></div>
                     <div class="notification-log-stat"><strong><?= (int) $notificationLogStats['read'] ?></strong><span>Okunmuş</span></div>
@@ -853,7 +914,7 @@ $csrfToken = csrf_token();
                     <div class="notification-log-stat"><strong><?= (int) $notificationLogStats['email_failed'] ?></strong><span>E-posta hatalı</span></div>
                 </div>
 
-                <form method="GET" action="notifications.php" class="notification-log-filters">
+                <form method="GET" action="notifications.php" class="notification-log-filters logs-filter-form ui-admin-filter-row admin-log-filter-form">
                     <input type="hidden" name="tab" value="logs">
                     <div>
                         <label class="ui-admin-form-label">Okunma Durumu</label>
@@ -886,15 +947,15 @@ $csrfToken = csrf_token();
                         <label class="ui-admin-form-label">Arama</label>
                         <input type="search" name="q" class="ui-admin-form-control" value="<?= htmlspecialchars($logFilters['q']) ?>" placeholder="Başlık, kullanıcı, olay...">
                     </div>
-                    <div class="notification-log-filter-actions">
+                    <div class="logs-toolbar-actions">
                         <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-funnel"></i> Filtrele</button>
                         <a href="notifications.php?tab=logs" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-lg"></i></a>
                     </div>
                 </form>
             </div>
 
-            <div class="ui-admin-table-wrapper ui-table-wrap ui-surface">
-                <table class="ui-admin-table">
+            <div class="ui-admin-table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
+                <table class="ui-admin-table admin-log-table">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -908,7 +969,7 @@ $csrfToken = csrf_token();
                     <tbody>
                         <?php if (empty($notificationLogs)): ?>
                             <tr>
-                                <td colspan="6" class="notif-table-empty">
+                                <td colspan="6" class="admin-log-empty-row">
                                     <i class="bi bi-journal-x"></i>
                                     Bu filtrelerle eşleşen bildirim logu bulunamadı.
                                 </td>
@@ -1005,14 +1066,11 @@ $csrfToken = csrf_token();
             <?php if ($logTotalPages > 1): ?>
                 <div class="notif-pagination-bar">
                     <span class="notif-pagination-meta">Sayfa <?= (int) $page ?> / <?= (int) $logTotalPages ?> (Toplam <?= (int) $totalNotificationLogs ?> log)</span>
-                    <div class="notif-pagination-actions">
-                        <?php if ($page > 1): ?>
-                            <a href="?<?= htmlspecialchars(http_build_query(array_merge($logQueryBase, ['page' => $page - 1]))) ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline"><i class="bi bi-chevron-left"></i> Önceki</a>
-                        <?php endif; ?>
-                        <?php if ($page < $logTotalPages): ?>
-                            <a href="?<?= htmlspecialchars(http_build_query(array_merge($logQueryBase, ['page' => $page + 1]))) ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline">Sonraki <i class="bi bi-chevron-right"></i></a>
-                        <?php endif; ?>
-                    </div>
+                    <?= adminRenderPagination($logTotalPages, $page, static fn (int $targetPage): string => '?' . http_build_query(array_merge($logQueryBase, ['page' => $targetPage])), [
+                        'wrapper_class' => 'notif-pagination-actions',
+                        'inner_class' => 'notif-pagination-list',
+                        'aria_label' => 'Bildirim e-posta logları sayfalama',
+                    ]) ?>
                 </div>
             <?php endif; ?>
         </div>

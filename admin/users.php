@@ -17,7 +17,9 @@ if (
 $pageTitle = 'Kullanıcı Yönetimi';
 $currentUserId = (int)$_SESSION['_auth_user_id'];
 $csrfToken = csrf_token();
-$tabs = ['users', 'groups', 'banned', 'restricted', 'appeals', 'activity'];
+$tabs = ['users', 'groups', 'moderation', 'activity'];
+
+$moderationViews = ['banned', 'restricted', 'appeals'];
 $tabPartials = [
     'users' => 'admin/users-tabs/users.php',
     'groups' => 'admin/users-tabs/groups.php',
@@ -26,7 +28,19 @@ $tabPartials = [
     'appeals' => 'admin/users-tabs/appeals.php',
     'activity' => 'admin/users-tabs/activity.php',
 ];
-$activeTab = (string)($_GET['tab'] ?? 'users');
+$requestedTab = (string)($_GET['tab'] ?? 'users');
+
+$moderationView = in_array($requestedTab, $moderationViews, true)
+    ? $requestedTab
+    : (string)($_GET['moderation'] ?? 'banned');
+
+if (!in_array($moderationView, $moderationViews, true)) {
+
+    $moderationView = 'banned';
+
+}
+
+$activeTab = in_array($requestedTab, $moderationViews, true) ? 'moderation' : $requestedTab;
 if (!in_array($activeTab, $tabs, true)) {
     $activeTab = 'users';
 }
@@ -45,7 +59,7 @@ if ($activeTab === 'users' && !$canViewUsers) {
 if ($activeTab === 'groups' && !$canViewGroups) {
     adminRenderForbiddenPage('Grup yönetimini görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 }
-if (in_array($activeTab, ['banned', 'restricted', 'appeals', 'activity'], true) && !$canViewUsers) {
+if (in_array($activeTab, ['moderation', 'activity'], true) && !$canViewUsers) {
     adminRenderForbiddenPage('Bu sekmeyi görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 }
 
@@ -58,30 +72,53 @@ $selectedGroup = $selectedGroupId > 0 && function_exists('usersGetGroupById') ? 
 $selectedGroupPermissions = $selectedGroupId > 0 && function_exists('usersGetGroupPermissionMap') ? usersGetGroupPermissionMap($pdo, $selectedGroupId) : [];
 
 $isAjax = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
-$respond = static function (bool $ok, string $message, array $data = []) use ($isAjax, $activeTab): void {
+$respond = static function (bool $ok, string $message, array $data = []) use ($isAjax, $activeTab, $moderationView): void {
     if ($isAjax) {
         sendJsonResponse($ok ? 200 : 422, $ok, $message, ['ok' => $ok] + $data, $ok ? null : 'user_action_failed');
     }
 
     flash($ok ? 'success' : 'error', $message);
-    $params = ['tab' => $activeTab];
+    $params = ['tab' => $activeTab];
+
+    if ($activeTab === 'moderation') {
+
+        $params['moderation'] = $moderationView;
+
+    }
     if (isset($data['group_id']) && (int)$data['group_id'] > 0) {
         $params['group_id'] = (int)$data['group_id'];
     }
-    header('Location: users.php?' . http_build_query($params));
+    if (isset($data['appeal_id']) && (int)$data['appeal_id'] > 0) {
+
+        $params['appeal_id'] = (int)$data['appeal_id'];
+
+    }
+
+    if (isset($data['appeal_status']) && is_string($data['appeal_status']) && $data['appeal_status'] !== '') {
+
+        $params['appeal_status'] = $data['appeal_status'];
+
+    }
+
+    header('Location: users.php?' . http_build_query($params));
     exit;
 };
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verify_csrf_token($_POST['_token'] ?? ($_POST['csrf_token'] ?? ''))) {
-        $respond(false, 'Güvenlik doğrulaması başarısız.');
-    }
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = (string)($_POST['action'] ?? '');
+
+    if (!verify_csrf_token($_POST['_token'] ?? ($_POST['csrf_token'] ?? ''))) {
+        if ($action === 'clear_activity_logs') {
+            adminLogCleanupRespond(false, 'Güvenlik doğrulaması başarısız.', 'users.php?tab=activity', 403);
+        }
+
+        $respond(false, 'Güvenlik doğrulaması başarısız.');
+    }
     if (!userHasPermission($pdo, $currentUserId, 'users.edit') && !userHasPermission($pdo, $currentUserId, 'groups.edit')) {
         $respond(false, 'Bu işlemi yapma yetkiniz yok.');
     }
 
-    $action = (string)($_POST['action'] ?? '');
-    $userId = (int)($_POST['user_id'] ?? 0);
+    $userId = (int)($_POST['user_id'] ?? 0);
     $canEditUsers = userHasPermission($pdo, $currentUserId, 'users.edit');
     $canEditGroups = userHasPermission($pdo, $currentUserId, 'groups.edit');
     $userManagedActions = [
@@ -95,7 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'remove_restriction',
         'remove_all_restrictions',
         'add_admin_note',
-        'appeal_update',
+        'appeal_update',
+
+        'appeal_reply',
         'bulk_action',
         'bulk_appeal_update',
     ];
@@ -191,37 +230,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'clear_activity_logs':
-                if (!$canManageLogs) {
-                    $respond(false, 'Bu işlemi yapma yetkiniz yok.');
-                    break;
-                }
-
                 $scope = (string)($_POST['scope'] ?? '');
                 $targetUserId = (int)($_POST['target_user_id'] ?? 0);
 
-                if ($scope === 'user' && $targetUserId <= 0) {
-                    $respond(false, 'Geçersiz temizleme kapsamı.');
-                    break;
-                }
-                if (!in_array($scope, ['user', 'older_than_30_days', 'all'], true)) {
-                    $respond(false, 'Geçersiz temizleme kapsamı.');
-                    break;
-                }
-
-                $deletedCount = function_exists('userActivityClear')
-                    ? userActivityClear($pdo, $scope, $targetUserId > 0 ? $targetUserId : null)
-                    : 0;
-
-                if (function_exists('adminLogAction')) {
-                    $scopeMap = [
-                        'all' => 'Tümü',
-                        'older_than_30_days' => '30 Günden Eskiler',
-                        'user' => 'Belirli Kullanıcı',
-                    ];
-                    $scopeName = $scopeMap[$scope] ?? $scope;
-                    adminAuditLogger()->logAction($pdo, 'activity_logs_cleared', 'system', 0, "Kapsam: $scopeName, Silinen: $deletedCount", [], [], true);
-                }
-                $respond(true, "Tebrikler, $deletedCount adet kayıt hiçbir kalıntı bırakılmadan temizlendi ve sayaçlar sıfırlandı!");
+                adminRunLogCleanup($pdo, [
+                    'action_type' => 'activity_logs_cleared',
+                    'scope' => $scope,
+                    'allowed_scopes' => ['user', 'older_than_30_days', 'all'],
+                    'permission' => 'logs.manage',
+                    'permission_message' => 'Bu işlemi yapma yetkiniz yok.',
+                    'redirect_url' => 'users.php?tab=activity',
+                    'source' => 'users_activity_tab',
+                    'validate' => static fn (string $scope): string => $scope === 'user' && $targetUserId <= 0 ? 'Geçersiz temizleme kapsamı.' : '',
+                    'delete' => static fn (PDO $pdo, string $scope): int => function_exists('userActivityClear') ? userActivityClear($pdo, $scope, $targetUserId > 0 ? $targetUserId : null) : 0,
+                    'context' => [
+                        'target_user_id' => $targetUserId > 0 ? $targetUserId : null,
+                    ],
+                    'success_message' => static fn (int $deleted): string => "Tebrikler, $deleted adet kayıt hiçbir kalıntı bırakılmadan temizlendi ve sayaçlar sıfırlandı!",
+                ]);
                 break;
 
             case 'ban':
@@ -235,17 +261,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 usersBan($pdo, $userId, $reason);
                 adminAuditLogger()->logAction($pdo, 'ban', 'user', $userId, $reason,
                     ['is_banned' => 0], ['is_banned' => 1], true);
-                usersDispatchAccountNotification(
-                    $pdo,
-                    'user_banned',
-                    $userId,
-                    $currentUserId,
-                    'Hesabiniz banlandi. Sebep: ' . $reason,
-                    'error',
-                    function_exists('routePublicStaticPath')
-                        ? '/' . ltrim((string) routePublicStaticPath('ban_appeals'), '/')
-                        : '/ban-itiraz'
-                );
                 $respond(true, 'Kullanıcı banlandı.');
                 break;
 
@@ -332,17 +347,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'appeal_update':
-                $error = usersUpdateBanAppeal(
+                $appealId = (int)($_POST['appeal_id'] ?? 0);
+
+                $error = usersUpdateBanAppeal(
                     $pdo,
-                    (int)($_POST['appeal_id'] ?? 0),
+                    $appealId,
                     (string)($_POST['appeal_status'] ?? ''),
                     (string)($_POST['admin_note'] ?? ''),
                     $currentUserId
                 );
-                $respond($error === '', $error === '' ? 'Ban itirazı güncellendi.' : $error);
+                $respond($error === '', $error === '' ? 'Ban itirazi guncellendi.' : $error, ['appeal_id' => $appealId]);
                 break;
 
-            case 'bulk_action':
+            case 'appeal_reply':
+
+                $appealId = (int)($_POST['appeal_id'] ?? 0);
+
+                $error = usersReplyBanAppeal(
+
+                    $pdo,
+
+                    $appealId,
+
+                    $currentUserId,
+
+                    (string)($_POST['appeal_reply'] ?? '')
+
+                );
+
+                $respond($error === '', $error === '' ? 'Yonetici cevabi eklendi.' : $error, ['appeal_id' => $appealId]);
+
+                break;
+
+
+
+            case 'bulk_action':
                 $error = usersApplyBulkAction($pdo, (string)($_POST['bulk_action'] ?? ''), (array)($_POST['user_ids'] ?? []), $currentUserId, $_POST, $validGroupIds);
                 $respond($error === '', $error === '' ? 'Toplu işlem uygulandı.' : $error);
                 break;
@@ -374,9 +413,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $search = sanitizeSearchQuery($_GET['q'] ?? ($_GET['search'] ?? ''));
 $filterGroup = trim((string)($_GET['group'] ?? ''));
-$filterStatus = trim((string)($_GET['status'] ?? ''));
+$filterStatus = trim((string)($_GET['status'] ?? ''));
+
+$usersSortOptions = ['id', 'user', 'email', 'group', 'status', 'restrictions', 'activity', 'created'];
+
+$usersSort = (string)($_GET['sort'] ?? 'id');
+
+if (!in_array($usersSort, $usersSortOptions, true)) {
+
+    $usersSort = 'id';
+
+}
+
+$usersDir = strtolower((string)($_GET['dir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc';
 $usersPage = max(1, (int)($_GET['page'] ?? 1));
-$usersPerPage = 25;
+$usersPerPage = adminPaginationPerPage();
 $usersOffset = ($usersPage - 1) * $usersPerPage;
 $usersTotal = 0;
 $usersTotalPages = 1;
@@ -388,8 +439,12 @@ $bannedUsers = [];
 $restrictedUsers = [];
 $restrictedUserRestrictionsMap = [];
 $appealFilter = '';
-$appealStats = ['open' => 0, 'reviewing' => 0, 'accepted' => 0, 'rejected' => 0];
-$banAppeals = [];
+$appealStats = ['total' => 0, 'open' => 0, 'reviewing' => 0, 'accepted' => 0, 'rejected' => 0];
+$banAppeals = [];
+
+$selectedAppealId = 0;
+
+$selectedBanAppeal = null;
 
 $editId = (int)($_GET['edit'] ?? 0);
 if ($editId > 0) {
@@ -400,25 +455,62 @@ if ($viewRestrictionsUserId > 0) {
     $userRestrictions = usersGetRestrictions($pdo, $viewRestrictionsUserId);
 }
 
-if ($activeTab === 'users') {
+$appealStats = usersGetBanAppealStats($pdo);
+
+if ($activeTab === 'users') {
     $usersTotal = usersCountList($pdo, $search, $filterGroup, $filterStatus);
-    $usersTotalPages = max(1, (int)ceil($usersTotal / $usersPerPage));
-    $users = usersGetList($pdo, $search, $filterGroup, $filterStatus, $usersPerPage, $usersOffset);
-} elseif ($activeTab === 'banned') {
+    $usersTotalPages = max(1, (int)ceil($usersTotal / $usersPerPage));
+    if ($usersPage > $usersTotalPages) {
+        $usersPage = $usersTotalPages;
+        $usersOffset = ($usersPage - 1) * $usersPerPage;
+    }
+    $users = usersGetList($pdo, $search, $filterGroup, $filterStatus, $usersPerPage, $usersOffset, $usersSort, $usersDir);
+} elseif ($activeTab === 'moderation' && $moderationView === 'banned') {
     $bannedUsers = usersGetBannedList($pdo, $search);
-} elseif ($activeTab === 'restricted') {
+} elseif ($activeTab === 'moderation' && $moderationView === 'restricted') {
     $restrictedUsers = usersGetRestrictedList($pdo, $search);
     if (!empty($restrictedUsers)) {
         $restrictedUserRestrictionsMap = usersGetRestrictionsForUsers($pdo, array_column($restrictedUsers, 'id'));
     }
-} elseif ($activeTab === 'appeals') {
+} elseif ($activeTab === 'moderation' && $moderationView === 'appeals') {
     $appealFilter = trim((string)($_GET['appeal_status'] ?? ''));
-    $appealStats = usersGetBanAppealStats($pdo);
-    $banAppeals = usersGetBanAppealsForAdmin($pdo, $appealFilter);
+    $selectedAppealId = max(0, (int)($_GET['appeal_id'] ?? 0));
+
+    $banAppeals = usersGetBanAppealsForAdmin($pdo, $appealFilter);
+
+    if ($selectedAppealId > 0) {
+
+        $selectedBanAppeal = usersGetBanAppealForAdmin($pdo, $selectedAppealId);
+
+    }
 }
 
-$stats = usersGetStats($pdo);
-
+$stats = usersGetStats($pdo);
+
+$adminGroupId = 0;
+
+foreach ($groups as $group) {
+
+    if ((string)($group['slug'] ?? '') === 'admin') {
+
+        $adminGroupId = (int)$group['id'];
+
+        break;
+
+    }
+
+}
+
+$currentTabParams = ['tab' => $activeTab];
+
+if ($activeTab === 'moderation') {
+
+    $currentTabParams['moderation'] = $moderationView;
+
+}
+
+$currentTabUrl = 'users.php?' . http_build_query($currentTabParams);
+
 $successMsg = get_flash('success');
 $errorMsg = get_flash('error');
 
@@ -440,11 +532,13 @@ require_once __DIR__ . '/header.php';
     </section>
 
     <div class="users-summary">
-        <div class="users-stat"><span>Toplam</span><strong><?= number_format((int)$stats['total']) ?></strong></div>
-        <div class="users-stat"><span>Aktif</span><strong><?= number_format((int)$stats['active']) ?></strong></div>
-        <div class="users-stat"><span>Banlı</span><strong><?= number_format((int)$stats['banned']) ?></strong></div>
-        <div class="users-stat"><span>Kısıtlı</span><strong><?= number_format((int)$stats['restricted']) ?></strong></div>
-        <div class="users-stat"><span>Admin</span><strong><?= number_format((int)$stats['admins']) ?></strong></div>
+        <a class="users-stat <?= $activeTab === 'users' && $search === '' && $filterGroup === '' && $filterStatus === '' ? 'is-active' : '' ?>" href="users.php?tab=users"><span>Toplam</span><strong><?= number_format((int)$stats['total']) ?></strong></a>
+        <a class="users-stat <?= $activeTab === 'users' && $filterStatus === 'active' ? 'is-active' : '' ?>" href="users.php?tab=users&amp;status=active"><span>Aktif</span><strong><?= number_format((int)$stats['active']) ?></strong></a>
+        <a class="users-stat <?= $activeTab === 'moderation' && $moderationView === 'banned' ? 'is-active' : '' ?>" href="users.php?tab=moderation&amp;moderation=banned"><span>Banlı</span><strong><?= number_format((int)$stats['banned']) ?></strong></a>
+        <a class="users-stat <?= $activeTab === 'moderation' && $moderationView === 'restricted' ? 'is-active' : '' ?>" href="users.php?tab=moderation&amp;moderation=restricted"><span>Kısıtlı</span><strong><?= number_format((int)$stats['restricted']) ?></strong></a>
+        <a class="users-stat <?= $activeTab === 'users' && $adminGroupId > 0 && (int)$filterGroup === $adminGroupId ? 'is-active' : '' ?>" href="users.php?tab=users<?= $adminGroupId > 0 ? '&amp;group=' . $adminGroupId : '' ?>"><span>Admin</span><strong><?= number_format((int)$stats['admins']) ?></strong></a>
+
+        <a class="users-stat users-stat-attention <?= $activeTab === 'moderation' && $moderationView === 'appeals' && $appealFilter === 'open' ? 'is-active' : '' ?>" href="users.php?tab=moderation&amp;moderation=appeals&amp;appeal_status=open"><span>Açık İtiraz</span><strong><?= number_format((int)($appealStats['open'] ?? 0)) ?></strong></a>
     </div>
 
     <nav class="users-tabs" aria-label="Kullanıcı yönetimi sekmeleri">
@@ -452,9 +546,7 @@ require_once __DIR__ . '/header.php';
         $tabLinks = [
             'users' => ['Tüm Kullanıcılar', 'bi-people'],
             'groups' => ['Gruplar', 'bi-diagram-3'],
-            'banned' => ['Banlılar', 'bi-slash-circle'],
-            'restricted' => ['Kısıtlılar', 'bi-shield-exclamation'],
-            'appeals' => ['Ban İtirazları', 'bi-envelope-exclamation'],
+            'moderation' => ['Moderasyon', 'bi-shield-check'],
             'activity' => ['Kullanıcı İzleme', 'bi-activity'],
         ];
         foreach ($tabLinks as $tabKey => [$label, $icon]):
@@ -468,12 +560,8 @@ require_once __DIR__ . '/header.php';
     <?php
     if ($activeTab === 'groups') {
         require dirname(__DIR__) . '/' . $tabPartials['groups'];
-    } elseif ($activeTab === 'banned') {
-        require dirname(__DIR__) . '/' . $tabPartials['banned'];
-    } elseif ($activeTab === 'restricted') {
-        require dirname(__DIR__) . '/' . $tabPartials['restricted'];
-    } elseif ($activeTab === 'appeals') {
-        require dirname(__DIR__) . '/' . $tabPartials['appeals'];
+    } elseif ($activeTab === 'moderation') {
+        require dirname(__DIR__) . '/admin/users-tabs/moderation.php';
     } elseif ($activeTab === 'activity') {
         require dirname(__DIR__) . '/' . $tabPartials['activity'];
     } else {
@@ -489,9 +577,9 @@ require_once __DIR__ . '/header.php';
                     <h3 class="ui-admin-modal-title"><i class="bi bi-pencil-square"></i> Kullanıcıyı Düzenle</h3>
                     <p class="user-edit-help" id="userEditEmailPreview"><?= htmlspecialchars((string) ($editUser['email'] ?? '')) ?></p>
                 </div>
-                <a href="users.php?tab=<?= htmlspecialchars($activeTab) ?>" class="user-edit-close" data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></a>
+                <a href="<?= htmlspecialchars($currentTabUrl) ?>" class="user-edit-close" data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></a>
             </div>
-            <form method="post" action="users.php?tab=<?= htmlspecialchars($activeTab) ?>">
+            <form method="post" action="<?= htmlspecialchars($currentTabUrl) ?>">
                 <div class="media-modal-body ui-panel__body">
                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="action" value="save_user">
@@ -674,11 +762,11 @@ require_once __DIR__ . '/header.php';
                         <select name="restrict_types[]" id="restrictTypes" class="ui-admin-form-select ui-admin-select-auto" multiple size="7" required>
                             <option value="profile">Profil Düzenleme</option>
                             <option value="events">Etkinlik Kullanımı</option>
-                            <option value="all">🚫 Tüm İşlemler (En ciddi kısıtlama)</option>
-                            <option value="comment">💬 Yorum Yapma</option>
-                            <option value="topic">📝 Konu Oluşturma</option>
-                            <option value="upload">📤 Dosya Yükleme</option>
-                            <option value="download">📥 İndirme</option>
+                            <option value="all">Tüm İşlemler</option>
+                            <option value="comment">Yorum Yapma</option>
+                            <option value="topic">Konu Oluşturma</option>
+                            <option value="upload">Dosya Yükleme</option>
+                            <option value="download">İndirme</option>
                         </select>
                         <small class="ui-admin-help-block">
                             <i class="bi bi-info-circle"></i> Ctrl/Cmd tuşu ile birden fazla seçim yapabilirsiniz
@@ -723,7 +811,7 @@ require_once __DIR__ . '/header.php';
                     <i class="bi bi-shield-exclamation"></i>
                     <?= htmlspecialchars((string) ($restrictedUser['username'] ?? 'Kullanici')) ?> - Kısıtlamalar
                 </h3>
-                <a href="users.php?tab=<?= htmlspecialchars($activeTab) ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost">&times;</a>
+                <a href="<?= htmlspecialchars($currentTabUrl) ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost">&times;</a>
             </div>
             <div class="media-modal-body ui-panel__body">
                 <div class="ui-admin-section-head-inline ui-panel__head">

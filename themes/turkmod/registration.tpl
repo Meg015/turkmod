@@ -13,8 +13,9 @@
                     </header>
 
                     {if auth_allow_registration}
-                    <form class="ui-form ui-theme-auth-form" method="post" action="{base_url}/kayit" novalidate>
+                    <form class="ui-form ui-theme-auth-form" method="post" action="{auth_register_url}" novalidate data-auth-csrf-refresh>
                         <input type="hidden" name="_token" value="{auth_csrf_token}">
+                        <input type="hidden" name="redirect" value="{auth_redirect}">
 
                         <div class="auth-field ui-field ui-theme-auth-field">
                             <label class="ui-label" for="username">Kullanıcı Adı</label>
@@ -70,7 +71,7 @@
 
                     <div class="ui-theme-auth-switch">
                         <span>Zaten hesabın var mı?</span>
-                        <a href="{base_url}/giris">Giriş yap</a>
+                        <a href="{auth_login_url}">Giriş yap</a>
                     </div>
                 </div>
 

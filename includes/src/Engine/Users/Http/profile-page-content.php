@@ -607,7 +607,7 @@ $safeTopicStatusFilter = (string) $topicStatusFilter;
 
 $safeActivityFilter = profileResolveActivityFilter($activityFilter);
 
-$renderProfilePagination = static function (string $tabKey) use ($baseUri, $profileTotals, $profilePages, $profilePerPage, $profilePageParams, $safeTopicStatusFilter, $safeActivityFilter): string {
+$renderProfilePagination = static function (string $tabKey) use ($baseUri, $profilePageBaseUrl, $profileTotals, $profilePages, $profilePerPage, $profilePageParams, $safeTopicStatusFilter, $safeActivityFilter): string {
 
     if ($profileTotals[$tabKey] <= 0) {
 
@@ -1224,7 +1224,7 @@ require_once $projectRoot . "/includes/public-header.php";
 
     </a>
 
-    <a href="<?= $baseUri ?>/notifications.php" class="profile-quick-card ui-card">
+    <a href="<?= htmlspecialchars(routePublicStaticUrl('notifications'), ENT_QUOTES, 'UTF-8') ?>" class="profile-quick-card ui-card">
 
         <i class="bi bi-bell" aria-hidden="true"></i>
 

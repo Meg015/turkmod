@@ -234,11 +234,11 @@ function submitRestriction(e) {
 
     // Show confirmation with selected types
     const typeLabels = {
-        'all': '🚫 Tüm İşlemler',
-        'comment': '💬 Yorum Yapma',
-        'topic': '📝 Konu Oluşturma',
-        'upload': '📤 Dosya Yükleme',
-        'download': '📥 İndirme',
+        'all': 'Tüm İşlemler',
+        'comment': 'Yorum Yapma',
+        'topic': 'Konu Oluşturma',
+        'upload': 'Dosya Yükleme',
+        'download': 'İndirme',
         'profile': 'Profil Düzenleme',
         'events': 'Etkinlik Kullanımı'
     };
@@ -384,7 +384,11 @@ document.getElementById('viewRestrictionsModal')?.addEventListener('click', func
     if (e.target === this) {
         const urlParams = new URLSearchParams(window.location.search);
         const currentTab = urlParams.get('tab') || 'users';
-        window.location.href = 'users.php?tab=' + encodeURIComponent(currentTab);
+        const nextParams = new URLSearchParams({ tab: currentTab });
+        if (currentTab === 'moderation') {
+            nextParams.set('moderation', urlParams.get('moderation') || 'restricted');
+        }
+        window.location.href = 'users.php?' + nextParams.toString();
     }
 });
 
@@ -393,32 +397,68 @@ document.getElementById('userEditModal')?.addEventListener('click', function(e) 
 });
 
 document.querySelectorAll('[data-user-edit-open]').forEach(button => {
-    button.addEventListener('click', function() {
+    button.addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
         openUserEditModal(this);
     });
 });
 
 document.querySelectorAll('[data-admin-note-open]').forEach(button => {
-    button.addEventListener('click', function() {
+    button.addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
         openAdminNoteModal(this.getAttribute('data-user-id'), this.getAttribute('data-user-name') || '');
     });
 });
 
 document.addEventListener('click', function(event) {
+    const editTrigger = event.target.closest('[data-user-edit-open]');
+    if (editTrigger) {
+        event.preventDefault();
+        if (editTrigger.closest('#userDetailModal')) {
+            closeUserDetail();
+        }
+        openUserEditModal(editTrigger);
+        return;
+    }
+
+    const noteTrigger = event.target.closest('[data-admin-note-open]');
+    if (noteTrigger) {
+        event.preventDefault();
+        if (noteTrigger.closest('#userDetailModal')) {
+            closeUserDetail();
+        }
+        openAdminNoteModal(noteTrigger.getAttribute('data-user-id'), noteTrigger.getAttribute('data-user-name') || '');
+        return;
+    }
+
     const unbanTrigger = event.target.closest('[data-user-unban]');
     if (unbanTrigger) {
+        event.preventDefault();
+        if (unbanTrigger.closest('#userDetailModal')) {
+            closeUserDetail();
+        }
         unbanUser(unbanTrigger.getAttribute('data-user-unban'));
         return;
     }
 
     const banTrigger = event.target.closest('[data-user-ban]');
     if (banTrigger) {
+        event.preventDefault();
+        if (banTrigger.closest('#userDetailModal')) {
+            closeUserDetail();
+        }
         openBanModal(banTrigger.getAttribute('data-user-ban'), banTrigger.getAttribute('data-user-name') || '');
         return;
     }
 
     const restrictionTrigger = event.target.closest('[data-user-restrict]');
     if (restrictionTrigger) {
+        event.preventDefault();
+        if (restrictionTrigger.closest('#userDetailModal')) {
+            closeUserDetail();
+        }
         openRestrictionModal(restrictionTrigger.getAttribute('data-user-restrict'), restrictionTrigger.getAttribute('data-user-name') || '');
         return;
     }
@@ -467,6 +507,220 @@ document.querySelectorAll('.ui-admin-alert-close').forEach(btn => {
         }, 200);
     });
 });
+
+(function bindUserBulkActions() {
+    const form = document.querySelector('[data-user-bulk-form]');
+    if (!form) return;
+
+    const selectAll = form.querySelector('[data-user-select-all]');
+    const checkboxes = Array.from(form.querySelectorAll('[data-user-row-checkbox]'));
+    const countEl = form.querySelector('[data-user-selected-count]');
+    const actionSelect = form.querySelector('[data-user-bulk-action]');
+    const submitBtn = form.querySelector('.user-bulk-submit');
+    const extraFields = Array.from(form.querySelectorAll('[data-user-bulk-field]'));
+
+    function selectedCount() {
+        return checkboxes.filter(function (checkbox) { return checkbox.checked; }).length;
+    }
+
+    function selectedUsers() {
+        return checkboxes.filter(function (checkbox) { return checkbox.checked; }).map(function (checkbox) {
+            return checkbox.getAttribute('data-user-name') || ('#' + checkbox.value);
+        });
+    }
+
+    function plainText(html) {
+        var node = document.createElement('div');
+        node.innerHTML = html;
+        return node.textContent || node.innerText || '';
+    }
+
+    function buildBulkConfirm(action, count) {
+        const selected = selectedUsers();
+        const visibleNames = selected.slice(0, 3).map(escHtml).join(', ');
+        const restText = count > 3 ? ' ve ' + (count - 3) + ' kişi daha' : '';
+        const selectedLine = visibleNames ? visibleNames + restText : count + ' kullanıcı';
+        const groupField = form.querySelector('[data-user-bulk-field="change_group"]');
+        const reasonField = form.querySelector('[data-user-bulk-field="ban"]');
+        const groupName = groupField && groupField.selectedOptions[0] ? groupField.selectedOptions[0].textContent.trim() : '';
+        const banReason = reasonField ? String(reasonField.value || '').trim() : '';
+        const config = {
+            activate: {
+                label: 'Aktif yap',
+                detail: 'Seçili hesaplar aktif duruma alınacak.',
+                title: 'Kullanıcılar aktif yapılsın mı?',
+                ok: 'Aktif Yap',
+                tone: 'success'
+            },
+            deactivate: {
+                label: 'Pasif yap',
+                detail: 'Seçili hesaplar pasif duruma alınacak.',
+                title: 'Kullanıcılar pasif yapılsın mı?',
+                ok: 'Pasif Yap',
+                tone: 'warning'
+            },
+            change_group: {
+                label: 'Grup değiştir',
+                detail: groupName ? 'Hedef grup: ' + groupName : 'Hedef grup seçilecek.',
+                title: 'Kullanıcı grupları değiştirilsin mi?',
+                ok: 'Grubu Değiştir',
+                tone: 'warning'
+            },
+            ban: {
+                label: 'Banla',
+                detail: banReason ? 'Ban gerekçesi: ' + banReason : 'Ban gerekçesi girilecek.',
+                title: 'Kullanıcılar banlansın mı?',
+                ok: 'Banla',
+                tone: 'danger'
+            },
+            unban: {
+                label: 'Ban kaldır',
+                detail: 'Seçili hesapların ban durumu kaldırılacak.',
+                title: 'Banlar kaldırılsın mı?',
+                ok: 'Ban Kaldır',
+                tone: 'success'
+            }
+        }[action] || {
+            label: 'Toplu işlem',
+            detail: 'Seçili kullanıcılara işlem uygulanacak.',
+            title: 'Toplu işlem uygulansın mı?',
+            ok: 'Uygula',
+            tone: 'warning'
+        };
+
+        return {
+            title: config.title,
+            ok: config.ok,
+            tone: config.tone,
+            message: count + ' kullanıcı seçildi.'
+                + '\nİşlem: ' + config.label
+                + '\nEtki: ' + config.detail
+                + '\nSeçim: ' + selectedLine
+        };
+    }
+
+    function syncExtraFields() {
+        const action = actionSelect ? actionSelect.value : '';
+        extraFields.forEach(function (field) {
+            const visible = field.getAttribute('data-user-bulk-field') === action;
+            field.hidden = !visible;
+            field.disabled = !visible;
+            if (!visible) {
+                field.value = '';
+            }
+        });
+    }
+
+    function syncBulkState() {
+        const count = selectedCount();
+        if (countEl) {
+            countEl.textContent = count + ' seçili';
+        }
+        if (selectAll) {
+            selectAll.checked = count > 0 && count === checkboxes.length;
+            selectAll.indeterminate = count > 0 && count < checkboxes.length;
+        }
+        if (submitBtn) {
+            submitBtn.disabled = count === 0;
+        }
+        syncExtraFields();
+    }
+
+    selectAll?.addEventListener('change', function () {
+        checkboxes.forEach(function (checkbox) {
+            checkbox.checked = selectAll.checked;
+        });
+        syncBulkState();
+    });
+
+    checkboxes.forEach(function (checkbox) {
+        checkbox.addEventListener('change', syncBulkState);
+    });
+
+    actionSelect?.addEventListener('change', syncBulkState);
+
+    form.addEventListener('submit', function (event) {
+        const count = selectedCount();
+        const action = actionSelect ? actionSelect.value : '';
+        const alertUser = function (message) {
+            if (typeof adminAlert === 'function') {
+                adminAlert(message, { title: 'Uyarı', tone: 'warning' });
+            } else {
+                alert(message);
+            }
+        };
+
+        if (count === 0) {
+            event.preventDefault();
+            event.stopPropagation();
+            alertUser('Toplu işlem için en az bir kullanıcı seçin.');
+            return;
+        }
+        if (!action) {
+            event.preventDefault();
+            event.stopPropagation();
+            alertUser('Uygulanacak toplu işlemi seçin.');
+            return;
+        }
+        if (action === 'change_group') {
+            const groupField = form.querySelector('[data-user-bulk-field="change_group"]');
+            if (!groupField || !groupField.value) {
+                event.preventDefault();
+                event.stopPropagation();
+                alertUser('Grup değiştirmek için hedef grup seçin.');
+                return;
+            }
+        }
+        if (action === 'ban') {
+            const reasonField = form.querySelector('[data-user-bulk-field="ban"]');
+            if (!reasonField || !String(reasonField.value || '').trim()) {
+                event.preventDefault();
+                event.stopPropagation();
+                alertUser('Toplu ban işlemi için gerekçe yazın.');
+                return;
+            }
+        }
+
+        if (form.dataset.userBulkConfirmed === '1') {
+            delete form.dataset.userBulkConfirmed;
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        const confirmData = buildBulkConfirm(action, count);
+        const confirmPromise = typeof adminConfirm === 'function'
+            ? adminConfirm(confirmData.message, {
+                title: confirmData.title,
+                ok: confirmData.ok,
+                cancel: 'Vazgeç',
+                tone: confirmData.tone
+            })
+            : Promise.resolve(window.confirm(plainText(confirmData.message)));
+
+        confirmPromise.then(function (confirmed) {
+            if (!confirmed) {
+                return;
+            }
+            form.dataset.userBulkConfirmed = '1';
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit(submitBtn || undefined);
+            } else {
+                HTMLFormElement.prototype.submit.call(form);
+            }
+        });
+    });
+
+    document.addEventListener('click', function (event) {
+        document.querySelectorAll('.user-row-actions-menu[open]').forEach(function (menu) {
+            if (!menu.contains(event.target)) {
+                menu.removeAttribute('open');
+            }
+        });
+    });
+
+    syncBulkState();
+})();
 
 // Add smooth fade-in animation to modal on load
 document.addEventListener('DOMContentLoaded', function() {
@@ -526,14 +780,48 @@ function openUserDetail(userId) {
                 }
                 return '<ul class="ui-admin-detail-list">' + arr.map(render).join('') + '</ul>';
             }
+            function editAttrs(user) {
+                return ' data-user-id="' + escHtml(user.id) + '"'
+                    + ' data-user-name="' + escHtml(user.name || user.username || '') + '"'
+                    + ' data-user-username="' + escHtml(user.username || user.name || '') + '"'
+                    + ' data-user-email="' + escHtml(user.email || '') + '"'
+                    + ' data-user-group="' + escHtml(user.group_id || '') + '"'
+                    + ' data-user-status="' + escHtml(user.status || 'active') + '"'
+                    + ' data-user-location="' + escHtml(user.location || '') + '"'
+                    + ' data-user-website="' + escHtml(user.website || '') + '"'
+                    + ' data-user-github="' + escHtml(user.social_github || '') + '"'
+                    + ' data-user-twitter="' + escHtml(user.social_twitter || '') + '"'
+                    + ' data-user-discord="' + escHtml(user.social_discord || '') + '"'
+                    + ' data-user-bio="' + escHtml(user.bio || '') + '"';
+            }
+            function quickActionHtml(user, userName) {
+                var actions = ''
+                    + '<a href="users.php?tab=activity&amp;user_id=' + encodeURIComponent(user.id || '') + '" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline"><i class="bi bi-activity"></i> Aktivite</a>'
+                    + '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" data-admin-note-open data-user-id="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-journal-plus"></i> Not Ekle</button>'
+                    + '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary" data-user-edit-open' + editAttrs(user) + '><i class="bi bi-pencil"></i> Düzenle</button>';
+
+                if (user.can_moderate) {
+                    actions += user.is_banned
+                        ? '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-success" data-user-unban="' + escHtml(user.id) + '"><i class="bi bi-check-circle"></i> Ban Kaldır</button>'
+                        : '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger" data-user-ban="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-slash-circle"></i> Banla</button>';
+                    actions += '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" data-user-restrict="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-shield-exclamation"></i> Kısıtla</button>';
+                }
+
+                return '<div class="ui-admin-detail-actions">' + actions + '</div>';
+            }
+
+            var userName = d.name || d.username || ('#' + d.id);
+            var activeRestrictionCount = (d.restrictions && d.restrictions.length) || 0;
+            var noteCount = (d.admin_notes && d.admin_notes.length) || 0;
+            var statusLabel = ({ active: 'Aktif', inactive: 'Pasif' })[String(d.status || '').toLowerCase()] || (d.status || 'Aktif');
             var banBadge = d.is_banned
                 ? '<span class="ui-admin-badge ui-admin-badge-danger">Yasaklı</span>' + (d.ban_reason ? ' <span class="ui-admin-muted">(' + escHtml(d.ban_reason) + ')</span>' : '')
-                : '<span class="ui-admin-badge ui-admin-badge-success">' + escHtml(d.status || 'aktif') + '</span>';
+                : '<span class="ui-admin-badge ui-admin-badge-success">' + escHtml(statusLabel) + '</span>';
 
             var html = ''
                 + '<div class="ui-admin-detail-head ui-panel__head">'
-                +   '<div><strong>' + escHtml(d.name) + '</strong> <span class="ui-admin-muted">' + escHtml(d.email) + '</span></div>'
-                +   '<div>' + banBadge + ' <span class="ui-admin-badge">' + escHtml(d.group_name) + '</span></div>'
+                +   '<div class="ui-admin-detail-identity"><strong>' + escHtml(userName) + '</strong><span>' + escHtml(d.email) + '</span><small>Son aktivite: ' + escHtml(d.last_activity_at || 'Kayıt yok') + '</small></div>'
+                +   '<div class="ui-admin-detail-badges">' + banBadge + ' <span class="ui-admin-badge">' + escHtml(d.group_name || 'Üye') + '</span></div>'
                 + '</div>'
                 + '<div class="ui-admin-detail-stats">'
                 +   '<span><b>' + (s.total_topics || 0) + '</b> konu</span>'
@@ -541,7 +829,18 @@ function openUserDetail(userId) {
                 +   '<span><b>' + (s.total_downloads || 0) + '</b> indirme</span>'
                 +   '<span><b>' + (d.reports_about || 0) + '</b> şikayet</span>'
                 + '</div>'
+                + '<div class="ui-admin-detail-decision">'
+                +   '<div><span>Son giriş</span><strong>' + escHtml(d.last_login_at || 'Kayıt yok') + '</strong></div>'
+                +   '<div><span>Son IP</span><strong>' + escHtml(d.last_login_ip || 'Yok') + '</strong></div>'
+                +   '<div><span>Aktif kısıtlama</span><strong>' + activeRestrictionCount + '</strong></div>'
+                +   '<div><span>Admin notu</span><strong>' + noteCount + '</strong></div>'
+                + '</div>'
+                + quickActionHtml(d, userName)
                 + '<div class="ui-admin-detail-grid ui-grid">'
+                +   '<div class="ui-admin-detail-full"><h4>Son Aktivite</h4>' + listOrEmpty(d.recent_activity, function (a) {
+                        var detail = [a.group, a.device, a.ip_address].filter(Boolean).map(escHtml).join(' · ');
+                        return '<li><b>' + escHtml(a.event || a.title || 'Aktivite') + '</b> <span class="ui-admin-muted">' + escHtml(a.created_at || '') + '</span>' + (detail ? '<br><span class="ui-admin-muted">' + detail + '</span>' : '') + (a.title && a.title !== a.event ? '<br><span>' + escHtml(a.title) + '</span>' : '') + '</li>';
+                    }) + '</div>'
                 +   '<div><h4>Son Konular</h4>' + listOrEmpty(d.recent_topics, function (t) {
                         var topicHref = t.url || '#';
                         return '<li><a href="' + escHtml(topicHref) + '" target="_blank" rel="noopener">' + escHtml(t.title) + '</a> <span class="ui-admin-muted">' + escHtml(t.created_at) + '</span></li>';
@@ -555,11 +854,16 @@ function openUserDetail(userId) {
                 +   '<div><h4>Aktif Kısıtlamalar</h4>' + listOrEmpty(d.restrictions, function (r) {
                         return '<li>' + escHtml(r.type || r.restriction_type || 'kısıtlama') + ' <span class="ui-admin-muted">' + escHtml(r.reason || '') + '</span></li>';
                     }) + '</div>'
-                +   '<div class="ui-admin-detail-full"><h4>Yönetici İşlem Geçmişi</h4>' + listOrEmpty(d.audit_history, function (a) {
-                        return '<li><b>' + escHtml(a.action) + '</b> — ' + escHtml(a.actor) + ' <span class="ui-admin-muted">' + escHtml(a.created_at) + '</span>' + (a.reverted ? ' <span class="ui-admin-badge ui-admin-badge-muted">geri alındı</span>' : '') + (a.reason ? '<br><span class="ui-admin-muted">' + escHtml(a.reason) + '</span>' : '') + '</li>';
+                +   '<div><h4>Admin Notları</h4>' + listOrEmpty(d.admin_notes, function (n) {
+                        return '<li><b>' + escHtml(n.admin || 'Admin') + '</b> <span class="ui-admin-muted">' + escHtml(n.created_at || '') + '</span><br><span>' + escHtml(n.note || '') + '</span>' + (n.tags ? '<br><span class="ui-admin-muted">' + escHtml(n.tags) + '</span>' : '') + '</li>';
                     }) + '</div>'
-                + '</div>'
-                + '<div class="ui-admin-detail-actions"><a href="user-edit.php?id=' + d.id + '" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary"><i class="bi bi-pencil"></i> Düzenle</a></div>';
+                +   '<div><h4>Kısıtlama Kayıtları</h4>' + listOrEmpty(d.restriction_history, function (r) {
+                        return '<li><b>' + escHtml(r.type || 'Kısıtlama') + '</b> ' + (r.active ? '<span class="ui-admin-badge ui-admin-badge-warning">aktif</span>' : '<span class="ui-admin-badge ui-admin-badge-muted">geçmiş</span>') + '<br><span class="ui-admin-muted">' + escHtml(r.created_at || '') + ' - Bitiş: ' + escHtml(r.expires_at || 'Süresiz') + '</span>' + (r.reason ? '<br><span>' + escHtml(r.reason) + '</span>' : '') + '</li>';
+                    }) + '</div>'
+                +   '<div class="ui-admin-detail-full"><h4>Yönetici İşlem Geçmişi</h4>' + listOrEmpty(d.audit_history, function (a) {
+                        return '<li><b>' + escHtml(a.action) + '</b> - ' + escHtml(a.actor) + ' <span class="ui-admin-muted">' + escHtml(a.created_at) + '</span>' + (a.reverted ? ' <span class="ui-admin-badge ui-admin-badge-muted">geri alındı</span>' : '') + (a.reason ? '<br><span class="ui-admin-muted">' + escHtml(a.reason) + '</span>' : '') + '</li>';
+                    }) + '</div>'
+                + '</div>';
 
             body.innerHTML = html;
         })

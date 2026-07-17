@@ -3,15 +3,21 @@
 declare(strict_types=1);
 require_once $projectRoot . '/includes/init.php';
 
-if ($isLoggedIn) {
-    authSessionUserContext()->regenerateSession();
-    header('Location: ' . $baseUri . '/index.php');
-    exit;
-}
-
+$homeUrl = $baseUri . '/index.php';
+$requestedRedirect = loginSafeRedirect((string) ($_GET['redirect'] ?? $_POST['redirect'] ?? ''), $homeUrl);
+$registrationOldInput = authRegistrationPreservedInput($_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : []);
 $loginUrl = routePublicStaticUrl('login');
 $registerUrl = routePublicStaticUrl('register');
+$loginUrlWithRedirect = authUrlWithRedirect($loginUrl, $requestedRedirect, $homeUrl);
+$loginRegisteredUrl = authUrlWithRedirect($loginUrl . '?registered=1', $requestedRedirect, $homeUrl);
+$registerUrlWithRedirect = authUrlWithRedirect($registerUrl, $requestedRedirect, $homeUrl);
 $notificationsUrl = routePublicStaticUrl('notifications');
+
+if ($isLoggedIn) {
+    authSessionUserContext()->regenerateSession();
+    header('Location: ' . $requestedRedirect);
+    exit;
+}
 
 $errorMsg = '';
 $successMsg = '';
@@ -45,7 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $minutes = (int) ceil($remaining / 60);
         $errorMsg = "Çok fazla kayıt denemesi. Lütfen {$minutes} dakika sonra tekrar deneyin.";
     } elseif (!verify_csrf_token($_POST['_token'] ?? '')) {
-        $errorMsg = 'Güvenlik doğrulaması başarısız.';
+        $errorMsg = 'Güvenlik doğrulaması geçersiz oldu. Bilgileriniz korundu, lütfen tekrar deneyin.';
+        csrf_token();
     } else {
         $usernameRaw = trim((string) ($_POST['username'] ?? ''));
         $username = function_exists('usersValidateUsernameInput')
@@ -89,48 +96,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     if ($errorMsg === '') {
-                        $hasLegacyRoleId = function_exists('usersColumnExists')
-                            && usersColumnExists($pdo, 'users', 'role_id');
-                        $memberRoleId = 3;
-                        if ($hasLegacyRoleId
-                            && function_exists('usersTableExists')
-                            && usersTableExists($pdo, 'roles')) {
-                            $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1');
-                            $roleStmt->execute(['slug' => 'member']);
-                            $resolvedRoleId = (int) $roleStmt->fetchColumn();
-                            if ($resolvedRoleId > 0) {
-                                $memberRoleId = $resolvedRoleId;
-                            }
-                        }
-
                         incrementRateLimit($regRateKey, $registerRateWindow);
                         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-                        $insertColumns = ['username', 'email', 'password'];
-                        $insertValues = [':username', ':email', ':password'];
+                        $insertColumns = ['username', 'email', 'password', 'status', 'created_at', 'updated_at'];
+                        $insertValues = [':username', ':email', ':password', ':status', 'NOW()', 'NOW()'];
                         $insertParams = [
                             'username' => $username,
                             'email' => $email,
                             'password' => $hashedPassword,
+                            'status' => $registrationRequiresAdminApproval ? 'inactive' : 'active',
                         ];
-                        if ($hasLegacyRoleId) {
-                            $insertColumns[] = 'role_id';
-                            $insertValues[] = ':role_id';
-                            $insertParams['role_id'] = $memberRoleId;
-                        }
-                        if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'status')) {
-                            $insertColumns[] = 'status';
-                            $insertValues[] = ':status';
-                            $insertParams['status'] = $registrationRequiresAdminApproval ? 'inactive' : 'active';
-                        }
-                        if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'created_at')) {
-                            $insertColumns[] = 'created_at';
-                            $insertValues[] = 'NOW()';
-                        }
-                        if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'updated_at')) {
-                            $insertColumns[] = 'updated_at';
-                            $insertValues[] = 'NOW()';
-                        }
 
                         $quotedColumns = array_map(static fn (string $column): string => '`' . $column . '`', $insertColumns);
                         $insertSql = 'INSERT INTO users (' . implode(', ', $quotedColumns) . ') VALUES (' . implode(', ', $insertValues) . ')';
@@ -163,10 +139,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 // Kayıt akışı bildirim gönderilemedi diye bozulmasın.
                             }
                         }
+                        $emailVerificationEnabled = authEmailVerificationEnabled($settings);
+                        $verificationEmailSent = false;
                         try {
                             $accountMailer = accountEmailService($pdo);
                             $accountMailer->send('welcome', $email, ['username' => $username, 'login_url' => $loginUrl]);
-                            $accountMailer->issueVerification($newUserId, $email, $username);
+                            $verificationEmailSent = $accountMailer->issueVerification($newUserId, $email, $username);
                         } catch (Throwable $mailError) {
                             if (function_exists('appLogException')) {
                                 appLogException($mailError, ['source' => 'registration_account_email', 'user_id' => $newUserId]);
@@ -181,11 +159,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'dedupe_key' => 'user_registered:user:' . $newUserId,
                             ]);
                         }
-                        flash('success', $registrationRequiresAdminApproval ? $registrationPendingMessage : 'Hesabınız oluşturuldu. Şimdi giriş yapabilirsiniz.');
                         if (function_exists('usersNotifyAdminsOnSuspiciousRegistrations')) {
                             usersNotifyAdminsOnSuspiciousRegistrations($pdo, $settings);
                         }
-                        header('Location: ' . $loginUrl . '?registered=1');
+
+                        $emailVerificationRequiredForLogin = authEmailVerificationRequiredForLogin($settings);
+                        if (authRegistrationAutoLoginAllowed($settings, $registrationRequiresAdminApproval)) {
+                            authSessionUserContext()->regenerateSession();
+                            authPopulateSessionUser($pdo, [
+                                'id' => $newUserId,
+                                'username' => $username,
+                                'email' => $email,
+                                'status' => 'active',
+                            ], false);
+                            logActivity($pdo, 'user_login', 'user', $newUserId);
+                            if (function_exists('logSuccessfulLogin')) {
+                                logSuccessfulLogin($pdo, $newUserId, $email);
+                            }
+                            if (function_exists('eventsRecordActivity')) {
+                                eventsRecordActivity($pdo, $newUserId, 'daily_login', 'user', $newUserId, [
+                                    'dedupe_key' => 'daily_login:user:' . $newUserId . ':' . date('Y-m-d'),
+                                ]);
+                            }
+                            $autoLoginMessage = 'Hesabınız oluşturuldu. Oturumunuz açıldı.';
+                            if ($emailVerificationEnabled && !$emailVerificationRequiredForLogin) {
+                                $autoLoginMessage .= $verificationEmailSent
+                                    ? ' E-posta doğrulama bağlantısı gönderildi.'
+                                    : ' E-posta doğrulama bağlantısı şu anda gönderilemedi; hesabını kullanmaya devam edebilirsin.';
+                            }
+                            flash('success', $autoLoginMessage);
+                            header('Location: ' . $requestedRedirect);
+                            exit;
+                        }
+
+                        $registrationSuccessMessage = $registrationPendingMessage;
+                        if (!$registrationRequiresAdminApproval) {
+                            if ($emailVerificationRequiredForLogin) {
+                                $registrationSuccessMessage = $verificationEmailSent
+                                    ? 'Hesabınız oluşturuldu. Giriş yapmadan önce e-posta adresinize gönderilen doğrulama bağlantısını açmanız gerekiyor.'
+                                    : 'Hesabınız oluşturuldu. Giriş yapmadan önce e-posta adresinizi doğrulamanız gerekiyor. Yeni bağlantı isteyebilirsiniz.';
+                            } else {
+                                $registrationSuccessMessage = 'Hesabınız oluşturuldu. Şimdi giriş yapabilirsiniz.';
+                            }
+                        }
+                        flash('success', $registrationSuccessMessage);
+                        header('Location: ' . $loginRegisteredUrl);
                         exit;
                     }
                 } catch (Throwable $e) {
@@ -201,10 +219,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pageTitle = 'Kayıt Ol';
 $auth_error = $errorMsg;
 $auth_success = $successMsg;
+$auth_redirect = $requestedRedirect;
+$auth_login_url = $loginUrlWithRedirect;
+$auth_register_url = $registerUrlWithRedirect;
 $auth_csrf_token = csrf_token();
 $auth_allow_registration = $allowRegistration;
-$auth_username_value = (string) ($_POST['username'] ?? '');
-$auth_email_value = (string) ($_POST['email'] ?? '');
+$auth_username_value = $registrationOldInput['username'];
+$auth_email_value = $registrationOldInput['email'];
 $auth_password_min_length = $passwordMinLength;
 $auth_password_policy_hint = $passwordPolicyHint;
 $auth_password_require_uppercase = !empty($passwordPolicy['require_uppercase']);
@@ -250,20 +271,21 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                 <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success" role="alert"><?= htmlspecialchars($successMsg) ?></div>
             <?php endif; ?>
 
-            <form class="auth-form" method="post" action="<?= htmlspecialchars($registerUrl, ENT_QUOTES, 'UTF-8') ?>" novalidate>
+            <form class="auth-form" method="post" action="<?= htmlspecialchars($registerUrl, ENT_QUOTES, 'UTF-8') ?>" novalidate data-auth-csrf-refresh>
                 <?= csrf_field() ?>
+                <input type="hidden" name="redirect" value="<?= htmlspecialchars($requestedRedirect, ENT_QUOTES, 'UTF-8') ?>">
                 <div class="form-group auth-field">
                     <label for="username">Kullanıcı Adı</label>
                     <span class="auth-input-shell ui-section">
                         <i class="bi bi-person" aria-hidden="true"></i>
-                        <input id="username" name="username" type="text" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" required minlength="<?= (int) $usernameBounds['min'] ?>" maxlength="<?= (int) $usernameBounds['max'] ?>" pattern="[A-Za-z0-9_-]{<?= (int) $usernameBounds['min'] ?>,<?= (int) $usernameBounds['max'] ?>}" aria-required="true" autocomplete="username">
+                        <input id="username" name="username" type="text" value="<?= htmlspecialchars($registrationOldInput['username'], ENT_QUOTES, 'UTF-8') ?>" required minlength="<?= (int) $usernameBounds['min'] ?>" maxlength="<?= (int) $usernameBounds['max'] ?>" pattern="[A-Za-z0-9_-]{<?= (int) $usernameBounds['min'] ?>,<?= (int) $usernameBounds['max'] ?>}" aria-required="true" autocomplete="username">
                     </span>
                 </div>
                 <div class="form-group auth-field">
                     <label for="email">E-posta</label>
                     <span class="auth-input-shell ui-section">
                         <i class="bi bi-envelope" aria-hidden="true"></i>
-                        <input id="email" name="email" type="email" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required aria-required="true" autocomplete="email">
+                        <input id="email" name="email" type="email" value="<?= htmlspecialchars($registrationOldInput['email'], ENT_QUOTES, 'UTF-8') ?>" required aria-required="true" autocomplete="email">
                     </span>
                 </div>
                 <div class="form-group auth-field">
@@ -288,7 +310,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             </form>
 
             <div class="auth-footer-actions">
-                <p class="form-options">Zaten hesabın var mı? <a href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Giriş Yap</a></p>
+                <p class="form-options">Zaten hesabın var mı? <a href="<?= htmlspecialchars($loginUrlWithRedirect, ENT_QUOTES, 'UTF-8') ?>">Giriş Yap</a></p>
             </div>
         </div>
     </section>

@@ -2,163 +2,7 @@
 
 declare(strict_types=1);
 
-if (!function_exists('topicSearchNormalizeText')) {
-function topicSearchNormalizeText(string $value): string
-{
-    $value = mb_strtolower(strip_tags($value), "UTF-8");
-    $value = strtr($value, [
-        "ç" => "c",
-        "ğ" => "g",
-        "ı" => "i",
-        "i̇" => "i",
-        "ö" => "o",
-        "ş" => "s",
-        "ü" => "u",
-        "Ç" => "c",
-        "Ğ" => "g",
-        "İ" => "i",
-        "I" => "i",
-        "Ö" => "o",
-        "Ş" => "s",
-        "Ü" => "u",
-    ]);
-    $value = preg_replace("/[^a-z0-9]+/u", " ", $value) ?? "";
-    return trim((string) preg_replace("/\s+/", " ", $value));
-}
-
-function topicSearchFuzzyScore(string $search, array $row): int
-{
-    $needle = topicSearchNormalizeText($search);
-    if ($needle === "") {
-        return 0;
-    }
-
-    $haystack = topicSearchNormalizeText(
-        implode(" ", [
-            (string) ($row["title"] ?? ""),
-            (string) ($row["slug"] ?? ""),
-            (string) ($row["category"] ?? ""),
-            (string) ($row["author"] ?? ""),
-            (string) ($row["topic_descriptions"] ?? ""),
-        ]),
-    );
-    if ($haystack === "") {
-        return 0;
-    }
-
-    if (str_contains($haystack, $needle)) {
-        return 120;
-    }
-
-    $queryTokens = array_values(array_unique(array_filter(explode(" ", $needle))));
-    $targetTokens = array_values(array_unique(array_filter(explode(" ", $haystack))));
-    if ($queryTokens === [] || $targetTokens === []) {
-        return 0;
-    }
-
-    $score = 0;
-    foreach ($queryTokens as $queryToken) {
-        if (mb_strlen($queryToken, "UTF-8") < 3) {
-            continue;
-        }
-
-        $bestDistance = PHP_INT_MAX;
-        foreach ($targetTokens as $targetToken) {
-            if ($targetToken === $queryToken || str_contains($targetToken, $queryToken)) {
-                $bestDistance = 0;
-                break;
-            }
-            if (abs(strlen($targetToken) - strlen($queryToken)) > 3) {
-                continue;
-            }
-            $bestDistance = min($bestDistance, levenshtein($queryToken, $targetToken));
-        }
-
-        $maxDistance = max(1, min(3, (int) floor(strlen($queryToken) * 0.34)));
-        if ($bestDistance === 0) {
-            $score += 35;
-        } elseif ($bestDistance <= $maxDistance) {
-            $score += max(10, 30 - ($bestDistance * 7));
-        }
-    }
-
-    return min(95, $score);
-}
-
-function getTopicsFallbackSearch(
-    ?PDO $pdo,
-    string $search,
-    int $page = 1,
-    int $perPage = 20,
-): array {
-    $offset = max(0, ($page - 1) * $perPage);
-    if (!$pdo || trim($search) === "") {
-        return [
-            "items" => [],
-            "total" => 0,
-            "page" => $page,
-            "perPage" => $perPage,
-        ];
-    }
-
-    try {
-        // Son yayinlardan aday alip toleransli metin skoru uygula.
-        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
-                FROM topics t
-                LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
-                LEFT JOIN categories cat ON t.category_id = cat.id
-                LEFT JOIN users u ON t.author_id = u.id
-                WHERE t.status = 'published' AND t.deleted_at IS NULL
-                ORDER BY COALESCE(t.published_at, t.created_at) DESC
-                LIMIT 100";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute();
-        $candidates = $stmt->fetchAll();
-
-        $items = [];
-        foreach ($candidates as $row) {
-            $fuzzyScore = topicSearchFuzzyScore($search, $row);
-            $score = $fuzzyScore;
-
-            if ($score >= 45) {
-                $row["_search_score"] = max($score, $fuzzyScore);
-                $items[] = $row;
-            }
-        }
-
-        usort(
-            $items,
-            static fn(array $a, array $b): int => ((int) ($b["_search_score"] ?? 0)) <=>
-                ((int) ($a["_search_score"] ?? 0)),
-        );
-        $total = count($items);
-        $items = array_slice($items, $offset, $perPage);
-
-        $items = array_map(static function (array $row): array {
-            $row["topic_first_image"] = getTopicPrimaryMediaPath($row);
-            return $row;
-        }, $items);
-
-        return [
-            "items" => $items,
-            "total" => $total,
-            "page" => $page,
-            "perPage" => $perPage,
-        ];
-    } catch (Throwable $e) {
-        appLogException($e, [
-            "source" => "getTopicsFallbackSearch",
-            "search" => $search,
-        ]);
-        return [
-            "items" => [],
-            "total" => 0,
-            "page" => $page,
-            "perPage" => $perPage,
-        ];
-    }
-}
-
+if (!function_exists('getTopics')) {
 function getTopics(
     ?PDO $pdo,
     int $page = 1,
@@ -178,23 +22,10 @@ function getTopics(
         : preg_replace("/[^a-z0-9-]/", "", $categorySlug);
     $allowedSorts = ["newest", "popular", "downloads", "comments"];
     $sort = in_array($sort, $allowedSorts, true) ? $sort : "newest";
-    $demoTopics = [];
-
     if (!$pdo) {
-        if ($search !== "") {
-            $demoTopics = array_filter($demoTopics, function ($t) use (
-                $search,
-            ) {
-                return mb_stripos($t["title"], $search) !== false ||
-                    mb_stripos($t["topic_descriptions"] ?? "", $search) !==
-                        false;
-            });
-            $demoTopics = array_values($demoTopics);
-        }
-        $total = count($demoTopics);
         return [
-            "items" => array_slice($demoTopics, $offset, $perPage),
-            "total" => $total,
+            "items" => [],
+            "total" => 0,
             "page" => $page,
             "perPage" => $perPage,
         ];
@@ -213,7 +44,7 @@ function getTopics(
             // FULLTEXT arama kullan (DB'de FULLTEXT index: title, topic_descriptions)
             $where .=
                 " AND MATCH(t.title, t.topic_descriptions) AGAINST(:search IN BOOLEAN MODE)";
-            // Boolean mode'da kelime bazlı arama için + prefix ekle
+            // Boolean mode'da kelime bazlÄ± arama iÃ§in + prefix ekle
             $searchTerms = implode(
                 " ",
                 array_map(
@@ -258,27 +89,6 @@ function getTopics(
         $stmt->execute();
         $rows = $stmt->fetchAll();
 
-        if (empty($rows) && $search !== "") {
-            return $categorySlug === ""
-                ? getTopicsFallbackSearch($pdo, $search, $page, $perPage)
-                : [
-                    "items" => [],
-                    "total" => 0,
-                    "page" => $page,
-                    "perPage" => $perPage,
-                ];
-        }
-
-        if (empty($rows) && $page === 1 && $search === "") {
-            $total = count($demoTopics);
-            return [
-                "items" => $demoTopics,
-                "total" => $total,
-                "page" => $page,
-                "perPage" => $perPage,
-            ];
-        }
-
         $rows = array_map(static function (array $row): array {
             $row["topic_first_image"] = getTopicPrimaryMediaPath($row);
             return $row;
@@ -291,10 +101,14 @@ function getTopics(
             "perPage" => $perPage,
         ];
     } catch (Throwable $e) {
-        $total = count($demoTopics);
+        appLogException($e, [
+            "fn" => "getTopics",
+            "search" => $search,
+            "category" => $categorySlug,
+        ]);
         return [
-            "items" => $demoTopics,
-            "total" => $total,
+            "items" => [],
+            "total" => 0,
             "page" => $page,
             "perPage" => $perPage,
         ];

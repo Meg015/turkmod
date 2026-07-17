@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+$projectRoot = isset($projectRoot) && is_string($projectRoot) && $projectRoot !== ''
+    ? $projectRoot
+    : dirname(__DIR__, 5);
+
 require_once $projectRoot . '/includes/init.php';
 
 $pageKey = 'download';

@@ -35,6 +35,8 @@ $appDebug = isset($appDebug) ? (bool) $appDebug : ((defined('APP_DEBUG') && APP_
 $loginUrl = routePublicStaticUrl('login');
 $loginPath = '/' . ltrim(routePublicStaticPath('login'), '/');
 $registerUrl = routePublicStaticUrl('register');
+$loginUrlWithRedirect = authUrlWithRedirect($loginUrl, $requestedRedirect, $baseUri . '/index.php');
+$registerUrlWithRedirect = authUrlWithRedirect($registerUrl, $requestedRedirect, $baseUri . '/index.php');
 $forgotPasswordUrl = routePublicStaticUrl('forgot_password');
 $loginAuditPath = $loginPath;
 
@@ -80,8 +82,8 @@ $rememberSessionDefault = (string) ($settings['login_remember_session_default'] 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
         logCsrfFailure($pdo, $loginAuditPath);
-        flash('error', 'Güvenlik doğrulaması başarısız. Lütfen tekrar deneyin.');
-        header('Location: ' . $loginUrl);
+        csrf_token();
+        header('Location: ' . $loginUrlWithRedirect);
         exit;
     }
 
@@ -93,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $remaining = getRateLimitRemainingSeconds($rateLimitKey, $loginRateWindow);
         $minutes = (int) ceil($remaining / 60);
         flash('error', "Çok fazla giriş denemesi. Lütfen {$minutes} dakika sonra tekrar deneyin.");
-        header('Location: ' . $loginUrl);
+        header('Location: ' . $loginUrlWithRedirect);
         exit;
     }
 
@@ -106,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (str_starts_with($e->getMessage(), 'ban:')) {
             logFailedLogin($pdo, $loginIdentifier, 'account_banned');
             flash('error', substr($e->getMessage(), 4));
-            header('Location: ' . $loginUrl);
+            header('Location: ' . $loginUrlWithRedirect);
             exit;
         }
         $authResult = ['success' => false];
@@ -141,8 +143,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'dedupe_key' => 'daily_login:user:' . (int)$user['id'] . ':' . date('Y-m-d'),
             ]);
         }
+        $isBannedUser = (int) ($user['is_banned'] ?? 0) === 1 || (string) ($user['status'] ?? '') === 'banned';
         $isAdminUser = function_exists('userIsAdmin') && userIsAdmin($pdo, (int) $user['id']);
-        $redirectUrl = loginRedirectForAuthenticatedUser($isAdminUser, $requestedRedirect, $baseUri);
+        $redirectUrl = $isBannedUser
+            ? routePublicStaticUrl('ban_appeals')
+            : loginRedirectForAuthenticatedUser($isAdminUser, $requestedRedirect, $baseUri);
         header('Location: ' . $redirectUrl);
         exit;
     }
@@ -150,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     incrementRateLimit($rateLimitKey, $loginRateWindow);
     logFailedLogin($pdo, $loginIdentifier, 'invalid_credentials');
     flash('error', $invalidCredentialMessage);
-    header('Location: ' . $loginUrl);
+    header('Location: ' . $loginUrlWithRedirect);
     exit;
 }
 
@@ -159,10 +164,12 @@ $errorMsg = get_flash('error');
 $successMsg = get_flash('success');
 $showOnboarding = ($_GET['registered'] ?? '') === '1';
 $auth_error = $errorMsg;
-$auth_success = $successMsg;
-$auth_show_onboarding = $showOnboarding;
-$auth_redirect = $requestedRedirect;
-$auth_csrf_token = csrf_token();
+$auth_success = $successMsg;
+$auth_show_onboarding = $showOnboarding;
+$auth_redirect = $requestedRedirect;
+$auth_login_url = $loginUrlWithRedirect;
+$auth_register_url = $registerUrlWithRedirect;
+$auth_csrf_token = csrf_token();
 $auth_demo_visible = $appDebug && getRealIp() === '127.0.0.1';
 $auth_login_identifier_mode = $loginIdentifierMode;
 $auth_login_label = $loginIdentifierLabel;
@@ -219,7 +226,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                 </div>
             <?php endif; ?>
 
-            <form class="auth-form" method="post" action="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>" novalidate data-remember-email-form>
+            <form class="auth-form" method="post" action="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>" novalidate data-remember-email-form data-auth-csrf-refresh>
                 <?= csrf_field() ?>
                 <input type="hidden" name="redirect" value="<?= htmlspecialchars($requestedRedirect, ENT_QUOTES, 'UTF-8') ?>">
                 <div class="form-group auth-field">
@@ -265,7 +272,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
 
             <div class="auth-footer-actions">
                 <a class="btn-auth-link" href="<?= htmlspecialchars($forgotPasswordUrl, ENT_QUOTES, 'UTF-8') ?>">Şifremi unuttum</a>
-                <p class="form-options">Hesabın yok mu? <a href="<?= htmlspecialchars($registerUrl, ENT_QUOTES, 'UTF-8') ?>">Kayıt Ol</a></p>
+                <p class="form-options">Hesabın yok mu? <a href="<?= htmlspecialchars($registerUrlWithRedirect, ENT_QUOTES, 'UTF-8') ?>">Kayıt Ol</a></p>
             </div>
 
             <?php if ($appDebug && getRealIp() === '127.0.0.1'): ?>

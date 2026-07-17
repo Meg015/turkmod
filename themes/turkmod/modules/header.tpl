@@ -76,7 +76,7 @@
 
 {if logged_in}
 {if messages_enabled}
-<div class="notif-dropdown" id="messagesDropdown" data-messages-dropdown data-messages-api="{messages_api_url}" data-messages-fallback-url="{messages_fallback_url}">
+<div class="notif-dropdown" id="messagesDropdown" data-messages-dropdown data-messages-api="{messages_api_url}">
 <button class="notif-toggle btn btn-light icon-md p-0 rounded-circle position-relative" type="button" aria-expanded="false" aria-label="Mesajlari ac" data-messages-toggle>
 <i class="bi bi-chat-left-text-fill fs-6" aria-hidden="true"></i>
 <span class="notif-badge" id="msgBadge">0</span>
@@ -96,7 +96,7 @@
 </div>
 {/if}
 {if notifications_enabled}
-<div class="notif-dropdown" id="notifDropdown" data-notif-dropdown data-notif-api="{notifications_api_url}" data-notif-read-api="{notifications_read_api_url}" data-notif-fallback-url="{notifications_fallback_url}">
+<div class="notif-dropdown" id="notifDropdown" data-notif-dropdown data-notif-api="{notifications_api_url}" data-notif-read-api="{notifications_read_api_url}" data-notif-url="{notifications_menu_url}">
 <button class="notif-toggle btn btn-light icon-md p-0 rounded-circle position-relative" type="button" aria-expanded="false" aria-label="Bildirimleri ac" data-notif-toggle>
 <i class="bi bi-bell-fill fs-6" aria-hidden="true"></i>
 <span class="notif-badge{if notifications_has_unread} is-visible{/if}" id="notifBadge">{notifications_unread_count_text}</span>

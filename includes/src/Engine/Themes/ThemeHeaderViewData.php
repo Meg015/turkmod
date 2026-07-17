@@ -19,7 +19,7 @@ final class ThemeHeaderViewData
             'notifications_url' => $notificationsUrl,
             'notifications_api_url' => $baseUrl . '/api/notifications.php',
             'notifications_read_api_url' => $baseUrl . '/api/notifications-read.php',
-            'notifications_fallback_url' => $notificationsUrl,
+            'notifications_menu_url' => $notificationsUrl,
         ];
     }
 
@@ -35,7 +35,6 @@ final class ThemeHeaderViewData
             'messages_enabled' => $isLoggedIn,
             'messages_url' => $messagesUrl,
             'messages_api_url' => $baseUrl . '/api/messages.php',
-            'messages_fallback_url' => $messagesUrl,
         ];
     }
 }

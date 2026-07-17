@@ -32,38 +32,35 @@ if ($ready) {
 $auditReady = $ready && eventsTableExists($pdo ?? null, 'events_audit_log');
 $rows = [];
 $totalRows = 0;
-$perPage = 10;
+$perPage = function_exists('adminPaginationPerPage') ? adminPaginationPerPage() : 10;
 $currentPage = max(1, (int)($_GET['p'] ?? 1));
 $filterAction = is_scalar($_GET['action'] ?? null) ? (string)$_GET['action'] : 'all';
 $filterDate = is_scalar($_GET['date'] ?? null) ? (string)$_GET['date'] : 'all';
 
 if ($auditReady) {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_events_action'] ?? '') === 'clear_logs') {
-        if (!verify_csrf_token($_POST['_token'] ?? '')) {
-            if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
-                header('Content-Type: application/json; charset=utf-8');
-                http_response_code(419);
-                echo json_encode(['success' => false, 'message' => 'Güvenlik doğrulaması başarısız.']);
-                exit;
-            }
-            flash('error', 'Güvenlik doğrulaması başarısız.');
-            header('Location: ' . eventsAuditLogRedirectUrl());
-            exit;
-        }
-
-        try {
-            $pdo->exec("DELETE FROM events_audit_log");
-            eventsAuditLog($pdo, 'audit_log_clear', 'events_audit_log', null, ['source' => 'admin_events_audit_log']);
-            if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
-                header('Content-Type: application/json; charset=utf-8');
-                echo json_encode(['success' => true, 'message' => 'Eski kayıtlar temizlendi.']);
-                exit;
-            }
-            header('Location: ' . eventsAuditLogRedirectUrl());
-            exit;
-        } catch (Throwable $e) {
-            eventsErrorLog($pdo, 'Audit clear failed.', ['error' => $e->getMessage()], 'ERROR');
-        }
+        adminRunLogCleanup($pdo, [
+            'action_type' => 'events_audit_logs_cleared',
+            'scope' => 'all',
+            'allowed_scopes' => ['all'],
+            'permission' => 'events.manage',
+            'permission_message' => 'Etkinlik loglarını temizlemek için gerekli izin hesabınıza tanımlanmamış.',
+            'redirect_url' => eventsAuditLogRedirectUrl(),
+            'ready' => $auditReady,
+            'ready_message' => 'Etkinlik audit log tablosu hazır olmadığı için temizleme yapılamadı.',
+            'source' => 'admin_events_audit_log',
+            'activity_subject' => 'events',
+            'delete' => static function (PDO $pdo): int {
+                $count = (int) $pdo->query('SELECT COUNT(*) FROM events_audit_log')->fetchColumn();
+                $pdo->exec('DELETE FROM events_audit_log');
+                return $count;
+            },
+            'after' => static function (PDO $pdo): void {
+                eventsAuditLog($pdo, 'audit_log_clear', 'events_audit_log', null, ['source' => 'admin_events_audit_log']);
+            },
+            'success_message' => 'Eski kayıtlar temizlendi.',
+            'error_prefix' => 'Etkinlik audit logları temizlenemedi: ',
+        ]);
     }
 
     try {
@@ -168,12 +165,12 @@ eventsAdminStyles($baseUri ?? '');
         'bi-journal-check'
     );
     ?>
-    <div class="admin-card ui-events-admin-panel ui-panel">
+    <div class="admin-card ui-events-admin-panel ui-panel logs-list-card">
         <?php
-        echo '<div class="ui-events-audit-toolbar">';
+        echo '<div class="ui-events-audit-toolbar logs-toolbar-shell logs-toolbar-head">';
 
         // Filter Form
-        echo '<form method="get" class="ui-events-audit-filter-form">';
+        echo '<form method="get" class="ui-events-audit-filter-form logs-filter-form ui-admin-filter-row admin-log-filter-form">';
         echo '<select name="action" class="ui-events-compact-input ui-events-audit-select">';
         $actions = ['all' => 'Tüm İşlemler', 'creates' => 'Oluşturmalar', 'updates' => 'Güncellemeler', 'deletes' => 'Silmeler', 'errors' => 'Hatalar'];
         foreach ($actions as $k => $v) {
@@ -206,13 +203,13 @@ eventsAdminStyles($baseUri ?? '');
         }
         echo '</div>';
         ?>
-        <div class="card-body ui-events-table-wrap ui-events-admin-table-wrap ui-panel__body ui-table-wrap ui-surface">
+        <div class="card-body ui-events-table-wrap ui-events-admin-table-wrap ui-panel__body ui-table-wrap ui-surface admin-log-table-wrap">
             <?php if (!$auditReady): ?>
                 <?php eventsAdminEmptyState('bi-database-x', 'Audit Log Tablosu Hazır Değil', 'events_audit_log tablosu bulunamadı. Veritabanı şemasını tamamladıktan sonra işlem kayıtları burada görünecek.'); ?>
             <?php elseif ($rows === []): ?>
                 <?php eventsAdminEmptyState('bi-journal-x', 'Kayıt Bulunamadı', 'Henüz sistemde bir audit (işlem) kaydı yok.'); ?>
             <?php else: ?>
-                <table class="ui-events-table">
+                <table class="ui-events-table admin-log-table">
                     <thead><tr><th>İşlem</th><th>Kullanıcı</th><th>Konu</th><th>IP</th><th>Tarih</th></tr></thead>
                     <tbody>
                     <?php foreach ($rows as $row): ?>
@@ -371,22 +368,11 @@ eventsAdminStyles($baseUri ?? '');
                     $paginationQuery = $_GET;
                     unset($paginationQuery['p']);
                     $paginationBaseUrl = '?' . (count($paginationQuery) > 0 ? http_build_query($paginationQuery) . '&' : '') . 'p=';
+                    echo adminRenderPagination($totalPages, $currentPage, static fn (int $targetPage): string => $paginationBaseUrl . $targetPage, [
+                        'wrapper_class' => 'ui-events-audit-pagination',
+                        'aria_label' => 'Etkinlik audit log sayfalama',
+                    ]);
                     ?>
-                    <div class="pagination-wrapper ui-events-audit-pagination">
-                        <div class="pagination">
-                            <?php if ($currentPage > 1): ?>
-                                <a href="<?= e($paginationBaseUrl . ($currentPage - 1)) ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
-                            <?php endif; ?>
-
-                            <?php for ($i = max(1, $currentPage - 2); $i <= min($totalPages, $currentPage + 2); $i++): ?>
-                                <a href="<?= e($paginationBaseUrl . $i) ?>" class="page-link <?= $i === $currentPage ? 'active' : '' ?>"<?= $i === $currentPage ? ' aria-current="page"' : '' ?>><?= $i ?></a>
-                            <?php endfor; ?>
-
-                            <?php if ($currentPage < $totalPages): ?>
-                                <a href="<?= e($paginationBaseUrl . ($currentPage + 1)) ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
                 <?php endif; ?>
             <?php endif; ?>
         </div>

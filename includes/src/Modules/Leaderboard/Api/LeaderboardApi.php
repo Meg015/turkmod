@@ -105,7 +105,7 @@ final class LeaderboardApi implements Handler
                 ],
             ]);
         } catch (Throwable $exception) {
-            appLogException($exception, ['source' => 'api/leaderboard.php']);
+            appLogException($exception, ['source' => 'api/leaderboard']);
 
             return new JsonResponse([
                 'success' => false,

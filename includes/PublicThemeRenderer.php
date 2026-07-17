@@ -8,6 +8,7 @@ use App\Engine\Themes\ThemeMetadata;
 final class PublicThemeRenderer
 {
     private const STATE_KEY = '_public_theme_renderer';
+    private const DOWNLOAD_SECURITY_NOTICE_DEFAULT = 'İndirme bağlantısı açılmadan önce kısa bir güvenlik beklemesi uygulanır. Hedef alan adını kontrol edip dış bağlantı onay ekranından devam edebilirsiniz.';
 
     /**
      * @param array<string, mixed> $context
@@ -58,6 +59,15 @@ final class PublicThemeRenderer
         $isFocusLayout = in_array($pageKey, $focusPageKeys, true) || $isEventsLoginRedirect;
         $layoutMode = $isFocusLayout ? 'focus' : 'standard';
 
+        $headerLoginUrl = routePublicStaticUrl('login');
+        $headerRegisterUrl = routePublicStaticUrl('register');
+        $isAuthPage = in_array($pageKey, ['login', 'register', 'forgot_password', 'reset_password'], true);
+        if (!$isAuthPage && function_exists('loginSafeRedirect') && function_exists('authUrlWithRedirect')) {
+            $headerRedirect = loginSafeRedirect($currentRequestUri, $baseUri . '/index.php');
+            $headerLoginUrl = authUrlWithRedirect($headerLoginUrl, $headerRedirect, $baseUri . '/index.php');
+            $headerRegisterUrl = authUrlWithRedirect($headerRegisterUrl, $headerRedirect, $baseUri . '/index.php');
+        }
+
         $headerAvatarFallback = function_exists('defaultAvatarUrl')
             ? defaultAvatarUrl($baseUri)
             : rtrim($baseUri, '/') . '/assets/images/noavatar-neon-helmet.svg';
@@ -73,8 +83,8 @@ final class PublicThemeRenderer
             'site_description' => $siteDescription,
             'base_url' => rtrim($baseUri, '/'),
             'profile_url' => routePrivateProfileUrl(),
-            'login_url' => routePublicStaticUrl('login'),
-            'register_url' => routePublicStaticUrl('register'),
+            'login_url' => $headerLoginUrl,
+            'register_url' => $headerRegisterUrl,
             'logout_url' => routePublicStaticUrl('logout'),
             'upload_topic_url' => (string) routePublicStaticUrl('upload_topic'),
             'logo_url' => self::publicSettingAsset(trim((string) ($settings['logo_url'] ?? '')), $baseUri),
@@ -213,6 +223,9 @@ final class PublicThemeRenderer
                 if ($pageKey === 'topic') {
                     $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-view-track.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                     $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-downloads.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
+                }
+                if (in_array($pageKey, ['login', 'register'], true)) {
+                    $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/auth-csrf-refresh.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                 }
             } catch (Throwable $error) {
                 if (function_exists('appLogException')) {
@@ -732,10 +745,6 @@ final class PublicThemeRenderer
         $pageVars = self::arrayValue($context, 'page_vars');
         $topic = isset($pageVars['topic']) && is_array($pageVars['topic']) ? $pageVars['topic'] : [];
         if ($topic === []) {
-            if (function_exists('appLogException')) {
-                appLogException(new RuntimeException('Topic data is missing for theme render.'), ['source' => 'PublicThemeRenderer topic template']);
-            }
-
             return trim($capturedContent);
         }
 
@@ -989,6 +998,7 @@ final class PublicThemeRenderer
                 'download_ready_text',
                 'download_wait_text',
                 'download_done_text',
+                'download_security_notice_text',
                 'download_show_counts',
                 'download_access_mode',
                 'download_access_comment_requirement',
@@ -1032,12 +1042,18 @@ final class PublicThemeRenderer
         $readyText = trim((string) ($settings['download_ready_text'] ?? 'İndirmek için tıklayınız')) ?: 'İndirmek için tıklayınız';
         $waitText = trim((string) ($settings['download_wait_text'] ?? 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz')) ?: 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz';
         $doneText = trim((string) ($settings['download_done_text'] ?? 'İndirme linkiniz hazır, indirmek için tıklayın')) ?: 'İndirme linkiniz hazır, indirmek için tıklayın';
+        $securityNoticeText = trim((string) ($settings['download_security_notice_text'] ?? self::DOWNLOAD_SECURITY_NOTICE_DEFAULT)) ?: self::DOWNLOAD_SECURITY_NOTICE_DEFAULT;
         $topicId = (int) ($topic['id'] ?? 0);
         $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
         $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
         $downloadAuthApi = rtrim($baseUri, '/') . '/api/auth-popup.php';
         $downloadLoginUrl = routePublicStaticUrl('login');
         $downloadRegisterUrl = routePublicStaticUrl('register');
+        if (function_exists('loginSafeRedirect') && function_exists('authUrlWithRedirect')) {
+            $downloadRedirect = loginSafeRedirect((string) ($_SERVER['REQUEST_URI'] ?? ($baseUri . '/index.php')), $baseUri . '/index.php');
+            $downloadLoginUrl = authUrlWithRedirect($downloadLoginUrl, $downloadRedirect, $baseUri . '/index.php');
+            $downloadRegisterUrl = authUrlWithRedirect($downloadRegisterUrl, $downloadRedirect, $baseUri . '/index.php');
+        }
         $downloadLockButtonText = trim((string) ($settings['download_access_locked_button_text'] ?? 'Kilidi Aç')) ?: 'Kilidi Aç';
         $downloadCommentCtaLabel = trim((string) ($settings['download_access_comment_cta_label'] ?? 'Yorumlara Git')) ?: 'Yorumlara Git';
         $downloadAuthModalTitle = trim((string) ($settings['download_access_auth_modal_title'] ?? 'İndirme linklerini açmak için giriş yapın')) ?: 'İndirme linklerini açmak için giriş yapın';
@@ -1135,6 +1151,7 @@ final class PublicThemeRenderer
                 'download_ready_text' => $readyText,
                 'download_wait_text' => $waitText,
                 'download_done_text' => $doneText,
+                'download_security_notice_text' => $securityNoticeText,
                 'download_locked' => false,
                 'download_lock_reason' => 'none',
                 'download_lock_message' => '',
@@ -1196,6 +1213,7 @@ final class PublicThemeRenderer
             'download_ready_text' => $readyText,
             'download_wait_text' => $waitText,
             'download_done_text' => $doneText,
+            'download_security_notice_text' => $securityNoticeText,
             'download_topic_id' => $topicId,
             'download_locked' => $downloadLocked,
             'download_lock_reason' => $downloadLockReason,
@@ -1634,13 +1652,13 @@ final class PublicThemeRenderer
 
         // Uzun değerler ellipsis ile kısaldığında tam metni tooltip olarak göster.
         $plainValue = trim(html_entity_decode(strip_tags($valueHtml), ENT_QUOTES, 'UTF-8'));
-        $titleAttr = $plainValue !== ''
-            ? ' title="' . htmlspecialchars($plainValue, ENT_QUOTES, 'UTF-8') . '" data-info-value tabindex="0"'
+        $infoAttrs = $plainValue !== ''
+            ? ' data-info-full="' . htmlspecialchars($plainValue, ENT_QUOTES, 'UTF-8') . '" data-info-value tabindex="0"'
             : '';
 
         return '<div class="topic-info-row"><i class="bi ' . htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') . '" aria-hidden="true"></i><span>' .
             htmlspecialchars($label, ENT_QUOTES, 'UTF-8') .
-            '</span><strong' . $titleAttr . '>' .
+            '</span><strong' . $infoAttrs . '>' .
             $valueHtml .
             '</strong></div>';
     }
@@ -1693,8 +1711,9 @@ final class PublicThemeRenderer
         $readyText = trim((string) ($settings['download_ready_text'] ?? 'İndirmek için tıklayınız')) ?: 'İndirmek için tıklayınız';
         $waitText = trim((string) ($settings['download_wait_text'] ?? 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz')) ?: 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz';
         $doneText = trim((string) ($settings['download_done_text'] ?? 'İndirme linkiniz hazır, indirmek için tıklayın')) ?: 'İndirme linkiniz hazır, indirmek için tıklayın';
+        $securityNoticeText = trim((string) ($settings['download_security_notice_text'] ?? self::DOWNLOAD_SECURITY_NOTICE_DEFAULT)) ?: self::DOWNLOAD_SECURITY_NOTICE_DEFAULT;
         $showCounts = (string) ($settings['download_show_counts'] ?? '1') === '1';
-        $html = '<section class="topic-section topic-downloads topic-download-links ui-section" aria-labelledby="dl-heading"><h2 id="dl-heading">İndirme Bağlantıları</h2><div class="topic-dl-trust" role="note"><i class="bi bi-shield-check" aria-hidden="true"></i><span>İndirme bağlantısı açılmadan önce kısa bir güvenlik beklemesi uygulanır.</span></div><div class="topic-dl-section ui-section" data-countdown-seconds="' . $countdown . '" data-wait-text="' . htmlspecialchars($waitText, ENT_QUOTES, 'UTF-8') . '" data-done-text="' . htmlspecialchars($doneText, ENT_QUOTES, 'UTF-8') . '"><div class="download-grid topic-dl-grid ui-grid">';
+        $html = '<section class="topic-section topic-downloads topic-download-links ui-section" aria-labelledby="dl-heading"><h2 id="dl-heading">İndirme Bağlantıları</h2><div class="topic-dl-trust" role="note"><i class="bi bi-shield-check" aria-hidden="true"></i><span>' . htmlspecialchars($securityNoticeText, ENT_QUOTES, 'UTF-8') . '</span></div><div class="topic-dl-section ui-section" data-countdown-seconds="' . $countdown . '" data-wait-text="' . htmlspecialchars($waitText, ENT_QUOTES, 'UTF-8') . '" data-done-text="' . htmlspecialchars($doneText, ENT_QUOTES, 'UTF-8') . '"><div class="download-grid topic-dl-grid ui-grid">';
         foreach ($links as $link) {
             if (!is_array($link)) {
                 continue;
@@ -2961,11 +2980,23 @@ final class PublicThemeRenderer
         $warningDuration = (int) ($settings['toast_duration_warning'] ?? 0);
 
         $pageVars = self::arrayValue($context, 'page_vars');
-        $success = (string) ($pageVars['successMsg'] ?? ($_SESSION['_flash_success'] ?? ''));
-        $error = (string) ($pageVars['errorMsg'] ?? ($_SESSION['_flash_error'] ?? ''));
-        $info = (string) ($pageVars['infoMsg'] ?? ($_SESSION['_flash_info'] ?? ''));
-        $warning = (string) ($pageVars['warningMsg'] ?? ($_SESSION['_flash_warning'] ?? ''));
-        unset($_SESSION['_flash_success'], $_SESSION['_flash_error'], $_SESSION['_flash_info'], $_SESSION['_flash_warning']);
+        $success = (string) ($pageVars['successMsg'] ?? ($_SESSION['_flash']['success'] ?? ($_SESSION['_flash_success'] ?? '')));
+        $error = (string) ($pageVars['errorMsg'] ?? ($_SESSION['_flash']['error'] ?? ($_SESSION['_flash_error'] ?? '')));
+        $info = (string) ($pageVars['infoMsg'] ?? ($_SESSION['_flash']['info'] ?? ($_SESSION['_flash_info'] ?? '')));
+        $warning = (string) ($pageVars['warningMsg'] ?? ($_SESSION['_flash']['warning'] ?? ($_SESSION['_flash_warning'] ?? '')));
+        unset(
+            $_SESSION['_flash']['success'],
+            $_SESSION['_flash']['error'],
+            $_SESSION['_flash']['info'],
+            $_SESSION['_flash']['warning'],
+            $_SESSION['_flash_success'],
+            $_SESSION['_flash_error'],
+            $_SESSION['_flash_info'],
+            $_SESSION['_flash_warning']
+        );
+        if (isset($_SESSION['_flash']) && is_array($_SESSION['_flash']) && $_SESSION['_flash'] === []) {
+            unset($_SESSION['_flash']);
+        }
 
         if (!$enabled && ($success !== '' || $error !== '' || $info !== '' || $warning !== '')) {
             $enabled = true;
@@ -3155,21 +3186,14 @@ final class PublicThemeRenderer
             }
         }
 
-        $hourlyLimit = (int) ($pageVars['hourlyLimit'] ?? 0);
-        $dailyLimit = (int) ($pageVars['dailyLimit'] ?? 0);
-        $remainingHourly = $pageVars['remainingHourlyUploads'] ?? null;
-        $remainingDaily = $pageVars['remainingDailyUploads'] ?? null;
+        $submissionRateLimit = (int) ($pageVars['submissionRateLimit'] ?? 0);
+        $submissionRateWindow = (int) ($pageVars['submissionRateWindow'] ?? 0);
+        $remainingSubmissionUploads = $pageVars['remainingSubmissionUploads'] ?? null;
         $limitRows = [];
-        if ($hourlyLimit > 0) {
+        if ($submissionRateLimit > 0 && $submissionRateWindow > 0) {
             $limitRows[] = [
-                'label' => 'Saatlik',
-                'text' => $remainingHourly === null ? 'kontrol edilecek' : ((string) (int) $remainingHourly . ' / ' . $hourlyLimit . ' kaldi'),
-            ];
-        }
-        if ($dailyLimit > 0) {
-            $limitRows[] = [
-                'label' => 'Gunluk',
-                'text' => $remainingDaily === null ? 'kontrol edilecek' : ((string) (int) $remainingDaily . ' / ' . $dailyLimit . ' kaldi'),
+                'label' => $submissionRateWindow . ' dakika',
+                'text' => $remainingSubmissionUploads === null ? 'kontrol edilecek' : ((string) (int) $remainingSubmissionUploads . ' / ' . $submissionRateLimit . ' kaldi'),
             ];
         }
 
@@ -3258,8 +3282,8 @@ final class PublicThemeRenderer
             'allowed_video_hosts_data' => isset($pageVars['allowedVideoHosts']) && is_array($pageVars['allowedVideoHosts'])
                 ? implode(',', array_map('strval', $pageVars['allowedVideoHosts']))
                 : (string) ($pageVars['allowedVideoHosts'] ?? ''),
-            'hourly_limit' => (string) $hourlyLimit,
-            'daily_limit' => (string) $dailyLimit,
+            'upload_rate_limit' => (string) $submissionRateLimit,
+            'upload_rate_window' => (string) $submissionRateWindow,
             'block_duplicate_titles_data' => $blockDuplicateTitles ? '1' : '0',
             'has_limits' => $limitRows !== [],
             'limit_rows' => $limitRows,
@@ -3590,6 +3614,7 @@ final class PublicThemeRenderer
 
         return [
             'base_url' => routePrivateProfileUrl(),
+            'ban_appeals_url' => routePublicStaticUrl('ban_appeals'),
             'active_tab' => $activeTab,
             'success' => !empty($pageVars['profile_private_suppress_success_alert']) ? '' : (string) ($pageVars['profile_private_success'] ?? ''),
             'error' => (string) ($pageVars['profile_private_error'] ?? ''),

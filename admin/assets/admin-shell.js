@@ -5,106 +5,14 @@
         return document.getElementById("toastContainer");
     }
 
-    function defineToastFallback() {
-        if (typeof window.showToast === "function") {
-            return;
-        }
-
-        window.showToast = function (message, type, duration) {
-            var container = toastContainer();
-            if (!container) {
-                return;
-            }
-
-            var options = {};
-            if (message && typeof message === "object") {
-                options = message;
-                message = options.message || options.text || "";
-                type = options.type || type;
-                duration = options.duration || duration;
-            } else if (duration && typeof duration === "object") {
-                options = duration;
-                duration = options.duration;
-            }
-
-            type = type || "info";
-            duration = duration || (type === "success" ? 3200 : parseInt(container.getAttribute("data-toast-duration"), 10) || 5000);
-            if (type === "error" && options.solution) {
-                duration = Math.max(duration, 7600);
-            }
-            if (options.sticky) {
-                duration = 0;
-            }
-
-            var toast = document.createElement("div");
-            toast.className = "topic-toast toast-" + type;
-
-            var icon = "bi-info-circle";
-            if (type === "success") icon = "bi-check-circle-fill";
-            else if (type === "error") icon = "bi-exclamation-triangle-fill";
-            else if (type === "warning") icon = "bi-exclamation-circle-fill";
-
-            var iconEl = document.createElement("i");
-            iconEl.className = "bi " + icon;
-
-            var messageEl = document.createElement("span");
-            messageEl.className = "toast-content";
-
-            if (options.title) {
-                var titleEl = document.createElement("span");
-                titleEl.className = "toast-title";
-                titleEl.textContent = options.title;
-                messageEl.appendChild(titleEl);
-            }
-
-            var bodyEl = document.createElement("span");
-            bodyEl.className = "toast-message";
-            bodyEl.textContent = String(message || "");
-            messageEl.appendChild(bodyEl);
-
-            if (options.solution || options.detail) {
-                var detailEl = document.createElement("span");
-                detailEl.className = "toast-detail";
-                detailEl.textContent = options.solution || options.detail;
-                messageEl.appendChild(detailEl);
-            }
-
-            if (options.actionLabel && options.actionUrl) {
-                var actionEl = document.createElement("a");
-                actionEl.className = "toast-action";
-                actionEl.href = options.actionUrl;
-                actionEl.textContent = options.actionLabel;
-                if (options.actionTarget) actionEl.target = options.actionTarget;
-                if (options.actionTarget === "_blank") actionEl.rel = "noopener";
-                messageEl.appendChild(actionEl);
-            }
-
-            toast.appendChild(iconEl);
-            toast.appendChild(messageEl);
-            container.appendChild(toast);
-
-            if (duration <= 0) {
-                return;
-            }
-
-            setTimeout(function () {
-                toast.classList.add("toast-out");
-                setTimeout(function () {
-                    toast.remove();
-                }, 300);
-            }, duration);
-        };
-    }
-
-    function dispatchFallbackFlashes() {
+    function dispatchInlineFlashes() {
         var container = toastContainer();
         if (!container || typeof window.showToast !== "function") {
             return;
         }
-        if (window.showToast._uiFoundationEnhanced || container.dataset.uiFoundationFlashDispatched === "1") {
+        if (!window.showToast._uiFoundationEnhanced || container.dataset.uiFoundationFlashDispatched === "1") {
             return;
         }
-        container.dataset.adminShellFlashDispatched = "1";
 
         [
             ["success", container.getAttribute("data-toast-success")],
@@ -245,9 +153,19 @@
     }
 
     function initSettingsTabs() {
+        if (document.documentElement.dataset.settingsTabsBound === "1") {
+            return;
+        }
+
         var tabLinks = document.querySelectorAll(".settings-tabs .nav-link");
         var sections = document.querySelectorAll(".settings-section");
         var activeTabInput = document.getElementById("activeTabInput");
+
+        if (tabLinks.length === 0) {
+            return;
+        }
+
+        document.documentElement.dataset.settingsTabsBound = "1";
 
         function activateTab(targetId) {
             tabLinks.forEach(function (link) {
@@ -261,8 +179,28 @@
             }
         }
 
-        if (tabLinks.length === 0) {
-            return;
+        function hashTarget() {
+            var hash = "";
+            try {
+                hash = String(window.location.hash || "").replace(/^#/, "");
+            } catch (error) {
+                hash = "";
+            }
+
+            if (hash.indexOf(":") !== -1) {
+                hash = hash.split(":")[0];
+            }
+
+            return hash;
+        }
+
+        function activateFromHashOrDefault() {
+            var target = hashTarget();
+            if (target && document.getElementById(target)) {
+                activateTab(target);
+            } else if (sections.length > 0) {
+                activateTab(sections[0].id);
+            }
         }
 
         tabLinks.forEach(function (link) {
@@ -274,17 +212,9 @@
             });
         });
 
-        var hash = "";
-        try {
-            hash = new URL(window.location.href).hash.replace("#", "");
-        } catch (error) {
-            hash = "";
-        }
-        if (hash && document.getElementById(hash)) {
-            activateTab(hash);
-        } else if (sections.length > 0) {
-            activateTab(sections[0].id);
-        }
+        window.addEventListener("hashchange", activateFromHashOrDefault);
+        activateFromHashOrDefault();
+        window.setTimeout(activateFromHashOrDefault, 0);
     }
 
     function initQuillEditors() {
@@ -357,10 +287,9 @@
     }
 
     window.initQuillEditors = initQuillEditors;
-    defineToastFallback();
 
     document.addEventListener("DOMContentLoaded", function () {
-        dispatchFallbackFlashes();
+        dispatchInlineFlashes();
         consumeInlineAdminFlashes();
         initSidebar();
         initAlertDismiss();

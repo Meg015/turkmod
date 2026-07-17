@@ -312,6 +312,172 @@ if (!function_exists('commentSpamMeaninglessPhraseMatch')) {
     }
 }
 
+if (!function_exists('commentSpamNormalizeGibberishToken')) {
+    function commentSpamNormalizeGibberishToken(string $text): string
+    {
+        $text = commentSpamNormalizeComparableBody($text);
+        if ($text === '' || preg_match('/[\p{Z}\s]+/u', $text) === 1) {
+            return '';
+        }
+
+        return preg_replace('/[^\p{L}\p{N}]+/u', '', $text) ?? '';
+    }
+}
+
+if (!function_exists('commentSpamHasRepeatedFragment')) {
+    function commentSpamHasRepeatedFragment(string $token): bool
+    {
+        $length = mb_strlen($token, 'UTF-8');
+        if ($length < 4) {
+            return false;
+        }
+
+        for ($size = 2; $size <= 3; $size++) {
+            if ($length < ($size * 2)) {
+                continue;
+            }
+
+            for ($i = 0; $i <= $length - ($size * 2); $i++) {
+                $fragment = mb_substr($token, $i, $size, 'UTF-8');
+                $nextFragment = mb_substr($token, $i + $size, $size, 'UTF-8');
+                if ($fragment !== '' && $fragment === $nextFragment) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeGibberish')) {
+    function commentSpamLooksLikeGibberish(string $body, int $maxLength = 12, int $scoreThreshold = 3): bool
+    {
+        $maxLength = max(0, $maxLength);
+        $scoreThreshold = max(1, $scoreThreshold);
+        if ($maxLength <= 0) {
+            return false;
+        }
+
+        $token = commentSpamNormalizeGibberishToken($body);
+        $tokenLength = mb_strlen($token, 'UTF-8');
+        if ($token === '' || $tokenLength < 3 || $tokenLength > $maxLength) {
+            return false;
+        }
+
+        $characters = preg_split('//u', $token, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($characters) || $characters === []) {
+            return false;
+        }
+
+        $vowels = array_fill_keys(['a', 'e', 'i', 'ı', 'o', 'ö', 'u', 'ü', 'â', 'î', 'û'], true);
+        $commonConsonantPairs = array_fill_keys([
+            'bl', 'br', 'cl', 'cr', 'dr', 'fl', 'fr', 'gl', 'gr', 'kl', 'kr', 'pl', 'pr', 'tr',
+            'sk', 'sl', 'sm', 'sn', 'sp', 'st', 'sv',
+            'ft', 'ht', 'kt', 'ks', 'ld', 'lk', 'lm', 'ln', 'ls', 'lt',
+            'mb', 'mp', 'mn', 'nd', 'ng', 'nk', 'nt', 'ns',
+            'rd', 'rk', 'rl', 'rm', 'rn', 'rs', 'rt',
+            'ts', 'ps',
+        ], true);
+
+        $letterCount = 0;
+        $digitCount = 0;
+        $vowelCount = 0;
+        $currentConsonantRun = 0;
+        $maxConsonantRun = 0;
+        $oddConsonantPairs = 0;
+        $oddVowelPairs = 0;
+        $previousLetter = null;
+        $previousWasVowel = false;
+
+        foreach ($characters as $character) {
+            if (preg_match('/\p{N}/u', $character) === 1) {
+                $digitCount++;
+                $currentConsonantRun = 0;
+                $previousLetter = null;
+                continue;
+            }
+
+            if (preg_match('/\p{L}/u', $character) !== 1) {
+                $currentConsonantRun = 0;
+                $previousLetter = null;
+                continue;
+            }
+
+            $letterCount++;
+            $isVowel = isset($vowels[$character]);
+            if ($isVowel) {
+                $vowelCount++;
+                $currentConsonantRun = 0;
+            } else {
+                $currentConsonantRun++;
+                $maxConsonantRun = max($maxConsonantRun, $currentConsonantRun);
+            }
+
+            if ($previousLetter !== null) {
+                if (!$previousWasVowel && !$isVowel && $previousLetter !== $character) {
+                    $pair = $previousLetter . $character;
+                    if (!isset($commonConsonantPairs[$pair])) {
+                        $oddConsonantPairs++;
+                    }
+                } elseif ($previousWasVowel && $isVowel && $previousLetter !== $character) {
+                    $oddVowelPairs++;
+                }
+            }
+
+            $previousLetter = $character;
+            $previousWasVowel = $isVowel;
+        }
+
+        if ($letterCount < 2) {
+            return false;
+        }
+
+        $score = 0;
+        $vowelRatio = $letterCount > 0 ? $vowelCount / $letterCount : 0.0;
+
+        if ($vowelCount === 0) {
+            $score += 3;
+        } elseif ($vowelRatio <= 0.20) {
+            $score += 2;
+        } elseif ($vowelRatio < 0.30 && $letterCount >= 5) {
+            $score += 1;
+        }
+
+        if ($maxConsonantRun >= 4) {
+            $score += 2;
+        } elseif ($maxConsonantRun >= 3 && $vowelRatio <= 0.25) {
+            $score += 1;
+        }
+
+        if ($digitCount > 0 && $letterCount <= 6) {
+            $score += 1;
+        }
+
+        if (commentSpamHasRepeatedFragment($token)) {
+            $score += 2;
+        }
+
+        if ($oddConsonantPairs >= 2) {
+            $score += 2;
+        } elseif ($oddConsonantPairs === 1) {
+            $score += 1;
+        }
+
+        if ($oddVowelPairs >= 2) {
+            $score += 2;
+        } elseif ($oddVowelPairs === 1 && $tokenLength <= 8) {
+            $score += 1;
+        }
+
+        if ($tokenLength <= 5 && $vowelRatio <= 0.25) {
+            $score += 1;
+        }
+
+        return $score >= $scoreThreshold;
+    }
+}
+
 if (!function_exists('commentSpamCapsStats')) {
     function commentSpamCapsStats(string $text): array
     {
@@ -516,6 +682,14 @@ if (!function_exists('commentSpamEvaluate')) {
             $phrases = commentSpamParseMeaninglessPhrases((string) ($settings['comment_spam_meaningless_phrases'] ?? ''));
             if ($phrases !== [] && commentSpamMeaninglessPhraseMatch($body, $phrases) !== null) {
                 $reasons[] = 'meaningless_phrase';
+            }
+        }
+
+        if ((string) ($settings['comment_spam_gibberish_enabled'] ?? '1') === '1') {
+            $gibberishMaxLength = max(0, (int) ($settings['comment_spam_gibberish_max_length'] ?? 12));
+            $gibberishScoreThreshold = max(1, (int) ($settings['comment_spam_gibberish_score_threshold'] ?? 3));
+            if (commentSpamLooksLikeGibberish($body, $gibberishMaxLength, $gibberishScoreThreshold)) {
+                $reasons[] = 'gibberish';
             }
         }
 

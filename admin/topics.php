@@ -200,12 +200,12 @@ if ($activeTab === 'reports') {
 }
 $activeTab = in_array($activeTab, ['list', 'health', 'settings'], true) ? $activeTab : 'list';
 $page = max(1, (int)($_GET['page'] ?? 1));
-$perPage = 20;
+$perPage = adminPaginationPerPage();
 $healthSearch = trim((string)($_GET['health_q'] ?? ''));
 $healthStatusFilter = trim((string)($_GET['health_status'] ?? ''));
 $healthIssueFilter = trim((string)($_GET['health_issue'] ?? ''));
 $healthPage = max(1, (int)($_GET['health_page'] ?? 1));
-$healthPerPage = 30;
+$healthPerPage = adminPaginationPerPage();
 $healthFilters = [
     'q' => $healthSearch,
     'health_status' => $healthStatusFilter,
@@ -658,26 +658,14 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <?php if ($totalPages > 1): ?>
-<div class="pagination-wrapper">
-    <div class="pagination">
-        <?php
-        $qs = $_GET;
-        unset($qs['page']);
-        $baseUrl = 'topics.php?' . (count($qs) > 0 ? http_build_query($qs) . '&' : '') . 'page=';
-        
-        if ($page > 1): ?>
-            <a href="<?= $baseUrl . ($page - 1) ?>" class="page-link" title="Önceki"><i class="bi bi-chevron-left"></i></a>
-        <?php endif; ?>
-        
-        <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-            <a href="<?= $baseUrl . $i ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>
-        <?php endfor; ?>
-        
-        <?php if ($page < $totalPages): ?>
-            <a href="<?= $baseUrl . ($page + 1) ?>" class="page-link" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
-        <?php endif; ?>
-    </div>
-</div>
+    <?php
+    $qs = $_GET;
+    unset($qs['page']);
+    $baseUrl = 'topics.php?' . (count($qs) > 0 ? http_build_query($qs) . '&' : '') . 'page=';
+    echo adminRenderPagination($totalPages, $page, static fn (int $targetPage): string => $baseUrl . $targetPage, [
+        'aria_label' => 'Konu sayfalama',
+    ]);
+    ?>
 <?php endif; ?>
 
 <?php endif; ?>
@@ -945,41 +933,19 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
         </table>
     </div>
     <?php if ($topicHealthTotalPages > 1): ?>
-        <div class="pagination-wrapper topic-health-pagination">
-            <div class="pagination">
-                <?php
-                $healthQs = $_GET;
-                $healthQs['tab'] = 'health';
-                unset($healthQs['health_page'], $healthQs['page']);
-                $healthBaseUrl = 'topics.php?' . (count($healthQs) > 0 ? http_build_query($healthQs) . '&' : '') . 'health_page=';
-                ?>
-                <?php if ($healthPage > 1): ?>
-                    <a href="<?= $healthBaseUrl . ($healthPage - 1) ?>" class="page-link" title="Onceki"><i class="bi bi-chevron-left"></i></a>
-                <?php endif; ?>
-
-                <?php for ($i = max(1, $healthPage - 2); $i <= min($topicHealthTotalPages, $healthPage + 2); $i++): ?>
-                    <a href="<?= $healthBaseUrl . $i ?>" class="page-link <?= $i === $healthPage ? 'active' : '' ?>"><?= $i ?></a>
-                <?php endfor; ?>
-
-                <?php if ($healthPage < $topicHealthTotalPages): ?>
-                    <a href="<?= $healthBaseUrl . ($healthPage + 1) ?>" class="page-link" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
-                <?php endif; ?>
-            </div>
-        </div>
+        <?php
+        $healthQs = $_GET;
+        $healthQs['tab'] = 'health';
+        unset($healthQs['health_page'], $healthQs['page']);
+        $healthBaseUrl = 'topics.php?' . (count($healthQs) > 0 ? http_build_query($healthQs) . '&' : '') . 'health_page=';
+        echo adminRenderPagination($topicHealthTotalPages, $healthPage, static fn (int $targetPage): string => $healthBaseUrl . $targetPage, [
+            'wrapper_class' => 'topic-health-pagination',
+            'aria_label' => 'Konu sağlık sayfalama',
+        ]);
+        ?>
     <?php endif; ?>
-</section>
-<?php endif; ?>
-
-<div class="moderation-note-modal ui-admin-modal-overlay" id="moderationNoteModal" hidden aria-hidden="true">
-    <div class="moderation-note-backdrop" data-moderation-note-close></div>
-    <div class="moderation-note-dialog ui-admin-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="moderationNoteTitle">
-        <div class="moderation-note-header">
-            <h2 class="moderation-note-title" id="moderationNoteTitle">Son moderasyon notu</h2>
-            <button type="button" class="ui-admin-btn ui-admin-btn-ghost ui-admin-btn-xs" data-moderation-note-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <div class="moderation-note-body" id="moderationNoteBody"></div>
-    </div>
 </div>
+<?php endif; ?>
 
 <div class="moderation-note-modal ui-admin-modal-overlay" id="moderationActionNoteModal" hidden aria-hidden="true">
     <div class="moderation-note-backdrop" data-moderation-action-note-close></div>

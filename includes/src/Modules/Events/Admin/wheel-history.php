@@ -90,16 +90,15 @@ eventsAdminStyles($baseUri ?? '');
 $spins = [];
 $totalSpins = 0;
 $userStats = [];
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = function_exists('adminPaginationPerPage') ? adminPaginationPerPage() : 10;
+$offset = ($page - 1) * $perPage;
 
 // $ready false olsa bile verileri çekmeye çalış
 try {
     $userNameExpr = (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username'))
         ? "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))"
         : "CONCAT('user-', u.id)";
-    // Sayfalama
-    $page = max(1, (int)($_GET['page'] ?? 1));
-    $perPage = 10;
-    $offset = ($page - 1) * $perPage;
 
     // Toplam kayıt sayısı
     $countStmt = $pdo->query("SELECT COUNT(*) FROM events_wheel_spins");
@@ -147,7 +146,7 @@ try {
     $errors['database'] = 'Veritabanı hatası: ' . $e->getMessage();
 }
 
-$totalPages = ceil($totalSpins / 10);
+$totalPages = max(1, (int) ceil($totalSpins / max(1, $perPage)));
 ?>
 
 <div data-ui-events-wheel-ajax-root>
@@ -200,9 +199,9 @@ $totalPages = ceil($totalSpins / 10);
 
             <!-- Geçmiş Kayıtları Sekmesi -->
             <div id="ui-events-admin-tab-wheel-history-list" class="ui-events-admin-tab-panel is-active ui-panel" data-ui-events-wheel-history-panel>
-                <div class="ui-surface admin-card ui-events-admin-panel ui-events-admin-table-panel ui-panel">
-                    <div class="ui-panel__body card-body ui-events-table-wrap ui-events-admin-table-wrap ui-table-wrap ui-surface">
-                        <div class="ui-events-admin-actionstrip">
+                <div class="ui-surface admin-card ui-events-admin-panel ui-events-admin-table-panel ui-panel logs-list-card">
+                    <div class="ui-panel__body card-body ui-events-table-wrap ui-events-admin-table-wrap ui-table-wrap ui-surface admin-log-table-wrap">
+                        <div class="ui-events-admin-actionstrip logs-toolbar-actions">
                             <form class="ui-events-inline-form" method="post" data-ui-events-confirm="Tüm çark çevirme kayıtları kalıntı bırakmadan silinecektir. Bu işlem geri alınamaz." data-ui-events-confirm-title="Tüm kayıtlar silinsin mi?" data-ui-events-confirm-ok="Tümünü Sil" data-ui-events-confirm-tone="danger">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="_events_action" value="delete_all_spins">
@@ -215,7 +214,7 @@ $totalPages = ceil($totalSpins / 10);
                         <?php if ($spins === []): ?>
                             <?php eventsAdminEmptyState('bi-clock-history', 'Çark Geçmişi Bulunamadı', 'Henüz hiç çark çevirme kaydı bulunmuyor.'); ?>
                         <?php else: ?>
-                            <table class="ui-events-table">
+                            <table class="ui-events-table admin-log-table">
                                 <thead>
                                     <tr>
                                         <th>Kullanıcı</th>
@@ -255,15 +254,11 @@ $totalPages = ceil($totalSpins / 10);
                                 </tbody>
                             </table>
 
-                            <!-- Sayfalama -->
                             <?php if ($totalPages > 1): ?>
-                                <div class="ui-events-admin-pagination">
-                                    <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-                                        <a href="?tab=history&page=<?= $p ?>" class="ui-admin-btn ui-events-admin-page-number <?= $p === $page ? 'ui-admin-btn-primary' : 'ui-admin-btn-outline' ?>">
-                                            <?= $p ?>
-                                        </a>
-                                    <?php endfor; ?>
-                                </div>
+                                <?= adminRenderPagination($totalPages, $page, static fn (int $targetPage): string => '?tab=history&page=' . $targetPage, [
+                                    'wrapper_class' => 'logs-pagination-wrapper ui-events-admin-pagination',
+                                    'aria_label' => 'Çark geçmişi sayfalama',
+                                ]) ?>
                             <?php endif; ?>
                         <?php endif; ?>
                     </div>
@@ -272,12 +267,12 @@ $totalPages = ceil($totalSpins / 10);
 
             <!-- Kullanıcı İstatistikleri Sekmesi -->
             <div id="ui-events-admin-tab-wheel-history-users" class="ui-events-admin-tab-panel ui-panel" data-ui-events-wheel-history-panel hidden>
-                <div class="ui-surface admin-card ui-events-admin-panel ui-events-admin-table-panel ui-panel">
-                    <div class="ui-panel__body card-body ui-events-table-wrap ui-events-admin-table-wrap ui-table-wrap ui-surface">
+                <div class="ui-surface admin-card ui-events-admin-panel ui-events-admin-table-panel ui-panel logs-list-card">
+                    <div class="ui-panel__body card-body ui-events-table-wrap ui-events-admin-table-wrap ui-table-wrap ui-surface admin-log-table-wrap">
                         <?php if ($userStats === []): ?>
                             <?php eventsAdminEmptyState('bi-people', 'Kullanıcı Bulunamadı', 'Henüz hiç çark çeviren kullanıcı bulunmuyor.'); ?>
                         <?php else: ?>
-                            <table class="ui-events-table">
+                            <table class="ui-events-table admin-log-table">
                                 <thead>
                                     <tr>
                                         <th>Kullanıcı</th>

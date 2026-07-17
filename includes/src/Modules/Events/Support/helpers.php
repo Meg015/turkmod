@@ -35,8 +35,8 @@ if (!function_exists('eventsDefaultConfig')) {
             'api_rate_limit_window' => ['value' => '60', 'type' => 'int', 'group' => 'security'],
             'api_rate_limit_max' => ['value' => '45', 'type' => 'int', 'group' => 'security'],
             'events_activity_points_enabled' => ['value' => 'true', 'type' => 'bool', 'group' => 'activity'],
-            'wheel_daily_limit' => ['value' => '3', 'type' => 'int', 'group' => 'wheel'],
-            'wheel_hourly_limit' => ['value' => '1', 'type' => 'int', 'group' => 'wheel'],
+            'wheel_spin_rate_limit' => ['value' => '3', 'type' => 'int', 'group' => 'wheel'],
+            'wheel_spin_rate_window_minutes' => ['value' => '1440', 'type' => 'int', 'group' => 'wheel'],
             'wheel_spin_cooldown_seconds' => ['value' => '30', 'type' => 'int', 'group' => 'wheel'],
             'wheel_min_points' => ['value' => '0', 'type' => 'int', 'group' => 'wheel'],
             'wheel_extra_spin_cost' => ['value' => '0', 'type' => 'int', 'group' => 'wheel'],
@@ -120,8 +120,8 @@ if (!function_exists('eventsConfigUiSections')) {
                 'icon' => 'bi-arrow-clockwise',
                 'description' => 'Çark kullanım limitleri, giriş eşiği ve çarktan gelen ödüllerin geçerlilik süresi.',
                 'fields' => [
-                    ['key' => 'wheel_daily_limit', 'label' => 'Günlük limit', 'type' => 'number', 'min' => 0, 'max' => 1000, 'help' => 'Bir kullanıcının bir günde ücretsiz çevirebileceği maksimum adet. 0 limitsizdir.'],
-                    ['key' => 'wheel_hourly_limit', 'label' => 'Saatlik limit', 'type' => 'number', 'min' => 0, 'max' => 1000, 'help' => 'Kısa sürede arka arkaya çevirimi sınırlar. 0 limitsizdir.'],
+                    ['key' => 'wheel_spin_rate_limit', 'label' => 'Çark Çevirme Limiti', 'type' => 'number', 'min' => 0, 'max' => 1000, 'help' => 'Belirlenen süre içinde kullanıcının en fazla kaç kez çark çevirebileceğini belirler. 0 limitsizdir.'],
+                    ['key' => 'wheel_spin_rate_window_minutes', 'label' => 'Çark Limit Süresi (dakika)', 'type' => 'number', 'min' => 1, 'max' => 10080, 'help' => 'Çark çevirme limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
                     ['key' => 'wheel_spin_cooldown_seconds', 'label' => 'Bekleme Süresi (Sn)', 'type' => 'number', 'min' => 0, 'max' => 86400, 'help' => 'İki çevirme arası zorunlu bekleme süresi (Cooldown).'],
                     ['key' => 'wheel_min_points', 'label' => 'Minimum puan', 'type' => 'number', 'min' => 0, 'max' => 1000000000, 'help' => 'Çarkı çevirmek için gereken en düşük kullanıcı puanı.'],
                     ['key' => 'wheel_extra_spin_cost', 'label' => 'Ekstra hak puanı', 'type' => 'number', 'min' => 0, 'max' => 1000000000, 'help' => 'Limit dolduğunda ek çevirme hakkının puan maliyeti. 0 kapalıdır.'],
@@ -313,8 +313,8 @@ if (!function_exists('eventsConfigNumberDisplayMeta')) {
             'events_min_messages' => ['format' => 'count', 'unit' => 'mesaj', 'zeroLabel' => 'mesaj şartı yok'],
             'api_rate_limit_window' => ['format' => 'duration_seconds', 'zeroLabel' => '0 sn'],
             'api_rate_limit_max' => ['format' => 'count', 'unit' => 'istek'],
-            'wheel_daily_limit' => ['format' => 'count', 'unit' => 'hak', 'zeroLabel' => 'limitsiz'],
-            'wheel_hourly_limit' => ['format' => 'count', 'unit' => 'hak', 'zeroLabel' => 'limitsiz'],
+            'wheel_spin_rate_limit' => ['format' => 'count', 'unit' => 'hak', 'zeroLabel' => 'limitsiz'],
+            'wheel_spin_rate_window_minutes' => ['format' => 'duration_minutes'],
             'wheel_spin_cooldown_seconds' => ['format' => 'duration_seconds', 'zeroLabel' => 'bekleme yok'],
             'wheel_min_points' => ['format' => 'count', 'unit' => 'puan', 'zeroLabel' => 'puan şartı yok'],
             'wheel_extra_spin_cost' => ['format' => 'count', 'unit' => 'puan', 'zeroLabel' => 'ek hak kapalı'],
@@ -430,6 +430,35 @@ if (!function_exists('eventsRenderReadableNumberValue')) {
     }
 }
 
+if (!function_exists('eventsWheelRateConfig')) {
+    /**
+     * @return array{limit:int,window_minutes:int,window_seconds:int}
+     */
+    function eventsWheelRateConfig(array $config): array
+    {
+        $limit = max(0, (int)($config['wheel_spin_rate_limit'] ?? 0));
+        $windowMinutes = max(1, min(10080, (int)($config['wheel_spin_rate_window_minutes'] ?? 1440)));
+
+        return [
+            'limit' => $limit,
+            'window_minutes' => $windowMinutes,
+            'window_seconds' => $windowMinutes * 60,
+        ];
+    }
+}
+
+if (!function_exists('eventsWheelRateSummary')) {
+    function eventsWheelRateSummary(array $config): string
+    {
+        $rate = eventsWheelRateConfig($config);
+        if ($rate['limit'] <= 0) {
+            return 'Limitsiz';
+        }
+
+        return $rate['window_minutes'] . ' dakika içinde ' . $rate['limit'] . ' hak';
+    }
+}
+
 if (!function_exists('eventsNormalizeConfigInput')) {
     function eventsNormalizeConfigInput(array $input): array
     {
@@ -515,6 +544,17 @@ if (!function_exists('eventsNormalizeConfigInput')) {
             }
 
             $data[$key] = trim((string)($input[$key] ?? $definition['value']));
+        }
+
+        $rawWheelRateWindow = max(0, (int)trim((string)($input['wheel_spin_rate_window_minutes'] ?? 0)));
+        if ((int)($data['wheel_spin_rate_limit'] ?? 0) > 0
+            && $rawWheelRateWindow <= 0) {
+            $errors['wheel_spin_rate_window_minutes'] = 'Limit kullanılıyorsa süre 1 dakika veya daha yüksek olmalı.';
+        }
+
+        if ((int)($data['api_rate_limit_max'] ?? 0) > 0
+            && (int)($data['api_rate_limit_window'] ?? 0) <= 0) {
+            $errors['api_rate_limit_window'] = 'API limit aralığı 1 saniye veya daha yüksek olmalı.';
         }
 
         $backendManagedKeys = [
@@ -1200,11 +1240,13 @@ if (!function_exists('eventsTablesReady')) {
 if (!function_exists('eventsSeedDefaultConfig')) {
     function eventsSeedDefaultConfig(PDO $pdo): void
     {
+        $definitions = eventsDefaultConfig();
+
         $stmt = $pdo->prepare("INSERT INTO events_config (config_key, config_value, value_type, created_at, updated_at)
             VALUES (:config_key, :config_value, :value_type, NOW(), NOW())
             ON DUPLICATE KEY UPDATE value_type = VALUES(value_type), updated_at = updated_at");
 
-        foreach (eventsDefaultConfig() as $key => $definition) {
+        foreach ($definitions as $key => $definition) {
             $stmt->execute([
                 'config_key' => $key,
                 'config_value' => $definition['value'],
@@ -1472,20 +1514,25 @@ if (!function_exists('eventsWheelUsageState')) {
     function eventsWheelUsageState(?PDO $pdo, int $userId, array $config, ?int $now = null): array
     {
         $now = $now ?? time();
-        $dailyLimit = max(0, (int)($config['wheel_daily_limit'] ?? 0));
-        $hourlyLimit = max(0, (int)($config['wheel_hourly_limit'] ?? 0));
+        $rateConfig = eventsWheelRateConfig($config);
+        $rateLimit = (int)$rateConfig['limit'];
+        $rateWindowMinutes = (int)$rateConfig['window_minutes'];
         $cooldownSeconds = max(0, (int)($config['wheel_spin_cooldown_seconds'] ?? 0));
         $extraSpinCost = max(0, (int)($config['wheel_extra_spin_cost'] ?? 0));
 
         $usage = [
-            'daily_limit' => $dailyLimit,
-            'hourly_limit' => $hourlyLimit,
+            'rate_limit' => $rateLimit,
+            'rate_window_minutes' => $rateWindowMinutes,
+            'daily_limit' => $rateLimit,
+            'hourly_limit' => 0,
             'cooldown_seconds' => $cooldownSeconds,
             'extra_spin_cost' => $extraSpinCost,
+            'rate_count' => 0,
             'daily_count' => 0,
             'hourly_count' => 0,
-            'remaining_daily' => $dailyLimit > 0 ? $dailyLimit : null,
-            'remaining_hourly' => $hourlyLimit > 0 ? $hourlyLimit : null,
+            'remaining_rate' => $rateLimit > 0 ? $rateLimit : null,
+            'remaining_daily' => $rateLimit > 0 ? $rateLimit : null,
+            'remaining_hourly' => null,
             'cooldown_remaining' => 0,
             'bonus_spin_count' => 0,
             'last_spin_at' => null,
@@ -1493,6 +1540,7 @@ if (!function_exists('eventsWheelUsageState')) {
             'next_spin_at_epoch' => null,
             'limit_reason' => '',
             'limit_blocked' => false,
+            'rate_limit_exceeded' => false,
             'can_spin_free' => true,
             'can_spin_with_bonus' => false,
             'can_spin_with_extra' => false,
@@ -1504,13 +1552,12 @@ if (!function_exists('eventsWheelUsageState')) {
         }
 
         try {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM events_wheel_spins WHERE user_id = ? AND created_at >= CURDATE()");
-            $stmt->execute([$userId]);
-            $usage['daily_count'] = (int)$stmt->fetchColumn();
-
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM events_wheel_spins WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
-            $stmt->execute([$userId]);
-            $usage['hourly_count'] = (int)$stmt->fetchColumn();
+            if ($rateLimit > 0 && $rateWindowMinutes > 0) {
+                $stmt = $pdo->prepare("SELECT COUNT(*) FROM events_wheel_spins WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL {$rateWindowMinutes} MINUTE)");
+                $stmt->execute([$userId]);
+                $usage['rate_count'] = (int)$stmt->fetchColumn();
+                $usage['daily_count'] = (int)$usage['rate_count'];
+            }
 
             $stmt = $pdo->prepare("SELECT created_at FROM events_wheel_spins WHERE user_id = ? ORDER BY id DESC LIMIT 1");
             $stmt->execute([$userId]);
@@ -1529,8 +1576,9 @@ if (!function_exists('eventsWheelUsageState')) {
                 }
             }
 
-            $usage['remaining_daily'] = $dailyLimit > 0 ? max(0, $dailyLimit - (int)$usage['daily_count']) : null;
-            $usage['remaining_hourly'] = $hourlyLimit > 0 ? max(0, $hourlyLimit - (int)$usage['hourly_count']) : null;
+            $usage['remaining_rate'] = $rateLimit > 0 ? max(0, $rateLimit - (int)$usage['rate_count']) : null;
+            $usage['remaining_daily'] = $usage['remaining_rate'];
+            $usage['remaining_hourly'] = null;
 
             if (function_exists('eventsTasksTablesReady') && eventsTasksTablesReady($pdo)) {
                 $bonusStmt = $pdo->prepare("SELECT COALESCE(SUM(remaining_quantity), 0)
@@ -1540,19 +1588,17 @@ if (!function_exists('eventsWheelUsageState')) {
                 $usage['bonus_spin_count'] = (int)$bonusStmt->fetchColumn();
             }
 
-            $dailyExceeded = $dailyLimit > 0 && (int)$usage['daily_count'] >= $dailyLimit;
-            $hourlyExceeded = $hourlyLimit > 0 && (int)$usage['hourly_count'] >= $hourlyLimit;
+            $rateExceeded = $rateLimit > 0 && (int)$usage['rate_count'] >= $rateLimit;
             $cooldownActive = (int)$usage['cooldown_remaining'] > 0;
 
             if ($cooldownActive) {
                 $usage['limit_reason'] = 'cooldown';
-            } elseif ($dailyExceeded) {
-                $usage['limit_reason'] = 'daily';
-            } elseif ($hourlyExceeded) {
-                $usage['limit_reason'] = 'hourly';
+            } elseif ($rateExceeded) {
+                $usage['limit_reason'] = 'rate';
             }
 
-            $limitExceeded = $dailyExceeded || $hourlyExceeded;
+            $limitExceeded = $rateExceeded;
+            $usage['rate_limit_exceeded'] = $rateExceeded;
             $usage['can_spin_free'] = !$cooldownActive && !$limitExceeded;
             $usage['can_spin_with_bonus'] = !$cooldownActive && $limitExceeded && (int)$usage['bonus_spin_count'] > 0;
             $usage['can_spin_with_extra'] = !$cooldownActive && $limitExceeded && $extraSpinCost > 0;

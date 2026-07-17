@@ -123,6 +123,301 @@ function adminDenyAction(string $message = 'Bu islemi yapma yetkiniz yok.', stri
     adminRenderForbiddenPage($message);
 }
 
+if (!defined('ADMIN_PAGINATION_PER_PAGE')) {
+    define('ADMIN_PAGINATION_PER_PAGE', 10);
+}
+
+function adminPaginationPerPage(): int
+{
+    return (int) ADMIN_PAGINATION_PER_PAGE;
+}
+
+/**
+ * Render the standard admin pagination control.
+ *
+ * @param callable(int): string $urlForPage
+ * @param array<string, mixed> $options
+ */
+function adminRenderPagination(int $totalPages, int $currentPage, callable $urlForPage, array $options = []): string
+{
+    $totalPages = max(1, $totalPages);
+    if ($totalPages <= 1) {
+        return '';
+    }
+
+    $currentPage = max(1, min($currentPage, $totalPages));
+    $window = max(1, (int) ($options['window'] ?? 2));
+    $wrapperClass = trim('pagination-wrapper ' . (string) ($options['wrapper_class'] ?? ''));
+    $innerClass = trim('pagination ' . (string) ($options['inner_class'] ?? ''));
+    $ariaLabel = (string) ($options['aria_label'] ?? 'Sayfa gezinme');
+    $showEdges = (bool) ($options['show_edges'] ?? true);
+
+    $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    $pageLink = static function (int $targetPage, string $label, string $extraClass = '', string $ariaLabel = '') use ($urlForPage, $escape, $currentPage): string {
+        $isActive = $targetPage === $currentPage;
+        $class = trim('page-link ' . $extraClass . ($isActive ? ' active' : ''));
+        $ariaCurrent = $isActive ? ' aria-current="page"' : '';
+        $aria = $ariaLabel !== '' ? ' aria-label="' . $escape($ariaLabel) . '"' : '';
+
+        return '<a href="' . $escape((string) $urlForPage($targetPage)) . '" class="' . $escape($class) . '"' . $aria . $ariaCurrent . '>' . $label . '</a>';
+    };
+    $gap = '<span class="page-link pagination-ellipsis" aria-hidden="true">...</span>';
+
+    $items = [];
+    if ($currentPage > 1) {
+        $items[] = $pageLink($currentPage - 1, '<i class="bi bi-chevron-left" aria-hidden="true"></i>', '', 'Önceki sayfa');
+    }
+
+    $start = max(1, $currentPage - $window);
+    $end = min($totalPages, $currentPage + $window);
+
+    if ($showEdges && $start > 1) {
+        $items[] = $pageLink(1, '1');
+        if ($start > 2) {
+            $items[] = $gap;
+        }
+    }
+
+    for ($page = $start; $page <= $end; $page++) {
+        $items[] = $pageLink($page, (string) $page);
+    }
+
+    if ($showEdges && $end < $totalPages) {
+        if ($end < $totalPages - 1) {
+            $items[] = $gap;
+        }
+        $items[] = $pageLink($totalPages, (string) $totalPages);
+    }
+
+    if ($currentPage < $totalPages) {
+        $items[] = $pageLink($currentPage + 1, '<i class="bi bi-chevron-right" aria-hidden="true"></i>', '', 'Sonraki sayfa');
+    }
+
+    return '<nav class="' . $escape($wrapperClass) . '" aria-label="' . $escape($ariaLabel) . '"><div class="' . $escape($innerClass) . '">' . implode('', $items) . '</div></nav>';
+}
+
+function adminLogCleanupAudit(?PDO $pdo, string $actionType, string $scope, int $deleted, array $context = []): void
+{
+    if (!$pdo instanceof PDO || !function_exists('adminAuditLogger')) {
+        return;
+    }
+
+    $subjectMap = [
+        'admin_action_log_cleared' => 'Yönetici işlem günlüğü',
+        'activity_logs_cleared' => 'Kullanıcı işlem günlüğü',
+        'application_logs_cleared' => 'Uygulama logları',
+        'email_logs_cleared' => 'E-posta logları',
+        'cron_logs_cleared' => 'Cron logları',
+        'rate_limit_records_deleted' => 'İstek sınırı kayıtları',
+        'notification_records_deleted' => 'Bildirim geçmişi',
+        'events_audit_logs_cleared' => 'Etkinlik audit logları',
+    ];
+    $scopeMap = [
+        'all' => 'Tümü',
+        'older_than_30_days' => '30 günden eski kayıtlar',
+        'old' => 'Eski kayıtlar',
+        'filtered' => 'Aktif filtre',
+        'user' => 'Belirli kullanıcı',
+        'login' => 'Giriş kilitleri',
+        'expired' => 'Süresi dolmuş kayıtlar',
+        'single' => 'Tek kayıt',
+        'selected' => 'Seçili kayıtlar',
+    ];
+
+    $subject = $subjectMap[$actionType] ?? $actionType;
+    $scopeLabel = $scopeMap[$scope] ?? $scope;
+    $payload = array_merge([
+        'scope' => $scope,
+        'scope_label' => $scopeLabel,
+        'deleted' => max(0, $deleted),
+        'actor_id' => adminCurrentUserId(),
+    ], $context);
+
+    adminAuditLogger()->logAction(
+        $pdo,
+        $actionType,
+        'logs',
+        0,
+        $subject . ' temizlendi; kapsam: ' . $scopeLabel . '; silinen: ' . max(0, $deleted),
+        [],
+        $payload,
+        false
+    );
+}
+
+function adminLogCleanupRespond(bool $ok, string $message, string $redirectUrl, int $statusCode = 200): void
+{
+    if (adminIsAjaxRequest()) {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok' => $ok,
+            'success' => $ok,
+            'message' => $message,
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+    }
+
+    flash($ok ? 'success' : 'error', $message);
+    $redirectUrl = adminSanitizeRedirectUrl($redirectUrl);
+    header('Location: ' . ($redirectUrl !== '' ? $redirectUrl : 'index.php'));
+    exit;
+}
+
+function adminSanitizeRedirectUrl(string $redirectUrl): string
+{
+    $redirectUrl = trim($redirectUrl);
+    if ($redirectUrl === '') {
+        return '';
+    }
+
+    if (
+        preg_match('/[\x00-\x1F\x7F]/', $redirectUrl) === 1
+        || preg_match('~^[a-z][a-z0-9+.-]*:~i', $redirectUrl) === 1
+        || str_starts_with($redirectUrl, '//')
+        || str_contains($redirectUrl, '\\')
+    ) {
+        return '';
+    }
+
+    return $redirectUrl;
+}
+
+/**
+ * Run an admin log cleanup action with the standard validation, response and audit flow.
+ *
+ * @param array{
+ *     action_type:string,
+ *     scope?:string,
+ *     allowed_scopes?:array<int,string>,
+ *     permission?:string|array<int,string>,
+ *     permission_message?:string,
+ *     redirect_url:string,
+ *     delete:callable(PDO,string):int,
+ *     validate?:callable(string):string,
+ *     ready?:bool,
+ *     ready_message?:string,
+ *     source?:string,
+ *     context?:array<string,mixed>|callable(string,int):array<string,mixed>,
+ *     activity?:bool,
+ *     activity_subject?:string,
+ *     app_log?:bool,
+ *     app_log_channel?:string,
+ *     app_log_message?:string,
+ *     audit?:bool,
+ *     after?:callable(PDO,string,int,array<string,mixed>):void,
+ *     require_deleted?:bool,
+ *     failure_message?:string,
+ *     success_message?:string|callable(int,string):string,
+ *     error_prefix?:string
+ * } $options
+ */
+function adminRunLogCleanup(?PDO $pdo, array $options): void
+{
+    $redirectUrl = (string) ($options['redirect_url'] ?? 'logs.php');
+    $respond = static function (bool $ok, string $message, int $statusCode = 200) use ($redirectUrl): void {
+        adminLogCleanupRespond($ok, $message, $redirectUrl, $statusCode);
+    };
+
+    if (!$pdo instanceof PDO) {
+        $respond(false, 'Veritabanı bağlantısı hazır olmadığı için işlem yapılamadı.', 500);
+    }
+
+    if (!verify_csrf_token($_POST['_token'] ?? ($_POST['csrf_token'] ?? ''))) {
+        $respond(false, 'Güvenlik doğrulaması başarısız.', 403);
+    }
+
+    $permission = $options['permission'] ?? 'logs.manage';
+    if ($permission !== '' && !adminCurrentUserCan($permission)) {
+        $respond(false, (string) ($options['permission_message'] ?? 'Bu işlemi yapmak için gerekli izin hesabınıza tanımlanmamış.'), 403);
+    }
+
+    if (array_key_exists('ready', $options) && !$options['ready']) {
+        $respond(false, (string) ($options['ready_message'] ?? 'Bu günlük alanı hazır olmadığı için temizleme yapılamadı.'), 422);
+    }
+
+    $scope = trim((string) ($options['scope'] ?? ($_POST['scope'] ?? 'all')));
+    $allowedScopes = array_values(array_map('strval', (array) ($options['allowed_scopes'] ?? [])));
+    if ($allowedScopes !== [] && !in_array($scope, $allowedScopes, true)) {
+        $respond(false, 'Geçersiz temizleme kapsamı.', 422);
+    }
+
+    if (isset($options['validate']) && is_callable($options['validate'])) {
+        $validationError = (string) $options['validate']($scope);
+        if ($validationError !== '') {
+            $respond(false, $validationError, 422);
+        }
+    }
+
+    $deleteCallback = $options['delete'] ?? null;
+    if (!is_callable($deleteCallback)) {
+        $respond(false, 'Temizleme işlemi tanımlı değil.', 500);
+    }
+
+    $actionType = (string) ($options['action_type'] ?? '');
+    if ($actionType === '') {
+        $respond(false, 'Temizleme işlem tipi tanımlı değil.', 500);
+    }
+
+    try {
+        $deleted = max(0, (int) $deleteCallback($pdo, $scope));
+        if (($options['require_deleted'] ?? false) && $deleted <= 0) {
+            $message = (string) ($options['failure_message'] ?? 'Silinecek kayıt bulunamadı.');
+            $respond(false, str_replace(['{deleted}', '{scope}'], [(string) $deleted, $scope], $message), 422);
+        }
+
+        $contextOption = $options['context'] ?? [];
+        $context = is_callable($contextOption) ? (array) $contextOption($scope, $deleted) : (array) $contextOption;
+        if (!isset($context['source']) && isset($options['source'])) {
+            $context['source'] = (string) $options['source'];
+        }
+
+        $activityPayload = array_merge([
+            'scope' => $scope,
+            'deleted' => $deleted,
+        ], $context);
+
+        if (($options['activity'] ?? true) && function_exists('logActivity')) {
+            logActivity($pdo, $actionType, (string) ($options['activity_subject'] ?? 'logs'), null, $activityPayload);
+        }
+
+        if (($options['app_log'] ?? false) && function_exists('appLog')) {
+            appLog(
+                $pdo,
+                'info',
+                (string) ($options['app_log_channel'] ?? 'maintenance'),
+                (string) ($options['app_log_message'] ?? $actionType),
+                $activityPayload
+            );
+        }
+
+        if (($options['audit'] ?? true)) {
+            adminLogCleanupAudit($pdo, $actionType, $scope, $deleted, $context);
+        }
+
+        if (isset($options['after']) && is_callable($options['after'])) {
+            $options['after']($pdo, $scope, $deleted, $context);
+        }
+
+        $successMessage = $options['success_message'] ?? null;
+        if (is_callable($successMessage)) {
+            $message = (string) $successMessage($deleted, $scope);
+        } elseif (is_string($successMessage) && $successMessage !== '') {
+            $message = str_replace(['{deleted}', '{scope}'], [(string) $deleted, $scope], $successMessage);
+        } else {
+            $message = $deleted . ' kayıt temizlendi.';
+        }
+
+        $respond(true, $message);
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['source' => $options['source'] ?? 'admin_log_cleanup', 'action_type' => $actionType, 'scope' => $scope]);
+        }
+        $prefix = (string) ($options['error_prefix'] ?? 'Temizleme hatası: ');
+        $respond(false, $prefix . safeErrorMessage($e), 500);
+    }
+}
+
 function adminRenderLogsSubtabs(string $active): void
 {
     global $baseUri;
@@ -252,13 +547,6 @@ function adminSettingDefinitions(): array
             'default' => '',
             'section' => 'seo',
             'tooltip' => 'Public sayfa presetleri yapılandırılmış arayüzden otomatik oluşturulur.'
-        ],
-        'default_og_image' => [
-            'label' => 'Varsayılan OG Image',
-            'type' => 'string',
-            'default' => '/assets/og-default.jpg',
-            'section' => 'seo',
-            'tooltip' => 'Sayfalarda özel görsel yoksa kullanılacak varsayılan Open Graph görseli (1200x630px önerilir)'
         ],
         // Structured Data Settings
         'structured_data_category' => [
@@ -552,7 +840,6 @@ function adminSettingDefinitions(): array
 
         // -- Moderasyon -----------------------------------------
         'banned_words'              => ['label' => 'Yasakli Kelimeler (satır başına bir)', 'type' => 'text', 'default' => '', 'section' => 'moderation'],
-        'topic_report_reasons_json' => ['label' => 'Konu Rapor Nedenleri', 'type' => 'text', 'default' => '', 'section' => 'reports', 'tooltip' => 'Public konu raporlama penceresinde gösterilecek nedenleri belirler.'],
 
         // -- Yorum Sistemi -------------------------------------
         // Genel açma/kapama + onay anahtarları kolay erişim için bu sekmede.
@@ -566,9 +853,9 @@ function adminSettingDefinitions(): array
         'comment_min_length'        => ['label' => 'Min. Yorum Uzunlugu',         'type' => 'number', 'default' => '1', 'section' => 'comments'],
         'comment_per_page'          => ['label' => 'Sayfa Basina Yorum',          'type' => 'number', 'default' => '50', 'section' => 'comments'],
         'comment_sort_order'        => ['label' => 'Yorum Siralama',              'type' => 'select', 'default' => 'asc', 'section' => 'comments', 'options' => ['asc' => 'Eskiden yeniye', 'desc' => 'Yeniden eskiye']],
-        'comment_rate_minutes'      => ['label' => 'Yorum Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Yorum sayaci bu sure sonunda sifirlanir. Ornek: 5 dakika.'],
-        'comment_rate_max'          => ['label' => 'Yorum Gonderim Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Bir kullanici pencere suresi icinde en fazla kac yorum gonderebilir.'],
-        'comment_rate_admin_bypass' => ['label' => 'Adminler Yorum Limitinden Muaf', 'type' => 'bool', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Aciksa admin hesaplari yorum gonderim limitine takilmaz.'],
+        'comment_rate_minutes'      => ['label' => 'Yorum Gönderim Süresi (dakika)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Yorum gönderim limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'comment_rate_max'          => ['label' => 'Yorum Gönderim Limiti', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde bir kullanıcının en fazla kaç yorum gönderebileceğini belirler.'],
+        'comment_rate_admin_bypass' => ['label' => 'Adminleri Yorum Limitinden Muaf Tut', 'type' => 'bool', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Açıksa admin hesapları yorum gönderim limitine takılmaz.'],
         'comment_realtime_poll'     => ['label' => 'Canli Yorum Yoklama (sn, 0=kapali)', 'type' => 'number', 'default' => '15', 'section' => 'comments'],
 
         // -- Gelişmiş Yorum Özellikleri ----------------------
@@ -592,27 +879,30 @@ function adminSettingDefinitions(): array
         'comment_mentions_enabled'   => ['label' => 'Mention (@kullanıcı) Sistemi', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => '@kullaniciadi şeklinde kullanıcı etiketlemeye izin verir. Etiketlenen kullanıcı bildirim alır.'],
         'comment_edit_history'       => ['label' => 'Düzenleme Geçmişi Kaydet', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yorumlarda yapılan düzenlemelerin geçmişini saklar ve görüntülemeye izin verir.'],
         'comment_media_enabled'      => ['label' => 'Görsel Yükleme İzni', 'type' => 'bool', 'default' => '0', 'section' => 'comments', 'tooltip' => 'Kullanıcıların yorumlara görsel (screenshot) eklemesine izin verir.'],
-        'comment_spam_detection'     => ['label' => 'Spam Denetimi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Tekrar, anlamsız ifade, noktalama-only, büyük harf ve bağlantı kalıplarını denetler.'],
-        'comment_spam_action'        => ['label' => 'Spam Eylemi', 'type' => 'select', 'default' => 'reject', 'section' => 'comments', 'options' => ['reject' => 'Reddet ve kaydetme', 'pending' => 'Onaya gönder', 'store_rejected' => 'Reddedilmiş olarak kaydet'], 'tooltip' => 'Spam tespit edildiğinde yorumun nasıl işleneceğini seçin.'],
+        'comment_spam_detection'     => ['label' => 'Spam Denetimi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Tekrar yorum, kısa/anlamsız ifade, noktalama-only, rastgele metin, büyük harf ve bağlantı kalıplarını denetler.'],
+        'comment_spam_action'        => ['label' => 'Spam Eylemi', 'type' => 'select', 'default' => 'reject', 'section' => 'comments', 'options' => ['reject' => 'Reddet ve kaydetme', 'pending' => 'Onaya gönder', 'store_rejected' => 'Reddedilmiş olarak kaydet'], 'tooltip' => 'Spam kontrollerine takılan yorumun nasıl işleneceğini seçin. Kelime Filtresi kendi eylem ayarını kullanır.'],
         'comment_spam_reject_message'=> ['label' => 'Spam Hata Mesajı', 'type' => 'string', 'default' => 'Yorumunuz spam veya anlamsız içerik olarak algılandı. Lütfen daha açıklayıcı bir yorum yazın.', 'section' => 'comments', 'tooltip' => 'Spam reddedildiğinde kullanıcıya gösterilecek genel hata metni.'],
         'comment_spam_pending_message'=> ['label' => 'Spam Onay Mesajı', 'type' => 'string', 'default' => 'Yorumunuz spam filtresine takıldı ve onaya gönderildi.', 'section' => 'comments', 'tooltip' => 'Spam nedeniyle onaya gönderilen yorumlarda kullanıcıya gösterilecek toast metni.'],
         'comment_spam_exempt_usernames' => ['label' => 'Spam Muaf Kullanıcı Adları', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgül, satır sonu veya noktalı virgülle ayırın. Bu kullanıcı adları yorum spam kontrollerinden tamamen muaf tutulur.'],
         'comment_spam_exempt_groups'    => ['label' => 'Spam Muaf Gruplar', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgül, satır sonu veya noktalı virgülle ayırın. Grup adı veya slug değeri ile eşleşir; eşleşen kullanıcılar yorum spam kontrollerinden tamamen muaf tutulur.'],
         'comment_spam_punctuation_only_enabled' => ['label' => 'Yalnız Noktalama Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yalnızca noktalama, sembol, boşluk veya emoji içeren yorumları spam sayar.'],
-        'comment_spam_min_meaningful_chars' => ['label' => 'Minimum Harf/Rakam Sayısı', 'type' => 'number', 'default' => '2', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Spam kararı vermeden önce yorumda bulunması gereken en az Unicode harf veya rakam sayısı.'],
-        'comment_spam_meaningless_enabled' => ['label' => 'Anlamsız İfade Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Listedeki kısa ve anlamsız ifadeleri tek başına yazılmışsa spam sayar.'],
-        'comment_spam_meaningless_phrases' => ['label' => 'Anlamsız İfadeler', 'type' => 'text', 'default' => "vv\nsa\nas", 'section' => 'comments', 'tooltip' => 'Her satıra bir ifade yazın. Yorum sadece bu ifadelerden biri ise spam sayılır.'],
+        'comment_spam_min_meaningful_chars' => ['label' => 'Minimum Harf/Rakam Sayısı', 'type' => 'number', 'default' => '2', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Yorumda bulunması gereken en az harf/rakam sayısıdır. Bu sayının altındaki yorumlar spam sayılır; 0 kontrolü kapatır.'],
+        'comment_spam_meaningless_enabled' => ['label' => 'Anlamsız İfade Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yorumun tamamı Anlamsız İfadeler listesindeki kısa ifadelerden biriyle birebir eşleşirse spam sayar. Cümle içinde geçen kelimeleri yakalamaz.'],
+        'comment_spam_meaningless_phrases' => ['label' => 'Anlamsız İfadeler', 'type' => 'text', 'default' => "vv\nsa\nas", 'section' => 'comments', 'tooltip' => 'Satır başına bir kısa ifade yazın. Yalnızca yorumun tamamı bu ifadeyle eşleşirse çalışır; örn: sa, as, vv.'],
+        'comment_spam_gibberish_enabled' => ['label' => 'Rastgele Kisa Metin Kontrolu', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Kısa ve tek parçalı klavye ezmesi yorumları skorlayarak spam sayar. Örnek: fsdf, Rjrjjr3, ll4.'],
+        'comment_spam_gibberish_max_length' => ['label' => 'Rastgele Metin Maks. Uzunluk', 'type' => 'number', 'default' => '12', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Tek parça rastgele metin kontrolünün bakacağı en uzun yorum uzunluğudur. 0 bu kontrolü kapatır.'],
+        'comment_spam_gibberish_score_threshold' => ['label' => 'Rastgele Metin Skor Esigi', 'type' => 'number', 'default' => '3', 'section' => 'comments', 'min' => 1, 'tooltip' => 'Rastgelelik skoru bu değere ulaşırsa yorum spam sayılır. Değer yükseldikçe filtre gevşer.'],
         'comment_spam_repeated_chars_enabled' => ['label' => 'Tekrar Karakter Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Aynı karakterin art arda aşırı kullanımını denetler.'],
-        'comment_spam_repeated_chars_limit' => ['label' => 'Tekrar Limiti', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Aynı karakterin art arda kaç kez kullanılabileceğini belirler.'],
-        'comment_spam_duplicate_window_minutes' => ['label' => 'Tekrar Penceresi (dk)', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Aynı kullanıcının aynı normalleştirilmiş yorumu yeniden göndermesi için denetim penceresi.'],
-        'comment_spam_max_links'     => ['label' => 'Maks. Bağlantı Sayısı', 'type' => 'number', 'default' => '3', 'section' => 'comments', 'min' => -1, 'tooltip' => '-1 ile kontrol kapanır. 0, yorumda bağlantıya izin verilmediği anlamına gelir.'],
+        'comment_spam_repeated_chars_limit' => ['label' => 'Tekrar Limiti', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Aynı karakter bu sayıyı aşacak kadar art arda kullanılırsa yorum spam sayılır. 0 kontrolü kapatır.'],
+        'comment_spam_duplicate_window_minutes' => ['label' => 'Tekrar Penceresi (dk)', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Aynı kullanıcının aynı normalleştirilmiş yorumu kaç dakika içinde tekrar göndermesinin spam sayılacağını belirler. 0 kontrolü kapatır.'],
+        'comment_spam_max_links'     => ['label' => 'Maks. Bağlantı Sayısı', 'type' => 'number', 'default' => '3', 'section' => 'comments', 'min' => -1, 'tooltip' => '-1 kontrolü kapatır. 0 yorumda bağlantıya izin verilmediği, daha yüksek değerler izin verilen bağlantı sayısı anlamına gelir.'],
         'comment_spam_caps_enabled'  => ['label' => 'Büyük Harf Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Aşırı büyük harf oranını spam olarak işaretler.'],
-        'comment_spam_caps_min_letters' => ['label' => 'Büyük Harf Min. Harf Sayısı', 'type' => 'number', 'default' => '10', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Büyük harf oranı uygulanmadan önce gereken en az harf sayısı.'],
-        'comment_spam_caps_percent'  => ['label' => 'Büyük Harf Yüzdesi', 'type' => 'number', 'default' => '70', 'section' => 'comments', 'min' => 1, 'max' => 100, 'tooltip' => 'Büyük harf oranı bu eşiği geçerse yorum spam sayılır.'],
+        'comment_spam_caps_min_letters' => ['label' => 'Büyük Harf Min. Harf Sayısı', 'type' => 'number', 'default' => '10', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Büyük harf oranı uygulanmadan önce yorumda bulunması gereken en az harf sayısıdır. 0 her uzunlukta uygular.'],
+        'comment_spam_caps_percent'  => ['label' => 'Büyük Harf Yüzdesi', 'type' => 'number', 'default' => '70', 'section' => 'comments', 'min' => 1, 'max' => 100, 'tooltip' => 'Büyük harf oranı bu yüzdeyi aşarsa yorum spam sayılır.'],
         'comment_report_enabled'     => ['label' => 'Şikayet Sistemi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Kullanıcıların yorumları şikayet etmesine izin verir.'],
         'comment_auto_hide_reports'  => ['label' => 'Oto-Gizleme Şikayet Sayısı', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Bir yorum bu sayıda şikayet alırsa otomatik gizlenir (0 = kapalı).'],
-        'comment_word_filter'        => ['label' => 'Kelime Filtresi', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgülle ayırın. Bu kelimeleri içeren yorumlar engellenir veya sansürlenir.'],
-        'comment_auto_ban_words'     => ['label' => 'Kelime Filtresi Eylemi', 'type' => 'select', 'default' => 'pending', 'section' => 'comments', 'options' => ['pending' => 'Onaya Düşür', 'reject' => 'Reddet (Kaydetme)', 'censor' => 'Sansürle (***)'], 'tooltip' => 'Kelime filtresine takılan yorum için uygulanacak davranış.'],
+        'comment_word_filter'        => ['label' => 'Kelime Filtresi', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgülle ayırın. Bu listedeki kelimeler yorumun herhangi bir yerinde geçerse Kelime Filtresi Eylemi uygulanır. Anlamsız İfadelerden farklı olarak kısmi eşleşme yapar.'],
+        'comment_auto_ban_words'     => ['label' => 'Kelime Filtresi Eylemi', 'type' => 'select', 'default' => 'pending', 'section' => 'comments', 'options' => ['pending' => 'Onaya Düşür', 'reject' => 'Reddet (Kaydetme)', 'censor' => 'Sansürle (***)'], 'tooltip' => 'Kelime Filtresi eşleştiğinde uygulanacak davranıştır. Bu ayar Anlamsız İfadeler kontrolünü etkilemez.'],
 
         // -- Dosya Yoneticisi -----------------------------------
         // Download Manager
@@ -622,6 +912,7 @@ function adminSettingDefinitions(): array
         'download_wait_text'         => ['label' => 'Geri Sayım Metni', 'type' => 'string', 'default' => 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz', 'section' => 'downloads'],
         'download_show_counts'       => ['label' => 'Link Bazli İndirme Sayacıni Goster', 'type' => 'bool', 'default' => '1', 'section' => 'downloads'],
         'download_done_text'         => ['label' => 'Hazır Metni', 'type' => 'string', 'default' => 'İndirme linkiniz hazır, indirmek için tıklayın', 'section' => 'downloads'],
+        'download_security_notice_text' => ['label' => 'Güvenlik Notu Metni', 'type' => 'text', 'default' => 'İndirme bağlantısı açılmadan önce kısa bir güvenlik beklemesi uygulanır. Hedef alan adını kontrol edip dış bağlantı onay ekranından devam edebilirsiniz.', 'section' => 'downloads', 'rows' => 3, 'tooltip' => 'Konu içindeki indirme alanında gösterilen güvenlik beklemesi açıklamasını düzenler.'],
         'download_redirect_page_enabled' => ['label' => 'Yönlendirme Sayfası Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'downloads', 'tooltip' => 'Kapalıysa geçerli indirme bağlantıları sayaç güncellemesinden sonra doğrudan hedef adrese yönlendirilir.'],
         'download_redirect_auto_enabled' => ['label' => 'Otomatik Yönlendirme Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'downloads'],
         'download_redirect_show_target_url' => ['label' => 'Hedef URL Görünsün', 'type' => 'bool', 'default' => '1', 'section' => 'downloads'],
@@ -900,8 +1191,10 @@ function adminSettingDefinitions(): array
         'user_upload_allow_video_url' => ['label' => 'Video URL Alanina Izin Ver', 'type' => 'bool', 'default' => '1', 'section' => 'user_uploads', 'group' => 'Video ve Linkler', 'tooltip' => 'Kullanici formunda tanitim videosu URL alani gorunsun ve kaydedilebilsin.'],
         'user_upload_allowed_video_hosts' => ['label' => 'Izinli Video Saglayicilari', 'type' => 'string', 'default' => 'youtube.com,youtu.be,vimeo.com', 'section' => 'user_uploads', 'group' => 'Video ve Linkler', 'tooltip' => 'Virgul ile ayirin. Bos birakilirsa tum video URLleri kabul edilir.'],
         'user_upload_max_size_mb' => ['label' => 'Maks. Dosya Boyutu (MB)', 'type' => 'number', 'default' => '50', 'section' => 'user_uploads', 'group' => 'Limitler', 'tooltip' => 'Opsiyonel mod dosyasi/ek dosya yuklemesi icin izin verilen maksimum boyut.'],
-        'user_upload_hourly_limit' => ['label' => 'Saatlik Mod Gonderim Limiti', 'type' => 'number', 'default' => '0', 'section' => 'rate_limit', 'group' => 'Gonderimler', 'tooltip' => 'Bir kullanici 1 saat icinde en fazla kac mod gonderebilir. 0 = sinirsiz.'],
-        'user_upload_daily_limit' => ['label' => 'Gunluk Mod Gonderim Limiti', 'type' => 'number', 'default' => '0', 'section' => 'rate_limit', 'group' => 'Gonderimler', 'tooltip' => 'Bir kullanici 24 saat icinde en fazla kac mod gonderebilir. 0 = sinirsiz.'],
+        'user_upload_rate_limit' => ['label' => 'Mod Gönderim Limiti', 'type' => 'number', 'default' => '0', 'section' => 'rate_limit', 'group' => 'Gönderimler', 'tooltip' => 'Belirlenen süre içinde bir kullanıcının en fazla kaç mod gönderebileceğini belirler. 0 = sınırsız.'],
+        'user_upload_rate_window' => ['label' => 'Mod Gönderim Süresi (dakika)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'group' => 'Gönderimler', 'tooltip' => 'Mod gönderim limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'ban_appeal_message_limit' => ['label' => 'Ban İtiraz Mesaj Limiti', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'group' => 'Ban İtirazları', 'tooltip' => 'Belirlenen süre içinde kullanıcının en fazla kaç ban itiraz mesajı gönderebileceğini belirler. 0 = limit kapalı.'],
+        'ban_appeal_message_cooldown_minutes' => ['label' => 'Ban İtiraz Mesaj Süresi (dakika)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'group' => 'Ban İtirazları', 'tooltip' => 'Ban itiraz mesaj limitinin kaç dakikalık süre içinde uygulanacağını belirler. Limiti kapatmak için mesaj limitini 0 yapın.'],
         'user_upload_block_duplicate_titles' => ['label' => 'Ayni Baslikla Tekrar Gonderimi Engelle', 'type' => 'bool', 'default' => '1', 'section' => 'content_moderation', 'group' => 'Kalite', 'tooltip' => 'Ayni kullanicinin ayni baslikla tekrar mod gondermesini engeller.'],
         'user_upload_default_content_align' => ['label' => 'Varsayilan Aciklama Hizasi', 'type' => 'select', 'default' => 'center', 'section' => 'user_uploads', 'group' => 'Form Davranışı', 'options' => ['left' => 'Sol', 'center' => 'Orta', 'right' => 'Sag'], 'tooltip' => 'Kullanici aciklama metni icin varsayilan hizalamayi belirler.'],
         'user_upload_submission_notice' => ['label' => 'Gonderim Sonrasi Bilgilendirme Metni', 'type' => 'text', 'default' => 'Onay durumunu Profil > Konularim menusunden takip edebilirsiniz.', 'section' => 'user_uploads', 'group' => 'Form Davranışı', 'tooltip' => 'Basarili gonderimden sonra kullaniciya gosterilecek takip/bilgilendirme metni.'],
@@ -950,41 +1243,6 @@ function adminSettingDefinitions(): array
 
 
         // -- Konu Yonetimi --------------------------------
-
-        // -- Bildirim Sistemi ------------------------------
-        'notif_center_enabled' => ['label' => 'Bildirim Merkezi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'notifications', 'tooltip' => 'Kapatılırsa kullanıcı bildirim API çıktısı sessize alınır ve yeni bildirim gönderimi durdurulur.'],
-        'notif_allow_global_broadcasts' => ['label' => 'Genel Yayınlara İzin Ver', 'type' => 'bool', 'default' => '1', 'section' => 'notifications', 'tooltip' => 'Kapatılırsa hedef kullanıcı seçilmeden tüm kullanıcılara bildirim gönderilemez.'],
-        'notif_allow_direct_messages' => ['label' => 'Kullanıcıya Özel Bildirimlere İzin Ver', 'type' => 'bool', 'default' => '1', 'section' => 'notifications', 'tooltip' => 'Kapatılırsa belirli kullanıcı ID hedefli bildirim gönderilemez.'],
-        'notif_respect_user_preferences' => ['label' => 'Kullanıcı Tercihlerini Uygula', 'type' => 'bool', 'default' => '1', 'section' => 'notifications', 'tooltip' => 'Kullanıcıların kapattığı bildirim tipleri kullanıcı sayfası ve üst menü bildirim API çıktısında gizlenir.'],
-        'notif_show_header_badge' => ['label' => 'Üst Menü Rozetini Göster', 'type' => 'bool', 'default' => '1', 'section' => 'notifications', 'tooltip' => 'Kapatılırsa okunmamış sayı rozeti gizlenir, ancak bildirim menüsü görüntülenebilir.'],
-        'notif_auto_mark_link_click' => ['label' => 'Linke Tıklayınca Okundu Yap', 'type' => 'bool', 'default' => '1', 'section' => 'notifications', 'tooltip' => 'Bildirim linki açıldığında bildirim otomatik okundu olarak işaretlenir.'],
-        'notif_enable_read_more' => ['label' => 'Uzun Mesajlarda Genişletme Butonu', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
-        'notif_empty_state_tips' => ['label' => 'Boş Durum Yardım Metni Göster', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
-        'notif_dropdown_limit' => ['label' => 'Üst Menü Bildirim Limiti', 'type' => 'number', 'default' => '5', 'section' => 'notifications'],
-        'notif_user_page_per_page' => ['label' => 'Kullanıcı Sayfası Sayfa Başına', 'type' => 'number', 'default' => '10', 'section' => 'notifications'],
-        'notif_history_per_page' => ['label' => 'Admin Geçmiş Sayfa Başına', 'type' => 'number', 'default' => '20', 'section' => 'notifications'],
-        'notif_user_message_lines' => ['label' => 'Kullanıcı Mesaj Satır Limiti', 'type' => 'number', 'default' => '3', 'section' => 'notifications'],
-        'notif_history_message_preview' => ['label' => 'Admin Geçmiş Mesaj Önizleme', 'type' => 'number', 'default' => '140', 'section' => 'notifications'],
-        'notif_max_title_length' => ['label' => 'Maksimum Başlık Uzunluğu', 'type' => 'number', 'default' => '120', 'section' => 'notifications'],
-        'notif_max_message_length' => ['label' => 'Maksimum Mesaj Uzunluğu', 'type' => 'number', 'default' => '800', 'section' => 'notifications'],
-        'notif_default_type' => ['label' => 'Varsayılan Bildirim Tipi', 'type' => 'select', 'default' => 'info', 'section' => 'notifications', 'options' => ['info' => 'Bilgi', 'success' => 'Başarılı', 'warning' => 'Uyarı', 'error' => 'Hata', 'system' => 'Sistem']],
-        'notif_default_link' => ['label' => 'Varsayılan Bildirim Linki', 'type' => 'string', 'default' => '', 'section' => 'notifications'],
-        'notif_require_https_links' => ['label' => 'Harici Linklerde HTTPS Zorunlu', 'type' => 'bool', 'default' => '0', 'section' => 'notifications'],
-        'notif_system_sender' => ['label' => 'Sistem Gönderen Adı', 'type' => 'string', 'default' => 'Sistem', 'section' => 'notifications'],
-        'notif_retention_days' => ['label' => 'Saklama Süresi Gün', 'type' => 'number', 'default' => '30', 'section' => 'notifications'],
-        'notif_welcome_enabled' => ['label' => 'Site İçi Hoş Geldin Bildirimi', 'type' => 'bool', 'default' => '0', 'section' => 'notifications'],
-        'notif_welcome_msg' => ['label' => 'Site İçi Hoş Geldin Mesajı', 'type' => 'text', 'default' => 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.', 'section' => 'notifications'],
-
-        // -- Bildirim Olay Ayarları ------------------------
-        'notif_events_enabled' => ['label' => 'Otomatik Olay Bildirimleri', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
-        'notif_event_comments_enabled' => ['label' => 'Yorum Olayları', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
-        'notif_event_mentions_enabled' => ['label' => 'Bahsetme Olayları', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
-        'notif_event_topic_moderation_enabled' => ['label' => 'Konu Moderasyon Olayları', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
-        'notif_event_favorites_enabled' => ['label' => 'Favori Konu Olayları', 'type' => 'bool', 'default' => '0', 'section' => 'notifications'],
-        'notif_event_skip_actor' => ['label' => 'Kendi İşleminden Bildirim Alma', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
-        'notif_event_dedupe_enabled' => ['label' => 'Tekrar Bildirimlerini Engelle', 'type' => 'bool', 'default' => '1', 'section' => 'notifications'],
-        'notif_email_channel_ready' => ['label' => 'E-posta Kuyruğu Aktif', 'type' => 'bool', 'default' => '0', 'section' => 'notifications', 'tooltip' => 'E-posta açık şablonlardan kuyruk kaydı oluşturur; cron worker bu kayıtları SMTP/mail ayarlarıyla gönderir.'],
-        'notif_email_queue_max_attempts' => ['label' => 'E-posta Deneme Hakkı', 'type' => 'number', 'default' => '3', 'section' => 'notifications'],
 
         // -- Toast Bildirim Ayarları -----------------------
         'toast_enabled' => [
@@ -1147,42 +1405,34 @@ function adminSettingDefinitions(): array
         'maintenance_message'    => ['label' => 'Bakim Mesaji',              'type' => 'text',   'default' => 'Site bakim modundadir, lutfen daha sonra tekrar deneyin.', 'section' => 'general'],
 
         // -- Rate Limit -----------------------------------------
-        'register_rate_limit'    => ['label' => 'Kayit Deneme Limiti (pencere basina)', 'type' => 'number', 'default' => '3', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi, kayit penceresi icinde en fazla bu kadar kayit istegi gonderebilir.'],
-        'register_rate_window'   => ['label' => 'Kayit Penceresi (dakika)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Kayit deneme sayacinin kac dakikada sifirlanacagini belirler.'],
-        'login_rate_limit'       => ['label' => 'Basarisiz Giris Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi, giris penceresi icinde en fazla bu kadar basarisiz giris deneyebilir.'],
-        'login_rate_window'      => ['label' => 'Giris Penceresi (dakika)', 'type' => 'number', 'default' => '15', 'section' => 'rate_limit', 'tooltip' => 'Basarisiz giris sayacinin kac dakikada sifirlanacagini belirler.'],
-        'password_reset_rate_limit' => ['label' => 'Sifre Sifirlama Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '3', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi pencere suresi icinde en fazla bu kadar sifre sifirlama istegi gonderebilir.'],
-        'password_reset_rate_window' => ['label' => 'Sifre Sifirlama Penceresi (dakika)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Sifre sifirlama istek sayacinin kac dakikada sifirlanacagini belirler.'],
-        'search_rate_limit'      => ['label' => 'Site Arama Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi pencere suresi icinde en fazla bu kadar arama istegi gonderebilir.'],
-        'search_rate_window'     => ['label' => 'Site Arama Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Arama istek sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_topics_rate_limit'  => ['label' => 'Konu API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Konu listeleme API uclari icin pencere suresi icindeki maksimum istek sayisi.'],
-        'api_topics_rate_window' => ['label' => 'Konu API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Konu API istek sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_messages_rate_limit' => ['label' => 'Mesaj API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Mesaj API uclari icin pencere suresi icindeki maksimum istek sayisi.'],
-        'api_messages_rate_window' => ['label' => 'Mesaj API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Mesaj API istek sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_leaderboard_rate_limit' => ['label' => 'Leaderboard API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Leaderboard ve kullanici siralama API uclari icin maksimum istek sayisi.'],
-        'api_leaderboard_rate_window' => ['label' => 'Leaderboard API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Leaderboard API istek sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_analytics_rate_limit' => ['label' => 'Analitik API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '120', 'section' => 'rate_limit', 'tooltip' => 'Analitik/track API uclari icin pencere suresi icindeki maksimum istek sayisi.'],
-        'api_analytics_rate_window' => ['label' => 'Analitik API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Analitik API istek sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_favorite_rate_limit' => ['label' => 'Favori API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Favori ekleme ve cikarma API istekleri icin maksimum sayi.'],
-        'api_favorite_rate_window' => ['label' => 'Favori API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Favori API istek sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_reports_rate_limit' => ['label' => 'Konu Sikayet API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayet listeleme/okuma API istekleri icin maksimum sayi.'],
-        'api_reports_rate_window' => ['label' => 'Konu Sikayet API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayet API sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_report_submit_rate_limit' => ['label' => 'Konu Sikayet Gonderim Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Bir oturum penceresi icinde en fazla kac konu sikayeti gonderebilir.'],
-        'api_report_submit_rate_window' => ['label' => 'Konu Sikayet Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Konu sikayet gonderim sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_user_reports_rate_limit' => ['label' => 'Kullanici Sikayet API Istek Limiti (pencere basina)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayet listeleme/okuma API istekleri icin maksimum sayi.'],
-        'api_user_reports_rate_window' => ['label' => 'Kullanici Sikayet API Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayet API sayacinin kac dakikada sifirlanacagini belirler.'],
-        'api_user_report_submit_rate_limit' => ['label' => 'Kullanici Sikayet Gonderim Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Bir oturum penceresi icinde en fazla kac kullanici sikayeti gonderebilir.'],
-        'api_user_report_submit_rate_window' => ['label' => 'Kullanici Sikayet Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Kullanici sikayet gonderim sayacinin kac dakikada sifirlanacagini belirler.'],
-        'download_count_rate_limit' => ['label' => 'Indirme Sayaci Yazma Limiti (pencere basina)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Ayni IP adresi ayni indirme kaydi icin pencere suresi icinde en fazla kac kez sayaca yazabilir.'],
-        'download_count_rate_window' => ['label' => 'Indirme Sayaci Penceresi (dakika)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Indirme sayaci ayni IP icin bu sure sonunda tekrar artabilir.'],
-        'comment_mention_rate_max' => ['label' => 'Mention Arama Limiti (pencere basina)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Yorum mention arama istekleri icin maksimum sayi.'],
-        'comment_mention_rate_window' => ['label' => 'Mention Arama Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Mention arama istek sayacinin kac dakikada sifirlanacagini belirler.'],
-        'comment_edit_rate_max'  => ['label' => 'Yorum Duzenleme/Silme Limiti (pencere basina)', 'type' => 'number', 'default' => '20', 'section' => 'rate_limit', 'tooltip' => 'Yorum duzenleme ve silme istekleri icin maksimum sayi.'],
-        'comment_edit_rate_window' => ['label' => 'Yorum Duzenleme/Silme Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Yorum duzenleme/silme sayacinin kac dakikada sifirlanacagini belirler.'],
-        'comment_reaction_rate_max' => ['label' => 'Yorum Reaksiyon Limiti (pencere basina)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Yorum reaksiyon (like vb.) istekleri icin maksimum sayi.'],
-        'comment_reaction_rate_window' => ['label' => 'Yorum Reaksiyon Penceresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Yorum reaksiyon sayacinin kac dakikada sifirlanacagini belirler.'],
-        'comment_report_rate_max' => ['label' => 'Yorum Sikayet Gonderim Limiti (pencere basina)', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Yorum sikayet gonderim istekleri icin maksimum sayi.'],
-        'comment_report_rate_window' => ['label' => 'Yorum Sikayet Gonderim Penceresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Yorum sikayet sayacinin kac dakikada sifirlanacagini belirler.'],
+        'register_rate_limit'    => ['label' => 'Kayıt Deneme Limiti', 'type' => 'number', 'default' => '3', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde aynı IP adresinin en fazla kaç kayıt denemesi yapabileceğini belirler.'],
+        'register_rate_window'   => ['label' => 'Kayıt Deneme Süresi (dakika)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Kayıt deneme limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'login_rate_limit'       => ['label' => 'Başarısız Giriş Deneme Limiti', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde aynı IP adresinin en fazla kaç başarısız giriş denemesi yapabileceğini belirler.'],
+        'login_rate_window'      => ['label' => 'Başarısız Giriş Deneme Süresi (dakika)', 'type' => 'number', 'default' => '15', 'section' => 'rate_limit', 'tooltip' => 'Başarısız giriş deneme limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'password_reset_rate_limit' => ['label' => 'Şifre Sıfırlama İstek Limiti', 'type' => 'number', 'default' => '3', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde aynı IP adresinin en fazla kaç şifre sıfırlama isteği gönderebileceğini belirler.'],
+        'password_reset_rate_window' => ['label' => 'Şifre Sıfırlama İstek Süresi (dakika)', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Şifre sıfırlama istek limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'search_rate_limit'      => ['label' => 'Arama İstek Limiti', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde aynı IP adresinin en fazla kaç arama isteği gönderebileceğini belirler.'],
+        'search_rate_window'     => ['label' => 'Arama İstek Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Arama istek limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'api_topics_rate_limit'  => ['label' => 'Konu API İstek Limiti', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde konu API uçlarına en fazla kaç istek gönderilebileceğini belirler.'],
+        'api_topics_rate_window' => ['label' => 'Konu API İstek Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Konu API istek limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'api_messages_rate_limit' => ['label' => 'Mesaj API İstek Limiti', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde mesaj API uçlarına en fazla kaç istek gönderilebileceğini belirler.'],
+        'api_messages_rate_window' => ['label' => 'Mesaj API İstek Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Mesaj API istek limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'api_leaderboard_rate_limit' => ['label' => 'Liderlik API İstek Limiti', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde liderlik ve kullanıcı sıralama API uçlarına en fazla kaç istek gönderilebileceğini belirler.'],
+        'api_leaderboard_rate_window' => ['label' => 'Liderlik API İstek Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Liderlik API istek limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'api_analytics_rate_limit' => ['label' => 'Analitik API İstek Limiti', 'type' => 'number', 'default' => '120', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde analitik API uçlarına en fazla kaç istek gönderilebileceğini belirler.'],
+        'api_analytics_rate_window' => ['label' => 'Analitik API İstek Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Analitik API istek limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'api_favorite_rate_limit' => ['label' => 'Favori İşlem Limiti', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde en fazla kaç favori ekleme veya kaldırma işlemi yapılabileceğini belirler.'],
+        'api_favorite_rate_window' => ['label' => 'Favori İşlem Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Favori işlem limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'download_count_rate_limit' => ['label' => 'İndirme Sayacı Artırma Limiti', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde aynı IP adresinin aynı indirme kaydı için sayacı en fazla kaç kez artırabileceğini belirler.'],
+        'download_count_rate_window' => ['label' => 'İndirme Sayacı Artırma Süresi (dakika)', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'İndirme sayacı artırma limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'comment_mention_rate_max' => ['label' => 'Kullanıcı Etiketleme Arama Limiti', 'type' => 'number', 'default' => '30', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde yorumlarda @kullanıcı araması için en fazla kaç istek yapılabileceğini belirler.'],
+        'comment_mention_rate_window' => ['label' => 'Kullanıcı Etiketleme Arama Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Kullanıcı etiketleme arama limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'comment_edit_rate_max'  => ['label' => 'Yorum Düzenleme/Silme İşlem Limiti', 'type' => 'number', 'default' => '20', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde en fazla kaç yorum düzenleme veya silme işlemi yapılabileceğini belirler.'],
+        'comment_edit_rate_window' => ['label' => 'Yorum Düzenleme/Silme İşlem Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Yorum düzenleme/silme işlem limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'comment_reaction_rate_max' => ['label' => 'Yorum Reaksiyon İşlem Limiti', 'type' => 'number', 'default' => '60', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde en fazla kaç yorum reaksiyon işlemi yapılabileceğini belirler.'],
+        'comment_reaction_rate_window' => ['label' => 'Yorum Reaksiyon İşlem Süresi (dakika)', 'type' => 'number', 'default' => '1', 'section' => 'rate_limit', 'tooltip' => 'Yorum reaksiyon işlem limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
+        'comment_report_rate_max' => ['label' => 'Yorum Şikayet Gönderim Limiti', 'type' => 'number', 'default' => '5', 'section' => 'rate_limit', 'tooltip' => 'Belirlenen süre içinde en fazla kaç yorum şikayeti gönderilebileceğini belirler.'],
+        'comment_report_rate_window' => ['label' => 'Yorum Şikayet Gönderim Süresi (dakika)', 'type' => 'number', 'default' => '10', 'section' => 'rate_limit', 'tooltip' => 'Yorum şikayet gönderim limitinin kaç dakikalık süre içinde uygulanacağını belirler.'],
 
         // -- Sosyal Medya ---------------------------------------
         'social_facebook'        => ['label' => 'Facebook URL',   'type' => 'string', 'default' => '', 'section' => 'social_features'],
@@ -1192,26 +1442,6 @@ function adminSettingDefinitions(): array
         'social_github'          => ['label' => 'GitHub URL',     'type' => 'string', 'default' => '', 'section' => 'social_features'],
         'social_discord'         => ['label' => 'Discord URL',    'type' => 'string', 'default' => '', 'section' => 'social_features'],
         'social_telegram'        => ['label' => 'Telegram URL',   'type' => 'string', 'default' => '', 'section' => 'social_features'],
-
-        // -- Liderlik Tablosu -----------------------------------
-        'leaderboard_enabled'           => ['label' => 'Sistem Aktif',                    'type' => 'bool',   'default' => '1',     'section' => 'leaderboard'],
-        'leaderboard_disabled_message'  => ['label' => 'Sistem Kapalı Mesajı',            'type' => 'textarea', 'default' => 'Liderlik tablosu şu anda kapalı. Lütfen daha sonra tekrar kontrol edin.', 'section' => 'leaderboard', 'tooltip' => 'Sistem kapalıyken liderlik sayfasında kullanıcılara gösterilecek mesaj.'],
-        'leaderboard_cache_ttl_daily'   => ['label' => 'Günlük Cache TTL (saniye)',       'type' => 'number', 'default' => '900',   'section' => 'leaderboard', 'tooltip' => 'Günlük liderlik tablosu cache süresi (varsayılan: 15 dakika)'],
-        'leaderboard_cache_ttl_weekly'  => ['label' => 'Haftalık Cache TTL (saniye)',     'type' => 'number', 'default' => '3600',  'section' => 'leaderboard', 'tooltip' => 'Haftalık liderlik tablosu cache süresi (varsayılan: 1 saat)'],
-        'leaderboard_cache_ttl_monthly' => ['label' => 'Aylık Cache TTL (saniye)',        'type' => 'number', 'default' => '21600', 'section' => 'leaderboard', 'tooltip' => 'Aylık liderlik tablosu cache süresi (varsayılan: 6 saat)'],
-        'leaderboard_cache_ttl_quarterly' => ['label' => 'Quarterly Cache TTL (seconds)', 'type' => 'number', 'default' => '43200', 'section' => 'leaderboard', 'tooltip' => 'Cache lifetime for quarterly leaderboard snapshots'],
-        'leaderboard_cache_ttl_yearly' => ['label' => 'Yearly Cache TTL (seconds)', 'type' => 'number', 'default' => '86400', 'section' => 'leaderboard', 'tooltip' => 'Cache lifetime for yearly leaderboard snapshots'],
-        'leaderboard_cache_ttl_all_time' => ['label' => 'All Time Cache TTL (seconds)', 'type' => 'number', 'default' => '86400', 'section' => 'leaderboard', 'tooltip' => 'Cache lifetime for all-time leaderboard snapshots'],
-        'leaderboard_min_topics'        => ['label' => 'Minimum Mod Sayısı',              'type' => 'number', 'default' => '1',     'section' => 'leaderboard', 'tooltip' => 'Liderlik tablosunda görünmek için gereken minimum mod sayısı'],
-        'leaderboard_exclude_admins'    => ['label' => 'Adminleri Hariç Tut',             'type' => 'bool',   'default' => '1',     'section' => 'leaderboard', 'tooltip' => 'Admin kullanıcıları liderlik tablosundan hariç tut'],
-        'leaderboard_show_sidebar'      => ['label' => 'Ana Sayfada Göster',              'type' => 'bool',   'default' => '1',     'section' => 'leaderboard', 'tooltip' => 'Ana sayfa sidebar\'ında liderlik tablosu widget\'ını göster'],
-        'leaderboard_sidebar_limit'     => ['label' => 'Sidebar Limit',                   'type' => 'number', 'default' => '5',     'section' => 'leaderboard', 'tooltip' => 'Ana sayfa sidebar\'ında gösterilecek kullanıcı sayısı'],
-        'leaderboard_show_profile'      => ['label' => 'Profil Sayfasında Göster',        'type' => 'bool',   'default' => '1',     'section' => 'leaderboard', 'tooltip' => 'Profil sayfasında liderlik tablosu widget\'ını göster'],
-        'leaderboard_profile_limit'     => ['label' => 'Profil Sayfası Limit',            'type' => 'number', 'default' => '10',    'section' => 'leaderboard', 'tooltip' => 'Profil sayfasında gösterilecek kullanıcı sayısı'],
-        'leaderboard_min_downloads'     => ['label' => 'Minimum İndirme Sayısı',          'type' => 'number', 'default' => '0',     'section' => 'leaderboard', 'tooltip' => 'Liderlik tablosunda görünmek için gereken minimum indirme sayısı'],
-        'leaderboard_min_views'         => ['label' => 'Minimum Görüntülenme Sayısı',     'type' => 'number', 'default' => '0',     'section' => 'leaderboard', 'tooltip' => 'Liderlik tablosunda görünmek için gereken minimum görüntülenme sayısı'],
-        'leaderboard_exclude_banned'    => ['label' => 'Yasaklı Kullanıcıları Hariç Tut', 'type' => 'bool',   'default' => '1',     'section' => 'leaderboard', 'tooltip' => 'Yasaklı kullanıcıları liderlik tablosundan hariç tut'],
-        'leaderboard_reset_frequency'   => ['label' => 'Sıfırlama Sıklığı',               'type' => 'select', 'default' => 'never',  'section' => 'leaderboard', 'options' => ['never' => 'Asla', 'daily' => 'Günlük', 'weekly' => 'Haftalık', 'monthly' => 'Aylık'], 'tooltip' => 'Liderlik tablosu puanlarının sıfırlanma sıklığı'],
 
         // -- Kullanıcı Sistemi -----------------------------------
         'allow_registration'            => ['label' => 'Kayıt Olma İzni',                'type' => 'bool',   'default' => '1',     'section' => 'user_system'],
@@ -1630,6 +1860,22 @@ function adminSettingDefinitions(): array
         'account_email_system_enabled' => ['label' => 'Hesap E-postaları Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'email'],
     ];
 
+    $moduleRoot = dirname(__DIR__) . '/includes/src/Modules';
+    foreach (glob($moduleRoot . '/*/module.php') ?: [] as $moduleFile) {
+        $moduleMetadata = require $moduleFile;
+        $moduleConfig = is_array($moduleMetadata) && isset($moduleMetadata['config']) && is_array($moduleMetadata['config'])
+            ? $moduleMetadata['config']
+            : [];
+
+        foreach ($moduleConfig as $key => $definition) {
+            if (!is_string($key) || !is_array($definition) || !isset($definition['section'])) {
+                continue;
+            }
+
+            $definitions[$key] = $definition;
+        }
+    }
+
     foreach (\App\Engine\Email\AccountEmailService::catalog() as $templateKey => $template) {
         $prefix = 'account_email_' . $templateKey . '_';
         $definitions[$prefix . 'enabled'] = ['label' => $template['label'] . ' Aktif', 'type' => 'bool', 'default' => $template['enabled'], 'section' => 'email'];
@@ -1735,13 +1981,28 @@ function adminRenderSettingField(string $key, array $definition, array $settings
     $value = (string) ($settings[$key] ?? ($definition['default'] ?? ''));
     $fieldId = preg_replace('/[^a-zA-Z0-9_-]/', '_', $key) ?: $key;
     $isTextareaType = in_array($type, ['text', 'textarea', 'richtext'], true);
+    $rows = max(2, (int) ($definition['rows'] ?? ($type === 'richtext' ? 6 : 3)));
+    $placeholder = isset($definition['placeholder'])
+        ? ' placeholder="' . htmlspecialchars((string) $definition['placeholder'], ENT_QUOTES, 'UTF-8') . '"'
+        : '';
+    $autocomplete = isset($definition['autocomplete'])
+        ? ' autocomplete="' . htmlspecialchars((string) $definition['autocomplete'], ENT_QUOTES, 'UTF-8') . '"'
+        : '';
+    $inputmode = isset($definition['inputmode'])
+        ? ' inputmode="' . htmlspecialchars((string) $definition['inputmode'], ENT_QUOTES, 'UTF-8') . '"'
+        : '';
+    $step = isset($definition['step'])
+        ? ' step="' . htmlspecialchars((string) $definition['step'], ENT_QUOTES, 'UTF-8') . '"'
+        : '';
     $enabledWhen = isset($definition['enabled_when']) && is_array($definition['enabled_when']) ? $definition['enabled_when'] : [];
     $enabledWhenKey = trim((string) ($enabledWhen['key'] ?? ''));
     $enabledWhenValue = (string) ($enabledWhen['value'] ?? '1');
     $isConditionallyDisabled = $enabledWhenKey !== ''
         && (string) ($settings[$enabledWhenKey] ?? '0') !== $enabledWhenValue;
+    $isExplicitlyDisabled = !empty($definition['disabled']);
+    $isDisabled = $isConditionallyDisabled || $isExplicitlyDisabled;
     $disabledHelp = trim((string) ($definition['disabled_help'] ?? ''));
-    $classes = trim($gridItemClass . ' ' . ($isTextareaType ? 'admin-field-wide' : '') . ($isConditionallyDisabled ? ' is-conditionally-disabled' : ''));
+    $classes = trim($gridItemClass . ' ' . ($isTextareaType ? 'admin-field-wide' : '') . ($isDisabled ? ' is-conditionally-disabled' : ''));
     $conditionalAttributes = $enabledWhenKey !== ''
         ? ' data-setting-enabled-when="' . htmlspecialchars($enabledWhenKey, ENT_QUOTES, 'UTF-8') . '" data-setting-enabled-value="' . htmlspecialchars($enabledWhenValue, ENT_QUOTES, 'UTF-8') . '"'
         : '';
@@ -1754,8 +2015,8 @@ function adminRenderSettingField(string $key, array $definition, array $settings
     ?>
     <div class="<?= htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') ?>" data-setting-field="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"<?= $conditionalAttributes ?>>
         <?php if ($type === 'bool'): ?>
-            <label class="ui-admin-switch">
-                <input type="checkbox" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" value="1" <?= $value === '1' ? 'checked' : '' ?>>
+            <label class="ui-admin-switch<?= $isDisabled ? ' ui-admin-switch-disabled' : '' ?>">
+                <input type="checkbox" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" value="1" <?= (!$isDisabled && $value === '1') ? 'checked' : '' ?><?= $isDisabled ? ' disabled aria-disabled="true"' : '' ?>>
                 <span class="ui-admin-switch-label">
                     <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?><?= $helpIcon ?>
                 </span>
@@ -1777,9 +2038,9 @@ function adminRenderSettingField(string $key, array $definition, array $settings
         <?php else: ?>
             <label class="ui-admin-form-label" for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?><?= $helpIcon ?></label>
             <?php if ($isTextareaType): ?>
-                <textarea id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" rows="3" class="ui-admin-form-control<?= ($type === 'richtext' || !empty($definition['rich'])) ? ' rich-editor' : '' ?>"><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?></textarea>
+                <textarea id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" rows="<?= $rows ?>" class="ui-admin-form-control<?= ($type === 'richtext' || !empty($definition['rich'])) ? ' rich-editor' : '' ?>"<?= $placeholder . $autocomplete ?><?= $isDisabled ? ' readonly aria-disabled="true"' : '' ?>><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?></textarea>
             <?php elseif ($type === 'select'): ?>
-                <select id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-form-select">
+                <select id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-form-select"<?= $isDisabled ? ' disabled aria-disabled="true"' : '' ?>>
                     <?php foreach (($definition['options'] ?? []) as $optionValue => $optionLabel): ?>
                         <option value="<?= htmlspecialchars((string) $optionValue, ENT_QUOTES, 'UTF-8') ?>" <?= $value === (string) $optionValue ? 'selected' : '' ?>><?= htmlspecialchars((string) $optionLabel, ENT_QUOTES, 'UTF-8') ?></option>
                     <?php endforeach; ?>
@@ -1789,16 +2050,16 @@ function adminRenderSettingField(string $key, array $definition, array $settings
                 <div class="admin-multicheck-group">
                     <?php foreach (($definition['options'] ?? []) as $optionValue => $optionLabel): ?>
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>[]" value="<?= htmlspecialchars((string) $optionValue, ENT_QUOTES, 'UTF-8') ?>" <?= in_array((string) $optionValue, $currentValues, true) ? 'checked' : '' ?>>
+                            <input type="checkbox" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>[]" value="<?= htmlspecialchars((string) $optionValue, ENT_QUOTES, 'UTF-8') ?>" <?= (!$isDisabled && in_array((string) $optionValue, $currentValues, true)) ? 'checked' : '' ?><?= $isDisabled ? ' disabled aria-disabled="true"' : '' ?>>
                             <span class="ui-admin-switch-label"><?= htmlspecialchars((string) $optionLabel, ENT_QUOTES, 'UTF-8') ?></span>
                         </label>
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
-                <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" type="<?= $type === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>"<?= $type === 'number' && isset($definition['min']) ? ' min="' . (int) $definition['min'] . '"' : '' ?><?= $type === 'number' && isset($definition['max']) ? ' max="' . (int) $definition['max'] . '"' : '' ?><?= $isConditionallyDisabled ? ' readonly aria-disabled="true"' : '' ?>>
+                <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" type="<?= $type === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>"<?= $placeholder . $autocomplete . $inputmode . $step ?><?= $type === 'number' && isset($definition['min']) ? ' min="' . htmlspecialchars((string) $definition['min'], ENT_QUOTES, 'UTF-8') . '"' : '' ?><?= $type === 'number' && isset($definition['max']) ? ' max="' . htmlspecialchars((string) $definition['max'], ENT_QUOTES, 'UTF-8') . '"' : '' ?><?= $isDisabled ? ' readonly aria-disabled="true"' : '' ?>>
             <?php endif; ?>
         <?php endif; ?>
-        <?php if ($enabledWhenKey !== '' && $disabledHelp !== ''): ?>
+        <?php if ($isDisabled && $disabledHelp !== ''): ?>
             <small class="admin-setting-conditional-help" data-setting-conditional-help><?= htmlspecialchars($disabledHelp, ENT_QUOTES, 'UTF-8') ?></small>
         <?php endif; ?>
     </div>
@@ -1824,6 +2085,135 @@ function adminRenderSettingsGrid(array $definitions, array $settings, string $se
             continue;
         }
         $html .= adminRenderSettingField((string) $key, $definition, $settings);
+    }
+
+    return $html . '</div>';
+}
+
+/**
+ * @param array<string, array<string, mixed>> $definitions
+ * @return array<int, string>
+ */
+function adminSettingKeysForSection(array $definitions, string $section): array
+{
+    $keys = [];
+    foreach ($definitions as $key => $definition) {
+        if ((string) ($definition['section'] ?? '') === $section) {
+            $keys[] = (string) $key;
+        }
+    }
+
+    return $keys;
+}
+
+/**
+ * @param array<string, array<string, mixed>> $definitions
+ * @param array<string, array<string, mixed>> $groupMeta
+ * @return array<int, array<string, mixed>>
+ */
+function adminBuildSettingGroupsFromDefinitions(array $definitions, string $section, array $groupMeta = [], string $fallbackTitle = 'Temel Ayarlar'): array
+{
+    $groups = [];
+
+    foreach ($groupMeta as $groupName => $meta) {
+        if (!is_array($meta)) {
+            continue;
+        }
+        $title = is_string($groupName) ? $groupName : (string) ($meta['title'] ?? $fallbackTitle);
+        $groups[$title] = array_merge([
+            'title' => $title,
+            'icon' => 'bi-sliders',
+            'description' => '',
+            'badge' => '',
+            'keys' => [],
+        ], $meta, ['title' => (string) ($meta['title'] ?? $title), 'keys' => []]);
+    }
+
+    foreach ($definitions as $key => $definition) {
+        if ((string) ($definition['section'] ?? '') !== $section) {
+            continue;
+        }
+
+        $groupName = trim((string) ($definition['group'] ?? ''));
+        $groupName = $groupName !== '' ? $groupName : $fallbackTitle;
+
+        if (!isset($groups[$groupName])) {
+            $groups[$groupName] = [
+                'title' => $groupName,
+                'icon' => 'bi-sliders',
+                'description' => '',
+                'badge' => '',
+                'keys' => [],
+            ];
+        }
+
+        $groups[$groupName]['keys'][] = (string) $key;
+    }
+
+    return array_values(array_filter($groups, static function (array $group): bool {
+        return !empty($group['keys']);
+    }));
+}
+
+/**
+ * Render grouped settings in the compact rule-card layout used by Advanced Settings.
+ *
+ * @param array<string, array<string, mixed>> $definitions
+ * @param array<string, string> $settings
+ * @param array<int|string, array<string, mixed>> $groups
+ * @param array<string, string> $options
+ */
+function adminRenderSettingsRuleSections(array $definitions, array $settings, string $section, array $groups, array $options = []): string
+{
+    $listClass = trim((string) ($options['list_class'] ?? 'settings-rule-list'));
+    $ruleClassBase = trim((string) ($options['rule_class'] ?? 'settings-rule'));
+    $gridClassBase = trim((string) ($options['grid_class'] ?? 'settings-rule-grid ui-grid'));
+    $showCountBadge = (bool) ($options['show_count_badge'] ?? true);
+    $html = '<div class="' . htmlspecialchars($listClass, ENT_QUOTES, 'UTF-8') . '">';
+
+    foreach ($groups as $groupId => $group) {
+        if (!is_array($group)) {
+            continue;
+        }
+
+        $keys = array_values(array_filter(
+            array_map(static fn($key): string => (string) $key, (array) ($group['keys'] ?? [])),
+            static fn(string $key): bool => isset($definitions[$key]) && (string) ($definitions[$key]['section'] ?? '') === $section
+        ));
+        if ($keys === []) {
+            continue;
+        }
+
+        $title = (string) ($group['title'] ?? (is_string($groupId) ? $groupId : 'Ayarlar'));
+        $description = trim((string) ($group['description'] ?? ''));
+        $icon = trim((string) ($group['icon'] ?? 'bi-sliders'));
+        $badge = trim((string) ($group['badge'] ?? ''));
+        if ($badge === '' && $showCountBadge) {
+            $badge = count($keys) . ' ayar';
+        }
+
+        $extraClass = preg_replace('/[^a-zA-Z0-9_\-\s]/', '', (string) ($group['class'] ?? '')) ?? '';
+        $layout = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($group['layout'] ?? '')) ?? '';
+        $ruleClass = trim($ruleClassBase . ($extraClass !== '' ? ' ' . $extraClass : '') . ($layout !== '' ? ' ' . $ruleClassBase . '--' . $layout : ''));
+        $gridModifierBase = strtok($gridClassBase, ' ') ?: $gridClassBase;
+        $gridClass = trim($gridClassBase . ($layout !== '' ? ' ' . $gridModifierBase . '--' . $layout : ''));
+
+        $html .= '<section class="' . htmlspecialchars($ruleClass, ENT_QUOTES, 'UTF-8') . '">';
+        $html .= '<div class="settings-rule-head">';
+        $html .= '<div class="settings-rule-title-wrap">';
+        $html .= '<span class="settings-rule-icon" aria-hidden="true"><i class="bi ' . htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') . '"></i></span>';
+        $html .= '<div class="settings-rule-title-text">';
+        $html .= '<div class="settings-rule-title">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</div>';
+        if ($description !== '') {
+            $html .= '<div class="settings-rule-desc">' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '</div>';
+        }
+        $html .= '</div></div>';
+        if ($badge !== '') {
+            $html .= '<span class="settings-rule-badge">' . htmlspecialchars($badge, ENT_QUOTES, 'UTF-8') . '</span>';
+        }
+        $html .= '</div>';
+        $html .= adminRenderSettingsGrid($definitions, $settings, $section, $keys, $gridClass);
+        $html .= '</section>';
     }
 
     return $html . '</div>';
@@ -2333,41 +2723,6 @@ function adminNormalizeSettingValue(string $key, string $value, array $definitio
     return $value;
 }
 
-function adminApplySettingAliases(array $settings, array $definitions): array
-{
-    $pairs = [
-        'og_image' => 'default_og_image',
-    ];
-
-    foreach ($pairs as $canonical => $alias) {
-        if (!array_key_exists($canonical, $settings) || !array_key_exists($alias, $settings)) {
-            continue;
-        }
-
-        $canonicalValue = (string)$settings[$canonical];
-        $aliasValue = (string)$settings[$alias];
-        $canonicalDefault = (string)($definitions[$canonical]['default'] ?? '');
-        $aliasDefault = (string)($definitions[$alias]['default'] ?? '');
-        $value = $canonicalValue;
-
-        if (($canonicalValue === '' || $canonicalValue === $canonicalDefault) && $aliasValue !== '' && $aliasValue !== $aliasDefault) {
-            $value = $aliasValue;
-        }
-        if ($canonical === 'og_image' && $canonicalValue === '' && $aliasValue !== '') {
-            $value = $aliasValue;
-        }
-
-        $settings[$canonical] = $value;
-        $settings[$alias] = $value;
-    }
-
-    if (array_key_exists('site_language', $settings)) {
-        $settings['site_language'] = 'tr';
-    }
-
-    return $settings;
-}
-
 function getAdminSettings(?PDO $pdo): array
 {
     return \App\Core\AppSettings::instance($pdo)->all();
@@ -2408,10 +2763,6 @@ function saveAdminSettings(?PDO $pdo, array $input): void
     } elseif (array_key_exists('seo_public_page_presets_json', $input) && function_exists('seoPublicPagePresetsJson')) {
         $input['seo_public_page_presets_json'] = seoPublicPagePresetsJson($input['seo_public_page_presets_json']);
     }
-    if (array_key_exists('og_image', $input)) {
-        $input['default_og_image'] = $input['og_image'];
-    }
-
     $stmt = $pdo->prepare("INSERT INTO admin_settings (setting_key, setting_value, created_at, updated_at)
         VALUES (:key, :value, NOW(), NOW())
         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
@@ -2419,6 +2770,47 @@ function saveAdminSettings(?PDO $pdo, array $input): void
     $allowedSections = [];
     if (!empty($input['_sections'])) {
         $allowedSections = array_map('trim', explode(',', (string)$input['_sections']));
+    }
+
+    $shouldValidateRateLimits = empty($allowedSections) || in_array('rate_limit', $allowedSections, true);
+    if ($shouldValidateRateLimits) {
+        $numberInput = static function (string $key) use ($input, $definitions): int {
+            return max(0, (int)($input[$key] ?? ($definitions[$key]['default'] ?? 0)));
+        };
+        $pairedRateLimits = [
+            'login_rate_limit' => 'login_rate_window',
+            'register_rate_limit' => 'register_rate_window',
+            'password_reset_rate_limit' => 'password_reset_rate_window',
+            'search_rate_limit' => 'search_rate_window',
+            'api_topics_rate_limit' => 'api_topics_rate_window',
+            'api_messages_rate_limit' => 'api_messages_rate_window',
+            'api_leaderboard_rate_limit' => 'api_leaderboard_rate_window',
+            'api_analytics_rate_limit' => 'api_analytics_rate_window',
+            'api_favorite_rate_limit' => 'api_favorite_rate_window',
+            'api_reports_rate_limit' => 'api_reports_rate_window',
+            'api_report_submit_rate_limit' => 'api_report_submit_rate_window',
+            'api_user_reports_rate_limit' => 'api_user_reports_rate_window',
+            'api_user_report_submit_rate_limit' => 'api_user_report_submit_rate_window',
+            'download_count_rate_limit' => 'download_count_rate_window',
+            'comment_rate_max' => 'comment_rate_minutes',
+            'comment_mention_rate_max' => 'comment_mention_rate_window',
+            'comment_edit_rate_max' => 'comment_edit_rate_window',
+            'comment_reaction_rate_max' => 'comment_reaction_rate_window',
+            'comment_report_rate_max' => 'comment_report_rate_window',
+            'ban_appeal_message_limit' => 'ban_appeal_message_cooldown_minutes',
+            'user_upload_rate_limit' => 'user_upload_rate_window',
+        ];
+
+        foreach ($pairedRateLimits as $limitKey => $windowKey) {
+            if (!isset($definitions[$limitKey], $definitions[$windowKey])) {
+                continue;
+            }
+            if ($numberInput((string)$limitKey) > 0 && $numberInput((string)$windowKey) <= 0) {
+                $limitLabel = (string)($definitions[$limitKey]['label'] ?? $limitKey);
+                $windowLabel = (string)($definitions[$windowKey]['label'] ?? $windowKey);
+                throw new RuntimeException($limitLabel . ' için ' . $windowLabel . ' 1 veya daha yüksek olmalı.');
+            }
+        }
     }
 
     $routePrefixKeys = [

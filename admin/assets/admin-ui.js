@@ -538,18 +538,22 @@
 
     function swalOptions(options) {
         var tone = options.tone || 'warning';
+        var kindClass = options.kind ? String(options.kind).replace(/[^a-z0-9_-]/gi, '') : '';
+        var iconClass = options.icon ? String(options.icon).replace(/[^a-z0-9_-]/gi, '') : '';
 
         return {
             title: options.title || 'Onay gerekiyor',
             text: options.message || '',
             icon: dialogIcon(tone),
+            iconHtml: iconClass ? '<i class="bi ' + iconClass + '"></i>' : undefined,
             confirmButtonText: options.ok || 'Onayla',
             cancelButtonText: options.cancel || 'Vazgeç',
             showCancelButton: options.showCancel !== false,
             reverseButtons: true,
             focusCancel: tone === 'danger',
             customClass: {
-                popup: 'admin-dialog',
+                popup: 'admin-dialog' + (kindClass ? ' admin-dialog-' + kindClass : ''),
+                icon: iconClass ? 'admin-dialog-icon-custom' : '',
                 confirmButton: tone === 'danger' ? 'ui-admin-btn ui-admin-btn-danger' : 'ui-admin-btn ui-admin-btn-primary',
                 cancelButton: 'ui-admin-btn ui-admin-btn-outline'
             },
@@ -655,6 +659,8 @@
             ok: 'Onayla',
             cancel: 'Vazgeç',
             tone: 'warning',
+            kind: '',
+            icon: '',
             showCancel: true,
             input: null,
             value: '',
@@ -670,9 +676,10 @@
         var okButton = overlay.querySelector('[data-ui-admin-native-ok]');
         var cancelButton = overlay.querySelector('[data-ui-admin-native-cancel]');
 
-        overlay.className = 'ui-admin-native-dialog-overlay is-' + (opts.tone || 'warning');
-        panel.className = 'ui-admin-native-dialog is-' + (opts.tone || 'warning');
-        icon.className = 'bi ' + (opts.tone === 'forbidden' ? 'bi-shield-lock-fill' : (opts.tone === 'danger' ? 'bi-exclamation-triangle-fill' : (opts.tone === 'success' ? 'bi-check-circle-fill' : 'bi-question-lg')));
+        var kindClass = opts.kind ? String(opts.kind).replace(/[^a-z0-9_-]/gi, '') : '';
+        overlay.className = 'ui-admin-native-dialog-overlay is-' + (opts.tone || 'warning') + (kindClass ? ' is-' + kindClass : '');
+        panel.className = 'ui-admin-native-dialog is-' + (opts.tone || 'warning') + (kindClass ? ' is-' + kindClass : '');
+        icon.className = 'bi ' + (opts.icon || (opts.tone === 'forbidden' ? 'bi-shield-lock-fill' : (opts.tone === 'danger' ? 'bi-exclamation-triangle-fill' : (opts.tone === 'success' ? 'bi-check-circle-fill' : 'bi-question-lg'))));
         title.textContent = opts.title || 'Bilgi';
         message.textContent = opts.message || '';
         okButton.textContent = opts.ok || 'Onayla';
@@ -1181,7 +1188,9 @@
                 title: form.dataset.adminConfirmTitle || 'İşlem onayı',
                 ok: form.dataset.adminConfirmOk || 'Onayla',
                 cancel: form.dataset.adminConfirmCancel || 'Vazgeç',
-                tone: form.dataset.adminConfirmTone || 'danger'
+                tone: form.dataset.adminConfirmTone || 'danger',
+                kind: form.dataset.adminConfirmKind || '',
+                icon: form.dataset.adminConfirmIcon || ''
             }).then(function (confirmed) {
                 if (!confirmed) {
                     return;
@@ -1214,7 +1223,9 @@
                 title: trigger.dataset.adminConfirmTitle || 'İşlem onayı',
                 ok: trigger.dataset.adminConfirmOk || 'Onayla',
                 cancel: trigger.dataset.adminConfirmCancel || 'Vazgeç',
-                tone: trigger.dataset.adminConfirmTone || 'danger'
+                tone: trigger.dataset.adminConfirmTone || 'danger',
+                kind: trigger.dataset.adminConfirmKind || '',
+                icon: trigger.dataset.adminConfirmIcon || ''
             }).then(function (confirmed) {
                 if (!confirmed) {
                     return;

@@ -14,7 +14,7 @@ $search = trim($_GET['search'] ?? '');
 $topicId = (int)($_GET['topic_id'] ?? 0);
 $userId = (int)($_GET['user_id'] ?? 0);
 $page = max(1, (int)($_GET['page'] ?? 1));
-$perPage = 10;
+$perPage = adminPaginationPerPage();
 
 $commentsManagerBuildWhereClause = static function (string $status, string $search, int $topicId, int $userId): array {
     $where = ['1=1'];
@@ -721,36 +721,23 @@ require_once __DIR__ . '/header.php';
                 <?php endif; ?>
 
                 <?php if ($total > $perPage): ?>
-                    <nav class="ui-comment-manager-pagination ui-pagination comments-manager-pagination" aria-label="Yorum sayfalama">
-                        <?php
-                        $totalPages = (int) ceil($total / $perPage);
-                        $queryParams = ['status' => $status, 'search' => $search];
+                    <?php
+                    $totalPages = (int) ceil($total / $perPage);
+                    $queryParams = array_filter([
+                        'status' => $status,
+                        'search' => $search,
+                        'topic_id' => $topicId > 0 ? $topicId : null,
+                        'user_id' => $userId > 0 ? $userId : null,
+                    ], static fn ($value): bool => $value !== null && $value !== '');
 
-                        if ($page > 1):
-                            $queryParams['page'] = $page - 1;
-                        ?>
-                            <a href="?<?= http_build_query($queryParams) ?>" class="ui-comment-manager-page-btn ui-pagination__page">
-                                <i class="bi bi-chevron-left"></i> Önceki
-                            </a>
-                        <?php endif; ?>
-
-                        <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++):
-                            $queryParams['page'] = $i;
-                        ?>
-                            <a href="?<?= http_build_query($queryParams) ?>"
-                               class="ui-comment-manager-page-btn ui-pagination__page <?= $i === $page ? 'active' : '' ?>"<?= $i === $page ? ' aria-current="page"' : '' ?>>
-                                <?= $i ?>
-                            </a>
-                        <?php endfor; ?>
-
-                        <?php if ($page < $totalPages):
-                            $queryParams['page'] = $page + 1;
-                        ?>
-                            <a href="?<?= http_build_query($queryParams) ?>" class="ui-comment-manager-page-btn ui-pagination__page">
-                                Sonraki <i class="bi bi-chevron-right"></i>
-                            </a>
-                        <?php endif; ?>
-                    </nav>
+                    echo adminRenderPagination($totalPages, $page, static function (int $targetPage) use ($queryParams): string {
+                        return '?' . http_build_query(array_merge($queryParams, ['page' => $targetPage]));
+                    }, [
+                        'wrapper_class' => 'comments-manager-pagination',
+                        'inner_class' => 'comments-manager-pagination-inner',
+                        'aria_label' => 'Yorum sayfalama',
+                    ]);
+                    ?>
                 <?php endif; ?>
             <?php endif; ?>
         </main>

@@ -38,7 +38,7 @@
 
         var apiUrl = root.getAttribute("data-notif-api") || "";
         var readApiUrl = root.getAttribute("data-notif-read-api") || "";
-        var fallbackUrl = root.getAttribute("data-notif-fallback-url") || "notifications.php";
+        var notificationUrl = root.getAttribute("data-notif-url") || "";
         var toggle = root.querySelector("[data-notif-toggle]");
         var list = root.querySelector("#notifList") || root.querySelector("[data-notif-list]");
         var badge = root.querySelector("#notifBadge") || root.querySelector("[data-notif-badge]");
@@ -81,7 +81,7 @@
             data.latest.forEach(function (notification) {
                 var iconState = getIconState(notification.type);
                 var item = document.createElement("a");
-                item.href = notification.link ? notification.link : fallbackUrl;
+                item.href = notification.link ? notification.link : notificationUrl;
                 item.className = "notif-item " + (notification.is_read ? "" : "unread"); item.setAttribute("data-notif-open","true"); item.setAttribute("data-id",notification.id);
 
                 var iconWrap = document.createElement("div");
@@ -190,8 +190,12 @@
                         window.showToast("Bildirimler okundu olarak i\\u015faretlendi.", "success");
                     }
                     fetchNotifications();
-                    if (window.location.pathname.endsWith("notifications.php")) {
-                        window.location.reload();
+                    if (notificationUrl) {
+                        var currentPath = new URL(window.location.href).pathname.replace(/\/+$/, "");
+                        var notificationPath = new URL(notificationUrl, window.location.origin).pathname.replace(/\/+$/, "");
+                        if (currentPath === notificationPath) {
+                            window.location.reload();
+                        }
                     }
                 })
                 .catch(function (error) {

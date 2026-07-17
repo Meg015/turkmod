@@ -1638,48 +1638,6 @@ body:has(.public-upload-shell) {
 .quill-container .ql-stroke { stroke: var(--upload-text, var(--text)); }
 .quill-container .ql-fill { fill: var(--upload-text, var(--text)); }
 .quill-container .ql-picker { color: var(--upload-text, var(--text)); }
-.upload-rich-fallback {
-    border: 1px solid var(--upload-line, var(--border));
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--upload-field, var(--surface));
-    color: var(--upload-text, var(--text));
-}
-.upload-rich-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .25rem;
-    padding: .5rem;
-    border-bottom: 1px solid var(--upload-line, var(--border));
-    background: color-mix(in srgb, var(--upload-field, var(--surface)) 88%, var(--primary) 5%);
-}
-.upload-rich-toolbar button {
-    width: 34px;
-    height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--upload-text, var(--text));
-}
-.upload-rich-toolbar button:hover {
-    border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
-    background: color-mix(in srgb, var(--primary) 10%, transparent);
-    color: var(--primary);
-}
-.upload-rich-editor {
-    min-height: 220px;
-    padding: 1rem;
-    outline: none;
-    line-height: 1.65;
-    
-}
-.upload-rich-editor:focus {
-    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--primary) 13%, transparent);
-}
-
 .topic-edit-upload-page .public-upload-shell {
     --upload-bg: var(--bg);
     --upload-card: var(--bg-white);
@@ -2277,56 +2235,15 @@ body:has(.topic-edit-upload-page) {
     background: color-mix(in srgb, var(--warning) 10%, var(--surface)) !important;
 }
 
-.public-upload-card .upload-rich-fallback {
-    border: 1px solid var(--upload-line, var(--border));
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--upload-field, var(--surface));
-    color: var(--upload-text, var(--text));
-}
-.public-upload-card .upload-rich-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .25rem;
-    padding: .5rem;
-    border-bottom: 1px solid var(--upload-line, var(--border));
-    background: var(--upload-panel-2, var(--surface));
-}
-.public-upload-card .upload-rich-toolbar button {
-    width: 34px;
-    height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--upload-line, var(--border));
-    border-radius: 8px;
-    background: transparent;
-    color: var(--upload-text, var(--text));
-}
-.public-upload-card .upload-rich-toolbar button:hover {
-    border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
-    background: color-mix(in srgb, var(--primary) 10%, transparent);
-    color: var(--primary);
-}
-.public-upload-card .upload-rich-editor {
-    min-height: 220px;
-    padding: 1rem;
-    outline: none;
-    
-}
-
-.rich-editor[data-default-align="left"] + .quill-container .ql-editor,
-.rich-editor[data-default-align="left"] + .upload-rich-fallback .upload-rich-editor {
+.rich-editor[data-default-align="left"] + .quill-container .ql-editor {
     text-align: left;
 }
 
-.rich-editor[data-default-align="center"] + .quill-container .ql-editor,
-.rich-editor[data-default-align="center"] + .upload-rich-fallback .upload-rich-editor {
+.rich-editor[data-default-align="center"] + .quill-container .ql-editor {
     text-align: center;
 }
 
-.rich-editor[data-default-align="right"] + .quill-container .ql-editor,
-.rich-editor[data-default-align="right"] + .upload-rich-fallback .upload-rich-editor {
+.rich-editor[data-default-align="right"] + .quill-container .ql-editor {
     text-align: right;
 }
 
@@ -2419,8 +2336,7 @@ body:has(.topic-edit-upload-page) {
     font-weight: 500 !important;
 }
 
-.public-upload-shell textarea.ui-admin-form-control,
-.public-upload-shell .upload-rich-editor {
+.public-upload-shell textarea.ui-admin-form-control {
     min-height: 220px !important;
     line-height: 1.65 !important;
     resize: vertical !important;

@@ -29,6 +29,10 @@ final class NotificationCenterService
             ];
         }
 
+        if ($this->recipientIsBanned($pdo, $userId)) {
+            return $this->emptyDropdown(true, true, false, false);
+        }
+
         $adminSettings = $this->preferences->adminSettings($pdo);
         $userSettings = $this->preferences->userSettings($pdo, $userId);
         $canFilterEvents = $this->canFilterEvents($pdo);
@@ -266,6 +270,24 @@ final class NotificationCenterService
             'unread_count' => 0,
             'latest' => [],
         ];
+    }
+
+    private function recipientIsBanned(PDO $pdo, int $userId): bool
+    {
+        try {
+            $stmt = $pdo->prepare("SELECT status, is_banned FROM users WHERE id = ? LIMIT 1");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$user) {
+                return false;
+            }
+
+            return (int) ($user['is_banned'] ?? 0) === 1 || (string) ($user['status'] ?? '') === 'banned';
+        } catch (Throwable $e) {
+            error_log('Notification center banned user check failed: ' . $e->getMessage());
+
+            return false;
+        }
     }
 
     private function insertIgnorePrefix(PDO $pdo): string

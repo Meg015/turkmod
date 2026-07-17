@@ -290,6 +290,26 @@ function routerHandleStaticRoute(string $cleanRoute): void
     routerDispatchTarget($target, $cleanRoute === '' ? 'index.php' : $cleanRoute, $middleware);
 }
 
+function routerHandleAdminApiModuleRoute(string $cleanRoute): void
+{
+    $groups = routeGroupedRouteCatalog();
+    foreach (['admin', 'api'] as $groupName) {
+        $routes = is_array($groups[$groupName] ?? null) ? $groups[$groupName] : [];
+        if (!isset($routes[$cleanRoute]) || !is_array($routes[$cleanRoute])) {
+            continue;
+        }
+
+        $route = $routes[$cleanRoute];
+        $target = (string) ($route['target'] ?? '');
+        if ($target === '') {
+            continue;
+        }
+
+        $middleware = is_array($route['group_middleware'] ?? null) ? $route['group_middleware'] : [];
+        routerDispatchTarget($target, $cleanRoute, $middleware);
+    }
+}
+
 function routerHandleGotoPostRoute(array $segments): void
 {
     if (count($segments) !== 2 || $segments[0] !== 'goto' || $segments[1] !== 'post') {
@@ -382,6 +402,7 @@ $settings = getAdminSettings($pdo);
 
 routerHandleSitemapRoute($cleanRoute, $settings);
 routerHandleEventsRoute($segments);
+routerHandleAdminApiModuleRoute($cleanRoute);
 routerHandleStaticRoute($cleanRoute);
 routerHandleGotoPostRoute($segments);
 routerHandleDynamicContentRoute($segments, $pdo);

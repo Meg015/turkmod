@@ -2,7 +2,7 @@
 
 This folder is the module-owned boundary for `App\Modules\Leaderboard`.
 Public, API, admin, service, lifecycle, and migration logic for leaderboard
-must live here. Root/admin/API entrypoints must remain thin adapters.
+must live here. Public, admin, and API access must go through the module route catalog.
 
 ## Ownership Boundary
 
@@ -15,13 +15,12 @@ must live here. Root/admin/API entrypoints must remain thin adapters.
 
 ## Do Not Re-Introduce
 
-- Do not move business logic back into:
-  - `leaderboard.php`
-  - `api/leaderboard.php`
-  - `admin/leaderboard.php`
-  - `includes/src/Modules/Leaderboard/Support/*.php` (these are procedural adapters)
+- Do not move business logic outside the module route targets:
+  - `/liderlik`
+  - `/api/leaderboard`
+  - `/admin/leaderboard`
 - Do not duplicate leaderboard logic across service and wrapper layers.
-- Do not add direct SQL/business logic into shim files; keep wrappers delegation-only.
+- Do not add direct SQL/business logic into route shim files.
 
 ## Security and Behavior Contracts
 

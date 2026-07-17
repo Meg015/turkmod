@@ -49,7 +49,7 @@ $menuRouteMap = [
     'admin/user-activity.php'           => 'users',
     'admin/user-edit.php'               => 'users',
     'admin/notifications.php'           => 'notifications',
-    'admin/leaderboard.php'             => 'leaderboard',
+    'admin/leaderboard'                 => 'leaderboard',
     'admin/media-manager.php'           => 'media',
     'admin/system-health.php'           => 'system-health',
     'admin/database-sync/index.php'     => 'database-sync',
@@ -63,6 +63,13 @@ $relativePath = $basePrefix !== '' && str_starts_with($scriptName, $basePrefix .
     ? ltrim(substr($scriptName, strlen($basePrefix) + 1), '/')
     : ltrim($scriptName, '/');
 $activeKey = $menuRouteMap[$relativePath] ?? '';
+if ($activeKey === '') {
+    $requestPath = str_replace('\\', '/', (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH));
+    $requestRelativePath = $basePrefix !== '' && str_starts_with($requestPath, $basePrefix . '/')
+        ? ltrim(substr($requestPath, strlen($basePrefix) + 1), '/')
+        : ltrim($requestPath, '/');
+    $activeKey = $menuRouteMap[$requestRelativePath] ?? '';
+}
 
 /**
  * Bir menü öğesinin aktif olup olmadığını kontrol eder.
@@ -182,7 +189,7 @@ function sidebarBadge(?int $count, int $max = 99): string {
                 <a class="admin-menu-item<?= sidebarActiveClass('notifications') ?>" href="<?= $baseUri ?>/admin/notifications.php"><i class="bi bi-bell"></i><span>Bildirim Merkezi</span></a>
             <?php endif; ?>
             <?php if ($adminCan('leaderboard.admin')): ?>
-                <a class="admin-menu-item<?= sidebarActiveClass('leaderboard') ?>" href="<?= $baseUri ?>/admin/leaderboard.php"><i class="bi bi-trophy"></i><span>Liderlik Tablosu</span></a>
+                <a class="admin-menu-item<?= sidebarActiveClass('leaderboard') ?>" href="<?= $baseUri ?>/admin/leaderboard"><i class="bi bi-trophy"></i><span>Liderlik Tablosu</span></a>
             <?php endif; ?>
             <?php if ($adminCan('media.view')): ?>
                 <a class="admin-menu-item<?= sidebarActiveClass('media') ?>" href="<?= $baseUri ?>/admin/media-manager.php"><i class="bi bi-folder2-open"></i><span>Dosya Yöneticisi</span></a>

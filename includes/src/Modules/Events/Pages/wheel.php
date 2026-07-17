@@ -34,12 +34,11 @@ if (!$featureGate['enabled']) {
 }
 $overview = eventsUserOverview($pdo, $userId);
 $wheelUsage = eventsWheelUsageState($pdo, $userId, $config);
-$dailyLimit = (int)$wheelUsage['daily_limit'];
-$hourlyLimit = (int)$wheelUsage['hourly_limit'];
-$remainingDaily = $wheelUsage['remaining_daily'];
-$remainingHourly = $wheelUsage['remaining_hourly'];
-$remainingDailyLabel = eventsLimitLabel($remainingDaily);
-$remainingHourlyLabel = eventsLimitLabel($remainingHourly);
+$rateLimit = (int)$wheelUsage['rate_limit'];
+$rateWindowMinutes = (int)$wheelUsage['rate_window_minutes'];
+$remainingRate = $wheelUsage['remaining_rate'];
+$remainingRateLabel = eventsLimitLabel($remainingRate);
+$rateWindowLabel = eventsFormatReadableDurationSeconds($rateWindowMinutes * 60, '0 dk');
 $cooldownRemaining = (int)$wheelUsage['cooldown_remaining'];
 $cooldownLabel = eventsFormatReadableDurationSeconds($cooldownRemaining, 'Hazır');
 $rewards = [];
@@ -159,21 +158,21 @@ require dirname(__DIR__, 5) . '/includes/public-header.php';
     <section class="ui-events-hero" aria-labelledby="wheel-title">
         <div class="ui-events-hero-main">
             <h1 class="ui-events-title" id="wheel-title">Çarkı çevir, sonucu net gör.</h1>
-            <p class="ui-events-subtitle">Günlük limitin <?= $dailyLimit ?>, saatlik limitin <?= $hourlyLimit ?>. Kazandığın ödüller otomatik olarak ödül kasana işlenir.</p>
+            <p class="ui-events-subtitle"><?= $rateLimit > 0 ? e($rateWindowLabel . ' içinde çark limitin ' . $rateLimit . ' hak.') : 'Çark çevirme limitin sınırsız.' ?> Kazandığın ödüller otomatik olarak ödül kasana işlenir.</p>
         </div>
         <div class="ui-events-hero-side">
             <div class="ui-events-stat-card ui-events-stat-info ui-card">
                 <div class="ui-events-stat-icon"><i class="bi bi-calendar2-check"></i></div>
                 <div class="ui-events-stat-content ui-section">
-                    <div class="ui-events-stat-value"><?= e($remainingDailyLabel) ?></div>
-                    <div class="ui-events-stat-label">Bugünkü kalan hak</div>
+                    <div class="ui-events-stat-value"><?= e($remainingRateLabel) ?></div>
+                    <div class="ui-events-stat-label">Kalan çark hakkı</div>
                 </div>
             </div>
             <div class="ui-events-stat-card ui-events-stat-success ui-card">
                 <div class="ui-events-stat-icon"><i class="bi bi-hourglass-split"></i></div>
                 <div class="ui-events-stat-content ui-section">
-                    <div class="ui-events-stat-value"><?= e($remainingHourlyLabel) ?></div>
-                    <div class="ui-events-stat-label">Saatlik kalan hak</div>
+                    <div class="ui-events-stat-value"><?= e($rateWindowLabel) ?></div>
+                    <div class="ui-events-stat-label">Limit süresi</div>
                 </div>
             </div>
             <div class="ui-events-stat-card <?= $cooldownRemaining > 0 ? 'ui-events-stat-danger' : 'ui-events-stat-success' ?> ui-card">
@@ -262,8 +261,8 @@ require dirname(__DIR__, 5) . '/includes/public-header.php';
                                     data-ui-events-cooldown-until="<?= !empty($wheelUsage['next_spin_at_epoch']) ? ((int)$wheelUsage['next_spin_at_epoch'] * 1000) : '' ?>"
                                     data-ui-events-can-spin-now="<?= !empty($wheelUsage['can_spin_now']) ? '1' : '0' ?>"
                                 >
-                                    <span><i class="bi bi-calendar2-check"></i> Günlük <strong data-ui-events-wheel-usage-daily><?= e($remainingDailyLabel) ?></strong></span>
-                                    <span><i class="bi bi-hourglass-split"></i> Saatlik <strong data-ui-events-wheel-usage-hourly><?= e($remainingHourlyLabel) ?></strong></span>
+                                    <span><i class="bi bi-calendar2-check"></i> Kalan hak <strong data-ui-events-wheel-usage-daily><?= e($remainingRateLabel) ?></strong></span>
+                                    <span><i class="bi bi-hourglass-split"></i> Süre <strong><?= e($rateWindowLabel) ?></strong></span>
                                     <span><i class="bi bi-stopwatch"></i> Bekleme <strong data-ui-events-wheel-usage-cooldown><?= e($cooldownLabel) ?></strong></span>
                                 </div>
                                 <div class="ui-events-wheel-action">

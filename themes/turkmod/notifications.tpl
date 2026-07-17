@@ -22,11 +22,11 @@
                 <span>Gelen kutusu ve tercihler</span>
             </div>
             <nav class="notifications-nav">
-                <a href="notifications.php?tab=list" class="notifications-nav-link {if notifications_tab_list}is-active{/if}">
+                <a href="{notifications_list_url}" class="notifications-nav-link {if notifications_tab_list}is-active{/if}">
                     <span><i class="bi bi-inbox" aria-hidden="true"></i> Gelen Kutusu</span>
                     {if notifications_has_unread}<span class="notifications-pill" data-sidebar-unread>{notifications_unread_badge}</span>{/if}
                 </a>
-                <a href="notifications.php?tab=settings" class="notifications-nav-link {if notifications_tab_settings}is-active{/if}">
+                <a href="{notifications_settings_url}" class="notifications-nav-link {if notifications_tab_settings}is-active{/if}">
                     <span><i class="bi bi-sliders" aria-hidden="true"></i> Tercihler</span>
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
                 </a>
@@ -80,9 +80,15 @@
             <div class="notifications-feed" data-notif-feed>
                 {loop notifications_items}
                 <article class="{notifications_item.class}" id="notif-{notifications_item.id}" data-notif-item data-id="{notifications_item.id}">
-                    <label class="notification-select" title="Bildirimi seç">
-                        <input type="checkbox" data-notif-select value="{notifications_item.id}" aria-label="Bildirimi seç">
-                    </label>
+                    <div class="notification-meta-actions">
+                        <time class="notification-time" datetime="{notifications_item.datetime}" title="{notifications_item.date_title}">
+                            <i class="bi bi-clock" aria-hidden="true"></i>
+                            {notifications_item.date_short}
+                        </time>
+                        <label class="notification-select" title="Bildirimi seç">
+                            <input type="checkbox" data-notif-select value="{notifications_item.id}" aria-label="Bildirimi seç">
+                        </label>
+                    </div>
                     <span class="{notifications_item.icon_class}" aria-hidden="true"><i class="bi {notifications_item.icon}"></i></span>
                     <div class="notification-body ui-panel__body">
                         <div class="notification-topline">
@@ -97,10 +103,6 @@
                                     {notifications_item.type_summary}
                                 </span>
                             </div>
-                            <time class="notification-time" datetime="{notifications_item.datetime}" title="{notifications_item.date_title}">
-                                <i class="bi bi-clock" aria-hidden="true"></i>
-                                {notifications_item.date_short}
-                            </time>
                         </div>
 
                         <p class="notification-message" data-notif-message>{notifications_item.message}</p>
@@ -136,7 +138,7 @@
                     <h3>Burada gosterilecek bildirim yok</h3>
                     {if notifications_empty_tips_enabled}<p>{notifications_empty_message}</p>{/if}
                     <div class="notifications-empty-actions">
-                        <a href="notifications.php?tab=settings"><i class="bi bi-sliders" aria-hidden="true"></i> Tercihleri Duzenle</a>
+                        <a href="{notifications_settings_url}"><i class="bi bi-sliders" aria-hidden="true"></i> Tercihleri Duzenle</a>
                         <a href="{base_url}/index.php"><i class="bi bi-grid ui-grid" aria-hidden="true"></i> Iceriklere Git</a>
                     </div>
                 </div>
@@ -145,7 +147,7 @@
             {/if}
 
             {if notifications_tab_settings}
-            <form method="POST" action="notifications.php?tab=settings" class="notification-settings">
+            <form method="POST" action="{notifications_settings_url}" class="notification-settings">
                 <input type="hidden" name="_token" value="{notifications_csrf_token}">
                 <input type="hidden" name="action" value="save_settings">
 

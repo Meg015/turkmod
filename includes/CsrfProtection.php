@@ -11,6 +11,8 @@ class CsrfProtection
     private static $instance = null;
     private const TOKEN_LENGTH = 32;
     private const TOKEN_SESSION_KEY = '_csrf_token';
+    private const TOKEN_HISTORY_SESSION_KEY = '_csrf_token_history';
+    private const TOKEN_HISTORY_LIMIT = 5;
     private const TOKEN_HEADER_NAME = 'X-CSRF-Token';
 
     private function __construct()
@@ -60,7 +62,23 @@ class CsrfProtection
             return false;
         }
 
-        return hash_equals($_SESSION[self::TOKEN_SESSION_KEY], $token);
+        $currentToken = (string) $_SESSION[self::TOKEN_SESSION_KEY];
+        if ($currentToken !== '' && hash_equals($currentToken, $token)) {
+            return true;
+        }
+
+        $history = $_SESSION[self::TOKEN_HISTORY_SESSION_KEY] ?? [];
+        if (!is_array($history)) {
+            return false;
+        }
+
+        foreach ($history as $historicalToken) {
+            if (is_string($historicalToken) && $historicalToken !== '' && hash_equals($historicalToken, $token)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -101,8 +119,29 @@ class CsrfProtection
     {
         self::ensureSession();
 
+        self::rememberToken(isset($_SESSION[self::TOKEN_SESSION_KEY]) ? (string) $_SESSION[self::TOKEN_SESSION_KEY] : null);
         $_SESSION[self::TOKEN_SESSION_KEY] = bin2hex(random_bytes(self::TOKEN_LENGTH));
         return $_SESSION[self::TOKEN_SESSION_KEY];
+    }
+
+    private static function rememberToken(?string $token): void
+    {
+        if ($token === null || $token === '') {
+            return;
+        }
+
+        $history = $_SESSION[self::TOKEN_HISTORY_SESSION_KEY] ?? [];
+        if (!is_array($history)) {
+            $history = [];
+        }
+
+        $history = array_values(array_filter(
+            $history,
+            static fn ($historicalToken): bool => is_string($historicalToken) && $historicalToken !== '' && !hash_equals($historicalToken, $token)
+        ));
+        array_unshift($history, $token);
+
+        $_SESSION[self::TOKEN_HISTORY_SESSION_KEY] = array_slice($history, 0, self::TOKEN_HISTORY_LIMIT);
     }
 
     /**

@@ -381,7 +381,7 @@
     grid-template-columns: 48px minmax(0, 1fr);
     gap: var(--space-4, 1rem);
     padding: var(--space-5, 1.25rem);
-    padding-right: calc(var(--space-5, 1.25rem) + 2rem);
+    padding-right: calc(var(--space-5, 1.25rem) + 8.75rem);
     border: 1px solid var(--theme-border, #d8dee8);
     border-radius: var(--radius-md, 8px);
     background: var(--theme-surface, #fff);
@@ -414,11 +414,22 @@
     background: var(--brand-accent, #8b1538);
 }
 
-.notification-select {
+.notification-meta-actions {
     position: absolute;
     top: var(--space-4, 1rem);
     right: var(--space-4, 1rem);
     display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2, 0.5rem);
+    min-height: 1.5rem;
+    color: var(--theme-text-muted, #64748b);
+    z-index: 2;
+}
+
+.notification-select {
+    display: inline-flex;
+    flex: 0 0 1.5rem;
     align-items: center;
     justify-content: center;
     width: 1.5rem;
@@ -433,7 +444,7 @@
     grid-template-columns: 40px minmax(0, 1fr);
     gap: var(--space-3, 0.75rem);
     padding: var(--space-4, 1rem);
-    padding-right: calc(var(--space-4, 1rem) + 2rem);
+    padding-right: calc(var(--space-4, 1rem) + 8.25rem);
 }
 
 .notifications-shell.is-compact .notification-icon {
@@ -482,18 +493,20 @@
 }
 
 .notification-topline {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-4, 1rem);
-    padding-right: calc(var(--space-4, 1rem) + 2.5rem);
+    display: block;
+    padding-right: 0;
 }
 
 .notification-title-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2, 0.5rem);
     min-width: 0;
 }
 
 .notification-title {
+    flex: 0 0 100%;
     margin: 0;
     color: var(--theme-text, #111827);
     font-size: var(--font-size-lg, 1.125rem);
@@ -504,7 +517,8 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1, 0.25rem);
-    margin-top: var(--space-2, 0.5rem);
+    order: 3;
+    margin-top: 0;
     color: var(--theme-text-muted, #64748b);
     font-size: var(--font-size-xs, 0.75rem);
     font-weight: var(--font-weight-bold, 700);
@@ -518,9 +532,12 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1, 0.25rem);
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    margin-top: 0;
     color: var(--theme-text-muted, #64748b);
-    font-size: var(--font-size-sm, 0.875rem);
+    font-size: var(--font-size-xs, 0.75rem);
+    font-weight: var(--font-weight-bold, 700);
+    line-height: 1;
     white-space: nowrap;
 }
 
@@ -953,8 +970,7 @@
     .notifications-panel-head,
     .settings-intro,
     .settings-group-head,
-    .notifications-toolbar,
-    .notification-topline {
+    .notifications-toolbar {
         flex-direction: column;
         align-items: stretch;
         padding-right: 0;
@@ -978,10 +994,11 @@
 
     .notification-item {
         grid-template-columns: 1fr;
+        padding-right: calc(var(--space-5, 1.25rem) + 8rem);
     }
 
     .notification-time {
-        white-space: normal;
+        white-space: nowrap;
     }
 
     .setting-row {
@@ -1009,9 +1026,10 @@
         width: 100%;
     }
 
-    .notification-select {
+    .notification-meta-actions {
         top: var(--space-3, 0.75rem);
         right: var(--space-3, 0.75rem);
+        gap: var(--space-2, 0.5rem);
     }
 }
 
@@ -1028,6 +1046,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    order: 3;
     width: fit-content;
     max-width: 100%;
     padding: 4px 8px;

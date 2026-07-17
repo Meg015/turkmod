@@ -48,8 +48,8 @@ if (!$featureGate['enabled']) {
     exit;
 }
 $overview = eventsUserOverview($pdo, $userId);
-$dailyLimit = (int)($config['wheel_daily_limit'] ?? 3);
-$remainingDaily = max(0, $dailyLimit - (int)$overview['today_spins']);
+$wheelUsage = eventsWheelUsageState($pdo, $userId, $config);
+$remainingWheelSpins = eventsLimitLabel($wheelUsage['remaining_rate'] ?? null);
 
 $emptyTaskGroups = ['daily' => [], 'weekly' => [], 'monthly' => [], 'achievement' => []];
 $tasksReady = $pdo instanceof PDO && eventsTasksTablesReady($pdo);
@@ -186,7 +186,7 @@ require dirname(__DIR__, 5) . '/includes/public-header.php';
                                 </div>
                                 <div class="ui-events-profile-minimal-stat">
                                     <dt>Çark Hakkı</dt>
-                                    <dd><?= $remainingDaily ?></dd>
+                                    <dd><?= e($remainingWheelSpins) ?></dd>
                                 </div>
                                 <div class="ui-events-profile-minimal-stat">
                                     <dt>Hazır Görev</dt>
@@ -337,10 +337,6 @@ require dirname(__DIR__, 5) . '/includes/public-header.php';
                                             <?php foreach ($paginatedHistory as $row): ?>
                                                 <?php
                                                 $delta = (int)($row['points_delta'] ?? 0);
-                                                // Fallback: if points_delta is 0 or null, try reward_value
-                                                if ($delta === 0 && isset($row['reward_value'])) {
-                                                    $delta = (int)$row['reward_value'];
-                                                }
                                                 ?>
                                                 <div class="ui-events-list-item ui-card" data-history-date="<?= e((string)$row['created_at']) ?>">
                                                     <div class="ui-events-list-main">

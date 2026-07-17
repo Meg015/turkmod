@@ -125,25 +125,6 @@ function scraperIsSafeHtmlUrl(value = '', attributeName = '') {
     }
 }
 
-function replaceBrokenScraperThumbnail(img) {
-    if (!img || img.dataset.scraperThumbHandled === '1') return;
-    img.dataset.scraperThumbHandled = '1';
-
-    const fallback = document.createElement('div');
-    fallback.className = 'scraper-thumb-empty';
-    fallback.innerHTML = '<i class="bi bi-image"></i>';
-    img.replaceWith(fallback);
-}
-
-function initScraperThumbnailFallbacks(root = document) {
-    root.querySelectorAll('[data-scraper-thumb]').forEach((img) => {
-        img.addEventListener('error', () => replaceBrokenScraperThumbnail(img), { once: true });
-        if (img.complete && img.naturalWidth === 0) {
-            replaceBrokenScraperThumbnail(img);
-        }
-    });
-}
-
 function hydrateScraperDeferredThumbs(root = document) {
     root.querySelectorAll('img[data-scraper-thumb][data-scraper-thumb-src]').forEach((img) => {
         if (img.dataset.scraperThumbHydrated === '1') return;
@@ -496,7 +477,6 @@ document.querySelectorAll('.scraper-tab-link').forEach(link => {
             const importsPane = document.getElementById('tab-imports');
             if (importsPane) {
                 hydrateScraperDeferredThumbs(importsPane);
-                initScraperThumbnailFallbacks(importsPane);
             }
         }
     });
@@ -505,7 +485,6 @@ document.querySelectorAll('.scraper-tab-link').forEach(link => {
 const initialImportsPane = document.getElementById('tab-imports');
 if (initialImportsPane && initialImportsPane.classList.contains('active')) {
     hydrateScraperDeferredThumbs(initialImportsPane);
-    initScraperThumbnailFallbacks(initialImportsPane);
 }
 
 document.querySelectorAll('.settings-subtab-link').forEach(link => {
@@ -2062,9 +2041,3 @@ document.addEventListener('error', function(event) {
         target.remove();
     }
 }, true);
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => initScraperThumbnailFallbacks());
-} else {
-    initScraperThumbnailFallbacks();
-}

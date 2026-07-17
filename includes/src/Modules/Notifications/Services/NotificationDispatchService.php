@@ -33,6 +33,9 @@ final class NotificationDispatchService
         if ($recipientId <= 0 || $entityId <= 0 || $entityType === '') {
             return false;
         }
+        if ($this->recipientIsBanned($pdo, $recipientId)) {
+            return false;
+        }
 
         $definitions = $this->preferences->eventDefinitions();
         if (!isset($definitions[$eventKey])) {
@@ -251,6 +254,24 @@ final class NotificationDispatchService
             }
         } catch (Throwable $e) {
             error_log('Notification email fan-out failed: ' . $e->getMessage());
+        }
+    }
+
+    private function recipientIsBanned(PDO $pdo, int $recipientId): bool
+    {
+        try {
+            $stmt = $pdo->prepare("SELECT status, is_banned FROM users WHERE id = ? LIMIT 1");
+            $stmt->execute([$recipientId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$user) {
+                return false;
+            }
+
+            return (int) ($user['is_banned'] ?? 0) === 1 || (string) ($user['status'] ?? '') === 'banned';
+        } catch (Throwable $e) {
+            error_log('Notification banned recipient check failed: ' . $e->getMessage());
+
+            return false;
         }
     }
 }

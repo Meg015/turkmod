@@ -11296,6 +11296,8 @@ html[data-public-theme="turkmod"] .notification-item {
 
     padding: var(--space-5, 1.25rem);
 
+    padding-right: calc(var(--space-5, 1.25rem) + 8.75rem);
+
     border: 1px solid var(--theme-border, #d8dee8);
 
     border-radius: var(--radius-md, 8px);
@@ -11360,6 +11362,50 @@ html[data-public-theme="turkmod"] .notification-item.is-unread::before {
 
 
 
+html[data-public-theme="turkmod"] .notification-meta-actions {
+
+    position: absolute;
+
+    top: var(--space-4, 1rem);
+
+    right: var(--space-4, 1rem);
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: flex-end;
+
+    gap: var(--space-2, 0.5rem);
+
+    min-height: 1.5rem;
+
+    color: var(--theme-text-muted, #64748b);
+
+    z-index: 2;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .notification-select {
+
+    display: inline-flex;
+
+    flex: 0 0 1.5rem;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 1.5rem;
+
+    height: 1.5rem;
+
+}
+
+
+
 html[data-public-theme="turkmod"] .notifications-shell.is-compact .notifications-feed {
 
     gap: var(--space-2, 0.5rem);
@@ -11375,6 +11421,8 @@ html[data-public-theme="turkmod"] .notifications-shell.is-compact .notification-
     gap: var(--space-3, 0.75rem);
 
     padding: var(--space-4, 1rem);
+
+    padding-right: calc(var(--space-4, 1rem) + 8.25rem);
 
 }
 
@@ -11472,19 +11520,21 @@ html[data-public-theme="turkmod"] .notification-body {
 
 html[data-public-theme="turkmod"] .notification-topline {
 
-    display: flex;
-
-    align-items: flex-start;
-
-    justify-content: space-between;
-
-    gap: var(--space-4, 1rem);
+    display: block;
 
 }
 
 
 
 html[data-public-theme="turkmod"] .notification-title-group {
+
+    display: flex;
+
+    align-items: center;
+
+    flex-wrap: wrap;
+
+    gap: var(--space-2, 0.5rem);
 
     min-width: 0;
 
@@ -11493,6 +11543,8 @@ html[data-public-theme="turkmod"] .notification-title-group {
 
 
 html[data-public-theme="turkmod"] .notification-title {
+
+    flex: 0 0 100%;
 
     margin: 0;
 
@@ -11514,7 +11566,9 @@ html[data-public-theme="turkmod"] .notification-status {
 
     gap: var(--space-1, 0.25rem);
 
-    margin-top: var(--space-2, 0.5rem);
+    order: 3;
+
+    margin-top: 0;
 
     color: var(--theme-text-muted, #64748b);
 
@@ -11542,11 +11596,17 @@ html[data-public-theme="turkmod"] .notification-time {
 
     gap: var(--space-1, 0.25rem);
 
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+
+    margin-top: 0;
 
     color: var(--theme-text-muted, #64748b);
 
-    font-size: var(--font-size-sm, 0.875rem);
+    font-size: var(--font-size-xs, 0.75rem);
+
+    font-weight: var(--font-weight-bold, 700);
+
+    line-height: 1;
 
     white-space: nowrap;
 
@@ -12412,9 +12472,7 @@ html[data-public-theme="turkmod"] .spin {
 
     html[data-public-theme="turkmod"] .settings-group-head,
 
-    html[data-public-theme="turkmod"] .notifications-toolbar,
-
-    html[data-public-theme="turkmod"] .notification-topline {
+    html[data-public-theme="turkmod"] .notifications-toolbar {
 
         flex-direction: column;
 
@@ -12448,13 +12506,25 @@ html[data-public-theme="turkmod"] .spin {
 
         grid-template-columns: 1fr;
 
+        padding-right: calc(var(--space-5, 1.25rem) + 8rem);
+
     }
 
 
 
     html[data-public-theme="turkmod"] .notification-time {
 
-        white-space: normal;
+        white-space: nowrap;
+
+    }
+
+    html[data-public-theme="turkmod"] .notification-meta-actions {
+
+        top: var(--space-3, 0.75rem);
+
+        right: var(--space-3, 0.75rem);
+
+        gap: var(--space-2, 0.5rem);
 
     }
 
@@ -12535,6 +12605,8 @@ html[data-public-theme="turkmod"] .notification-type-chip {
     align-items: center;
 
     gap: 6px;
+
+    order: 3;
 
     width: fit-content;
 
@@ -13548,11 +13620,115 @@ html[data-public-theme="turkmod"] .appeal-shell {
 
     gap: 1.5rem;
 
+    width: min(100%, 920px);
+
     max-width: 920px;
 
     margin: 2rem auto;
 
     padding: 0 1rem;
+
+    box-sizing: border-box;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-tabs {
+
+    display: grid;
+
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    gap: 0.5rem;
+
+    align-items: stretch;
+
+    justify-self: stretch;
+
+    width: 100%;
+
+    min-width: 0;
+
+    padding: 0.5rem;
+
+    box-sizing: border-box;
+
+    background: color-mix(in srgb, var(--bg-white) 92%, var(--bg) 8%);
+
+    border: 1px solid color-mix(in srgb, var(--border) 84%, var(--primary) 16%);
+
+    border-radius: 8px;
+
+    box-shadow: var(--shadow-sm, 0 4px 12px rgba(15, 23, 42, 0.06));
+
+}
+
+html[data-public-theme="turkmod"] .appeal-tab {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 0.5rem;
+
+    width: 100%;
+
+    min-height: 42px;
+
+    min-width: 0;
+
+    padding: 0.65rem 1rem;
+
+    color: var(--text-dim);
+
+    font-size: 0.9rem;
+
+    font-weight: 800;
+
+    line-height: 1.2;
+
+    text-align: center;
+
+    text-decoration: none;
+
+    background: transparent;
+
+    border: 1px solid transparent;
+
+    border-radius: 8px;
+
+    transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-tab:hover {
+
+    color: var(--primary);
+
+    background: color-mix(in srgb, var(--primary) 9%, transparent);
+
+    border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+
+}
+
+html[data-public-theme="turkmod"] .appeal-tab.is-active {
+
+    color: var(--on-primary);
+
+    background: var(--primary);
+
+    border-color: var(--primary);
+
+    box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 24%, transparent);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-tab.is-active:hover {
+
+    color: var(--on-primary);
+
+    transform: translateY(-1px);
 
 }
 
@@ -13560,7 +13736,13 @@ html[data-public-theme="turkmod"] .appeal-shell {
 
 html[data-public-theme="turkmod"] .appeal-hero {
 
+    width: 100%;
+
+    min-width: 0;
+
     padding: 2rem;
+
+    box-sizing: border-box;
 
     background: linear-gradient(135deg, var(--brand-accent-alpha-08, rgba(139, 21, 56, 0.08)), transparent);
 
@@ -13604,7 +13786,13 @@ html[data-public-theme="turkmod"] .appeal-hero p {
 
 html[data-public-theme="turkmod"] .appeal-card {
 
+    width: 100%;
+
+    min-width: 0;
+
     padding: 1.5rem;
+
+    box-sizing: border-box;
 
     background: var(--bg-white);
 
@@ -13645,6 +13833,407 @@ html[data-public-theme="turkmod"] .appeal-form-card p {
     color: var(--text-dim);
 
     line-height: 1.6;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-summary {
+
+    display: grid;
+
+    gap: 1.25rem;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-summary-head {
+
+    display: grid;
+
+    gap: 0.45rem;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-kicker {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 0.45rem;
+
+    width: fit-content;
+
+    min-height: 28px;
+
+    padding: 0.32rem 0.65rem;
+
+    color: var(--primary);
+
+    font-size: 0.78rem;
+
+    font-weight: 850;
+
+    line-height: 1;
+
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+
+    border-radius: var(--radius-md, 8px);
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-summary h2 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 1.25rem;
+
+    font-weight: 850;
+
+    line-height: 1.25;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-summary p {
+
+    margin: 0;
+
+    color: var(--text-dim);
+
+    line-height: 1.6;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+
+    gap: 0.75rem;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-detail {
+
+    display: grid;
+
+    gap: 0.35rem;
+
+    min-width: 0;
+
+    padding: 0.85rem;
+
+    background: color-mix(in srgb, var(--bg) 82%, var(--bg-white) 18%);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-md, 8px);
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-detail span {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 0.38rem;
+
+    color: var(--text-dim);
+
+    font-size: 0.78rem;
+
+    font-weight: 800;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-detail span i {
+
+    color: var(--primary);
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-ban-detail strong {
+
+    overflow-wrap: anywhere;
+
+    color: var(--text);
+
+    font-size: 0.95rem;
+
+    font-weight: 850;
+
+    line-height: 1.3;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card {
+
+    display: grid;
+
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    gap: 1rem;
+
+    align-items: start;
+
+    position: relative;
+
+    overflow: hidden;
+
+    border-left: 4px solid var(--primary);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card.is-accepted {
+
+    border-left-color: var(--success, #16a34a);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card.is-rejected {
+
+    border-left-color: var(--danger, #dc2626);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card.is-reviewing {
+
+    border-left-color: #2563eb;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card.is-open {
+
+    border-left-color: #d97706;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-main {
+
+    display: grid;
+
+    grid-template-columns: auto minmax(0, 1fr);
+
+    gap: 0.85rem;
+
+    min-width: 0;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-icon {
+
+    display: grid;
+
+    width: 2.6rem;
+
+    height: 2.6rem;
+
+    place-items: center;
+
+    color: var(--on-primary, #fff);
+
+    background: var(--primary);
+
+    border-radius: var(--radius-md, 8px);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card.is-accepted .appeal-result-icon {
+
+    background: var(--success, #16a34a);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card.is-rejected .appeal-result-icon {
+
+    background: var(--danger, #dc2626);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card.is-reviewing .appeal-result-icon {
+
+    background: #2563eb;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card.is-open .appeal-result-icon {
+
+    background: #d97706;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-kicker {
+
+    display: block;
+
+    margin-bottom: 0.25rem;
+
+    color: var(--text-dim);
+
+    font-size: 0.78rem;
+
+    font-weight: 850;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card h2 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 1.2rem;
+
+    font-weight: 850;
+
+    line-height: 1.25;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-card p {
+
+    margin: 0.45rem 0 0;
+
+    color: var(--text-dim);
+
+    line-height: 1.6;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-side {
+
+    display: grid;
+
+    justify-items: end;
+
+    gap: 0.45rem;
+
+    min-width: 150px;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-side small,
+html[data-public-theme="turkmod"] .appeal-result-note small {
+
+    color: var(--text-dim);
+
+    font-size: 0.78rem;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-note {
+
+    grid-column: 1 / -1;
+
+    display: grid;
+
+    gap: 0.25rem;
+
+    padding: 0.9rem 1rem;
+
+    color: var(--text-dim);
+
+    background: color-mix(in srgb, var(--bg) 82%, var(--bg-white) 18%);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-md, 8px);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-note strong {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 0.4rem;
+
+    color: var(--text);
+
+    font-size: 0.88rem;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-note p {
+
+    margin: 0;
+
+    color: var(--text-dim);
+
+    white-space: pre-wrap;
+
+    overflow-wrap: anywhere;
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-link {
+
+    grid-column: 1 / -1;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 0.45rem;
+
+    justify-self: start;
+
+    min-height: 38px;
+
+    padding: 0.55rem 0.85rem;
+
+    color: var(--primary);
+
+    font-size: 0.86rem;
+
+    font-weight: 850;
+
+    text-decoration: none;
+
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+
+    border-radius: var(--radius-md, 8px);
+
+}
+
+html[data-public-theme="turkmod"] .appeal-result-link:hover {
+
+    color: var(--on-primary, #fff);
+
+    background: var(--primary);
+
+    border-color: var(--primary);
 
 }
 
@@ -13793,6 +14382,160 @@ html[data-public-theme="turkmod"] .appeal-message {
     word-break: break-word;
 
     white-space: pre-wrap;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline {
+
+    display: grid;
+
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    gap: 0.75rem;
+
+    padding: 0;
+
+    margin: 0 0 1rem;
+
+    list-style: none;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline li {
+
+    display: grid;
+
+    grid-template-columns: auto minmax(0, 1fr);
+
+    gap: 0.65rem;
+
+    align-items: start;
+
+    min-height: 74px;
+
+    padding: 0.8rem;
+
+    color: var(--text-dim);
+
+    background: var(--bg-white);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-md, 8px);
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline-dot {
+
+    display: grid;
+
+    width: 2rem;
+
+    height: 2rem;
+
+    place-items: center;
+
+    color: var(--text-dim);
+
+    background: var(--bg);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-md, 8px);
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline strong,
+html[data-public-theme="turkmod"] .appeal-timeline small {
+
+    display: block;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline strong {
+
+    color: var(--text);
+
+    font-size: 0.88rem;
+
+    font-weight: 850;
+
+    line-height: 1.2;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline small {
+
+    margin-top: 0.25rem;
+
+    color: var(--text-dim);
+
+    font-size: 0.78rem;
+
+    line-height: 1.35;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline li.is-muted {
+
+    opacity: 0.72;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline li.is-current {
+
+    border-color: color-mix(in srgb, var(--primary) 52%, var(--border));
+
+    box-shadow: 0 0 0 3px var(--brand-accent-alpha-10, rgba(139, 21, 56, 0.1));
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline li.is-complete .appeal-timeline-dot,
+html[data-public-theme="turkmod"] .appeal-timeline li.is-current .appeal-timeline-dot {
+
+    color: var(--on-primary, #fff);
+
+    background: var(--primary);
+
+    border-color: var(--primary);
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline li.is-accepted .appeal-timeline-dot {
+
+    background: var(--success, #16a34a);
+
+    border-color: var(--success, #16a34a);
+
+}
+
+
+
+html[data-public-theme="turkmod"] .appeal-timeline li.is-rejected .appeal-timeline-dot {
+
+    background: var(--danger, #dc2626);
+
+    border-color: var(--danger, #dc2626);
 
 }
 
@@ -14091,6 +14834,39 @@ html[data-public-theme="turkmod"] .appeal-empty i {
     html[data-public-theme="turkmod"] .appeal-shell {
 
         gap: 1rem;
+
+    }
+
+    html[data-public-theme="turkmod"] .appeal-tabs {
+
+        grid-template-columns: 1fr;
+
+    }
+
+    html[data-public-theme="turkmod"] .appeal-ban-grid {
+
+        grid-template-columns: 1fr;
+
+    }
+
+
+    html[data-public-theme="turkmod"] .appeal-timeline {
+
+        grid-template-columns: 1fr;
+
+    }
+
+    html[data-public-theme="turkmod"] .appeal-result-card {
+
+        grid-template-columns: 1fr;
+
+    }
+
+    html[data-public-theme="turkmod"] .appeal-result-side {
+
+        justify-items: start;
+
+        min-width: 0;
 
     }
 
@@ -18396,90 +19172,6 @@ html[data-public-theme="turkmod"] .quill-container .ql-fill { fill: var(--upload
 
 html[data-public-theme="turkmod"] .quill-container .ql-picker { color: var(--upload-text, var(--text)); }
 
-html[data-public-theme="turkmod"] .upload-rich-fallback {
-
-    border: 1px solid var(--upload-line, var(--border));
-
-    border-radius: 8px;
-
-    overflow: hidden;
-
-    background: var(--upload-field, var(--surface));
-
-    color: var(--upload-text, var(--text));
-
-}
-
-html[data-public-theme="turkmod"] .upload-rich-toolbar {
-
-    display: flex;
-
-    flex-wrap: wrap;
-
-    gap: .25rem;
-
-    padding: .5rem;
-
-    border-bottom: 1px solid var(--upload-line, var(--border));
-
-    background: color-mix(in srgb, var(--upload-field, var(--surface)) 88%, var(--primary) 5%);
-
-}
-
-html[data-public-theme="turkmod"] .upload-rich-toolbar button {
-
-    width: 34px;
-
-    height: 34px;
-
-    display: inline-flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    border: 1px solid transparent;
-
-    border-radius: 8px;
-
-    background: transparent;
-
-    color: var(--upload-text, var(--text));
-
-}
-
-html[data-public-theme="turkmod"] .upload-rich-toolbar button:hover {
-
-    border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
-
-    background: color-mix(in srgb, var(--primary) 10%, transparent);
-
-    color: var(--primary);
-
-}
-
-html[data-public-theme="turkmod"] .upload-rich-editor {
-
-    min-height: 220px;
-
-    padding: 1rem;
-
-    outline: none;
-
-    line-height: 1.65;
-
-    
-
-}
-
-html[data-public-theme="turkmod"] .upload-rich-editor:focus {
-
-    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--primary) 13%, transparent);
-
-}
-
-
-
 html[data-public-theme="turkmod"] .topic-edit-upload-page .upload-shell {
 
     --upload-bg: var(--bg);
@@ -19674,85 +20366,7 @@ html[data-public-theme="turkmod"] .topic-edit-page .topic-edit-moderation-note {
 
 
 
-html[data-public-theme="turkmod"] .upload-card .upload-rich-fallback {
-
-    border: 1px solid var(--upload-line, var(--border));
-
-    border-radius: 8px;
-
-    overflow: hidden;
-
-    background: var(--upload-field, var(--surface));
-
-    color: var(--upload-text, var(--text));
-
-}
-
-html[data-public-theme="turkmod"] .upload-card .upload-rich-toolbar {
-
-    display: flex;
-
-    flex-wrap: wrap;
-
-    gap: .25rem;
-
-    padding: .5rem;
-
-    border-bottom: 1px solid var(--upload-line, var(--border));
-
-    background: var(--upload-panel-2, var(--surface));
-
-}
-
-html[data-public-theme="turkmod"] .upload-card .upload-rich-toolbar button {
-
-    width: 34px;
-
-    height: 34px;
-
-    display: inline-flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    border: 1px solid var(--upload-line, var(--border));
-
-    border-radius: 8px;
-
-    background: transparent;
-
-    color: var(--upload-text, var(--text));
-
-}
-
-html[data-public-theme="turkmod"] .upload-card .upload-rich-toolbar button:hover {
-
-    border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
-
-    background: color-mix(in srgb, var(--primary) 10%, transparent);
-
-    color: var(--primary);
-
-}
-
-html[data-public-theme="turkmod"] .upload-card .upload-rich-editor {
-
-    min-height: 220px;
-
-    padding: 1rem;
-
-    outline: none;
-
-    
-
-}
-
-
-
-html[data-public-theme="turkmod"] .rich-editor[data-default-align="left"] + .quill-container .ql-editor,
-
-html[data-public-theme="turkmod"] .rich-editor[data-default-align="left"] + .upload-rich-fallback .upload-rich-editor {
+html[data-public-theme="turkmod"] .rich-editor[data-default-align="left"] + .quill-container .ql-editor {
 
     text-align: left;
 
@@ -19760,9 +20374,7 @@ html[data-public-theme="turkmod"] .rich-editor[data-default-align="left"] + .upl
 
 
 
-html[data-public-theme="turkmod"] .rich-editor[data-default-align="center"] + .quill-container .ql-editor,
-
-html[data-public-theme="turkmod"] .rich-editor[data-default-align="center"] + .upload-rich-fallback .upload-rich-editor {
+html[data-public-theme="turkmod"] .rich-editor[data-default-align="center"] + .quill-container .ql-editor {
 
     text-align: center;
 
@@ -19770,9 +20382,7 @@ html[data-public-theme="turkmod"] .rich-editor[data-default-align="center"] + .u
 
 
 
-html[data-public-theme="turkmod"] .rich-editor[data-default-align="right"] + .quill-container .ql-editor,
-
-html[data-public-theme="turkmod"] .rich-editor[data-default-align="right"] + .upload-rich-fallback .upload-rich-editor {
+html[data-public-theme="turkmod"] .rich-editor[data-default-align="right"] + .quill-container .ql-editor {
 
     text-align: right;
 
@@ -19958,9 +20568,7 @@ html[data-public-theme="turkmod"] .upload-shell .ui-admin-form-control::placehol
 
 
 
-html[data-public-theme="turkmod"] .upload-shell textarea.ui-admin-form-control,
-
-html[data-public-theme="turkmod"] .upload-shell .upload-rich-editor {
+html[data-public-theme="turkmod"] .upload-shell textarea.ui-admin-form-control {
 
     min-height: 220px !important;
 
@@ -20465,16 +21073,6 @@ html[data-public-theme="turkmod"] .error-container a:hover {
    ============================================================ */
 
 /* Theme System - Light & Dark Mode Support */
-
-html[data-public-theme="turkmod"] * {
-
-    margin: 0;
-
-    padding: 0;
-
-    box-sizing: border-box;
-
-}
 
 
 
@@ -38172,15 +38770,17 @@ body.topic-report-modal-open {
 
     display: grid;
 
-    grid-template-columns: 28px minmax(0, 0.72fr) minmax(0, 1fr);
+    grid-template-columns: 28px minmax(82px, 96px) minmax(0, 1fr);
 
-    gap: 8px;
+    column-gap: 7px;
+
+    row-gap: 0;
 
     align-items: center;
 
     min-height: 44px;
 
-    padding: 10px;
+    padding: 9px 10px;
 
     color: var(--text);
 
@@ -38232,13 +38832,25 @@ a.topic-info-row:hover {
 
 .topic-info-row span {
 
+    display: flex;
+
+    align-items: center;
+
     min-width: 0;
+
+    overflow: hidden;
 
     color: var(--text-dim);
 
     font-size: 0.76rem;
 
     font-weight: 600;
+
+    line-height: 1.15;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
 
 }
 
@@ -38256,9 +38868,27 @@ a.topic-info-row:hover {
 
     font-weight: 700;
 
-    text-align: right;
+    line-height: 1.2;
+
+    text-align: left;
 
     text-overflow: ellipsis;
+
+    white-space: nowrap;
+
+}
+
+.topic-info-row strong a {
+
+    display: inline-block;
+
+    max-width: 100%;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    vertical-align: top;
 
     white-space: nowrap;
 
@@ -75098,16 +75728,6 @@ body {
 
 /* Theme System - Light & Dark Mode Support */
 
-* {
-
-    margin: 0;
-
-    padding: 0;
-
-    box-sizing: border-box;
-
-}
-
 
 
 /* Dark Theme (Default) */
@@ -96134,8 +96754,6 @@ body {
 
     .upload-review-list > div,
 
-    .upload-rich-fallback,
-
     .quill-container,
 
     .appeal-hero,
@@ -96588,8 +97206,6 @@ body {
 
     .ui-comment-textarea,
 
-    .upload-rich-editor,
-
     .quill-container .ql-container,
 
     .quill-container .ql-toolbar) {
@@ -96619,8 +97235,6 @@ body {
     .user-report-form textarea:focus,
 
     .ui-comment-textarea:focus,
-
-    .upload-rich-editor:focus,
 
     .quill-container:focus-within) {
 
@@ -142743,19 +143357,21 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row {
 
   display: grid !important;
 
-  grid-template-columns: 30px 118px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(84px, 96px) minmax(0, 1fr);
 
-  gap: 8px;
+  column-gap: 7px;
+
+  row-gap: 0;
 
   justify-content: start;
 
-  align-items: start;
+  align-items: center;
 
-  min-height: 54px;
+  min-height: 48px;
 
   margin: 0 !important;
 
-  padding: 10px 11px !important;
+  padding: 9px 10px !important;
 
   border: 1px solid color-mix(in srgb, var(--t-border) 88%, var(--t-primary)) !important;
 
@@ -142803,6 +143419,12 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row i {
 
 html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row span {
 
+  display: flex;
+
+  align-items: center;
+
+  min-width: 0;
+
   margin: 0 !important;
 
   color: var(--t-muted) !important;
@@ -142811,7 +143433,13 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row span {
 
   font-weight: 700 !important;
 
+  line-height: 1.15;
+
   text-transform: uppercase;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
 
   white-space: nowrap;
 
@@ -142837,11 +143465,15 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row strong 
 
   font-weight: 700 !important;
 
-  line-height: 1.18;
+  line-height: 1.2;
 
-  overflow-wrap: anywhere;
+  overflow: hidden;
+
+  text-overflow: ellipsis;
 
   text-align: left;
+
+  white-space: nowrap;
 
 }
 
@@ -142849,9 +143481,21 @@ html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row strong 
 
 html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row a {
 
+  display: inline-block;
+
+  max-width: 100%;
+
+  overflow: hidden;
+
   color: var(--t-primary) !important;
 
   text-decoration: none;
+
+  text-overflow: ellipsis;
+
+  vertical-align: top;
+
+  white-space: nowrap;
 
 }
 
@@ -144109,9 +144753,11 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .ui-comment-empty-stat
 
   html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row {
 
-    grid-template-columns: 30px 118px minmax(0, 1fr);
+    grid-template-columns: 30px minmax(82px, 96px) minmax(0, 1fr);
 
-    min-height: 52px;
+    min-height: 48px;
+
+    padding: 9px 10px !important;
 
   }
 
@@ -148403,8 +149049,6 @@ html[data-public-theme="turkmod"] .upload-profile-followup,
 
 html[data-public-theme="turkmod"] .upload-review-list > div,
 
-html[data-public-theme="turkmod"] .upload-rich-fallback,
-
 html[data-public-theme="turkmod"] .upload-quill-container {
 
   border: 1px solid var(--ui-theme-upload-line) !important;
@@ -149051,9 +149695,7 @@ html[data-public-theme="turkmod"] .public-upload-shell .ui-admin-form-control:fo
 
 html[data-public-theme="turkmod"] .public-upload-shell .form-control:focus,
 
-html[data-public-theme="turkmod"] .public-upload-shell .form-select:focus,
-
-html[data-public-theme="turkmod"] .public-upload-shell .upload-rich-editor:focus {
+html[data-public-theme="turkmod"] .public-upload-shell .form-select:focus {
 
   outline: none !important;
 
@@ -149068,8 +149710,6 @@ html[data-public-theme="turkmod"] .public-upload-shell .upload-rich-editor:focus
 
 
 html[data-public-theme="turkmod"] .public-upload-shell textarea.ui-admin-form-control,
-
-html[data-public-theme="turkmod"] .public-upload-shell .upload-rich-editor,
 
 html[data-public-theme="turkmod"] .public-upload-shell .quill-container .ql-editor {
 
@@ -155163,6 +155803,60 @@ html[data-public-theme="turkmod"] body.public-page-edit-topic .content-area > .u
 
 
 
+/* Ban appeal tabs and panels stay on the same rail for every tab. */
+
+html[data-public-theme="turkmod"] body.public-page-ban-appeals .site-main--focus .layout.grid--focus {
+
+    width: 100% !important;
+
+    max-width: 100% !important;
+
+}
+
+
+
+html[data-public-theme="turkmod"] body.public-page-ban-appeals .site-main--focus .content-area > .appeal-shell {
+
+    align-self: center !important;
+
+    width: min(100%, 920px) !important;
+
+    max-width: 920px !important;
+
+    margin-right: auto !important;
+
+    margin-left: auto !important;
+
+    box-sizing: border-box !important;
+
+}
+
+
+
+html[data-public-theme="turkmod"] body.public-page-ban-appeals .appeal-tabs,
+
+html[data-public-theme="turkmod"] body.public-page-ban-appeals .appeal-hero,
+
+html[data-public-theme="turkmod"] body.public-page-ban-appeals .appeal-card {
+
+    width: 100% !important;
+
+    min-width: 0 !important;
+
+    box-sizing: border-box !important;
+
+}
+
+
+
+html[data-public-theme="turkmod"] body.public-page-ban-appeals .appeal-tabs {
+
+    justify-self: stretch !important;
+
+}
+
+
+
 @media (max-width: 767.98px) {
 
     html[data-public-theme="turkmod"] body.public-page-upload-topic .content-area > .upload-topic-form-container,
@@ -158885,6 +159579,178 @@ html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .comment-excerpt {
   overflow-wrap: anywhere;
   word-break: break-word;
   hyphens: auto;
+}
+
+/* Ban appeal public page polish */
+html[data-public-theme="turkmod"] .appeal-tabs {
+    gap: 0.4rem;
+    padding: 0.4rem;
+}
+
+html[data-public-theme="turkmod"] .appeal-tab {
+    justify-content: flex-start;
+    min-height: 50px;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.86rem;
+    text-align: left;
+    overflow: hidden;
+}
+
+html[data-public-theme="turkmod"] .appeal-tab i {
+    display: grid;
+    flex: 0 0 2rem;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--primary);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+html[data-public-theme="turkmod"] .appeal-tab.is-active i {
+    color: var(--primary);
+    background: var(--on-primary);
+    border-color: color-mix(in srgb, var(--on-primary) 80%, var(--primary) 20%);
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    margin: 0 0 1rem;
+    padding: 0.85rem;
+    color: var(--text-dim);
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius-md, 8px);
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status.is-open {
+    border-left-color: #d97706;
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status.is-reviewing {
+    border-left-color: #2563eb;
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status.is-accepted {
+    border-left-color: var(--success, #16a34a);
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status.is-rejected {
+    border-left-color: var(--danger, #dc2626);
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status-icon {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--on-primary, #fff);
+    background: var(--primary);
+    border-radius: var(--radius-md, 8px);
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status.is-open .appeal-history-status-icon {
+    background: #d97706;
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status.is-reviewing .appeal-history-status-icon {
+    background: #2563eb;
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status.is-accepted .appeal-history-status-icon {
+    background: var(--success, #16a34a);
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status.is-rejected .appeal-history-status-icon {
+    background: var(--danger, #dc2626);
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status strong,
+html[data-public-theme="turkmod"] .appeal-history-status p,
+html[data-public-theme="turkmod"] .appeal-history-status small {
+    display: block;
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status strong {
+    color: var(--text);
+    font-size: 0.92rem;
+    font-weight: 850;
+    line-height: 1.25;
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status p {
+    margin: 0.28rem 0 0;
+    color: var(--text-dim);
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+html[data-public-theme="turkmod"] .appeal-history-status small {
+    margin-top: 0.35rem;
+    color: var(--text-dim);
+    font-size: 0.76rem;
+    font-weight: 750;
+}
+
+/* Topic info rows: keep label and value on the same compact baseline. */
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row {
+    display: grid !important;
+    grid-template-columns: 30px fit-content(108px) minmax(0, 1fr) !important;
+    column-gap: 6px !important;
+    row-gap: 0 !important;
+    align-items: center !important;
+    min-height: 44px !important;
+    padding: 8px 10px !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > i,
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > span,
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > strong {
+    align-self: center !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > span {
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 108px !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    color: var(--t-muted, var(--text-dim)) !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    line-height: 1.15 !important;
+    text-overflow: ellipsis !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > strong {
+    display: block !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    color: var(--t-text, var(--text)) !important;
+    font-size: 0.84rem !important;
+    font-weight: 740 !important;
+    line-height: 1.2 !important;
+    text-align: left !important;
+    text-overflow: ellipsis !important;
+    transform: translateY(-2px) !important;
+    white-space: nowrap !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > strong a {
+    display: inline-block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    vertical-align: top !important;
+    white-space: nowrap !important;
 }
 
 

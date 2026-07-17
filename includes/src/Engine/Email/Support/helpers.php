@@ -483,10 +483,13 @@ if (!function_exists('emailLogsGetList')) {
         string $source = '',
         string $driver = '',
         int $page = 1,
-        int $perPage = 50,
+        int $perPage = 10,
         string $dateFrom = '',
         string $dateTo = ''
     ): array {
+        $page = max(1, $page);
+        $perPage = max(1, min(10, $perPage));
+
         $filter = emailLogsBuildWhere($search, $status, $source, $driver, $dateFrom, $dateTo, 'e.');
         $offset = ($page - 1) * $perPage;
 
@@ -508,6 +511,50 @@ if (!function_exists('emailLogsGetList')) {
             'page' => $page,
             'perPage' => $perPage,
         ];
+    }
+}
+
+if (!function_exists('emailLogsClearAll')) {
+    function emailLogsClearAll(PDO $pdo): int
+    {
+        if (!emailLogsTableExists($pdo)) {
+            return 0;
+        }
+
+        $count = (int) $pdo->query("SELECT COUNT(*) FROM email_logs")->fetchColumn();
+        if ($count <= 0) {
+            return 0;
+        }
+
+        try {
+            $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        } catch (Throwable $e) {
+            $driver = '';
+        }
+
+        try {
+            if ($driver === 'sqlite') {
+                $pdo->exec("DELETE FROM email_logs");
+                $pdo->exec("DELETE FROM sqlite_sequence WHERE name = 'email_logs'");
+            } else {
+                $pdo->exec("TRUNCATE TABLE email_logs");
+            }
+        } catch (Throwable $e) {
+            $pdo->exec("DELETE FROM email_logs");
+            if ($driver === 'sqlite') {
+                try {
+                    $pdo->exec("DELETE FROM sqlite_sequence WHERE name = 'email_logs'");
+                } catch (Throwable $ignored) {
+                }
+            } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+                try {
+                    $pdo->exec("ALTER TABLE email_logs AUTO_INCREMENT = 1");
+                } catch (Throwable $ignored) {
+                }
+            }
+        }
+
+        return $count;
     }
 }
 

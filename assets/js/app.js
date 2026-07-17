@@ -366,11 +366,6 @@ window.addEventListener('unhandledrejection', (event) => {
     });
 });
 
-// Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Analytics;
-}
-
 /* ============================================================
    SECTION 2: FAVORITES MANAGEMENT
    ============================================================ */

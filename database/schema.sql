@@ -1242,7 +1242,6 @@ CREATE TABLE `user_restrictions` (
   `restriction_type` varchar(64) NOT NULL,
   `reason` text DEFAULT NULL,
   `admin_id` bigint(20) unsigned DEFAULT NULL,
-  `created_by` bigint(20) unsigned DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `expires_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),

@@ -950,12 +950,6 @@ require_once __DIR__ . '/header.php';
                             <span class="ui-admin-switch-label">Link adlarını çevir</span>
                         </label>
                     </div>
-                    <div class="col-md-3">
-                        <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_translation_fallback_original" value="1" <?= $botSettings['bot_translation_fallback_original'] === '1' ? 'checked' : '' ?>>
-                            <span class="ui-admin-switch-label">Hata olursa orijinali kullan</span>
-                        </label>
-                    </div>
                 </div>
                 </div>
                 <div class="settings-subtab-pane" id="settings-tab-bulk">

@@ -20,7 +20,6 @@ $sections = [
     'toast_notifications' => ['title' => 'Toast Bildirimleri', 'icon' => 'bi-chat-square-dots'],
     'email' => ['title' => 'E-posta', 'icon' => 'bi-envelope'],
     'rate_limit' => ['title' => 'İstek Sınırları', 'icon' => 'bi-speedometer2'],
-    'leaderboard' => ['title' => 'Liderlik Tablosu', 'icon' => 'bi-trophy'],
     'performance' => ['title' => 'Performans', 'icon' => 'bi-lightning-charge'],
     'social_features' => ['title' => 'Sosyal Özellikler', 'icon' => 'bi-people'],
     'content_moderation' => ['title' => 'İçerik Moderasyonu', 'icon' => 'bi-exclamation-triangle'],
@@ -29,10 +28,18 @@ $sections = [
 ];
 
 $sectionDescriptions = [
+    'general' => 'Site adı, dil, iletişim adresi, listeleme ve bakım modu gibi temel site davranışlarını yönetin.',
     'user_system' => 'Giriş, kayıt ve spam kurallarını tek merkezden yönetin. Form davranışı, parola kuralları, yasaklı kullanıcı adları ve içerik filtreleri burada toplanır.',
+    'seo' => 'Meta, canonical, sitemap, robots, public sayfa presetleri ve yapısal veri ayarlarını aynı SEO akışı içinde yönetin.',
+    'moderation' => 'Rapor eşikleri, otomatik gizleme ve temel moderasyon davranışlarını kontrol edin.',
+    'comments' => 'Yorum sistemi, uzunluk limitleri, reaksiyonlar, spam filtreleri ve şikayet davranışlarını tek merkezden yönetin.',
+    'downloads' => 'İndirme kartları, dış bağlantı yönlendirme metinleri ve erişim kilidi davranışlarını yönetin.',
+    'file_manager' => 'Dosya yükleme, izinli uzantılar, görsel optimizasyon, WebP, thumbnail ve filigran kurallarını yönetin.',
+    'user_uploads' => 'Kullanıcı mod gönderim formunun görünen alanlarını, medya kurallarını ve form davranışlarını düzenleyin.',
     'route_filters' => 'Konu ve kategori URL ön eklerini yönetin. Örnek: /konu/slug-id yerine /topic/slug-id veya /kategori/slug yerine /category/slug kullanabilirsiniz.',
-    'rate_limit' => 'Her satırda iki ana alan vardır: Limit ve Pencere (dakika). Limit, pencere süresinde izin verilen maksimum istek sayısını; pencere ise sayacın ne zaman sıfırlanacağını belirler.',
-    'leaderboard' => 'Liderlik tablosu sistemi ayarlarını yönetin. Önbellek süreleri, minimum gereksinimler ve görünürlük seçeneklerini yapılandırın.',
+    'notifications' => 'Bildirim merkezi, okunmamış sayaçlar, bildirim kuralları ve kuyruk davranışlarını tek alanda yönetin.',
+    'rate_limit' => 'Her işlem için limit ve süre alanlarını birlikte okuyun. Limit, seçilen süre içinde kaç deneme, istek veya işlem yapılabileceğini; süre ise bu kuralın kaç dakika geçerli olduğunu belirler.',
+    'email' => 'SMTP, gönderici bilgileri, test gönderimi ve hesap e-posta şablonlarını yönetin.',
     'performance' => 'Önbellekleme, GZIP sıkıştırma, CDN, lazy loading ve minifikasyon gibi performans optimizasyonlarını yönetin.',
     'social_features' => 'Sosyal medya bağlantıları ve kullanıcı etkileşimiyle ilgili sosyal özellikleri tek merkezden yönetin.',
     'content_moderation' => 'İçerik kalitesi, otomatik etiketleme, intihal kontrolü ve yinelenen içerik tespiti gibi moderasyon ayarlarını yapılandırın.',
@@ -301,42 +308,63 @@ $commentGroups = [
     'comments-tab-spam' => [
         'title' => 'Spam Yönetimi',
         'icon' => 'bi-shield-exclamation',
-        'description' => 'Yorum kalitesi, spam kuralları ve spam tespit edildiğinde uygulanacak davranış.',
+        'description' => 'Yorum spam davranışını, hızlı filtreleri ve ince ayarları daha kontrollü gruplar halinde yönetin.',
         'sections' => [
             [
-                'title' => 'Spam Davranışı',
-                'icon' => 'bi-sliders',
-                'description' => 'Spam bulunduğunda yorumun nasıl işleneceğini ve kullanıcıya gösterilecek toast metnini belirleyin.',
-                'keys' => ['comment_spam_detection', 'comment_spam_action', 'comment_spam_reject_message', 'comment_spam_pending_message'],
+                'title' => 'Temel Koruma',
+                'icon' => 'bi-shield-check',
+                'description' => 'Spam filtresini açıp kapatın ve spam yakalandığında uygulanacak ana davranışı seçin.',
+                'class' => 'comments-spam-section comments-spam-section--primary',
+                'keys' => ['comment_spam_detection', 'comment_spam_action'],
             ],
             [
-                'title' => 'İçerik Kuralları',
-                'icon' => 'bi-filter-circle',
-                'description' => 'Anlamsız, tekrar eden, aşırı büyük harfli veya bağlantı ağırlıklı yorumları filtreleyin.',
+                'title' => 'Hızlı Filtreler',
+                'icon' => 'bi-toggles',
+                'description' => 'Günlük kullanımda en çok ihtiyaç duyulan spam kontrollerini buradan yönetin.',
+                'class' => 'comments-spam-section comments-spam-section--quick',
                 'keys' => [
                     'comment_spam_punctuation_only_enabled',
-                    'comment_spam_min_meaningful_chars',
                     'comment_spam_meaningless_enabled',
-                    'comment_spam_meaningless_phrases',
+                    'comment_spam_gibberish_enabled',
                     'comment_spam_repeated_chars_enabled',
+                    'comment_spam_caps_enabled',
+                    'comment_spam_max_links',
+                ],
+            ],
+            [
+                'title' => 'Gelişmiş Eşikler',
+                'icon' => 'bi-sliders',
+                'description' => 'Filtreler fazla gevşek veya fazla sert davranırsa bu sayısal eşikleri ayarlayın.',
+                'class' => 'comments-spam-section comments-spam-section--advanced',
+                'keys' => [
+                    'comment_spam_min_meaningful_chars',
+                    'comment_spam_gibberish_max_length',
+                    'comment_spam_gibberish_score_threshold',
                     'comment_spam_repeated_chars_limit',
                     'comment_spam_duplicate_window_minutes',
-                    'comment_spam_max_links',
-                    'comment_spam_caps_enabled',
                     'comment_spam_caps_min_letters',
                     'comment_spam_caps_percent',
                 ],
             ],
             [
-                'title' => 'Kelime Filtresi',
+                'title' => 'Metin Filtreleri',
                 'icon' => 'bi-chat-square-text',
-                'description' => 'Eski kelime filtresi ve bu filtreden etkilenen eylem ayarlarını yönetin.',
-                'keys' => ['comment_word_filter', 'comment_auto_ban_words'],
+                'description' => 'Yorumun tamamı eşleşirse spam sayılacak kısa ifadeleri ve yorum içinde geçerse işlem uygulanacak kelimeleri ayrı ayrı yönetin.',
+                'class' => 'comments-spam-section comments-spam-section--lists',
+                'keys' => ['comment_spam_meaningless_phrases', 'comment_word_filter', 'comment_auto_ban_words'],
+            ],
+            [
+                'title' => 'Kullanıcı Mesajları',
+                'icon' => 'bi-chat-left-text',
+                'description' => 'Spam filtresine takılan kullanıcılara gösterilecek kısa bilgilendirme metinleri.',
+                'class' => 'comments-spam-section comments-spam-section--messages',
+                'keys' => ['comment_spam_reject_message', 'comment_spam_pending_message'],
             ],
             [
                 'title' => 'Spam Muafiyetleri',
                 'icon' => 'bi-person-check',
                 'description' => 'Belirli kullanıcı adları ve gruplar tüm yorum spam kontrollerinden muaf tutulur.',
+                'class' => 'comments-spam-section comments-spam-section--exemptions',
                 'keys' => ['comment_spam_exempt_usernames', 'comment_spam_exempt_groups'],
             ],
         ],
@@ -360,6 +388,7 @@ $downloadGroups = [
             'download_ready_text',
             'download_wait_text',
             'download_done_text',
+            'download_security_notice_text',
             'download_show_counts',
         ],
     ],
@@ -532,22 +561,63 @@ $userSystemGroups = [
         'title' => 'Giriş',
         'icon' => 'bi-box-arrow-in-right',
         'description' => 'Giriş kimliği, oturum davranışı ve bu cihazda oturum açık tutma tercihini yönetin.',
-        'keys' => ['login_identifier_mode', 'login_show_remember_session', 'login_remember_session_default', 'session_timeout_minutes', 'remember_session_timeout_minutes'],
+        'sections' => [
+            [
+                'title' => 'Giriş Kimliği',
+                'icon' => 'bi-person-badge',
+                'badge' => 'Kimlik',
+                'summary_mode' => 'login_identity',
+                'description' => 'Kullanıcının giriş ekranında hangi bilgiyle oturum açacağını belirleyin.',
+                'keys' => ['login_identifier_mode'],
+            ],
+            [
+                'title' => 'Oturum Davranışı',
+                'icon' => 'bi-hourglass-split',
+                'badge' => 'Oturum',
+                'summary_mode' => 'session_behavior',
+                'description' => 'Normal oturum ve bu cihazda açık tutma seçeneklerinin süresini ve varsayılan davranışını yönetin.',
+                'keys' => ['login_show_remember_session', 'login_remember_session_default', 'session_timeout_minutes', 'remember_session_timeout_minutes'],
+            ],
+        ],
     ],
     'user-system-tab-register' => [
         'title' => 'Kayıt',
         'icon' => 'bi-person-plus',
         'description' => 'Kayıt izni, kullanıcı adı boyutu, şifre politikası ve e-posta domain izinlerini yönetin.',
-        'keys' => [
-            'allow_registration',
-            'register_username_min_length',
-            'register_username_max_length',
-            'register_allowed_email_domains',
-            'password_min_length',
-            'password_require_uppercase',
-            'password_require_numbers',
-            'password_require_special',
-            'password_expiry_days',
+        'sections' => [
+            [
+                'title' => 'Kayıt Durumu',
+                'icon' => 'bi-person-plus',
+                'badge' => 'Ana Kural',
+                'summary_mode' => 'registration_status',
+                'description' => 'Yeni kullanıcı kayıtlarının açık veya kapalı olacağını belirleyin.',
+                'keys' => ['allow_registration'],
+            ],
+            [
+                'title' => 'Kullanıcı Adı Kuralları',
+                'icon' => 'bi-type',
+                'badge' => 'Min / Maks',
+                'summary_mode' => 'username_length',
+                'description' => 'Kayıt formunda kabul edilen kullanıcı adı uzunluk aralığını yönetin.',
+                'keys' => ['register_username_min_length', 'register_username_max_length'],
+            ],
+            [
+                'title' => 'Parola Kuralları',
+                'icon' => 'bi-key',
+                'badge' => 'Güvenlik',
+                'summary_mode' => 'password_policy',
+                'description' => 'Parola uzunluğu, karakter zorunlulukları ve geçerlilik süresini tek blokta düzenleyin.',
+                'keys' => ['password_min_length', 'password_require_uppercase', 'password_require_numbers', 'password_require_special', 'password_expiry_days'],
+            ],
+            [
+                'title' => 'E-posta Domain İzinleri',
+                'icon' => 'bi-envelope-check',
+                'badge' => 'İzin Listesi',
+                'summary_mode' => 'email_allow_list',
+                'description' => 'Liste doluysa sadece belirtilen e-posta domainleri kayıt olabilir.',
+                'layout' => 'wide',
+                'keys' => ['register_allowed_email_domains'],
+            ],
         ],
     ],
     'user-system-tab-approvals' => [
@@ -558,6 +628,8 @@ $userSystemGroups = [
             [
                 'title' => 'Kayıt Onayları',
                 'icon' => 'bi-patch-check',
+                'badge' => 'Onay',
+                'summary_mode' => 'registration_approval',
                 'description' => 'Yeni kayıtların otomatik mi yoksa yönetici onayıyla mı açılacağını ve bekleme mesajını belirleyin.',
                 'keys' => [
                     'registration_requires_admin_approval',
@@ -567,6 +639,8 @@ $userSystemGroups = [
             [
                 'title' => 'Şüpheli Kayıt Bildirimleri',
                 'icon' => 'bi-shield-exclamation',
+                'badge' => 'Alarm',
+                'summary_mode' => 'suspicious_registration',
                 'description' => 'Aynı IP üzerinden yoğun kayıt sinyali algılandığında yöneticilere bildirim ve e-posta gönderin.',
                 'keys' => [
                     'registration_suspicious_alert_enabled',
@@ -578,6 +652,8 @@ $userSystemGroups = [
             [
                 'title' => 'Doğrulama Hatırlatma Cron',
                 'icon' => 'bi-clock-history',
+                'badge' => 'E-posta',
+                'summary_mode' => 'email_verification',
                 'description' => 'Doğrulama bekleyen hesaplara belirli aralıklarla yeniden doğrulama e-postası gönderin.',
                 'keys' => [
                     'account_email_verification_enabled',
@@ -595,21 +671,60 @@ $userSystemGroups = [
         'title' => 'Şifre Sıfırlama',
         'icon' => 'bi-key',
         'description' => 'Şifre sıfırlama bağlantısının geçerlilik süresini ve kullanıcıya gösterilecek davranışı yönetin.',
-        'keys' => [
-            'password_reset_token_ttl_minutes',
+        'sections' => [
+            [
+                'title' => 'Bağlantı Geçerliliği',
+                'icon' => 'bi-link-45deg',
+                'badge' => 'Süre',
+                'summary_mode' => 'password_reset_ttl',
+                'description' => 'Şifremi unuttum bağlantısının kaç dakika geçerli kalacağını belirleyin.',
+                'keys' => [
+                    'password_reset_token_ttl_minutes',
+                ],
+            ],
         ],
     ],
     'user-system-tab-spam' => [
         'title' => 'Spam Yönetimi',
         'icon' => 'bi-shield-exclamation',
         'description' => 'Yasaklı kullanıcı adları, parçaları, küfür/argo kelimeler, anlamsız ifadeler ve e-posta alan adlarını tek yerden yönetin.',
-        'keys' => [
-            'spam_blocked_usernames',
-            'spam_blocked_username_fragments',
-            'spam_profanity_words',
-            'spam_meaningless_words',
-            'spam_meaningless_patterns',
-            'spam_blocked_email_domains',
+        'sections' => [
+            [
+                'title' => 'Kullanıcı Adı Engelleri',
+                'icon' => 'bi-person-slash',
+                'badge' => 'Kullanıcı Adı',
+                'summary_mode' => 'username_block_lists',
+                'description' => 'Kayıt ve profil değişikliğinde birebir veya parça eşleşmesiyle engellenecek kullanıcı adlarını belirleyin.',
+                'layout' => 'wide',
+                'keys' => [
+                    'spam_blocked_usernames',
+                    'spam_blocked_username_fragments',
+                ],
+            ],
+            [
+                'title' => 'Kelime ve Desen Filtreleri',
+                'icon' => 'bi-filter-circle',
+                'badge' => 'Metin',
+                'summary_mode' => 'text_block_lists',
+                'description' => 'Kullanıcı adında geçerse engellenecek argo, anlamsız kelime ve klavye/desen kalıplarını yönetin.',
+                'layout' => 'wide',
+                'keys' => [
+                    'spam_profanity_words',
+                    'spam_meaningless_words',
+                    'spam_meaningless_patterns',
+                ],
+            ],
+            [
+                'title' => 'E-posta Domain Engelleri',
+                'icon' => 'bi-envelope-x',
+                'badge' => 'Domain',
+                'summary_mode' => 'email_block_list',
+                'description' => 'Geçici veya istenmeyen e-posta domainleriyle kayıt açılmasını engelleyin.',
+                'layout' => 'wide',
+                'keys' => [
+                    'spam_blocked_email_domains',
+                ],
+            ],
         ],
     ],
 ];
@@ -648,7 +763,7 @@ $rateLimitGroups = [
     'rate-tab-auth' => [
         'title' => 'Giriş ve Hesap Güvenliği',
         'icon' => 'bi-person-lock',
-        'description' => 'Giriş, kayıt ve şifre sıfırlama denemeleri için IP bazlı güvenlik limitleri.',
+        'description' => 'Giriş, kayıt ve şifre sıfırlama işlemleri için aynı süre/limit mantığıyla çalışan IP bazlı güvenlik ayarları.',
         'keys' => [
             'login_rate_limit',
             'login_rate_window',
@@ -661,7 +776,7 @@ $rateLimitGroups = [
     'rate-tab-search-api' => [
         'title' => 'Arama ve Veri API',
         'icon' => 'bi-braces',
-        'description' => 'Arama, konu listeleme, mesaj, liderlik tablosu ve analitik API istek limitleri.',
+        'description' => 'Arama, konu listeleme, mesaj, liderlik tablosu ve analitik API istekleri için süreye bağlı limitler.',
         'keys' => [
             'search_rate_limit',
             'search_rate_window',
@@ -678,7 +793,7 @@ $rateLimitGroups = [
     'rate-tab-interactions' => [
         'title' => 'Etkileşim ve Şikayet',
         'icon' => 'bi-hand-thumbs-up',
-        'description' => 'Favori, konu şikayet ve indirme sayacı istekleri için limitler.',
+        'description' => 'Favori işlemleri, konu şikayetleri ve indirme sayacı için süreye bağlı işlem limitleri.',
         'keys' => [
             'api_favorite_rate_limit',
             'api_favorite_rate_window',
@@ -693,7 +808,7 @@ $rateLimitGroups = [
     'rate-tab-user-reports' => [
         'title' => 'Kullanıcı Şikayetleri',
         'icon' => 'bi-person-exclamation',
-        'description' => 'Kullanıcı şikayeti listeleme ve gönderim limitleri.',
+        'description' => 'Kullanıcı şikayetlerini listeleme ve gönderme işlemleri için süreye bağlı limitler.',
         'keys' => [
             'api_user_reports_rate_limit',
             'api_user_reports_rate_window',
@@ -701,13 +816,22 @@ $rateLimitGroups = [
             'api_user_report_submit_rate_window',
         ],
     ],
+    'rate-tab-ban-appeals' => [
+        'title' => 'Ban İtirazları',
+        'icon' => 'bi-shield-exclamation',
+        'description' => 'Ban itiraz mesajlarında kullanıcı başına limit ve dakika penceresini birlikte belirleyin.',
+        'keys' => [
+            'ban_appeal_message_limit',
+            'ban_appeal_message_cooldown_minutes',
+        ],
+    ],
     'rate-tab-comments' => [
         'title' => 'Yorum Akışı',
         'icon' => 'bi-chat-left-text',
         'description' => 'Yorum gönderme, mention arama, düzenleme, reaksiyon ve şikayet limitleri.',
         'keys' => [
-            'comment_rate_minutes',
             'comment_rate_max',
+            'comment_rate_minutes',
             'comment_rate_admin_bypass',
             'comment_mention_rate_max',
             'comment_mention_rate_window',
@@ -722,10 +846,330 @@ $rateLimitGroups = [
     'rate-tab-submissions' => [
         'title' => 'Gönderim Limitleri',
         'icon' => 'bi-cloud-arrow-up',
-        'description' => 'Kullanıcı gönderim sıklığı için saatlik ve günlük limitler.',
+        'description' => 'Kullanıcı mod gönderim sıklığını tek limit ve dakika penceresiyle belirleyin.',
         'keys' => [
-            'user_upload_hourly_limit',
-            'user_upload_daily_limit',
+            'user_upload_rate_limit',
+            'user_upload_rate_window',
+        ],
+    ],
+];
+
+$rateLimitPairs = [
+    'login_rate_limit' => [
+        'window' => 'login_rate_window',
+        'title' => 'Başarısız Giriş Denemesi',
+        'action' => 'başarısız giriş denemesi',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Aynı IP adresinden gelen başarısız giriş denemelerine uygulanır.',
+    ],
+    'register_rate_limit' => [
+        'window' => 'register_rate_window',
+        'title' => 'Kayıt Denemesi',
+        'action' => 'kayıt denemesi',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Aynı IP adresinden gelen kayıt denemelerine uygulanır.',
+    ],
+    'password_reset_rate_limit' => [
+        'window' => 'password_reset_rate_window',
+        'title' => 'Şifre Sıfırlama İsteği',
+        'action' => 'şifre sıfırlama isteği',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Aynı IP adresinden gelen şifre sıfırlama isteklerine uygulanır.',
+    ],
+    'search_rate_limit' => [
+        'window' => 'search_rate_window',
+        'title' => 'Arama İsteği',
+        'action' => 'arama isteği',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Aynı IP adresinden gelen arama isteklerine uygulanır.',
+    ],
+    'api_topics_rate_limit' => [
+        'window' => 'api_topics_rate_window',
+        'title' => 'Konu API İsteği',
+        'action' => 'konu API isteği',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Aynı IP adresinden gelen konu API isteklerine uygulanır.',
+    ],
+    'api_messages_rate_limit' => [
+        'window' => 'api_messages_rate_window',
+        'title' => 'Mesaj API İsteği',
+        'action' => 'mesaj API isteği',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Aynı IP adresinden gelen mesaj API isteklerine uygulanır.',
+    ],
+    'api_leaderboard_rate_limit' => [
+        'window' => 'api_leaderboard_rate_window',
+        'title' => 'Liderlik API İsteği',
+        'action' => 'liderlik API isteği',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Aynı IP adresinden gelen liderlik API isteklerine uygulanır.',
+    ],
+    'api_analytics_rate_limit' => [
+        'window' => 'api_analytics_rate_window',
+        'title' => 'Analitik API İsteği',
+        'action' => 'analitik API isteği',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Aynı IP adresinden gelen analitik API isteklerine uygulanır.',
+    ],
+    'api_favorite_rate_limit' => [
+        'window' => 'api_favorite_rate_window',
+        'title' => 'Favori İşlemi',
+        'action' => 'favori işlemi',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Favori işlem kontrolü istek yapan IP adresine göre uygulanır.',
+    ],
+    'api_reports_rate_limit' => [
+        'window' => 'api_reports_rate_window',
+        'title' => 'Konu Şikayet Listeleme',
+        'action' => 'konu şikayet listeleme isteği',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Konu şikayet listeleme istekleri IP adresine göre uygulanır.',
+    ],
+    'api_report_submit_rate_limit' => [
+        'window' => 'api_report_submit_rate_window',
+        'title' => 'Konu Şikayet Gönderimi',
+        'action' => 'konu şikayeti',
+        'scope' => 'Kullanıcı/IP+e-posta',
+        'scope_help' => 'Üyelerde kullanıcı hesabına, misafirlerde IP adresi ve e-posta birleşimine göre uygulanır.',
+    ],
+    'api_user_reports_rate_limit' => [
+        'window' => 'api_user_reports_rate_window',
+        'title' => 'Kullanıcı Şikayet Listeleme',
+        'action' => 'kullanıcı şikayet listeleme isteği',
+        'scope' => 'IP bazlı',
+        'scope_help' => 'Kullanıcı şikayet listeleme istekleri IP adresine göre uygulanır.',
+    ],
+    'api_user_report_submit_rate_limit' => [
+        'window' => 'api_user_report_submit_rate_window',
+        'title' => 'Kullanıcı Şikayet Gönderimi',
+        'action' => 'kullanıcı şikayeti',
+        'scope' => 'Kullanıcı bazlı',
+        'scope_help' => 'Giriş yapan kullanıcının hesabına göre uygulanır.',
+    ],
+    'download_count_rate_limit' => [
+        'window' => 'download_count_rate_window',
+        'title' => 'İndirme Sayacı Artırma',
+        'action' => 'sayaç artırma işlemi',
+        'scope' => 'IP+kayıt bazlı',
+        'scope_help' => 'Aynı IP adresi ve aynı indirme kaydı birleşimine göre uygulanır.',
+    ],
+    'comment_rate_max' => [
+        'window' => 'comment_rate_minutes',
+        'title' => 'Yorum Gönderimi',
+        'action' => 'yorum gönderimi',
+        'scope' => 'Kullanıcı/IP bazlı',
+        'scope_help' => 'Üyelerde kullanıcı hesabına, misafirlerde IP adresine göre uygulanır.',
+        'zero_limit_help' => '0 = yorum gönderim limiti kapalı.',
+        'zero_summary' => 'Yorum gönderim limiti kapalı.',
+    ],
+    'comment_mention_rate_max' => [
+        'window' => 'comment_mention_rate_window',
+        'title' => 'Kullanıcı Etiketleme Araması',
+        'action' => 'etiketleme araması',
+        'scope' => 'Kullanıcı bazlı',
+        'scope_help' => 'Giriş yapan kullanıcının hesabına göre uygulanır.',
+    ],
+    'comment_edit_rate_max' => [
+        'window' => 'comment_edit_rate_window',
+        'title' => 'Yorum Düzenleme/Silme',
+        'action' => 'yorum düzenleme veya silme işlemi',
+        'scope' => 'Kullanıcı bazlı',
+        'scope_help' => 'Giriş yapan kullanıcının hesabına göre uygulanır.',
+    ],
+    'comment_reaction_rate_max' => [
+        'window' => 'comment_reaction_rate_window',
+        'title' => 'Yorum Reaksiyonu',
+        'action' => 'yorum reaksiyon işlemi',
+        'scope' => 'Kullanıcı bazlı',
+        'scope_help' => 'Giriş yapan kullanıcının hesabına göre uygulanır.',
+    ],
+    'comment_report_rate_max' => [
+        'window' => 'comment_report_rate_window',
+        'title' => 'Yorum Şikayet Gönderimi',
+        'action' => 'yorum şikayeti',
+        'scope' => 'Kullanıcı bazlı',
+        'scope_help' => 'Giriş yapan kullanıcının hesabına göre uygulanır.',
+    ],
+    'ban_appeal_message_limit' => [
+        'window' => 'ban_appeal_message_cooldown_minutes',
+        'title' => 'Ban İtiraz Mesajı',
+        'action' => 'ban itiraz mesajı',
+        'scope' => 'Kullanıcı bazlı',
+        'scope_help' => 'Ban itirazı gönderen kullanıcının hesabına göre uygulanır.',
+        'zero_limit_help' => '0 = ban itiraz mesaj limiti kapalı.',
+        'zero_summary' => 'Ban itiraz mesaj limiti kapalı.',
+    ],
+    'user_upload_rate_limit' => [
+        'window' => 'user_upload_rate_window',
+        'title' => 'Mod Gönderimi',
+        'action' => 'mod gönderimi',
+        'scope' => 'Kullanıcı bazlı',
+        'scope_help' => 'Giriş yapan kullanıcının hesabına göre uygulanır.',
+        'zero_limit_help' => '0 = mod gönderim sınırı yok.',
+        'zero_summary' => 'Mod gönderim sınırı yok.',
+    ],
+];
+
+$rateLimitWindowKeys = [];
+foreach ($rateLimitPairs as $limitKey => $pairMeta) {
+    $rateLimitWindowKeys[(string) ($pairMeta['window'] ?? '')] = $limitKey;
+}
+
+$rateLimitSingles = [
+    'comment_rate_admin_bypass' => [
+        'scope' => 'Admin bazlı',
+        'scope_help' => 'Yalnızca admin hesaplarının yorum limitine takılıp takılmayacağını belirler.',
+        'summary' => 'Açıksa admin hesapları yorum gönderim limitinden muaf tutulur.',
+    ],
+];
+
+$simpleSettingsGroups = [
+    'general' => [
+        [
+            'title' => 'Site Temeli',
+            'icon' => 'bi-window',
+            'description' => 'Site adı, açıklama, dil, saat dilimi ve listeleme davranışları.',
+            'keys' => ['site_name', 'site_description', 'site_language', 'timezone', 'date_format', 'items_per_page'],
+        ],
+        [
+            'title' => 'Yasal Bağlantılar ve Alt Metin',
+            'icon' => 'bi-file-earmark-text',
+            'description' => 'Kullanım koşulları, gizlilik politikası ve footer metnini düzenleyin.',
+            'keys' => ['terms_url', 'privacy_url', 'footer_text'],
+        ],
+        [
+            'title' => 'Bakım Modu',
+            'icon' => 'bi-tools',
+            'description' => 'Siteyi geçici olarak bakıma alıp ziyaretçiye gösterilecek mesajı belirleyin.',
+            'keys' => ['maintenance_mode', 'maintenance_message'],
+        ],
+    ],
+    'moderation' => [
+        [
+            'title' => 'Temel Moderasyon Kuralları',
+            'icon' => 'bi-shield-check',
+            'description' => 'Raporlanan konular, rapor eşiği ve yasaklı kelime listesini yönetin.',
+            'keys' => ['auto_hide_reported', 'report_threshold', 'banned_words'],
+        ],
+    ],
+    'notifications' => [
+        [
+            'title' => 'Çekirdek Davranış',
+            'icon' => 'bi-bell',
+            'description' => 'Bildirim merkezinin aktifliği, yayın türleri ve kullanıcı tercihleri.',
+            'keys' => [
+                'notif_center_enabled',
+                'notif_allow_global_broadcasts',
+                'notif_allow_direct_messages',
+                'notif_respect_user_preferences',
+                'notif_require_https_links',
+                'notif_show_header_badge',
+                'notif_auto_mark_link_click',
+                'notif_enable_read_more',
+                'notif_empty_state_tips',
+            ],
+        ],
+        [
+            'title' => 'Kullanıcı Görünümü',
+            'icon' => 'bi-layout-text-window',
+            'description' => 'Üst menü ve bildirim sayfasında kaç kayıt/satır gösterileceğini belirleyin.',
+            'keys' => ['notif_dropdown_limit', 'notif_user_page_per_page', 'notif_user_message_lines'],
+        ],
+        [
+            'title' => 'Manuel Bildirim Varsayılanları',
+            'icon' => 'bi-send',
+            'description' => 'Manuel bildirim oluştururken kullanılacak varsayılan tip, link ve metin limitleri.',
+            'keys' => ['notif_default_type', 'notif_default_link', 'notif_max_title_length', 'notif_max_message_length'],
+        ],
+        [
+            'title' => 'Geçmiş ve Saklama',
+            'icon' => 'bi-archive',
+            'description' => 'Admin geçmiş ekranı ve eski bildirim temizliği ayarları.',
+            'keys' => ['notif_history_per_page', 'notif_history_message_preview', 'notif_retention_days'],
+        ],
+        [
+            'title' => 'Olay Bildirimleri',
+            'icon' => 'bi-lightning-charge',
+            'description' => 'Yorum, bahsetme, moderasyon ve favori olaylarından bildirim üretimini yönetin.',
+            'keys' => [
+                'notif_events_enabled',
+                'notif_event_comments_enabled',
+                'notif_event_mentions_enabled',
+                'notif_event_topic_moderation_enabled',
+                'notif_event_favorites_enabled',
+                'notif_event_skip_actor',
+                'notif_event_dedupe_enabled',
+            ],
+        ],
+        [
+            'title' => 'E-posta ve Karşılama',
+            'icon' => 'bi-envelope-paper',
+            'description' => 'Bildirim e-posta kuyruğu ve yeni kullanıcı karşılama bildirimi.',
+            'keys' => [
+                'notif_email_channel_ready',
+                'notif_email_queue_max_attempts',
+                'notif_system_sender',
+                'notif_welcome_enabled',
+                'notif_welcome_msg',
+            ],
+        ],
+    ],
+    'toast_notifications' => [
+        [
+            'title' => 'Görünüm ve Konum',
+            'icon' => 'bi-chat-square-dots',
+            'description' => 'Toast sisteminin aktifliği, konumu, teması ve animasyon davranışı.',
+            'keys' => ['toast_enabled', 'toast_position', 'toast_theme', 'toast_animation', 'toast_stack_direction'],
+        ],
+        [
+            'title' => 'Süreler',
+            'icon' => 'bi-hourglass-split',
+            'description' => 'Varsayılan, başarı, hata ve uyarı bildirimlerinin ekranda kalma süreleri.',
+            'keys' => ['toast_duration', 'toast_duration_success', 'toast_duration_error', 'toast_duration_warning'],
+        ],
+        [
+            'title' => 'Etkileşim',
+            'icon' => 'bi-cursor',
+            'description' => 'İlerleme çubuğu, kapatma butonu, görünür bildirim limiti ve hover davranışları.',
+            'keys' => ['toast_progress_bar', 'toast_close_button', 'toast_max_visible', 'toast_click_to_close', 'toast_pause_on_hover'],
+        ],
+    ],
+    'performance' => [
+        [
+            'title' => 'Önbellek',
+            'icon' => 'bi-lightning-charge',
+            'description' => 'Sistem önbelleğini ve geçerlilik süresini yönetin.',
+            'keys' => ['cache_enabled', 'cache_ttl'],
+        ],
+    ],
+    'social_features' => [
+        [
+            'title' => 'Sosyal Bağlantılar',
+            'icon' => 'bi-share',
+            'description' => 'Tema ve footer alanlarında kullanılacak sosyal medya URL adresleri.',
+            'keys' => adminSettingKeysForSection($definitions, 'social_features'),
+        ],
+    ],
+    'popup_announcement' => [
+        [
+            'title' => 'İçerik ve Görünüm',
+            'icon' => 'bi-megaphone',
+            'description' => 'Popup duyurunun aktifliği, başlığı, içeriği ve görsel temasını belirleyin.',
+            'keys' => ['popup_announcement_enabled', 'popup_announcement_title', 'popup_announcement_content', 'popup_announcement_type'],
+        ],
+        [
+            'title' => 'Davranış ve Hedef',
+            'icon' => 'bi-bullseye',
+            'description' => 'Kapatma davranışı, otomatik kapanma, aksiyon butonu, hedef kitle ve gösterim sıklığı.',
+            'keys' => [
+                'popup_announcement_strict',
+                'popup_announcement_timer',
+                'popup_announcement_button_text',
+                'popup_announcement_action_text',
+                'popup_announcement_action_url',
+                'popup_announcement_target',
+                'popup_announcement_cookie_days',
+            ],
         ],
     ],
 ];
@@ -1426,11 +1870,11 @@ $cronStatusLabel = static function (string $status): string {
 };
 $cronStatusBadgeClass = static function (string $status): string {
     return match (strtolower(trim($status))) {
-        'success' => 'bg-success',
-        'warning' => 'bg-warning text-dark',
-        'error' => 'bg-danger',
-        'skipped' => 'bg-secondary',
-        default => 'bg-secondary',
+        'success' => 'ui-admin-badge-success',
+        'warning' => 'ui-admin-badge-warning',
+        'error' => 'ui-admin-badge-danger',
+        'skipped' => 'ui-admin-badge-muted',
+        default => 'ui-admin-badge-muted',
     };
 };
 $cronAgeLabel = static function (?string $createdAt): string {
@@ -1537,7 +1981,7 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $routeFirst = true; foreach ($routeFilterGroups as $routeTabId => $routeGroup): ?>
-                                <div class="route-filter-subtab-panel admin-card admin-card-spaced<?= $routeFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($routeTabId) ?>">
+                                <div class="route-filter-subtab-panel settings-subtab-panel<?= $routeFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($routeTabId) ?>">
                                     <div class="card-header ui-panel__head">
                                         <i class="bi <?= htmlspecialchars((string) ($routeGroup['icon'] ?? 'bi-sliders')) ?> me-2"></i><?= htmlspecialchars((string) ($routeGroup['title'] ?? $routeTabId)) ?>
                                     </div>
@@ -1583,53 +2027,12 @@ require_once __DIR__ . '/header.php';
                                             </div>
                                         <?php endif; ?>
                                         <?php if (!empty($routeGroup['keys'])): ?>
-                                            <div class="admin-settings-grid ui-grid">
-                                                <?php foreach (($routeGroup['keys'] ?? []) as $key): ?>
-                                                    <?php if (!isset($definitions[$key])) { continue; } ?>
-                                                    <?php $definition = $definitions[$key]; ?>
-                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                        <?php if ($definition['type'] === 'bool'): ?>
-                                                            <label class="ui-admin-switch">
-                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                                <span class="ui-admin-switch-label">
-                                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </label>
-                                                        <?php else: ?>
-                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </label>
-                                                            <?php if ($definition['type'] === 'text'): ?>
-                                                                <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                                            <?php elseif ($definition['type'] === 'select'): ?>
-                                                                <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                                    <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                        <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                    <?php endforeach; ?>
-                                                                </select>
-                                                            <?php elseif ($definition['type'] === 'multicheck'): ?>
-                                                                <?php $currentValues = array_map('trim', explode(',', $settings[$key] ?? $definition['default'])); ?>
-                                                                <div class="admin-multicheck-group">
-                                                                    <?php foreach (($definition['options'] ?? []) as $val => $lbl): ?>
-                                                                        <label class="ui-admin-switch">
-                                                                            <input type="checkbox" name="<?= htmlspecialchars($key) ?>[]" value="<?= htmlspecialchars($val) ?>" <?= in_array($val, $currentValues) ? 'checked' : '' ?>>
-                                                                            <span class="ui-admin-switch-label"><?= htmlspecialchars($lbl) ?></span>
-                                                                        </label>
-                                                                    <?php endforeach; ?>
-                                                                </div>
-                                                            <?php else: ?>
-                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                            <?php endif; ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
+                                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'route_filters', [[
+                                                'title' => 'Rota Alanları',
+                                                'icon' => (string) ($routeGroup['icon'] ?? 'bi-sliders'),
+                                                'description' => (string) ($routeGroup['description'] ?? ''),
+                                                'keys' => (array) ($routeGroup['keys'] ?? []),
+                                            ]]) ?>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -1637,7 +2040,7 @@ require_once __DIR__ . '/header.php';
 
 
 
-                            <script src="<?= asset_url('admin/assets/settings-page-notifications.js', $baseUri) ?>" defer></script>
+                            <script src="<?= asset_url('admin/assets/settings-page-route-filters.js', $baseUri) ?>" defer></script>
                         <?php elseif ($id === 'cron'): ?>
                             <div class="route-filter-subtabs">
                                 <?php $cronFirst = true; foreach ($cronGroups as $cronTabId => $cronGroup): ?>
@@ -1648,15 +2051,15 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $cronFirst = true; foreach ($cronGroups as $cronTabId => $cronGroup): ?>
-                                <div class="route-filter-subtab-panel cron-subtab-panel admin-card admin-card-spaced<?= $cronFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($cronTabId) ?>">
+                                <div class="route-filter-subtab-panel cron-subtab-panel settings-subtab-panel<?= $cronFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($cronTabId) ?>">
                                     <div class="card-body ui-panel__body">
                                         <?php if (!empty($cronGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($cronGroup['description'])) ?></div>
                                         <?php endif; ?>
 
                                         <?php if ($cronTabId === 'cron-tab-endpoints'): ?>
-    <div class="alert alert-info border-info d-flex gap-3 align-items-start">
-        <i class="bi bi-info-square-fill fs-4 mt-1"></i>
+    <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
+        <i class="bi bi-info-square-fill"></i>
         <div>
             <strong>Görev yönetimi:</strong> Her cron görevi için CLI komutu, HTTP yedek komutu, URL endpoint'i ve manuel tetikleme aksiyonu tek kartta sunulur.
             HestiaCP/CPanel/Plesk tarafında CLI komutunu kullanın; PHP yolu boş bırakılırsa sistem uygun CLI yolunu otomatik seçer.
@@ -1687,7 +2090,7 @@ require_once __DIR__ . '/header.php';
                                 <h4><?= htmlspecialchars((string) ($task['title'] ?? $taskKey)) ?></h4>
                                 <small><?= htmlspecialchars((string) ($task['description'] ?? '')) ?></small>
                             </div>
-                            <span class="badge <?= htmlspecialchars($runBadge) ?>"><?= htmlspecialchars($cronStatusLabel($runStatus)) ?></span>
+                            <span class="ui-admin-badge <?= htmlspecialchars($runBadge) ?>"><?= htmlspecialchars($cronStatusLabel($runStatus)) ?></span>
                         </div>
 
                         <div class="cron-task-meta">
@@ -1699,7 +2102,7 @@ require_once __DIR__ . '/header.php';
                         <div class="cron-task-command-row">
                                 <label class="ui-admin-form-label fw-bold">CLI Komutu</label>
                             <div class="admin-inline-control">
-                                <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['cli'] ?? '')) ?>" readonly data-ui-select-on-focus>
+                                <input type="text" class="ui-admin-form-control admin-muted-input settings-readonly-input" value="<?= htmlspecialchars((string) ($task['cli'] ?? '')) ?>" readonly data-ui-select-on-focus>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
                             </div>
                         </div>
@@ -1707,7 +2110,7 @@ require_once __DIR__ . '/header.php';
                         <div class="cron-task-command-row">
                                 <label class="ui-admin-form-label fw-bold">HTTP Yedek Komutu</label>
                             <div class="admin-inline-control">
-                                <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['http'] ?? '')) ?>" readonly data-ui-select-on-focus>
+                                <input type="text" class="ui-admin-form-control admin-muted-input settings-readonly-input" value="<?= htmlspecialchars((string) ($task['http'] ?? '')) ?>" readonly data-ui-select-on-focus>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
                             </div>
                         </div>
@@ -1715,7 +2118,7 @@ require_once __DIR__ . '/header.php';
                         <div class="cron-task-command-row">
                                 <label class="ui-admin-form-label fw-bold">URL Endpoint</label>
                             <div class="admin-inline-control">
-                                <input type="text" class="ui-admin-form-control admin-muted-input font-monospace bg-light" value="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" readonly data-ui-select-on-focus>
+                                <input type="text" class="ui-admin-form-control admin-muted-input settings-readonly-input" value="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" readonly data-ui-select-on-focus>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Kopyala" data-ui-copy-previous><i class="bi bi-copy"></i></button>
                                 <a href="<?= htmlspecialchars((string) ($task['url'] ?? '')) ?>" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Endpoint'i aç"><i class="bi bi-box-arrow-up-right"></i></a>
                             </div>
@@ -1742,8 +2145,8 @@ require_once __DIR__ . '/header.php';
         ? 'Tum cron gorevleri saglikli gorunuyor'
         : ($healthTone === 'warning' ? 'Bazi cron gorevleri kontrol edilmeli' : 'Cron gorevlerinde acil kontrol gerekiyor');
     ?>
-    <div class="alert alert-<?= htmlspecialchars($healthTone) ?> border-<?= htmlspecialchars($healthTone) ?> d-flex gap-3 align-items-start mt-2">
-        <i class="bi <?= $healthTone === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' ?> fs-4"></i>
+    <div class="ui-admin-alert ui-admin-alert-<?= $healthTone === 'danger' ? 'danger' : htmlspecialchars($healthTone) ?> ui-alert ui-admin-alert-spaced">
+        <i class="bi <?= $healthTone === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' ?>"></i>
         <div>
             <strong><?= htmlspecialchars($healthTitle) ?></strong><br>
             Toplam <?= (int) $cronHealthTotal ?> görevden <?= (int) $cronHealthOkCount ?> tanesi son kaydına göre başarılı.
@@ -1780,7 +2183,7 @@ require_once __DIR__ . '/header.php';
                         <td><?= htmlspecialchars((string) ($healthRow['title'] ?? '')) ?></td>
                         <td><code><?= htmlspecialchars((string) ($healthRow['job_key'] ?? '')) ?></code></td>
                         <td><?= htmlspecialchars((string) ($healthRow['schedule_label'] ?? '-')) ?></td>
-                        <td><span class="badge <?= htmlspecialchars($rowBadge) ?>"><?= htmlspecialchars($cronStatusLabel($rowStatus)) ?></span></td>
+                        <td><span class="ui-admin-badge <?= htmlspecialchars($rowBadge) ?>"><?= htmlspecialchars($cronStatusLabel($rowStatus)) ?></span></td>
                         <td><?= htmlspecialchars($rowAt) ?><?php if ($rowAtRaw): ?> <small>(<?= htmlspecialchars($cronAgeLabel($rowAtRaw)) ?>)</small><?php endif; ?></td>
                         <td><a href="logs.php?view=cron&cron_job=<?= urlencode((string) ($healthRow['job_key'] ?? '')) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Aç</a></td>
                     </tr>
@@ -1789,85 +2192,47 @@ require_once __DIR__ . '/header.php';
         </table>
     </div>
 <?php else: ?>
-                                            <div class="admin-settings-grid ui-grid">
-                                                <?php foreach (($cronGroup['keys'] ?? []) as $key): ?>
-                                                    <?php if (!isset($definitions[$key])) { continue; } ?>
-                                                    <?php $definition = $definitions[$key]; ?>
-                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                        <?php if ($definition['type'] === 'bool'): ?>
-                                                            <label class="ui-admin-switch">
-                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                                <span class="ui-admin-switch-label fw-medium">
-                                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </label>
-                                                        <?php else: ?>
-                                                            <label class="ui-admin-form-label fw-medium" for="<?= htmlspecialchars($key) ?>">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </label>
-                                                            <?php if ($key === 'cron_php_binary'): ?>
-                                                                <?php
-                                                                $cronPhpBinaryValue = trim(str_replace(["\r", "\n"], '', (string) ($settings[$key] ?? '')));
-                                                                $cronPhpBinaryIsAuto = function_exists('adminCronPhpBinaryIsAutoValue')
-                                                                    ? adminCronPhpBinaryIsAutoValue($cronPhpBinaryValue)
-                                                                    : $cronPhpBinaryValue === '';
-                                                                $cronPhpBinaryResolved = function_exists('settingsCronPhpBinary')
-                                                                    ? settingsCronPhpBinary($settings)
-                                                                    : ($cronPhpBinaryValue !== '' ? $cronPhpBinaryValue : 'php');
-                                                                $cronPhpBinaryCandidates = function_exists('adminCronPhpBinaryCandidates')
-                                                                    ? adminCronPhpBinaryCandidates()
-                                                                    : [];
-                                                                $cronPhpBinaryListId = 'cron-php-binary-candidates';
-                                                                ?>
-                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="text" class="ui-admin-form-control bg-light font-monospace" list="<?= htmlspecialchars($cronPhpBinaryListId) ?>" value="<?= htmlspecialchars($cronPhpBinaryIsAuto ? '' : $cronPhpBinaryValue) ?>" placeholder="Boş bırakın: otomatik tespit edilsin">
-                                                                <datalist id="<?= htmlspecialchars($cronPhpBinaryListId) ?>">
-                                                                    <?php foreach ($cronPhpBinaryCandidates as $candidate): ?>
-                                                                        <option value="<?= htmlspecialchars($candidate) ?>"></option>
-                                                                    <?php endforeach; ?>
-                                                                </datalist>
-                                                                <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
-                                                                    <span class="badge <?= $cronPhpBinaryIsAuto ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $cronPhpBinaryIsAuto ? 'Otomatik mod' : 'Elle girildi' ?></span>
-                                                                    <span class="small text-muted">Komutlarda kullanılacak: <code class="font-monospace"><?= htmlspecialchars($cronPhpBinaryResolved) ?></code></span>
-                                                                </div>
-                                                                <?php if ($cronPhpBinaryCandidates !== []): ?>
-                                                                    <div class="d-flex flex-wrap gap-2 mt-2">
-                                                                        <?php foreach (array_slice($cronPhpBinaryCandidates, 0, 6) as $candidate): ?>
-                                                                            <span class="badge text-bg-light border font-monospace"><?= htmlspecialchars($candidate) ?></span>
-                                                                        <?php endforeach; ?>
-                                                                        <?php if (count($cronPhpBinaryCandidates) > 6): ?>
-                                                                            <span class="badge text-bg-light border">+<?= count($cronPhpBinaryCandidates) - 6 ?></span>
-                                                                        <?php endif; ?>
-                                                                    </div>
-                                                                <?php else: ?>
-                                                                    <div class="small text-warning mt-2">Uygun bir PHP CLI yolu otomatik bulunamadı. İsterseniz tam yolu elle girin.</div>
-                                                                <?php endif; ?>
-                                                            <?php elseif ($definition['type'] === 'text'): ?>
-                                                                <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control bg-light"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                                            <?php elseif ($definition['type'] === 'select'): ?>
-                                                                <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select bg-light">
-                                                                    <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                        <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                    <?php endforeach; ?>
-                                                                </select>
-                                                            <?php else: ?>
-                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control bg-light" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
+                                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'cron', [[
+                                                'title' => 'Genel Cron Kuralları',
+                                                'icon' => 'bi-gear',
+                                                'description' => (string) ($cronGroup['description'] ?? ''),
+                                                'keys' => (array) ($cronGroup['keys'] ?? []),
+                                            ]]) ?>
+                                            <?php
+                                                $cronPhpBinaryValue = trim(str_replace(["\r", "\n"], '', (string) ($settings['cron_php_binary'] ?? '')));
+                                                $cronPhpBinaryIsAuto = function_exists('adminCronPhpBinaryIsAutoValue')
+                                                    ? adminCronPhpBinaryIsAutoValue($cronPhpBinaryValue)
+                                                    : $cronPhpBinaryValue === '';
+                                                $cronPhpBinaryResolved = function_exists('settingsCronPhpBinary')
+                                                    ? settingsCronPhpBinary($settings)
+                                                    : ($cronPhpBinaryValue !== '' ? $cronPhpBinaryValue : 'php');
+                                                $cronPhpBinaryCandidates = function_exists('adminCronPhpBinaryCandidates')
+                                                    ? adminCronPhpBinaryCandidates()
+                                                    : [];
+                                            ?>
+                                            <div class="settings-rule-note">
+                                                <i class="bi <?= $cronPhpBinaryIsAuto ? 'bi-magic' : 'bi-pencil-square' ?>"></i>
+                                                <div>
+                                                    <strong><?= $cronPhpBinaryIsAuto ? 'PHP CLI otomatik seçiliyor.' : 'PHP CLI yolu elle girildi.' ?></strong>
+                                                    Komutlarda kullanılacak değer: <code><?= htmlspecialchars($cronPhpBinaryResolved, ENT_QUOTES, 'UTF-8') ?></code>.
+                                                    <?php if ($cronPhpBinaryCandidates !== []): ?>
+                                                        <div class="settings-chip-row mt-2">
+                                                            <?php foreach (array_slice($cronPhpBinaryCandidates, 0, 6) as $candidate): ?>
+                                                                <span class="ui-admin-badge ui-admin-badge-muted"><?= htmlspecialchars($candidate, ENT_QUOTES, 'UTF-8') ?></span>
+                                                            <?php endforeach; ?>
+                                                            <?php if (count($cronPhpBinaryCandidates) > 6): ?>
+                                                                <span class="ui-admin-badge ui-admin-badge-muted">+<?= count($cronPhpBinaryCandidates) - 6 ?></span>
                                                             <?php endif; ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
                                             </div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
                             <?php $cronFirst = false; endforeach; ?>
 
-                            <script src="<?= asset_url('admin/assets/settings-page-theme.js', $baseUri) ?>" defer></script>
+                            <script src="<?= asset_url('admin/assets/settings-page-cron.js', $baseUri) ?>" defer></script>
                         <?php elseif ($id === 'seo'): ?>
                             <div class="seo-subtabs">
                                 <?php $seoFirst = true; foreach ($seoGroups as $seoTabId => $seoGroup): ?>
@@ -1878,7 +2243,7 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $seoFirst = true; foreach ($seoGroups as $seoTabId => $seoGroup): ?>
-                                <div class="seo-subtab-panel admin-card admin-card-spaced<?= $seoFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($seoTabId) ?>">
+                                <div class="seo-subtab-panel settings-subtab-panel<?= $seoFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($seoTabId) ?>">
                                     <div class="card-body ui-panel__body">
                                         <?php if (!empty($seoGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($seoGroup['description'])) ?></div>
@@ -2094,127 +2459,26 @@ require_once __DIR__ . '/header.php';
                                             </div>
                                         <?php endif; ?>
                                     <?php elseif ($seoTabId === 'seo-tab-sitemap'): ?>
-                                        <!-- Site Haritası Yönlendirme Ayarları -->
-                                        <div class="admin-section-block ui-section">
-                                            <div class="admin-inline-head ui-panel__head">
-                                                <i class="bi bi-gear"></i>
-                                                <span class="admin-inline-title">Site Haritası Yönlendirme</span>
-                                            </div>
-                                            <div class="admin-settings-grid ui-grid">
-                                                <?php
-                                                $routingKeys = ['sitemap_route_enabled', 'sitemap_cache_duration'];
-                                                foreach ($routingKeys as $key):
-                                                    if (!isset($definitions[$key])) continue;
-                                                    $definition = $definitions[$key];
-                                                ?>
-                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                        <?php if ($definition['type'] === 'bool'): ?>
-                                                            <label class="ui-admin-switch">
-                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                                <span class="ui-admin-switch-label">
-                                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </label>
-                                                        <?php else: ?>
-                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </label>
-                                                            <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        </div>
-
-                                        <!-- XML Site Haritası Ayarları -->
-                                        <div class="admin-section-block ui-section">
-                                            <div class="admin-inline-head ui-panel__head">
-                                                <i class="bi bi-diagram-3"></i>
-                                                <span class="admin-inline-title">XML Site Haritası</span>
-                                            </div>
-                                            <div class="admin-settings-grid ui-grid">
-                                                <?php
-                                                $xmlKeys = ['sitemap_enabled', 'sitemap_max_urls', 'sitemap_changefreq', 'sitemap_priority_home', 'sitemap_priority_topics', 'sitemap_priority_categories', 'sitemap_include_categories', 'sitemap_exclude_drafts'];
-                                                foreach ($xmlKeys as $key):
-                                                    if (!isset($definitions[$key])) continue;
-                                                    $definition = $definitions[$key];
-                                                ?>
-                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                        <?php if ($definition['type'] === 'bool'): ?>
-                                                            <label class="ui-admin-switch">
-                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                                <span class="ui-admin-switch-label">
-                                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </label>
-                                                        <?php else: ?>
-                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </label>
-                                                            <?php if ($definition['type'] === 'select'): ?>
-                                                                <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                                    <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                        <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                    <?php endforeach; ?>
-                                                                </select>
-                                                            <?php else: ?>
-                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                            <?php endif; ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        </div>
-
-                                        <!-- Görsel Site Haritası Ayarları -->
-                                        <div class="admin-section-block ui-section">
-                                            <div class="admin-inline-head ui-panel__head">
-                                                <i class="bi bi-images"></i>
-                                                <span class="admin-inline-title">Görsel Site Haritası</span>
-                                            </div>
-                                            <div class="admin-settings-grid ui-grid">
-                                                <?php
-                                                $imageKeys = ['image_sitemap_enabled', 'image_sitemap_max_images', 'image_sitemap_hero', 'image_sitemap_media', 'image_sitemap_inline'];
-                                                foreach ($imageKeys as $key):
-                                                    if (!isset($definitions[$key])) continue;
-                                                    $definition = $definitions[$key];
-                                                ?>
-                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                        <?php if ($definition['type'] === 'bool'): ?>
-                                                            <label class="ui-admin-switch">
-                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                                <span class="ui-admin-switch-label">
-                                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </label>
-                                                        <?php else: ?>
-                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </label>
-                                                            <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        </div>
+                                        <?= adminRenderSettingsRuleSections($definitions, $settings, 'seo', [
+                                            [
+                                                'title' => 'Site Haritası Yönlendirme',
+                                                'icon' => 'bi-gear',
+                                                'description' => 'Sitemap route davranışı ve cache süresini belirleyin.',
+                                                'keys' => ['sitemap_route_enabled', 'sitemap_cache_duration'],
+                                            ],
+                                            [
+                                                'title' => 'XML Site Haritası',
+                                                'icon' => 'bi-diagram-3',
+                                                'description' => 'XML sitemap üretimi, öncelik, değişim sıklığı ve kategori davranışı.',
+                                                'keys' => ['sitemap_enabled', 'sitemap_max_urls', 'sitemap_changefreq', 'sitemap_priority_home', 'sitemap_priority_topics', 'sitemap_priority_categories', 'sitemap_include_categories', 'sitemap_exclude_drafts'],
+                                            ],
+                                            [
+                                                'title' => 'Görsel Site Haritası',
+                                                'icon' => 'bi-images',
+                                                'description' => 'Konu görsellerinin image sitemap içine nasıl dahil edileceğini yönetin.',
+                                                'keys' => ['image_sitemap_enabled', 'image_sitemap_max_images', 'image_sitemap_hero', 'image_sitemap_media', 'image_sitemap_inline'],
+                                            ],
+                                        ]) ?>
 
                                         <!-- Site haritası URL'leri -->
                                         <div class="admin-divider-block">
@@ -2254,143 +2518,29 @@ require_once __DIR__ . '/header.php';
                                         </div>
 
                                     <?php elseif ($seoTabId === 'seo-tab-structured'): ?>
-                                        <!-- Yapısal Veri İşaretlemeleri -->
-                                        <div class="admin-section-block ui-section">
-                                            <div class="admin-inline-head ui-panel__head">
-                                                <i class="bi bi-diagram-2"></i>
-                                                <span class="admin-inline-title">Schema.org İşaretlemeleri</span>
-                                            </div>
-                                            <div class="admin-settings-grid ui-grid">
-                                                <?php
-                                                $schemaKeys = ['structured_data_category', 'structured_data_profile', 'schema_organization_name', 'schema_organization_logo', 'schema_site_search', 'schema_breadcrumbs'];
-                                                foreach ($schemaKeys as $key):
-                                                    if (!isset($definitions[$key])) continue;
-                                                    $definition = $definitions[$key];
-                                                ?>
-                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                        <?php if ($definition['type'] === 'bool'): ?>
-                                                            <label class="ui-admin-switch">
-                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                                <span class="ui-admin-switch-label">
-                                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </label>
-                                                        <?php else: ?>
-                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </label>
-                                                            <?php if ($definition['type'] === 'select'): ?>
-                                                                <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                                    <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                        <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                    <?php endforeach; ?>
-                                                                </select>
-                                                            <?php else: ?>
-                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                            <?php endif; ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        </div>
-
-                                        <!-- Özel Kodlar -->
-                                        <div class="admin-section-block ui-section">
-                                            <div class="admin-inline-head ui-panel__head">
-                                                <i class="bi bi-code-slash"></i>
-                                                <span class="admin-inline-title">Özel Kodlar</span>
-                                            </div>
-                                            <div class="admin-settings-grid ui-grid">
-                                                <?php
-                                                $codeKeys = ['structured_data', 'custom_head_code'];
-                                                foreach ($codeKeys as $key):
-                                                    if (!isset($definitions[$key])) continue;
-                                                    $definition = $definitions[$key];
-                                                ?>
-                                                    <div class="admin-field-wide">
-                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                            <?= htmlspecialchars($definition['label']) ?>
-                                                            <?php if (!empty($definition['tooltip'])): ?>
-                                                                <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                            <?php endif; ?>
-                                                        </label>
-                                                        <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="5" class="ui-admin-form-control ui-admin-code-editor"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        </div>
+                                        <?= adminRenderSettingsRuleSections($definitions, $settings, 'seo', [
+                                            [
+                                                'title' => 'Schema.org İşaretlemeleri',
+                                                'icon' => 'bi-diagram-2',
+                                                'description' => 'Kategori, profil, organizasyon ve breadcrumb yapısal verilerini yönetin.',
+                                                'keys' => ['structured_data_category', 'structured_data_profile', 'schema_organization_name', 'schema_organization_logo', 'schema_site_search', 'schema_breadcrumbs'],
+                                            ],
+                                            [
+                                                'title' => 'Özel Kodlar',
+                                                'icon' => 'bi-code-slash',
+                                                'description' => 'JSON-LD ve head içine eklenecek özel kodları kontrol edin.',
+                                                'keys' => ['structured_data', 'custom_head_code'],
+                                                'layout' => 'wide',
+                                            ],
+                                        ]) ?>
 
                                     <?php else: ?>
-                                        <!-- Diğer SEO Alt Sekmeleri -->
-                                        <?php if (false && $seoTabId === 'seo-tab-index'): ?>
-                                            <div class="admin-divider-block">
-                                                <div class="admin-inline-head ui-panel__head">
-                                                    <i class="bi bi-info-circle"></i>İndeksleme Notları
-                                                </div>
-                                                <div class="admin-section-desc">
-                                                    Giriş, kayıt ve parola akışları sistem tarafında noindex olarak kilitlidir.
-                                                    Bu sekme; ar?iv ve sayfalama gibi teknik indeksleme kurallar?n? y?netir.
-                                                    Public sayfaların meta ve noindex ayarları yeni "Public Sayfalar" sekmesindedir.
-                                                </div>
-                                            </div>
-                                        <?php endif; ?>
-                                        <div class="admin-settings-grid ui-grid">
-                                            <?php foreach (($seoGroup['keys'] ?? []) as $key): ?>
-                                                <?php if (!isset($definitions[$key])) { continue; } ?>
-                                                <?php $definition = $definitions[$key]; ?>
-                                                <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                    <?php if ($definition['type'] === 'bool'): ?>
-                                                        <label class="ui-admin-switch">
-                                                            <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                            <span class="ui-admin-switch-label">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </span>
-                                                        </label>
-                                                    <?php else: ?>
-                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                            <?= htmlspecialchars($definition['label']) ?>
-                                                            <?php if (!empty($definition['tooltip'])): ?>
-                                                                <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                            <?php endif; ?>
-                                                        </label>
-                                                        <?php if ($definition['type'] === 'text'): ?>
-                                                            <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                                        <?php elseif ($definition['type'] === 'select'): ?>
-                                                            <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                                <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                    <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        <?php elseif ($definition['type'] === 'color'): ?>
-                                                            <?php
-                                                                $colorValue = (string) ($settings[$key] ?? '');
-                                                                $colorDefault = (string) ($definition['default'] ?? '#000000');
-                                                                $resolvedColor = preg_match('/^#[0-9a-fA-F]{6}$/', $colorValue) ? $colorValue : $colorDefault;
-                                                            ?>
-                                                            <div class="admin-color-field" data-color-field>
-                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="color" class="admin-color-input" value="<?= htmlspecialchars($resolvedColor) ?>" data-color-input>
-                                                                <div class="admin-color-meta">
-                                                                    <strong data-color-value><?= htmlspecialchars(strtoupper($resolvedColor)) ?></strong>
-                                                                    <span>Mevcut renk<?= $colorValue === '' ? ' (varsayılan)' : '' ?></span>
-                                                                </div>
-                                                                <span class="admin-color-default">Varsayılan: <?= htmlspecialchars(strtoupper($colorDefault)) ?></span>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                        <?php endif; ?>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
+                                        <?= adminRenderSettingsRuleSections($definitions, $settings, 'seo', [[
+                                            'title' => (string) ($seoGroup['title'] ?? 'SEO Ayarları'),
+                                            'icon' => (string) ($seoGroup['icon'] ?? 'bi-search'),
+                                            'description' => (string) ($seoGroup['description'] ?? ''),
+                                            'keys' => (array) ($seoGroup['keys'] ?? []),
+                                        ]]) ?>
                                     <?php endif; ?>
                                     </div>
                                 </div>
@@ -2405,7 +2555,7 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $commentFirst = true; foreach ($commentGroups as $commentTabId => $commentGroup): ?>
-                                <div class="comments-subtab-panel admin-card admin-card-spaced<?= $commentFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($commentTabId) ?>">
+                                <div class="comments-subtab-panel settings-subtab-panel<?= $commentFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($commentTabId) ?>">
                                     <div class="card-header ui-panel__head">
                                         <i class="bi <?= htmlspecialchars((string) ($commentGroup['icon'] ?? 'bi-gear')) ?> me-2"></i><?= htmlspecialchars((string) ($commentGroup['title'] ?? $commentTabId)) ?>
                                     </div>
@@ -2415,71 +2565,20 @@ require_once __DIR__ . '/header.php';
                                         <?php endif; ?>
 
                                         <?php if (!empty($commentGroup['sections']) && is_array($commentGroup['sections'])): ?>
-                                            <?php foreach ($commentGroup['sections'] as $commentSection): ?>
-                                                <div class="admin-settings-subsection mb-4">
-                                                    <div class="ui-panel__head">
-                                                        <i class="bi <?= htmlspecialchars((string) ($commentSection['icon'] ?? 'bi-gear')) ?> me-2"></i><?= htmlspecialchars((string) ($commentSection['title'] ?? 'Ayarlar')) ?>
-                                                    </div>
-                                                    <?php if (!empty($commentSection['description'])): ?>
-                                                        <div class="admin-section-desc"><?= htmlspecialchars((string) ($commentSection['description'])) ?></div>
-                                                    <?php endif; ?>
-                                                    <?= adminRenderSettingsGrid($definitions, $settings, 'comments', (array) ($commentSection['keys'] ?? [])) ?>
-                                                </div>
-                                            <?php endforeach; ?>
+                                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'comments', (array) $commentGroup['sections']) ?>
                                         <?php else: ?>
-                                            <div class="admin-settings-grid ui-grid">
-                                                <?php foreach (($commentGroup['keys'] ?? []) as $key): ?>
-                                                    <?php if (!isset($definitions[$key])) { continue; } ?>
-                                                    <?php $definition = $definitions[$key]; ?>
-                                                    <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                        <?php if ($definition['type'] === 'bool'): ?>
-                                                            <label class="ui-admin-switch">
-                                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                                <span class="ui-admin-switch-label">
-                                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </label>
-                                                        <?php else: ?>
-                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </label>
-                                                            <?php if ($definition['type'] === 'text'): ?>
-                                                                <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                                            <?php elseif ($definition['type'] === 'select'): ?>
-                                                                <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                                    <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                        <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                    <?php endforeach; ?>
-                                                                </select>
-                                                            <?php elseif ($definition['type'] === 'multicheck'): ?>
-                                                                <?php $currentValues = array_map('trim', explode(',', $settings[$key] ?? $definition['default'])); ?>
-                                                                <div class="admin-multicheck-group">
-                                                                    <?php foreach (($definition['options'] ?? []) as $val => $lbl): ?>
-                                                                        <label class="ui-admin-switch">
-                                                                            <input type="checkbox" name="<?= htmlspecialchars($key) ?>[]" value="<?= htmlspecialchars($val) ?>" <?= in_array($val, $currentValues) ? 'checked' : '' ?>>
-                                                                            <span class="ui-admin-switch-label"><?= htmlspecialchars($lbl) ?></span>
-                                                                        </label>
-                                                                    <?php endforeach; ?>
-                                                                </div>
-                                                            <?php else: ?>
-                                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                            <?php endif; ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
+                                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'comments', [[
+                                                'title' => (string) ($commentGroup['title'] ?? 'Yorum Ayarları'),
+                                                'icon' => (string) ($commentGroup['icon'] ?? 'bi-gear'),
+                                                'description' => (string) ($commentGroup['description'] ?? ''),
+                                                'keys' => (array) ($commentGroup['keys'] ?? []),
+                                            ]]) ?>
                                         <?php endif; ?>
                                     </div>
                                 </div>
                             <?php $commentFirst = false; endforeach; ?>
 
-                            <script src="<?= asset_url('admin/assets/settings-page-header.js', $baseUri) ?>" defer></script>
+                            <script src="<?= asset_url('admin/assets/settings-page-comments.js', $baseUri) ?>" defer></script>
                         <?php elseif ($id === 'user_system'): ?>
                             <div class="settings-subtabs" data-settings-subtabs>
                                 <?php $userSystemFirst = true; foreach ($userSystemGroups as $userSystemTabId => $userSystemGroup): ?>
@@ -2490,7 +2589,7 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $userSystemFirst = true; foreach ($userSystemGroups as $userSystemTabId => $userSystemGroup): ?>
-                                <div class="route-filter-subtab-panel admin-card admin-card-spaced<?= $userSystemFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($userSystemTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($userSystemTabId) ?>" data-settings-subtab-scope="user-system">
+                                <div class="route-filter-subtab-panel user-system-subtab-panel settings-subtab-panel<?= $userSystemFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($userSystemTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($userSystemTabId) ?>" data-settings-subtab-scope="user-system">
                                     <div class="card-body ui-panel__body">
                                         <?php if (!empty($userSystemGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($userSystemGroup['description'])) ?></div>
@@ -2514,27 +2613,60 @@ require_once __DIR__ . '/header.php';
                                                 </div>
                                             </div>
                                         <?php endif; ?>
-                                        <?php if ($userSystemTabId === 'user-system-tab-approvals'): ?>
-                                            <div class="admin-section-stack">
-                                                <?php foreach ((array) ($userSystemGroup['sections'] ?? []) as $userSystemSection): ?>
-                                                    <section class="admin-card admin-card-spaced ui-panel">
-                                                        <div class="card-body ui-panel__body">
-                                                            <?php if (!empty($userSystemSection['title'])): ?>
-                                                                <div class="admin-inline-head ui-panel__head">
-                                                                    <i class="bi <?= htmlspecialchars((string) ($userSystemSection['icon'] ?? 'bi-gear')) ?>"></i>
-                                                                    <span class="admin-inline-title"><?= htmlspecialchars((string) $userSystemSection['title']) ?></span>
+                                        <?php $userSystemSections = (array) ($userSystemGroup['sections'] ?? []); ?>
+                                        <?php if (!empty($userSystemSections)): ?>
+                                            <div class="user-system-rule-list">
+                                                <?php foreach ($userSystemSections as $userSystemSection): ?>
+                                                    <?php
+                                                        $userSystemKeys = array_values(array_filter(
+                                                            (array) ($userSystemSection['keys'] ?? []),
+                                                            static fn($key): bool => isset($definitions[(string) $key])
+                                                        ));
+                                                        if ($userSystemKeys === []) {
+                                                            continue;
+                                                        }
+
+                                                        $userSystemLayout = trim((string) ($userSystemSection['layout'] ?? ''));
+                                                        $userSystemRuleClass = 'user-system-rule';
+                                                        if ($userSystemLayout !== '') {
+                                                            $userSystemRuleClass .= ' user-system-rule--' . preg_replace('/[^a-z0-9_-]/i', '', $userSystemLayout);
+                                                        }
+                                                        $userSystemSummaryMode = trim((string) ($userSystemSection['summary_mode'] ?? ''));
+                                                        $userSystemSummaryAttributes = $userSystemSummaryMode !== ''
+                                                            ? ' data-user-summary-mode="' . htmlspecialchars($userSystemSummaryMode, ENT_QUOTES, 'UTF-8') . '"'
+                                                            : '';
+                                                        $userSystemGridClass = 'user-system-rule-grid ui-grid';
+                                                        if ($userSystemLayout !== '') {
+                                                            $userSystemGridClass .= ' user-system-rule-grid--' . preg_replace('/[^a-z0-9_-]/i', '', $userSystemLayout);
+                                                        }
+                                                    ?>
+                                                    <section class="<?= htmlspecialchars($userSystemRuleClass, ENT_QUOTES, 'UTF-8') ?>"<?= $userSystemSummaryAttributes ?>>
+                                                        <div class="user-system-rule-head">
+                                                            <div class="user-system-rule-title-wrap">
+                                                                <span class="user-system-rule-icon" aria-hidden="true">
+                                                                    <i class="bi <?= htmlspecialchars((string) ($userSystemSection['icon'] ?? $userSystemGroup['icon'] ?? 'bi-person-gear')) ?>"></i>
+                                                                </span>
+                                                                <div class="user-system-rule-title-text">
+                                                                    <div class="user-system-rule-title"><?= htmlspecialchars((string) ($userSystemSection['title'] ?? $userSystemGroup['title'] ?? $userSystemTabId), ENT_QUOTES, 'UTF-8') ?></div>
+                                                                    <?php if (!empty($userSystemSection['description'])): ?>
+                                                                        <div class="user-system-rule-desc"><?= htmlspecialchars((string) $userSystemSection['description'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                                    <?php endif; ?>
                                                                 </div>
+                                                            </div>
+                                                            <?php if (!empty($userSystemSection['badge'])): ?>
+                                                                <span class="user-system-rule-badge"><?= htmlspecialchars((string) $userSystemSection['badge'], ENT_QUOTES, 'UTF-8') ?></span>
                                                             <?php endif; ?>
-                                                            <?php if (!empty($userSystemSection['description'])): ?>
-                                                                <div class="admin-section-desc"><?= htmlspecialchars((string) $userSystemSection['description']) ?></div>
-                                                            <?php endif; ?>
-                                                            <?= adminRenderSettingsGrid($definitions, $settings, 'user_system', (array) ($userSystemSection['keys'] ?? [])) ?>
                                                         </div>
+                                                        <?= adminRenderSettingsGrid($definitions, $settings, 'user_system', $userSystemKeys, $userSystemGridClass) ?>
+                                                        <?php if ($userSystemSummaryMode !== ''): ?>
+                                                            <div class="user-system-rule-summary" data-user-system-summary></div>
+                                                            <div class="user-system-rule-warning" data-user-system-warning hidden></div>
+                                                        <?php endif; ?>
                                                     </section>
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php else: ?>
-                                            <?= adminRenderSettingsGrid($definitions, $settings, 'user_system', (array) ($userSystemGroup['keys'] ?? [])) ?>
+                                            <?= adminRenderSettingsGrid($definitions, $settings, 'user_system', (array) ($userSystemGroup['keys'] ?? []), 'user-system-rule-grid ui-grid') ?>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -2549,14 +2681,19 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $emailFirst = true; foreach ($emailGroups as $emailTabId => $emailGroup): ?>
-                                <div class="route-filter-subtab-panel settings-subtab-panel admin-card admin-card-spaced<?= $emailFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-scope="email">
+                                <div class="route-filter-subtab-panel settings-subtab-panel<?= $emailFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-scope="email">
                                     <div class="card-body ui-panel__body">
                                         <?php if (!empty($emailGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($emailGroup['description'])) ?></div>
                                         <?php endif; ?>
 
                                         <?php if ($emailTabId === 'email-tab-settings'): ?>
-                                            <?= adminRenderSettingsGrid($definitions, $settings, 'email', (array) ($emailGroup['keys'] ?? [])) ?>
+                                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'email', [[
+                                                'title' => 'SMTP ve Gönderici',
+                                                'icon' => 'bi-envelope-gear',
+                                                'description' => (string) ($emailGroup['description'] ?? ''),
+                                                'keys' => (array) ($emailGroup['keys'] ?? []),
+                                            ]]) ?>
                                         <?php elseif ($emailTabId === 'email-tab-test'): ?>
                                             <?php $currentAdminEmail = trim((string) ($_SESSION['_auth_user_email'] ?? '')); ?>
                                             <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
@@ -2606,7 +2743,7 @@ require_once __DIR__ . '/header.php';
                                                         $subjectValue = (string) ($settings[$subjectKey] ?? $accountTemplate['subject']);
                                                         $bodyValue = (string) ($settings[$bodyKey] ?? $accountTemplate['body']);
                                                     ?>
-                                                    <section class="account-email-template-card admin-card ui-panel" data-account-email-card="<?= htmlspecialchars($accountTemplateKey) ?>">
+                                                    <section class="account-email-template-card settings-rule ui-panel" data-account-email-card="<?= htmlspecialchars($accountTemplateKey) ?>">
                                                         <div class="card-header ui-panel__head">
                                                             <div><strong><?= htmlspecialchars($accountTemplate['label']) ?></strong><small class="d-block"><?= htmlspecialchars($accountTemplate['description']) ?></small></div>
                                                             <label class="ui-admin-switch">
@@ -2649,10 +2786,10 @@ require_once __DIR__ . '/header.php';
                             <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
                                 <i class="bi bi-info-circle"></i>
                                 <div>
-                                    <strong>Hizli Kullanim:</strong>
-                                    Limit, pencere suresi icinde izin verilen maksimum istek sayisidir.
-                                    Pencere (dakika), bu sayacin ne kadar sure sonra sifirlanacagini belirler.
-                                    Ornek: Limit 5 + Pencere 15 = 15 dakikada en fazla 5 istek.
+                                    <strong>Hızlı Kullanım:</strong>
+                                    Limit alanı, yanındaki süre içinde kaç deneme, istek veya işlem yapılabileceğini belirler.
+                                    Süre alanı dakika bazlıdır.
+                                    Örnek: Limit 5 + Süre 15 = 15 dakikada en fazla 5 işlem.
                                 </div>
                             </div>
                             <div class="rate-limit-subtabs">
@@ -2664,7 +2801,7 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $rateFirst = true; foreach ($rateLimitGroups as $rateTabId => $rateGroup): ?>
-                                <div class="rate-limit-subtab-panel admin-card admin-card-spaced<?= $rateFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($rateTabId) ?>">
+                                <div class="rate-limit-subtab-panel settings-subtab-panel<?= $rateFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($rateTabId) ?>">
                                     <div class="card-header ui-panel__head">
                                         <i class="bi <?= htmlspecialchars((string) ($rateGroup['icon'] ?? 'bi-speedometer2')) ?> me-2"></i><?= htmlspecialchars((string) ($rateGroup['title'] ?? $rateTabId)) ?>
                                     </div>
@@ -2672,128 +2809,205 @@ require_once __DIR__ . '/header.php';
                                         <?php if (!empty($rateGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($rateGroup['description'])) ?></div>
                                         <?php endif; ?>
-                                        <div class="admin-settings-grid ui-grid">
+                                        <div class="rate-limit-rule-list">
+                                            <?php $renderedRateKeys = []; ?>
                                             <?php foreach (($rateGroup['keys'] ?? []) as $key): ?>
-                                                <?php if (!isset($definitions[$key])) { continue; } ?>
-                                                <?php $definition = $definitions[$key]; ?>
-                                                <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                    <?php if ($definition['type'] === 'bool'): ?>
-                                                        <label class="ui-admin-switch">
-                                                            <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                            <span class="ui-admin-switch-label">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle ms-1 text-secondary admin-help-icon"
-                                                                       data-bs-toggle="tooltip"
-                                                                       data-bs-placement="top"
-                                                                       data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
+                                                <?php
+                                                    if (isset($renderedRateKeys[$key]) || !isset($definitions[$key])) {
+                                                        continue;
+                                                    }
+
+                                                    $definition = $definitions[$key];
+                                                    $pairMeta = $rateLimitPairs[$key] ?? null;
+                                                    if (is_array($pairMeta)) {
+                                                        $windowKey = (string) ($pairMeta['window'] ?? '');
+                                                        if ($windowKey === '' || !isset($definitions[$windowKey])) {
+                                                            $pairMeta = null;
+                                                        }
+                                                    }
+                                                ?>
+                                                <?php if (is_array($pairMeta)): ?>
+                                                    <?php
+                                                        $windowKey = (string) $pairMeta['window'];
+                                                        $windowDefinition = $definitions[$windowKey];
+                                                        $renderedRateKeys[$key] = true;
+                                                        $renderedRateKeys[$windowKey] = true;
+                                                        $scopeLabel = (string) ($pairMeta['scope'] ?? 'Kapsam');
+                                                        $scopeHelp = (string) ($pairMeta['scope_help'] ?? '');
+                                                        $zeroLimitHelp = (string) ($pairMeta['zero_limit_help'] ?? '');
+                                                        $zeroSummary = (string) ($pairMeta['zero_summary'] ?? '');
+                                                    ?>
+                                                    <div class="rate-limit-rule"
+                                                         data-rate-summary-mode="pair"
+                                                         data-rate-action="<?= htmlspecialchars((string) ($pairMeta['action'] ?? 'işlem'), ENT_QUOTES, 'UTF-8') ?>"
+                                                         data-rate-zero-summary="<?= htmlspecialchars($zeroSummary, ENT_QUOTES, 'UTF-8') ?>">
+                                                        <div class="rate-limit-rule-head">
+                                                            <div>
+                                                                <div class="rate-limit-rule-title"><?= htmlspecialchars((string) ($pairMeta['title'] ?? $definition['label']), ENT_QUOTES, 'UTF-8') ?></div>
+                                                            </div>
+                                                            <span class="rate-limit-scope-badge"
+                                                                  <?php if ($scopeHelp !== ''): ?>
+                                                                      data-bs-toggle="tooltip"
+                                                                      data-bs-placement="top"
+                                                                      data-bs-title="<?= htmlspecialchars($scopeHelp, ENT_QUOTES, 'UTF-8') ?>"
+                                                                  <?php endif; ?>><?= htmlspecialchars($scopeLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                                        </div>
+                                                        <div class="rate-limit-rule-controls">
+                                                            <div class="rate-limit-rule-control">
+                                                                <label class="ui-admin-form-label" for="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
+                                                                    <?= htmlspecialchars((string) $definition['label'], ENT_QUOTES, 'UTF-8') ?>
+                                                                    <?php if (!empty($definition['tooltip'])): ?>
+                                                                        <i class="bi bi-info-circle admin-help-icon"
+                                                                           data-bs-toggle="tooltip"
+                                                                           data-bs-placement="top"
+                                                                           data-bs-title="<?= htmlspecialchars((string) $definition['tooltip'], ENT_QUOTES, 'UTF-8') ?>"></i>
+                                                                    <?php endif; ?>
+                                                                </label>
+                                                                <input id="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"
+                                                                       name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"
+                                                                       type="number"
+                                                                       class="ui-admin-form-control rate-limit-number-input"
+                                                                       value="<?= htmlspecialchars((string) ($settings[$key] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                                       <?= isset($definition['min']) ? 'min="' . htmlspecialchars((string) $definition['min'], ENT_QUOTES, 'UTF-8') . '"' : '' ?>
+                                                                       <?= isset($definition['max']) ? 'max="' . htmlspecialchars((string) $definition['max'], ENT_QUOTES, 'UTF-8') . '"' : '' ?>
+                                                                       data-rate-role="limit">
+                                                                <?php if ($zeroLimitHelp !== ''): ?>
+                                                                    <div class="rate-limit-field-help"><?= htmlspecialchars($zeroLimitHelp, ENT_QUOTES, 'UTF-8') ?></div>
                                                                 <?php endif; ?>
-                                                            </span>
-                                                        </label>
-                                                    <?php else: ?>
-                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                            <?= htmlspecialchars($definition['label']) ?>
-                                                            <?php if (!empty($definition['tooltip'])): ?>
-                                                                <i class="bi bi-info-circle ms-1 text-secondary admin-help-icon"
-                                                                   data-bs-toggle="tooltip"
-                                                                   data-bs-placement="top"
-                                                                   data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                            <?php endif; ?>
-                                                        </label>
-                                                        <?php if ($definition['type'] === 'select'): ?>
-                                                            <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                                <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                    <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                <?php endforeach; ?>
-                                                            </select>
+                                                            </div>
+                                                            <div class="rate-limit-rule-control">
+                                                                <label class="ui-admin-form-label" for="<?= htmlspecialchars($windowKey, ENT_QUOTES, 'UTF-8') ?>">
+                                                                    <?= htmlspecialchars((string) $windowDefinition['label'], ENT_QUOTES, 'UTF-8') ?>
+                                                                    <?php if (!empty($windowDefinition['tooltip'])): ?>
+                                                                        <i class="bi bi-info-circle admin-help-icon"
+                                                                           data-bs-toggle="tooltip"
+                                                                           data-bs-placement="top"
+                                                                           data-bs-title="<?= htmlspecialchars((string) $windowDefinition['tooltip'], ENT_QUOTES, 'UTF-8') ?>"></i>
+                                                                    <?php endif; ?>
+                                                                </label>
+                                                                <input id="<?= htmlspecialchars($windowKey, ENT_QUOTES, 'UTF-8') ?>"
+                                                                       name="<?= htmlspecialchars($windowKey, ENT_QUOTES, 'UTF-8') ?>"
+                                                                       type="number"
+                                                                       class="ui-admin-form-control rate-limit-number-input"
+                                                                       value="<?= htmlspecialchars((string) ($settings[$windowKey] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                                       <?= isset($windowDefinition['min']) ? 'min="' . htmlspecialchars((string) $windowDefinition['min'], ENT_QUOTES, 'UTF-8') . '"' : '' ?>
+                                                                       <?= isset($windowDefinition['max']) ? 'max="' . htmlspecialchars((string) $windowDefinition['max'], ENT_QUOTES, 'UTF-8') . '"' : '' ?>
+                                                                       data-rate-role="window">
+                                                            </div>
+                                                        </div>
+                                                        <div class="rate-limit-summary" data-rate-summary-text></div>
+                                                    </div>
+                                                <?php elseif (isset($rateLimitWindowKeys[$key])): ?>
+                                                    <?php $renderedRateKeys[$key] = true; ?>
+                                                <?php else: ?>
+                                                    <?php
+                                                        $renderedRateKeys[$key] = true;
+                                                        $singleMeta = $rateLimitSingles[$key] ?? [];
+                                                        $scopeLabel = (string) ($singleMeta['scope'] ?? 'Kapsam');
+                                                        $scopeHelp = (string) ($singleMeta['scope_help'] ?? '');
+                                                        $singleMode = (string) ($singleMeta['mode'] ?? ($definition['type'] === 'bool' ? 'switch' : 'fixed'));
+                                                        $zeroHelp = (string) ($singleMeta['zero_help'] ?? '');
+                                                        $zeroSummary = (string) ($singleMeta['zero_summary'] ?? '');
+                                                    ?>
+                                                    <div class="rate-limit-rule rate-limit-rule--single"
+                                                         data-rate-summary-mode="<?= htmlspecialchars($singleMode, ENT_QUOTES, 'UTF-8') ?>"
+                                                         data-rate-action="<?= htmlspecialchars((string) ($singleMeta['action'] ?? 'işlem'), ENT_QUOTES, 'UTF-8') ?>"
+                                                         data-rate-window-label="<?= htmlspecialchars((string) ($singleMeta['window_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                         data-rate-zero-summary="<?= htmlspecialchars($zeroSummary, ENT_QUOTES, 'UTF-8') ?>"
+                                                         data-rate-on-summary="<?= htmlspecialchars((string) ($singleMeta['summary'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                         data-rate-off-summary="Kapalıysa bu muafiyet uygulanmaz.">
+                                                        <div class="rate-limit-rule-head">
+                                                            <div>
+                                                                <div class="rate-limit-rule-title"><?= htmlspecialchars((string) ($singleMeta['title'] ?? $definition['label']), ENT_QUOTES, 'UTF-8') ?></div>
+                                                            </div>
+                                                            <span class="rate-limit-scope-badge"
+                                                                  <?php if ($scopeHelp !== ''): ?>
+                                                                      data-bs-toggle="tooltip"
+                                                                      data-bs-placement="top"
+                                                                      data-bs-title="<?= htmlspecialchars($scopeHelp, ENT_QUOTES, 'UTF-8') ?>"
+                                                                  <?php endif; ?>><?= htmlspecialchars($scopeLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                                        </div>
+                                                        <?php if ($definition['type'] === 'bool'): ?>
+                                                            <label class="ui-admin-switch rate-limit-switch">
+                                                                <input type="checkbox"
+                                                                       name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"
+                                                                       value="1"
+                                                                       <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>
+                                                                       data-rate-role="switch">
+                                                                <span class="ui-admin-switch-label">
+                                                                    <?= htmlspecialchars((string) $definition['label'], ENT_QUOTES, 'UTF-8') ?>
+                                                                    <?php if (!empty($definition['tooltip'])): ?>
+                                                                        <i class="bi bi-info-circle admin-help-icon"
+                                                                           data-bs-toggle="tooltip"
+                                                                           data-bs-placement="top"
+                                                                           data-bs-title="<?= htmlspecialchars((string) $definition['tooltip'], ENT_QUOTES, 'UTF-8') ?>"></i>
+                                                                    <?php endif; ?>
+                                                                </span>
+                                                            </label>
                                                         <?php else: ?>
-                                                            <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
+                                                            <div class="rate-limit-rule-control rate-limit-rule-control--single">
+                                                                <label class="ui-admin-form-label" for="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
+                                                                    <?= htmlspecialchars((string) $definition['label'], ENT_QUOTES, 'UTF-8') ?>
+                                                                    <?php if (!empty($definition['tooltip'])): ?>
+                                                                        <i class="bi bi-info-circle admin-help-icon"
+                                                                           data-bs-toggle="tooltip"
+                                                                           data-bs-placement="top"
+                                                                           data-bs-title="<?= htmlspecialchars((string) $definition['tooltip'], ENT_QUOTES, 'UTF-8') ?>"></i>
+                                                                    <?php endif; ?>
+                                                                </label>
+                                                                <input id="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"
+                                                                       name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"
+                                                                       type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>"
+                                                                       class="ui-admin-form-control rate-limit-number-input"
+                                                                       value="<?= htmlspecialchars((string) ($settings[$key] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                                       <?= $definition['type'] === 'number' && isset($definition['min']) ? 'min="' . htmlspecialchars((string) $definition['min'], ENT_QUOTES, 'UTF-8') . '"' : '' ?>
+                                                                       <?= $definition['type'] === 'number' && isset($definition['max']) ? 'max="' . htmlspecialchars((string) $definition['max'], ENT_QUOTES, 'UTF-8') . '"' : '' ?>
+                                                                       data-rate-role="single">
+                                                                <?php if ($zeroHelp !== ''): ?>
+                                                                    <div class="rate-limit-field-help"><?= htmlspecialchars($zeroHelp, ENT_QUOTES, 'UTF-8') ?></div>
+                                                                <?php endif; ?>
+                                                            </div>
                                                         <?php endif; ?>
-                                                    <?php endif; ?>
-                                                </div>
+                                                        <div class="rate-limit-summary" data-rate-summary-text></div>
+                                                    </div>
+                                                <?php endif; ?>
                                             <?php endforeach; ?>
                                         </div>
                                     </div>
                                 </div>
                             <?php $rateFirst = false; endforeach; ?>
 
-                            <script src="<?= asset_url('admin/assets/settings-page-footer.js', $baseUri) ?>" defer></script>
+                            <script src="<?= asset_url('admin/assets/settings-page-rate-limit.js', $baseUri) ?>" defer></script>
                         <?php elseif ($id === 'user_uploads'): ?>
                             <?php
-                                $userUploadGroupOrder = ['Genel', 'Zorunlu Alanlar', 'Görsel Kuralları', 'Video ve Linkler', 'Limitler', 'Form Davranışı'];
-                                $userUploadGroups = [];
-                                foreach ($definitions as $key => $definition) {
-                                    if (($definition['section'] ?? '') !== 'user_uploads') {
-                                        continue;
-                                    }
-                                    $groupName = (string) ($definition['group'] ?? 'Genel');
-                                    $userUploadGroups[$groupName][$key] = $definition;
-                                }
-                                $userUploadGroups = array_replace(array_fill_keys($userUploadGroupOrder, []), $userUploadGroups);
+                                $userUploadGroups = adminBuildSettingGroupsFromDefinitions($definitions, 'user_uploads', [
+                                    'Genel' => [
+                                        'icon' => 'bi-cloud-plus',
+                                        'description' => 'Kullanıcı tarafındaki mod gönderim sayfasının genel aktiflik durumu.',
+                                    ],
+                                    'Zorunlu Alanlar' => [
+                                        'icon' => 'bi-ui-checks-grid',
+                                        'description' => 'Gönderim formunda zorunlu tutulacak temel alanlar.',
+                                    ],
+                                    'Görsel Kuralları' => [
+                                        'icon' => 'bi-images',
+                                        'description' => 'Kapak ve galeri görsellerinin boyut, uzantı ve adet sınırları.',
+                                    ],
+                                    'Video ve Linkler' => [
+                                        'icon' => 'bi-play-btn',
+                                        'description' => 'Tanıtım videosu ve izin verilen video sağlayıcıları.',
+                                    ],
+                                    'Limitler' => [
+                                        'icon' => 'bi-speedometer2',
+                                        'description' => 'Dosya boyutu gibi gönderim limitleri. Sıklık limitleri İstek Sınırları sekmesinde yönetilir.',
+                                    ],
+                                    'Form Davranışı' => [
+                                        'icon' => 'bi-layout-text-sidebar',
+                                        'description' => 'Wizard arayüzü, gönderim sonrası kilitleme ve kullanıcı takip kutusu davranışları.',
+                                    ],
+                                ]);
                             ?>
-                            <div class="user-upload-settings-groups">
-                                <?php foreach ($userUploadGroups as $groupName => $groupDefinitions): ?>
-                                    <?php if (!$groupDefinitions) { continue; } ?>
-                                    <div class="user-upload-setting-group">
-                                        <div class="user-upload-setting-group-head ui-panel__head">
-                                            <i class="bi bi-sliders2"></i>
-                                            <strong><?= htmlspecialchars($groupName) ?></strong>
-                                            <span><?= count($groupDefinitions) ?> ayar</span>
-                                        </div>
-                                        <div class="user-upload-setting-group-grid ui-grid">
-                                            <?php foreach ($groupDefinitions as $key => $definition): ?>
-                                                <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                                    <?php if ($definition['type'] === 'bool'): ?>
-                                                        <label class="ui-admin-switch">
-                                                            <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                            <span class="ui-admin-switch-label">
-                                                                <?= htmlspecialchars($definition['label']) ?>
-                                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                                    <i class="bi bi-info-circle ms-1 text-secondary admin-help-icon"
-                                                                       data-bs-toggle="tooltip"
-                                                                       data-bs-placement="top"
-                                                                       data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                                <?php endif; ?>
-                                                            </span>
-                                                        </label>
-                                                    <?php else: ?>
-                                                        <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                            <?= htmlspecialchars($definition['label']) ?>
-                                                            <?php if (!empty($definition['tooltip'])): ?>
-                                                                <i class="bi bi-info-circle ms-1 text-secondary admin-help-icon"
-                                                                   data-bs-toggle="tooltip"
-                                                                   data-bs-placement="top"
-                                                                   data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                            <?php endif; ?>
-                                                        </label>
-                                                        <?php if ($definition['type'] === 'text'): ?>
-                                                            <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                                        <?php elseif ($definition['type'] === 'select'): ?>
-                                                            <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                                <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                                    <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        <?php elseif ($definition['type'] === 'multicheck'): ?>
-                                                            <?php $currentValues = array_map('trim', explode(',', $settings[$key] ?? $definition['default'])); ?>
-                                                            <div class="admin-multicheck-group">
-                                                                <?php foreach (($definition['options'] ?? []) as $val => $lbl): ?>
-                                                                    <label class="ui-admin-switch">
-                                                                        <input type="checkbox" name="<?= htmlspecialchars($key) ?>[]" value="<?= htmlspecialchars($val) ?>" <?= in_array($val, $currentValues) ? 'checked' : '' ?>>
-                                                                        <span class="ui-admin-switch-label"><?= htmlspecialchars($lbl) ?></span>
-                                                                    </label>
-                                                                <?php endforeach; ?>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                        <?php endif; ?>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
+                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'user_uploads', $userUploadGroups) ?>
                         <?php elseif ($id === 'downloads'): ?>
                             <div class="route-filter-subtabs settings-subtabs" data-settings-subtabs>
                                 <?php $downloadFirst = true; foreach ($downloadGroups as $downloadTabId => $downloadGroup): ?>
@@ -2804,32 +3018,20 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $downloadFirst = true; foreach ($downloadGroups as $downloadTabId => $downloadGroup): ?>
-                                <div class="route-filter-subtab-panel settings-subtab-panel admin-card admin-card-spaced<?= $downloadFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($downloadTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($downloadTabId) ?>" data-settings-subtab-scope="downloads">
+                                <div class="route-filter-subtab-panel settings-subtab-panel<?= $downloadFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($downloadTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($downloadTabId) ?>" data-settings-subtab-scope="downloads">
                                     <div class="card-body ui-panel__body">
                                         <?php if (!empty($downloadGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($downloadGroup['description'])) ?></div>
                                         <?php endif; ?>
                                         <?php if (!empty($downloadGroup['sections']) && is_array($downloadGroup['sections'])): ?>
-                                            <div class="download-access-settings-sections">
-                                                <?php foreach ($downloadGroup['sections'] as $downloadSection): ?>
-                                                    <section class="download-access-settings-section">
-                                                        <header class="download-access-settings-section__header">
-                                                            <span class="download-access-settings-section__icon" aria-hidden="true">
-                                                                <i class="bi <?= htmlspecialchars((string) ($downloadSection['icon'] ?? 'bi-sliders')) ?>"></i>
-                                                            </span>
-                                                            <div>
-                                                                <h3><?= htmlspecialchars((string) ($downloadSection['title'] ?? 'Ayarlar')) ?></h3>
-                                                                <?php if (!empty($downloadSection['description'])): ?>
-                                                                    <p><?= htmlspecialchars((string) $downloadSection['description']) ?></p>
-                                                                <?php endif; ?>
-                                                            </div>
-                                                        </header>
-                                                        <?= adminRenderSettingsGrid($definitions, $settings, 'downloads', (array) ($downloadSection['keys'] ?? []), 'admin-settings-grid download-access-settings-section__grid ui-grid') ?>
-                                                    </section>
-                                                <?php endforeach; ?>
-                                            </div>
+                                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'downloads', (array) $downloadGroup['sections']) ?>
                                         <?php else: ?>
-                                            <?= adminRenderSettingsGrid($definitions, $settings, 'downloads', (array) ($downloadGroup['keys'] ?? [])) ?>
+                                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'downloads', [[
+                                                'title' => (string) ($downloadGroup['title'] ?? 'İndirme Ayarları'),
+                                                'icon' => (string) ($downloadGroup['icon'] ?? 'bi-download'),
+                                                'description' => (string) ($downloadGroup['description'] ?? ''),
+                                                'keys' => (array) ($downloadGroup['keys'] ?? []),
+                                            ]]) ?>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -2844,69 +3046,22 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $contentModerationFirst = true; foreach ($contentModerationGroups as $moderationTabId => $moderationGroup): ?>
-                                <div class="route-filter-subtab-panel settings-subtab-panel admin-card admin-card-spaced<?= $contentModerationFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($moderationTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($moderationTabId) ?>" data-settings-subtab-scope="content-moderation">
+                                <div class="route-filter-subtab-panel settings-subtab-panel<?= $contentModerationFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($moderationTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($moderationTabId) ?>" data-settings-subtab-scope="content-moderation">
                                     <div class="card-body ui-panel__body">
                                         <?php if (!empty($moderationGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($moderationGroup['description'])) ?></div>
                                         <?php endif; ?>
-                                        <?= adminRenderSettingsGrid($definitions, $settings, 'content_moderation', (array) ($moderationGroup['keys'] ?? [])) ?>
+                                        <?= adminRenderSettingsRuleSections($definitions, $settings, 'content_moderation', [[
+                                            'title' => (string) ($moderationGroup['title'] ?? 'Moderasyon Ayarları'),
+                                            'icon' => (string) ($moderationGroup['icon'] ?? 'bi-shield-check'),
+                                            'description' => (string) ($moderationGroup['description'] ?? ''),
+                                            'keys' => (array) ($moderationGroup['keys'] ?? []),
+                                        ]]) ?>
                                     </div>
                                 </div>
                             <?php $contentModerationFirst = false; endforeach; ?>
-                        <?php elseif ($id !== 'file_manager' && $id !== 'seo'): ?>
-                            <div class="admin-settings-grid <?= $id === 'route_filters' ? 'route-filter-settings-grid' : '' ?> ui-grid">
-                                <?php foreach ($definitions as $key => $definition): ?>
-                                    <?php if ($definition['section'] !== $id) { continue; } ?>
-                                    <div class="<?= ($definition['type'] === 'text' || $definition['type'] === 'richtext') ? 'admin-field-wide' : '' ?>">
-                                        <?php if ($definition['type'] === 'bool'): ?>
-                                            <label class="ui-admin-switch">
-                                                <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= ($settings[$key] ?? '0') === '1' ? 'checked' : '' ?>>
-                                                <span class="ui-admin-switch-label">
-                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                        <i class="bi bi-info-circle admin-help-icon" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                    <?php endif; ?>
-                                                </span>
-                                            </label>
-                                        <?php else: ?>
-                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                <?= htmlspecialchars($definition['label']) ?>
-                                                <?php if (!empty($definition['tooltip'])): ?>
-                                                    <i class="bi bi-info-circle ms-1 text-secondary admin-help-icon"
-                                                       data-bs-toggle="tooltip"
-                                                       data-bs-placement="top"
-                                                       data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                <?php endif; ?>
-                                            </label>
-                                            <?php if ($definition['type'] === 'text' || $definition['type'] === 'richtext'): ?>
-                                                <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control<?= ($definition['type'] === 'richtext' || !empty($definition['rich'])) ? ' rich-editor' : '' ?>"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                            <?php elseif ($definition['type'] === 'select'): ?>
-                                                <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                    <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                        <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                            <?php elseif ($definition['type'] === 'color'): ?>
-                                                <?php
-                                                    $colorValue = (string) ($settings[$key] ?? '');
-                                                    $colorDefault = (string) ($definition['default'] ?? '#000000');
-                                                    $resolvedColor = preg_match('/^#[0-9a-fA-F]{6}$/', $colorValue) ? $colorValue : $colorDefault;
-                                                ?>
-                                                <div class="admin-color-field" data-color-field>
-                                                    <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="color" class="admin-color-input" value="<?= htmlspecialchars($resolvedColor) ?>" data-color-input>
-                                                    <div class="admin-color-meta">
-                                                        <strong data-color-value><?= htmlspecialchars(strtoupper($resolvedColor)) ?></strong>
-                                                        <span>Mevcut renk<?= $colorValue === '' ? ' (varsayılan)' : '' ?></span>
-                                                    </div>
-                                                    <span class="admin-color-default">Varsayılan: <?= htmlspecialchars(strtoupper($colorDefault)) ?></span>
-                                                </div>
-                                            <?php else: ?>
-                                                <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                            <?php endif; ?>
-                                        <?php endif; ?>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
+                        <?php elseif (isset($simpleSettingsGroups[$id])): ?>
+                            <?= adminRenderSettingsRuleSections($definitions, $settings, $id, $simpleSettingsGroups[$id]) ?>
                         <?php endif; ?>
                     <?php if ($id !== 'file_manager'): ?>
                     </div>
@@ -2922,6 +3077,13 @@ require_once __DIR__ . '/header.php';
                         <div class="admin-section-desc">
                             Dosya yükleme kuralları ile görsel optimizasyon ayarlarını aynı merkezden yönetin. Dosya Ayarları kabul edilen türleri ve hedef klasörü, Resim Ayarları ise WebP, thumbnail ve filigran davranışlarını kontrol eder.
                         </div>
+                        <?php
+                            $fileManagerRenderDefinitions = $definitions;
+                            if (!$settingsWebpSupport && isset($fileManagerRenderDefinitions['webp_enabled'])) {
+                                $fileManagerRenderDefinitions['webp_enabled']['disabled'] = true;
+                                $fileManagerRenderDefinitions['webp_enabled']['disabled_help'] = $settingsWebpRequirementNote;
+                            }
+                        ?>
 
                         <div class="file-manager-subtabs">
                             <?php $fileManagerFirst = true; foreach ($fileManagerGroups as $fileManagerTabId => $fileManagerGroup): ?>
@@ -2933,76 +3095,16 @@ require_once __DIR__ . '/header.php';
 
                         <?php $fileManagerFirst = true; foreach ($fileManagerGroups as $fileManagerTabId => $fileManagerGroup): ?>
                             <div class="file-manager-subtab-panel<?= $fileManagerFirst ? ' is-active' : '' ?>" id="<?= htmlspecialchars($fileManagerTabId) ?>">
-                                <div class="file-manager-subtab-head">
-                                    <i class="bi <?= htmlspecialchars((string) ($fileManagerGroup['icon'] ?? 'bi-folder2-open')) ?>"></i>
-                                    <div>
-                                        <h3><?= htmlspecialchars((string) ($fileManagerGroup['title'] ?? $fileManagerTabId)) ?></h3>
-                                        <?php if (!empty($fileManagerGroup['description'])): ?>
-                                            <p><?= htmlspecialchars((string) ($fileManagerGroup['description'])) ?></p>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-
-                                <div class="settings-images-grid ui-grid">
-                                    <?php foreach (($fileManagerGroup['keys'] ?? []) as $key): ?>
-                                        <?php if (!isset($definitions[$key])) { continue; } ?>
-                                        <?php $definition = $definitions[$key]; ?>
-                                        <div class="<?= $definition['type'] === 'text' ? 'admin-field-wide' : '' ?>">
-                                            <?php if ($definition['type'] === 'bool'): ?>
-                                                <?php
-                                                    $isWebpToggle = $key === 'webp_enabled';
-                                                    $isWebpLocked = $isWebpToggle && !$settingsWebpSupport;
-                                                ?>
-                                                <label class="ui-admin-switch<?= $isWebpLocked ? ' ui-admin-switch-disabled' : '' ?>">
-                                                    <input type="checkbox" name="<?= htmlspecialchars($key) ?>" value="1" <?= (!$isWebpLocked && ($settings[$key] ?? '0') === '1') ? 'checked' : '' ?> <?= $isWebpLocked ? 'disabled' : '' ?>>
-                                                    <span class="ui-admin-switch-label">
-                                                        <?= htmlspecialchars($definition['label']) ?>
-                                                        <?php if ($isWebpToggle && $settingsWebpSupport): ?>
-                                                            <span class="settings-support-badge settings-support-badge-ok">Destekleniyor</span>
-                                                        <?php endif; ?>
-                                                        <?php if (!empty($definition['tooltip'])): ?>
-                                                            <i class="bi bi-info-circle ms-1 text-secondary admin-help-icon"
-                                                               data-bs-toggle="tooltip"
-                                                               data-bs-placement="top"
-                                                               data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                        <?php endif; ?>
-                                                    </span>
-                                                </label>
-                                                <?php if ($isWebpLocked): ?>
-                                                    <div class="settings-webp-lock-note">
-                                                        <i class="bi bi-exclamation-triangle-fill"></i>
-                                                        <span><?= htmlspecialchars($settingsWebpRequirementNote) ?></span>
-                                                    </div>
-                                                <?php endif; ?>
-                                            <?php else: ?>
-                                                <label class="ui-admin-form-label" for="<?= htmlspecialchars($key) ?>">
-                                                    <?= htmlspecialchars($definition['label']) ?>
-                                                    <?php if (!empty($definition['tooltip'])): ?>
-                                                        <i class="bi bi-info-circle ms-1 text-secondary admin-help-icon"
-                                                           data-bs-toggle="tooltip"
-                                                           data-bs-placement="top"
-                                                           data-bs-title="<?= htmlspecialchars($definition['tooltip']) ?>"></i>
-                                                    <?php endif; ?>
-                                                </label>
-                                                <?php if ($definition['type'] === 'text'): ?>
-                                                    <textarea id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" rows="3" class="ui-admin-form-control"><?= htmlspecialchars($settings[$key] ?? '') ?></textarea>
-                                                <?php elseif ($definition['type'] === 'select'): ?>
-                                                    <select id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" class="ui-admin-form-select">
-                                                        <?php foreach (($definition['options'] ?? []) as $value => $label): ?>
-                                                            <option value="<?= htmlspecialchars($value) ?>" <?= ($settings[$key] ?? '') === $value ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                <?php else: ?>
-                                                    <input id="<?= htmlspecialchars($key) ?>" name="<?= htmlspecialchars($key) ?>" type="<?= $definition['type'] === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($settings[$key] ?? '') ?>">
-                                                <?php endif; ?>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
+                                <?= adminRenderSettingsRuleSections($fileManagerRenderDefinitions, $settings, 'file_manager', [[
+                                    'title' => (string) ($fileManagerGroup['title'] ?? $fileManagerTabId),
+                                    'icon' => (string) ($fileManagerGroup['icon'] ?? 'bi-folder2-open'),
+                                    'description' => (string) ($fileManagerGroup['description'] ?? ''),
+                                    'keys' => (array) ($fileManagerGroup['keys'] ?? []),
+                                ]]) ?>
                             </div>
                         <?php $fileManagerFirst = false; endforeach; ?>
 
-                        <script src="<?= asset_url('admin/assets/settings-page-seo.js', $baseUri) ?>" defer></script>
+                        <script src="<?= asset_url('admin/assets/settings-page-file-manager.js', $baseUri) ?>" defer></script>
 
                     <!-- Sunucu Desteği -->
                     <div class="settings-images-support">

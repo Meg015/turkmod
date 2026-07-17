@@ -246,16 +246,26 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
     $_tDurError = (int) ($_fLay["toast_duration_error"] ?? 0);
     $_tDurWarning = (int) ($_fLay["toast_duration_warning"] ?? 0);
 
-    $fSuccess = $successMsg ?? ($_SESSION["_flash_success"] ?? "");
-    $fError = $errorMsg ?? ($_SESSION["_flash_error"] ?? "");
-    $fInfo = $infoMsg ?? ($_SESSION["_flash_info"] ?? "");
-    $fWarning = $warningMsg ?? ($_SESSION["_flash_warning"] ?? "");
+    $fSuccess = $successMsg ?? ($_SESSION["_flash"]["success"] ?? ($_SESSION["_flash_success"] ?? ""));
+    $fError = $errorMsg ?? ($_SESSION["_flash"]["error"] ?? ($_SESSION["_flash_error"] ?? ""));
+    $fInfo = $infoMsg ?? ($_SESSION["_flash"]["info"] ?? ($_SESSION["_flash_info"] ?? ""));
+    $fWarning = $warningMsg ?? ($_SESSION["_flash"]["warning"] ?? ($_SESSION["_flash_warning"] ?? ""));
     unset(
+        $_SESSION["_flash"]["success"],
+        $_SESSION["_flash"]["error"],
+        $_SESSION["_flash"]["info"],
+        $_SESSION["_flash"]["warning"],
         $_SESSION["_flash_success"],
         $_SESSION["_flash_error"],
         $_SESSION["_flash_info"],
         $_SESSION["_flash_warning"],
     );
+    if (isset($_SESSION["_flash"]) && is_array($_SESSION["_flash"]) && $_SESSION["_flash"] === []) {
+        unset($_SESSION["_flash"]);
+    }
+    if (!$_tEnabled && ($fSuccess !== "" || $fError !== "" || $fInfo !== "" || $fWarning !== "")) {
+        $_tEnabled = true;
+    }
     ?>
 
     <?php if ($_tEnabled): ?>

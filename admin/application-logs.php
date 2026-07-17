@@ -52,104 +52,61 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         ], static fn ($value): bool => $value !== '' && $value !== null);
         $redirectUrl = 'application-logs.php' . ($redirectParams !== [] ? '?' . http_build_query($redirectParams) : '');
 
-        if (!verify_csrf_token($_POST['_token'] ?? '')) {
-            flash('error', 'Guvenlik hatasi.');
-            header('Location: ' . $redirectUrl);
-            exit;
-        }
-        if (!adminCurrentUserCan('logs.manage')) {
-            adminDenyAction('Uygulama loglarini temizlemek icin gerekli izin hesabiniza tanimlanmamis.', $redirectUrl);
+        if ($postAction === 'clear_all') {
+            adminRunLogCleanup($pdo, [
+                'action_type' => 'application_logs_cleared',
+                'scope' => 'all',
+                'allowed_scopes' => ['all'],
+                'permission' => 'logs.manage',
+                'permission_message' => 'Uygulama loglarını temizlemek için gerekli izin hesabınıza tanımlanmamış.',
+                'redirect_url' => $redirectUrl,
+                'source' => 'application_logs',
+                'delete' => static fn (PDO $pdo): int => appLogsClearAll($pdo),
+                'success_message' => static fn (int $deleted): string => $deleted . ' uygulama logu temizlendi.',
+            ]);
         }
 
-        try {
-            if ($postAction === 'clear_all') {
-                $deleted = appLogsClearAll($pdo);
-                logActivity($pdo, 'application_logs_cleared', 'logs', null, [
-                    'scope' => 'all',
-                    'deleted' => $deleted,
-                ]);
-                if (function_exists('adminAuditLogger')) {
-                    adminAuditLogger()->logAction(
-                        $pdo,
-                        'application_logs_cleared',
-                        'settings',
-                        0,
-                        'Uygulama loglari tamamen temizlendi',
-                        [],
-                        ['scope' => 'all', 'deleted' => $deleted],
-                        false
-                    );
-                }
-                flash('success', $deleted . ' uygulama logu temizlendi.');
-            } elseif ($postAction === 'clear_old') {
-                $days = max(7, min(3650, (int) ($_POST['days'] ?? 90)));
-                $deleted = appLogsClearOld($pdo, $days);
-                logActivity($pdo, 'application_logs_cleared', 'logs', null, [
-                    'scope' => 'old',
-                    'deleted' => $deleted,
+        if ($postAction === 'clear_old') {
+            $days = max(7, min(3650, (int) ($_POST['days'] ?? 90)));
+            adminRunLogCleanup($pdo, [
+                'action_type' => 'application_logs_cleared',
+                'scope' => 'old',
+                'allowed_scopes' => ['old'],
+                'permission' => 'logs.manage',
+                'permission_message' => 'Uygulama loglarını temizlemek için gerekli izin hesabınıza tanımlanmamış.',
+                'redirect_url' => $redirectUrl,
+                'source' => 'application_logs',
+                'delete' => static fn (PDO $pdo): int => appLogsClearOld($pdo, $days),
+                'context' => [
                     'days' => $days,
-                ]);
-                if (function_exists('adminAuditLogger')) {
-                    adminAuditLogger()->logAction(
-                        $pdo,
-                        'application_logs_cleared',
-                        'settings',
-                        0,
-                        'Uygulama loglari kismi temizlendi',
-                        [],
-                        ['scope' => 'old', 'deleted' => $deleted, 'days' => $days],
-                        false
-                    );
-                }
-                flash('success', $deleted . ' kayıt silindi (' . $days . ' gün önceki ve daha eski).');
-            } else {
-                $hasFilter = $postSearch !== '' || $postLevel !== '' || $postChannel !== '' || $postDateFrom !== '' || $postDateTo !== '';
-                if (!$hasFilter) {
-                    flash('error', 'Filtre seçmeden filtreye göre temizleme yapamazsınız.');
-                } else {
-                    $deleted = appLogsClearFiltered($pdo, $postSearch, $postLevel, $postChannel, $postDateFrom, $postDateTo);
-                    logActivity($pdo, 'application_logs_cleared', 'logs', null, [
-                        'scope' => 'filtered',
-                        'deleted' => $deleted,
-                        'filters' => [
-                            'q' => $postSearch,
-                            'level' => $postLevel,
-                            'channel' => $postChannel,
-                            'date_from' => $postDateFrom,
-                            'date_to' => $postDateTo,
-                        ],
-                    ]);
-                    if (function_exists('adminAuditLogger')) {
-                        adminAuditLogger()->logAction(
-                            $pdo,
-                            'application_logs_cleared',
-                            'settings',
-                            0,
-                            'Uygulama loglari filtreye gore temizlendi',
-                            [],
-                            [
-                                'scope' => 'filtered',
-                                'deleted' => $deleted,
-                                'filters' => [
-                                    'q' => $postSearch,
-                                    'level' => $postLevel,
-                                    'channel' => $postChannel,
-                                    'date_from' => $postDateFrom,
-                                    'date_to' => $postDateTo,
-                                ],
-                            ],
-                            false
-                        );
-                    }
-                    flash('success', $deleted . ' filtreli uygulama logu silindi.');
-                }
-            }
-        } catch (Throwable $e) {
-            flash('error', 'Temizleme hatasi: ' . safeErrorMessage($e));
+                ],
+                'success_message' => static fn (int $deleted): string => $deleted . ' kayıt silindi (' . $days . ' gün önceki ve daha eski).',
+            ]);
         }
 
-        header('Location: ' . $redirectUrl);
-        exit;
+        $filters = [
+            'q' => $postSearch,
+            'level' => $postLevel,
+            'channel' => $postChannel,
+            'date_from' => $postDateFrom,
+            'date_to' => $postDateTo,
+        ];
+        $hasFilter = implode('', $filters) !== '';
+        adminRunLogCleanup($pdo, [
+            'action_type' => 'application_logs_cleared',
+            'scope' => 'filtered',
+            'allowed_scopes' => ['filtered'],
+            'permission' => 'logs.manage',
+            'permission_message' => 'Uygulama loglarını temizlemek için gerekli izin hesabınıza tanımlanmamış.',
+            'redirect_url' => $redirectUrl,
+            'source' => 'application_logs',
+            'validate' => static fn (): string => $hasFilter ? '' : 'Filtre seçmeden filtreye göre temizleme yapamazsınız.',
+            'delete' => static fn (PDO $pdo): int => appLogsClearFiltered($pdo, $postSearch, $postLevel, $postChannel, $postDateFrom, $postDateTo),
+            'context' => [
+                'filters' => $filters,
+            ],
+            'success_message' => static fn (int $deleted): string => $deleted . ' filtreli uygulama logu silindi.',
+        ]);
     }
 }
 
@@ -159,15 +116,16 @@ $filterChannel = trim((string) ($_GET['channel'] ?? ''));
 $dateFrom = $normalizeDate($_GET['date_from'] ?? '');
 $dateTo = $normalizeDate($_GET['date_to'] ?? '');
 $page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = adminPaginationPerPage();
 
-$logs = ['items' => [], 'total' => 0, 'page' => 1, 'perPage' => 50];
+$logs = ['items' => [], 'total' => 0, 'page' => 1, 'perPage' => $perPage];
 $stats = ['total' => 0, 'total_24h' => 0, 'total_7d' => 0, 'channels' => 0, 'errors_24h' => 0, 'errors_7d' => 0];
 $levels = [];
 $channels = [];
 
 if ($pdo) {
     try {
-        $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, 50, $dateFrom, $dateTo);
+        $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, $perPage, $dateFrom, $dateTo);
         if (!empty($logs['items']) && function_exists('appLogsDecorateItems')) {
             $logs['items'] = appLogsDecorateItems($pdo, $logs['items']);
         }
@@ -192,6 +150,21 @@ if ($filterLevel !== '' && !in_array($filterLevel, $levels, true)) {
 if ($filterChannel !== '' && !in_array($filterChannel, $channels, true)) {
     $channels[] = $filterChannel;
     sort($channels);
+}
+
+$logsPerPage = max(1, (int) ($logs['perPage'] ?? $perPage));
+$logsTotalRows = max(0, (int) ($logs['total'] ?? 0));
+$logsTotalPages = max(1, (int) ceil($logsTotalRows / $logsPerPage));
+if ($pdo && $page > $logsTotalPages) {
+    $page = $logsTotalPages;
+    try {
+        $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, $perPage, $dateFrom, $dateTo);
+        if (!empty($logs['items']) && function_exists('appLogsDecorateItems')) {
+            $logs['items'] = appLogsDecorateItems($pdo, $logs['items']);
+        }
+    } catch (Throwable $e) {
+        flash('error', 'Uygulama logları yeniden sayfalanamadı: ' . safeErrorMessage($e));
+    }
 }
 
 $hasFilters = $search !== '' || $filterLevel !== '' || $filterChannel !== '' || $dateFrom !== '' || $dateTo !== '';
@@ -252,7 +225,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="admin-card logs-toolbar-card ui-panel">
         <div class="card-body ui-admin-card-compact ui-panel__body ui-card application-logs-toolbar logs-toolbar-shell">
-            <form method="get" action="application-logs.php" class="ui-admin-filter-row application-logs-filter-form">
+            <form method="get" action="application-logs.php" class="ui-admin-filter-row logs-filter-form application-logs-filter-form admin-log-filter-form">
                 <div class="ui-admin-filter-grow application-logs-search">
                     <label class="ui-admin-form-label">Ara</label>
                     <input type="text" name="q" class="ui-admin-form-control" placeholder="Mesaj, kanal, seviye veya IP ara..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
@@ -297,27 +270,9 @@ require_once __DIR__ . '/header.php';
                 <div class="application-logs-maintenance">
                     <div class="application-logs-maintenance-label"><i class="bi bi-tools"></i> Bakım işlemleri</div>
                     <div class="application-logs-actions logs-toolbar-actions">
-                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Yalnızca aktif filtreye uyan uygulama logları silinsin mi?" data-admin-confirm-title="Filtreli logları temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
-                            <?= csrf_field() ?>
-                            <input type="hidden" name="action" value="clear_filtered">
-                            <?php $renderFilterHiddenFields(); ?>
-                            <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs" <?= $hasFilters ? '' : 'disabled' ?>><i class="bi bi-funnel"></i> Filtreyi Temizle</button>
-                        </form>
-                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Belirttiğiniz günden daha eski uygulama logları silinsin mi?" data-admin-confirm-title="Eski logları temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="warning">
-                            <?= csrf_field() ?>
-                            <input type="hidden" name="action" value="clear_old">
-                            <?php $renderFilterHiddenFields(); ?>
-                            <div class="application-logs-old-row">
-                                <input type="number" name="days" min="7" max="3650" step="1" value="90" class="ui-admin-form-control application-logs-days-input" aria-label="Gün sayısı">
-                                <button type="submit" class="ui-admin-btn ui-admin-btn-warning ui-admin-btn-xs"><i class="bi bi-calendar-minus"></i> Eski Kayıtları Temizle</button>
-                            </div>
-                        </form>
-                        <form method="post" action="application-logs.php" class="logs-clear-form" data-admin-confirm="Tüm uygulama logları kalıcı olarak silinecek. Emin misiniz?" data-admin-confirm-title="Tüm uygulama loglarını temizle" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
-                            <?= csrf_field() ?>
-                            <input type="hidden" name="action" value="clear_all">
-                            <?php $renderFilterHiddenFields(); ?>
-                        <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Tümünü Sil</button>
-                        </form>
+                        <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs" data-clear-logs-open>
+                            <i class="bi bi-trash"></i> Günlüğü Temizle
+                        </button>
                     </div>
                 </div>
             <?php endif; ?>
@@ -333,14 +288,14 @@ require_once __DIR__ . '/header.php';
         </div>
         <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
             <?php if (empty($logs['items'])): ?>
-                <div class="ui-admin-empty ui-empty">
+                <div class="ui-admin-empty ui-empty admin-log-empty">
                     <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-journal-code"></i></div>
                     <h3 class="ui-admin-empty-title ui-empty">Kayıt bulunamadı</h3>
                     <p class="ui-admin-empty-desc ui-empty"><?= $hasFilters ? 'Seçili filtreyle eşleşen uygulama logu yok.' : 'Henüz uygulama logu oluşmamış.' ?></p>
                 </div>
             <?php else: ?>
-                <div class="table-wrapper ui-table-wrap ui-surface">
-                    <table class="admin-table">
+                <div class="table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
+                    <table class="admin-table admin-log-table">
                         <thead>
                             <tr>
                             <th>Tarih</th>
@@ -392,7 +347,7 @@ require_once __DIR__ . '/header.php';
                 </div>
 
                 <?php
-                $perPage = max(1, (int) ($logs['perPage'] ?? 50));
+                $perPage = max(1, (int) ($logs['perPage'] ?? adminPaginationPerPage()));
                 $totalRows = max(0, (int) ($logs['total'] ?? 0));
                 $totalPages = (int) ceil($totalRows / $perPage);
                 if ($totalPages > 1):
@@ -404,26 +359,69 @@ require_once __DIR__ . '/header.php';
                         'date_to' => $dateTo,
                     ], static fn ($value): bool => $value !== '' && $value !== null);
                     $pageBase = 'application-logs.php?' . ($pageParams ? http_build_query($pageParams) . '&' : '') . 'page=';
-                    ?>
-                    <div class="pagination-wrapper logs-pagination-wrapper">
-                        <div class="pagination">
-                            <?php if ($page > 1): ?>
-                                <a href="<?= htmlspecialchars($pageBase . ($page - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
-                            <?php endif; ?>
-
-                            <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                                <a href="<?= htmlspecialchars($pageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"<?= $i === $page ? ' aria-current="page"' : '' ?>><?= $i ?></a>
-                            <?php endfor; ?>
-
-                            <?php if ($page < $totalPages): ?>
-                                <a href="<?= htmlspecialchars($pageBase . ($page + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
+                    echo adminRenderPagination($totalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
+                        'wrapper_class' => 'logs-pagination-wrapper',
+                        'aria_label' => 'Uygulama logları sayfalama',
+                    ]);
+                endif;
+                ?>
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if ($canManageLogs): ?>
+    <?php
+    $applicationClearOptions = [];
+    if ($hasFilters) {
+        $applicationClearOptions[] = [
+            'value' => 'clear_filtered',
+            'label' => 'Aktif filtreye uyan kayıtları sil',
+            'confirm_title' => 'Kayıtları Temizle',
+        ];
+    }
+    $applicationClearOptions[] = [
+        'value' => 'clear_old',
+        'label' => 'Belirtilen günden eski kayıtları sil',
+        'confirm_title' => 'Kayıtları Temizle',
+    ];
+    $applicationClearOptions[] = [
+        'value' => 'clear_all',
+        'label' => 'Tüm uygulama günlüğünü sil (Tehlikeli)',
+        'confirm_title' => 'Günlüğü Temizle',
+    ];
+
+    $logClearModal = [
+        'aria_label' => 'Uygulama günlüğünü temizle',
+        'title' => 'Günlüğü Temizle',
+        'form_action' => 'application-logs.php',
+        'scope_name' => 'action',
+        'options' => $applicationClearOptions,
+        'extra_hidden_renderer' => static function () use ($renderFilterHiddenFields): void {
+            $renderFilterHiddenFields();
+        },
+        'fields' => [
+            [
+                'show_for' => 'clear_old',
+                'label' => 'Gün sınırı',
+                'input' => [
+                    'id' => 'application-clear-days',
+                    'type' => 'number',
+                    'name' => 'days',
+                    'min' => '7',
+                    'max' => '3650',
+                    'step' => '1',
+                    'value' => '90',
+                    'class' => 'ui-admin-form-control',
+                    'aria-label' => 'Gün sayısı',
+                ],
+            ],
+        ],
+        'warning' => 'Seçilen kapsam kalıcı olarak silinir. Güvenlik incelemeleri için son logların tutulması önerilir. İşlem geri alınamaz.',
+    ];
+    include __DIR__ . '/partials/log-clear-modal.php';
+    unset($logClearModal, $applicationClearOptions);
+    ?>
+    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

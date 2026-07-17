@@ -18,7 +18,7 @@ $leaderboardSettings = leaderboardGetSettings($pdo);
 $leaderboard_disabled = (($leaderboardSettings['leaderboard_enabled'] ?? '1') !== '1');
 $leaderboard_disabled_message = trim((string) ($leaderboardSettings['leaderboard_disabled_message'] ?? ''));
 if ($leaderboard_disabled_message === '') {
-    $leaderboard_disabled_message = 'Liderlik tablosu su anda kapali. Lutfen daha sonra tekrar kontrol edin.';
+    $leaderboard_disabled_message = 'Liderlik tablosu şu anda kapalı. Lütfen daha sonra tekrar kontrol edin.';
 }
 $leaderboard_disabled_contact_url = routePublicStaticUrl('contact');
 $leaderboard_disabled_categories_url = categoryListUrl();
@@ -160,7 +160,7 @@ try {
     $total = (int) ($leaderboardData['total'] ?? 0);
     $isCached = $leaderboardData['is_cached'] ?? false;
 } catch (Throwable $e) {
-    appLogException($e, ['source' => 'leaderboard.php']);
+    appLogException($e, ['source' => 'leaderboard']);
     $allUsers = [];
     $total = 0;
     $isCached = false;
@@ -181,7 +181,7 @@ if ($shouldRefetch) {
         $page = min($requestedPage, $totalPages);
         $offset = ($page - 1) * $perPage;
     } catch (Throwable $e) {
-        appLogException($e, ['source' => 'leaderboard.php']);
+        appLogException($e, ['source' => 'leaderboard']);
         $allUsers = [];
         $total = 0;
         $isCached = false;
@@ -602,7 +602,5 @@ $leaderboardScriptUrl = rtrim($baseUri, '/') . '/assets/js/leaderboard.js?v=' . 
 <script src="<?= htmlspecialchars($leaderboardScriptUrl, ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <?php require_once $leaderboardProjectRoot . '/includes/public-footer.php'; ?>
-
-
 
 

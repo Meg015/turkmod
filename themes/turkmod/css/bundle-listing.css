@@ -3534,14 +3534,11 @@ html[data-public-theme="turkmod"] body:has(.topic-edit-upload-page) {
 
 /* Theme System - Light & Dark Mode Support */
 
-html[data-public-theme="turkmod"] * {
-
-    margin: 0;
-
-    padding: 0;
-
+html[data-public-theme="turkmod"],
+html[data-public-theme="turkmod"] *,
+html[data-public-theme="turkmod"] *::before,
+html[data-public-theme="turkmod"] *::after {
     box-sizing: border-box;
-
 }
 
 
@@ -8052,15 +8049,17 @@ body:has(.topic-layout) #main-content {
 
     display: grid;
 
-    grid-template-columns: 28px 118px minmax(0, 1fr);
+    grid-template-columns: 28px minmax(82px, 96px) minmax(0, 1fr);
 
-    gap: 8px;
+    column-gap: 7px;
 
-    align-items: start;
+    row-gap: 0;
+
+    align-items: center;
 
     min-height: 44px;
 
-    padding: 10px;
+    padding: 9px 10px;
 
     color: var(--text);
 
@@ -8114,13 +8113,23 @@ a.topic-info-row:hover {
 
 .topic-info-row span {
 
+    display: flex;
+
+    align-items: center;
+
     min-width: 0;
+
+    overflow: hidden;
 
     color: var(--text-dim);
 
     font-size: 0.76rem;
 
     font-weight: 600;
+
+    line-height: 1.15;
+
+    text-overflow: ellipsis;
 
     white-space: nowrap;
 
@@ -8140,15 +8149,29 @@ a.topic-info-row:hover {
 
     font-weight: 700;
 
+    line-height: 1.2;
+
     text-align: left;
 
     text-overflow: ellipsis;
 
     white-space: nowrap;
 
-    align-self: start;
+}
 
-    margin-top: -1px;
+.topic-info-row strong a {
+
+    display: inline-block;
+
+    max-width: 100%;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    vertical-align: top;
+
+    white-space: nowrap;
 
 }
 
@@ -11700,14 +11723,10 @@ body {
 
 /* Theme System - Light & Dark Mode Support */
 
-* {
-
-    margin: 0;
-
-    padding: 0;
-
+*,
+*::before,
+*::after {
     box-sizing: border-box;
-
 }
 
 
@@ -23762,6 +23781,104 @@ html[data-public-theme="turkmod"] .topic-info-row strong[data-info-value] {
 
 
 
+html[data-public-theme="turkmod"] .info-value-tooltip {
+
+    position: absolute;
+
+    z-index: 1200;
+
+    max-width: min(320px, 90vw);
+
+    padding: var(--space-2) var(--space-3);
+
+    border: 1px solid var(--color-border, #d8dee8);
+
+    border-radius: var(--radius-md, 8px);
+
+    background: var(--color-surface, #fff);
+
+    color: var(--color-text, #111827);
+
+    font-size: var(--font-size-sm, .85rem);
+
+    font-weight: var(--font-weight-medium, 400);
+
+    line-height: 1.45;
+
+    box-shadow: var(--shadow-lg, 0 12px 30px rgba(0, 0, 0, .18));
+
+    word-break: break-word;
+
+    pointer-events: none;
+
+    animation: infoTipFade .14s ease;
+
+}
+
+
+
+html[data-public-theme="turkmod"] .info-value-tooltip::after {
+
+    content: "";
+
+    position: absolute;
+
+    left: 50%;
+
+    bottom: -5px;
+
+    width: 10px;
+
+    height: 10px;
+
+    transform: translateX(-50%) rotate(45deg);
+
+    background: var(--color-surface, #fff);
+
+    border-right: 1px solid var(--color-border, #d8dee8);
+
+    border-bottom: 1px solid var(--color-border, #d8dee8);
+
+}
+
+
+
+html[data-public-theme="turkmod"] .info-value-tooltip.info-value-tooltip--below::after {
+
+    bottom: auto;
+
+    top: -5px;
+
+    border-right: none;
+
+    border-bottom: none;
+
+    border-left: 1px solid var(--color-border, #d8dee8);
+
+    border-top: 1px solid var(--color-border, #d8dee8);
+
+}
+
+
+
+@keyframes infoTipFade {
+
+    from { opacity: 0; transform: translateY(2px); }
+
+    to { opacity: 1; transform: translateY(0); }
+
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+
+    html[data-public-theme="turkmod"] .info-value-tooltip { animation: none; }
+
+}
+
+
+
 /* Profile private polish: resilient quick cards and visible metadata icons. */
 
 
@@ -24258,5 +24375,61 @@ html[data-public-theme="turkmod"] .ui-theme-sidebar-builder .comment-excerpt {
   overflow-wrap: anywhere;
   word-break: break-word;
   hyphens: auto;
+}
+
+/* Topic info rows: keep label and value on the same compact baseline. */
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row {
+  display: grid !important;
+  grid-template-columns: 30px fit-content(108px) minmax(0, 1fr) !important;
+  column-gap: 6px !important;
+  row-gap: 0 !important;
+  align-items: center !important;
+  min-height: 44px !important;
+  padding: 8px 10px !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > i,
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > span,
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > strong {
+  align-self: center !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > span {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 108px !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  color: var(--t-muted, var(--text-dim)) !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  line-height: 1.15 !important;
+  text-overflow: ellipsis !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > strong {
+  display: block !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  color: var(--t-text, var(--text)) !important;
+  font-size: 0.84rem !important;
+  font-weight: 740 !important;
+  line-height: 1.2 !important;
+  text-align: left !important;
+  text-overflow: ellipsis !important;
+  transform: translateY(-2px) !important;
+  white-space: nowrap !important;
+}
+
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-info-row > strong a {
+  display: inline-block !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  vertical-align: top !important;
+  white-space: nowrap !important;
 }
 

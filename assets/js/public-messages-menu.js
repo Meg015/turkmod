@@ -33,7 +33,6 @@
         root.dataset.publicMessagesMenuReady = "1";
 
         var apiUrl = root.getAttribute("data-messages-api") || "";
-        var fallbackUrl = root.getAttribute("data-messages-fallback-url") || "/mesajlar";
         var toggle = root.querySelector("[data-messages-toggle]");
         var list = root.querySelector("#msgList") || root.querySelector("[data-messages-list]");
         var badge = root.querySelector("#msgBadge") || root.querySelector("[data-messages-badge]");
@@ -82,7 +81,10 @@
 
             latest.forEach(function (thread) {
                 var threadId = Number(thread.thread_id || 0);
-                var threadUrl = thread.thread_url || (fallbackUrl + "?thread=" + threadId);
+                var threadUrl = thread.thread_url || "";
+                if (!threadUrl) {
+                    return;
+                }
                 var unread = Number(thread.unread_count || 0);
 
                 var item = document.createElement("a");

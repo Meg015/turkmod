@@ -52,7 +52,6 @@ return new class implements Migration
         'bot_translate_download_names',
         'bot_translate_enabled',
         'bot_translate_title',
-        'bot_translation_fallback_original',
         'bot_use_hotlink_images',
         'bot_user_agent',
     ];

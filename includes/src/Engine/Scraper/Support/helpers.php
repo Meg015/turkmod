@@ -137,7 +137,6 @@ function getScraperBotSettings(?PDO $pdo): array
         'bot_translate_title'   => '1',
         'bot_translate_content' => '1',
         'bot_translate_download_names'=> '0',
-        'bot_translation_fallback_original'=> '1',
         'bot_source_lang'       => 'EN',
         'bot_target_lang'       => 'TR',
         'bot_auto_publish'      => '0',
@@ -193,7 +192,6 @@ function saveScraperBotSettings(?PDO $pdo, array $input): void
         'bot_proxy_url', 'bot_custom_headers',
         'bot_default_max_images', 'bot_image_save_path', 'bot_translate_enabled',
         'bot_translate_title', 'bot_translate_content', 'bot_translate_download_names',
-        'bot_translation_fallback_original',
         'bot_source_lang', 'bot_target_lang', 'bot_auto_publish', 'bot_default_status',
         'bot_content_align', 'bot_min_title_length', 'bot_min_content_length', 'bot_clean_html',
         'bot_strip_scripts', 'bot_strip_iframes', 'bot_append_source_link', 'bot_skip_duplicate_urls',
@@ -209,7 +207,7 @@ function saveScraperBotSettings(?PDO $pdo, array $input): void
         'bot_translate_enabled', 'bot_auto_publish', 'bot_follow_redirects', 'bot_ssl_verify',
         'bot_clean_html', 'bot_strip_scripts', 'bot_strip_iframes', 'bot_append_source_link',
         'bot_skip_duplicate_urls', 'bot_extract_download_links', 'bot_translate_title',
-        'bot_translate_content', 'bot_translate_download_names', 'bot_translation_fallback_original',
+        'bot_translate_content', 'bot_translate_download_names',
         'bot_require_cover_image', 'bot_download_images', 'bot_use_hotlink_images',
         'bot_bulk_continue_on_error', 'bot_bulk_default_selected',
         'bot_detect_author_enabled', 'bot_detect_version_enabled',
@@ -1064,13 +1062,13 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
 
         return $trimmed;
     };
-    $normalizeRemoteUrl = static function (string $url, string $fallbackScheme): string {
+    $normalizeRemoteUrl = static function (string $url, string $defaultScheme): string {
         $value = trim($url);
         if ($value === '') {
             return '';
         }
         if (str_starts_with($value, '//')) {
-            return $fallbackScheme . ':' . $value;
+            return $defaultScheme . ':' . $value;
         }
         return $value;
     };

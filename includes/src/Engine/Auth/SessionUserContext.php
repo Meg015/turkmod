@@ -96,13 +96,18 @@ final class SessionUserContext
         if (function_exists('usersEnsureUsernameSchema')) {
             usersEnsureUsernameSchema($pdo);
         }
-        $stmt = $pdo->prepare("SELECT id, username, email, status, password_changed_at
+        $stmt = $pdo->prepare("SELECT id, username, email, status, is_banned, password_changed_at
                                FROM users
                                WHERE id = ? AND deleted_at IS NULL
                                LIMIT 1");
         $stmt->execute([$userId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$user || (string) ($user['status'] ?? '') !== 'active') {
+        if (!$user) {
+            return false;
+        }
+
+        $isBanned = (int) ($user['is_banned'] ?? 0) === 1 || (string) ($user['status'] ?? '') === 'banned';
+        if (!$isBanned && (string) ($user['status'] ?? '') !== 'active') {
             return false;
         }
 

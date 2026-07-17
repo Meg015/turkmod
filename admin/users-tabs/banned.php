@@ -7,14 +7,15 @@
 <div class="admin-card ui-admin-mb-md ui-panel">
     <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
         <form method="get" action="users.php" class="ui-admin-filter-row">
-            <input type="hidden" name="tab" value="banned">
+            <input type="hidden" name="tab" value="moderation">
+            <input type="hidden" name="moderation" value="banned">
             <div class="ui-admin-filter-grow">
                 <label class="ui-admin-form-label">Ara</label>
                 <input type="text" name="q" class="ui-admin-form-control" placeholder="Kullanici adi veya e-posta..." value="<?= htmlspecialchars($search) ?>">
             </div>
             <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-search"></i> Ara</button>
             <?php if ($search): ?>
-                <a href="users.php?tab=banned" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
+                <a href="users.php?tab=moderation&amp;moderation=banned" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
             <?php endif; ?>
         </form>
     </div>
@@ -24,8 +25,8 @@
     <div class="admin-card ui-panel">
         <div class="card-body ui-admin-empty ui-panel__body ui-empty">
             <div class="ui-admin-empty-icon tone-success ui-empty"><i class="bi bi-emoji-smile"></i></div>
-            <h3 class="ui-admin-empty-title ui-empty">Banlı kullanıcı yok 🎉</h3>
-            <p class="ui-admin-empty-desc ui-empty">Şu an tüm kullanıcılar aktif durumda. Topluluk sağlıklı görünüyor!</p>
+            <h3 class="ui-admin-empty-title ui-empty">Banlı kullanıcı bulunmuyor</h3>
+            <p class="ui-admin-empty-desc ui-empty">Aktif ban kaydı yok. Yeni bir işlem oluştuğunda bu liste güncellenir.</p>
         </div>
     </div>
 <?php else: ?>

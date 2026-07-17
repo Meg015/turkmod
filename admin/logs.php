@@ -64,8 +64,11 @@ $activityDefaultActionTypes = [
     'bot_import_published',
     'activity_logs_cleared',
     'application_logs_cleared',
+    'email_logs_cleared',
     'admin_action_log_cleared',
     'rate_limit_records_deleted',
+    'notification_records_deleted',
+    'events_audit_logs_cleared',
 ];
 
 $activityDefaultTargetTypes = [
@@ -112,7 +115,7 @@ if (!in_array($filterState, ['', 'active', 'reverted', 'reversible'], true)) {
 $dateFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date_from'] ?? '')) === 1 ? (string) $_GET['date_from'] : '';
 $dateTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date_to'] ?? '')) === 1 ? (string) $_GET['date_to'] : '';
 $page = max(1, (int) ($_GET['page'] ?? 1));
-$perPage = 50;
+$perPage = adminPaginationPerPage();
 
 $activityFilters = array_filter([
     'action_type' => $filterAction,
@@ -134,7 +137,7 @@ if (!in_array($cronStatus, ['all', 'success', 'warning', 'error', 'skipped'], tr
 }
 $cronJob = trim((string) ($_GET['cron_job'] ?? ''));
 $cronPage = max(1, (int) ($_GET['cron_page'] ?? 1));
-$cronPerPage = 50;
+$cronPerPage = adminPaginationPerPage();
 $cronLogs = ['items' => [], 'total' => 0, 'page' => $cronPage, 'perPage' => $cronPerPage];
 $cronStats = ['total' => 0, 'success' => 0, 'warning' => 0, 'error' => 0, 'job_count' => 0];
 $cronJobs = [];
@@ -179,54 +182,51 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     if ($view === 'activity' && $postAction === 'clear_action_logs') {
-        if (!verify_csrf_token($_POST['_token'] ?? '')) {
-            $respond(false, 'Güvenlik doğrulaması başarısız.');
-        }
-        if (!$canManageLogs) {
-            $respond(false, 'Bu işlemi yapmak için logs.manage izni gereklidir.');
-        }
-
         $scope = trim((string) ($_POST['scope'] ?? ''));
-        if (!in_array($scope, ['older_than_30_days', 'all'], true)) {
-            $respond(false, 'Geçersiz temizleme kapsamı.');
+        $redirectUrl = 'logs.php';
+        if ($redirectParams !== []) {
+            $redirectUrl .= '?' . http_build_query($redirectParams);
+        } elseif ($view === 'cron') {
+            $redirectUrl .= '?view=cron';
         }
 
-        $deleted = adminClearActionLog($pdo, $scope);
-        if (function_exists('appLog')) {
-            appLog($pdo, 'info', 'maintenance', 'admin_action_log_cleared', [
-                'scope' => $scope,
-                'deleted' => $deleted,
-            ]);
-        }
-
-        $respond(true, $deleted . ' adet yönetici işlem kaydı temizlendi.');
+        adminRunLogCleanup($pdo, [
+            'action_type' => 'admin_action_log_cleared',
+            'scope' => $scope,
+            'allowed_scopes' => ['older_than_30_days', 'all'],
+            'permission' => 'logs.manage',
+            'permission_message' => 'Bu işlemi yapmak için logs.manage izni gereklidir.',
+            'redirect_url' => $redirectUrl,
+            'source' => 'admin_logs',
+            'delete' => static fn (PDO $pdo, string $scope): int => adminClearActionLog($pdo, $scope),
+            'app_log' => true,
+            'app_log_message' => 'admin_action_log_cleared',
+            'success_message' => static fn (int $deleted): string => $deleted . ' adet yönetici işlem kaydı temizlendi.',
+        ]);
     }
 
     if ($view === 'cron' && $postAction === 'clear_cron_all') {
-        if (!verify_csrf_token($_POST['_token'] ?? '')) {
-            $respond(false, 'Güvenlik doğrulaması başarısız.');
-        }
-        if (!$canManageLogs) {
-            $respond(false, 'Bu işlemi yapmak için logs.manage izni gereklidir.');
-        }
-
-        $deleted = function_exists('appLogsClearFiltered')
-            ? appLogsClearFiltered($pdo, '', '', 'cron')
-            : 0;
-        if (function_exists('adminAuditLogger')) {
-            adminAuditLogger()->logAction(
-                $pdo,
-                'cron_logs_cleared',
-                'logs',
-                0,
-                'Cron logları temizlendi',
-                [],
-                ['scope' => 'all', 'deleted' => $deleted, 'channel' => 'cron'],
-                false
-            );
+        $redirectUrl = 'logs.php';
+        if ($redirectParams !== []) {
+            $redirectUrl .= '?' . http_build_query($redirectParams);
+        } elseif ($view === 'cron') {
+            $redirectUrl .= '?view=cron';
         }
 
-        $respond(true, 'Cron logları temizlendi. Silinen kayıt: ' . $deleted . '.');
+        adminRunLogCleanup($pdo, [
+            'action_type' => 'cron_logs_cleared',
+            'scope' => 'all',
+            'allowed_scopes' => ['all'],
+            'permission' => 'logs.manage',
+            'permission_message' => 'Bu işlemi yapmak için logs.manage izni gereklidir.',
+            'redirect_url' => $redirectUrl,
+            'source' => 'cron_logs',
+            'delete' => static fn (PDO $pdo): int => function_exists('appLogsClearFiltered') ? appLogsClearFiltered($pdo, '', '', 'cron') : 0,
+            'context' => [
+                'channel' => 'cron',
+            ],
+            'success_message' => static fn (int $deleted): string => 'Cron logları temizlendi. Silinen kayıt: ' . $deleted . '.',
+        ]);
     }
 }
 
@@ -247,8 +247,12 @@ $activityCriticalActions = [
     'category_deleted',
     'media_deleted',
     'leaderboard_settings_updated',
+    'admin_action_log_cleared',
     'application_logs_cleared',
+    'email_logs_cleared',
     'rate_limit_records_deleted',
+    'notification_records_deleted',
+    'events_audit_logs_cleared',
     'cron_logs_cleared',
 ];
 
@@ -471,6 +475,76 @@ $adminAuditChanges = static function (array $old, array $new) use ($adminAuditSc
     return $parts !== [] ? implode('', $parts) : '<span class="ui-admin-muted">—</span>';
 };
 
+$adminAuditCleanupActions = [
+    'admin_action_log_cleared',
+    'activity_logs_cleared',
+    'application_logs_cleared',
+    'email_logs_cleared',
+    'cron_logs_cleared',
+    'rate_limit_records_deleted',
+    'notification_records_deleted',
+    'events_audit_logs_cleared',
+];
+
+$adminAuditCleanupSummary = static function (string $actionType, array $payload) use ($adminAuditScalar, $adminAuditCleanupActions): string {
+    if (!in_array($actionType, $adminAuditCleanupActions, true) || $payload === []) {
+        return '';
+    }
+
+    $sourceLabels = [
+        'admin_logs' => 'Yönetici günlüğü',
+        'action_log' => 'Kullanıcı işlem günlüğü',
+        'users_activity_tab' => 'Kullanıcılar sekmesi',
+        'application_logs' => 'Uygulama logları',
+        'email_logs' => 'E-posta logları',
+        'cron_logs' => 'Cron logları',
+        'rate_limits' => 'Rate limit',
+    ];
+    $scopeLabels = [
+        'all' => 'Tümü',
+        'older_than_30_days' => '30 günden eski kayıtlar',
+        'old' => 'Eski kayıtlar',
+        'filtered' => 'Aktif filtre',
+        'user' => 'Belirli kullanıcı',
+        'login' => 'Giriş kilitleri',
+        'expired' => 'Süresi dolmuş kayıtlar',
+        'single' => 'Tek kayıt',
+        'selected' => 'Seçili kayıtlar',
+    ];
+    $chips = [];
+    $addChip = static function (string $label, $value, string $tone = '') use (&$chips, $adminAuditScalar): void {
+        if ($value === null || $value === '' || (is_array($value) && $value === [])) {
+            return;
+        }
+        $toneClass = $tone !== '' ? ' is-' . preg_replace('/[^a-z0-9_-]/i', '', $tone) : '';
+        $chips[] = '<span class="admin-audit-cleanup-chip' . $toneClass . '"><strong>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</strong>' . htmlspecialchars($adminAuditScalar($value), ENT_QUOTES, 'UTF-8') . '</span>';
+    };
+
+    $scope = (string) ($payload['scope'] ?? '');
+    $addChip('Kapsam', $payload['scope_label'] ?? ($scopeLabels[$scope] ?? $scope), 'scope');
+    $addChip('Silinen', $payload['deleted'] ?? null, 'deleted');
+    $addChip('Kaynak', $sourceLabels[(string) ($payload['source'] ?? '')] ?? ($payload['source'] ?? ''), 'source');
+    $addChip('Kullanıcı', $payload['target_user_id'] ?? null);
+    $addChip('Gün', $payload['days'] ?? null);
+    $addChip('Kanal', $payload['channel'] ?? null);
+
+    $filterSummary = '';
+    $filters = is_array($payload['filters'] ?? null) ? array_filter($payload['filters'], static fn ($value): bool => $value !== '' && $value !== null) : [];
+    if ($filters !== []) {
+        $filterParts = [];
+        foreach ($filters as $key => $value) {
+            $filterParts[] = '<span><strong>' . htmlspecialchars(ucwords(str_replace('_', ' ', (string) $key)), ENT_QUOTES, 'UTF-8') . ':</strong> ' . htmlspecialchars($adminAuditScalar($value), ENT_QUOTES, 'UTF-8') . '</span>';
+        }
+        $filterSummary = '<div class="admin-audit-cleanup-filters">' . implode('', $filterParts) . '</div>';
+    }
+
+    if ($chips === [] && $filterSummary === '') {
+        return '';
+    }
+
+    return '<div class="admin-audit-cleanup-summary" aria-label="Temizlik özeti">' . implode('', $chips) . $filterSummary . '</div>';
+};
+
 $cronStatusLabel = static function (string $status): string {
     return match ($status) {
         'success' => 'Başarılı',
@@ -562,7 +636,7 @@ require_once __DIR__ . '/header.php';
     <div class="admin-card logs-toolbar-card ui-panel">
         <div class="card-body ui-admin-card-compact ui-panel__body ui-card logs-toolbar-shell">
             <div class="logs-toolbar-row logs-toolbar-row--activity">
-            <form method="get" action="logs.php" class="logs-filter-form logs-filter-form--activity ui-admin-filter-row">
+            <form method="get" action="logs.php" class="logs-filter-form ui-admin-filter-row admin-log-filter-form">
                 <input type="hidden" name="view" value="activity">
                 <select name="action_type" class="ui-admin-form-select">
                     <option value="">Tüm eylemler</option>
@@ -626,7 +700,7 @@ require_once __DIR__ . '/header.php';
         </div>
         <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
             <?php if (empty($activityLogList)): ?>
-                <div class="ui-admin-empty ui-admin-empty-pro ui-admin-empty-audit ui-empty">
+                <div class="ui-admin-empty ui-admin-empty-pro ui-admin-empty-audit ui-empty admin-log-empty">
                     <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-journal-check"></i></div>
                     <h3 class="ui-admin-empty-title ui-empty">İşlem kaydı bulunamadı</h3>
                     <p class="ui-admin-empty-desc ui-empty"><?= $activityActionQuery !== '' ? 'Seçili filtrelerle eşleşen denetim kaydı yok.' : 'Henüz kritik veya geri alınabilir admin işlemi kaydedilmedi.' ?></p>
@@ -641,8 +715,8 @@ require_once __DIR__ . '/header.php';
                     <?php endif; ?>
                 </div>
             <?php else: ?>
-                <div class="ui-admin-table-responsive">
-                    <table class="ui-admin-table ui-admin-table-striped">
+                <div class="ui-admin-table-responsive ui-table-wrap ui-surface admin-log-table-wrap">
+                    <table class="ui-admin-table ui-admin-table-striped admin-log-table">
                         <thead>
                             <tr>
                                 <th>Tarih</th>
@@ -673,6 +747,8 @@ require_once __DIR__ . '/header.php';
                                 $targetName = (string) ($log['target_name'] ?? '');
                                 $reason = trim((string) ($log['reason'] ?? ''));
                                 $hasChangeDetails = $old !== [] || $new !== [];
+                                $isCleanupAudit = in_array($actionType, $adminAuditCleanupActions, true);
+                                $cleanupSummaryHtml = $isCleanupAudit ? $adminAuditCleanupSummary($actionType, $new) : '';
                                 $tone = 'info';
                                 if ($isReverted) {
                                     $tone = 'muted';
@@ -704,9 +780,10 @@ require_once __DIR__ . '/header.php';
                                     </td>
                                     <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
                                         <div class="ui-admin-log-summary"><?= htmlspecialchars($reason !== '' ? $reason : 'Gerekçe yok', ENT_QUOTES, 'UTF-8') ?></div>
+                                        <?= $cleanupSummaryHtml ?>
                                         <?php if ($hasChangeDetails): ?>
                                             <details class="ui-admin-log-technical ui-admin-log-technical--activity">
-                                                <summary><i class="bi bi-code-slash"></i> Değişim ayrıntıları</summary>
+                                                <summary><i class="bi bi-code-slash"></i> <?= $isCleanupAudit ? 'Audit ayrıntıları' : 'Değişim ayrıntıları' ?></summary>
                                                 <div class="ui-admin-log-technical-body ui-admin-log-technical-body-html"><?= $changeHtml ?></div>
                                             </details>
                                         <?php endif; ?>
@@ -742,64 +819,43 @@ require_once __DIR__ . '/header.php';
                     <?php
                     $activityPageParams = $activityFilters;
                     $pageBase = 'logs.php?' . ($activityPageParams ? http_build_query($activityPageParams) . '&' : '') . 'page=';
+                    echo adminRenderPagination($activityTotalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
+                        'wrapper_class' => 'logs-pagination-wrapper',
+                        'aria_label' => 'Yönetici işlem günlüğü sayfalama',
+                    ]);
                     ?>
-                    <div class="pagination-wrapper logs-pagination-wrapper">
-                        <div class="pagination">
-                            <?php if ($page > 1): ?>
-                                <a href="<?= htmlspecialchars($pageBase . ($page - 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
-                            <?php endif; ?>
-
-                            <?php for ($i = max(1, $page - 2); $i <= min($activityTotalPages, $page + 2); $i++): ?>
-                                <a href="<?= htmlspecialchars($pageBase . $i, ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"<?= $i === $page ? ' aria-current="page"' : '' ?>>
-                                    <?= (int) $i ?>
-                                </a>
-                            <?php endfor; ?>
-
-                            <?php if ($page < $activityTotalPages): ?>
-                                <a href="<?= htmlspecialchars($pageBase . ($page + 1), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
                 <?php endif; ?>
             <?php endif; ?>
         </div>
     </section>
 
     <?php if ($canManageLogs): ?>
-    <div class="media-modal-overlay" id="clearLogsModal" role="dialog" aria-modal="true" aria-label="Yönetici günlüğünü temizle" hidden aria-hidden="true">
-        <div class="media-modal ui-admin-modal-sm ui-panel">
-            <div class="media-modal-header ui-panel__head">
-                <h3 class="ui-admin-modal-title"><i class="bi bi-trash"></i> Yönetici Günlüğünü Temizle</h3>
-                <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-clear-logs-close>&times;</button>
-            </div>
-            <div class="media-modal-body ui-panel__body">
-                <form id="clearLogsForm" data-clear-logs-form action="<?= htmlspecialchars($activityPostAction, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="action" value="clear_action_logs">
-
-                    <div class="ui-admin-mb-md">
-                        <label class="ui-admin-form-label">Neler Silinsin?</label>
-                        <select name="scope" class="ui-admin-form-select" required>
-                            <option value="older_than_30_days">30 Günden Eski Kayıtları Sil</option>
-                            <option value="all">Tüm Günlüğü Sil (Tehlikeli)</option>
-                        </select>
-                    </div>
-
-                    <div class="ui-admin-alert ui-admin-alert-warning ui-admin-alert-spaced ui-alert ui-alert--warning" data-keep-inline-alert>
-                        <strong>Uyarı:</strong> Bu işlem denetim kayıtlarını silecektir. Güvenlik incelemeleri için son logların tutulması önerilir. Sadece gerekli olduğunda temizlik yapın. İşlem geri alınamaz.
-                    </div>
-
-                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
-                        <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-clear-logs-close>İptal</button>
-                        <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-trash"></i> Seçilenleri Kalıcı Olarak Sil</button>
-                    </div>
-            </form>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($canManageLogs): ?>
-        <script src="<?= asset_url('admin/assets/users-activity-tab.js', $baseUri) ?>" defer></script>
+        <?php
+        $logClearModal = [
+            'aria_label' => 'Yönetici günlüğünü temizle',
+            'title' => 'Günlüğü Temizle',
+            'form_action' => $activityPostAction,
+            'hidden_fields' => [
+                ['name' => 'action', 'value' => 'clear_action_logs'],
+            ],
+            'scope_name' => 'scope',
+            'options' => [
+                [
+                    'value' => 'older_than_30_days',
+                    'label' => '30 Günden Eski Kayıtları Sil',
+                    'confirm_title' => 'Kayıtları Temizle',
+                ],
+                [
+                    'value' => 'all',
+                    'label' => 'Tüm Günlüğü Sil (Tehlikeli)',
+                    'confirm_title' => 'Günlüğü Temizle',
+                ],
+            ],
+            'warning' => 'Bu işlem denetim kayıtlarını silecektir. Güvenlik incelemeleri için son logların tutulması önerilir. Sadece gerekli olduğunda temizlik yapın. İşlem geri alınamaz.',
+        ];
+        include __DIR__ . '/partials/log-clear-modal.php';
+        unset($logClearModal);
+        ?>
     <?php endif; ?>
 
 <?php else: ?>
@@ -836,7 +892,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="admin-card logs-toolbar-card ui-panel">
         <div class="card-body ui-admin-card-compact ui-panel__body ui-card logs-toolbar-shell">
-            <form method="get" action="logs.php" class="logs-filter-form ui-admin-filter-row">
+            <form method="get" action="logs.php" class="logs-filter-form ui-admin-filter-row admin-log-filter-form">
                 <input type="hidden" name="view" value="cron">
                 <input type="text" name="cron_q" class="ui-admin-form-control" placeholder="Mesaj, job key veya IP ara..." value="<?= htmlspecialchars($cronSearch, ENT_QUOTES, 'UTF-8') ?>">
                 <select name="cron_status" class="ui-admin-form-select">
@@ -861,11 +917,9 @@ require_once __DIR__ . '/header.php';
             </form>
             <div class="logs-toolbar-actions">
                 <?php if ($canManageLogs): ?>
-                    <form method="post" action="logs.php?view=cron" data-admin-confirm="Tüm cron logları kalıcı olarak silinecek. Emin misiniz?" data-admin-confirm-title="Cron logları silinsin mi?" data-admin-confirm-ok="Tümünü Sil" data-admin-confirm-tone="danger">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="clear_cron_all">
-                        <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Tümünü Sil</button>
-                    </form>
+                    <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs" data-clear-logs-open>
+                        <i class="bi bi-trash"></i> Günlüğü Temizle
+                    </button>
                 <?php endif; ?>
                 <a href="settings.php#cron" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs"><i class="bi bi-gear"></i> Cron Ayarları</a>
             </div>
@@ -881,14 +935,14 @@ require_once __DIR__ . '/header.php';
         </div>
         <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
             <?php if (empty($cronLogs['items'])): ?>
-                <div class="ui-admin-empty ui-empty">
+                <div class="ui-admin-empty ui-empty admin-log-empty">
                     <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-card-list"></i></div>
                     <h3 class="ui-admin-empty-title ui-empty">Cron log kaydı bulunamadı</h3>
                     <p class="ui-admin-empty-desc ui-empty">Filtreye uyan cron kaydı yok. Cron çalıştığında kayıtlar burada listelenir.</p>
                 </div>
             <?php else: ?>
-                <div class="table-wrapper ui-table-wrap ui-surface">
-                    <table class="admin-table">
+                <div class="table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
+                    <table class="admin-table admin-log-table">
                         <thead>
                             <tr>
                                 <th class="ui-admin-table-head-narrow">#</th>
@@ -944,29 +998,37 @@ require_once __DIR__ . '/header.php';
                         'cron_status' => $cronStatus !== 'all' ? $cronStatus : '',
                         'cron_job' => $cronJob,
                     ], static fn ($value): bool => $value !== '' && $value !== null);
+                    echo adminRenderPagination($cronTotalPages, $cronPage, static fn (int $targetPage): string => 'logs.php?' . http_build_query(array_merge($cronQueryBase, ['cron_page' => $targetPage])), [
+                        'wrapper_class' => 'logs-pagination-wrapper',
+                        'aria_label' => 'Cron günlüğü sayfalama',
+                    ]);
+                endif;
                 ?>
-                <div class="pagination-wrapper logs-pagination-wrapper">
-                    <div class="pagination">
-                        <?php if ($cronPage > 1): ?>
-                            <?php $prevParams = $cronQueryBase + ['cron_page' => $cronPage - 1]; ?>
-                            <a href="logs.php?<?= htmlspecialchars(http_build_query($prevParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
-                        <?php endif; ?>
-
-                        <?php for ($i = max(1, $cronPage - 2); $i <= min($cronTotalPages, $cronPage + 2); $i++): ?>
-                            <?php $pageParams = $cronQueryBase + ['cron_page' => $i]; ?>
-                            <a href="logs.php?<?= htmlspecialchars(http_build_query($pageParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link <?= $i === $cronPage ? 'active' : '' ?>"<?= $i === $cronPage ? ' aria-current="page"' : '' ?>><?= $i ?></a>
-                        <?php endfor; ?>
-
-                        <?php if ($cronPage < $cronTotalPages): ?>
-                            <?php $nextParams = $cronQueryBase + ['cron_page' => $cronPage + 1]; ?>
-                            <a href="logs.php?<?= htmlspecialchars(http_build_query($nextParams), ENT_QUOTES, 'UTF-8') ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
             <?php endif; ?>
-        </div>
-    </div>
+
+            <?php if ($canManageLogs): ?>
+                <?php
+                $logClearModal = [
+                    'aria_label' => 'Cron günlüğünü temizle',
+                    'title' => 'Günlüğü Temizle',
+                    'form_action' => 'logs.php?view=cron',
+                    'hidden_fields' => [
+                        ['name' => 'action', 'value' => 'clear_cron_all'],
+                    ],
+            'scope_name' => 'scope',
+            'options' => [
+                [
+                    'value' => 'all',
+                    'label' => 'Tüm cron günlüğünü sil (Tehlikeli)',
+                    'confirm_title' => 'Günlüğü Temizle',
+                ],
+            ],
+            'warning' => 'Seçilen cron logları kalıcı olarak silinir. Bu işlem geri alınamaz.',
+        ];
+        include __DIR__ . '/partials/log-clear-modal.php';
+        unset($logClearModal);
+        ?>
+    <?php endif; ?>
 <?php endif; ?>
 </div>
 

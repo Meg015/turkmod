@@ -27,7 +27,7 @@ $deviceType = trim((string) ($_GET['device'] ?? ''));
 $dateFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date_from'] ?? '')) === 1 ? (string) $_GET['date_from'] : '';
 $dateTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date_to'] ?? '')) === 1 ? (string) $_GET['date_to'] : '';
 $page = max(1, (int) ($_GET['page'] ?? 1));
-$perPage = 10;
+$perPage = adminPaginationPerPage();
 $offset = ($page - 1) * $perPage;
 
 if ($eventGroup !== '' && !array_key_exists($eventGroup, $groupLabels)) {
@@ -234,7 +234,7 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
 
     <div class="admin-card user-activity-filter-card ui-panel ui-card">
         <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
-            <form method="get" action="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-filter-row user-activity-filter">
+            <form method="get" action="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-filter-row user-activity-filter admin-log-filter-form">
                 <?php if ($showTabInput): ?>
                     <input type="hidden" name="tab" value="activity">
                 <?php endif; ?>
@@ -312,8 +312,8 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
     <?php endif; ?>
 
     <div class="user-activity-layout ui-section">
-        <section class="admin-card user-activity-feed-card ui-panel ui-card">
-            <div class="card-header user-activity-card-head ui-admin-card-header-actions ui-panel__head ui-card">
+        <section class="admin-card user-activity-feed-card logs-list-card ui-panel ui-card">
+            <div class="card-header user-activity-card-head logs-list-head ui-admin-card-header-actions ui-panel__head ui-card">
                 <div>
                     <h3><i class="bi bi-activity"></i> Hareket Akışı</h3>
                     <span><?= number_format($totalEvents, 0, ',', '.') ?> kayıt</span>
@@ -328,7 +328,7 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
             </div>
             <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
                 <?php if (empty($events)): ?>
-                    <div class="ui-admin-empty ui-empty">
+                    <div class="ui-admin-empty ui-empty admin-log-empty">
                         <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-search"></i></div>
                         <h3 class="ui-admin-empty-title ui-empty">Kayıt bulunamadı</h3>
                         <p class="ui-admin-empty-desc ui-empty">Filtreleri genişletin veya yeni kullanıcı hareketleri oluşmasını bekleyin.</p>
@@ -463,23 +463,11 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                         <div class="user-activity-pagination-meta">
                             Sayfa <strong><?= (int) $page ?></strong> / <?= (int) $totalPages ?> · Toplam <?= number_format((int) ($totalEvents ?? 0)) ?> olay
                         </div>
-                        <div class="pagination-wrapper user-activity-pagination-wrapper logs-pagination-wrapper">
-                            <div class="pagination user-activity-pagination">
-                                <?php if ($page > 1): ?>
-                                    <a href="<?= htmlspecialchars($queryForPage($page - 1)) ?>" class="page-link" title="Önceki" aria-label="Önceki sayfa"><i class="bi bi-chevron-left"></i></a>
-                                <?php endif; ?>
-
-                                <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                                    <a href="<?= htmlspecialchars($queryForPage($i)) ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"<?= $i === $page ? ' aria-current="page"' : '' ?>>
-                                        <?= (int) $i ?>
-                                    </a>
-                                <?php endfor; ?>
-
-                                <?php if ($page < $totalPages): ?>
-                                    <a href="<?= htmlspecialchars($queryForPage($page + 1)) ?>" class="page-link" title="Sonraki" aria-label="Sonraki sayfa"><i class="bi bi-chevron-right"></i></a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
+                        <?= adminRenderPagination($totalPages, $page, $queryForPage, [
+                            'wrapper_class' => 'user-activity-pagination-wrapper logs-pagination-wrapper',
+                            'inner_class' => 'user-activity-pagination',
+                            'aria_label' => 'Kullanıcı işlem günlüğü sayfalama',
+                        ]) ?>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>
@@ -573,41 +561,41 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
 
 <?php if ($canManageLogs): ?>
 <!-- Clear Logs Modal -->
-<div class="media-modal-overlay" id="clearLogsModal" role="dialog" aria-modal="true" aria-label="Kayıtları temizle" hidden aria-hidden="true">
-    <div class="media-modal ui-admin-modal-sm ui-panel">
-        <div class="media-modal-header ui-panel__head">
-            <h3 class="ui-admin-modal-title"><i class="bi bi-trash"></i> Kayıtları Temizle</h3>
-            <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-clear-logs-close>&times;</button>
-        </div>
-        <div class="media-modal-body ui-panel__body">
-            <form id="clearLogsForm" data-clear-logs-form action="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>">
-                <input type="hidden" name="_token" value="<?= $csrfToken ?>">
-                <input type="hidden" name="action" value="clear_activity_logs">
-                <input type="hidden" name="target_user_id" value="<?= $userId > 0 ? (int)$userId : 0 ?>">
-                
-                <div class="ui-admin-mb-md">
-                    <label class="ui-admin-form-label">Neler Silinsin?</label>
-                    <select name="scope" class="ui-admin-form-select" required>
-                        <option value="older_than_30_days">30 Günden Eski Kayıtları Sil</option>
-                        <?php if ($userId > 0 && $selectedUser): ?>
-                            <option value="user">Sadece Bu Kullanıcının Kayıtlarını Sil (<?= htmlspecialchars((string) ($selectedUser['username'] ?? 'Kullanici')) ?>)</option>
-                        <?php endif; ?>
-                        <option value="all">Tüm Sistemin Loglarını Sil (Tehlikeli)</option>
-                    </select>
-                </div>
-                
-                <div class="ui-admin-alert ui-admin-alert-warning ui-admin-alert-spaced ui-alert ui-alert--warning">
-                    <strong>Uyarı:</strong> Bu işlem geri alınamaz. Silinen kayıtlar veritabanından kalıcı olarak silinecektir.
-                </div>
-                
-                <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
-                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-clear-logs-close>İptal</button>
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-trash"></i> Seçilenleri Kalıcı Olarak Sil</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<?php
+$activityClearOptions = [
+    [
+        'value' => 'older_than_30_days',
+        'label' => '30 Günden Eski Kayıtları Sil',
+        'confirm_title' => 'Kayıtları Temizle',
+    ],
+];
+if ($userId > 0 && $selectedUser) {
+    $activityClearOptions[] = [
+        'value' => 'user',
+        'label' => 'Sadece Bu Kullanıcının Kayıtlarını Sil (' . (string) ($selectedUser['username'] ?? 'Kullanici') . ')',
+        'confirm_title' => 'Kayıtları Temizle',
+    ];
+}
+$activityClearOptions[] = [
+    'value' => 'all',
+    'label' => 'Tüm Sistemin Loglarını Sil (Tehlikeli)',
+    'confirm_title' => 'Günlüğü Temizle',
+];
 
-<script src="<?= asset_url('admin/assets/users-activity-tab.js', $baseUri) ?>" defer></script>
+$logClearModal = [
+    'aria_label' => 'Kayıtları temizle',
+    'title' => 'Kayıtları Temizle',
+    'confirm_title' => 'Kayıtları Temizle',
+    'form_action' => $activityBuildUrl(),
+    'hidden_fields' => [
+        ['name' => 'action', 'value' => 'clear_activity_logs'],
+        ['name' => 'target_user_id', 'value' => $userId > 0 ? (int) $userId : 0],
+    ],
+    'scope_name' => 'scope',
+    'options' => $activityClearOptions,
+    'warning' => 'Bu işlem geri alınamaz. Silinen kayıtlar veritabanından kalıcı olarak silinecektir.',
+];
+include __DIR__ . '/../partials/log-clear-modal.php';
+unset($logClearModal, $activityClearOptions);
+?>
 <?php endif; ?>

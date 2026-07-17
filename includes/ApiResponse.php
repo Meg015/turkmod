@@ -163,5 +163,7 @@ function sendCsrfError(): void
     if (function_exists('logCsrfFailure') && isset($GLOBALS['pdo'])) {
         logCsrfFailure($GLOBALS['pdo'], $_SERVER['REQUEST_URI'] ?? 'unknown');
     }
-    sendError('csrf_token_invalid', 'Invalid CSRF token', 419);
+    sendError('csrf_token_invalid', 'Güvenlik doğrulaması yenilendi. Lütfen işlemi tekrar deneyin.', 419, [
+        'retryable' => true,
+    ]);
 }

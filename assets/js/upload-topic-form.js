@@ -42,8 +42,6 @@ function uploadRuleForm() {
 function uploadContentText() {
     const editor = document.querySelector('.ql-editor');
     if (editor) return editor.textContent.trim();
-    const fallbackEditor = document.querySelector('.upload-rich-editor');
-    if (fallbackEditor) return fallbackEditor.textContent.trim();
     const textarea = document.querySelector('textarea[name="content"]');
     return textarea ? textarea.value.replace(/<[^>]*>/g, '').trim() : '';
 }
@@ -803,11 +801,6 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     document.querySelectorAll('textarea.rich-editor').forEach(function(textarea) {
         if (textarea.quillInstance) {
             textarea.value = textarea.quillInstance.root.innerHTML;
-            return;
-        }
-        const fallbackEditor = textarea.parentNode ? textarea.parentNode.querySelector('.upload-rich-editor') : null;
-        if (fallbackEditor) {
-            textarea.value = fallbackEditor.innerHTML.trim();
         }
     });
 
