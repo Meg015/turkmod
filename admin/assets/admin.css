@@ -14661,8 +14661,8 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
 /* Comment spam settings: keep the daily controls scannable while moving tuning fields lower. */
 .settings-tab-content #comments-tab-spam .card-body.ui-panel__body {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: .95rem;
     align-items: start;
 }
 
@@ -14675,43 +14675,45 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     grid-column: 1 / -1;
     margin: 0;
     min-width: 0;
+    padding: 1rem;
 }
 
-.settings-tab-content #comments-tab-spam .comments-spam-section--primary {
-    grid-column: span 5;
+.settings-tab-content #comments-tab-spam .comments-spam-section .settings-rule-head {
+    gap: .85rem;
+    padding-bottom: .05rem;
 }
 
-.settings-tab-content #comments-tab-spam .comments-spam-section--quick {
-    grid-column: span 7;
-}
-
+.settings-tab-content #comments-tab-spam .comments-spam-section--quick .settings-rule-grid,
 .settings-tab-content #comments-tab-spam .comments-spam-section--quick .admin-settings-grid {
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+    gap: .85rem 1rem;
 }
 
 .settings-tab-content #comments-tab-spam .comments-spam-section--advanced {
     background: color-mix(in srgb, var(--ui-admin-surface) 92%, var(--ui-admin-accent, #8b1538) 8%);
 }
 
+.settings-tab-content #comments-tab-spam .comments-spam-section--advanced .settings-rule-grid,
 .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .admin-settings-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: stretch;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .85rem 1rem;
+    align-items: start;
 }
 
 .settings-tab-content #comments-tab-spam .comments-spam-section--advanced [data-setting-field] {
-    display: grid;
-    grid-template-rows: minmax(2.65rem, auto) auto;
-    align-content: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
     min-width: 0;
 }
 
 .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .ui-admin-form-label {
     display: flex !important;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: .35rem;
-    min-height: 2.65rem;
+    min-height: 0;
     margin-bottom: .5rem !important;
-    line-height: 1.22;
+    line-height: 1.3;
 }
 
 .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .admin-help-icon {
@@ -14723,10 +14725,14 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     min-height: 42px;
 }
 
+.settings-tab-content #comments-tab-spam .comments-spam-section--lists .settings-rule-grid,
 .settings-tab-content #comments-tab-spam .comments-spam-section--lists .admin-settings-grid,
+.settings-tab-content #comments-tab-spam .comments-spam-section--messages .settings-rule-grid,
 .settings-tab-content #comments-tab-spam .comments-spam-section--messages .admin-settings-grid,
+.settings-tab-content #comments-tab-spam .comments-spam-section--exemptions .settings-rule-grid,
 .settings-tab-content #comments-tab-spam .comments-spam-section--exemptions .admin-settings-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: .85rem 1rem;
 }
 
 .settings-tab-content #comments-tab-spam .comments-spam-section--lists .admin-field-wide,
@@ -14735,24 +14741,42 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     grid-column: span 1;
 }
 
-@media (max-width: 980px) {
-    .settings-tab-content #comments-tab-spam .comments-spam-section--primary,
-    .settings-tab-content #comments-tab-spam .comments-spam-section--quick {
-        grid-column: 1 / -1;
+@media (min-width: 1180px) {
+    .settings-tab-content #comments-tab-spam .comments-spam-section--primary .settings-rule-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--primary .admin-settings-grid {
+        grid-template-columns: minmax(240px, .8fr) minmax(280px, 1fr);
     }
 
+    .settings-tab-content #comments-tab-spam .comments-spam-section--quick .settings-rule-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--quick .admin-settings-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .settings-tab-content #comments-tab-spam .comments-spam-section--lists .settings-rule-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--lists .admin-settings-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--messages .settings-rule-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--messages .admin-settings-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--exemptions .settings-rule-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--exemptions .admin-settings-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .settings-rule-grid,
     .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .admin-settings-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 720px) {
-    .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .admin-settings-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .settings-tab-content #comments-tab-spam .comments-spam-section {
+        padding: .85rem;
     }
 
+    .settings-tab-content #comments-tab-spam .comments-spam-section--lists .settings-rule-grid,
     .settings-tab-content #comments-tab-spam .comments-spam-section--lists .admin-settings-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--messages .settings-rule-grid,
     .settings-tab-content #comments-tab-spam .comments-spam-section--messages .admin-settings-grid,
+    .settings-tab-content #comments-tab-spam .comments-spam-section--exemptions .settings-rule-grid,
     .settings-tab-content #comments-tab-spam .comments-spam-section--exemptions .admin-settings-grid {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -14765,16 +14789,20 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
 }
 
 @media (max-width: 560px) {
+    .settings-tab-content #comments-tab-spam .comments-spam-section .settings-rule-head {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .settings-tab-content #comments-tab-spam .comments-spam-section .settings-rule-badge {
+        width: max-content;
+        max-width: 100%;
+        white-space: normal;
+    }
+
+    .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .settings-rule-grid,
     .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .admin-settings-grid {
         grid-template-columns: minmax(0, 1fr);
-    }
-
-    .settings-tab-content #comments-tab-spam .comments-spam-section--advanced [data-setting-field] {
-        grid-template-rows: auto auto;
-    }
-
-    .settings-tab-content #comments-tab-spam .comments-spam-section--advanced .ui-admin-form-label {
-        min-height: 0;
     }
 }
 
