@@ -285,13 +285,19 @@ class Analytics {
      * Send data to server
      */
     async sendToServer(payload) {
+        if (typeof window.publicFetchJson !== 'function') {
+            return;
+        }
+
         try {
-            await fetch(this.baseUri + '/api/analytics/track.php', {
+            await window.publicFetchJson(this.baseUri + '/api/analytics/track.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload),
+                notifyError: false,
+                csrfRetry: false,
             });
         } catch (error) {
             // Silently fail - don't disrupt user experience
@@ -466,23 +472,20 @@ if (typeof module !== 'undefined' && module.exports) {
             button.disabled = true;
 
             try {
-                const response = await fetch(`${baseUri}/api/favorites/toggle.php`, {
+                if (!window.publicFetchJson) {
+                    throw new Error('Public API helper yuklenemedi.');
+                }
+                const payload = await window.publicFetchJson(`${baseUri}/api/favorites/toggle.php`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': csrfToken(),
                     },
-                    body: JSON.stringify({ topic_id: Number(topicId || button.dataset.topicId || 0) }),
+                    body: { topic_id: Number(topicId || button.dataset.topicId || 0) },
+                    notifyError: false
                 });
-
-                if (response.status === 401) {
-                    window.location.href = `${baseUri}/giris`;
-                    return;
-                }
-
-                const payload = await response.json();
-                if (!response.ok || !payload.success) throw new Error(payload.error || 'favorite_failed');
+                if (!payload.success) throw new Error(payload.error || 'favorite_failed');
                 setTopicFavoriteState(topicId, Boolean(payload.favorited), Number(payload.count || 0));
                 if (!payload.favorited && button.closest('.profile-favorite-remove-form')) {
                     const card = button.closest('.profile-topic-item');
@@ -509,6 +512,10 @@ if (typeof module !== 'undefined' && module.exports) {
                 window.showToast?.(payload.favorited ? 'Favorilere eklendi' : 'Favorilerden kaldırıldı', 'success');
                 window.analytics?.trackFavorite?.(payload.topic_id, payload.favorited ? 'add' : 'remove');
             } catch (error) {
+                if (Number(error && error.status) === 401) {
+                    window.location.href = `${baseUri}/giris`;
+                    return;
+                }
                 setTopicFavoriteState(topicId, previous.active, previous.count);
                 window.showToast?.(optimistic.messageFor(error.message, 'Favori işlemi tamamlanamadı.'), 'error');
             } finally {
@@ -1304,24 +1311,16 @@ if (typeof module !== 'undefined' && module.exports) {
           submitButton.classList.add("is-submitting");
           submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Gonderiliyor...';
         }
-        fetch(form.action, {
+        (window.publicFetchJson ? window.publicFetchJson(form.action, {
           method: "POST",
           body: new FormData(form),
           headers: {
-            Accept: "application/json",
-            "X-Requested-With": "XMLHttpRequest"
-          }
-        }).then(function (response) {
-          return response.json().catch(function () {
-            return { success: false, message: "Sunucudan gecerli cevap alinamadi." };
-          }).then(function (payload) {
-            if (!response.ok || !payload.success) {
-              if (response.status === 409 && submitButton) {
-                form.dataset.submitted = "1";
-                submitButton.classList.remove("is-submitting");
-                submitButton.classList.add("is-submit-locked");
-                submitButton.innerHTML = '<i class="bi bi-lock"></i> Gonderim Kilitlendi';
-              }
+            Accept: "application/json"
+          },
+          notifyError: false,
+          errorMessage: form.hasAttribute("data-topic-edit-wizard") ? "Mod guncellenemedi." : "Mod gonderilemedi."
+        }) : Promise.reject(new Error("Public API helper yuklenemedi."))).then(function (payload) {
+            if (!payload.success) {
               throw new Error(payload.message || (form.hasAttribute("data-topic-edit-wizard") ? "Mod guncellenemedi." : "Mod gonderilemedi."));
             }
             if (form.dataset.lockAfterSubmit === "1" || form.hasAttribute("data-topic-edit-wizard")) {
@@ -1338,9 +1337,14 @@ if (typeof module !== 'undefined' && module.exports) {
             if (payload.redirect) {
               window.setTimeout(function () { window.location.href = payload.redirect; }, 900);
             }
-          });
         }).catch(function (error) {
           delete form.dataset.submitting;
+          if (Number(error && error.status) === 409 && submitButton) {
+            form.dataset.submitted = "1";
+            submitButton.classList.remove("is-submitting");
+            submitButton.classList.add("is-submit-locked");
+            submitButton.innerHTML = '<i class="bi bi-lock"></i> Gonderim Kilitlendi';
+          }
           toast(error && error.message ? error.message : (form.hasAttribute("data-topic-edit-wizard") ? "Mod guncellenemedi." : "Mod gonderilemedi."), "error");
           if (submitButton && form.dataset.submitted !== "1") {
             submitButton.disabled = false;
@@ -1488,9 +1492,10 @@ if (typeof module !== 'undefined' && module.exports) {
             this.renderSkeleton();
 
             try {
-                const response = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
-                if (!response.ok) throw new Error('filter_failed');
-                const payload = await response.json();
+                if (!window.publicFetchJson) {
+                    throw new Error('Public API helper yuklenemedi.');
+                }
+                const payload = await window.publicFetchJson(apiUrl, { headers: { 'Accept': 'application/json' } });
                 this.container.innerHTML = payload.html || '';
                 if (pushState) history.pushState({}, '', pageUrl);
                 this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1820,17 +1825,17 @@ if (typeof module !== 'undefined' && module.exports) {
             }
 
             const baseUri = document.querySelector('meta[name="app-base-uri"]')?.content || '';
-            fetch(baseUri + '/api/comments.php', {
+            (window.publicFetchJson ? window.publicFetchJson(baseUri + '/api/comments.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+                body: {
                     action: 'react',
                     comment_id: commentId,
                     reaction_type: reactionType,
                     _token: csrfToken
-                })
-            })
-                .then(r => r.json())
+                },
+                notifyError: false
+            }) : Promise.reject(new Error('Public API helper yuklenemedi.')))
                 .then(data => {
                     if (data.success) {
                         this.updateReactionUI(commentId, data.reactions, data.user_reactions);
@@ -1923,8 +1928,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
         showEditHistory: function (commentId) {
             const baseUri = document.querySelector('meta[name="app-base-uri"]')?.content || '';
-            fetch(baseUri + `/api/comments.php?action=edit_history&comment_id=${commentId}&_=${Date.now()}`, { cache: 'no-store' })
-                .then(r => r.json())
+            (window.publicFetchJson ? window.publicFetchJson(baseUri + `/api/comments.php?action=edit_history&comment_id=${commentId}&_=${Date.now()}`, { cache: 'no-store' }) : Promise.reject(new Error('Public API helper yuklenemedi.')))
                 .then(data => {
                     if (data.success) {
                         this.renderEditHistoryModal(data.history);
@@ -2210,11 +2214,10 @@ if (typeof module !== 'undefined' && module.exports) {
                 const baseUri = document.querySelector('meta[name="app-base-uri"]')?.content || '';
                 const url = `${baseUri}/api/comments.php?action=mention_search&q=${encodeURIComponent(query)}`;
 
-                fetch(url, {
+                (window.publicFetchJson ? window.publicFetchJson(url, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin'
-                })
-                    .then(response => response.json())
+                }) : Promise.reject(new Error('Public API helper yuklenemedi.')))
                     .then(data => {
                         if (this.mentionActiveTextarea !== textarea || this.mentionTriggerStart !== triggerStart) return;
                         this.renderMentionSuggestions(Array.isArray(data.users) ? data.users : [], textarea);
@@ -2466,8 +2469,7 @@ if (typeof module !== 'undefined' && module.exports) {
         const fallbackAvatarUrl = getLocalAssetUrl('assets/images/noavatar-neon-helmet.svg');
         const apiUrl = `${baseUri}/api/leaderboard?category=daily_login&period=${period}&limit=5`;
 
-        fetch(apiUrl)
-            .then(response => response.json())
+        (window.publicFetchJson ? window.publicFetchJson(apiUrl) : Promise.reject(new Error('Public API helper yuklenemedi.')))
             .then(data => {
                 if (data.success && data.data) {
                     renderWidgetUsers(data.data, widgetList, fallbackAvatarUrl);
@@ -3542,15 +3544,14 @@ if (typeof module !== 'undefined' && module.exports) {
                 button.innerHTML = '<i class="bi bi-hourglass-split"></i> Gönderiliyor...';
             }
 
-            fetch(form.action, {
+            (window.publicFetchJson ? window.publicFetchJson(form.action, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
-            }).then(function (response) {
-                return response.json().then(function (payload) {
-                    return { ok: response.ok, payload: payload };
-                });
-            }).then(function (result) {
+                body: Object.fromEntries(new FormData(form).entries()),
+                notifyError: false
+            }).then(function (payload) {
+                return { ok: true, payload: payload };
+            }) : Promise.reject(new Error('Public API helper yuklenemedi.'))).then(function (result) {
                 var message = result.payload.message || (result.ok ? 'Şikayet gönderildi.' : 'Şikayet gönderilemedi.');
                 if (feedback) {
                     feedback.textContent = message;
@@ -4091,11 +4092,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             try {
-                const response = await fetch(`${baseUri}/api/search.php?q=${encodeURIComponent(query)}`, {
+                if (!window.publicFetchJson) {
+                    throw new Error('Public API helper yuklenemedi.');
+                }
+                const payload = await window.publicFetchJson(`${baseUri}/api/search.php?q=${encodeURIComponent(query)}`, {
                     headers: { 'Accept': 'application/json' },
                 });
-                if (!response.ok) throw new Error('search_failed');
-                const payload = await response.json();
                 this.render(payload.results || [], query);
                 window.analytics?.trackSearch?.(query, payload.total ?? 0);
             } catch (error) {
@@ -5083,8 +5085,7 @@ e.init();
     var list = document.getElementById("notifList");
     if (!endpoint) return Promise.resolve(null);
 
-    return fetch(endpoint, { headers: { "X-Requested-With": "XMLHttpRequest" } })
-      .then(function (response) { return response.json(); })
+    return (window.publicFetchJson ? window.publicFetchJson(endpoint, { headers: { "X-Requested-With": "XMLHttpRequest" } }) : Promise.reject(new Error("Public API helper yuklenemedi.")))
       .then(function (data) {
         if (!data || !data.ok) return data;
 
@@ -5155,15 +5156,7 @@ e.init();
                 var fd = new FormData();
                 fd.append("_token", csrfToken);
                 fd.append("id", notif.id);
-                fetch(readApi, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
-                  .then(function(response) {
-                    return response.json().then(function(data) {
-                      if (!response.ok) {
-                        throw new Error((data && data.message) ? data.message : "Bildirimler guncellenemedi.");
-                      }
-                      return data;
-                    });
-                  })
+                (window.publicFetchJson ? window.publicFetchJson(readApi, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, notifyError: false }) : Promise.reject(new Error("Public API helper yuklenemedi.")))
                   .then(function() {
                     el.classList.remove("unread");
                     notif.is_read = true;
@@ -5230,19 +5223,12 @@ e.init();
     formData.append("_token", csrfToken);
     formData.append("id", "all");
 
-    fetch(readApi, {
+    (window.publicFetchJson ? window.publicFetchJson(readApi, {
       method: "POST",
       body: formData,
-      headers: { "X-Requested-With": "XMLHttpRequest" }
-    })
-      .then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok || !data || (data.ok !== true && data.success !== true)) {
-            throw new Error(data && data.message ? data.message : "Bildirimler guncellenemedi.");
-          }
-          return data;
-        });
-      })
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      notifyError: false
+    }) : Promise.reject(new Error("Public API helper yuklenemedi.")))
       .then(function () {
         var list = document.getElementById("notifList");
         if (list) {
@@ -5399,13 +5385,12 @@ e.init();
       formData.append("_token", csrfToken);
       formData.append("id", id);
 
-      return fetch(readEndpoint, {
+      return window.publicFetchJson ? window.publicFetchJson(readEndpoint, {
         method: "POST",
         body: formData,
-        headers: { "X-Requested-With": "XMLHttpRequest" }
-      }).then(function (response) {
-        return response.json();
-      });
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        notifyError: false
+      }) : Promise.reject(new Error("Public API helper yuklenemedi."));
     }
 
     function initPreferenceGroups() {

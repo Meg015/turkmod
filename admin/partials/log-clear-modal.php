@@ -121,9 +121,12 @@ $renderAttributes = static function (array $attributes) use ($escape): void {
                     </div>
                 <?php endforeach; ?>
 
-                <div class="ui-admin-alert ui-admin-alert-warning ui-admin-alert-spaced ui-alert ui-alert--warning" data-keep-inline-alert>
-                    <strong><?= $escape($warningTitle) ?></strong> <?= $escape($warningText) ?>
-                </div>
+                <?= adminRenderAlert('', 'warning', [
+                    'icon' => '',
+                    'class' => 'ui-admin-alert-spaced',
+                    'attrs' => ['data-keep-inline-alert' => true],
+                    'html' => '<strong>' . $escape($warningTitle) . '</strong> ' . $escape($warningText),
+                ]) ?>
 
                 <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-clear-logs-close><?= $escape($cancelLabel) ?></button>

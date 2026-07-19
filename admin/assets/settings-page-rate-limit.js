@@ -1,4 +1,4 @@
-(function () {
+function initSettingsRateLimitPage() {
     'use strict';
 
     function numberValue(input) {
@@ -115,4 +115,9 @@
         });
         updateRule(rule);
     });
-})();
+}
+
+window.adminPage.register('settings', initSettingsRateLimitPage, {
+    id: 'settings-page:rate-limit',
+    selector: '.rate-limit-subtab-btn, .rate-limit-rule'
+});

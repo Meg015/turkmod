@@ -201,20 +201,21 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <?php if ($total === 0): ?>
-        <div class="ui-admin-card ui-card">
-            <div class="ui-admin-empty ui-admin-empty-pro ui-admin-empty-queue ui-empty">
-                <div class="ui-admin-empty-icon tone-success ui-empty"><i class="bi bi-check2-all"></i></div>
-                <h3 class="ui-admin-empty-title ui-empty">Tüm kuyruklar temiz</h3>
-                <p class="ui-admin-empty-desc ui-empty">Şu an için inceleme bekleyen rapor, itiraz veya konu yok. Yeni bildirim geldiğinde burada belirir.</p>
-                <div class="ui-admin-empty-meta" aria-label="Kuyruk durumu">
-                    <span><i class="bi bi-inbox"></i> 0 bekleyen iş</span>
-                    <span><i class="bi bi-shield-check"></i> Moderasyon sakin</span>
-                </div>
-                <div class="ui-admin-empty-actions ui-empty">
-                    <a href="<?= $baseUri ?>/admin/index.php" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-speedometer2"></i> Dashboard'a Dön</a>
-                </div>
-            </div>
-        </div>
+        <?= adminRenderPanel(adminRenderEmptyState([
+                'icon' => 'bi-check2-all',
+                'tone' => 'success',
+                'title' => 'Tüm kuyruklar temiz',
+                'description' => 'Şu an için inceleme bekleyen rapor, itiraz veya konu yok. Yeni bildirim geldiğinde burada belirir.',
+                'pro' => true,
+                'class' => 'ui-admin-empty-queue',
+                'meta' => [
+                    ['icon' => 'bi-inbox', 'label' => '0 bekleyen iş'],
+                    ['icon' => 'bi-shield-check', 'label' => 'Moderasyon sakin'],
+                ],
+                'actions' => [
+                    ['href' => $baseUri . '/admin/index.php', 'label' => 'Dashboard\'a Dön', 'icon' => 'bi-speedometer2'],
+                ],
+            ]), ['tag' => 'div', 'class' => 'ui-admin-card ui-card', 'body_class' => 'ui-admin-card-body-flush']) ?>
     <?php else: ?>
         <div class="ui-admin-queue-grid ui-grid">
             <?php foreach ($cards as $card): $n = (int) ($queue[$card['key']] ?? 0); $isEmpty = $n === 0; $priority = $isEmpty ? 'low' : ($card['tone'] === 'danger' ? 'high' : ($card['tone'] === 'warning' ? 'medium' : 'normal')); ?>

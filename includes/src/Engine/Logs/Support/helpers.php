@@ -237,6 +237,8 @@ function logsFormatAction(string $action): string
         'media_deleted' => 'Medya silindi',
         'rate_limit_records_deleted' => 'Rate limit kayıtları temizlendi',
         'cron_logs_cleared' => 'Cron logları temizlendi',
+        'system_notifications_deleted' => 'Sistem bildirimleri silindi',
+        'system_notifications_cleared' => 'Sistem bildirimleri temizlendi',
         'application_logs_cleared' => 'Uygulama logları temizlendi',
         'email_logs_cleared' => 'E-posta logları temizlendi',
         'activity_logs_cleared' => 'Aktivite logları temizlendi',
@@ -327,6 +329,25 @@ function logsClearOld(PDO $pdo, int $daysToKeep = 90): int
 }
 
 /**
+ * SQL fragment that identifies application log rows owned by the Cron Logs view.
+ */
+function appLogsCronWhereClause(string $prefix = ''): string
+{
+    $channelCol = $prefix . 'channel';
+    $messageCol = $prefix . 'message';
+    $contextCol = $prefix . 'context_json';
+    $channelSql = "LOWER(COALESCE({$channelCol}, ''))";
+    $messageSql = "LOWER(COALESCE({$messageCol}, ''))";
+    $contextSql = "LOWER(COALESCE(CAST({$contextCol} AS CHAR), ''))";
+
+    return "({$channelSql} = 'cron'"
+        . " OR {$messageSql} LIKE 'cron_run:%'"
+        . " OR {$contextSql} LIKE '%\"action\":\"cron_cleanup\"%'"
+        . " OR {$contextSql} LIKE '%\"source\":\"cron/%'"
+        . " OR {$contextSql} LIKE '%\"source\":\"cron_%')";
+}
+
+/**
  * @return array{where:string,params:array<string,string>}
  */
 function appLogsBuildWhere(
@@ -335,10 +356,15 @@ function appLogsBuildWhere(
     string $channel = '',
     string $dateFrom = '',
     string $dateTo = '',
-    string $prefix = 'a.'
+    string $prefix = 'a.',
+    array $excludedChannels = []
 ): array {
     $where = ['1=1'];
     $params = [];
+    $excludedChannels = array_values(array_unique(array_filter(array_map(
+        static fn ($value): string => strtolower(trim((string) $value)),
+        $excludedChannels
+    ), static fn (string $value): bool => $value !== '')));
 
     $messageCol = $prefix . 'message';
     $channelCol = $prefix . 'channel';
@@ -358,6 +384,18 @@ function appLogsBuildWhere(
     if ($channel !== '') {
         $where[] = "{$channelCol} = :channel";
         $params['channel'] = $channel;
+    }
+    if ($excludedChannels !== []) {
+        $placeholders = [];
+        foreach ($excludedChannels as $index => $excludedChannel) {
+            $paramKey = 'excluded_channel_' . $index;
+            $placeholders[] = ':' . $paramKey;
+            $params[$paramKey] = $excludedChannel;
+        }
+        $where[] = "({$channelCol} IS NULL OR LOWER({$channelCol}) NOT IN (" . implode(',', $placeholders) . '))';
+        if (in_array('cron', $excludedChannels, true)) {
+            $where[] = 'NOT ' . appLogsCronWhereClause($prefix);
+        }
     }
     if ($dateFrom !== '') {
         $where[] = "{$createdCol} >= :date_from";
@@ -379,12 +417,13 @@ function appLogsGetList(
     int $page = 1,
     int $perPage = 10,
     string $dateFrom = '',
-    string $dateTo = ''
+    string $dateTo = '',
+    array $excludedChannels = []
 ): array {
     $page = max(1, $page);
     $perPage = max(1, min(10, $perPage));
 
-    $filter = appLogsBuildWhere($search, $level, $channel, $dateFrom, $dateTo, 'a.');
+    $filter = appLogsBuildWhere($search, $level, $channel, $dateFrom, $dateTo, 'a.', $excludedChannels);
     $offset = ($page - 1) * $perPage;
 
     $countStmt = $pdo->prepare("SELECT COUNT(*) FROM application_logs a WHERE {$filter['where']}");
@@ -407,50 +446,68 @@ function appLogsGetList(
     ];
 }
 
-function appLogsGetStats(PDO $pdo): array
+function appLogsGetStats(PDO $pdo, array $excludedChannels = []): array
 {
+    $filter = appLogsBuildWhere('', '', '', '', '', '', $excludedChannels);
+    $where = $filter['where'];
+    $params = $filter['params'];
+    $scalar = static function (string $sql) use ($pdo, $params): int {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    };
+
     return [
-        'total' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs")->fetchColumn(),
-        'total_24h' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(),
-        'total_7d' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
-        'errors_24h' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE level IN ('error','critical') AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(),
-        'errors_7d' => (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE level IN ('error','critical') AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
-        'channels' => (int) $pdo->query("SELECT COUNT(DISTINCT channel) FROM application_logs")->fetchColumn(),
+        'total' => $scalar("SELECT COUNT(*) FROM application_logs WHERE {$where}"),
+        'total_24h' => $scalar("SELECT COUNT(*) FROM application_logs WHERE {$where} AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)"),
+        'total_7d' => $scalar("SELECT COUNT(*) FROM application_logs WHERE {$where} AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"),
+        'errors_24h' => $scalar("SELECT COUNT(*) FROM application_logs WHERE {$where} AND level IN ('error','critical') AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)"),
+        'errors_7d' => $scalar("SELECT COUNT(*) FROM application_logs WHERE {$where} AND level IN ('error','critical') AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"),
+        'channels' => $scalar("SELECT COUNT(DISTINCT channel) FROM application_logs WHERE {$where}"),
     ];
 }
 
-function appLogsGetLevels(PDO $pdo): array
+function appLogsGetLevels(PDO $pdo, array $excludedChannels = []): array
 {
     try {
-        $stmt = $pdo->query("SELECT DISTINCT level FROM application_logs WHERE level IS NOT NULL AND level <> '' ORDER BY level");
+        $filter = appLogsBuildWhere('', '', '', '', '', '', $excludedChannels);
+        $stmt = $pdo->prepare("SELECT DISTINCT level FROM application_logs WHERE {$filter['where']} AND level IS NOT NULL AND level <> '' ORDER BY level");
+        $stmt->execute($filter['params']);
         return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
     } catch (Throwable $e) {
         return [];
     }
 }
 
-function appLogsGetChannels(PDO $pdo): array
+function appLogsGetChannels(PDO $pdo, array $excludedChannels = []): array
 {
     try {
-        $stmt = $pdo->query("SELECT DISTINCT channel FROM application_logs WHERE channel IS NOT NULL AND channel <> '' ORDER BY channel");
+        $filter = appLogsBuildWhere('', '', '', '', '', '', $excludedChannels);
+        $stmt = $pdo->prepare("SELECT DISTINCT channel FROM application_logs WHERE {$filter['where']} AND channel IS NOT NULL AND channel <> '' ORDER BY channel");
+        $stmt->execute($filter['params']);
         return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
     } catch (Throwable $e) {
         return [];
     }
 }
 
-function appLogsClearAll(PDO $pdo): int
+function appLogsClearAll(PDO $pdo, array $excludedChannels = []): int
 {
-    $count = (int) $pdo->query("SELECT COUNT(*) FROM application_logs")->fetchColumn();
-    $pdo->exec("DELETE FROM application_logs");
+    $filter = appLogsBuildWhere('', '', '', '', '', '', $excludedChannels);
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM application_logs WHERE {$filter['where']}");
+    $countStmt->execute($filter['params']);
+    $count = (int) $countStmt->fetchColumn();
+    $deleteStmt = $pdo->prepare("DELETE FROM application_logs WHERE {$filter['where']}");
+    $deleteStmt->execute($filter['params']);
     return $count;
 }
 
-function appLogsClearOld(PDO $pdo, int $daysToKeep = 90): int
+function appLogsClearOld(PDO $pdo, int $daysToKeep = 90, array $excludedChannels = []): int
 {
     $cutoff = (new DateTimeImmutable())->modify('-' . max(1, $daysToKeep) . ' days')->format('Y-m-d H:i:s');
-    $stmt = $pdo->prepare("DELETE FROM application_logs WHERE created_at IS NOT NULL AND created_at < :cutoff");
-    $stmt->execute(['cutoff' => $cutoff]);
+    $filter = appLogsBuildWhere('', '', '', '', '', '', $excludedChannels);
+    $stmt = $pdo->prepare("DELETE FROM application_logs WHERE {$filter['where']} AND created_at IS NOT NULL AND created_at < :cutoff");
+    $stmt->execute(array_merge($filter['params'], ['cutoff' => $cutoff]));
     return $stmt->rowCount();
 }
 
@@ -460,13 +517,27 @@ function appLogsClearFiltered(
     string $level = '',
     string $channel = '',
     string $dateFrom = '',
-    string $dateTo = ''
+    string $dateTo = '',
+    array $excludedChannels = []
 ): int {
-    $filter = appLogsBuildWhere($search, $level, $channel, $dateFrom, $dateTo, '');
+    $filter = appLogsBuildWhere($search, $level, $channel, $dateFrom, $dateTo, '', $excludedChannels);
     $sql = "DELETE FROM application_logs WHERE {$filter['where']}";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($filter['params']);
     return $stmt->rowCount();
+}
+
+function appLogsClearCron(PDO $pdo): int
+{
+    $where = appLogsCronWhereClause('');
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM application_logs WHERE {$where}");
+    $countStmt->execute();
+    $count = (int) $countStmt->fetchColumn();
+
+    $deleteStmt = $pdo->prepare("DELETE FROM application_logs WHERE {$where}");
+    $deleteStmt->execute();
+
+    return $count;
 }
 
 function appLogsFormatContext(?string $contextJson): string
@@ -828,6 +899,8 @@ if (!function_exists('appLogsHumanizeMessage')) {
             'media_deleted' => 'Medya silindi',
             'rate_limit_cleanup' => 'Rate limit temizliği',
             'cron_logs_cleared' => 'Cron logları temizlendi',
+            'system_notifications_deleted' => 'Sistem bildirimleri silindi',
+            'system_notifications_cleared' => 'Sistem bildirimleri temizlendi',
             'application_logs_cleared' => 'Uygulama logları temizlendi',
             'email_logs_cleared' => 'E-posta logları temizlendi',
             'activity_logs_cleared' => 'Aktivite logları temizlendi',

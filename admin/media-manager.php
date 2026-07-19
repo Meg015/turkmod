@@ -300,50 +300,14 @@ $defaultUploadPath = $mediaCurrentPath !== '' ? $mediaCurrentPath : $configuredD
 $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $mediaCurrentPath : '');
 ?>
 <div class="mm-page">
-<div class="admin-stat-grid mm-stats-grid ui-grid">
-    <div class="admin-stat-card stat-info mm-stat-card ui-card">
-        <div class="stat-icon"><i class="bi bi-file-earmark"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Toplam Dosya</span>
-            <span class="stat-value"><?= $totalFiles ?></span>
-        </div>
-    </div>
-    <div class="admin-stat-card stat-success mm-stat-card ui-card">
-        <div class="stat-icon"><i class="bi bi-image"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Görsel</span>
-            <span class="stat-value"><?= $totalImages ?></span>
-        </div>
-    </div>
-    <div class="admin-stat-card stat-warning mm-stat-card ui-card">
-        <div class="stat-icon"><i class="bi bi-folder2"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Klasör</span>
-            <span class="stat-value"><?= $totalDirs ?></span>
-        </div>
-    </div>
-    <div class="admin-stat-card stat-info mm-stat-card ui-card">
-        <div class="stat-icon"><i class="bi bi-hdd"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Toplam Boyut</span>
-            <span class="stat-value"><?= mediaFormatBytes($totalSize) ?></span>
-        </div>
-    </div>
-    <div class="admin-stat-card <?= $webpActive ? 'stat-success' : 'stat-warning' ?> mm-stat-card ui-card">
-        <div class="stat-icon"><i class="bi bi-image-alt"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">WebP Dönüşümü</span>
-            <span class="stat-value"><?= $webpActive ? 'Aktif' : 'Kapalı' ?></span>
-        </div>
-    </div>
-    <a href="settings.php#file_manager" class="admin-stat-card stat-info mm-stat-card mm-stat-link ui-card">
-        <div class="stat-icon"><i class="bi bi-sliders"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Dosya Ayarları</span>
-            <span class="stat-value">Yapılandır</span>
-        </div>
-    </a>
-</div>
+<?= adminRenderStatCards([
+    ['tone' => 'info', 'icon' => 'bi-file-earmark', 'label' => 'Toplam Dosya', 'value' => number_format((int) $totalFiles, 0, ',', '.'), 'class' => 'mm-stat-card'],
+    ['tone' => 'success', 'icon' => 'bi-image', 'label' => 'Görsel', 'value' => number_format((int) $totalImages, 0, ',', '.'), 'class' => 'mm-stat-card'],
+    ['tone' => 'warning', 'icon' => 'bi-folder2', 'label' => 'Klasör', 'value' => number_format((int) $totalDirs, 0, ',', '.'), 'class' => 'mm-stat-card'],
+    ['tone' => 'info', 'icon' => 'bi-hdd', 'label' => 'Toplam Boyut', 'value' => mediaFormatBytes($totalSize), 'class' => 'mm-stat-card'],
+    ['tone' => $webpActive ? 'success' : 'warning', 'icon' => 'bi-image-alt', 'label' => 'WebP Dönüşümü', 'value' => $webpActive ? 'Aktif' : 'Kapalı', 'class' => 'mm-stat-card'],
+    ['href' => 'settings.php#file_manager', 'tone' => 'info', 'icon' => 'bi-sliders', 'label' => 'Dosya Ayarları', 'value' => 'Yapılandır', 'class' => 'mm-stat-card mm-stat-link'],
+], ['class' => 'mm-stats-grid', 'aria_label' => 'Medya yöneticisi özeti']) ?>
 
 <div class="mm-container">
     <div class="mm-header">
@@ -435,11 +399,13 @@ $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $medi
         </div>
 
         <?php if (empty($items)): ?>
-            <div class="mm-empty-state ui-admin-empty ui-empty">
-                <div class="mm-empty-icon ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-folder2-open"></i></div>
-                <p class="mm-empty-title ui-admin-empty-title ui-empty">Bu dizin boş</p>
-                <p class="mm-empty-text ui-admin-empty-desc ui-empty">Yeni dosyalar yükleyebilir veya üst klasöre dönebilirsiniz.</p>
-            </div>
+            <?= adminRenderEmptyState([
+                'icon' => 'bi-folder2-open',
+                'tone' => 'info',
+                'title' => 'Bu dizin boş',
+                'description' => 'Yeni dosyalar yükleyebilir veya üst klasöre dönebilirsiniz.',
+                'class' => 'mm-empty-state',
+            ]) ?>
         <?php else: ?>
             <div class="mm-grid">
                 <?php foreach ($items as $item): ?>
@@ -465,10 +431,15 @@ $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $medi
                              data-size="<?= htmlspecialchars(mediaFormatBytes((int) ($item['size'] ?? 0))) ?>"
                              data-date="<?= htmlspecialchars(date('d.m.Y H:i', (int) ($item['modified'] ?? time()))) ?>"
                              data-ext="<?= htmlspecialchars((string) ($item['ext'] ?? '')) ?>"
-                             data-path="<?= htmlspecialchars((string) ($item['path'] ?? '')) ?>">
+                            data-path="<?= htmlspecialchars((string) ($item['path'] ?? '')) ?>">
                             <div class="mm-grid-thumb">
                                 <?php if (!empty($item['is_image'])): ?>
-                                    <img src="<?= htmlspecialchars((string) $item['url']) ?>" alt="<?= htmlspecialchars((string) $item['name']) ?>" loading="lazy" width="160" height="100">
+                                    <?php $mediaThumbUrl = adminSafeImageUrl((string) ($item['url'] ?? ''), $baseUri); ?>
+                                    <?php if ($mediaThumbUrl !== ''): ?>
+                                        <img src="<?= htmlspecialchars($mediaThumbUrl) ?>" alt="<?= htmlspecialchars((string) $item['name']) ?>" loading="lazy" width="160" height="100">
+                                    <?php else: ?>
+                                        <?= adminRenderImagePlaceholder('mm-grid-placeholder') ?>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <i class="bi bi-file-earmark"></i>
                                 <?php endif; ?>
@@ -534,7 +505,7 @@ $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $medi
             <a id="previewDownload" href="" download class="mm-btn mm-btn-secondary mm-btn-sm ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">
                 <i class="bi bi-download"></i> İndir
             </a>
-            <form method="post" action="media-manager.php" class="ui-admin-inline-form" data-admin-confirm="Bu dosyayı silmek istediğinize emin misiniz?" data-admin-confirm-title="Dosya silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
+            <form method="post" action="media-manager.php" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu dosyayı silmek istediğinize emin misiniz?', 'title' => 'Dosya silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="file_path" id="previewDeletePath" value="">

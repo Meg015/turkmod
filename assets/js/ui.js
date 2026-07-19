@@ -119,8 +119,8 @@
 /* ============================================================
    SECTION 2: DIALOG / CONFIRM / PROMPT SYSTEM
    appConfirm and appPrompt are used by other JS files as
-   a lightweight Promise-based dialog fallback. Toast system
-   is in ui-foundation.js (definitive version).
+   lightweight Promise-based dialog helpers. Toast system is
+   in ui-foundation.js (definitive version).
    ============================================================ */
 
 // Global toast helper. Container element must exist (rendered by public-footer.php).
@@ -1052,11 +1052,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             try {
-                const response = await fetch(`${baseUri}/api/search.php?q=${encodeURIComponent(query)}`, {
+                if (!window.publicFetchJson) {
+                    throw new Error('Public API helper yuklenemedi.');
+                }
+                const payload = await window.publicFetchJson(`${baseUri}/api/search.php?q=${encodeURIComponent(query)}`, {
                     headers: { 'Accept': 'application/json' },
                 });
-                if (!response.ok) throw new Error('search_failed');
-                const payload = await response.json();
                 this.render(payload.results || [], query);
                 window.analytics?.trackSearch?.(query, payload.total ?? 0);
             } catch (error) {

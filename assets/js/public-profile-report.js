@@ -56,15 +56,18 @@ document.addEventListener('submit', function(event) {
     const original = button.innerHTML;
     button.disabled = true;
     button.innerHTML = '<i class="bi bi-hourglass-split"></i> Gönderiliyor...';
-    fetch(form.action, {
+    const payload = Object.fromEntries(new FormData(form).entries());
+    const requestOptions = {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-        body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
-    }).then(function(response) {
-        return response.json().then(function(payload) {
-            return {ok: response.ok, payload: payload};
-        });
-    }).then(function(result) {
+        body: payload
+    };
+    (window.publicFetchJson
+        ? window.publicFetchJson(form.action, Object.assign({}, requestOptions, { notifyError: false })).then(function(payload) {
+            return {ok: true, payload: payload};
+        })
+        : Promise.reject(new Error('Public API helper yuklenemedi.'))
+    ).then(function(result) {
         const isSuccess = !!(result.ok && result.payload.success);
         const message = result.payload.message || (isSuccess ? 'Şikayet gönderildi.' : 'Şikayet gönderilemedi.');
         feedback.textContent = message;
@@ -78,8 +81,8 @@ document.addEventListener('submit', function(event) {
         if (window.showToast) {
             window.showToast(message, 'error');
         }
-    }).catch(function() {
-        feedback.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
+    }).catch(function(error) {
+        feedback.textContent = error && error.message ? error.message : 'Bağlantı hatası. Lütfen tekrar deneyin.';
         feedback.className = 'topic-report-feedback is-error';
         if (window.showToast) {
             window.showToast('Şikayet gönderilemedi.', 'error');

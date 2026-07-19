@@ -28,18 +28,11 @@ function adminRenderForbiddenPage(string $message = 'Bu sayfaya erişim yetkiniz
 
     require __DIR__ . '/header.php';
     ?>
-    <section class="ui-empty ui-admin-forbidden-empty" aria-labelledby="admin-forbidden-title">
+    <section class="ui-empty ui-admin-forbidden-empty" aria-labelledby="admin-forbidden-title" data-admin-forbidden-page data-admin-forbidden-message="<?= htmlspecialchars($forbiddenMessage, ENT_QUOTES, 'UTF-8') ?>">
         <i class="bi bi-shield-lock" aria-hidden="true"></i>
         <h2 id="admin-forbidden-title">Bu alan için yetkiniz yok</h2>
         <p><?= htmlspecialchars($forbiddenMessage, ENT_QUOTES, 'UTF-8') ?></p>
     </section>
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        if (window.adminForbidden) {
-            window.adminForbidden(<?= json_encode($forbiddenMessage, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>);
-        }
-    });
-    </script>
     <?php
     require __DIR__ . '/footer.php';
     exit;
@@ -96,16 +89,9 @@ function adminIsAjaxRequest(): bool
 function adminDenyAction(string $message = 'Bu islemi yapma yetkiniz yok.', string $redirect = ''): void
 {
     if (adminIsAjaxRequest()) {
-        http_response_code(403);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            'ok' => false,
-            'success' => false,
-            'message' => $message,
+        sendJsonResponse(403, false, $message, [
             'error' => $message,
-            'code' => 'forbidden',
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
+        ], 'forbidden');
     }
 
     flash('error', $message);
@@ -147,8 +133,8 @@ function adminRenderPagination(int $totalPages, int $currentPage, callable $urlF
 
     $currentPage = max(1, min($currentPage, $totalPages));
     $window = max(1, (int) ($options['window'] ?? 2));
-    $wrapperClass = trim('pagination-wrapper ' . (string) ($options['wrapper_class'] ?? ''));
-    $innerClass = trim('pagination ' . (string) ($options['inner_class'] ?? ''));
+    $wrapperClass = trim('pagination-wrapper admin-ui-pagination ' . (string) ($options['wrapper_class'] ?? ''));
+    $innerClass = trim('pagination admin-ui-pagination__inner ' . (string) ($options['inner_class'] ?? ''));
     $ariaLabel = (string) ($options['aria_label'] ?? 'Sayfa gezinme');
     $showEdges = (bool) ($options['show_edges'] ?? true);
 
@@ -196,6 +182,1191 @@ function adminRenderPagination(int $totalPages, int $currentPage, callable $urlF
     return '<nav class="' . $escape($wrapperClass) . '" aria-label="' . $escape($ariaLabel) . '"><div class="' . $escape($innerClass) . '">' . implode('', $items) . '</div></nav>';
 }
 
+function adminUiEscape(mixed $value): string
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+function adminUiClass(string $value): string
+{
+    $value = preg_replace('/[^a-zA-Z0-9_\-\s]/', '', $value) ?? '';
+    $parts = preg_split('/\s+/', trim($value)) ?: [];
+    $unique = [];
+    foreach ($parts as $part) {
+        if ($part === '' || isset($unique[$part])) {
+            continue;
+        }
+        $unique[$part] = true;
+    }
+
+    return implode(' ', array_keys($unique));
+}
+
+function adminUiAttrName(string $name): string
+{
+    $name = trim($name);
+    if ($name === '' || preg_match('/^[a-zA-Z_:][a-zA-Z0-9_:\-\.]*$/', $name) !== 1) {
+        return '';
+    }
+
+    return $name;
+}
+
+/**
+ * @param array<string,string|int|bool|null> $attrs
+ */
+function adminUiAttrs(array $attrs): string
+{
+    $html = '';
+    foreach ($attrs as $name => $value) {
+        if ($value === null || $value === false) {
+            continue;
+        }
+        $attrName = adminUiAttrName((string) $name);
+        if ($attrName === '') {
+            continue;
+        }
+        $html .= ' ' . adminUiEscape($attrName);
+        if ($value !== true) {
+            $html .= '="' . adminUiEscape($value) . '"';
+        }
+    }
+
+    return $html;
+}
+
+function adminUiPanelTag(string $tag, string $default = 'section'): string
+{
+    $allowed = ['section' => true, 'div' => true, 'article' => true, 'aside' => true, 'form' => true];
+    $default = strtolower(trim($default));
+    $default = isset($allowed[$default]) ? $default : 'section';
+    $tag = strtolower(trim($tag));
+
+    return isset($allowed[$tag]) ? $tag : $default;
+}
+
+function adminSettingListValues(mixed $value, bool $normalizeExemptionTokens = false): array
+{
+    $rawItems = is_array($value)
+        ? $value
+        : (preg_split('/[\r\n,;]+/u', (string) $value) ?: []);
+    $items = [];
+
+    foreach ($rawItems as $item) {
+        $item = trim((string) $item);
+        if ($item === '') {
+            continue;
+        }
+        if ($normalizeExemptionTokens && function_exists('commentSpamNormalizeExemptionToken')) {
+            $item = commentSpamNormalizeExemptionToken($item);
+        }
+        if ($item === '') {
+            continue;
+        }
+
+        $items[$item] = $item;
+    }
+
+    return array_values($items);
+}
+
+function adminNormalizeTone(string $tone): string
+{
+    $tone = strtolower(trim($tone));
+    $map = [
+        'ok' => 'success',
+        'active' => 'success',
+        'enabled' => 'success',
+        'published' => 'success',
+        'approved' => 'success',
+        'sent' => 'success',
+        'read' => 'success',
+        'success' => 'success',
+        'warn' => 'warning',
+        'pending' => 'warning',
+        'queued' => 'warning',
+        'revision' => 'warning',
+        'warning' => 'warning',
+        'error' => 'danger',
+        'failed' => 'danger',
+        'fail' => 'danger',
+        'rejected' => 'danger',
+        'danger' => 'danger',
+        'notice' => 'info',
+        'processing' => 'info',
+        'info' => 'info',
+        'primary' => 'primary',
+        'accent' => 'accent',
+        'inactive' => 'muted',
+        'disabled' => 'muted',
+        'expired' => 'muted',
+        'skipped' => 'muted',
+        'none' => 'muted',
+        'neutral' => 'muted',
+        'secondary' => 'muted',
+        'muted' => 'muted',
+    ];
+
+    return $map[$tone] ?? 'muted';
+}
+
+function adminToneBadgeClass(string $tone, string $prefix = 'ui-admin-badge-'): string
+{
+    return $prefix . adminNormalizeTone($tone);
+}
+
+/**
+ * @return array{label:string,tone:string,icon:string}
+ */
+function adminStatusMeta(string $status, string $domain = 'generic'): array
+{
+    $key = strtolower(trim($status));
+    $domain = strtolower(trim($domain));
+    $fallbackLabel = $key !== '' ? ucwords(str_replace(['_', '-'], ' ', $key)) : 'Durum yok';
+
+    $maps = [
+        'log_level' => [
+            'emergency' => ['label' => 'Acil', 'tone' => 'danger', 'icon' => 'bi-exclamation-octagon'],
+            'alert' => ['label' => 'Alarm', 'tone' => 'danger', 'icon' => 'bi-exclamation-octagon'],
+            'critical' => ['label' => 'Kritik', 'tone' => 'danger', 'icon' => 'bi-bug'],
+            'error' => ['label' => 'Hata', 'tone' => 'danger', 'icon' => 'bi-x-circle'],
+            'warning' => ['label' => 'Uyari', 'tone' => 'warning', 'icon' => 'bi-exclamation-triangle'],
+            'warn' => ['label' => 'Uyari', 'tone' => 'warning', 'icon' => 'bi-exclamation-triangle'],
+            'notice' => ['label' => 'Bildirim', 'tone' => 'info', 'icon' => 'bi-info-circle'],
+            'info' => ['label' => 'Bilgi', 'tone' => 'success', 'icon' => 'bi-info-circle'],
+            'debug' => ['label' => 'Debug', 'tone' => 'muted', 'icon' => 'bi-terminal'],
+        ],
+        'cron' => [
+            'success' => ['label' => 'Basarili', 'tone' => 'success', 'icon' => 'bi-check2-circle'],
+            'warning' => ['label' => 'Uyari', 'tone' => 'warning', 'icon' => 'bi-exclamation-triangle'],
+            'error' => ['label' => 'Hata', 'tone' => 'danger', 'icon' => 'bi-bug'],
+            'skipped' => ['label' => 'Atlandi', 'tone' => 'muted', 'icon' => 'bi-skip-forward'],
+            'missing' => ['label' => 'Yok', 'tone' => 'muted', 'icon' => 'bi-dash-circle'],
+        ],
+        'topic' => [
+            'draft' => ['label' => 'Taslak', 'tone' => 'warning', 'icon' => 'bi-pencil-square'],
+            'published' => ['label' => 'Yayinda', 'tone' => 'success', 'icon' => 'bi-check-circle'],
+            'approved' => ['label' => 'Onayli', 'tone' => 'success', 'icon' => 'bi-check2-circle'],
+            'rejected' => ['label' => 'Reddedildi', 'tone' => 'danger', 'icon' => 'bi-x-circle'],
+            'revision' => ['label' => 'Revizyon', 'tone' => 'warning', 'icon' => 'bi-arrow-repeat'],
+            'pending' => ['label' => 'Taslak', 'tone' => 'warning', 'icon' => 'bi-hourglass-split'],
+        ],
+        'read' => [
+            'read' => ['label' => 'Okundu', 'tone' => 'success', 'icon' => 'bi-check2-circle'],
+            'unread' => ['label' => 'Okunmadi', 'tone' => 'warning', 'icon' => 'bi-circle-fill'],
+        ],
+        'enabled' => [
+            '1' => ['label' => 'Aktif', 'tone' => 'success', 'icon' => 'bi-check-circle'],
+            '0' => ['label' => 'Pasif', 'tone' => 'muted', 'icon' => 'bi-dash-circle'],
+            'active' => ['label' => 'Aktif', 'tone' => 'success', 'icon' => 'bi-check-circle'],
+            'inactive' => ['label' => 'Pasif', 'tone' => 'muted', 'icon' => 'bi-dash-circle'],
+        ],
+        'ban_appeal' => [
+            'open' => ['label' => 'Acik', 'tone' => 'warning', 'icon' => 'bi-hourglass-split'],
+            'reviewing' => ['label' => 'Inceleniyor', 'tone' => 'primary', 'icon' => 'bi-search'],
+            'accepted' => ['label' => 'Kabul Edildi', 'tone' => 'success', 'icon' => 'bi-check-circle'],
+            'rejected' => ['label' => 'Reddedildi', 'tone' => 'danger', 'icon' => 'bi-x-circle'],
+        ],
+        'report' => [
+            'open' => ['label' => 'Acik', 'tone' => 'danger', 'icon' => 'bi-exclamation-circle-fill'],
+            'reviewing' => ['label' => 'Inceleniyor', 'tone' => 'warning', 'icon' => 'bi-hourglass-split'],
+            'resolved' => ['label' => 'Cozuldu', 'tone' => 'success', 'icon' => 'bi-check2-circle'],
+            'rejected' => ['label' => 'Reddedildi', 'tone' => 'muted', 'icon' => 'bi-x-circle'],
+        ],
+        'email_delivery' => [
+            'sent' => ['label' => 'Gonderildi', 'tone' => 'success', 'icon' => 'bi-check2-circle'],
+            'failed' => ['label' => 'Hatali', 'tone' => 'danger', 'icon' => 'bi-exclamation-octagon'],
+            'queued' => ['label' => 'Kuyrukta', 'tone' => 'warning', 'icon' => 'bi-hourglass-split'],
+            'processing' => ['label' => 'Isleniyor', 'tone' => 'info', 'icon' => 'bi-arrow-repeat'],
+            'skipped' => ['label' => 'Atlandi', 'tone' => 'muted', 'icon' => 'bi-dash-circle'],
+        ],
+    ];
+
+    $meta = $maps[$domain][$key] ?? null;
+    if ($meta === null && $domain !== 'generic') {
+        $meta = $maps['enabled'][$key] ?? null;
+    }
+    if ($meta === null) {
+        $meta = ['label' => $fallbackLabel, 'tone' => adminNormalizeTone($key), 'icon' => 'bi-circle'];
+    }
+
+    $meta['tone'] = adminNormalizeTone((string) ($meta['tone'] ?? 'muted'));
+    return $meta;
+}
+
+/**
+ * @param array{label?:string,tone?:string,icon?:string,class?:string,size?:string,attrs?:array<string,string|int|bool|null>,title?:string} $options
+ */
+function adminRenderStatusBadge(string $status, string $domain = 'generic', array $options = []): string
+{
+    $meta = adminStatusMeta($status, $domain);
+    $label = (string) ($options['label'] ?? ($meta['label'] ?? $status));
+    $badgeOptions = $options;
+    unset($badgeOptions['label']);
+    $badgeOptions['tone'] = (string) ($options['tone'] ?? ($meta['tone'] ?? 'muted'));
+    $badgeOptions['icon'] = (string) ($options['icon'] ?? ($meta['icon'] ?? ''));
+
+    return adminRenderBadge($label, $badgeOptions);
+}
+
+/**
+ * @param array{tone?:string,icon?:string,class?:string,size?:string,attrs?:array<string,string|int|bool|null>,title?:string} $options
+ */
+function adminRenderBadge(string $label, array $options = []): string
+{
+    $label = trim($label);
+    if ($label === '') {
+        return '';
+    }
+
+    $tone = adminNormalizeTone((string) ($options['tone'] ?? 'muted'));
+    $size = adminUiClass((string) ($options['size'] ?? ''));
+    $sizeClass = $size !== '' ? 'ui-admin-badge-' . $size : '';
+    $class = trim(adminUiClass('ui-admin-badge admin-badge ' . adminToneBadgeClass($tone) . ' admin-badge-' . $tone . ' ' . $sizeClass . ' ' . (string) ($options['class'] ?? '')));
+    $attrs = (array) ($options['attrs'] ?? []);
+    if (!empty($options['title'])) {
+        $attrs['title'] = (string) $options['title'];
+    }
+
+    $icon = adminUiClass((string) ($options['icon'] ?? ''));
+    $html = '<span class="' . adminUiEscape($class) . '"' . adminUiAttrs($attrs) . '>';
+    if ($icon !== '') {
+        $html .= '<i class="bi ' . adminUiEscape($icon) . '"></i> ';
+    }
+    $html .= adminUiEscape($label) . '</span>';
+
+    return $html;
+}
+
+/**
+ * @param array{icon?:string,title?:string,html?:string,class?:string,attrs?:array<string,string|int|bool|null>,role?:string,closable?:bool,close_label?:string,close_class?:string} $options
+ */
+function adminRenderAlert(string $message, string $tone = 'info', array $options = []): string
+{
+    return uiRenderAlert($message, $tone, $options);
+}
+
+function adminRenderFlashAlerts(?string $successMessage = null, ?string $errorMessage = null, array $options = []): string
+{
+    return uiRenderFlashAlerts($successMessage, $errorMessage, $options);
+}
+
+/**
+ * @param array<int,array{href?:string,label:string,icon?:string,class?:string,attrs?:array<string,string|int|bool|null>,type?:string}> $actions
+ * @param array{class?:string,attrs?:array<string,string|int|bool|null>} $options
+ */
+function adminRenderActionButtons(array $actions, array $options = []): string
+{
+    $class = trim(adminUiClass('admin-ui-action-row ' . (string) ($options['class'] ?? '')));
+    $html = '<div class="' . adminUiEscape($class) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+
+    foreach ($actions as $action) {
+        $label = (string) ($action['label'] ?? '');
+        if ($label === '') {
+            continue;
+        }
+
+        $href = trim((string) ($action['href'] ?? ''));
+        $type = trim((string) ($action['type'] ?? 'button'));
+        if (!in_array($type, ['button', 'submit', 'reset'], true)) {
+            $type = 'button';
+        }
+
+        $buttonClass = trim('ui-admin-btn ' . adminUiClass((string) ($action['class'] ?? '')));
+        $iconHtml = trim((string) ($action['icon'] ?? '')) !== ''
+            ? '<i class="bi ' . adminUiEscape(adminUiClass((string) $action['icon'])) . '"></i> '
+            : '';
+        $tagName = $href !== '' ? 'a' : 'button';
+        $html .= '<' . $tagName
+            . ($href !== '' ? ' href="' . adminUiEscape($href) . '"' : ' type="' . adminUiEscape($type) . '"')
+            . ' class="' . adminUiEscape($buttonClass) . '"'
+            . adminUiAttrs((array) ($action['attrs'] ?? [])) . '>'
+            . $iconHtml . adminUiEscape($label)
+            . '</' . $tagName . '>';
+    }
+
+    $html .= '</div>';
+    return $html;
+}
+
+function adminSafeImageUrl(string $path, string $baseUri = '', bool $allowRemote = false): string
+{
+    $path = trim(str_replace('\\', '/', $path));
+    if ($path === '') {
+        return '';
+    }
+
+    if (preg_match('~^(?:https?:)?//~i', $path) === 1) {
+        return $allowRemote ? $path : '';
+    }
+
+    if (str_starts_with($path, 'data:')) {
+        return '';
+    }
+
+    if (str_starts_with($path, '/')) {
+        return $path;
+    }
+
+    $baseUri = rtrim($baseUri !== '' ? $baseUri : (function_exists('base_uri') ? base_uri() : ''), '/');
+    return ($baseUri !== '' ? $baseUri : '') . '/' . ltrim($path, '/');
+}
+
+function adminRenderImagePlaceholder(string $class = '', string $icon = 'bi-image', string $label = 'Gorsel yok'): string
+{
+    $class = trim(adminUiClass('admin-ui-image-placeholder ' . $class));
+    $icon = adminUiClass($icon) ?: 'bi-image';
+
+    return '<div class="' . adminUiEscape($class) . '" role="img" aria-label="' . adminUiEscape($label) . '"><i class="bi ' . adminUiEscape($icon) . '"></i></div>';
+}
+
+/**
+ * @param array<int,string|array{label?:string,html?:string,class?:string,attrs?:array<string,string|int|bool|null>}> $headers
+ * @param array{class?:string,wrap_class?:string,wrap_attrs?:array<string,string|int|bool|null>,attrs?:array<string,string|int|bool|null>,tbody_attrs?:array<string,string|int|bool|null>,colgroup_html?:string,label?:string} $options
+ */
+function adminRenderTableOpen(array $headers, array $options = []): string
+{
+    $wrapClass = trim(adminUiClass('ui-admin-table-wrap-x admin-ui-table-wrap ' . (string) ($options['wrap_class'] ?? '')));
+    $tableClass = trim(adminUiClass('ui-admin-table admin-ui-table ' . (string) ($options['class'] ?? '')));
+    $label = trim((string) ($options['label'] ?? 'Admin tablo'));
+
+    $html = '<div class="' . adminUiEscape($wrapClass) . '"' . adminUiAttrs((array) ($options['wrap_attrs'] ?? [])) . '><table class="' . adminUiEscape($tableClass) . '" aria-label="' . adminUiEscape($label) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+    $colgroupHtml = trim((string) ($options['colgroup_html'] ?? ''));
+    if ($colgroupHtml !== '') {
+        $html .= $colgroupHtml;
+    }
+    $html .= '<thead><tr>';
+    foreach ($headers as $header) {
+        if (is_array($header)) {
+            $text = (string) ($header['label'] ?? '');
+            $headerHtml = (string) ($header['html'] ?? '');
+            $class = trim(adminUiClass((string) ($header['class'] ?? '')));
+            $attrs = adminUiAttrs((array) ($header['attrs'] ?? []));
+        } else {
+            $text = (string) $header;
+            $headerHtml = '';
+            $class = '';
+            $attrs = '';
+        }
+        $html .= '<th' . ($class !== '' ? ' class="' . adminUiEscape($class) . '"' : '') . $attrs . '>' . ($headerHtml !== '' ? $headerHtml : adminUiEscape($text)) . '</th>';
+    }
+    $html .= '</tr></thead><tbody' . adminUiAttrs((array) ($options['tbody_attrs'] ?? [])) . '>';
+
+    return $html;
+}
+
+function adminRenderTableClose(): string
+{
+    return '</tbody></table></div>';
+}
+
+function adminRenderTableEmptyRow(int $columns, array $emptyOptions): string
+{
+    return '<tr><td colspan="' . max(1, $columns) . '">' . adminRenderEmptyState($emptyOptions) . '</td></tr>';
+}
+
+/**
+ * @param array{
+ *   type?:string,name:string,id?:string,label?:string,value?:mixed,options?:array<string,string>,
+ *   placeholder?:string,help?:string,class?:string,control_class?:string,attrs?:array<string,string|int|bool|null>,
+ *   required?:bool,disabled?:bool,readonly?:bool,rows?:int
+ * } $options
+ */
+function adminRenderFormField(array $options): string
+{
+    $name = trim((string) ($options['name'] ?? ''));
+    if ($name === '') {
+        return '';
+    }
+
+    $type = trim((string) ($options['type'] ?? 'text'));
+    $id = trim((string) ($options['id'] ?? preg_replace('/[^a-zA-Z0-9_-]/', '_', $name)));
+    $label = (string) ($options['label'] ?? '');
+    $value = (string) ($options['value'] ?? '');
+    $fieldClass = trim(adminUiClass('admin-ui-field ' . (string) ($options['class'] ?? '')));
+    $controlClass = trim(adminUiClass((string) ($options['control_class'] ?? '')));
+    $attrs = (array) ($options['attrs'] ?? []);
+    $attrs['id'] = $id;
+    $attrs['name'] = $name;
+    if (!empty($options['required'])) {
+        $attrs['required'] = true;
+    }
+    if (!empty($options['disabled'])) {
+        $attrs['disabled'] = true;
+        $attrs['aria-disabled'] = 'true';
+    }
+    if (!empty($options['readonly'])) {
+        $attrs['readonly'] = true;
+    }
+    if (isset($options['placeholder'])) {
+        $attrs['placeholder'] = (string) $options['placeholder'];
+    }
+
+    $html = '<div class="' . adminUiEscape($fieldClass) . '">';
+    if ($label !== '' && $type !== 'checkbox' && $type !== 'switch') {
+        $html .= '<label class="ui-admin-form-label admin-ui-field__label" for="' . adminUiEscape($id) . '">' . adminUiEscape($label) . '</label>';
+    }
+
+    if ($type === 'textarea') {
+        $attrs['rows'] = max(2, (int) ($options['rows'] ?? 3));
+        $class = trim('ui-admin-form-control admin-ui-field__control ' . $controlClass);
+        $html .= '<textarea class="' . adminUiEscape($class) . '"' . adminUiAttrs($attrs) . '>' . adminUiEscape($value) . '</textarea>';
+    } elseif ($type === 'select') {
+        $class = trim('ui-admin-form-select admin-ui-field__control ' . $controlClass);
+        $html .= '<select class="' . adminUiEscape($class) . '"' . adminUiAttrs($attrs) . '>';
+        foreach ((array) ($options['options'] ?? []) as $optionValue => $optionLabel) {
+            $selected = (string) $optionValue === $value ? ' selected' : '';
+            $html .= '<option value="' . adminUiEscape((string) $optionValue) . '"' . $selected . '>' . adminUiEscape((string) $optionLabel) . '</option>';
+        }
+        $html .= '</select>';
+    } elseif ($type === 'checkbox' || $type === 'switch') {
+        $attrs['type'] = 'checkbox';
+        $attrs['value'] = (string) ($options['checkbox_value'] ?? '1');
+        if ($value === (string) $attrs['value'] || $value === '1') {
+            $attrs['checked'] = true;
+        }
+        $html .= '<label class="ui-admin-switch admin-ui-field__switch"><input' . adminUiAttrs($attrs) . '><span class="ui-admin-switch-label">' . adminUiEscape($label !== '' ? $label : $name) . '</span></label>';
+    } else {
+        $attrs['type'] = $type === 'number' ? 'number' : ($type !== '' ? $type : 'text');
+        $attrs['value'] = $value;
+        $class = trim('ui-admin-form-control admin-ui-field__control ' . $controlClass);
+        $html .= '<input class="' . adminUiEscape($class) . '"' . adminUiAttrs($attrs) . '>';
+    }
+
+    $help = trim((string) ($options['help'] ?? ''));
+    if ($help !== '') {
+        $html .= '<small class="ui-admin-form-help admin-ui-field__help">' . adminUiEscape($help) . '</small>';
+    }
+    $html .= '</div>';
+
+    return $html;
+}
+
+/**
+ * @param array{tag?:string,class?:string,attrs?:array<string,string|int|bool|null>,body_class?:string,title?:string,icon?:string,subtitle?:string,header_class?:string,header_html?:string,actions?:array<int,array{href?:string,label:string,icon?:string,class?:string,attrs?:array<string,string|int|bool|null>}>,actions_html?:string} $options
+ */
+function adminRenderPanelOpen(array $options = []): string
+{
+    $tag = adminUiPanelTag((string) ($options['tag'] ?? 'section'));
+
+    $class = trim(adminUiClass('admin-card ui-panel admin-ui-panel ' . (string) ($options['class'] ?? '')));
+    $bodyClass = trim(adminUiClass('card-body ui-panel__body ui-card admin-ui-panel__body ' . (string) ($options['body_class'] ?? '')));
+    $html = '<' . $tag . ' class="' . adminUiEscape($class) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+
+    $title = trim((string) ($options['title'] ?? ''));
+    $headerHtml = trim((string) ($options['header_html'] ?? ''));
+    $actions = (array) ($options['actions'] ?? []);
+    $actionsHtml = trim((string) ($options['actions_html'] ?? ''));
+    if ($title !== '' || $headerHtml !== '' || $actions !== [] || $actionsHtml !== '') {
+        $headerClass = trim(adminUiClass('card-header ui-panel__head ui-card admin-ui-panel__head ui-admin-card-header-actions ' . (string) ($options['header_class'] ?? '')));
+        $html .= '<div class="' . adminUiEscape($headerClass) . '">';
+        if ($headerHtml !== '') {
+            $html .= $headerHtml;
+        } elseif ($title !== '') {
+            $icon = adminUiClass((string) ($options['icon'] ?? ''));
+            $subtitle = trim((string) ($options['subtitle'] ?? ''));
+            $html .= '<div class="admin-ui-panel-title-wrap">';
+            $html .= '<h3 class="admin-ui-panel-title">';
+            if ($icon !== '') {
+                $html .= '<i class="bi ' . adminUiEscape($icon) . '"></i> ';
+            }
+            $html .= adminUiEscape($title) . '</h3>';
+            if ($subtitle !== '') {
+                $html .= '<span class="admin-ui-panel-subtitle">' . adminUiEscape($subtitle) . '</span>';
+            }
+            $html .= '</div>';
+        }
+        if ($actions !== [] || $actionsHtml !== '') {
+            $html .= '<div class="admin-ui-panel-actions">';
+            if ($actions !== []) {
+                $html .= adminRenderActionButtons($actions, ['class' => 'admin-ui-action-row-compact']);
+            }
+            $html .= $actionsHtml;
+            $html .= '</div>';
+        }
+        $html .= '</div>';
+    }
+
+    $html .= '<div class="' . adminUiEscape($bodyClass) . '">';
+    return $html;
+}
+
+function adminRenderPanelClose(string $tag = 'section'): string
+{
+    $tag = adminUiPanelTag($tag);
+
+    return '</div></' . $tag . '>';
+}
+
+function adminRenderPanel(string $content, array $options = []): string
+{
+    $tag = adminUiPanelTag((string) ($options['tag'] ?? 'section'));
+    return adminRenderPanelOpen($options) . $content . adminRenderPanelClose($tag);
+}
+
+/**
+ * @param array{tag?:string,class?:string,attrs?:array<string,string|int|bool|null>} $options
+ */
+function adminRenderPanelShellOpen(array $options = []): string
+{
+    $tag = adminUiPanelTag((string) ($options['tag'] ?? 'section'));
+
+    $class = trim(adminUiClass('admin-card ui-panel admin-ui-panel ' . (string) ($options['class'] ?? '')));
+    return '<' . $tag . ' class="' . adminUiEscape($class) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+}
+
+function adminRenderPanelShellClose(string $tag = 'section'): string
+{
+    $tag = adminUiPanelTag($tag);
+
+    return '</' . $tag . '>';
+}
+
+/**
+ * @param array{class?:string,attrs?:array<string,string|int|bool|null>,html?:string,icon?:string,icon_class?:string,icon_wrap_class?:string,title?:string,title_tag?:string,title_class?:string,description?:string,description_class?:string,layout?:string,actions_html?:string,actions_class?:string} $options
+ */
+function adminRenderPanelHeader(array $options = []): string
+{
+    $class = trim(adminUiClass('card-header ui-panel__head ' . (string) ($options['class'] ?? '')));
+    $html = '<div class="' . adminUiEscape($class) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+    $customHtml = trim((string) ($options['html'] ?? ''));
+
+    if ($customHtml !== '') {
+        $html .= $customHtml;
+    } else {
+        $title = trim((string) ($options['title'] ?? ''));
+        $description = trim((string) ($options['description'] ?? ''));
+        $icon = adminUiClass((string) ($options['icon'] ?? ''));
+        $layout = (string) ($options['layout'] ?? '');
+
+        if ($layout === 'inline') {
+            if ($icon !== '') {
+                $iconClass = trim(adminUiClass((string) ($options['icon_class'] ?? 'me-2')));
+                $html .= '<i class="bi ' . adminUiEscape(trim($icon . ' ' . $iconClass)) . '"></i>';
+            }
+            $html .= adminUiEscape($title);
+        } else {
+            if ($icon !== '') {
+                $iconWrapClass = trim(adminUiClass((string) ($options['icon_wrap_class'] ?? 'settings-card-icon')));
+                $html .= '<div class="' . adminUiEscape($iconWrapClass) . '"><i class="bi ' . adminUiEscape($icon) . '"></i></div>';
+            }
+            $html .= '<div>';
+            if ($title !== '') {
+                $titleTag = strtolower((string) ($options['title_tag'] ?? 'h3'));
+                if (!in_array($titleTag, ['h2', 'h3', 'h4', 'h5', 'h6', 'div', 'strong'], true)) {
+                    $titleTag = 'h3';
+                }
+                $titleClass = trim(adminUiClass((string) ($options['title_class'] ?? 'admin-ui-panel-title')));
+                $html .= '<' . $titleTag . ($titleClass !== '' ? ' class="' . adminUiEscape($titleClass) . '"' : '') . '>' . adminUiEscape($title) . '</' . $titleTag . '>';
+            }
+            if ($description !== '') {
+                $descriptionClass = trim(adminUiClass((string) ($options['description_class'] ?? 'admin-ui-panel-subtitle')));
+                $html .= '<p' . ($descriptionClass !== '' ? ' class="' . adminUiEscape($descriptionClass) . '"' : '') . '>' . adminUiEscape($description) . '</p>';
+            }
+            $html .= '</div>';
+        }
+    }
+
+    $actionsHtml = trim((string) ($options['actions_html'] ?? ''));
+    if ($actionsHtml !== '') {
+        $actionsClass = trim(adminUiClass((string) ($options['actions_class'] ?? 'admin-ui-panel-actions')));
+        $html .= '<div class="' . adminUiEscape($actionsClass) . '">' . $actionsHtml . '</div>';
+    }
+
+    return $html . '</div>';
+}
+
+function adminRenderPanelBodyOpen(string $class = '', array $attrs = []): string
+{
+    $bodyClass = trim(adminUiClass('card-body ui-panel__body ' . $class));
+    return '<div class="' . adminUiEscape($bodyClass) . '"' . adminUiAttrs($attrs) . '>';
+}
+
+function adminRenderPanelBodyClose(): string
+{
+    return '</div>';
+}
+
+/**
+ * @param array{tag?:string,class?:string,attrs?:array<string,string|int|bool|null>,body_class?:string,body_attrs?:array<string,string|int|bool|null>,header_class?:string,header_html?:string,icon?:string,title?:string,description?:string} $options
+ */
+function adminRenderSubtabPanelOpen(array $options = []): string
+{
+    $tag = adminUiPanelTag((string) ($options['tag'] ?? 'div'), 'div');
+
+    $class = trim(adminUiClass('settings-subtab-panel ui-panel ' . (string) ($options['class'] ?? '')));
+    $html = '<' . $tag . ' class="' . adminUiEscape($class) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+    $title = trim((string) ($options['title'] ?? ''));
+    $headerHtml = trim((string) ($options['header_html'] ?? ''));
+
+    if ($title !== '' || $headerHtml !== '') {
+        $html .= adminRenderPanelHeader([
+            'class' => (string) ($options['header_class'] ?? ''),
+            'html' => $headerHtml,
+            'icon' => (string) ($options['icon'] ?? ''),
+            'title' => $title,
+            'layout' => 'inline',
+        ]);
+    }
+
+    return $html . adminRenderPanelBodyOpen((string) ($options['body_class'] ?? ''), (array) ($options['body_attrs'] ?? []));
+}
+
+function adminRenderSubtabPanelClose(string $tag = 'div'): string
+{
+    $tag = adminUiPanelTag($tag, 'div');
+
+    return adminRenderPanelBodyClose() . '</' . $tag . '>';
+}
+
+/**
+ * @param array{tag?:string,class?:string,attrs?:array<string,string|int|bool|null>,header_class?:string,header_html?:string,icon?:string,title?:string,description?:string} $options
+ */
+function adminRenderSettingsCardOpen(array $options = []): string
+{
+    $tag = adminUiPanelTag((string) ($options['tag'] ?? 'div'), 'div');
+
+    $class = trim(adminUiClass('settings-card ui-card ' . (string) ($options['class'] ?? '')));
+    $html = '<' . $tag . ' class="' . adminUiEscape($class) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+    $html .= adminRenderPanelHeader([
+        'class' => trim('settings-card-header ' . (string) ($options['header_class'] ?? '')),
+        'html' => (string) ($options['header_html'] ?? ''),
+        'icon' => (string) ($options['icon'] ?? 'bi-sliders'),
+        'title' => (string) ($options['title'] ?? ''),
+        'title_tag' => 'h6',
+        'title_class' => 'settings-card-title',
+        'description' => (string) ($options['description'] ?? ''),
+        'description_class' => 'settings-card-desc',
+    ]);
+
+    return $html;
+}
+
+function adminRenderSettingsCardClose(string $tag = 'div'): string
+{
+    $tag = adminUiPanelTag($tag, 'div');
+
+    return '</' . $tag . '>';
+}
+
+/**
+ * @param array<string,array{target?:string,label:string,icon?:string,class?:string,attrs?:array<string,string|int|bool|null>}> $items
+ * @param array{class?:string,button_class?:string,active_class?:string,inactive_class?:string,aria_label?:string} $options
+ */
+function adminRenderButtonTabs(array $items, string $active, array $options = []): string
+{
+    if ($items === []) {
+        return '';
+    }
+
+    $wrapperClass = trim(adminUiClass('admin-ui-button-tabs ' . (string) ($options['class'] ?? '')));
+    $buttonBaseClass = trim(adminUiClass('admin-ui-button-tab ' . (string) ($options['button_class'] ?? '')));
+    $activeClass = adminUiClass((string) ($options['active_class'] ?? 'is-active')) ?: 'is-active';
+    $inactiveClass = adminUiClass((string) ($options['inactive_class'] ?? ''));
+    $ariaLabel = (string) ($options['aria_label'] ?? 'Sekmeler');
+
+    $html = '<div class="' . adminUiEscape($wrapperClass) . '" role="tablist" aria-label="' . adminUiEscape($ariaLabel) . '">';
+    foreach ($items as $key => $item) {
+        $target = trim((string) ($item['target'] ?? $key));
+        $label = (string) ($item['label'] ?? '');
+        if ($target === '' || $label === '') {
+            continue;
+        }
+
+        $isActive = $active === (string) $key || $active === $target;
+        $classes = trim(adminUiClass(
+            $buttonBaseClass . ' ' . (string) ($item['class'] ?? '') . ' ' . ($isActive ? $activeClass : $inactiveClass)
+        ));
+        $attrs = (array) ($item['attrs'] ?? []);
+        $attrs['type'] = 'button';
+        $attrs['data-tab-target'] = $target;
+        $attrs['role'] = 'tab';
+        $attrs['aria-selected'] = $isActive ? 'true' : 'false';
+        $attrs['aria-controls'] = (string) ($attrs['aria-controls'] ?? $target);
+
+        $icon = adminUiClass((string) ($item['icon'] ?? ''));
+        $html .= '<button class="' . adminUiEscape($classes) . '"' . adminUiAttrs($attrs) . '>';
+        if ($icon !== '') {
+            $html .= '<i class="bi ' . adminUiEscape($icon) . '"></i> ';
+        }
+        $html .= adminUiEscape($label) . '</button>';
+    }
+    $html .= '</div>';
+
+    return $html;
+}
+
+/**
+ * @param array<string,array{label:string,href:string,icon?:string,description?:string,permission?:string,badge?:string|int,badge_tone?:string,badge_class?:string,class?:string,inactive_class?:string,title_class?:string,description_class?:string,copy_class?:string,icon_class?:string,icon_wrap_class?:string,leading_class?:string,attrs?:array<string,string|int|bool|null>}> $items
+ * @param array{class?:string,link_class?:string,active_class?:string,inactive_class?:string,aria_label?:string,base_uri?:string,title_class?:string,description_class?:string,copy_class?:string,icon_class?:string,icon_wrap_class?:string,leading_class?:string,badge_class?:string} $options
+ */
+function adminRenderTabBar(array $items, string $active, array $options = []): string
+{
+    $visibleItems = array_filter($items, static function (array $item): bool {
+        $permission = trim((string) ($item['permission'] ?? ''));
+        return $permission === '' || (function_exists('adminCurrentUserCan') && adminCurrentUserCan($permission));
+    });
+    if ($visibleItems === []) {
+        return '';
+    }
+
+    $baseUri = rtrim((string) ($options['base_uri'] ?? ($GLOBALS['baseUri'] ?? '')), '/');
+    $navClass = trim(adminUiClass('site-subtabs admin-ui-tabs ' . (string) ($options['class'] ?? '')));
+    $linkBaseClass = trim(adminUiClass('site-subtab-link admin-ui-tab ' . (string) ($options['link_class'] ?? '')));
+    $activeClass = trim(adminUiClass((string) ($options['active_class'] ?? 'active')));
+    $inactiveClass = trim(adminUiClass((string) ($options['inactive_class'] ?? '')));
+    $ariaLabel = (string) ($options['aria_label'] ?? 'Alt sekmeler');
+    $defaultTitleClass = trim(adminUiClass('admin-ui-tab-title ' . (string) ($options['title_class'] ?? '')));
+    $defaultDescriptionClass = trim(adminUiClass('admin-ui-tab-desc ' . (string) ($options['description_class'] ?? '')));
+    $defaultCopyClass = trim(adminUiClass('admin-ui-tab-copy ' . (string) ($options['copy_class'] ?? '')));
+    $defaultIconClass = trim(adminUiClass((string) ($options['icon_class'] ?? '')));
+    $defaultIconWrapClass = trim(adminUiClass((string) ($options['icon_wrap_class'] ?? '')));
+    $defaultLeadingClass = trim(adminUiClass((string) ($options['leading_class'] ?? '')));
+    $defaultBadgeClass = trim(adminUiClass('admin-ui-tab-badge ' . (string) ($options['badge_class'] ?? '')));
+
+    $html = '<nav class="' . adminUiEscape($navClass) . '" aria-label="' . adminUiEscape($ariaLabel) . '">';
+    foreach ($visibleItems as $key => $item) {
+        $href = (string) ($item['href'] ?? '#');
+        if ($baseUri !== '' && str_starts_with($href, '/')) {
+            $href = $baseUri . $href;
+        }
+
+        $isActive = $active === (string) $key;
+        $stateClass = $isActive
+            ? $activeClass
+            : trim(adminUiClass($inactiveClass . ' ' . (string) ($item['inactive_class'] ?? '')));
+        $classes = trim(adminUiClass($linkBaseClass . ' ' . (string) ($item['class'] ?? '') . ($stateClass !== '' ? ' ' . $stateClass : '')));
+        $attrs = (array) ($item['attrs'] ?? []);
+        if ($isActive) {
+            $attrs['aria-current'] = 'page';
+        }
+
+        $icon = adminUiClass((string) ($item['icon'] ?? ''));
+        $html .= '<a class="' . adminUiEscape($classes) . '" href="' . adminUiEscape($href) . '"' . adminUiAttrs($attrs) . '>';
+        $leadingClass = trim(adminUiClass($defaultLeadingClass . ' ' . (string) ($item['leading_class'] ?? '')));
+        if ($leadingClass !== '') {
+            $html .= '<span class="' . adminUiEscape($leadingClass) . '">';
+        }
+        if ($icon !== '') {
+            $iconClass = trim(adminUiClass($defaultIconClass . ' ' . (string) ($item['icon_class'] ?? '')));
+            $iconHtml = '<i class="bi ' . adminUiEscape(trim($icon . ' ' . $iconClass)) . '"></i>';
+            $iconWrapClass = trim(adminUiClass($defaultIconWrapClass . ' ' . (string) ($item['icon_wrap_class'] ?? '')));
+            $html .= $iconWrapClass !== ''
+                ? '<span class="' . adminUiEscape($iconWrapClass) . '">' . $iconHtml . '</span>'
+                : $iconHtml;
+        }
+
+        $label = (string) ($item['label'] ?? '');
+        $description = trim((string) ($item['description'] ?? ''));
+        if ($description !== '') {
+            $copyClass = trim(adminUiClass($defaultCopyClass . ' ' . (string) ($item['copy_class'] ?? '')));
+            $titleClass = trim(adminUiClass($defaultTitleClass . ' ' . (string) ($item['title_class'] ?? '')));
+            $descriptionClass = trim(adminUiClass($defaultDescriptionClass . ' ' . (string) ($item['description_class'] ?? '')));
+            $html .= '<span class="' . adminUiEscape($copyClass) . '">';
+            $html .= '<strong class="' . adminUiEscape($titleClass) . '">' . adminUiEscape($label) . '</strong>';
+            $html .= '<small class="' . adminUiEscape($descriptionClass) . '">' . adminUiEscape($description) . '</small>';
+            $html .= '</span>';
+        } else {
+            $html .= '<span>' . adminUiEscape($label) . '</span>';
+        }
+        if ($leadingClass !== '') {
+            $html .= '</span>';
+        }
+
+        if (($item['badge'] ?? '') !== '') {
+            $badgeClass = trim(adminUiClass($defaultBadgeClass . ' ' . (string) ($item['badge_class'] ?? '')));
+            $html .= adminRenderBadge((string) $item['badge'], [
+                'tone' => (string) ($item['badge_tone'] ?? 'primary'),
+                'class' => $badgeClass,
+            ]);
+        }
+        $html .= '</a>';
+    }
+    $html .= '</nav>';
+
+    return $html;
+}
+
+/**
+ * @param array<int,array{href?:string,label:string,icon?:string,class?:string,attrs?:array<string,string|int|bool|null>}> $actions
+ * @param array{class?:string,attrs?:array<string,string|int|bool|null>,tag?:string,title_tag?:string,title_class?:string,description_class?:string,actions_html?:string} $options
+ */
+function adminRenderPageHero(string $icon, string $kicker, string $title, string $description = '', array $actions = [], array $options = []): string
+{
+    $tag = (string) ($options['tag'] ?? 'section');
+    if (!in_array($tag, ['section', 'div', 'header'], true)) {
+        $tag = 'section';
+    }
+    $titleTag = (string) ($options['title_tag'] ?? 'h2');
+    if (!in_array($titleTag, ['h1', 'h2', 'h3'], true)) {
+        $titleTag = 'h2';
+    }
+    $class = trim('ui-admin-page-hero admin-ui-page-hero ' . adminUiClass((string) ($options['class'] ?? '')));
+    $titleClass = adminUiClass((string) ($options['title_class'] ?? ''));
+    $titleAttrs = $titleClass !== '' ? ' class="' . adminUiEscape($titleClass) . '"' : '';
+    $descriptionClass = adminUiClass((string) ($options['description_class'] ?? ''));
+    $descriptionAttrs = $descriptionClass !== '' ? ' class="' . adminUiEscape($descriptionClass) . '"' : '';
+    $attrs = adminUiAttrs((array) ($options['attrs'] ?? []));
+
+    $html = '<' . $tag . ' class="' . adminUiEscape($class) . '"' . $attrs . '>';
+    $html .= '<div class="ui-admin-page-hero-text admin-ui-page-hero__text">';
+    if ($kicker !== '') {
+        $html .= '<span class="ui-admin-kicker admin-ui-page-kicker"><i class="bi ' . adminUiEscape(adminUiClass($icon)) . '"></i> ' . adminUiEscape($kicker) . '</span>';
+    }
+    $html .= '<' . $titleTag . $titleAttrs . '>' . adminUiEscape($title) . '</' . $titleTag . '>';
+    if ($description !== '') {
+        $html .= '<p' . $descriptionAttrs . '>' . adminUiEscape($description) . '</p>';
+    }
+    $html .= '</div>';
+
+    $actionsHtml = trim((string) ($options['actions_html'] ?? ''));
+    if ($actions !== [] || $actionsHtml !== '') {
+        $html .= '<div class="ui-admin-page-hero-actions admin-ui-page-hero__actions admin-ui-action-row">';
+        foreach ($actions as $action) {
+            $label = (string) ($action['label'] ?? '');
+            if ($label === '') {
+                continue;
+            }
+            $href = trim((string) ($action['href'] ?? ''));
+            $buttonClass = trim('ui-admin-btn ui-admin-btn-hero ' . adminUiClass((string) ($action['class'] ?? '')));
+            $iconHtml = trim((string) ($action['icon'] ?? '')) !== ''
+                ? '<i class="bi ' . adminUiEscape(adminUiClass((string) $action['icon'])) . '"></i> '
+                : '';
+            $tagName = $href !== '' ? 'a' : 'button';
+            $actionAttrs = adminUiAttrs((array) ($action['attrs'] ?? []));
+            $html .= '<' . $tagName
+                . ($href !== '' ? ' href="' . adminUiEscape($href) . '"' : ' type="button"')
+                . ' class="' . adminUiEscape($buttonClass) . '"'
+                . $actionAttrs . '>'
+                . $iconHtml . adminUiEscape($label)
+                . '</' . $tagName . '>';
+        }
+        $html .= $actionsHtml;
+        $html .= '</div>';
+    }
+
+    $html .= '</' . $tag . '>';
+    return $html;
+}
+
+/**
+ * @param array<int,array{tone?:string,icon?:string,label:string,value:mixed,class?:string,href?:string,attrs?:array<string,string|int|bool|null>,change_label?:string,change_icon?:string,change_class?:string}> $cards
+ * @param array{class?:string,aria_label?:string,base_class?:string,card_base_class?:string,card_class?:string} $options
+ */
+function adminRenderStatCards(array $cards, array $options = []): string
+{
+    $baseClass = (string) ($options['base_class'] ?? 'admin-stat-grid ui-grid admin-ui-stat-grid');
+    $gridClass = trim(adminUiClass($baseClass . ' ' . (string) ($options['class'] ?? '')));
+    $attrs = ' class="' . adminUiEscape($gridClass) . '"';
+    if (!empty($options['aria_label'])) {
+        $attrs .= ' aria-label="' . adminUiEscape((string) $options['aria_label']) . '"';
+    }
+
+    $cardBaseClass = (string) ($options['card_base_class'] ?? 'admin-stat-card ui-card admin-ui-stat-card');
+    $defaultCardClass = (string) ($options['card_class'] ?? '');
+    $html = '<div' . $attrs . '>';
+    foreach ($cards as $card) {
+        $label = (string) ($card['label'] ?? '');
+        if ($label === '') {
+            continue;
+        }
+        $tone = adminUiClass((string) ($card['tone'] ?? 'info')) ?: 'info';
+        $icon = adminUiClass((string) ($card['icon'] ?? 'bi-bar-chart')) ?: 'bi-bar-chart';
+        $class = trim(adminUiClass($cardBaseClass . ' stat-' . $tone . ' ' . $defaultCardClass . ' ' . (string) ($card['class'] ?? '')));
+        $href = trim((string) ($card['href'] ?? ''));
+        $tag = $href !== '' ? 'a' : 'div';
+        $itemAttrs = adminUiAttrs((array) ($card['attrs'] ?? []));
+        $html .= '<' . $tag . ($href !== '' ? ' href="' . adminUiEscape($href) . '"' : '') . ' class="' . adminUiEscape($class) . '"' . $itemAttrs . '>';
+        $html .= '<div class="stat-icon"><i class="bi ' . adminUiEscape($icon) . '"></i></div>';
+        $html .= '<div class="stat-content"><span class="stat-label">' . adminUiEscape($label) . '</span><span class="stat-value">' . adminUiEscape($card['value'] ?? '') . '</span>';
+        $changeLabel = (string) ($card['change_label'] ?? '');
+        if ($changeLabel !== '') {
+            $changeClass = adminUiClass((string) ($card['change_class'] ?? 'neutral')) ?: 'neutral';
+            $changeIcon = adminUiClass((string) ($card['change_icon'] ?? '')) ?: '';
+            $html .= '<span class="stat-change ' . adminUiEscape($changeClass) . '">';
+            if ($changeIcon !== '') {
+                $html .= '<i class="bi ' . adminUiEscape($changeIcon) . '"></i> ';
+            }
+            $html .= adminUiEscape($changeLabel) . '</span>';
+        }
+        $html .= '</div>';
+        $html .= '</' . $tag . '>';
+    }
+    $html .= '</div>';
+
+    return $html;
+}
+
+function adminRenderFilterToolbarOpen(string $bodyClass = '', string $wrapperClass = '', array $attrs = []): string
+{
+    $wrapper = trim(adminUiClass('admin-card ui-panel admin-filter-toolbar ' . $wrapperClass));
+    $class = trim(adminUiClass('card-body ui-admin-card-compact ui-panel__body ui-card admin-filter-toolbar__body ' . $bodyClass));
+    return '<div class="' . adminUiEscape($wrapper) . '"' . adminUiAttrs($attrs) . '><div class="' . adminUiEscape($class) . '">';
+}
+
+function adminRenderFilterToolbarClose(): string
+{
+    return '</div></div>';
+}
+
+/**
+ * @param array{icon?:string,tone?:string,title:string,description:string,pro?:bool,class?:string,attrs?:array<string,string|int|bool|null>,meta?:array<int,array{icon?:string,label:string}>,actions?:array<int,array{href?:string,label:string,icon?:string,class?:string,attrs?:array<string,string|int|bool|null>}>} $options
+ */
+function adminRenderEmptyState(array $options): string
+{
+    $icon = adminUiClass((string) ($options['icon'] ?? 'bi-inbox')) ?: 'bi-inbox';
+    $tone = adminUiClass((string) ($options['tone'] ?? 'info')) ?: 'info';
+    $class = trim(adminUiClass('ui-admin-empty ui-empty admin-ui-empty ' . (!empty($options['pro']) ? 'ui-admin-empty-pro ' : '') . (string) ($options['class'] ?? '')));
+    $html = '<div class="' . adminUiEscape($class) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+    $html .= '<div class="ui-admin-empty-icon tone-' . adminUiEscape($tone) . ' ui-empty"><i class="bi ' . adminUiEscape($icon) . '"></i></div>';
+    $html .= '<h3 class="ui-admin-empty-title ui-empty">' . adminUiEscape((string) ($options['title'] ?? 'Kayıt bulunamadı')) . '</h3>';
+    $html .= '<p class="ui-admin-empty-desc ui-empty">' . adminUiEscape((string) ($options['description'] ?? 'Filtreye uyan kayıt bulunamadı.')) . '</p>';
+
+    $meta = (array) ($options['meta'] ?? []);
+    if ($meta !== []) {
+        $html .= '<div class="ui-admin-empty-meta" aria-label="Durum bilgisi">';
+        foreach ($meta as $item) {
+            $label = (string) ($item['label'] ?? '');
+            if ($label === '') {
+                continue;
+            }
+            $metaIcon = trim((string) ($item['icon'] ?? '')) !== ''
+                ? '<i class="bi ' . adminUiEscape(adminUiClass((string) $item['icon'])) . '"></i> '
+                : '';
+            $html .= '<span>' . $metaIcon . adminUiEscape($label) . '</span>';
+        }
+        $html .= '</div>';
+    }
+
+    $actions = (array) ($options['actions'] ?? []);
+    if ($actions !== []) {
+        $html .= '<div class="ui-admin-empty-actions ui-empty">';
+        foreach ($actions as $action) {
+            $label = (string) ($action['label'] ?? '');
+            if ($label === '') {
+                continue;
+            }
+            $href = trim((string) ($action['href'] ?? ''));
+            $tag = $href !== '' ? 'a' : 'button';
+            $buttonClass = trim(adminUiClass('ui-admin-btn ui-admin-btn-outline ' . (string) ($action['class'] ?? '')));
+            $iconHtml = trim((string) ($action['icon'] ?? '')) !== ''
+                ? '<i class="bi ' . adminUiEscape(adminUiClass((string) $action['icon'])) . '"></i> '
+                : '';
+            $html .= '<' . $tag
+                . ($href !== '' ? ' href="' . adminUiEscape($href) . '"' : ' type="button"')
+                . ' class="' . adminUiEscape($buttonClass) . '"'
+                . adminUiAttrs((array) ($action['attrs'] ?? [])) . '>'
+                . $iconHtml . adminUiEscape($label)
+                . '</' . $tag . '>';
+        }
+        $html .= '</div>';
+    }
+
+    $html .= '</div>';
+    return $html;
+}
+
+function adminRenderBulkActionBarOpen(string $class = '', array $attrs = []): string
+{
+    $barClass = trim(adminUiClass('admin-bulk-action-bar ui-panel ' . $class));
+    return '<div class="' . adminUiEscape($barClass) . '"' . adminUiAttrs($attrs) . '>';
+}
+
+function adminRenderBulkActionBarClose(): string
+{
+    return '</div>';
+}
+
+/**
+ * @param array{message:string,title?:string,ok?:string,cancel?:string,tone?:string,kind?:string,icon?:string} $options
+ */
+function adminConfirmAttrs(array $options): string
+{
+    $map = [
+        'message' => 'data-admin-confirm',
+        'title' => 'data-admin-confirm-title',
+        'ok' => 'data-admin-confirm-ok',
+        'cancel' => 'data-admin-confirm-cancel',
+        'tone' => 'data-admin-confirm-tone',
+        'kind' => 'data-admin-confirm-kind',
+        'icon' => 'data-admin-confirm-icon',
+    ];
+    $attrs = [];
+    foreach ($map as $key => $attrName) {
+        if (array_key_exists($key, $options) && (string) $options[$key] !== '') {
+            $attrs[$attrName] = (string) $options[$key];
+        }
+    }
+
+    return adminUiAttrs($attrs);
+}
+
+function adminLogUiEscape(mixed $value): string
+{
+    return adminUiEscape($value);
+}
+
+function adminLogUiClass(string $value): string
+{
+    return adminUiClass($value);
+}
+
+/**
+ * Render the shared hero used by the admin log screens.
+ *
+ * @param array<int,array{href?:string,label:string,icon?:string,class?:string,attrs?:array<string,string|int|bool|null>}> $actions
+ */
+function adminRenderLogPageHero(string $icon, string $kicker, string $title, string $description, array $actions = []): string
+{
+    return adminRenderPageHero($icon, $kicker, $title, $description, $actions, ['class' => 'logs-page-hero']);
+}
+
+/**
+ * Render shared statistic cards for admin log pages.
+ *
+ * @param array<int,array{tone?:string,icon?:string,label:string,value:mixed,class?:string,attrs?:array<string,string|int|bool|null>}> $cards
+ * @param array{class?:string,aria_label?:string} $options
+ */
+function adminRenderLogStatCards(array $cards, array $options = []): string
+{
+    $options['base_class'] = 'admin-stat-grid logs-summary logs-stat-grid ui-grid admin-ui-stat-grid';
+    $options['card_base_class'] = 'admin-stat-card logs-stat ui-card admin-ui-stat-card';
+    return adminRenderStatCards($cards, $options);
+}
+
+function adminRenderLogToolbarOpen(string $bodyClass = '', string $wrapperClass = ''): string
+{
+    return adminRenderFilterToolbarOpen(trim('logs-toolbar-shell ' . $bodyClass), trim('logs-toolbar-card logs-filter-toolbar ' . $wrapperClass));
+}
+
+function adminRenderLogToolbarClose(): string
+{
+    return adminRenderFilterToolbarClose();
+}
+
+/**
+ * @param array{icon?:string,tone?:string,title:string,description:string,pro?:bool,class?:string,attrs?:array<string,string|int|bool|null>,actions?:array<int,array{href?:string,label:string,icon?:string,class?:string}>} $options
+ */
+function adminRenderLogEmptyState(array $options): string
+{
+    $options['class'] = trim('admin-log-empty ' . (string) ($options['class'] ?? ''));
+    return adminRenderEmptyState($options);
+}
+
+function adminRenderLogPagination(int $totalPages, int $currentPage, callable $urlForPage, array $options = []): string
+{
+    $options['wrapper_class'] = trim('logs-pagination-wrapper ' . (string) ($options['wrapper_class'] ?? ''));
+    return adminRenderPagination($totalPages, $currentPage, $urlForPage, $options);
+}
+
+/**
+ * @param array{
+ *     tag?:string,
+ *     class?:string,
+ *     header_class?:string,
+ *     body_class?:string,
+ *     attrs?:array<string,string|int|bool|null>,
+ *     icon?:string,
+ *     title:string,
+ *     count?:mixed,
+ *     count_label?:string,
+ *     count_text?:string,
+ *     actions_html?:string
+ * } $options
+ */
+function adminRenderLogListPanelOpen(array $options): string
+{
+    $tag = strtolower((string) ($options['tag'] ?? 'section'));
+    if (!in_array($tag, ['section', 'div', 'article'], true)) {
+        $tag = 'section';
+    }
+
+    $panelClass = trim(adminUiClass('admin-card logs-list-card ui-panel ' . (string) ($options['class'] ?? '')));
+    $headerClass = trim(adminUiClass('card-header logs-list-head ui-admin-card-header-actions ui-panel__head ui-card ' . (string) ($options['header_class'] ?? '')));
+    $bodyClass = trim(adminUiClass('card-body ui-admin-card-body-flush ui-panel__body ui-card ' . (string) ($options['body_class'] ?? '')));
+    $icon = adminUiClass((string) ($options['icon'] ?? 'bi-journal-text')) ?: 'bi-journal-text';
+    $title = (string) ($options['title'] ?? '');
+    $countText = (string) ($options['count_text'] ?? '');
+    if ($countText === '' && array_key_exists('count', $options)) {
+        $countText = (string) $options['count'] . ' ' . (string) ($options['count_label'] ?? 'kayit');
+    }
+    $actionsHtml = trim((string) ($options['actions_html'] ?? ''));
+
+    $html = '<' . $tag . ' class="' . adminUiEscape($panelClass) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
+    $html .= '<div class="' . adminUiEscape($headerClass) . '">';
+    $html .= '<div><h3><i class="bi ' . adminUiEscape($icon) . '"></i> ' . adminUiEscape($title) . '</h3>';
+    if ($countText !== '') {
+        $html .= '<span>' . adminUiEscape($countText) . '</span>';
+    }
+    $html .= '</div>';
+    if ($actionsHtml !== '') {
+        $html .= '<div class="logs-toolbar-actions">' . $actionsHtml . '</div>';
+    }
+    $html .= '</div><div class="' . adminUiEscape($bodyClass) . '">';
+
+    return $html;
+}
+
+function adminRenderLogListPanelClose(string $tag = 'section'): string
+{
+    $tag = strtolower($tag);
+    if (!in_array($tag, ['section', 'div', 'article'], true)) {
+        $tag = 'section';
+    }
+
+    return '</div></' . $tag . '>';
+}
+
+/**
+ * @param array{
+ *     wrapper_class?:string,
+ *     table_class?:string,
+ *     wrapper_attrs?:array<string,string|int|bool|null>,
+ *     table_attrs?:array<string,string|int|bool|null>
+ * } $options
+ */
+function adminRenderLogTableOpen(array $options = []): string
+{
+    $wrapperClass = trim(adminUiClass('table-wrapper ui-table-wrap ui-surface admin-log-table-wrap admin-log-standard-wrap ' . (string) ($options['wrapper_class'] ?? '')));
+    $tableClass = trim(adminUiClass('admin-table admin-log-table admin-log-standard-table ' . (string) ($options['table_class'] ?? '')));
+
+    return '<div class="' . adminUiEscape($wrapperClass) . '"' . adminUiAttrs((array) ($options['wrapper_attrs'] ?? [])) . '>'
+        . '<table class="' . adminUiEscape($tableClass) . '"' . adminUiAttrs((array) ($options['table_attrs'] ?? [])) . '>';
+}
+
+function adminRenderLogTableClose(): string
+{
+    return '</table></div>';
+}
+
+function adminRenderLogClearTrigger(array $options = []): string
+{
+    $label = (string) ($options['label'] ?? 'Temizle');
+    $icon = adminUiClass((string) ($options['icon'] ?? 'bi-trash')) ?: 'bi-trash';
+    $baseClass = (string) ($options['base_class'] ?? 'ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs');
+    $class = trim(adminUiClass($baseClass . ' ' . (string) ($options['class'] ?? '')));
+    $attrs = (array) ($options['attrs'] ?? []);
+    $attrs = array_merge([
+        'type' => 'button',
+        'class' => $class,
+        'data-clear-logs-open' => true,
+    ], $attrs);
+
+    return '<button' . adminUiAttrs($attrs) . '><i class="bi ' . adminUiEscape($icon) . '"></i> ' . adminUiEscape($label) . '</button>';
+}
+
+function adminRenderLogClearModal(array $config): void
+{
+    global $baseUri;
+
+    if (trim((string) ($config['base_uri'] ?? '')) === '') {
+        $config['base_uri'] = function_exists('base_uri') ? base_uri() : (string) ($baseUri ?? '');
+    }
+
+    $logClearModal = $config;
+    include __DIR__ . '/partials/log-clear-modal.php';
+}
+
 function adminLogCleanupAudit(?PDO $pdo, string $actionType, string $scope, int $deleted, array $context = []): void
 {
     if (!$pdo instanceof PDO || !function_exists('adminAuditLogger')) {
@@ -210,6 +1381,8 @@ function adminLogCleanupAudit(?PDO $pdo, string $actionType, string $scope, int 
         'cron_logs_cleared' => 'Cron logları',
         'rate_limit_records_deleted' => 'İstek sınırı kayıtları',
         'notification_records_deleted' => 'Bildirim geçmişi',
+        'system_notifications_deleted' => 'Sistem bildirimleri',
+        'system_notifications_cleared' => 'Sistem bildirimleri',
         'events_audit_logs_cleared' => 'Etkinlik audit logları',
     ];
     $scopeMap = [
@@ -248,14 +1421,7 @@ function adminLogCleanupAudit(?PDO $pdo, string $actionType, string $scope, int 
 function adminLogCleanupRespond(bool $ok, string $message, string $redirectUrl, int $statusCode = 200): void
 {
     if (adminIsAjaxRequest()) {
-        http_response_code($statusCode);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            'ok' => $ok,
-            'success' => $ok,
-            'message' => $message,
-        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-        exit;
+        sendJsonResponse($statusCode, $ok, $message, ['ok' => $ok]);
     }
 
     flash($ok ? 'success' : 'error', $message);
@@ -420,7 +1586,31 @@ function adminRunLogCleanup(?PDO $pdo, array $options): void
 
 function adminRenderLogsSubtabs(string $active): void
 {
-    global $baseUri;
+    global $baseUri, $pdo;
+
+    $systemNotificationBadge = '';
+    if ($pdo instanceof PDO && function_exists('adminTableExists')) {
+        try {
+            if (adminTableExists($pdo, 'notifications')) {
+                $systemNotificationWhere = function_exists('adminSystemNotificationWhereSql')
+                    ? adminSystemNotificationWhereSql($pdo, 'n')
+                    : "n.type = 'system'";
+                $systemNotificationCountSql = "SELECT COUNT(*) FROM notifications n WHERE {$systemNotificationWhere}";
+                if (adminTableExists($pdo, 'notification_reads')) {
+                    $systemNotificationCountSql .= ' AND NOT EXISTS (
+                        SELECT 1 FROM notification_reads nr
+                        WHERE nr.notification_id = n.id
+                    )';
+                }
+                $systemNotificationCount = (int) $pdo->query($systemNotificationCountSql)->fetchColumn();
+                if ($systemNotificationCount > 0) {
+                    $systemNotificationBadge = $systemNotificationCount > 99 ? '99+' : (string) $systemNotificationCount;
+                }
+            }
+        } catch (Throwable $e) {
+            $systemNotificationBadge = '';
+        }
+    }
 
     $items = [
         'activity' => [
@@ -453,6 +1643,13 @@ function adminRenderLogsSubtabs(string $active): void
             'icon' => 'bi-card-list',
             'permission' => 'logs.view',
         ],
+        'system_notifications' => [
+            'label' => 'Sistem Bildirimleri',
+            'href' => '/admin/logs.php?view=system_notifications',
+            'icon' => 'bi-cpu',
+            'permission' => 'logs.view',
+            'badge' => $systemNotificationBadge,
+        ],
         'rate_limits' => [
             'label' => 'Rate Limit İzleme',
             'href' => '/admin/rate-limits.php',
@@ -461,22 +1658,67 @@ function adminRenderLogsSubtabs(string $active): void
         ],
     ];
 
-    $visibleItems = array_filter($items, static function (array $item): bool {
-        return function_exists('adminCurrentUserCan') && adminCurrentUserCan((string) $item['permission']);
-    });
-    if ($visibleItems === []) {
-        return;
+    echo adminRenderTabBar($items, $active, [
+        'class' => 'logs-subtabs',
+        'link_class' => 'logs-subtab-link',
+        'aria_label' => 'Günlükler alt sekmeleri',
+        'base_uri' => (string) ($baseUri ?? ''),
+        'badge_class' => 'logs-subtab-badge',
+    ]);
+}
+
+function adminSystemNotificationWhereSql(PDO $pdo, string $alias = 'n'): string
+{
+    $alias = trim($alias);
+    $prefix = '';
+    if ($alias !== '') {
+        $prefix = preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $alias) === 1 ? $alias . '.' : 'n.';
     }
 
-    echo '<nav class="site-subtabs logs-subtabs" aria-label="Günlükler alt sekmeleri">';
-    foreach ($visibleItems as $key => $item) {
-        $classes = 'site-subtab-link logs-subtab-link' . ($active === $key ? ' active' : '');
-        echo '<a class="' . htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars(rtrim((string) $baseUri, '/') . (string) $item['href'], ENT_QUOTES, 'UTF-8') . '">';
-        echo '<i class="bi ' . htmlspecialchars((string) $item['icon'], ENT_QUOTES, 'UTF-8') . '"></i>';
-        echo '<span>' . htmlspecialchars((string) $item['label'], ENT_QUOTES, 'UTF-8') . '</span>';
-        echo '</a>';
+    try {
+        if (function_exists('adminColumnExists') && adminColumnExists($pdo, 'notifications', 'is_admin_loggable')) {
+            return '(' . $prefix . 'is_admin_loggable = 1)';
+        }
+    } catch (Throwable $e) {
+        return '(' . $prefix . "type = 'system')";
     }
-    echo '</nav>';
+
+    $clauses = [$prefix . "type = 'system'"];
+
+    $systemEventKeys = [
+        'topic_approved',
+        'topic_rejected',
+        'topic_revision_requested',
+        'comment_approved',
+        'comment_edited_by_staff',
+        'user_banned',
+        'user_unbanned',
+        'user_restricted',
+        'user_restriction_removed',
+        'user_group_changed',
+        'ban_appeal_created',
+        'ban_appeal_message_added',
+        'ban_appeal_updated',
+        'topic_report_status_updated',
+        'user_report_status_updated',
+    ];
+    $systemEntityTypes = ['ban_appeal'];
+
+    try {
+        if (function_exists('adminColumnExists') && adminColumnExists($pdo, 'notifications', 'event_key')) {
+            $eventList = implode(', ', array_map(static fn (string $eventKey): string => $pdo->quote($eventKey), $systemEventKeys));
+            $clauses[] = $prefix . "event_key IN ({$eventList})";
+        }
+
+        if (function_exists('adminColumnExists') && adminColumnExists($pdo, 'notifications', 'entity_type')) {
+            $entityList = implode(', ', array_map(static fn (string $entityType): string => $pdo->quote($entityType), $systemEntityTypes));
+            $clauses[] = $prefix . "entity_type IN ({$entityList})";
+        }
+    } catch (Throwable $e) {
+        return '(' . $prefix . "type = 'system')";
+    }
+
+    return '(' . implode(' OR ', $clauses) . ')';
 }
 
 function adminSettingDefinitions(): array
@@ -838,9 +2080,6 @@ function adminSettingDefinitions(): array
 
 
 
-        // -- Moderasyon -----------------------------------------
-        'banned_words'              => ['label' => 'Yasakli Kelimeler (satır başına bir)', 'type' => 'text', 'default' => '', 'section' => 'moderation'],
-
         // -- Yorum Sistemi -------------------------------------
         // Genel açma/kapama + onay anahtarları kolay erişim için bu sekmede.
         'allow_comments'            => ['label' => 'Yorumlara Izin Ver',           'type' => 'bool',   'default' => '1', 'section' => 'comments'],
@@ -879,30 +2118,19 @@ function adminSettingDefinitions(): array
         'comment_mentions_enabled'   => ['label' => 'Mention (@kullanıcı) Sistemi', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => '@kullaniciadi şeklinde kullanıcı etiketlemeye izin verir. Etiketlenen kullanıcı bildirim alır.'],
         'comment_edit_history'       => ['label' => 'Düzenleme Geçmişi Kaydet', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yorumlarda yapılan düzenlemelerin geçmişini saklar ve görüntülemeye izin verir.'],
         'comment_media_enabled'      => ['label' => 'Görsel Yükleme İzni', 'type' => 'bool', 'default' => '0', 'section' => 'comments', 'tooltip' => 'Kullanıcıların yorumlara görsel (screenshot) eklemesine izin verir.'],
-        'comment_spam_detection'     => ['label' => 'Spam Denetimi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Tekrar yorum, kısa/anlamsız ifade, noktalama-only, rastgele metin, büyük harf ve bağlantı kalıplarını denetler.'],
-        'comment_spam_action'        => ['label' => 'Spam Eylemi', 'type' => 'select', 'default' => 'reject', 'section' => 'comments', 'options' => ['reject' => 'Reddet ve kaydetme', 'pending' => 'Onaya gönder', 'store_rejected' => 'Reddedilmiş olarak kaydet'], 'tooltip' => 'Spam kontrollerine takılan yorumun nasıl işleneceğini seçin. Kelime Filtresi kendi eylem ayarını kullanır.'],
-        'comment_spam_reject_message'=> ['label' => 'Spam Hata Mesajı', 'type' => 'string', 'default' => 'Yorumunuz spam veya anlamsız içerik olarak algılandı. Lütfen daha açıklayıcı bir yorum yazın.', 'section' => 'comments', 'tooltip' => 'Spam reddedildiğinde kullanıcıya gösterilecek genel hata metni.'],
-        'comment_spam_pending_message'=> ['label' => 'Spam Onay Mesajı', 'type' => 'string', 'default' => 'Yorumunuz spam filtresine takıldı ve onaya gönderildi.', 'section' => 'comments', 'tooltip' => 'Spam nedeniyle onaya gönderilen yorumlarda kullanıcıya gösterilecek toast metni.'],
-        'comment_spam_exempt_usernames' => ['label' => 'Spam Muaf Kullanıcı Adları', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgül, satır sonu veya noktalı virgülle ayırın. Bu kullanıcı adları yorum spam kontrollerinden tamamen muaf tutulur.'],
-        'comment_spam_exempt_groups'    => ['label' => 'Spam Muaf Gruplar', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgül, satır sonu veya noktalı virgülle ayırın. Grup adı veya slug değeri ile eşleşir; eşleşen kullanıcılar yorum spam kontrollerinden tamamen muaf tutulur.'],
-        'comment_spam_punctuation_only_enabled' => ['label' => 'Yalnız Noktalama Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yalnızca noktalama, sembol, boşluk veya emoji içeren yorumları spam sayar.'],
-        'comment_spam_min_meaningful_chars' => ['label' => 'Minimum Harf/Rakam Sayısı', 'type' => 'number', 'default' => '2', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Yorumda bulunması gereken en az harf/rakam sayısıdır. Bu sayının altındaki yorumlar spam sayılır; 0 kontrolü kapatır.'],
-        'comment_spam_meaningless_enabled' => ['label' => 'Anlamsız İfade Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yorumun tamamı Anlamsız İfadeler listesindeki kısa ifadelerden biriyle birebir eşleşirse spam sayar. Cümle içinde geçen kelimeleri yakalamaz.'],
-        'comment_spam_meaningless_phrases' => ['label' => 'Anlamsız İfadeler', 'type' => 'text', 'default' => "vv\nsa\nas", 'section' => 'comments', 'tooltip' => 'Satır başına bir kısa ifade yazın. Yalnızca yorumun tamamı bu ifadeyle eşleşirse çalışır; örn: sa, as, vv.'],
-        'comment_spam_gibberish_enabled' => ['label' => 'Rastgele Kisa Metin Kontrolu', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Kısa ve tek parçalı klavye ezmesi yorumları skorlayarak spam sayar. Örnek: fsdf, Rjrjjr3, ll4.'],
-        'comment_spam_gibberish_max_length' => ['label' => 'Rastgele Metin Maks. Uzunluk', 'type' => 'number', 'default' => '12', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Tek parça rastgele metin kontrolünün bakacağı en uzun yorum uzunluğudur. 0 bu kontrolü kapatır.'],
-        'comment_spam_gibberish_score_threshold' => ['label' => 'Rastgele Metin Skor Esigi', 'type' => 'number', 'default' => '3', 'section' => 'comments', 'min' => 1, 'tooltip' => 'Rastgelelik skoru bu değere ulaşırsa yorum spam sayılır. Değer yükseldikçe filtre gevşer.'],
-        'comment_spam_repeated_chars_enabled' => ['label' => 'Tekrar Karakter Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Aynı karakterin art arda aşırı kullanımını denetler.'],
-        'comment_spam_repeated_chars_limit' => ['label' => 'Tekrar Limiti', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Aynı karakter bu sayıyı aşacak kadar art arda kullanılırsa yorum spam sayılır. 0 kontrolü kapatır.'],
-        'comment_spam_duplicate_window_minutes' => ['label' => 'Tekrar Penceresi (dk)', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Aynı kullanıcının aynı normalleştirilmiş yorumu kaç dakika içinde tekrar göndermesinin spam sayılacağını belirler. 0 kontrolü kapatır.'],
-        'comment_spam_max_links'     => ['label' => 'Maks. Bağlantı Sayısı', 'type' => 'number', 'default' => '3', 'section' => 'comments', 'min' => -1, 'tooltip' => '-1 kontrolü kapatır. 0 yorumda bağlantıya izin verilmediği, daha yüksek değerler izin verilen bağlantı sayısı anlamına gelir.'],
-        'comment_spam_caps_enabled'  => ['label' => 'Büyük Harf Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Aşırı büyük harf oranını spam olarak işaretler.'],
-        'comment_spam_caps_min_letters' => ['label' => 'Büyük Harf Min. Harf Sayısı', 'type' => 'number', 'default' => '10', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Büyük harf oranı uygulanmadan önce yorumda bulunması gereken en az harf sayısıdır. 0 her uzunlukta uygular.'],
-        'comment_spam_caps_percent'  => ['label' => 'Büyük Harf Yüzdesi', 'type' => 'number', 'default' => '70', 'section' => 'comments', 'min' => 1, 'max' => 100, 'tooltip' => 'Büyük harf oranı bu yüzdeyi aşarsa yorum spam sayılır.'],
+        'comment_spam_detection'     => ['label' => 'Spam Denetimi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Yorum spam kontrollerinin tamamını açar veya kapatır. Kapalıysa tek kelime, cümle içi kelime, minimum harf/rakam, büyük harf, anlamsız kelime ve tekrarlı yorum denetimleri çalışmaz.'],
+        'comment_spam_violation_action' => ['label' => 'Spam’e Takılan Yorum Ne Yapılsın?', 'type' => 'select', 'default' => 'reject', 'section' => 'comments', 'options' => ['reject' => 'Reddet', 'pending' => 'Onaya düşür'], 'tooltip' => 'Spam filtresine takılan yorumun kaydedilmeden reddedileceğini veya onaya gönderileceğini belirler.'],
+        'comment_spam_exact_terms'   => ['label' => 'Tek Kelime Filtresi', 'type' => 'text', 'default' => '', 'section' => 'comments', 'rows' => 4, 'tooltip' => 'Satır, virgül veya noktalı virgülle ayırın. Yorumun tamamı bu kelime/ifadelerden biriyle eşleşirse spam sayılır. Örn: sa, as, vv.'],
+        'comment_spam_contains_terms'=> ['label' => 'Cümlede Geçen Kelime Filtresi', 'type' => 'text', 'default' => '', 'section' => 'comments', 'rows' => 4, 'tooltip' => 'Satır, virgül veya noktalı virgülle ayırın. Tek kelimeler tam kelime olarak, çok kelimeli ifadeler cümle içinde geçerse yakalanır.'],
+        'comment_spam_min_alnum_count' => ['label' => 'Yorumda Bulunması Gereken En Az Harf/Rakam Sayısı', 'type' => 'number', 'default' => '2', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Yorumda bulunması gereken en az harf veya rakam sayısıdır. 0 girilirse bu kontrol tamamen kapanır.'],
+        'comment_spam_nonsense_words_enabled' => ['label' => 'Anlamsız Kelime Engelleme', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Açıksa rhsrh, hrtdtrhd, r6ytu, ghk gibi rastgele harf/rakam dizilerini spam olarak işaretler. Normal cümle içindeki tek garip kelime için daha toleranslı davranır.'],
+        'comment_spam_duplicate_enabled' => ['label' => 'Tekrarlı Yorum Kontrolü', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Açıksa aynı kullanıcının aynı konuya kısa süre içinde aynı yorumu tekrar göndermesini spam olarak işaretler. Misafirlerde IP ve yorum içeriği birlikte değerlendirilir.'],
+        'comment_spam_duplicate_minutes' => ['label' => 'Tekrar Süresi (dk)', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'max' => 1440, 'tooltip' => 'Aynı yorum bu dakika aralığında tekrar gönderilirse spam sayılır. 0 girilirse tekrarlı yorum kontrolü kapanır.'],
+        'comment_spam_block_uppercase' => ['label' => 'Büyük Harf Engelleme', 'type' => 'bool', 'default' => '0', 'section' => 'comments', 'tooltip' => 'Açıksa belirgin şekilde tamamen büyük harfle yazılmış yorumlar spam sayılır. Yüzde ayarı yoktur; kısa kısaltmalar korunur.'],
+        'comment_spam_exempt_usernames' => ['label' => 'Spam Muaf Kullanıcı Adları', 'type' => 'multiselect', 'default' => '', 'section' => 'comments', 'options' => [], 'size' => 7, 'searchable' => true, 'search_placeholder' => 'Kullanici ara...', 'max_visible_options' => 10, 'normalize_list_values' => true, 'tooltip' => 'Listeden seçilen kullanıcı adları yorum spam kontrollerinden tamamen muaf tutulur.'],
+        'comment_spam_exempt_groups'    => ['label' => 'Spam Muaf Gruplar', 'type' => 'multiselect', 'default' => '', 'section' => 'comments', 'options' => [], 'size' => 7, 'normalize_list_values' => true, 'tooltip' => 'Listeden seçilen gruplardaki kullanıcılar yorum spam kontrollerinden tamamen muaf tutulur.'],
         'comment_report_enabled'     => ['label' => 'Şikayet Sistemi Aktif', 'type' => 'bool', 'default' => '1', 'section' => 'comments', 'tooltip' => 'Kullanıcıların yorumları şikayet etmesine izin verir.'],
         'comment_auto_hide_reports'  => ['label' => 'Oto-Gizleme Şikayet Sayısı', 'type' => 'number', 'default' => '5', 'section' => 'comments', 'min' => 0, 'tooltip' => 'Bir yorum bu sayıda şikayet alırsa otomatik gizlenir (0 = kapalı).'],
-        'comment_word_filter'        => ['label' => 'Kelime Filtresi', 'type' => 'text', 'default' => '', 'section' => 'comments', 'tooltip' => 'Virgülle ayırın. Bu listedeki kelimeler yorumun herhangi bir yerinde geçerse Kelime Filtresi Eylemi uygulanır. Anlamsız İfadelerden farklı olarak kısmi eşleşme yapar.'],
-        'comment_auto_ban_words'     => ['label' => 'Kelime Filtresi Eylemi', 'type' => 'select', 'default' => 'pending', 'section' => 'comments', 'options' => ['pending' => 'Onaya Düşür', 'reject' => 'Reddet (Kaydetme)', 'censor' => 'Sansürle (***)'], 'tooltip' => 'Kelime Filtresi eşleştiğinde uygulanacak davranıştır. Bu ayar Anlamsız İfadeler kontrolünü etkilemez.'],
 
         // -- Dosya Yoneticisi -----------------------------------
         // Download Manager
@@ -998,6 +2226,44 @@ function adminSettingDefinitions(): array
             'default' => '1',
             'section' => 'downloads',
             'tooltip' => 'Açıksa erişimi sağlayan yorum silindiğinde indirme bağlantıları tekrar kilitlenir.',
+        ],
+        'download_exempt_usernames' => [
+            'label' => 'İndirme Muaf Kullanıcı Adları',
+            'type' => 'multiselect',
+            'default' => '',
+            'section' => 'downloads',
+            'options' => [],
+            'size' => 7,
+            'searchable' => true,
+            'search_placeholder' => 'Kullanici ara...',
+            'max_visible_options' => 10,
+            'normalize_list_values' => true,
+            'tooltip' => 'Listeden seçilen kullanıcı adları, seçilen kapsam dahilindeki indirme kilitleri ve sınırlarından muaf tutulur.',
+        ],
+        'download_exempt_groups' => [
+            'label' => 'İndirme Muaf Gruplar',
+            'type' => 'multiselect',
+            'default' => '',
+            'section' => 'downloads',
+            'options' => [],
+            'size' => 7,
+            'normalize_list_values' => true,
+            'tooltip' => 'Listeden seçilen gruplardaki kullanıcılar, seçilen kapsam dahilindeki indirme kilitleri ve sınırlarından muaf tutulur.',
+        ],
+        'download_exempt_scopes' => [
+            'label' => 'Muafiyet Kapsamı',
+            'type' => 'multiselect',
+            'default' => 'access_lock,inline_countdown,redirect_countdown,count_rate_limit',
+            'section' => 'downloads',
+            'options' => [
+                'access_lock' => 'Erişim kilidi',
+                'inline_countdown' => 'Konu içi geri sayım',
+                'redirect_countdown' => 'Yönlendirme geri sayımı',
+                'count_rate_limit' => 'İndirme sayacı sınırı',
+            ],
+            'size' => 4,
+            'allow_empty_selection' => true,
+            'tooltip' => 'Muaf kullanıcı ve grupların hangi indirme kilidi veya sınırlarını bypass edeceğini belirler.',
         ],
         'download_access_login_message' => [
             'label' => 'Giriş Kilidi Mesajı',
@@ -1960,7 +3226,7 @@ function adminDefaultSettingTooltip(string $key, array $definition): string
         return "{$label} için kullanılacak tema rengini belirler; geçerli renk değeri girilmelidir.";
     }
 
-    if ($type === 'multicheck') {
+    if ($type === 'multicheck' || $type === 'multiselect') {
         return "{$label} için aktif olacak seçenekleri belirler.";
     }
 
@@ -2002,7 +3268,8 @@ function adminRenderSettingField(string $key, array $definition, array $settings
     $isExplicitlyDisabled = !empty($definition['disabled']);
     $isDisabled = $isConditionallyDisabled || $isExplicitlyDisabled;
     $disabledHelp = trim((string) ($definition['disabled_help'] ?? ''));
-    $classes = trim($gridItemClass . ' ' . ($isTextareaType ? 'admin-field-wide' : '') . ($isDisabled ? ' is-conditionally-disabled' : ''));
+    $isWideField = $isTextareaType || $type === 'multiselect' || !empty($definition['wide']);
+    $classes = trim('admin-ui-field ' . $gridItemClass . ' ' . ($isWideField ? 'admin-field-wide' : '') . ($isDisabled ? ' is-conditionally-disabled' : ''));
     $conditionalAttributes = $enabledWhenKey !== ''
         ? ' data-setting-enabled-when="' . htmlspecialchars($enabledWhenKey, ENT_QUOTES, 'UTF-8') . '" data-setting-enabled-value="' . htmlspecialchars($enabledWhenValue, ENT_QUOTES, 'UTF-8') . '"'
         : '';
@@ -2026,7 +3293,7 @@ function adminRenderSettingField(string $key, array $definition, array $settings
                 $colorDefault = (string) ($definition['default'] ?? '#000000');
                 $resolvedColor = preg_match('/^#[0-9a-fA-F]{6}$/', $value) ? $value : $colorDefault;
             ?>
-            <label class="ui-admin-form-label" for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?><?= $helpIcon ?></label>
+            <label class="ui-admin-form-label admin-ui-field__label" for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?><?= $helpIcon ?></label>
             <div class="admin-color-field" data-color-field>
                 <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" type="color" class="admin-color-input" value="<?= htmlspecialchars($resolvedColor, ENT_QUOTES, 'UTF-8') ?>" data-color-input>
                 <div class="admin-color-meta">
@@ -2036,7 +3303,7 @@ function adminRenderSettingField(string $key, array $definition, array $settings
                 <span class="admin-color-default">Varsayılan: <?= htmlspecialchars(strtoupper($colorDefault), ENT_QUOTES, 'UTF-8') ?></span>
             </div>
         <?php else: ?>
-            <label class="ui-admin-form-label" for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?><?= $helpIcon ?></label>
+            <label class="ui-admin-form-label admin-ui-field__label" for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?><?= $helpIcon ?></label>
             <?php if ($isTextareaType): ?>
                 <textarea id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" rows="<?= $rows ?>" class="ui-admin-form-control<?= ($type === 'richtext' || !empty($definition['rich'])) ? ' rich-editor' : '' ?>"<?= $placeholder . $autocomplete ?><?= $isDisabled ? ' readonly aria-disabled="true"' : '' ?>><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?></textarea>
             <?php elseif ($type === 'select'): ?>
@@ -2046,7 +3313,12 @@ function adminRenderSettingField(string $key, array $definition, array $settings
                     <?php endforeach; ?>
                 </select>
             <?php elseif ($type === 'multicheck'): ?>
-                <?php $currentValues = array_map('trim', explode(',', $value !== '' ? $value : (string) ($definition['default'] ?? ''))); ?>
+                <?php
+                    $listValue = ($value !== '' || !empty($definition['allow_empty_selection']))
+                        ? $value
+                        : (string) ($definition['default'] ?? '');
+                    $currentValues = adminSettingListValues($listValue, !empty($definition['normalize_list_values']));
+                ?>
                 <div class="admin-multicheck-group">
                     <?php foreach (($definition['options'] ?? []) as $optionValue => $optionLabel): ?>
                         <label class="ui-admin-switch">
@@ -2055,6 +3327,32 @@ function adminRenderSettingField(string $key, array $definition, array $settings
                         </label>
                     <?php endforeach; ?>
                 </div>
+            <?php elseif ($type === 'multiselect'): ?>
+                <?php
+                    $listValue = ($value !== '' || !empty($definition['allow_empty_selection']))
+                        ? $value
+                        : (string) ($definition['default'] ?? '');
+                    $currentValues = adminSettingListValues($listValue, !empty($definition['normalize_list_values']));
+                    $selectSize = max(4, min(14, (int) ($definition['size'] ?? 8)));
+                    $multiselectSearchable = !empty($definition['searchable']);
+                    $multiselectSearchPlaceholder = (string) ($definition['search_placeholder'] ?? 'Ara...');
+                    $multiselectMaxVisible = max(0, (int) ($definition['max_visible_options'] ?? 0));
+                ?>
+                <?php if ($multiselectSearchable): ?>
+                    <div class="admin-searchable-multiselect" data-admin-searchable-multiselect<?= $multiselectMaxVisible > 0 ? ' data-admin-multiselect-max-visible="' . htmlspecialchars((string) $multiselectMaxVisible, ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
+                        <input type="search" class="ui-admin-form-control admin-searchable-multiselect__search" placeholder="<?= htmlspecialchars($multiselectSearchPlaceholder, ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars($label . ' ara', ENT_QUOTES, 'UTF-8') ?>" autocomplete="off" data-admin-multiselect-search<?= $isDisabled ? ' disabled aria-disabled="true"' : '' ?>>
+                <?php endif; ?>
+                        <select id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>[]" class="ui-admin-form-select admin-multiselect" multiple size="<?= $selectSize ?>"<?= $multiselectSearchable ? ' data-admin-multiselect-list' : '' ?><?= $isDisabled ? ' disabled aria-disabled="true"' : '' ?>>
+                            <?php foreach (($definition['options'] ?? []) as $optionValue => $optionLabel): ?>
+                                <option value="<?= htmlspecialchars((string) $optionValue, ENT_QUOTES, 'UTF-8') ?>" <?= in_array((string) $optionValue, $currentValues, true) ? 'selected' : '' ?>><?= htmlspecialchars((string) $optionLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php if (empty($definition['options'])): ?>
+                            <small class="admin-setting-conditional-help">Listelenecek kayit bulunamadi.</small>
+                        <?php endif; ?>
+                <?php if ($multiselectSearchable): ?>
+                    </div>
+                <?php endif; ?>
             <?php else: ?>
                 <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" type="<?= $type === 'number' ? 'number' : 'text' ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>"<?= $placeholder . $autocomplete . $inputmode . $step ?><?= $type === 'number' && isset($definition['min']) ? ' min="' . htmlspecialchars((string) $definition['min'], ENT_QUOTES, 'UTF-8') . '"' : '' ?><?= $type === 'number' && isset($definition['max']) ? ' max="' . htmlspecialchars((string) $definition['max'], ENT_QUOTES, 'UTF-8') . '"' : '' ?><?= $isDisabled ? ' readonly aria-disabled="true"' : '' ?>>
             <?php endif; ?>
@@ -2720,6 +4018,22 @@ function adminNormalizeSettingValue(string $key, string $value, array $definitio
         return (string) $number;
     }
 
+    if ($key === 'download_exempt_scopes') {
+        $allowedScopes = isset($definition['options']) && is_array($definition['options'])
+            ? array_fill_keys(array_map('strval', array_keys($definition['options'])), true)
+            : [];
+        $scopes = array_values(array_filter(
+            adminSettingListValues($value, false),
+            static fn(string $scope): bool => isset($allowedScopes[$scope])
+        ));
+
+        return implode(',', $scopes);
+    }
+
+    if (in_array($key, ['comment_spam_exempt_usernames', 'comment_spam_exempt_groups', 'download_exempt_usernames', 'download_exempt_groups'], true)) {
+        return implode(',', adminSettingListValues($value, true));
+    }
+
     return $value;
 }
 
@@ -2953,21 +4267,15 @@ function saveAdminSettings(?PDO $pdo, array $input): void
             } else {
                 $value = '0';
             }
-        } elseif ($type === 'multicheck') {
-            $value = isset($input[$key]) && is_array($input[$key]) ? implode(',', array_map('trim', $input[$key])) : '';
+        } elseif ($type === 'multicheck' || $type === 'multiselect') {
+            $value = isset($input[$key]) ? implode(',', adminSettingListValues($input[$key], !empty($definition['normalize_list_values']))) : '';
         } else {
             $value = trim((string)($input[$key] ?? $definition['default']));
         }
 
         if ($type === 'number') {
             $numericValue = (int) $value;
-            if ($key === 'comment_spam_max_links') {
-                $numericValue = max(-1, $numericValue);
-            } elseif ($key === 'comment_spam_caps_percent') {
-                $numericValue = max(1, min(100, $numericValue));
-            } else {
-                $numericValue = max(0, $numericValue);
-            }
+            $numericValue = max(0, $numericValue);
             $value = (string) $numericValue;
         }
 

@@ -46,13 +46,7 @@ require_once __DIR__ . '/header.php';
 <?php adminRenderLogsSubtabs('action'); ?>
 
 <div class="action-log-page logs-page">
-    <section class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <span class="ui-admin-kicker"><i class="bi bi-activity"></i> Kullanıcı hareketleri</span>
-            <h2>Kullanıcı İşlem Günlüğü</h2>
-            <p>Kullanıcı girişleri, konu ve yorum etkileşimleri, profil değişiklikleri ve diğer detaylı hareketleri tek akışta izleyin.</p>
-        </div>
-    </section>
+    <?= adminRenderLogPageHero('bi-activity', 'Kullanıcı hareketleri', 'Kullanıcı İşlem Günlüğü', 'Kullanıcı girişleri, konu ve yorum etkileşimleri, profil değişiklikleri ve diğer detaylı hareketleri tek akışta izleyin.') ?>
 
     <?php require_once __DIR__ . '/users-tabs/activity.php'; ?>
 </div>

@@ -83,13 +83,7 @@ function editTopicRespond(bool $success, string $message, int $statusCode = 200,
     global $baseUri, $topicId;
 
     if (editTopicIsAjaxRequest()) {
-        http_response_code($statusCode);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(array_merge([
-            'success' => $success,
-            'message' => $message,
-        ], $data), JSON_UNESCAPED_UNICODE);
-        exit;
+        sendJsonResponse($statusCode, $success, $message, $data, $success ? null : 'topic_edit_failed');
     }
 
     flash($success ? 'success' : 'error', $message);

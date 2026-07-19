@@ -6,6 +6,14 @@
 (function () {
     'use strict';
 
+    function fetchJson(url, options) {
+        if (window.publicFetchJson) {
+            return window.publicFetchJson(url, options || {});
+        }
+
+        return Promise.reject(new Error('Public API helper yuklenemedi.'));
+    }
+
     // Initialize enhanced comments
     window.EnhancedComments = {
         init: function (config) {
@@ -55,7 +63,7 @@
             }
 
             const baseUri = document.querySelector('meta[name="app-base-uri"]')?.content || '';
-            fetch(baseUri + '/api/comments.php', {
+            fetchJson(baseUri + '/api/comments.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -65,7 +73,6 @@
                     _token: csrfToken
                 })
             })
-                .then(r => r.json())
                 .then(data => {
                     if (data.success) {
                         this.updateReactionUI(commentId, data.reactions, data.user_reactions);
@@ -158,8 +165,7 @@
 
         showEditHistory: function (commentId) {
             const baseUri = document.querySelector('meta[name="app-base-uri"]')?.content || '';
-            fetch(baseUri + `/api/comments.php?action=edit_history&comment_id=${commentId}&_=${Date.now()}`, { cache: 'no-store' })
-                .then(r => r.json())
+            fetchJson(baseUri + `/api/comments.php?action=edit_history&comment_id=${commentId}&_=${Date.now()}`, { cache: 'no-store' })
                 .then(data => {
                     if (data.success) {
                         this.renderEditHistoryModal(data.history);
@@ -445,11 +451,10 @@
                 const baseUri = document.querySelector('meta[name="app-base-uri"]')?.content || '';
                 const url = `${baseUri}/api/comments.php?action=mention_search&q=${encodeURIComponent(query)}`;
 
-                fetch(url, {
+                fetchJson(url, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin'
                 })
-                    .then(response => response.json())
                     .then(data => {
                         if (this.mentionActiveTextarea !== textarea || this.mentionTriggerStart !== triggerStart) return;
                         this.renderMentionSuggestions(Array.isArray(data.users) ? data.users : [], textarea);

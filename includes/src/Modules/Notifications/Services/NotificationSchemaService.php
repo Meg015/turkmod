@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Services;
 
+use App\Core\Database\SchemaInspector;
 use PDO;
 use Throwable;
 
@@ -11,10 +12,17 @@ final class NotificationSchemaService
 {
     /** @var array<string,bool>|null */
     private ?array $eventColumns = null;
+    private SchemaInspector $inspector;
     private bool $eventSchemaEnsured = false;
     private bool $templateSchemaEnsured = false;
     private bool $emailQueueSchemaEnsured = false;
     private bool $dismissalSchemaEnsured = false;
+    private bool $suppressionLogSchemaEnsured = false;
+
+    public function __construct(?SchemaInspector $inspector = null)
+    {
+        $this->inspector = $inspector ?? new SchemaInspector();
+    }
 
     /** @return array<string,bool> */
     public function eventTableColumns(PDO $pdo, bool $refresh = false): array
@@ -63,21 +71,7 @@ final class NotificationSchemaService
             return false;
         }
 
-        try {
-            $stmt = $pdo->prepare('
-                SELECT COUNT(*)
-                FROM INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = ?
-            ');
-            $stmt->execute([$tableName]);
-
-            return ((int) $stmt->fetchColumn()) > 0;
-        } catch (Throwable $e) {
-            error_log('Notification table lookup failed: ' . $e->getMessage());
-
-            return false;
-        }
+        return $this->inspector->tableExists($pdo, $tableName);
     }
 
     public function ensureEventSchema(PDO $pdo): void
@@ -126,5 +120,16 @@ final class NotificationSchemaService
             throw new \RuntimeException('Missing notification_dismissals; run Database Synchronization.');
         }
         $this->dismissalSchemaEnsured = true;
+    }
+
+    public function ensureSuppressionLogSchema(PDO $pdo): void
+    {
+        if ($this->suppressionLogSchemaEnsured) {
+            return;
+        }
+        if (!$this->tableExists($pdo, 'notification_dispatch_suppression_logs')) {
+            throw new \RuntimeException('Missing notification_dispatch_suppression_logs; run Database Synchronization.');
+        }
+        $this->suppressionLogSchemaEnsured = true;
     }
 }

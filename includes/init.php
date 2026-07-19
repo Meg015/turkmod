@@ -2453,9 +2453,9 @@ function getBreadcrumbs(array $items): string
  *    includes/public-footer.php + sayfa PHP/HTML icinde `usesPublicThemeRenderer()`
  *    false durumunda inline HTML) donulur.
  *
- * Standartlik acisindan TPL yolu kanonik kabul edilir; eski raw PHP yolu yalnizca
- * aktif tema render yolu devre disi kaldiginda bir geri donus (fallback) olarak
- * tutulmaktadir. Yeni sayfalar once TPL temasina eklenmelidir.
+ * Standartlik acisindan TPL yolu kanonik kabul edilir; raw PHP yolu yalnizca
+ * tema render motoru kapali oldugunda uyumluluk modu olarak kullanilir.
+ * Yeni sayfalar once TPL temasina eklenmelidir.
  */
 function usesPublicThemeRenderer(): bool
 {

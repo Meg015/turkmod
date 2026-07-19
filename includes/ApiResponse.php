@@ -12,10 +12,17 @@ declare(strict_types=1);
  */
 function sendJsonResponse(int $statusCode, bool $success, ?string $message = null, array $data = [], ?string $errorCode = null): void
 {
-    http_response_code($statusCode);
+    if ($statusCode === 419) {
+        header((string) ($_SERVER['SERVER_PROTOCOL'] ?? 'HTTP/1.1') . ' 419 Authentication Timeout', true, 419);
+    } else {
+        http_response_code($statusCode);
+    }
     header('Content-Type: application/json; charset=utf-8');
 
-    $response = ['success' => $success];
+    $response = [
+        'success' => $success,
+        'ok' => $success,
+    ];
 
     if ($message !== null) {
         $response['message'] = $message;
@@ -30,12 +37,20 @@ function sendJsonResponse(int $statusCode, bool $success, ?string $message = nul
         $response = array_merge($response, $data);
     }
 
+    if (!array_key_exists('data', $response)) {
+        $response['data'] = $data;
+    }
+
     $requestMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
-    $shouldIncludeCsrf = $requestMethod !== 'GET' || str_contains($requestUri, '/admin/');
-    if ($shouldIncludeCsrf && function_exists('csrf_token') && session_status() === PHP_SESSION_ACTIVE) {
-        $response['_token'] = csrf_token();
-        $response['csrf_token'] = $response['_token'];
+    $shouldIncludeCsrf = $requestMethod !== 'HEAD' && function_exists('csrf_token') && session_status() === PHP_SESSION_ACTIVE;
+    $csrfToken = '';
+    if ($shouldIncludeCsrf) {
+        $csrfToken = csrf_token();
+    }
+    $response['csrfToken'] = $csrfToken;
+    if ($csrfToken !== '') {
+        $response['_token'] = $csrfToken;
+        $response['csrf_token'] = $csrfToken;
     }
 
     echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

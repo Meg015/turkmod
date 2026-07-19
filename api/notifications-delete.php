@@ -10,7 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendMethodNotAllowed(['POST']);
 }
 
-if (!verify_csrf_token($_POST['_token'] ?? '')) {
+$submittedToken = (string) ($_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+if (!verify_csrf_token($submittedToken)) {
     sendCsrfError();
 }
 

@@ -15,7 +15,7 @@ if (!$pdo || !is_array($user)) {
     http_response_code(404);
     $pageTitle = 'Profil Bulunamadi';
     require_once $projectRoot . '/includes/public-header.php';
-    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">Kullanici profili bulunamadi.</div>';
+    echo uiRenderAlert('Kullanici profili bulunamadi.', 'danger');
     require_once $projectRoot . '/includes/public-footer.php';
     exit;
 }

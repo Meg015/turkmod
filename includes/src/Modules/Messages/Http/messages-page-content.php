@@ -412,6 +412,6 @@ require_once $projectRoot . '/includes/public-header.php';
     </div>
 </div>
 
-<script src="<?= asset_url('assets/js/messages-page.js', $baseUri) ?>?v=<?= time() ?>" defer></script>
+<script src="<?= asset_url('assets/js/messages-page.js', $baseUri) ?>" defer></script>
 
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>

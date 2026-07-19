@@ -133,8 +133,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $welcomeMessage = trim((string) ($settings['notif_welcome_msg'] ?? 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.'));
                                 $welcomeMessage = $welcomeMessage !== '' ? $welcomeMessage : 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.';
                                 $welcomeTitle = mb_substr($senderName . ' hoş geldin dedi', 0, 255);
-                                $notificationStmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, link) VALUES (?, ?, ?, 'system', ?)");
-                                $notificationStmt->execute([$newUserId, $welcomeTitle, $welcomeMessage, $notificationsUrl]);
+                                $notificationColumns = function_exists('notificationEventTableColumns') ? notificationEventTableColumns($pdo) : [];
+                                $insertColumns = ['user_id', 'title', 'message', 'type', 'link'];
+                                $insertValues = [$newUserId, $welcomeTitle, $welcomeMessage, 'system', $notificationsUrl];
+                                if (isset($notificationColumns['is_admin_loggable'])) {
+                                    $insertColumns[] = 'is_admin_loggable';
+                                    $insertValues[] = 1;
+                                }
+                                $quotedColumns = array_map(static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`', $insertColumns);
+                                $placeholders = implode(', ', array_fill(0, count($insertColumns), '?'));
+                                $notificationStmt = $pdo->prepare('INSERT INTO notifications (' . implode(', ', $quotedColumns) . ") VALUES ({$placeholders})");
+                                $notificationStmt->execute($insertValues);
                             } catch (Throwable $notificationError) {
                                 // Kayıt akışı bildirim gönderilemedi diye bozulmasın.
                             }
@@ -265,10 +274,10 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             </div>
 
             <?php if ($errorMsg): ?>
-                <div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert" aria-live="assertive"><?= htmlspecialchars($errorMsg) ?></div>
+                <?= uiRenderAlert((string) $errorMsg, 'danger', ['attrs' => ['aria-live' => 'assertive']]) ?>
             <?php endif; ?>
             <?php if ($successMsg): ?>
-                <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success" role="alert"><?= htmlspecialchars($successMsg) ?></div>
+                <?= uiRenderAlert((string) $successMsg, 'success', ['role' => 'alert']) ?>
             <?php endif; ?>
 
             <form class="auth-form" method="post" action="<?= htmlspecialchars($registerUrl, ENT_QUOTES, 'UTF-8') ?>" novalidate data-auth-csrf-refresh>

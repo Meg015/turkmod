@@ -60,14 +60,53 @@ $reportsAbout = 0;
 $restrictions = [];
 $loginIps = [];
 $auditHistory = [];
+$banHistory = [];
 $recentActivity = [];
 $adminNotes = [];
 $restrictionHistory = [];
+$moderationHistory = [];
+$moderationHistoryRows = [];
 $lastActivityAt = null;
 $banInfo = ['is_banned' => 0, 'banned_at' => null, 'ban_reason' => null, 'last_login_ip' => null];
 $formatDetailDate = static function ($value): string {
     $value = trim((string)($value ?? ''));
     return $value !== '' ? formatAppDateTime($value) : '';
+};
+$moderationActionMeta = static function (string $actionType): array {
+    return match ($actionType) {
+        'ban' => ['label' => 'Banlandı', 'category' => 'ban', 'tone' => 'danger'],
+        'unban' => ['label' => 'Ban Kaldırıldı', 'category' => 'ban', 'tone' => 'success'],
+        'restrict' => ['label' => 'Kısıtlama Eklendi', 'category' => 'restriction', 'tone' => 'warning'],
+        'unrestrict' => ['label' => 'Kısıtlama Kaldırıldı', 'category' => 'restriction', 'tone' => 'success'],
+        'unrestrict_all' => ['label' => 'Tüm Kısıtlamalar Kaldırıldı', 'category' => 'restriction', 'tone' => 'success'],
+        'status_change' => ['label' => 'Durum Değiştirildi', 'category' => 'account', 'tone' => 'info'],
+        'group_change' => ['label' => 'Grup Değiştirildi', 'category' => 'account', 'tone' => 'info'],
+        'user_admin_note_added' => ['label' => 'Admin Notu Eklendi', 'category' => 'note', 'tone' => 'info'],
+        default => ['label' => $actionType !== '' ? $actionType : 'Moderasyon İşlemi', 'category' => 'moderation', 'tone' => 'muted'],
+    };
+};
+$pushModerationHistory = static function (array $row) use (&$moderationHistoryRows, $formatDetailDate, $moderationActionMeta): void {
+    $actionType = (string)($row['action_type'] ?? '');
+    $createdRaw = (string)($row['_created_raw'] ?? ($row['created_at_raw'] ?? ''));
+    $meta = $moderationActionMeta($actionType);
+    $entry = [
+        'action' => (string)($row['action'] ?? $meta['label']),
+        'action_type' => $actionType,
+        'category' => (string)($row['category'] ?? $meta['category']),
+        'tone' => (string)($row['tone'] ?? $meta['tone']),
+        'type' => (string)($row['type'] ?? ''),
+        'reason' => (string)($row['reason'] ?? ''),
+        'admin' => (string)($row['admin'] ?? ($row['actor_name'] ?? ($row['actor'] ?? ''))),
+        'created_at' => (string)($row['created_at'] ?? ($createdRaw !== '' ? $formatDetailDate($createdRaw) : '')),
+        '_created_raw' => $createdRaw,
+    ];
+    if (array_key_exists('expires_at', $row)) {
+        $entry['expires_at'] = (string)$row['expires_at'];
+    }
+    if (array_key_exists('active', $row)) {
+        $entry['active'] = (bool)$row['active'];
+    }
+    $moderationHistoryRows[] = $entry;
 };
 
 try {
@@ -141,6 +180,39 @@ try {
         }
     }
 
+    if (function_exists('ensureAdminActionLogTable')) {
+        try {
+            ensureAdminActionLogTable($pdo);
+            $bh = $pdo->prepare("SELECT l.action_type, l.reason, l.created_at, actor.username AS actor_name
+                FROM admin_action_log l
+                LEFT JOIN users actor ON actor.id = l.actor_id
+                WHERE l.target_type = 'user'
+                  AND l.target_id = ?
+                  AND l.action_type IN ('ban', 'unban')
+                ORDER BY l.created_at DESC, l.id DESC
+                LIMIT 5");
+            $bh->execute([$userId]);
+            foreach ($bh->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                $actionType = (string)($row['action_type'] ?? '');
+                $banHistoryRow = [
+                    'action' => $actionType === 'unban' ? 'Ban Kaldırıldı' : 'Banlandı',
+                    'action_type' => $actionType,
+                    'category' => 'ban',
+                    'tone' => $actionType === 'unban' ? 'success' : 'danger',
+                    'reason' => (string)($row['reason'] ?? ''),
+                    'admin' => (string)($row['actor_name'] ?? ''),
+                    'created_at' => $formatDetailDate($row['created_at'] ?? ''),
+                    '_created_raw' => (string)($row['created_at'] ?? ''),
+                ];
+                $pushModerationHistory($banHistoryRow);
+                unset($banHistoryRow['category'], $banHistoryRow['tone'], $banHistoryRow['_created_raw']);
+                $banHistory[] = $banHistoryRow;
+            }
+        } catch (Throwable $e) {
+            $banHistory = [];
+        }
+    }
+
     if (function_exists('userActivityList')) {
         $activityGroups = function_exists('userActivityGroupLabels') ? userActivityGroupLabels() : [];
         foreach (userActivityList($pdo, ['user_id' => $userId], 6, 0) as $row) {
@@ -190,23 +262,104 @@ try {
 
     if (usersTableExists($pdo, 'user_restrictions')) {
         try {
+            $restrictionHistoryRows = [];
             $rh = $pdo->prepare("SELECT r.*, a.username AS admin_name
                 FROM user_restrictions r
                 LEFT JOIN users a ON a.id = r.admin_id
                 WHERE r.user_id = ?
                 ORDER BY r.created_at DESC, r.id DESC
-                LIMIT 8");
+                LIMIT 10");
             $rh->execute([$userId]);
             foreach ($rh->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
                 $expiresAt = (string)($row['expires_at'] ?? '');
-                $restrictionHistory[] = [
+                $restrictionHistoryRows[] = [
+                    'action' => 'Kısıtlama Eklendi',
+                    'action_type' => 'restrict',
+                    'category' => 'restriction',
+                    'tone' => 'warning',
                     'type' => function_exists('usersGetRestrictionTypeLabel') ? usersGetRestrictionTypeLabel((string)$row['restriction_type']) : (string)$row['restriction_type'],
                     'reason' => (string)($row['reason'] ?? ''),
                     'admin' => (string)($row['admin_name'] ?? ''),
                     'created_at' => $formatDetailDate($row['created_at'] ?? ''),
+                    '_created_raw' => (string)($row['created_at'] ?? ''),
                     'expires_at' => $expiresAt !== '' ? $formatDetailDate($expiresAt) : 'Süresiz',
                     'active' => $expiresAt === '' || strtotime($expiresAt) > time(),
                 ];
+            }
+            if (function_exists('ensureAdminActionLogTable')) {
+                try {
+                    ensureAdminActionLogTable($pdo);
+                    $rl = $pdo->prepare("SELECT l.action_type, l.reason, l.old_value, l.created_at, actor.username AS actor_name
+                        FROM admin_action_log l
+                        LEFT JOIN users actor ON actor.id = l.actor_id
+                        WHERE l.target_type = 'user'
+                          AND l.target_id = ?
+                          AND l.action_type IN ('unrestrict', 'unrestrict_all')
+                        ORDER BY l.created_at DESC, l.id DESC
+                        LIMIT 10");
+                    $rl->execute([$userId]);
+                    foreach ($rl->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                        $actionType = (string)($row['action_type'] ?? '');
+                        $oldValue = json_decode((string)($row['old_value'] ?? ''), true);
+                        $oldValue = is_array($oldValue) ? $oldValue : [];
+                        $typeLabel = 'Kısıtlama';
+                        $reason = (string)($row['reason'] ?? '');
+                        $expiresLabel = '';
+                        if ($actionType === 'unrestrict_all') {
+                            $items = $oldValue['restrictions'] ?? [];
+                            $items = is_array($items) ? $items : [];
+                            $labels = [];
+                            foreach ($items as $item) {
+                                if (!is_array($item)) {
+                                    continue;
+                                }
+                                $rawType = (string)($item['restriction_type'] ?? ($item['type'] ?? ''));
+                                $labels[] = function_exists('usersGetRestrictionTypeLabel') ? usersGetRestrictionTypeLabel($rawType) : ($rawType ?: 'Kısıtlama');
+                            }
+                            $labels = array_values(array_unique(array_filter($labels)));
+                            if (!empty($labels)) {
+                                $typeLabel = implode(', ', array_slice($labels, 0, 3));
+                                if (count($labels) > 3) {
+                                    $typeLabel .= ' +' . (count($labels) - 3);
+                                }
+                            } else {
+                                $typeLabel = 'Tüm Kısıtlamalar';
+                            }
+                        } else {
+                            $rawType = (string)($oldValue['restriction_type'] ?? ($oldValue['type'] ?? ''));
+                            $typeLabel = function_exists('usersGetRestrictionTypeLabel') ? usersGetRestrictionTypeLabel($rawType) : ($rawType ?: 'Kısıtlama');
+                            if ($typeLabel === '') {
+                                $typeLabel = 'Kısıtlama';
+                            }
+                            $reason = (string)($oldValue['reason'] ?? '') ?: $reason;
+                            $expiresAt = (string)($oldValue['expires_at'] ?? '');
+                            $expiresLabel = $expiresAt !== '' ? $formatDetailDate($expiresAt) : 'Süresiz';
+                        }
+                        $restrictionHistoryRows[] = [
+                            'action' => $actionType === 'unrestrict_all' ? 'Tüm Kısıtlamalar Kaldırıldı' : 'Kısıtlama Kaldırıldı',
+                            'action_type' => $actionType,
+                            'category' => 'restriction',
+                            'tone' => 'success',
+                            'type' => $typeLabel,
+                            'reason' => $reason,
+                            'admin' => (string)($row['actor_name'] ?? ''),
+                            'created_at' => $formatDetailDate($row['created_at'] ?? ''),
+                            '_created_raw' => (string)($row['created_at'] ?? ''),
+                            'expires_at' => $expiresLabel,
+                            'active' => false,
+                        ];
+                    }
+                } catch (Throwable $e) {
+                    // Action log is optional for legacy installs; active restriction rows still render.
+                }
+            }
+            usort($restrictionHistoryRows, static function (array $a, array $b): int {
+                return strtotime((string)($b['_created_raw'] ?? '')) <=> strtotime((string)($a['_created_raw'] ?? ''));
+            });
+            foreach (array_slice($restrictionHistoryRows, 0, 5) as $row) {
+                $pushModerationHistory($row);
+                unset($row['_created_raw']);
+                $restrictionHistory[] = $row;
             }
         } catch (Throwable $e) {
             $restrictionHistory = [];
@@ -214,6 +367,14 @@ try {
     }
 } catch (Throwable $e) {
     appLogException($e, ["source" => "user-details-api-360", "user_id" => $userId]);
+}
+
+usort($moderationHistoryRows, static function (array $a, array $b): int {
+    return (strtotime((string)($b['_created_raw'] ?? '')) ?: 0) <=> (strtotime((string)($a['_created_raw'] ?? '')) ?: 0);
+});
+foreach (array_slice($moderationHistoryRows, 0, 5) as $row) {
+    unset($row['_created_raw']);
+    $moderationHistory[] = $row;
 }
 
 sendSuccess('Kullanici detaylari basariyla getirildi.', [
@@ -248,6 +409,8 @@ sendSuccess('Kullanici detaylari basariyla getirildi.', [
         'recent_comments' => $recentComments,
         'recent_activity' => $recentActivity,
         'admin_notes' => $adminNotes,
+        'moderation_history' => $moderationHistory,
+        'ban_history' => $banHistory,
         'restriction_history' => $restrictionHistory,
         'restrictions' => $restrictions,
         'login_ips' => $loginIps,

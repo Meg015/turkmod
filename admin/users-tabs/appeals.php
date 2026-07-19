@@ -29,6 +29,13 @@ $formatDate = static function (mixed $value): string {
     return $time !== false ? date('d.m.Y H:i', $time) : $value;
 };
 $statusBadge = static function (string $status) use ($h): string {
+    if (function_exists('adminRenderStatusBadge')) {
+        return adminRenderStatusBadge($status, 'ban_appeal', [
+            'label' => usersBanAppealStatusLabel($status),
+            'icon' => '',
+        ]);
+    }
+
     $badgeClass = match ($status) {
         'open' => 'ui-admin-badge-warning',
         'reviewing' => 'ui-admin-badge-primary',
@@ -67,19 +74,32 @@ $excerpt = static function (mixed $message, int $limit = 220): string {
 ?>
 
 <div class="appeals-admin-page">
-    <section class="appeals-admin-summary" aria-label="Ban itiraz ozetleri">
-        <?php foreach ($appealStatusMeta as $statusKey => $meta): ?>
-            <a href="<?= $h($statusUrl((string)$statusKey)) ?>"
-               class="appeals-admin-stat <?= $appealFilter === (string)$statusKey && $selectedAppealId <= 0 ? 'is-active' : '' ?>">
-                <span><i class="bi <?= $h($meta['icon']) ?>" aria-hidden="true"></i><?= $h($meta['label']) ?></span>
-                <strong><?= (int)$meta['count'] ?></strong>
-            </a>
-        <?php endforeach; ?>
-    </section>
+    <?php
+    $appealSummaryCards = [];
+    foreach ($appealStatusMeta as $statusKey => $meta) {
+        $tone = match ((string) $statusKey) {
+            'open', 'reviewing' => 'warning',
+            'accepted' => 'success',
+            'rejected' => 'danger',
+            default => 'info',
+        };
+        $appealSummaryCards[] = [
+            'href' => $statusUrl((string) $statusKey),
+            'tone' => $tone,
+            'icon' => (string) $meta['icon'],
+            'label' => (string) $meta['label'],
+            'value' => number_format((int) $meta['count'], 0, ',', '.'),
+            'class' => $appealFilter === (string) $statusKey && $selectedAppealId <= 0 ? 'is-active' : '',
+        ];
+    }
+    echo adminRenderStatCards($appealSummaryCards, [
+        'class' => 'appeals-admin-summary',
+        'aria_label' => 'Ban itiraz ozetleri',
+    ]);
+    ?>
 
-    <div class="admin-card ui-admin-mb-md ui-panel appeals-admin-toolbar">
-        <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
-            <form method="get" action="users.php" class="appeals-admin-filter">
+    <?= adminRenderFilterToolbarOpen('', 'ui-admin-mb-md appeals-admin-toolbar') ?>
+            <form method="get" action="users.php" class="appeals-admin-filter admin-filter-form">
                 <input type="hidden" name="tab" value="moderation">
                 <input type="hidden" name="moderation" value="appeals">
                 <div class="ui-admin-filter-sm">
@@ -101,19 +121,19 @@ $excerpt = static function (mixed $message, int $limit = 220): string {
                     <?php endif; ?>
                 </div>
             </form>
-        </div>
-    </div>
+    <?= adminRenderFilterToolbarClose() ?>
 
     <?php if ($selectedAppealId > 0): ?>
         <?php if (!$selectedBanAppeal): ?>
-            <div class="admin-card ui-panel">
-                <div class="card-body ui-admin-empty ui-panel__body ui-empty">
-                    <div class="ui-admin-empty-icon tone-warning ui-empty"><i class="bi bi-exclamation-triangle"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Itiraz bulunamadi</h3>
-                    <p class="ui-admin-empty-desc ui-empty">Secilen itiraz silinmis veya goruntuleme yetkiniz disinda olabilir.</p>
-                    <a href="<?= $h($backToListUrl) ?>" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-arrow-left"></i> Listeye Don</a>
-                </div>
-            </div>
+            <?= adminRenderPanel(adminRenderEmptyState([
+                        'icon' => 'bi-exclamation-triangle',
+                        'tone' => 'warning',
+                        'title' => 'Itiraz bulunamadi',
+                        'description' => 'Secilen itiraz silinmis veya goruntuleme yetkiniz disinda olabilir.',
+                        'actions' => [
+                            ['href' => $backToListUrl, 'label' => 'Listeye Don', 'icon' => 'bi-arrow-left', 'class' => 'ui-admin-btn-primary'],
+                        ],
+                    ]), ['tag' => 'div']) ?>
         <?php else: ?>
             <?php
             $appealId = (int)$selectedBanAppeal['id'];
@@ -263,13 +283,12 @@ $excerpt = static function (mixed $message, int $limit = 220): string {
         <?php endif; ?>
     <?php else: ?>
         <?php if (empty($banAppeals)): ?>
-            <div class="admin-card ui-panel">
-                <div class="card-body ui-admin-empty ui-panel__body ui-empty">
-                    <div class="ui-admin-empty-icon tone-success ui-empty"><i class="bi bi-inbox"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Bekleyen itiraz yok</h3>
-                    <p class="ui-admin-empty-desc ui-empty">Secili filtrede ban itirazi bulunmuyor. Yeni bir itiraz geldiginde burada gorunecek.</p>
-                </div>
-            </div>
+            <?= adminRenderPanel(adminRenderEmptyState([
+                        'icon' => 'bi-inbox',
+                        'tone' => 'success',
+                        'title' => 'Bekleyen itiraz yok',
+                        'description' => 'Secili filtrede ban itirazi bulunmuyor. Yeni bir itiraz geldiginde burada gorunecek.',
+                    ]), ['tag' => 'div']) ?>
         <?php else: ?>
             <?php
             $pendingAppealCount = 0;
@@ -280,9 +299,7 @@ $excerpt = static function (mixed $message, int $limit = 220): string {
             }
             ?>
             <?php if ($pendingAppealCount > 0): ?>
-                <form id="bulkAppealsForm" method="post" class="report-bulk-bar appeals-admin-bulk"
-                      data-admin-confirm="Secili itirazlarin tumune bu islemi uygulamak istiyor musunuz?"
-                      data-admin-confirm-tone="warning">
+                <form id="bulkAppealsForm" method="post" class="report-bulk-bar appeals-admin-bulk admin-bulk-action-bar"<?= adminConfirmAttrs(['message' => 'Secili itirazlarin tumune bu islemi uygulamak istiyor musunuz?', 'tone' => 'warning']) ?>>
                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="action" value="bulk_appeal_update">
                     <div class="appeals-admin-bulk-selection">

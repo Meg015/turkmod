@@ -201,6 +201,131 @@ function topicDownloadCommentRequirement(array $settings): string
     return $mode === 'approved' ? 'approved' : 'submitted';
 }
 
+function topicDownloadExemptionAllowedScopes(): array
+{
+    return [
+        'access_lock' => true,
+        'inline_countdown' => true,
+        'redirect_countdown' => true,
+        'count_rate_limit' => true,
+    ];
+}
+
+function topicDownloadExemptionToken(string $value): string
+{
+    if (function_exists('commentSpamNormalizeExemptionToken')) {
+        return commentSpamNormalizeExemptionToken($value);
+    }
+
+    $value = trim($value);
+    return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+}
+
+function topicDownloadExemptionList(string $raw): array
+{
+    if (function_exists('commentSpamParseExemptionList')) {
+        return commentSpamParseExemptionList($raw);
+    }
+
+    $items = [];
+    foreach (preg_split('/[\r\n,;]+/u', $raw) ?: [] as $item) {
+        $token = topicDownloadExemptionToken((string) $item);
+        if ($token !== '') {
+            $items[$token] = $token;
+        }
+    }
+
+    return array_values($items);
+}
+
+function topicDownloadExemptionScopes(array $settings): array
+{
+    $allowedScopes = topicDownloadExemptionAllowedScopes();
+    if (!array_key_exists('download_exempt_scopes', $settings)) {
+        return array_keys($allowedScopes);
+    }
+
+    $raw = trim((string) ($settings['download_exempt_scopes'] ?? ''));
+    if ($raw === '') {
+        return [];
+    }
+
+    $scopes = [];
+    foreach (preg_split('/[\r\n,;]+/u', $raw) ?: [] as $scope) {
+        $scope = trim((string) $scope);
+        if ($scope !== '' && isset($allowedScopes[$scope])) {
+            $scopes[$scope] = $scope;
+        }
+    }
+
+    return array_values($scopes);
+}
+
+function topicDownloadExemptionScopeEnabled(array $settings, string $scope): bool
+{
+    return in_array($scope, topicDownloadExemptionScopes($settings), true);
+}
+
+function topicDownloadIsUserExemptForScope(?PDO $pdo, array $settings, int $userId, string $scope): bool
+{
+    if ($userId <= 0 || !topicDownloadExemptionScopeEnabled($settings, $scope)) {
+        return false;
+    }
+
+    $usernameTokens = topicDownloadExemptionList((string) ($settings['download_exempt_usernames'] ?? ''));
+    $groupTokens = topicDownloadExemptionList((string) ($settings['download_exempt_groups'] ?? ''));
+    if ($usernameTokens === [] && $groupTokens === []) {
+        return false;
+    }
+
+    $context = [
+        'username' => (string) ($_SESSION['_auth_user_name'] ?? ''),
+        'group_names' => [],
+        'group_slugs' => [],
+    ];
+    if ($pdo instanceof PDO && function_exists('commentSpamGetUserContext')) {
+        try {
+            $context = commentSpamGetUserContext($pdo, $userId);
+        } catch (Throwable $e) {
+            if (function_exists('appLogException')) {
+                appLogException($e, ['fn' => 'topicDownloadIsUserExemptForScope', 'user_id' => $userId]);
+            }
+        }
+    }
+
+    if ($usernameTokens !== []) {
+        $username = topicDownloadExemptionToken((string) ($context['username'] ?? ''));
+        if ($username !== '' && in_array($username, $usernameTokens, true)) {
+            return true;
+        }
+    }
+
+    if ($groupTokens !== []) {
+        $groupCandidates = array_merge(
+            (array) ($context['group_names'] ?? []),
+            (array) ($context['group_slugs'] ?? []),
+            [(string) ($context['group_name'] ?? ''), (string) ($context['group_slug'] ?? '')]
+        );
+        foreach ($groupCandidates as $groupCandidate) {
+            $token = topicDownloadExemptionToken((string) $groupCandidate);
+            if ($token !== '' && in_array($token, $groupTokens, true)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function topicDownloadCountdownSeconds(?PDO $pdo, array $settings, int $userId, string $settingKey, string $scope, int $fallback): int
+{
+    if (topicDownloadIsUserExemptForScope($pdo, $settings, $userId, $scope)) {
+        return 0;
+    }
+
+    return max(0, (int) ($settings[$settingKey] ?? $fallback));
+}
+
 function topicDownloadSettingText(array $settings, string $key, string $fallback): string
 {
     $value = trim((string) ($settings[$key] ?? ''));
@@ -826,9 +951,16 @@ function topicDownloadAccessState(?PDO $pdo, array $settings, int $topicId, int 
         'granted_at' => null,
         'expires_at' => null,
         'access_until_text' => '',
+        'is_exempt' => false,
     ];
 
     if ($topicId <= 0 || $mode === 'public') {
+        return topicDownloadAccessFinalizeState($state);
+    }
+
+    if (topicDownloadIsUserExemptForScope($pdo, $settings, $userId, 'access_lock')) {
+        $state['reason'] = 'download_exempt';
+        $state['is_exempt'] = true;
         return topicDownloadAccessFinalizeState($state);
     }
 
@@ -957,6 +1089,107 @@ function getTopicDownloadLinks(?PDO $pdo, int $topicId): array
     return [];
 }
 
+function topicDownloadIntentTtlSeconds(): int
+{
+    return 1800;
+}
+
+function topicDownloadPruneAccessIntents(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    $intents = $_SESSION['_topic_download_access_intents'] ?? [];
+    if (!is_array($intents)) {
+        $_SESSION['_topic_download_access_intents'] = [];
+        return;
+    }
+
+    $now = time();
+    $ttl = topicDownloadIntentTtlSeconds();
+    foreach ($intents as $token => $intent) {
+        if (
+            !is_string($token) ||
+            !is_array($intent) ||
+            (int) ($intent['link_id'] ?? 0) <= 0 ||
+            (int) ($intent['topic_id'] ?? 0) <= 0 ||
+            (int) ($intent['created_at'] ?? 0) < ($now - $ttl)
+        ) {
+            unset($intents[$token]);
+        }
+    }
+
+    if (count($intents) > 80) {
+        uasort($intents, static function (array $a, array $b): int {
+            return (int) ($b['created_at'] ?? 0) <=> (int) ($a['created_at'] ?? 0);
+        });
+        $intents = array_slice($intents, 0, 80, true);
+    }
+
+    $_SESSION['_topic_download_access_intents'] = $intents;
+}
+
+function topicDownloadCreateAccessIntent(int $linkId, int $topicId): string
+{
+    if ($linkId <= 0 || $topicId <= 0 || session_status() !== PHP_SESSION_ACTIVE) {
+        return '';
+    }
+
+    topicDownloadPruneAccessIntents();
+
+    try {
+        $token = bin2hex(random_bytes(16));
+    } catch (Throwable $e) {
+        $token = hash('sha256', uniqid((string) $linkId, true) . '|' . microtime(true));
+    }
+
+    $_SESSION['_topic_download_access_intents'][$token] = [
+        'link_id' => $linkId,
+        'topic_id' => $topicId,
+        'created_at' => time(),
+    ];
+
+    return $token;
+}
+
+function topicDownloadBuildActionUrl(int $linkId, int $topicId): string
+{
+    $href = routePublicStaticUrl('download') . '?id=' . $linkId;
+    $intent = topicDownloadCreateAccessIntent($linkId, $topicId);
+    if ($intent !== '') {
+        $href .= '&intent=' . rawurlencode($intent);
+    }
+
+    return $href;
+}
+
+function topicDownloadAccessIntentIsValid(int $linkId, int $topicId, string $token): bool
+{
+    if ($linkId <= 0 || $topicId <= 0 || $token === '' || session_status() !== PHP_SESSION_ACTIVE) {
+        return false;
+    }
+
+    topicDownloadPruneAccessIntents();
+
+    $intent = $_SESSION['_topic_download_access_intents'][$token] ?? null;
+    if (!is_array($intent)) {
+        return false;
+    }
+
+    return (int) ($intent['link_id'] ?? 0) === $linkId
+        && (int) ($intent['topic_id'] ?? 0) === $topicId;
+}
+
+function topicDownloadConsumeAccessIntent(int $linkId, int $topicId, string $token): void
+{
+    if (!topicDownloadAccessIntentIsValid($linkId, $topicId, $token)) {
+        return;
+    }
+
+    unset($_SESSION['_topic_download_access_intents'][$token]);
+}
+
 function syncTopicDownloadLinks(?PDO $pdo, int $topicId, string $rawLinks): void
 {
     if (!$pdo || $topicId <= 0) {
@@ -1035,23 +1268,27 @@ function incrementTopicDownloadLink(?PDO $pdo, int $linkId): ?array
         $topicId = (int)($link['topic_id'] ?? 0);
         $clientKey = 'download_' . $topicId . '_' . ($_SERVER['REMOTE_ADDR'] ?? 'guest');
         $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
+        $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+        $countRateLimitExempt = topicDownloadIsUserExemptForScope($pdo, $settings, $currentUserId, 'count_rate_limit');
         $downloadCountRateLimit = max(1, (int)($settings['download_count_rate_limit'] ?? 1));
         $downloadCountRateWindow = max(1, (int)($settings['download_count_rate_window'] ?? 60));
-        $shouldCount = checkRateLimit($clientKey, $downloadCountRateLimit, $downloadCountRateWindow);
+        $shouldCount = $countRateLimitExempt || checkRateLimit($clientKey, $downloadCountRateLimit, $downloadCountRateWindow);
 
         if ($shouldCount) {
             $pdo->prepare("UPDATE topic_download_links SET download_count = download_count + 1, updated_at = NOW() WHERE id = ?")
                 ->execute([$linkId]);
             $pdo->prepare("UPDATE topics SET download_count = download_count + 1 WHERE id = ?")
                 ->execute([$topicId]);
-            incrementRateLimit($clientKey, $downloadCountRateWindow);
+            if (!$countRateLimitExempt) {
+                incrementRateLimit($clientKey, $downloadCountRateWindow);
+            }
 
             try {
                 $pdo->prepare("INSERT INTO downloads (topic_id, user_id, ip_address, user_agent, created_at, updated_at)
                                VALUES (?, ?, ?, ?, NOW(), NOW())")
                     ->execute([
                         $topicId,
-                        $_SESSION['_auth_user_id'] ?? null,
+                        $currentUserId > 0 ? $currentUserId : null,
                         $_SERVER['REMOTE_ADDR'] ?? null,
                         $_SERVER['HTTP_USER_AGENT'] ?? null,
                     ]);

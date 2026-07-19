@@ -139,9 +139,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 $errorMsg = get_flash('error');
 require_once __DIR__ . '/header.php';
 ?>
-<div class="admin-card ui-panel">
-    <div class="card-header ui-panel__head"><i class="bi bi-plus-circle me-2"></i>Yeni Konu Ekle</div>
-    <div class="card-body ui-panel__body">
+<?= adminRenderPanelOpen([
+    'tag' => 'div',
+    'icon' => 'bi-plus-circle',
+    'title' => 'Yeni Konu Ekle',
+]) ?>
         <form id="topicForm" method="post" action="create.php" enctype="multipart/form-data">
             <?= csrf_field() ?>
 
@@ -264,8 +266,7 @@ require_once __DIR__ . '/header.php';
                 <a href="topics.php" class="ui-admin-btn ui-admin-btn-outline">İptal</a>
             </div>
         </form>
-    </div>
-</div>
+<?= adminRenderPanelClose('div') ?>
 
 <script src="<?= asset_url('admin/assets/create-page.js', $baseUri) ?>" defer></script>
 

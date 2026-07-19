@@ -1,4 +1,4 @@
-<main class="{notifications_shell_class}" data-ui-style-number="--notification-message-lines:{notifications_message_lines}" data-notifications-root data-csrf-token="{notifications_csrf_token}" data-read-endpoint="{notifications_read_endpoint}" data-delete-endpoint="{notifications_delete_endpoint}" data-read-more-enabled="{notifications_read_more_js}" data-auto-mark-on-open="{notifications_auto_mark_js}">
+<main class="{notifications_shell_class}" data-ui-style-number="--notification-message-lines:{notifications_message_lines}" data-notifications-page data-notifications-csrf="{notifications_csrf_token}" data-notifications-read-endpoint="{notifications_read_endpoint}" data-notifications-delete-endpoint="{notifications_delete_endpoint}" data-notifications-read-more="{notifications_read_more_js}" data-notifications-auto-mark="{notifications_auto_mark_js}">
     <section class="notifications-hero" aria-labelledby="notifications-title">
         <div>
             <span class="notifications-kicker"><i class="bi bi-bell" aria-hidden="true"></i> Hesap Merkezi</span>
@@ -154,19 +154,30 @@
                 <div class="settings-intro">
                     <div>
                         <h2>Bildirim Tercihleri</h2>
-                        <p>Hangi kanallardan haber almak istediginizi secin. Kritik hesap ve guvenlik bildirimleri gerektiginde yine gosterilebilir.</p>
+                        <p>Site ici ve e-posta bildirimlerini birbirinden bagimsiz yonetin. Kritik hesap ve guvenlik bildirimleri gerektiginde yine gosterilebilir.</p>
                     </div>
                     <i class="bi bi-shield-check" aria-hidden="true"></i>
                 </div>
 
+                <div class="settings-tabs" role="tablist" aria-label="Bildirim tercih bolumleri">
+                    {loop notification_preference_tab_items}
+                    <button type="button" class="settings-tab {if notification_preference_tab_item.is_active}is-active{/if}" role="tab" aria-selected="{if notification_preference_tab_item.is_active}true{else}false{/if}" data-notification-settings-tab="{notification_preference_tab_item.key}">
+                        <i class="bi {notification_preference_tab_item.icon}" aria-hidden="true"></i>
+                        <span>{notification_preference_tab_item.label}</span>
+                    </button>
+                    {/loop}
+                </div>
+
+                <div class="settings-groups-stack">
                 {loop notification_preference_groups}
-                <section class="settings-group-panel ui-panel" data-notification-preference-group>
+                <section class="settings-group-panel ui-panel {if notification_preference_group.is_active_tab}is-active{/if}" data-notification-preference-group data-notification-settings-panel="{notification_preference_group.tab}" {if !notification_preference_group.is_active_tab}hidden{/if}>
                     <div class="settings-group-head ui-panel__head">
                         <span class="settings-group-icon" aria-hidden="true"><i class="bi {notification_preference_group.icon}"></i></span>
-                        <div>
+                        <div class="settings-group-copy">
                             <h3>{notification_preference_group.title}</h3>
                             <p>{notification_preference_group.description}</p>
                         </div>
+                        {if notification_preference_group.has_key}
                         <label class="settings-group-switch" for="{notification_preference_group.input_id}">
                             <span class="settings-group-switch-text">Grubu aktif tut</span>
                             <span class="notification-switch">
@@ -174,14 +185,16 @@
                                 <span class="notification-slider"></span>
                             </span>
                         </label>
+                        {/if}
                     </div>
                     <div class="settings-grid ui-grid">
                         {loop notification_preference_group.items}
-                        <label class="setting-row" for="{item.input_id}">
+                        <label class="setting-row" for="{item.input_id}" data-notification-effect-row data-effect-on="{item.enabled_effect}" data-effect-off="{item.disabled_effect}">
                             <span class="setting-row-icon"><i class="bi {item.icon}" aria-hidden="true"></i></span>
-                            <span>
+                            <span class="setting-row-copy">
                                 <strong>{item.title}</strong>
                                 <span>{item.description}</span>
+                                <small class="setting-effect{item.effect_disabled_class}" data-notification-effect>{item.current_effect}</small>
                             </span>
                             <span class="notification-switch">
                                 <input id="{item.input_id}" type="checkbox" name="{item.key}" value="1" data-notification-group-item {item.checked}>
@@ -192,6 +205,7 @@
                     </div>
                 </section>
                 {/loop}
+                </div>
 
                 <div class="settings-actions">
                     <button type="submit" class="settings-save-btn">

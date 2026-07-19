@@ -2,54 +2,218 @@ function adminUsersCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 }
 
-// Enhanced modal functions with smooth animations
-function openAdminManagedModal(modal, options) {
+// Page-level modal helpers delegate to the shared admin modal controller.
+function openUsersManagedModal(modal, options) {
     if (!modal) return null;
-    const opts = options || {};
-    if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-        const dialog = window.TMUI.openDialog(modal, {
-            openClass: opts.openClass || 'is-open',
-            bodyClass: opts.bodyClass || 'ui-admin-dialog-open',
-            initialFocus: opts.initialFocus,
-            returnFocus: opts.returnFocus || document.activeElement,
-            onClose: opts.onClose
-        });
-        modal.classList.add('ui-admin-modal-open');
-        return dialog;
+    if (window.adminModal && typeof window.adminModal.open === 'function') {
+        return window.adminModal.open(modal, options || {});
+    }
+    if (window.openAdminManagedModal && window.openAdminManagedModal !== openUsersManagedModal) {
+        return window.openAdminManagedModal(modal, options || {});
     }
     modal.hidden = false;
     modal.setAttribute('aria-hidden', 'false');
-    modal.classList.add(opts.openClass || 'is-open', 'ui-admin-modal-open');
-    modal.classList.remove('is-closing');
-    if (opts.initialFocus) {
-        const focusTarget = modal.querySelector(opts.initialFocus);
-        if (focusTarget) setTimeout(() => focusTarget.focus(), 80);
-    }
+    modal.classList.add((options && options.openClass) || 'is-open', 'ui-admin-modal-open');
     return null;
 }
 
-function closeAdminManagedModal(modal, resetCallback) {
+function closeUsersManagedModal(modal, resetCallback) {
     if (!modal) return;
-    if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-        window.TMUI.closeDialog(modal);
-        modal.classList.remove('ui-admin-modal-open');
-        if (typeof resetCallback === 'function') resetCallback();
+    if (window.adminModal && typeof window.adminModal.close === 'function') {
+        window.adminModal.close(modal, resetCallback);
         return;
     }
-    modal.classList.add('is-closing');
-    setTimeout(() => {
-        modal.classList.remove('is-open', 'is-closing', 'ui-admin-modal-open');
-        modal.hidden = true;
-        modal.setAttribute('aria-hidden', 'true');
-        if (typeof resetCallback === 'function') resetCallback();
-    }, 160);
+    if (window.closeAdminManagedModal && window.closeAdminManagedModal !== closeUsersManagedModal) {
+        window.closeAdminManagedModal(modal, resetCallback);
+        return;
+    }
+    modal.classList.remove('is-open', 'ui-admin-modal-open');
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+    if (typeof resetCallback === 'function') resetCallback();
+}
+
+var USER_RESTRICTION_LABELS = {
+    all: 'Tüm İşlemler',
+    comment: 'Yorum Yapma',
+    topic: 'Konu Oluşturma',
+    upload: 'Dosya Yükleme',
+    download: 'İndirme',
+    message: 'Mesaj Gönderme',
+    profile: 'Profil Düzenleme',
+    events: 'Etkinlik Kullanımı'
+};
+
+function moderationContextEmpty(message) {
+    if (window.adminModerationHistory && typeof window.adminModerationHistory.empty === 'function') {
+        return window.adminModerationHistory.empty(message);
+    }
+    return '<div class="ui-admin-moderation-empty">' + escHtml(message) + '</div>';
+}
+
+function moderationContextLoading(message) {
+    if (window.adminModerationHistory && typeof window.adminModerationHistory.loading === 'function') {
+        return window.adminModerationHistory.loading(message);
+    }
+    return '<span class="ui-admin-muted-sm">' + escHtml(message) + '</span>';
+}
+
+function moderationContextReason(reason) {
+    if (window.adminModerationHistory && typeof window.adminModerationHistory.reason === 'function') {
+        return window.adminModerationHistory.reason(reason);
+    }
+    reason = String(reason || '').trim();
+    return reason ? '<span class="ui-admin-moderation-reason">' + escHtml(reason) + '</span>' : '';
+}
+
+function normalizeRestrictionLabel(row) {
+    if (window.adminModerationHistory && typeof window.adminModerationHistory.restrictionLabel === 'function') {
+        return window.adminModerationHistory.restrictionLabel(row);
+    }
+    var raw = String(row && (row.restriction_type || row.type) || '').trim();
+    return USER_RESTRICTION_LABELS[raw] || raw || 'Kısıtlama';
+}
+
+function fetchUserModerationDetails(userId) {
+    return window.adminFetchJson('api/user-details.php?id=' + encodeURIComponent(userId), { notifyError: false })
+        .then(function (res) {
+            if (!res || (!res.success && !res.ok)) {
+                throw new Error((res && res.message) || 'Kullanıcı bilgisi alınamadı.');
+            }
+            return res.data || {};
+        });
+}
+
+function banContextElements(prefix) {
+    prefix = prefix || 'ban';
+    return {
+        current: document.querySelector('[data-' + prefix + '-current]'),
+        history: document.querySelector('[data-' + prefix + '-history]')
+    };
+}
+
+function resetBanContext(prefix) {
+    var elements = banContextElements(prefix);
+    var current = elements.current;
+    var history = elements.history;
+    if (current) current.innerHTML = moderationContextLoading('Ban bilgisi yükleniyor...');
+    if (history) history.innerHTML = moderationContextLoading('Geçmiş yükleniyor...');
+}
+
+function resetRestrictionContext() {
+    var current = document.querySelector('[data-restriction-current]');
+    var history = document.querySelector('[data-restriction-history]');
+    if (current) current.innerHTML = moderationContextLoading('Kısıtlamalar yükleniyor...');
+    if (history) history.innerHTML = moderationContextLoading('Geçmiş yükleniyor...');
+}
+
+function renderBanContext(data, prefix) {
+    var elements = banContextElements(prefix);
+    var current = elements.current;
+    var history = elements.history;
+    var isBanned = Number(data && data.is_banned) === 1;
+    if (current) {
+        current.innerHTML = isBanned
+            ? '<div class="ui-admin-moderation-current is-danger">'
+                + '<strong><i class="bi bi-slash-circle"></i> Aktif ban var</strong>'
+                + '<span>' + escHtml(data.banned_at || 'Tarih yok') + '</span>'
+                + moderationContextReason(data.ban_reason)
+            + '</div>'
+            : '<div class="ui-admin-moderation-current is-success">'
+                + '<strong><i class="bi bi-check-circle"></i> Aktif ban yok</strong>'
+                + '<span>Kullanıcı şu anda banlı değil.</span>'
+            + '</div>';
+    }
+    if (history) {
+        var rows = Array.isArray(data && data.moderation_history) ? data.moderation_history : (Array.isArray(data && data.ban_history) ? data.ban_history : []);
+        if (window.adminModerationHistory && typeof window.adminModerationHistory.rows === 'function') {
+            history.innerHTML = window.adminModerationHistory.rows(rows, 'Moderasyon geçmişi yok.');
+        } else {
+            history.innerHTML = rows.length
+                ? rows.map(function (row) {
+                var tone = row.action_type === 'unban' ? 'is-success' : 'is-danger';
+                return '<div class="ui-admin-moderation-row ' + tone + '">'
+                    + '<strong>' + escHtml(row.action || (row.action_type === 'unban' ? 'Ban kaldırıldı' : 'Banlandı')) + '</strong>'
+                    + '<span>' + escHtml(row.created_at || '') + (row.admin ? ' · ' + escHtml(row.admin) : '') + '</span>'
+                    + moderationContextReason(row.reason)
+                + '</div>';
+                }).join('')
+                : moderationContextEmpty('Moderasyon geçmişi yok.');
+        }
+    }
+}
+
+function renderRestrictionContext(data) {
+    var current = document.querySelector('[data-restriction-current]');
+    var history = document.querySelector('[data-restriction-history]');
+    var activeRows = Array.isArray(data && data.restrictions) ? data.restrictions : [];
+    var historyRows = Array.isArray(data && data.moderation_history) ? data.moderation_history : (Array.isArray(data && data.restriction_history) ? data.restriction_history : []);
+    if (current) {
+        current.innerHTML = activeRows.length
+            ? activeRows.map(function (row) {
+                return '<div class="ui-admin-moderation-row is-warning">'
+                    + '<strong>' + escHtml(normalizeRestrictionLabel(row)) + '</strong>'
+                    + '<span>Bitiş: ' + escHtml(row.expires_at || 'Süresiz') + (row.admin_name ? ' · ' + escHtml(row.admin_name) : '') + '</span>'
+                    + moderationContextReason(row.reason)
+                + '</div>';
+            }).join('')
+            : moderationContextEmpty('Aktif kısıtlama yok.');
+    }
+    if (history) {
+        if (window.adminModerationHistory && typeof window.adminModerationHistory.rows === 'function') {
+            history.innerHTML = window.adminModerationHistory.rows(historyRows, 'Moderasyon geçmişi yok.');
+        } else {
+            history.innerHTML = historyRows.length
+                ? historyRows.map(function (row) {
+                var meta = [row.action || '', row.created_at || ''];
+                if (row.expires_at) meta.push('Bitiş: ' + row.expires_at);
+                if (row.admin) meta.push(row.admin);
+                var tone = row.active ? 'is-warning' : (String(row.action_type || '').indexOf('unrestrict') === 0 ? 'is-success' : 'is-muted');
+                return '<div class="ui-admin-moderation-row ' + tone + '">'
+                    + '<strong>' + escHtml(row.type || 'Kısıtlama') + '</strong>'
+                    + '<span>' + escHtml(meta.filter(Boolean).join(' · ')) + '</span>'
+                    + moderationContextReason(row.reason)
+                + '</div>';
+                }).join('')
+                : moderationContextEmpty('Moderasyon geçmişi yok.');
+        }
+    }
+}
+
+function loadBanContext(userId, prefix) {
+    var elements = banContextElements(prefix);
+    resetBanContext(prefix);
+    return fetchUserModerationDetails(userId)
+        .then(function (data) {
+            renderBanContext(data, prefix);
+            return data;
+        })
+        .catch(function () {
+            var current = elements.current;
+            var history = elements.history;
+            if (current) current.innerHTML = moderationContextEmpty('Ban bilgisi yüklenemedi.');
+            if (history) history.innerHTML = moderationContextEmpty('Ban geçmişi yüklenemedi.');
+        });
+}
+
+function loadRestrictionContext(userId) {
+    resetRestrictionContext();
+    fetchUserModerationDetails(userId)
+        .then(renderRestrictionContext)
+        .catch(function () {
+            var current = document.querySelector('[data-restriction-current]');
+            var history = document.querySelector('[data-restriction-history]');
+            if (current) current.innerHTML = moderationContextEmpty('Aktif kısıtlamalar yüklenemedi.');
+            if (history) history.innerHTML = moderationContextEmpty('Kısıtlama geçmişi yüklenemedi.');
+        });
 }
 
 function openRestrictionModal(userId, userName) {
     document.getElementById('restrictUserId').value = userId;
     document.getElementById('restrictUserName').value = userName;
+    loadRestrictionContext(userId);
     const modal = document.getElementById('restrictionModal');
-    openAdminManagedModal(modal, {
+    openUsersManagedModal(modal, {
         initialFocus: '#restrictTypes',
         onClose: function () {
             document.getElementById('restrictionForm')?.reset();
@@ -59,7 +223,7 @@ function openRestrictionModal(userId, userName) {
 
 function closeRestrictionModal() {
     const modal = document.getElementById('restrictionModal');
-    closeAdminManagedModal(modal, function () {
+    closeUsersManagedModal(modal, function () {
         document.getElementById('restrictionForm').reset();
     });
 }
@@ -67,8 +231,9 @@ function closeRestrictionModal() {
 function openBanModal(userId, userName) {
     document.getElementById('banUserId').value = userId;
     document.getElementById('banUserName').value = userName;
+    loadBanContext(userId);
     const modal = document.getElementById('banModal');
-    openAdminManagedModal(modal, {
+    openUsersManagedModal(modal, {
         initialFocus: '#banReason',
         onClose: function () {
             document.getElementById('banForm')?.reset();
@@ -78,8 +243,39 @@ function openBanModal(userId, userName) {
 
 function closeBanModal() {
     const modal = document.getElementById('banModal');
-    closeAdminManagedModal(modal, function () {
+    closeUsersManagedModal(modal, function () {
         document.getElementById('banForm')?.reset();
+    });
+}
+
+function openUnbanModal(userId, userName) {
+    const modal = document.getElementById('unbanModal');
+    const form = document.getElementById('unbanForm');
+    const userIdField = document.getElementById('unbanUserId');
+    const userNameField = document.getElementById('unbanUserName');
+    if (!modal || !form || !userIdField) return;
+
+    form.reset();
+    userIdField.value = userId;
+    if (userNameField) userNameField.value = userName || '';
+    loadBanContext(userId, 'unban').then(function (data) {
+        if (userNameField && !userNameField.value && data) {
+            userNameField.value = data.name || data.username || ('#' + (data.id || userId));
+        }
+    });
+
+    openUsersManagedModal(modal, {
+        initialFocus: '#unbanReason',
+        onClose: function () {
+            form.reset();
+        }
+    });
+}
+
+function closeUnbanModal() {
+    const modal = document.getElementById('unbanModal');
+    closeUsersManagedModal(modal, function () {
+        document.getElementById('unbanForm')?.reset();
     });
 }
 
@@ -99,30 +295,71 @@ function submitBan(e) {
         tone: 'danger'
     }).then((confirmed) => {
         if (!confirmed) return;
-        fetch('users.php', {
+        const submitButton = form.querySelector('button[type="submit"]');
+        const request = window.adminAsync ? window.adminAsync.fetchJson('users.php', {
+            button: submitButton,
+            loadingText: 'Isleniyor...',
             method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: formData
-        })
-        .then(r => r.json())
+            body: formData,
+            notifyError: false
+        }) : window.adminFetchJson('users.php', {
+            method: 'POST',
+            body: formData,
+            notifyError: false
+        });
+
+        request
         .then(data => {
-            if (data.ok) {
+            if (data.ok || data.success) {
                 adminAlert(data.message, { title: 'Başarılı', tone: 'success' }).then(() => window.location.reload());
             } else {
                 adminAlert(data.message, { title: 'Hata', tone: 'danger' });
             }
         })
-        .catch(() => adminAlert('Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata', tone: 'danger' }));
+        .catch((error) => adminAlert(error && error.message ? error.message : 'Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata', tone: 'danger' }));
     });
     return false;
 }
-document.getElementById('banForm')?.addEventListener('submit', submitBan);
+
+function submitUnban(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    formData.set('action', 'unban');
+    const submitButton = form.querySelector('button[type="submit"]');
+
+    if (window.adminToast) adminToast.info('Ban kaldırılıyor...');
+
+    const request = window.adminAsync ? window.adminAsync.fetchJson('users.php', {
+        button: submitButton,
+        loadingText: 'Isleniyor...',
+        method: 'POST',
+        body: formData,
+        notifyError: false
+    }) : window.adminFetchJson('users.php', {
+        method: 'POST',
+        body: formData,
+        notifyError: false
+    });
+
+    request
+        .then(data => {
+            if (data.ok || data.success) {
+                adminAlert(data.message, { title: 'Başarılı', tone: 'success' }).then(() => window.location.reload());
+            } else {
+                adminAlert(data.message, { title: 'Hata', tone: 'danger' });
+            }
+        })
+        .catch((error) => adminAlert(error && error.message ? error.message : 'Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata', tone: 'danger' }));
+
+    return false;
+}
 
 function openAdminNoteModal(userId, userName) {
     document.getElementById('adminNoteUserId').value = userId;
     document.getElementById('adminNoteUserName').value = userName;
     const modal = document.getElementById('adminNoteModal');
-    openAdminManagedModal(modal, {
+    openUsersManagedModal(modal, {
         initialFocus: 'textarea[name="admin_note"]',
         onClose: function () {
             document.getElementById('adminNoteForm')?.reset();
@@ -132,7 +369,7 @@ function openAdminNoteModal(userId, userName) {
 
 function closeAdminNoteModal() {
     const modal = document.getElementById('adminNoteModal');
-    closeAdminManagedModal(modal, function () {
+    closeUsersManagedModal(modal, function () {
         document.getElementById('adminNoteForm')?.reset();
     });
 }
@@ -162,7 +399,7 @@ function openUserEditModal(trigger) {
     const preview = document.getElementById('userEditEmailPreview');
     if (preview) preview.textContent = trigger.dataset.userEmail || '';
 
-    openAdminManagedModal(modal, {
+    openUsersManagedModal(modal, {
         initialFocus: '#editUsername',
         returnFocus: trigger,
         onClose: function () {
@@ -175,7 +412,7 @@ function openUserEditModal(trigger) {
 
 function closeUserEditModal() {
     const modal = document.getElementById('userEditModal');
-    closeAdminManagedModal(modal, function () {
+    closeUsersManagedModal(modal, function () {
         const password = document.getElementById('editUserPassword');
         if (password) password.value = '';
         resetEditPasswordVisibility();
@@ -225,10 +462,6 @@ function submitRestriction(e) {
         return false;
     }
 
-    // Add loading state
-    submitBtn.disabled = true;
-    submitBtn.classList.add('loading');
-
     const formData = new FormData(form);
     formData.set('action', 'add_restriction');
 
@@ -242,9 +475,9 @@ function submitRestriction(e) {
         'profile': 'Profil Düzenleme',
         'events': 'Etkinlik Kullanımı'
     };
-    const selectedLabels = selectedTypes.map(t => typeLabels[t] || t).join('<br>');
+    const selectedLabels = selectedTypes.map(t => typeLabels[t] || t).join(', ');
 
-    adminConfirm(`<div class="ui-admin-text-left"><strong>${selectedTypes.length}</strong> kısıtlama eklenecek:<br><br>${selectedLabels}</div>`, {
+    adminConfirm(selectedTypes.length + ' kısıtlama eklenecek: ' + selectedLabels, {
         title: 'Kısıtlama Ekle?',
         ok: 'Evet, Ekle',
         cancel: 'İptal',
@@ -253,17 +486,22 @@ function submitRestriction(e) {
         if (confirmed) {
             if (window.adminToast) adminToast.info('Kısıtlamalar ekleniyor...');
 
-            fetch('users.php', {
+            const request = window.adminAsync ? window.adminAsync.fetchJson('users.php', {
+                button: submitBtn,
+                className: 'loading',
+                loadingText: 'Isleniyor...',
                 method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: formData
-            })
-            .then(r => r.json())
-            .then(data => {
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('loading');
+                body: formData,
+                notifyError: false
+            }) : window.adminFetchJson('users.php', {
+                method: 'POST',
+                body: formData,
+                notifyError: false
+            });
 
-                if (data.ok) {
+            request
+            .then(data => {
+                if (data.ok || data.success) {
                     adminAlert(data.message, { title: 'Başarılı!', tone: 'success' }).then(() => {
                         window.location.reload();
                     });
@@ -271,20 +509,14 @@ function submitRestriction(e) {
                     adminAlert(data.message, { title: 'Hata!', tone: 'danger' });
                 }
             })
-            .catch(() => {
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('loading');
-                adminAlert('Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata!', tone: 'danger' });
+            .catch((error) => {
+                adminAlert(error && error.message ? error.message : 'Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata!', tone: 'danger' });
             });
-        } else {
-            submitBtn.disabled = false;
-            submitBtn.classList.remove('loading');
         }
     });
 
     return false;
 }
-document.getElementById('restrictionForm')?.addEventListener('submit', submitRestriction);
 
 function banUser(userId) {
     adminPrompt('Ban Sebebi', {
@@ -308,14 +540,13 @@ function banUser(userId) {
 
             if (window.adminToast) adminToast.info('İşleniyor...');
 
-            fetch('users.php', {
+            window.adminFetchJson('users.php', {
                 method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: formData
+                body: formData,
+                notifyError: false
             })
-            .then(r => r.json())
             .then(data => {
-                if (data.ok) {
+                if (data.ok || data.success) {
                     adminAlert(data.message, { title: 'Başarılı!', tone: 'success' }).then(() => {
                         window.location.reload();
                     });
@@ -323,49 +554,50 @@ function banUser(userId) {
                     adminAlert(data.message, { title: 'Hata!', tone: 'danger' });
                 }
             })
-            .catch(() => {
-                adminAlert('Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata!', tone: 'danger' });
+            .catch((error) => {
+                adminAlert(error && error.message ? error.message : 'Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata!', tone: 'danger' });
             });
         }
     });
 }
 
-function unbanUser(userId) {
-    adminConfirm('Bu kullanıcının banını kaldırmak istediğinizden emin misiniz?', {
-        title: 'Ban Kaldır?',
-        ok: 'Evet, Kaldır',
-        cancel: 'İptal',
-        tone: 'success'
-    }).then((confirmed) => {
-        if (confirmed) {
-            const formData = new FormData();
-            formData.append('_token', adminUsersCsrfToken());
-            formData.append('action', 'unban');
-            formData.append('user_id', userId);
-
-            if (window.adminToast) adminToast.info('İşleniyor...');
-
-            fetch('users.php', {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: formData
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.ok) {
-                    adminAlert(data.message, { title: 'Başarılı!', tone: 'success' }).then(() => {
-                        window.location.reload();
-                    });
-                } else {
-                    adminAlert(data.message, { title: 'Hata!', tone: 'danger' });
-                }
-            })
-            .catch(() => {
-                adminAlert('Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata!', tone: 'danger' });
-            });
-        }
-    });
+function unbanUser(userId, userName) {
+    openUnbanModal(userId, userName || '');
 }
+
+var userRowActionsController = null;
+
+function ensureUserRowActionsController() {
+    if (!userRowActionsController && window.adminFloatingActions) {
+        userRowActionsController = window.adminFloatingActions.init({
+            key: 'users-row-actions',
+            menuSelector: '.user-row-actions-menu',
+            toggleSelector: 'summary',
+            popoverSelector: '.user-row-actions-popover',
+            readyAttribute: 'data-user-actions-ready'
+        });
+    }
+    return userRowActionsController;
+}
+
+function closeUserRowActionMenu(menu) {
+    var controller = ensureUserRowActionsController();
+    if (controller) {
+        controller.close(menu);
+    }
+}
+
+function initUserRowActionMenus() {
+    var controller = ensureUserRowActionsController();
+    if (controller) {
+        controller.init();
+    }
+}
+
+function initUsersTabActions() {
+document.getElementById('banForm')?.addEventListener('submit', submitBan);
+document.getElementById('unbanForm')?.addEventListener('submit', submitUnban);
+document.getElementById('restrictionForm')?.addEventListener('submit', submitRestriction);
 
 // Close modal on outside click
 document.getElementById('restrictionModal')?.addEventListener('click', function(e) {
@@ -374,6 +606,10 @@ document.getElementById('restrictionModal')?.addEventListener('click', function(
 
 document.getElementById('banModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeBanModal();
+});
+
+document.getElementById('unbanModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeUnbanModal();
 });
 
 document.getElementById('adminNoteModal')?.addEventListener('click', function(e) {
@@ -416,6 +652,7 @@ document.addEventListener('click', function(event) {
     const editTrigger = event.target.closest('[data-user-edit-open]');
     if (editTrigger) {
         event.preventDefault();
+        closeUserRowActionMenu();
         if (editTrigger.closest('#userDetailModal')) {
             closeUserDetail();
         }
@@ -426,6 +663,7 @@ document.addEventListener('click', function(event) {
     const noteTrigger = event.target.closest('[data-admin-note-open]');
     if (noteTrigger) {
         event.preventDefault();
+        closeUserRowActionMenu();
         if (noteTrigger.closest('#userDetailModal')) {
             closeUserDetail();
         }
@@ -436,16 +674,18 @@ document.addEventListener('click', function(event) {
     const unbanTrigger = event.target.closest('[data-user-unban]');
     if (unbanTrigger) {
         event.preventDefault();
+        closeUserRowActionMenu();
         if (unbanTrigger.closest('#userDetailModal')) {
             closeUserDetail();
         }
-        unbanUser(unbanTrigger.getAttribute('data-user-unban'));
+        openUnbanModal(unbanTrigger.getAttribute('data-user-unban'), unbanTrigger.getAttribute('data-user-name') || '');
         return;
     }
 
     const banTrigger = event.target.closest('[data-user-ban]');
     if (banTrigger) {
         event.preventDefault();
+        closeUserRowActionMenu();
         if (banTrigger.closest('#userDetailModal')) {
             closeUserDetail();
         }
@@ -456,6 +696,7 @@ document.addEventListener('click', function(event) {
     const restrictionTrigger = event.target.closest('[data-user-restrict]');
     if (restrictionTrigger) {
         event.preventDefault();
+        closeUserRowActionMenu();
         if (restrictionTrigger.closest('#userDetailModal')) {
             closeUserDetail();
         }
@@ -475,6 +716,11 @@ document.addEventListener('click', function(event) {
 
     if (event.target.closest('[data-ban-close]')) {
         closeBanModal();
+        return;
+    }
+
+    if (event.target.closest('[data-unban-close]')) {
+        closeUnbanModal();
         return;
     }
 
@@ -507,8 +753,9 @@ document.querySelectorAll('.ui-admin-alert-close').forEach(btn => {
         }, 200);
     });
 });
+}
 
-(function bindUserBulkActions() {
+function bindUserBulkActions() {
     const form = document.querySelector('[data-user-bulk-form]');
     if (!form) return;
 
@@ -714,16 +961,16 @@ document.querySelectorAll('.ui-admin-alert-close').forEach(btn => {
     document.addEventListener('click', function (event) {
         document.querySelectorAll('.user-row-actions-menu[open]').forEach(function (menu) {
             if (!menu.contains(event.target)) {
-                menu.removeAttribute('open');
+                closeUserRowActionMenu(menu);
             }
         });
     });
 
     syncBulkState();
-})();
+}
 
 // Add smooth fade-in animation to modal on load
-document.addEventListener('DOMContentLoaded', function() {
+function initUsersTabRestrictionModal() {
     const modal = document.getElementById('viewRestrictionsModal');
     if (modal && modal.classList.contains('is-open')) {
         modal.style.opacity = '0';
@@ -732,7 +979,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-});
+}
 
 // ── 360° Kullanıcı Detay Modalı ──
 function escHtml(s) {
@@ -746,7 +993,7 @@ function openUserDetail(userId) {
     if (!overlay || !body || !userId) {
         return;
     }
-    openAdminManagedModal(overlay, {
+    openUsersManagedModal(overlay, {
         initialFocus: '.ui-admin-detail-close'
     });
     body.innerHTML = ''
@@ -765,8 +1012,7 @@ function openUserDetail(userId) {
         +   '<div><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-40"></span><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-80"></span><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-60"></span></div>'
         + '</div>';
 
-    fetch('api/user-details.php?id=' + encodeURIComponent(userId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(function (r) { return r.json(); })
+    window.adminFetchJson('api/user-details.php?id=' + encodeURIComponent(userId), { notifyError: false })
         .then(function (res) {
             if (!res || !res.success) {
                 body.innerHTML = '<div class="ui-admin-detail-loading">Detaylar yüklenemedi.</div>';
@@ -802,7 +1048,7 @@ function openUserDetail(userId) {
 
                 if (user.can_moderate) {
                     actions += user.is_banned
-                        ? '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-success" data-user-unban="' + escHtml(user.id) + '"><i class="bi bi-check-circle"></i> Ban Kaldır</button>'
+                        ? '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-success" data-user-unban="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-check-circle"></i> Ban Kaldır</button>'
                         : '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger" data-user-ban="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-slash-circle"></i> Banla</button>';
                     actions += '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" data-user-restrict="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-shield-exclamation"></i> Kısıtla</button>';
                 }
@@ -858,7 +1104,9 @@ function openUserDetail(userId) {
                         return '<li><b>' + escHtml(n.admin || 'Admin') + '</b> <span class="ui-admin-muted">' + escHtml(n.created_at || '') + '</span><br><span>' + escHtml(n.note || '') + '</span>' + (n.tags ? '<br><span class="ui-admin-muted">' + escHtml(n.tags) + '</span>' : '') + '</li>';
                     }) + '</div>'
                 +   '<div><h4>Kısıtlama Kayıtları</h4>' + listOrEmpty(d.restriction_history, function (r) {
-                        return '<li><b>' + escHtml(r.type || 'Kısıtlama') + '</b> ' + (r.active ? '<span class="ui-admin-badge ui-admin-badge-warning">aktif</span>' : '<span class="ui-admin-badge ui-admin-badge-muted">geçmiş</span>') + '<br><span class="ui-admin-muted">' + escHtml(r.created_at || '') + ' - Bitiş: ' + escHtml(r.expires_at || 'Süresiz') + '</span>' + (r.reason ? '<br><span>' + escHtml(r.reason) + '</span>' : '') + '</li>';
+                        var meta = [r.action || '', r.created_at || ''];
+                        if (r.expires_at) meta.push('Bitiş: ' + r.expires_at);
+                        return '<li><b>' + escHtml(r.type || 'Kısıtlama') + '</b> ' + (r.active ? '<span class="ui-admin-badge ui-admin-badge-warning">aktif</span>' : '<span class="ui-admin-badge ui-admin-badge-muted">geçmiş</span>') + '<br><span class="ui-admin-muted">' + escHtml(meta.filter(Boolean).join(' - ')) + '</span>' + (r.reason ? '<br><span>' + escHtml(r.reason) + '</span>' : '') + '</li>';
                     }) + '</div>'
                 +   '<div class="ui-admin-detail-full"><h4>Yönetici İşlem Geçmişi</h4>' + listOrEmpty(d.audit_history, function (a) {
                         return '<li><b>' + escHtml(a.action) + '</b> - ' + escHtml(a.actor) + ' <span class="ui-admin-muted">' + escHtml(a.created_at) + '</span>' + (a.reverted ? ' <span class="ui-admin-badge ui-admin-badge-muted">geri alındı</span>' : '') + (a.reason ? '<br><span class="ui-admin-muted">' + escHtml(a.reason) + '</span>' : '') + '</li>';
@@ -873,21 +1121,24 @@ function openUserDetail(userId) {
 }
 function closeUserDetail() {
     var overlay = document.getElementById('userDetailModal');
-    closeAdminManagedModal(overlay);
+    closeUsersManagedModal(overlay);
 }
 window.openUserDetail = openUserDetail;
 window.closeUserDetail = closeUserDetail;
-document.querySelectorAll('[data-user-detail-open]').forEach(function(button) {
-    button.addEventListener('click', function() {
-        openUserDetail(this.getAttribute('data-user-id'));
+function initUsersTabDetailModal() {
+    document.querySelectorAll('[data-user-detail-open]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            openUserDetail(this.getAttribute('data-user-id'));
+        });
     });
-});
-document.addEventListener('keydown', function (e) {
-    if (window.TMUI && typeof window.TMUI.openDialog === 'function') return;
-    if (e.key === 'Escape') { closeUserDetail(); }
-});
 
-(function bindGroupPermissionTools() {
+    document.addEventListener('keydown', function (e) {
+        if (window.adminDialog && typeof window.adminDialog.getOpen === 'function' && window.adminDialog.getOpen()) return;
+        if (e.key === 'Escape') { closeUserDetail(); }
+    });
+}
+
+function bindGroupPermissionTools() {
     const shell = document.querySelector('[data-group-permission-tools]');
     if (!shell) return;
 
@@ -933,4 +1184,31 @@ document.addEventListener('keydown', function (e) {
             }
         });
     });
-})();
+}
+
+function initUsersTabPage() {
+    initUsersTabActions();
+    initUserRowActionMenus();
+    bindUserBulkActions();
+    initUsersTabRestrictionModal();
+    initUsersTabDetailModal();
+    bindGroupPermissionTools();
+}
+
+window.openRestrictionModal = openRestrictionModal;
+window.closeRestrictionModal = closeRestrictionModal;
+window.openBanModal = openBanModal;
+window.closeBanModal = closeBanModal;
+window.openUnbanModal = openUnbanModal;
+window.closeUnbanModal = closeUnbanModal;
+window.openAdminNoteModal = openAdminNoteModal;
+window.closeAdminNoteModal = closeAdminNoteModal;
+window.openUserEditModal = openUserEditModal;
+window.closeUserEditModal = closeUserEditModal;
+window.banUser = banUser;
+window.unbanUser = unbanUser;
+
+window.adminPage.register('users', initUsersTabPage, {
+    id: 'users-tab',
+    selector: '[data-user-bulk-form], [data-user-detail-open], [data-user-edit-open], [data-group-permission-tools], #banForm, #unbanForm, #restrictionForm'
+});

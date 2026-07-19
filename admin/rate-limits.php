@@ -215,40 +215,21 @@ require_once __DIR__ . '/header.php';
 <?php adminRenderLogsSubtabs('rate_limits'); ?>
 
 <div class="logs-page rate-limit-page">
-    <section class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <span class="ui-admin-kicker"><i class="bi bi-speedometer2"></i> Erişim sınırları</span>
-            <h2>İstek Sınırı İzleme</h2>
-            <p>Giriş, kayıt ve API istek sınırlarını tek akışta izleyin; süresi dolan kayıtları topluca temizleyin.</p>
-        </div>
-    </section>
+    <?= adminRenderLogPageHero('bi-speedometer2', 'Erişim sınırları', 'İstek Sınırı İzleme', 'Giriş, kayıt ve API istek sınırlarını tek akışta izleyin; süresi dolan kayıtları topluca temizleyin.') ?>
 
     <!-- İstatistik Kartları -->
     <section class="rate-limit-hero" aria-label="İstek sınırı özeti ve filtreler">
-        <div class="admin-stat-grid logs-summary rate-limit-summary ui-grid">
-            <div class="admin-stat-card stat-info logs-stat rate-limit-stat ui-card">
-                <div class="stat-icon"><i class="bi bi-collection"></i></div>
-                <div class="stat-content"><span class="stat-label">Toplam Kayıt</span><span class="stat-value"><?= number_format($stats['total']) ?></span></div>
-            </div>
-            <div class="admin-stat-card stat-success logs-stat rate-limit-stat ui-card">
-                <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
-                <div class="stat-content"><span class="stat-label">Aktif</span><span class="stat-value"><?= number_format($stats['active']) ?></span></div>
-            </div>
-            <div class="admin-stat-card stat-warning logs-stat rate-limit-stat ui-card">
-                <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
-                <div class="stat-content"><span class="stat-label">Süresi Dolmuş</span><span class="stat-value"><?= number_format($stats['expired']) ?></span></div>
-            </div>
-            <div class="admin-stat-card stat-danger logs-stat rate-limit-stat ui-card">
-                <div class="stat-icon"><i class="bi bi-unlock-fill"></i></div>
-                <div class="stat-content"><span class="stat-label">Giriş Kilidi</span><span class="stat-value"><?= number_format($stats['login_active']) ?></span></div>
-            </div>
-        </div>
+        <?= adminRenderLogStatCards([
+            ['tone' => 'info', 'icon' => 'bi-collection', 'label' => 'Toplam Kayıt', 'value' => number_format($stats['total']), 'class' => 'rate-limit-stat'],
+            ['tone' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Aktif', 'value' => number_format($stats['active']), 'class' => 'rate-limit-stat'],
+            ['tone' => 'warning', 'icon' => 'bi-hourglass-split', 'label' => 'Süresi Dolmuş', 'value' => number_format($stats['expired']), 'class' => 'rate-limit-stat'],
+            ['tone' => 'danger', 'icon' => 'bi-unlock-fill', 'label' => 'Giriş Kilidi', 'value' => number_format($stats['login_active']), 'class' => 'rate-limit-stat'],
+        ], ['class' => 'rate-limit-log-summary', 'aria_label' => 'İstek sınırı özeti']) ?>
     </section>
 
     <!-- Filtre ve Araçlar -->
-    <div class="admin-card logs-toolbar-card ui-panel">
-        <div class="card-body ui-admin-card-compact ui-panel__body ui-card rate-limit-toolbar logs-toolbar-shell">
-            <form class="rate-limit-search logs-filter-form ui-admin-filter-row admin-log-filter-form" method="get" action="rate-limits.php">
+    <?= adminRenderLogToolbarOpen('rate-limit-toolbar') ?>
+            <form class="rate-limit-search logs-filter-form ui-admin-filter-row admin-log-filter-form admin-filter-form" method="get" action="rate-limits.php">
                 <input type="text" name="q" class="ui-admin-form-control" placeholder="Anahtar, IP veya tür ara..." value="<?= htmlspecialchars($search) ?>">
                 <select name="status" class="ui-admin-form-select">
                     <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>Tümü (önerilen)</option>
@@ -262,46 +243,44 @@ require_once __DIR__ . '/header.php';
             </form>
             <div class="rate-limit-actions logs-toolbar-actions">
                 <?php if ($canManageRateLimits): ?>
-                    <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs" data-clear-logs-open>
-                        <i class="bi bi-trash"></i> Günlüğü Temizle
-                    </button>
+                    <?= adminRenderLogClearTrigger(['label' => 'Günlüğü Temizle']) ?>
                 <?php endif; ?>
             </div>
-        </div>
-    </div>
+    <?= adminRenderLogToolbarClose() ?>
 
     <!-- Kayıt Listesi -->
-    <form method="post" action="rate-limits.php" id="rateLimitBulkForm" data-admin-confirm="Seçili istek sınırı kayıtları kalıcı olarak silinecek. Bu işlem geri alınamaz." data-admin-confirm-title="Kayıtları Temizle" data-admin-confirm-ok="Seçilenleri Kalıcı Olarak Sil" data-admin-confirm-cancel="İptal" data-admin-confirm-tone="danger" data-admin-confirm-kind="logs-clear" data-admin-confirm-icon="bi-trash">
+    <form method="post" action="rate-limits.php" id="rateLimitBulkForm"<?= adminConfirmAttrs(['message' => 'Seçili istek sınırı kayıtları kalıcı olarak silinecek. Bu işlem geri alınamaz.', 'title' => 'Kayıtları Temizle', 'ok' => 'Seçilenleri Kalıcı Olarak Sil', 'cancel' => 'İptal', 'tone' => 'danger', 'kind' => 'logs-clear', 'icon' => 'bi-trash']) ?>>
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="delete_selected">
-        <div class="admin-card rate-limit-card logs-list-card ui-panel">
-            <div class="card-header rate-limit-list-head ui-panel__head logs-list-head ui-admin-card-header-actions">
-                <strong class="rate-limit-list-title"><i class="bi bi-speedometer2"></i> İstek Sınırı Kayıtları</strong>
-                <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Seçilenleri Sil</button>
-            </div>
-            <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
+        <?= adminRenderLogListPanelOpen([
+            'tag' => 'div',
+            'class' => 'rate-limit-card',
+            'header_class' => 'rate-limit-list-head',
+            'icon' => 'bi-speedometer2',
+            'title' => 'İstek Sınırı Kayıtları',
+            'count_text' => number_format((int) $totalFiltered, 0, ',', '.') . ' kayıt',
+            'actions_html' => '<button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs"><i class="bi bi-trash"></i> Seçilenleri Sil</button>',
+        ]) ?>
                 <?php if (empty($items)): ?>
-                    <div class="ui-admin-empty ui-admin-empty-pro ui-admin-empty-rate-limit ui-empty admin-log-empty" role="status">
-                        <div class="ui-admin-empty-icon <?= $search !== '' || $status !== 'all' ? 'tone-info' : 'tone-success' ?> ui-empty">
-                            <i class="bi <?= $search !== '' || $status !== 'all' ? 'bi-search' : 'bi-shield-check' ?>"></i>
-                        </div>
-                        <h3 class="ui-admin-empty-title ui-empty">
-                            <?= $search !== '' || $status !== 'all' ? 'Filtreye uyan kayıt yok' : 'Henüz istek sınırı kaydı yok' ?>
-                        </h3>
-                        <p class="ui-admin-empty-desc ui-empty">
-                            <?= $search !== '' || $status !== 'all'
-                                ? 'Seçili arama ve durum filtresiyle eşleşen kayıt bulunamadı.'
-                                : 'Hiçbir işlem sınıra takılmamış. Kayıt oluştuğunda burada listelenecek.' ?>
-                        </p>
-                        <?php if ($search !== '' || $status !== 'all'): ?>
-                            <div class="ui-admin-empty-actions ui-empty">
-                                <a href="rate-limits.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-lg"></i> Filtreleri Temizle</a>
-                            </div>
-                        <?php endif; ?>
-                    </div>
+                    <?= adminRenderLogEmptyState([
+                        'icon' => $search !== '' || $status !== 'all' ? 'bi-search' : 'bi-shield-check',
+                        'tone' => $search !== '' || $status !== 'all' ? 'info' : 'success',
+                        'title' => $search !== '' || $status !== 'all' ? 'Filtreye uyan kayıt yok' : 'Henüz istek sınırı kaydı yok',
+                        'description' => $search !== '' || $status !== 'all'
+                            ? 'Seçili arama ve durum filtresiyle eşleşen kayıt bulunamadı.'
+                            : 'Hiçbir işlem sınıra takılmamış. Kayıt oluştuğunda burada listelenecek.',
+                        'pro' => true,
+                        'class' => 'ui-admin-empty-rate-limit',
+                        'attrs' => ['role' => 'status'],
+                        'actions' => $search !== '' || $status !== 'all' ? [
+                            ['href' => 'rate-limits.php', 'label' => 'Filtreleri Temizle', 'icon' => 'bi-x-lg', 'class' => 'ui-admin-btn-sm'],
+                        ] : [],
+                    ]) ?>
                 <?php else: ?>
-                    <div class="table-wrapper rate-limit-table-wrap ui-table-wrap ui-surface admin-log-table-wrap">
-                        <table class="admin-table rate-limit-table admin-log-table">
+                    <?= adminRenderLogTableOpen([
+                        'wrapper_class' => 'rate-limit-table-wrap',
+                        'table_class' => 'rate-limit-table',
+                    ]) ?>
                             <thead>
                                 <tr>
                                     <th class="rate-limit-check-cell"><input type="checkbox" id="selectAllRateLimits" aria-label="Tüm kayıtları seç"></th>
@@ -343,10 +322,11 @@ require_once __DIR__ . '/header.php';
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <span class="rate-limit-status <?= $isActive ? 'active' : 'expired' ?>">
-                                                <i class="bi <?= $isActive ? 'bi-lock' : 'bi-check-circle' ?>"></i>
-                                                <?= $isActive ? 'Aktif' : 'Süresi Dolmuş' ?>
-                                            </span>
+                                            <?= adminRenderBadge($isActive ? 'Aktif' : 'Süresi Dolmuş', [
+                                                'tone' => $isActive ? 'success' : 'muted',
+                                                'icon' => $isActive ? 'bi-lock' : 'bi-check-circle',
+                                                'class' => 'rate-limit-status ' . ($isActive ? 'active' : 'expired'),
+                                            ]) ?>
                                         </td>
                                         <td class="ui-admin-table-cell-actions">
                                             <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger-outline rate-limit-row-action" form="rate-limit-delete-<?= (int)$item['id'] ?>" title="Sil"><i class="bi bi-trash"></i></button>
@@ -354,8 +334,7 @@ require_once __DIR__ . '/header.php';
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
-                        </table>
-                    </div>
+                    <?= adminRenderLogTableClose() ?>
                     <div class="ui-admin-table-footer ui-panel__foot">
                         <?php
                         $visibleStart = $totalFiltered > 0 ? $offset + 1 : 0;
@@ -368,15 +347,14 @@ require_once __DIR__ . '/header.php';
                         ?>
                         <span class="ui-admin-muted-sm"><?= number_format($visibleStart, 0, ',', '.') ?>-<?= number_format($visibleEnd, 0, ',', '.') ?> / <?= number_format($totalFiltered, 0, ',', '.') ?> kayıt gösteriliyor.</span>
                         <?php if ($totalPages > 1): ?>
-                            <?= adminRenderPagination($totalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
-                                'wrapper_class' => 'logs-pagination-wrapper rate-limit-pagination',
+                            <?= adminRenderLogPagination($totalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
+                                'wrapper_class' => 'rate-limit-pagination',
                                 'aria_label' => 'İstek sınırı sayfalama',
                             ]) ?>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
-            </div>
-        </div>
+        <?= adminRenderLogListPanelClose('div') ?>
     </form>
 
     <?php if ($canManageRateLimits): ?>
@@ -405,14 +383,14 @@ require_once __DIR__ . '/header.php';
             ],
             'warning' => 'Seçilen istek sınırı kayıtları kalıcı olarak silinir. Bu işlem geri alınamaz.',
         ];
-        include __DIR__ . '/partials/log-clear-modal.php';
+        adminRenderLogClearModal($logClearModal);
         unset($logClearModal);
         ?>
     <?php endif; ?>
 </div>
 
 <?php foreach ($items as $item): ?>
-<form method="post" action="rate-limits.php" id="rate-limit-delete-<?= (int)$item['id'] ?>" data-admin-confirm="Bu istek sınırı kaydı kalıcı olarak silinecek. Bu işlem geri alınamaz." data-admin-confirm-title="Kayıtları Temizle" data-admin-confirm-ok="Seçilenleri Kalıcı Olarak Sil" data-admin-confirm-cancel="İptal" data-admin-confirm-tone="danger" data-admin-confirm-kind="logs-clear" data-admin-confirm-icon="bi-trash">
+<form method="post" action="rate-limits.php" id="rate-limit-delete-<?= (int)$item['id'] ?>"<?= adminConfirmAttrs(['message' => 'Bu istek sınırı kaydı kalıcı olarak silinecek. Bu işlem geri alınamaz.', 'title' => 'Kayıtları Temizle', 'ok' => 'Seçilenleri Kalıcı Olarak Sil', 'cancel' => 'İptal', 'tone' => 'danger', 'kind' => 'logs-clear', 'icon' => 'bi-trash']) ?>>
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="delete_one">
     <input type="hidden" name="id" value="<?= (int)$item['id'] ?>">

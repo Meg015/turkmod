@@ -1,4 +1,4 @@
-(function () {
+function initLogsClearModal() {
     function modal() {
         return document.getElementById('clearLogsModal');
     }
@@ -10,13 +10,12 @@
     function openClearLogsModal() {
         const dialog = modal();
         if (!dialog) return;
-        if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-            window.TMUI.openDialog(dialog, {
+        if (window.adminDialog && typeof window.adminDialog.open === 'function') {
+            window.adminDialog.open(dialog, {
                 bodyClass: 'ui-admin-dialog-open',
                 initialFocus: '[data-clear-logs-scope], select[name="scope"], select[name="action"]',
                 returnFocus: document.activeElement
             });
-            dialog.classList.add('ui-admin-modal-open');
             return;
         }
         dialog.hidden = false;
@@ -29,9 +28,8 @@
     function closeClearLogsModal() {
         const dialog = modal();
         if (!dialog) return;
-        if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && dialog._tmuiDialog) {
-            window.TMUI.closeDialog(dialog);
-            dialog.classList.remove('ui-admin-modal-open');
+        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
+            window.adminDialog.close(dialog);
             return;
         }
         dialog.classList.add('is-closing');
@@ -54,12 +52,6 @@
                 input.disabled = !isActive;
             });
         });
-    }
-
-    function resetButton(button, originalHtml) {
-        if (!button) return;
-        button.disabled = false;
-        button.innerHTML = originalHtml || '<i class="bi bi-trash"></i> Seçilenleri Kalıcı Olarak Sil';
     }
 
     function submitClearLogs(event) {
@@ -85,41 +77,24 @@
             if (!confirmed) return;
 
             const button = form.querySelector('button[type="submit"]');
-            const originalHtml = button ? button.innerHTML : '';
-            if (button) {
-                button.disabled = true;
-                button.innerHTML = '<i class="bi bi-hourglass-split"></i> Siliniyor...';
-            }
 
-            fetch(new URL(form.getAttribute('action') || window.location.href, window.location.href).toString(), {
-                method: (form.getAttribute('method') || 'POST').toUpperCase(),
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: new FormData(form)
+            window.adminAsync.submitForm(form, {
+                button: button,
+                loadingHtml: '<i class="bi bi-hourglass-split"></i> Siliniyor...',
+                notifyError: false
             })
-                .then(async (response) => {
-                    const contentType = response.headers.get('content-type') || '';
-                    if (contentType.includes('application/json')) {
-                        return response.json();
-                    }
-                    if (response.redirected && response.url) {
-                        window.location.href = response.url;
-                        return null;
-                    }
-                    throw new Error('Beklenmeyen yanıt alındı.');
-                })
                 .then((data) => {
                     if (!data) return;
-                    if (data.ok) {
+                    if (data.ok || data.success) {
                         closeClearLogsModal();
                         adminAlert(data.message || 'Günlük temizlendi.', { title: 'Başarılı', tone: 'success' }).then(() => window.location.reload());
                         return;
                     }
-                    resetButton(button, originalHtml);
                     adminAlert(data.message || 'Bir hata oluştu.', { title: 'Hata', tone: 'danger' });
                 })
-                .catch(() => {
-                    resetButton(button, originalHtml);
-                    adminAlert('Bir bağlantı hatası oluştu. Lütfen tekrar deneyin.', { title: 'Hata', tone: 'danger' });
+                .catch((error) => {
+                    const message = error && error.message ? error.message : 'Bir bağlantı hatası oluştu. Lütfen tekrar deneyin.';
+                    adminAlert(message, { title: 'Hata', tone: 'danger' });
                 });
         });
         return false;
@@ -146,4 +121,9 @@
         updateDependentFields(form);
         form.addEventListener('submit', submitClearLogs);
     });
-}());
+}
+
+window.adminPage.register('*', initLogsClearModal, {
+    id: 'logs-clear-modal',
+    selector: '[data-clear-logs-form], #clearLogsForm, [data-clear-logs-open]'
+});

@@ -1,13 +1,39 @@
 /* Scraper Bot Admin JS */
-const scraperConfigNode = document.getElementById('adminScraperConfig');
-const scraperConfig = scraperConfigNode ? JSON.parse(scraperConfigNode.textContent || '{}') : {};
-const scraperBaseUri = (
-    (typeof baseUri !== 'undefined' && baseUri)
-        || scraperConfig.baseUri
-        || document.querySelector('meta[name="app-base-uri"]')?.getAttribute('content')
-        || ''
-).replace(/\/$/, '');
+function readScraperConfig() {
+    const node = document.getElementById('adminScraperConfig');
+    if (!node) {
+        return {};
+    }
+    try {
+        return JSON.parse(node.textContent || '{}') || {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function resolveScraperBaseUri(config) {
+    return (
+        (typeof baseUri !== 'undefined' && baseUri)
+            || config.baseUri
+            || document.querySelector('meta[name="app-base-uri"]')?.getAttribute('content')
+            || ''
+    ).replace(/\/$/, '');
+}
+
+const scraperConfig = readScraperConfig();
+const scraperBaseUri = resolveScraperBaseUri(scraperConfig);
 const API = scraperBaseUri + '/api/scraper.php';
+
+function normalizeApiError(error) {
+    const message = error && error.message ? error.message : 'Islem tamamlanamadi.';
+    return {
+        success: false,
+        ok: false,
+        error: message,
+        message,
+        data: error && error.data ? error.data : null,
+    };
+}
 
 function apiPost(action, data = {}) {
     const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
@@ -15,27 +41,24 @@ function apiPost(action, data = {}) {
     fd.append('action', action);
     fd.append('_token', csrfToken);
     Object.entries(data).forEach(([k, v]) => fd.append(k, typeof v === 'object' ? JSON.stringify(v) : v));
-    return fetch(API, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(async r => {
-            const text = (await r.text()).replace(/^\uFEFF/, '').trim();
-            try {
-                return JSON.parse(text);
-            } catch (error) {
-                return { success: false, error: text.trim() || `HTTP ${r.status}` };
-            }
-        });
+    return window.adminFetchJson(API, {
+        method: 'POST',
+        body: fd,
+        notifyError: false,
+    }).catch(normalizeApiError);
 }
 function apiGet(action, params = {}) {
     const qs = new URLSearchParams({ action, ...params });
-    return fetch(API + '?' + qs)
-        .then(async r => {
-            const text = (await r.text()).replace(/^\uFEFF/, '').trim();
-            try {
-                return JSON.parse(text);
-            } catch (error) {
-                return { success: false, error: text.trim() || `HTTP ${r.status}` };
-            }
-        });
+    return window.adminFetchJson(API + '?' + qs, {
+        notifyError: false,
+    }).catch(normalizeApiError);
+}
+
+function runScraperAsync(button, loadingHtml, task) {
+    if (window.adminAsync) {
+        return window.adminAsync.run({ button, loadingHtml }, task);
+    }
+    return Promise.resolve().then(task);
 }
 
 function escapeHtml(value = '') {
@@ -55,6 +78,38 @@ function scraperToast(message, type = 'info', duration) {
     if (typeof window.showToast === 'function') {
         window.showToast(message, type, duration);
     }
+}
+
+function scraperShow(el, visibleClass = 'is-visible') {
+    if (!el) return;
+    if (window.adminVisibility && typeof window.adminVisibility.show === 'function') {
+        window.adminVisibility.show(el, {
+            visibleClass,
+            removeOnShow: 'scraper-hidden',
+            aria: false,
+        });
+        return;
+    }
+
+    el.hidden = false;
+    el.classList.remove('scraper-hidden');
+    if (visibleClass) el.classList.add(visibleClass);
+}
+
+function scraperHide(el, visibleClass = 'is-visible') {
+    if (!el) return;
+    const removableClasses = ['is-visible', 'scraper-visible-inline', 'scraper-visible-block', 'scraper-visible-flex', 'scraper-visible-row', visibleClass]
+        .filter(Boolean);
+    if (window.adminVisibility && typeof window.adminVisibility.hide === 'function') {
+        window.adminVisibility.hide(el, {
+            removeOnHide: removableClasses,
+            aria: false,
+        });
+        return;
+    }
+
+    removableClasses.forEach(className => el.classList.remove(className));
+    el.hidden = true;
 }
 
 function escapeJsSingle(value = '') {
@@ -320,7 +375,7 @@ function getPreviewPublishStatus() {
     return 'draft';
 }
 
-function renderMappingTopicCard(item, index, siteId, localCatId) {
+function renderMappingTopicCard(item, index, siteId, localCatId, mappingId = 0) {
     const topic = normalizeDiscoveredTopic(item, index);
     const safeUrl = escapeHtml(topic.url);
     const safeTitle = escapeHtml(topic.title);
@@ -349,7 +404,7 @@ function renderMappingTopicCard(item, index, siteId, localCatId) {
                 ${importedInfo}
                 <h6 title="${safeTitle}">${safeTitle}</h6>
                 <a class="mapping-topic-url" href="${safeUrl}" target="_blank" rel="noopener">${displayUrl}</a>
-                <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary mapping-topic-action" data-scraper-action="preview-topic" data-url="${safeUrl}" data-site-id="${siteId}" data-local-cat-id="${localCatId}">
+                <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary mapping-topic-action" data-scraper-action="preview-topic" data-url="${safeUrl}" data-site-id="${siteId}" data-local-cat-id="${localCatId}" data-mapping-id="${parseInt(mappingId, 10) || 0}">
                     <i class="bi bi-cloud-download"></i> Önizle & Çek
                 </button>
             </div>
@@ -393,7 +448,7 @@ function renderBulkTopicCard(item, index, siteId, localCatId, mappingId) {
                 </label>
                 <h6 title="${safeTitle}">${safeTitle}</h6>
                 <a class="mapping-topic-url" href="${safeUrl}" target="_blank" rel="noopener">${displayUrl}</a>
-                <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary mapping-topic-action" data-scraper-action="preview-topic" data-url="${safeUrl}" data-site-id="${siteId}" data-local-cat-id="${localCatId}">
+                <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary mapping-topic-action" data-scraper-action="preview-topic" data-url="${safeUrl}" data-site-id="${siteId}" data-local-cat-id="${localCatId}" data-mapping-id="${safeMappingId}">
                     <i class="bi bi-cloud-download"></i> Önizle & Çek
                 </button>
             </div>
@@ -442,7 +497,7 @@ function renderBulkProgress(progress = {}) {
                 <span>${percent}%</span>
             </div>
             <div class="bulk-progress-track">
-                <div class="bulk-progress-fill" data-bulk-progress="${percent}"></div>
+                <progress class="bulk-progress-meter" max="100" value="${percent}" aria-label="Toplu çekim ilerlemesi"></progress>
             </div>
             <div class="bulk-progress-meta">
                 <span>${current} / ${total}</span>
@@ -455,18 +510,13 @@ function renderBulkProgress(progress = {}) {
 }
 
 function applyScraperPresentation(root = document) {
-    root.querySelectorAll('[data-bulk-progress]').forEach(el => {
-        const percent = Math.max(0, Math.min(100, parseInt(el.getAttribute('data-bulk-progress'), 10) || 0));
-        el.style.setProperty('--bulk-progress-percent', percent + '%');
-    });
-    root.querySelectorAll('[data-thumb-url]').forEach(el => {
-        const url = el.getAttribute('data-thumb-url') || '';
-        if (!url) return;
-        el.style.setProperty('--scraper-url-thumb-image', `url("${url.replace(/"/g, '\\"')}")`);
-    });
+    if (!root || !root.querySelectorAll) return;
 }
 
 /* ── Tab switching ── */
+let siteForm = null;
+
+function initScraperTabsAndSiteForm() {
 document.querySelectorAll('.scraper-tab-link').forEach(link => {
     link.addEventListener('click', e => {
         e.preventDefault();
@@ -504,7 +554,7 @@ document.querySelectorAll('.site-subtab-link').forEach(link => {
 });
 
 /* ── Site Form ── */
-const siteForm = document.getElementById('siteForm');
+siteForm = document.getElementById('siteForm');
 if (siteForm) siteForm.addEventListener('submit', e => {
     e.preventDefault();
     const fd = new FormData(siteForm);
@@ -519,11 +569,13 @@ if (siteForm) siteForm.addEventListener('submit', e => {
             data[k] = v;
         }
     });
-    apiPost('save_site', data).then(r => {
+    const submitButton = siteForm.querySelector('button[type="submit"]');
+    runScraperAsync(submitButton, '<i class="bi bi-hourglass-split"></i> Kaydediliyor...', () => apiPost('save_site', data)).then(r => {
         if (r.success) { scraperToast(r.message, 'success'); setTimeout(() => location.reload(), 800); }
         else scraperToast(r.error || 'Hata', 'error');
     }).catch(() => scraperToast('Bağlantı hatası', 'error'));
 });
+}
 
 function addReplaceRuleRow(rule = {}) {
     const container = document.getElementById('replaceRulesContainer');
@@ -610,10 +662,12 @@ function setSimpleRows(containerId, rows, addFn) {
     if (Array.isArray(rows) && rows.length) rows.forEach(row => addFn(row));
 }
 
-setReplaceRules();
-setSimpleRows('removeTextsContainer', [], addRemoveTextRow);
-setSimpleRows('autoTagsContainer', [], addAutoTagRow);
-setSimpleRows('downloadLinkRulesContainer', [], addDownloadLinkRuleRow);
+function initScraperSiteRuleRows() {
+    setReplaceRules();
+    setSimpleRows('removeTextsContainer', [], addRemoveTextRow);
+    setSimpleRows('autoTagsContainer', [], addAutoTagRow);
+    setSimpleRows('downloadLinkRulesContainer', [], addDownloadLinkRuleRow);
+}
 
 function editSite(id) {
     apiGet('get_site', { id }).then(r => {
@@ -687,17 +741,20 @@ function resetSiteForm() {
 }
 
 /* ── Mapping Form ── */
+function initScraperMappingForm() {
 const mappingForm = document.getElementById('mappingForm');
 if (mappingForm) mappingForm.addEventListener('submit', e => {
     e.preventDefault();
     const fd = new FormData(mappingForm);
     const data = {};
     fd.forEach((v, k) => { if (k !== '_token') data[k] = v; });
-    apiPost('save_mapping', data).then(r => {
+    const submitButton = mappingForm.querySelector('button[type="submit"]');
+    runScraperAsync(submitButton, '<i class="bi bi-hourglass-split"></i> Kaydediliyor...', () => apiPost('save_mapping', data)).then(r => {
         if (r.success) { scraperToast(r.message, 'success'); setTimeout(() => location.reload(), 800); }
         else scraperToast(r.error || 'Hata', 'error');
     });
 });
+}
 
 function editMapping(id) {
     apiGet('get_mapping', { id }).then(r => {
@@ -709,13 +766,14 @@ function editMapping(id) {
         form.querySelector('[name="mapping_id"]').value = m.id;
         form.querySelector('[name="bot_site_id"]').value = m.bot_site_id;
         form.querySelector('[name="remote_category_url"]').value = m.remote_category_url;
+        form.querySelector('[name="title_prefix"]').value = m.title_prefix || '';
         form.querySelector('[name="local_category_id"]').value = m.local_category_id || '';
         
         form.querySelector('button[type="submit"]').innerHTML = '<i class="bi bi-save"></i> Güncelle';
         document.querySelector('#tab-mappings .card-header').textContent = 'Kategori Eşleme Düzenle';
         
         const cancelBtn = document.getElementById('btnCancelMapping');
-        if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+        scraperShow(cancelBtn, 'scraper-visible-inline');
         
         document.querySelector('[data-tab="mappings"]')?.click();
         form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -731,7 +789,7 @@ function resetMappingForm() {
     document.querySelector('#tab-mappings .card-header').textContent = 'Kategori Eşleme Ekle';
     
     const cancelBtn = document.getElementById('btnCancelMapping');
-    if (cancelBtn) cancelBtn.style.display = 'none';
+    scraperHide(cancelBtn, 'scraper-visible-inline');
 }
 
 async function deleteMapping(id) {
@@ -750,10 +808,9 @@ function testConnection() {
     const url = document.getElementById('site_base_url')?.value;
     if (!url) return scraperToast('URL girin', 'error');
     const btn = document.getElementById('btnTestConn');
-    btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Test...';
-    apiPost('test_connection', { url }).then(r => {
+    runScraperAsync(btn, '<i class="bi bi-hourglass-split"></i> Test...', () => apiPost('test_connection', { url })).then(r => {
         scraperToast(r.message, r.success ? 'success' : 'error');
-    }).finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-wifi"></i> Bağlantı Test'; });
+    });
 }
 
 function discoverUrls() {
@@ -761,16 +818,22 @@ function discoverUrls() {
     const catUrl = document.getElementById('scrape_category_url')?.value;
     if (!siteId || !catUrl) return scraperToast('Site ve kategori URL seçin', 'error');
     const btn = document.getElementById('btnDiscover');
-    btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Taranıyor...';
-    apiPost('discover_urls', { site_id: siteId, category_url: catUrl, cover_lookup_limit: 2 }).then(r => {
-        const list = document.getElementById('discoveredUrls');
+    const list = document.getElementById('discoveredUrls');
+    const panel = document.getElementById('discoveredPanel');
+    const count = document.getElementById('discoveredCount');
+    if (!btn || !list || !panel) {
+        return scraperToast('URL keşif paneli bu sayfada bulunamadı.', 'error');
+    }
+    runScraperAsync(btn, '<i class="bi bi-hourglass-split"></i> Taranıyor...', () => apiPost('discover_urls', { site_id: siteId, category_url: catUrl, cover_lookup_limit: 2 })).then(r => {
         if (r.success && r.urls && r.urls.length > 0) {
             list.classList.add('scraper-preview-url-grid');
             list.innerHTML = r.urls.map((u, i) => {
                 const topic = normalizeDiscoveredTopic(u, i);
                 const imgUrl = topic.image ? getScraperImageUrl(topic.image) : '';
-                const bgHtml = imgUrl ? `<div class="scraper-url-thumb has-image" data-thumb-url="${escapeHtml(imgUrl)}"></div>` : `<div class="scraper-url-thumb"><i class="bi bi-image"></i></div>`;
                 const safeTitle = escapeHtml(topic.title);
+                const bgHtml = imgUrl
+                    ? `<div class="scraper-url-thumb has-image"><img src="${escapeHtml(imgUrl)}" alt="${safeTitle}" width="300" height="150" loading="lazy" decoding="async" referrerpolicy="no-referrer"></div>`
+                    : `<div class="scraper-url-thumb"><i class="bi bi-image"></i></div>`;
                 const safeUrl = escapeHtml(topic.url);
                 const importedInfo = renderImportedWarning(topic);
                 return `
@@ -789,15 +852,14 @@ function discoverUrls() {
                 </label>`;
             }).join('');
             applyScraperPresentation(list);
-            document.getElementById('discoveredCount').textContent = r.count + ' Konu Bulundu';
-            document.getElementById('discoveredPanel').style.display = '';
+            if (count) count.textContent = r.count + ' Konu Bulundu';
+            scraperShow(panel);
         } else {
-            list.style.display = 'block';
+            scraperShow(list, 'scraper-visible-block');
             list.innerHTML = '<div class="scraper-mini-empty"><i class="bi bi-info-circle"></i> Hiç konu bulunamadı veya bağlantılar okunamadı.</div>';
-            document.getElementById('discoveredPanel').style.display = '';
+            scraperShow(panel);
         }
-    }).catch(() => scraperToast('Hata oluştu', 'error'))
-        .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-search"></i> URL Keşfet'; });
+    }).catch(() => scraperToast('Hata oluştu', 'error'));
 }
 
 function scrapeSingle() {
@@ -805,15 +867,14 @@ function scrapeSingle() {
     const url = document.getElementById('single_scrape_url')?.value;
     if (!siteId || !url) return scraperToast('Site ve URL gerekli', 'error');
     const btn = document.getElementById('btnScrapeSingle');
-    btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Çekiliyor...';
-    apiPost('scrape_single', { site_id: siteId, url }).then(r => {
+    runScraperAsync(btn, '<i class="bi bi-hourglass-split"></i> Çekiliyor...', () => apiPost('scrape_single', { site_id: siteId, url })).then(r => {
         if (r.success) {
             if (r.warning) scraperToast(r.warning, 'warning');
             if (r.skipped) scraperToast('Bu konu daha önce çekilmiş; duplicate ayarına göre tekrar çekilmedi.', 'warning');
             scraperToast('İçerik çekildi! Import ID: ' + r.import_id, 'success');
             setTimeout(() => location.reload(), 1200);
         } else scraperToast(r.error || 'Hata', 'error');
-    }).finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-download"></i> Tek Sayfa Çek'; });
+    });
 }
 
 async function scrapeBatch() {
@@ -829,13 +890,12 @@ async function scrapeBatch() {
     })) return;
     if (!await warnIfSelectedImportedTopics('#discoveredUrls input[type="checkbox"]')) return;
     const btn = document.getElementById('btnScrapeBatch');
-    btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> ' + urls.length + ' URL çekiliyor...';
-    apiPost('scrape_batch', { site_id: siteId, mapping_id: mappingId, urls }).then(r => {
+    runScraperAsync(btn, '<i class="bi bi-hourglass-split"></i> ' + urls.length + ' URL çekiliyor...', () => apiPost('scrape_batch', { site_id: siteId, mapping_id: mappingId, urls })).then(r => {
         if (r.success) {
             scraperToast(`Tamamlandı: ${r.imported} başarılı, ${r.failed} hatalı`, 'success');
             setTimeout(() => location.reload(), 1500);
         } else scraperToast(r.error || 'Hata', 'error');
-    }).finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-collection"></i> Toplu Çek'; });
+    });
 }
 
 let pendingImportData = null;
@@ -861,7 +921,7 @@ function ensureCenteredPreviewHtml(html = '') {
     if (/^\s*<div[^>]*\b(?:scraper-content-centered|content-align-center|ql-align-center)\b[^>]*>/i.test(trimmed)) {
         return raw;
     }
-    return `<div class="scraper-content-centered ql-align-center content-align-center" style="text-align:center;">${raw}</div>`;
+    return `<div class="scraper-content-centered ql-align-center content-align-center">${raw}</div>`;
 }
 
 function forcePreviewQuillCenter(quill) {
@@ -1127,7 +1187,7 @@ function populatePreviewModal(imp) {
     // Hide go to topic button when modal opens
     const btnGo = document.getElementById('btnGoToTopic');
     if (btnGo) {
-        btnGo.style.display = 'none';
+        scraperHide(btnGo);
         btnGo.href = '#';
     }
 
@@ -1145,8 +1205,8 @@ function openPreviewModalFrame() {
     if (modal.parentElement !== document.body) {
         document.body.appendChild(modal);
     }
-    if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-        window.TMUI.openDialog(modal, {
+    if (window.adminDialog && typeof window.adminDialog.open === 'function') {
+        window.adminDialog.open(modal, {
             bodyClass: 'ui-admin-dialog-open',
             initialFocus: '.crm-close',
             returnFocus: document.activeElement,
@@ -1212,7 +1272,7 @@ function showPreviewLoadingPopup(url = '') {
 
     const btnGo = document.getElementById('btnGoToTopic');
     if (btnGo) {
-        btnGo.style.display = 'none';
+        scraperHide(btnGo);
         btnGo.href = '#';
     }
 }
@@ -1275,8 +1335,8 @@ function previewImport(id) {
 function closePreview() {
     const modal = document.getElementById('previewModal');
     if (!modal) return;
-    if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-        window.TMUI.closeDialog(modal);
+    if (window.adminDialog && typeof window.adminDialog.close === 'function') {
+        window.adminDialog.close(modal);
         modal.classList.remove('ui-admin-modal-open');
         return;
     }
@@ -1286,24 +1346,30 @@ function closePreview() {
     document.body.classList.remove('ui-admin-dialog-open');
 }
 
-document.addEventListener('click', function (event) {
-    if (event.target && event.target.id === 'previewModal') {
-        closePreview();
-    }
-});
+function initScraperPreviewModalEvents() {
+    document.addEventListener('click', function (event) {
+        if (event.target && event.target.id === 'previewModal') {
+            closePreview();
+        }
+    });
 
-document.addEventListener('keydown', function (event) {
-    if (window.TMUI && typeof window.TMUI.openDialog === 'function') return;
-    const modal = document.getElementById('previewModal');
-    if (event.key === 'Escape' && modal && !modal.hidden) {
-        closePreview();
-    }
-});
+    document.addEventListener('keydown', function (event) {
+        if (window.adminDialog && typeof window.adminDialog.getOpen === 'function' && window.adminDialog.getOpen()) return;
+        const modal = document.getElementById('previewModal');
+        if (event.key === 'Escape' && modal && !modal.hidden) {
+            closePreview();
+        }
+    });
+}
 
 function listMappingTopics(mappingId, siteId, categoryUrl, localCatId, pageUrl = null, direction = 'start') {
     const row = document.getElementById('mapping-list-row-' + mappingId);
     const list = document.getElementById('mapping-list-content-' + mappingId);
     const loading = document.getElementById('mapping-list-loading-' + mappingId);
+    if (!row || !list || !loading) {
+        scraperToast('Listeleme alanı bulunamadı.', 'error');
+        return;
+    }
     const state = mappingTopicStates[mappingId] || {
         siteId,
         localCatId,
@@ -1314,12 +1380,12 @@ function listMappingTopics(mappingId, siteId, categoryUrl, localCatId, pageUrl =
     };
     const targetUrl = pageUrl || categoryUrl;
 
-    row.style.display = 'table-row';
-    list.style.display = 'none';
-    loading.style.display = 'block';
+    scraperShow(row);
+    scraperHide(list);
+    scraperShow(loading);
 
     apiPost('discover_urls', { site_id: siteId, mapping_id: mappingId, category_url: targetUrl, cover_lookup_limit: 0 }).then(r => {
-        loading.style.display = 'none';
+        scraperHide(loading);
         if (r.success) {
             if (direction === 'next' && state.currentUrl !== targetUrl) {
                 state.history.push(state.currentUrl);
@@ -1341,7 +1407,7 @@ function listMappingTopics(mappingId, siteId, categoryUrl, localCatId, pageUrl =
             if (r.urls.length) {
                 list.innerHTML = `
                     ${renderMappingPagination(state, mappingId)}
-                    <div class="mapping-topic-grid">${r.urls.map((u, i) => renderMappingTopicCard(u, i, siteId, localCatId)).join('')}</div>
+                    <div class="mapping-topic-grid">${r.urls.map((u, i) => renderMappingTopicCard(u, i, siteId, localCatId, mappingId)).join('')}</div>
                 `;
             } else {
                 list.innerHTML = `
@@ -1349,15 +1415,15 @@ function listMappingTopics(mappingId, siteId, categoryUrl, localCatId, pageUrl =
                     <div class="scraper-mini-empty-lg">Bu kategoride içerik bulunamadı.</div>
                 `;
             }
-            list.style.display = 'block';
+            scraperShow(list, 'scraper-visible-block');
         } else {
             list.innerHTML = `<div class="ui-admin-alert ui-admin-alert-error">${escapeHtml(r.error || 'Hata')}</div>`;
-            list.style.display = 'block';
+            scraperShow(list, 'scraper-visible-block');
         }
     }).catch(() => {
-        loading.style.display = 'none';
+        scraperHide(loading);
         list.innerHTML = `<div class="ui-admin-alert ui-admin-alert-error">Ağ bağlantısı hatası.</div>`;
-        list.style.display = 'block';
+        scraperShow(list, 'scraper-visible-block');
     });
 }
 
@@ -1482,6 +1548,10 @@ async function listBulkMappingTopics(mappingId, siteId, categoryUrl, localCatId)
     const row = document.getElementById('bulk-list-row-' + mappingId);
     const list = document.getElementById('bulk-list-content-' + mappingId);
     const loading = document.getElementById('bulk-list-loading-' + mappingId);
+    if (!row || !list || !loading) {
+        scraperToast('Toplu listeleme alanı bulunamadı.', 'error');
+        return;
+    }
     const pageRange = getBulkPageRange(mappingId);
     const pageCount = pageRange.total;
     const topics = [];
@@ -1492,9 +1562,9 @@ async function listBulkMappingTopics(mappingId, siteId, categoryUrl, localCatId)
     let errorMessage = '';
     const maxTopicsPerPage = typeof botBulkMaxTopicsPerPage !== 'undefined' ? (parseInt(botBulkMaxTopicsPerPage, 10) || 0) : 0;
 
-    row.style.display = 'table-row';
-    list.style.display = 'block';
-    loading.style.display = 'none';
+    scraperShow(row);
+    scraperShow(list, 'scraper-visible-block');
+    scraperHide(loading);
     list.innerHTML = `<div id="bulk-progress-${mappingId}">${renderBulkProgress({ total: pageCount, current: 0, message: 'Sayfalar taranıyor', detail: `Aralık: ${pageRange.start}-${pageRange.end}` })}</div>`;
     applyScraperPresentation(list);
 
@@ -1591,10 +1661,9 @@ async function scrapeBulkTopics(mappingId) {
     let skipped = 0;
     const total = selectedTopics.length;
     const actionButton = document.querySelector(`[data-scraper-action="scrape-bulk"][data-mapping-id="${mappingId}"]`);
-    if (actionButton) {
-        actionButton.disabled = true;
-        actionButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Çekiliyor...';
-    }
+    const actionButtonState = actionButton && window.adminAsync ? window.adminAsync.setButtonLoading(actionButton, {
+        loadingHtml: '<i class="bi bi-hourglass-split"></i> Çekiliyor...'
+    }) : null;
 
     for (let i = 0; i < selectedTopics.length; i++) {
         const topic = selectedTopics[i];
@@ -1608,7 +1677,7 @@ async function scrapeBulkTopics(mappingId) {
         });
 
         try {
-            const result = await apiPost('scrape_single', { site_id: state.siteId, url: topic.url });
+            const result = await apiPost('scrape_single', { site_id: state.siteId, mapping_id: mappingId, url: topic.url });
             if (result.warning) scraperToast(result.warning, 'warning');
             if (result.skipped) {
                 skipped++;
@@ -1641,22 +1710,18 @@ async function scrapeBulkTopics(mappingId) {
         });
     }
 
-    if (actionButton) {
-        actionButton.disabled = false;
-        actionButton.innerHTML = '<i class="bi bi-cloud-download"></i> Tümünü Çek';
-    }
+    if (window.adminAsync) window.adminAsync.restoreButton(actionButtonState);
     scraperToast(`Toplu çekim tamamlandı: ${success} içerik aktarıldı, ${failed} hatalı`, failed ? 'error' : 'success');
 }
 
-function previewAndScrapeTopic(btnEl, url, siteId, localCatId) {
-    const origBtnHtml = btnEl.innerHTML;
-    btnEl.disabled = true;
-    btnEl.innerHTML = '<i class="bi bi-hourglass-split"></i> Çekiliyor...';
+function previewAndScrapeTopic(btnEl, url, siteId, localCatId, mappingId = 0) {
+    const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(btnEl, {
+        loadingHtml: '<i class="bi bi-hourglass-split"></i> Çekiliyor...'
+    }) : null;
 
     scraperToast('İçerik çekiliyor, lütfen bekleyin...', 'info');
-    apiPost('preview_url', { site_id: siteId, url: url }).then(r => {
-        btnEl.disabled = false;
-        btnEl.innerHTML = origBtnHtml;
+    apiPost('preview_url', { site_id: siteId, mapping_id: mappingId, url: url }).then(r => {
+        if (window.adminAsync) window.adminAsync.restoreButton(buttonState);
         if (r.success) {
             const defaults = ensurePreviewSiteDefaults(r.data);
             if (localCatId) defaults.category_id = localCatId;
@@ -1669,8 +1734,7 @@ function previewAndScrapeTopic(btnEl, url, siteId, localCatId) {
     }).catch((error) => {
         window.__lastPreviewRequestError = error;
         console.error('Preview request failed', error);
-        btnEl.disabled = false;
-        btnEl.innerHTML = origBtnHtml;
+        if (window.adminAsync) window.adminAsync.restoreButton(buttonState);
         scraperToast(error?.message || 'Bağlantı hatası oluştu', 'error');
     });
 }
@@ -1715,7 +1779,7 @@ function publishImport() {
                 const btnGo = document.getElementById('btnGoToTopic');
                 if (btnGo && r.topic_url) {
                     btnGo.href = r.topic_url;
-                    btnGo.style.display = 'flex';
+                    scraperShow(btnGo);
                 } else {
                     setTimeout(() => location.reload(), 800); 
                 }
@@ -1744,7 +1808,7 @@ function publishImport() {
                 const btnGo = document.getElementById('btnGoToTopic');
                 if (btnGo && r.topic_url) {
                     btnGo.href = r.topic_url;
-                    btnGo.style.display = 'flex';
+                    scraperShow(btnGo);
                 } else {
                     setTimeout(() => location.reload(), 800); 
                 }
@@ -1769,16 +1833,19 @@ async function deleteImport(id) {
 }
 
 /* ── Bot Settings ── */
+function initScraperBotSettingsForm() {
 const botForm = document.getElementById('botSettingsForm');
 if (botForm) botForm.addEventListener('submit', e => {
     e.preventDefault();
     const fd = new FormData(botForm);
     const data = {};
     fd.forEach((v, k) => { if (k !== '_token') data[k] = v; });
-    apiPost('save_bot_settings', data).then(r => {
+    const submitButton = botForm.querySelector('button[type="submit"]');
+    runScraperAsync(submitButton, '<i class="bi bi-hourglass-split"></i> Kaydediliyor...', () => apiPost('save_bot_settings', data)).then(r => {
         scraperToast(r.success ? r.message : (r.error || 'Hata'), r.success ? 'success' : 'error');
     });
 });
+}
 
 function selectAllUrls(checked) {
     document.querySelectorAll('#discoveredUrls input[type="checkbox"]').forEach(c => c.checked = checked);
@@ -1834,17 +1901,16 @@ async function bulkPublishImports() {
     }
     
     const btn = document.getElementById('btnBulkPublish');
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Yayınlanıyor...';
+    const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(btn, {
+        loadingHtml: '<i class="bi bi-hourglass-split"></i> Yayınlanıyor...'
+    }) : null;
     
     let completed = 0;
     let failed = 0;
     
     const publishNext = (index) => {
         if (index >= ids.length) {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
+            if (window.adminAsync) window.adminAsync.restoreButton(buttonState);
             scraperToast(`Toplu yayınlama tamamlandı! Başarılı: ${completed}, Başarısız: ${failed}`, completed > 0 ? 'success' : 'error');
             setTimeout(() => location.reload(), 1500);
             return;
@@ -1893,17 +1959,16 @@ async function bulkDeleteImports() {
     }
     
     const btn = document.getElementById('btnBulkDelete');
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Siliniyor...';
+    const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(btn, {
+        loadingHtml: '<i class="bi bi-hourglass-split"></i> Siliniyor...'
+    }) : null;
     
     let completed = 0;
     let failed = 0;
     
     const deleteNext = (index) => {
         if (index >= ids.length) {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
+            if (window.adminAsync) window.adminAsync.restoreButton(buttonState);
             scraperToast(`Toplu silme tamamlandı! Başarılı: ${completed}, Başarısız: ${failed}`, completed > 0 ? 'success' : 'error');
             setTimeout(() => location.reload(), 1500);
             return;
@@ -1930,6 +1995,7 @@ async function bulkDeleteImports() {
     deleteNext(0);
 }
 
+function initScraperDelegates() {
 document.addEventListener('click', function(event) {
     const pageButton = event.target.closest('[data-mapping-page-button]');
     if (pageButton) {
@@ -1946,7 +2012,8 @@ document.addEventListener('click', function(event) {
             action,
             action.getAttribute('data-url') || '',
             parseInt(action.getAttribute('data-site-id'), 10) || 0,
-            parseInt(action.getAttribute('data-local-cat-id'), 10) || 0
+            parseInt(action.getAttribute('data-local-cat-id'), 10) || 0,
+            parseInt(action.getAttribute('data-mapping-id'), 10) || 0
         );
     } else if (actionName === 'scrape-bulk') {
         scrapeBulkTopics(action.getAttribute('data-mapping-id'));
@@ -1981,7 +2048,7 @@ document.addEventListener('click', function(event) {
         deleteMapping(action.getAttribute('data-mapping-id'));
     } else if (actionName === 'hide-target') {
         const target = document.getElementById(action.getAttribute('data-target-id') || '');
-        if (target) target.style.display = 'none';
+        scraperHide(target);
     } else if (actionName === 'list-bulk-mapping-topics') {
         listBulkMappingTopics(
             action.getAttribute('data-mapping-id'),
@@ -2041,3 +2108,19 @@ document.addEventListener('error', function(event) {
         target.remove();
     }
 }, true);
+}
+
+function initScraperPage() {
+    initScraperTabsAndSiteForm();
+    initScraperSiteRuleRows();
+    initScraperMappingForm();
+    initScraperPreviewModalEvents();
+    initScraperBotSettingsForm();
+    initScraperDelegates();
+    applyScraperPresentation(document);
+}
+
+window.adminPage.register('scraper', initScraperPage, {
+    id: 'scraper-main',
+    selector: '#adminScraperConfig'
+});

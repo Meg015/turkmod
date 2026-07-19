@@ -214,55 +214,8 @@ if (!function_exists('commentSpamMeaningfulCharacterCount')) {
     }
 }
 
-if (!function_exists('commentSpamCountLinks')) {
-    function commentSpamCountLinks(string $text): int
-    {
-        if ($text === '') {
-            return 0;
-        }
-
-        if (!preg_match_all('~https?://[^\s<>()]+~iu', $text, $matches)) {
-            return 0;
-        }
-
-        return count($matches[0] ?? []);
-    }
-}
-
-if (!function_exists('commentSpamHasRepeatedCharacters')) {
-    function commentSpamHasRepeatedCharacters(string $text, int $limit): bool
-    {
-        $limit = max(0, $limit);
-        if ($limit <= 0 || $text === '') {
-            return false;
-        }
-
-        $characters = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
-        if (!is_array($characters) || $characters === []) {
-            return false;
-        }
-
-        $lastCharacter = null;
-        $runLength = 0;
-        foreach ($characters as $character) {
-            if ($character === $lastCharacter) {
-                $runLength++;
-            } else {
-                $lastCharacter = $character;
-                $runLength = 1;
-            }
-
-            if ($runLength > $limit) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-}
-
-if (!function_exists('commentSpamNormalizeMeaninglessPhrase')) {
-    function commentSpamNormalizeMeaninglessPhrase(string $text): string
+if (!function_exists('commentSpamNormalizeTerm')) {
+    function commentSpamNormalizeTerm(string $text): string
     {
         $text = commentSpamNormalizeComparableBody($text);
         if ($text === '') {
@@ -270,41 +223,41 @@ if (!function_exists('commentSpamNormalizeMeaninglessPhrase')) {
         }
 
         $text = preg_replace('/^[\p{Z}\p{P}\p{S}]+|[\p{Z}\p{P}\p{S}]+$/u', '', $text) ?? $text;
-        $text = trim($text);
+        $text = preg_replace('/[\p{Z}\s]+/u', ' ', $text) ?? $text;
 
-        return $text;
+        return trim($text);
     }
 }
 
-if (!function_exists('commentSpamParseMeaninglessPhrases')) {
-    function commentSpamParseMeaninglessPhrases(string $raw): array
+if (!function_exists('commentSpamParseTerms')) {
+    function commentSpamParseTerms(string $raw): array
     {
-        $phrases = [];
-        foreach (preg_split('/[\r\n]+/u', $raw) ?: [] as $phrase) {
-            $phrase = commentSpamNormalizeMeaninglessPhrase((string) $phrase);
-            if ($phrase === '') {
+        $terms = [];
+        foreach (preg_split('/[\r\n,;]+/u', $raw) ?: [] as $term) {
+            $normalized = commentSpamNormalizeTerm((string) $term);
+            if ($normalized === '') {
                 continue;
             }
 
-            $phrases[$phrase] = $phrase;
+            $terms[$normalized] = $normalized;
         }
 
-        return array_values($phrases);
+        return array_values($terms);
     }
 }
 
-if (!function_exists('commentSpamMeaninglessPhraseMatch')) {
-    function commentSpamMeaninglessPhraseMatch(string $body, array $phrases): ?string
+if (!function_exists('commentSpamFindExactTerm')) {
+    function commentSpamFindExactTerm(string $body, array $terms): ?string
     {
-        $normalizedBody = commentSpamNormalizeMeaninglessPhrase($body);
-        if ($normalizedBody === '' || $phrases === []) {
+        $normalizedBody = commentSpamNormalizeTerm($body);
+        if ($normalizedBody === '' || $terms === []) {
             return null;
         }
 
-        foreach ($phrases as $phrase) {
-            $needle = commentSpamNormalizeMeaninglessPhrase((string) $phrase);
-            if ($needle !== '' && $normalizedBody === $needle) {
-                return $needle;
+        foreach ($terms as $term) {
+            $normalizedTerm = commentSpamNormalizeTerm((string) $term);
+            if ($normalizedTerm !== '' && $normalizedBody === $normalizedTerm) {
+                return $normalizedTerm;
             }
         }
 
@@ -312,204 +265,358 @@ if (!function_exists('commentSpamMeaninglessPhraseMatch')) {
     }
 }
 
-if (!function_exists('commentSpamNormalizeGibberishToken')) {
-    function commentSpamNormalizeGibberishToken(string $text): string
+if (!function_exists('commentSpamFindContainedTerm')) {
+    function commentSpamFindContainedTerm(string $body, array $terms): ?string
     {
-        $text = commentSpamNormalizeComparableBody($text);
-        if ($text === '' || preg_match('/[\p{Z}\s]+/u', $text) === 1) {
-            return '';
+        $normalizedBody = commentSpamNormalizeComparableBody($body);
+        if ($normalizedBody === '' || $terms === []) {
+            return null;
         }
 
-        return preg_replace('/[^\p{L}\p{N}]+/u', '', $text) ?? '';
-    }
-}
-
-if (!function_exists('commentSpamHasRepeatedFragment')) {
-    function commentSpamHasRepeatedFragment(string $token): bool
-    {
-        $length = mb_strlen($token, 'UTF-8');
-        if ($length < 4) {
-            return false;
-        }
-
-        for ($size = 2; $size <= 3; $size++) {
-            if ($length < ($size * 2)) {
+        foreach ($terms as $term) {
+            $normalizedTerm = commentSpamNormalizeTerm((string) $term);
+            if ($normalizedTerm === '') {
                 continue;
             }
 
-            for ($i = 0; $i <= $length - ($size * 2); $i++) {
-                $fragment = mb_substr($token, $i, $size, 'UTF-8');
-                $nextFragment = mb_substr($token, $i + $size, $size, 'UTF-8');
-                if ($fragment !== '' && $fragment === $nextFragment) {
-                    return true;
+            $hasWhitespace = preg_match('/[\p{Z}\s]+/u', $normalizedTerm) === 1;
+            if ($hasWhitespace && str_contains($normalizedBody, $normalizedTerm)) {
+                return $normalizedTerm;
+            }
+
+            if (!$hasWhitespace) {
+                $pattern = '/(?<![\p{L}\p{N}_])' . preg_quote($normalizedTerm, '/') . '(?![\p{L}\p{N}_])/u';
+                if (preg_match($pattern, $normalizedBody) === 1) {
+                    return $normalizedTerm;
                 }
             }
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('commentSpamIsNonsenseSafeToken')) {
+    function commentSpamIsNonsenseSafeToken(string $token): bool
+    {
+        $token = commentSpamNormalizeTerm($token);
+        if ($token === '') {
+            return true;
+        }
+
+        static $safeTokens = [
+            'ai' => true,
+            'api' => true,
+            'apk' => true,
+            'css' => true,
+            'cpu' => true,
+            'dns' => true,
+            'dll' => true,
+            'fps' => true,
+            'ftp' => true,
+            'gpu' => true,
+            'gta' => true,
+            'gtx' => true,
+            'hdr' => true,
+            'hdd' => true,
+            'html' => true,
+            'http' => true,
+            'https' => true,
+            'hmm' => true,
+            'js' => true,
+            'json' => true,
+            'mod' => true,
+            'pc' => true,
+            'php' => true,
+            'ram' => true,
+            'rar' => true,
+            'rdr' => true,
+            'rtx' => true,
+            'sql' => true,
+            'ssd' => true,
+            'ssh' => true,
+            'tcp' => true,
+            'udp' => true,
+            'url' => true,
+            'vpn' => true,
+            'xml' => true,
+            'zip' => true,
+        ];
+
+        if (isset($safeTokens[$token])) {
+            return true;
+        }
+
+        return preg_match('/^(?:rtx|gtx|rx|gt|i[3579]|ps[345]|gta|rdr|cs|css|php|html|js|json|xml|api|url|vpn|dns|fps|hdr|ssd|hdd|ram|cpu|gpu|apk|rar|zip|dll|mp[34]|h26[45]|x64|x86|v)\d*$/u', $token) === 1;
+    }
+}
+
+if (!function_exists('commentSpamMaxConsonantRun')) {
+    function commentSpamMaxConsonantRun(string $letters): int
+    {
+        if ($letters === '') {
+            return 0;
+        }
+
+        $letters = mb_strtolower($letters, 'UTF-8');
+        $characters = preg_split('//u', $letters, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($characters) || $characters === []) {
+            return 0;
+        }
+
+        $maxRun = 0;
+        $currentRun = 0;
+        foreach ($characters as $character) {
+            if (preg_match('/[aeıioöuüâîû]/u', $character) === 1) {
+                $currentRun = 0;
+                continue;
+            }
+
+            $currentRun++;
+            $maxRun = max($maxRun, $currentRun);
+        }
+
+        return $maxRun;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeNonsenseToken')) {
+    function commentSpamLooksLikeNonsenseToken(string $token): bool
+    {
+        $token = commentSpamNormalizeTerm($token);
+        $token = preg_replace('/[^\p{L}\p{N}]+/u', '', $token) ?? '';
+        if ($token === '' || commentSpamIsNonsenseSafeToken($token)) {
+            return false;
+        }
+
+        $letters = preg_replace('/[^\p{L}]+/u', '', $token) ?? '';
+        $digits = preg_replace('/[^\p{N}]+/u', '', $token) ?? '';
+        $letterCount = mb_strlen($letters, 'UTF-8');
+        $tokenLength = mb_strlen($token, 'UTF-8');
+        if ($letterCount < 3) {
+            return false;
+        }
+
+        $hasVowel = preg_match('/[aeıioöuüâîû]/u', $letters) === 1;
+        $maxConsonantRun = commentSpamMaxConsonantRun($letters);
+        if (!$hasVowel && $letterCount <= 12) {
+            return true;
+        }
+
+        if ($maxConsonantRun >= 5 && $letterCount <= 16) {
+            return true;
+        }
+
+        $hasDigitBetweenLetters = preg_match('/\p{L}\p{N}+\p{L}/u', $token) === 1;
+        if ($digits !== '' && $tokenLength <= 12 && ($hasDigitBetweenLetters || $maxConsonantRun >= 4)) {
+            return true;
         }
 
         return false;
     }
 }
 
-if (!function_exists('commentSpamLooksLikeGibberish')) {
-    function commentSpamLooksLikeGibberish(string $body, int $maxLength = 12, int $scoreThreshold = 3): bool
+if (!function_exists('commentSpamFindNonsenseToken')) {
+    function commentSpamFindNonsenseToken(string $body): ?string
     {
-        $maxLength = max(0, $maxLength);
-        $scoreThreshold = max(1, $scoreThreshold);
-        if ($maxLength <= 0) {
-            return false;
+        if ($body === '' || preg_match_all('/[\p{L}\p{N}]{3,}/u', $body, $matches) < 1) {
+            return null;
         }
 
-        $token = commentSpamNormalizeGibberishToken($body);
-        $tokenLength = mb_strlen($token, 'UTF-8');
-        if ($token === '' || $tokenLength < 3 || $tokenLength > $maxLength) {
-            return false;
-        }
-
-        $characters = preg_split('//u', $token, -1, PREG_SPLIT_NO_EMPTY);
-        if (!is_array($characters) || $characters === []) {
-            return false;
-        }
-
-        $vowels = array_fill_keys(['a', 'e', 'i', 'ı', 'o', 'ö', 'u', 'ü', 'â', 'î', 'û'], true);
-        $commonConsonantPairs = array_fill_keys([
-            'bl', 'br', 'cl', 'cr', 'dr', 'fl', 'fr', 'gl', 'gr', 'kl', 'kr', 'pl', 'pr', 'tr',
-            'sk', 'sl', 'sm', 'sn', 'sp', 'st', 'sv',
-            'ft', 'ht', 'kt', 'ks', 'ld', 'lk', 'lm', 'ln', 'ls', 'lt',
-            'mb', 'mp', 'mn', 'nd', 'ng', 'nk', 'nt', 'ns',
-            'rd', 'rk', 'rl', 'rm', 'rn', 'rs', 'rt',
-            'ts', 'ps',
-        ], true);
-
-        $letterCount = 0;
-        $digitCount = 0;
-        $vowelCount = 0;
-        $currentConsonantRun = 0;
-        $maxConsonantRun = 0;
-        $oddConsonantPairs = 0;
-        $oddVowelPairs = 0;
-        $previousLetter = null;
-        $previousWasVowel = false;
-
-        foreach ($characters as $character) {
-            if (preg_match('/\p{N}/u', $character) === 1) {
-                $digitCount++;
-                $currentConsonantRun = 0;
-                $previousLetter = null;
+        $suspicious = [];
+        $normalCount = 0;
+        foreach (($matches[0] ?? []) as $rawToken) {
+            $token = commentSpamNormalizeTerm((string) $rawToken);
+            if ($token === '') {
                 continue;
             }
 
-            if (preg_match('/\p{L}/u', $character) !== 1) {
-                $currentConsonantRun = 0;
-                $previousLetter = null;
-                continue;
-            }
-
-            $letterCount++;
-            $isVowel = isset($vowels[$character]);
-            if ($isVowel) {
-                $vowelCount++;
-                $currentConsonantRun = 0;
+            if (commentSpamLooksLikeNonsenseToken($token)) {
+                $suspicious[] = $token;
             } else {
-                $currentConsonantRun++;
-                $maxConsonantRun = max($maxConsonantRun, $currentConsonantRun);
+                $normalCount++;
             }
-
-            if ($previousLetter !== null) {
-                if (!$previousWasVowel && !$isVowel && $previousLetter !== $character) {
-                    $pair = $previousLetter . $character;
-                    if (!isset($commonConsonantPairs[$pair])) {
-                        $oddConsonantPairs++;
-                    }
-                } elseif ($previousWasVowel && $isVowel && $previousLetter !== $character) {
-                    $oddVowelPairs++;
-                }
-            }
-
-            $previousLetter = $character;
-            $previousWasVowel = $isVowel;
         }
 
-        if ($letterCount < 2) {
-            return false;
+        $suspiciousCount = count($suspicious);
+        if ($suspiciousCount === 0) {
+            return null;
         }
 
-        $score = 0;
-        $vowelRatio = $letterCount > 0 ? $vowelCount / $letterCount : 0.0;
-
-        if ($vowelCount === 0) {
-            $score += 3;
-        } elseif ($vowelRatio <= 0.20) {
-            $score += 2;
-        } elseif ($vowelRatio < 0.30 && $letterCount >= 5) {
-            $score += 1;
+        if ($normalCount === 0) {
+            return $suspicious[0];
         }
 
-        if ($maxConsonantRun >= 4) {
-            $score += 2;
-        } elseif ($maxConsonantRun >= 3 && $vowelRatio <= 0.25) {
-            $score += 1;
+        if ($suspiciousCount >= 2 && $suspiciousCount >= $normalCount) {
+            return $suspicious[0];
         }
 
-        if ($digitCount > 0 && $letterCount <= 6) {
-            $score += 1;
+        if ($suspiciousCount >= 3) {
+            return $suspicious[0];
         }
 
-        if (commentSpamHasRepeatedFragment($token)) {
-            $score += 2;
-        }
-
-        if ($oddConsonantPairs >= 2) {
-            $score += 2;
-        } elseif ($oddConsonantPairs === 1) {
-            $score += 1;
-        }
-
-        if ($oddVowelPairs >= 2) {
-            $score += 2;
-        } elseif ($oddVowelPairs === 1 && $tokenLength <= 8) {
-            $score += 1;
-        }
-
-        if ($tokenLength <= 5 && $vowelRatio <= 0.25) {
-            $score += 1;
-        }
-
-        return $score >= $scoreThreshold;
+        return null;
     }
 }
 
-if (!function_exists('commentSpamCapsStats')) {
-    function commentSpamCapsStats(string $text): array
+if (!function_exists('commentSpamDefaultDuplicateWindowMinutes')) {
+    function commentSpamDefaultDuplicateWindowMinutes(): int
     {
-        $letterCount = 0;
-        $upperCount = 0;
-
-        if ($text !== '') {
-            if (preg_match_all('/\p{L}/u', $text, $letters)) {
-                $letterCount = count($letters[0] ?? []);
-            }
-            if (preg_match_all('/\p{Lu}/u', $text, $uppercase)) {
-                $upperCount = count($uppercase[0] ?? []);
-            }
-        }
-
-        $ratio = $letterCount > 0 ? $upperCount / $letterCount : 0.0;
-
-        return [
-            'letters' => $letterCount,
-            'upper' => $upperCount,
-            'ratio' => $ratio,
-        ];
+        return 5;
     }
 }
 
-if (!function_exists('commentSpamGuestDuplicateKey')) {
-    function commentSpamGuestDuplicateKey(string $body, ?string $ipAddress = null): string
+if (!function_exists('commentSpamResolveDuplicateWindowMinutes')) {
+    function commentSpamResolveDuplicateWindowMinutes(array $settings): int
+    {
+        $minutes = (int) ($settings['comment_spam_duplicate_minutes'] ?? commentSpamDefaultDuplicateWindowMinutes());
+
+        return max(0, min(1440, $minutes));
+    }
+}
+
+if (!function_exists('commentSpamDuplicateRateKey')) {
+    function commentSpamDuplicateRateKey(string $body, int $topicId, ?string $ipAddress = null): string
     {
         $ipAddress = trim((string) ($ipAddress ?? (function_exists('getRealIp') ? getRealIp() : ($_SERVER['REMOTE_ADDR'] ?? ''))));
         $normalizedBody = commentSpamNormalizeComparableBody($body);
 
-        return 'comment_spam_guest_duplicate:' . hash('sha256', $ipAddress . '|' . $normalizedBody);
+        return 'comment_spam_duplicate:' . hash('sha256', $topicId . '|' . $ipAddress . '|' . $normalizedBody);
+    }
+}
+
+if (!function_exists('commentSpamFindRecentDuplicateComment')) {
+    function commentSpamFindRecentDuplicateComment(PDO $pdo, string $body, int $topicId, int $userId, int $windowMinutes = 5): ?string
+    {
+        $topicId = max(0, $topicId);
+        $userId = max(0, $userId);
+        $windowMinutes = max(1, $windowMinutes);
+        $normalizedBody = commentSpamNormalizeComparableBody($body);
+        if ($topicId <= 0 || $userId <= 0 || $normalizedBody === '') {
+            return null;
+        }
+
+        $since = date('Y-m-d H:i:s', time() - ($windowMinutes * 60));
+
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT body
+                 FROM comments
+                 WHERE topic_id = ?
+                   AND user_id = ?
+                   AND deleted_at IS NULL
+                   AND created_at >= ?
+                 ORDER BY created_at DESC
+                 LIMIT 50'
+            );
+            $stmt->execute([$topicId, $userId, $since]);
+
+            foreach (($stmt->fetchAll(PDO::FETCH_COLUMN) ?: []) as $existingBody) {
+                if (commentSpamNormalizeComparableBody((string) $existingBody) === $normalizedBody) {
+                    return mb_substr($normalizedBody, 0, 80, 'UTF-8');
+                }
+            }
+        } catch (Throwable $e) {
+            return null;
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('commentSpamLooksFullyUppercase')) {
+    function commentSpamLooksFullyUppercase(string $text): bool
+    {
+        if ($text === '') {
+            return false;
+        }
+
+        $letterCount = preg_match_all('/\p{L}/u', $text, $letters) ? count($letters[0] ?? []) : 0;
+        if ($letterCount < 10) {
+            return false;
+        }
+
+        $lowerCount = preg_match_all('/\p{Ll}/u', $text, $lowercase) ? count($lowercase[0] ?? []) : 0;
+        if ($lowerCount > 0) {
+            return false;
+        }
+
+        $upperCount = preg_match_all('/\p{Lu}/u', $text, $uppercase) ? count($uppercase[0] ?? []) : 0;
+
+        return $upperCount === $letterCount;
+    }
+}
+
+if (!function_exists('commentSpamPrimaryReason')) {
+    function commentSpamPrimaryReason(array $reasons): array
+    {
+        $priority = ['contains_term', 'exact_term', 'nonsense_word', 'duplicate_comment', 'uppercase', 'too_few_alnum'];
+        foreach ($priority as $code) {
+            foreach ($reasons as $reason) {
+                if ((string) ($reason['code'] ?? '') === $code) {
+                    return $reason;
+                }
+            }
+        }
+
+        return $reasons[0] ?? [];
+    }
+}
+
+if (!function_exists('commentSpamUserMessage')) {
+    function commentSpamUserMessage(array $reason, bool $pending = false): string
+    {
+        $term = trim((string) ($reason['matched_term'] ?? ''));
+
+        if ($pending) {
+            return match ((string) ($reason['code'] ?? '')) {
+                'contains_term' => 'Yorumunuz cümle içinde yasaklı kelime içerdiği için yönetici onayına gönderildi: "' . $term . '".',
+                'exact_term' => 'Yorumunuz tek kelime filtresine takıldığı için yönetici onayına gönderildi: "' . $term . '".',
+                'nonsense_word' => 'Yorumunuz anlamsız kelime/dizi içerdiği için yönetici onayına gönderildi: "' . $term . '".',
+                'duplicate_comment' => 'Aynı yorumu kısa süre içinde tekrar gönderdiğiniz için yorumunuz yönetici onayına gönderildi.',
+                'uppercase' => 'Yorumunuz büyük harf kullanımından dolayı spam filtresine takıldı ve yönetici onayına gönderildi.',
+                'too_few_alnum' => 'Yorumunuz yeterli harf veya rakam içermediği için yönetici onayına gönderildi.',
+                default => 'Yorumunuz spam filtresine takıldı ve yönetici onayına gönderildi.',
+            };
+        }
+
+        return match ((string) ($reason['code'] ?? '')) {
+            'contains_term' => 'Yorumunuz cümle içinde yasaklı kelime içeriyor: "' . $term . '". Lütfen bu ifadeyi kaldırıp tekrar deneyin.',
+            'exact_term' => 'Yorumunuz tek kelime filtresine takıldı: "' . $term . '". Lütfen daha açıklayıcı bir yorum yazıp tekrar deneyin.',
+            'nonsense_word' => 'Yorumunuz anlamsız kelime/dizi içeriyor: "' . $term . '". Lütfen sorunu düzelterek tekrar yorum yapın.',
+            'duplicate_comment' => 'Aynı yorumu kısa süre içinde tekrar gönderdiniz. Lütfen biraz bekleyip farklı bir yorum yazın.',
+            'uppercase' => 'Yorumunuz büyük harf kullanımından dolayı spam filtresine takıldı. Lütfen tamamı büyük harf yazmadan tekrar deneyin.',
+            'too_few_alnum' => 'Yorumunuz yeterli harf veya rakam içermiyor. Lütfen daha açıklayıcı bir yorum yazıp tekrar deneyin.',
+            default => 'Yorumunuz spam filtresine takıldı. Lütfen sorunu düzelterek tekrar yorum yapın.',
+        };
+    }
+}
+
+if (!function_exists('commentSpamAddReason')) {
+    function commentSpamAddReason(array $result, array $reason): array
+    {
+        $code = trim((string) ($reason['code'] ?? ''));
+        if ($code === '') {
+            return $result;
+        }
+
+        $reasons = array_values((array) ($result['reasons'] ?? []));
+        $reasons[] = $reason;
+        $primaryReason = commentSpamPrimaryReason($reasons);
+        $reasonCodes = array_values(array_unique(array_map(
+            static fn (array $item): string => (string) ($item['code'] ?? ''),
+            $reasons
+        )));
+        $reasonCodes = array_values(array_filter($reasonCodes, static fn (string $itemCode): bool => $itemCode !== ''));
+
+        $result['is_spam'] = $reasons !== [];
+        $result['reasons'] = $reasons;
+        $result['reason_codes'] = $reasonCodes;
+        $result['primary_reason'] = $primaryReason['code'] ?? null;
+        $result['matched_term'] = $primaryReason['matched_term'] ?? null;
+        $result['message'] = $primaryReason !== [] ? commentSpamUserMessage($primaryReason, false) : '';
+
+        return $result;
     }
 }
 
@@ -614,126 +721,89 @@ if (!function_exists('commentSpamIsUserExempt')) {
     }
 }
 
-if (!function_exists('commentSpamHasRecentDuplicateComment')) {
-    function commentSpamHasRecentDuplicateComment(PDO $pdo, int $userId, string $normalizedBody, int $windowMinutes): bool
-    {
-        if ($userId <= 0 || $windowMinutes <= 0 || $normalizedBody === '') {
-            return false;
-        }
-
-        try {
-            $stmt = $pdo->prepare(
-                'SELECT body
-                 FROM comments
-                 WHERE user_id = ?
-                   AND deleted_at IS NULL
-                   AND created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)
-                 ORDER BY created_at DESC
-                 LIMIT 50'
-            );
-            $stmt->execute([$userId, $windowMinutes]);
-
-            foreach (($stmt->fetchAll(PDO::FETCH_COLUMN) ?: []) as $body) {
-                if (commentSpamNormalizeComparableBody((string) $body) === $normalizedBody) {
-                    return true;
-                }
-            }
-        } catch (Throwable $e) {
-            return false;
-        }
-
-        return false;
-    }
-}
-
 if (!function_exists('commentSpamEvaluate')) {
     function commentSpamEvaluate(
         string $body,
-        array $settings,
-        ?PDO $pdo = null,
-        int $userId = 0,
-        ?string $guestDuplicateKey = null
+        array $settings
     ): array {
         $reasons = [];
+        $normalizedBody = commentSpamNormalizeComparableBody($body);
         if ((string) ($settings['comment_spam_detection'] ?? '1') !== '1') {
             return [
                 'is_spam' => false,
                 'reasons' => [],
-                'normalized_body' => commentSpamNormalizeComparableBody($body),
+                'reason_codes' => [],
+                'primary_reason' => null,
+                'matched_term' => null,
+                'message' => '',
+                'normalized_body' => $normalizedBody,
+                'meaningful_chars' => commentSpamMeaningfulCharacterCount($body),
             ];
         }
 
-        $normalizedBody = commentSpamNormalizeComparableBody($body);
         $meaningfulChars = commentSpamMeaningfulCharacterCount($body);
 
-        $minMeaningfulChars = max(0, (int) ($settings['comment_spam_min_meaningful_chars'] ?? 2));
-        if ($minMeaningfulChars > 0 && $meaningfulChars < $minMeaningfulChars) {
-            $reasons[] = 'too_few_meaningful_chars';
+        $containsTerms = commentSpamParseTerms((string) ($settings['comment_spam_contains_terms'] ?? ''));
+        $containsMatch = commentSpamFindContainedTerm($body, $containsTerms);
+        if ($containsMatch !== null) {
+            $reasons[] = [
+                'code' => 'contains_term',
+                'matched_term' => $containsMatch,
+            ];
         }
 
-        if ((string) ($settings['comment_spam_punctuation_only_enabled'] ?? '1') === '1'
-            && $body !== ''
-            && $meaningfulChars === 0
+        $exactTerms = commentSpamParseTerms((string) ($settings['comment_spam_exact_terms'] ?? ''));
+        $exactMatch = commentSpamFindExactTerm($body, $exactTerms);
+        if ($exactMatch !== null) {
+            $reasons[] = [
+                'code' => 'exact_term',
+                'matched_term' => $exactMatch,
+            ];
+        }
+
+        if ((string) ($settings['comment_spam_nonsense_words_enabled'] ?? '1') === '1') {
+            $nonsenseMatch = commentSpamFindNonsenseToken($body);
+            if ($nonsenseMatch !== null) {
+                $reasons[] = [
+                    'code' => 'nonsense_word',
+                    'matched_term' => $nonsenseMatch,
+                ];
+            }
+        }
+
+        $minAlnumCount = max(0, (int) ($settings['comment_spam_min_alnum_count'] ?? 2));
+        if ($minAlnumCount > 0 && $meaningfulChars < $minAlnumCount) {
+            $reasons[] = [
+                'code' => 'too_few_alnum',
+                'minimum' => $minAlnumCount,
+                'actual' => $meaningfulChars,
+            ];
+        }
+
+        if ((string) ($settings['comment_spam_block_uppercase'] ?? '0') === '1'
+            && commentSpamLooksFullyUppercase($body)
         ) {
-            $reasons[] = 'punctuation_only';
+            $reasons[] = [
+                'code' => 'uppercase',
+            ];
         }
 
-        if ((string) ($settings['comment_spam_meaningless_enabled'] ?? '1') === '1') {
-            $phrases = commentSpamParseMeaninglessPhrases((string) ($settings['comment_spam_meaningless_phrases'] ?? ''));
-            if ($phrases !== [] && commentSpamMeaninglessPhraseMatch($body, $phrases) !== null) {
-                $reasons[] = 'meaningless_phrase';
-            }
-        }
-
-        if ((string) ($settings['comment_spam_gibberish_enabled'] ?? '1') === '1') {
-            $gibberishMaxLength = max(0, (int) ($settings['comment_spam_gibberish_max_length'] ?? 12));
-            $gibberishScoreThreshold = max(1, (int) ($settings['comment_spam_gibberish_score_threshold'] ?? 3));
-            if (commentSpamLooksLikeGibberish($body, $gibberishMaxLength, $gibberishScoreThreshold)) {
-                $reasons[] = 'gibberish';
-            }
-        }
-
-        if ((string) ($settings['comment_spam_repeated_chars_enabled'] ?? '1') === '1') {
-            $repeatLimit = (int) ($settings['comment_spam_repeated_chars_limit'] ?? 5);
-            if (commentSpamHasRepeatedCharacters($body, $repeatLimit)) {
-                $reasons[] = 'repeated_chars';
-            }
-        }
-
-        if ((string) ($settings['comment_spam_caps_enabled'] ?? '1') === '1') {
-            $capsStats = commentSpamCapsStats($body);
-            $capsMinLetters = max(0, (int) ($settings['comment_spam_caps_min_letters'] ?? 10));
-            $capsPercent = max(1, min(100, (int) ($settings['comment_spam_caps_percent'] ?? 70)));
-            if ((int) ($capsStats['letters'] ?? 0) >= $capsMinLetters
-                && (float) ($capsStats['ratio'] ?? 0.0) > ($capsPercent / 100)
-            ) {
-                $reasons[] = 'caps';
-            }
-        }
-
-        $maxLinks = (int) ($settings['comment_spam_max_links'] ?? 3);
-        if ($maxLinks >= 0 && commentSpamCountLinks($body) > $maxLinks) {
-            $reasons[] = 'too_many_links';
-        }
-
-        $duplicateWindowMinutes = max(0, (int) ($settings['comment_spam_duplicate_window_minutes'] ?? 5));
-        if ($duplicateWindowMinutes > 0) {
-            if ($userId > 0 && $pdo instanceof PDO) {
-                if (commentSpamHasRecentDuplicateComment($pdo, $userId, $normalizedBody, $duplicateWindowMinutes)) {
-                    $reasons[] = 'duplicate_comment';
-                }
-            } else {
-                $guestDuplicateKey = $guestDuplicateKey ?? commentSpamGuestDuplicateKey($body);
-                if ($guestDuplicateKey !== '' && function_exists('checkRateLimit') && !checkRateLimit($guestDuplicateKey, 1, $duplicateWindowMinutes)) {
-                    $reasons[] = 'duplicate_comment';
-                }
-            }
-        }
+        $primaryReason = commentSpamPrimaryReason($reasons);
+        $reasonCodes = array_values(array_unique(array_map(
+            static fn (array $reason): string => (string) ($reason['code'] ?? ''),
+            $reasons
+        )));
+        $reasonCodes = array_values(array_filter($reasonCodes, static fn (string $code): bool => $code !== ''));
 
         return [
             'is_spam' => $reasons !== [],
-            'reasons' => array_values(array_unique($reasons)),
+            'reasons' => array_values($reasons),
+            'reason_codes' => $reasonCodes,
+            'primary_reason' => $primaryReason['code'] ?? null,
+            'matched_term' => $primaryReason['matched_term'] ?? null,
+            'message' => $primaryReason !== [] ? commentSpamUserMessage($primaryReason, false) : '',
             'normalized_body' => $normalizedBody,
+            'meaningful_chars' => $meaningfulChars,
         ];
     }
 }

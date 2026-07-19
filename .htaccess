@@ -51,7 +51,7 @@ Options -Indexes
 </IfModule>
 
 # ============================================================================
-# PERFORMANCE: HTTP Compression (Brotli + Gzip fallback)
+# PERFORMANCE: HTTP Compression (Brotli + Gzip)
 # ============================================================================
 <IfModule mod_filter.c>
     <IfModule mod_brotli.c>
@@ -79,14 +79,10 @@ Options -Indexes
     RewriteRule \.(woff2?|ttf|eot|otf)$ - [L]
 
     # Route non-existent files/dirs to the front controller.
-    # This replaces FallbackResource and works with relative paths.
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule . route.php [L]
 </IfModule>
-
-# Fallback for servers without mod_rewrite (uncomment and set absolute path):
-# FallbackResource route.php
 
 # Font MIME Types
 <IfModule mod_mime.c>

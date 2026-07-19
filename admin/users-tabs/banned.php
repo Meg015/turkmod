@@ -4,9 +4,8 @@
  */
 ?>
 
-<div class="admin-card ui-admin-mb-md ui-panel">
-    <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
-        <form method="get" action="users.php" class="ui-admin-filter-row">
+<?= adminRenderFilterToolbarOpen('', 'ui-admin-mb-md') ?>
+        <form method="get" action="users.php" class="ui-admin-filter-row admin-filter-form">
             <input type="hidden" name="tab" value="moderation">
             <input type="hidden" name="moderation" value="banned">
             <div class="ui-admin-filter-grow">
@@ -18,32 +17,28 @@
                 <a href="users.php?tab=moderation&amp;moderation=banned" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
             <?php endif; ?>
         </form>
-    </div>
-</div>
+<?= adminRenderFilterToolbarClose() ?>
 
 <?php if (empty($bannedUsers)): ?>
-    <div class="admin-card ui-panel">
-        <div class="card-body ui-admin-empty ui-panel__body ui-empty">
-            <div class="ui-admin-empty-icon tone-success ui-empty"><i class="bi bi-emoji-smile"></i></div>
-            <h3 class="ui-admin-empty-title ui-empty">Banlı kullanıcı bulunmuyor</h3>
-            <p class="ui-admin-empty-desc ui-empty">Aktif ban kaydı yok. Yeni bir işlem oluştuğunda bu liste güncellenir.</p>
-        </div>
-    </div>
+    <?= adminRenderPanel(adminRenderEmptyState([
+                'icon' => 'bi-emoji-smile',
+                'tone' => 'success',
+                'title' => 'Banlı kullanıcı bulunmuyor',
+                'description' => 'Aktif ban kaydı yok. Yeni bir işlem oluştuğunda bu liste güncellenir.',
+            ]), ['tag' => 'div']) ?>
 <?php else: ?>
-    <div class="admin-card ui-panel">
-        <div class="ui-admin-table-responsive">
-            <table class="ui-admin-table">
-                <thead>
-                    <tr>
-                        <th class="ui-admin-table-head-id">#</th>
-                        <th>Kullanıcı</th>
-                        <th>Grup</th>
-                        <th>Ban Sebebi</th>
-                        <th>Ban Tarihi</th>
-                        <th class="ui-admin-table-actions">İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
+    <?= adminRenderPanelOpen(['tag' => 'div', 'body_class' => 'ui-admin-card-body-flush']) ?>
+            <?= adminRenderTableOpen([
+                ['label' => '#', 'class' => 'ui-admin-table-head-id'],
+                'Kullanıcı',
+                'Grup',
+                'Ban Sebebi',
+                'Ban Tarihi',
+                ['label' => 'İşlemler', 'class' => 'ui-admin-table-actions'],
+            ], [
+                'wrap_class' => 'ui-admin-table-responsive',
+                'label' => 'Banlı kullanıcılar',
+            ]) ?>
                     <?php foreach ($bannedUsers as $user):
                         $userId = (int) $user['id'];
                         $displayUsername = (string) ($user['username'] ?? '');
@@ -102,15 +97,13 @@
                                 >
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-success" data-user-unban="<?= $userId ?>" title="Ban Kaldır">
+                                <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-success" data-user-unban="<?= $userId ?>" data-user-name="<?= htmlspecialchars($displayUsername, ENT_QUOTES, 'UTF-8') ?>" title="Ban Kaldır">
                                     <i class="bi bi-check-circle"></i>
                                 </button>
                             </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
+            <?= adminRenderTableClose() ?>
+    <?= adminRenderPanelClose('div') ?>
 <?php endif; ?>

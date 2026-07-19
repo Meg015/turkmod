@@ -371,9 +371,11 @@ require_once $leaderboardProjectRoot . '/includes/public-header.php';
                             <p><?= htmlspecialchars($categories[$category]['desc']) ?></p>
                         </div>
                         <?php if ($isCached): ?>
-                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert--info ui-admin-alert-spaced" role="status">
-                                <i class="bi bi-lightning-charge"></i> Önbellekten hızlı yüklendi
-                            </div>
+                            <?= uiRenderAlert('Önbellekten hızlı yüklendi', 'info', [
+                                'icon' => 'bi-lightning-charge',
+                                'class' => 'ui-admin-alert-spaced',
+                                'role' => 'status',
+                            ]) ?>
                         <?php endif; ?>
                     </div>
 

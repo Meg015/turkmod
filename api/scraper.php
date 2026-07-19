@@ -13,37 +13,19 @@ require_once __DIR__ . '/../admin/init.php';
 require_once __DIR__ . '/../includes/src/Engine/Scraper/Support/helpers.php';
 require_once __DIR__ . '/../includes/src/Engine/Scraper/Support/ScraperEngine.php';
 
-header('Content-Type: application/json; charset=utf-8');
 
-/**
- * Standart API zarfini olusturur (success + message + error + code + diger alanlar).
- * Eski cagri yerleri `echo scraperJson([...])` biciminde kullanmaya devam eder; boylece
- * mevcut frontend bekleyisine uyumluluk korunurken API kontratı tutarlılastirilmış olur.
- *
- * Not: HTTP durum kodu cagrı yerinde `http_response_code()` ile ayarlanmalıdır.
- */
-function scraperJson(array $payload): string
+function scraperApiRespond(array $payload, ?int $statusCode = null): void
 {
-    $payload['success'] = (bool) ($payload['success'] ?? false);
-    if (!isset($payload['message'])) {
-        $payload['message'] = $payload['success']
-            ? 'OK'
-            : (string) ($payload['error'] ?? 'İşlem başarısız.');
-    }
-    if (!$payload['success'] && !isset($payload['error'])) {
-        $payload['error'] = 'scraper_error';
-    }
-    if (!$payload['success'] && !isset($payload['code'])) {
-        $payload['code'] = $payload['error'];
+    $statusCode ??= http_response_code();
+    if ($statusCode < 100) {
+        $statusCode = 200;
     }
 
-    $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-    if ($json === false) {
-        return '{"success":false,"error":"JSON cevabı oluşturulamadı: '
-            . addslashes(json_last_error_msg()) . '","message":"JSON hatası."}';
-    }
+    $success = (bool) ($payload['success'] ?? ($statusCode >= 200 && $statusCode < 400));
+    $message = (string) ($payload['message'] ?? ($payload['error'] ?? ($success ? 'OK' : 'İşlem tamamlanamadı.')));
+    $errorCode = $success ? null : (string) ($payload['code'] ?? 'scraper_error');
 
-return $json;
+    sendJsonResponse($statusCode, $success, $message, $payload, $errorCode);
 }
 
 function scraperCacheDirectory(string $bucket): string
@@ -158,12 +140,71 @@ function scraperResolveMappingSiteByUrl(PDO $pdo, string $categoryUrl): ?array
     return is_array($mapping) ? $mapping : null;
 }
 
+function scraperResolveMappingTitlePrefix(PDO $pdo, int $mappingId, int $siteId = 0): string
+{
+    if ($mappingId <= 0) {
+        return '';
+    }
+
+    try {
+        $sql = 'SELECT title_prefix FROM bot_category_mappings WHERE id = ?';
+        $params = [$mappingId];
+        if ($siteId > 0) {
+            $sql .= ' AND bot_site_id = ?';
+            $params[] = $siteId;
+        }
+        $sql .= ' LIMIT 1';
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return trim((string)($stmt->fetchColumn() ?: ''));
+    } catch (Throwable $e) {
+        throw new RuntimeException('Scraper mapping title prefix lookup failed.', 0, $e);
+    }
+}
+
+function scraperApplyTitlePrefix(string $title, string $prefix): string
+{
+    $title = trim($title);
+    $prefix = trim($prefix);
+    if ($title === '' || $prefix === '') {
+        return $title;
+    }
+
+    $titleStart = function_exists('mb_substr') ? mb_substr($title, 0, mb_strlen($prefix, 'UTF-8'), 'UTF-8') : substr($title, 0, strlen($prefix));
+    $normalizedTitleStart = function_exists('mb_strtolower') ? mb_strtolower($titleStart, 'UTF-8') : strtolower($titleStart);
+    $normalizedPrefix = function_exists('mb_strtolower') ? mb_strtolower($prefix, 'UTF-8') : strtolower($prefix);
+    if ($normalizedTitleStart === $normalizedPrefix) {
+        return $title;
+    }
+
+    return trim($prefix . ' ' . $title);
+}
+
+function scraperApplyTitlePrefixToResult(array $result, string $prefix): array
+{
+    $prefix = trim($prefix);
+    if ($prefix === '') {
+        return $result;
+    }
+
+    $result['title'] = scraperApplyTitlePrefix((string)($result['title'] ?? ''), $prefix);
+    if (trim((string)($result['translated_title'] ?? '')) !== '') {
+        $result['translated_title'] = scraperApplyTitlePrefix((string)$result['translated_title'], $prefix);
+    }
+    if (isset($result['site_defaults']) && is_array($result['site_defaults'])) {
+        $result['site_defaults']['title_prefix'] = $prefix;
+    }
+
+    return $result;
+}
+
 
 $pdo = requireDatabaseConnection($pdo ?? null);
 
 if (!$pdo) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Veritabanı bağlantısı yok.']);
+    scraperApiRespond(['success' => false, 'error' => 'Veritabanı bağlantısı yok.']);
     exit;
 }
 
@@ -184,7 +225,7 @@ if ($userId > 0 && scraperShouldRateLimitAction((string)$action, $isPrivilegedSc
 
     if ($count > 20) { // 20 işlem/saat
         http_response_code(429);
-        echo json_encode(['success' => false, 'error' => 'Çok fazla istek. Lütfen daha sonra tekrar deneyin.']);
+        scraperApiRespond(['success' => false, 'error' => 'Çok fazla istek. Lütfen daha sonra tekrar deneyin.']);
         exit;
     }
 
@@ -202,7 +243,7 @@ $allowedActions = [
 
 if (!in_array($action, $allowedActions, true)) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Geçersiz action.']);
+    scraperApiRespond(['success' => false, 'error' => 'Geçersiz action.']);
     exit;
 }
 
@@ -213,13 +254,13 @@ $isWriteAction = !in_array($action, $readActions, true);
 if ($isWriteAction) {
     if (!userHasPermission($pdo, $userId, 'scraper.manage')) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Bu işlem için bot yönetici izni (scraper.manage) gereklidir.']);
+        scraperApiRespond(['success' => false, 'error' => 'Bu işlem için bot yönetici izni (scraper.manage) gereklidir.']);
         exit;
     }
 } else {
     if (!userHasPermission($pdo, $userId, 'scraper.view')) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Bu işlem için bot görüntüleme izni (scraper.view) gereklidir.']);
+        scraperApiRespond(['success' => false, 'error' => 'Bu işlem için bot görüntüleme izni (scraper.view) gereklidir.']);
         exit;
     }
 }
@@ -234,11 +275,11 @@ $postOnlyActions = [
 
 if (in_array($action, $postOnlyActions, true) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     http_response_code(405);
-    echo json_encode(['success' => false, 'error' => 'Bu işlem sadece POST isteğiyle yapılabilir.']);
+    scraperApiRespond(['success' => false, 'error' => 'Bu işlem sadece POST isteğiyle yapılabilir.']);
     exit;
 }
 
-$schemaSkipActions = ['discover_urls', 'preview_url', 'test_connection'];
+$schemaSkipActions = ['discover_urls', 'test_connection'];
 
 function scraperImportDataFromResult(int $siteId, string $url, array $result, ?int $jobId = null, string $status = 'preview'): array
 {
@@ -298,7 +339,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['_token'] ?? ($_POST['csrf_token'] ?? ''));
     if (!verify_csrf_token((string) $csrfToken)) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Geçersiz güvenlik tokeni.']);
+        scraperApiRespond(['success' => false, 'error' => 'Geçersiz güvenlik tokeni.']);
         exit;
     }
 }
@@ -314,13 +355,13 @@ try {
         case 'save_site':
             $id = (int)($_POST['site_id'] ?? 0) ?: null;
             $siteId = saveScraperSite($pdo, $_POST, $id);
-            echo json_encode(['success' => true, 'site_id' => $siteId, 'message' => $id ? 'Site güncellendi.' : 'Site eklendi.']);
+            scraperApiRespond(['success' => true, 'site_id' => $siteId, 'message' => $id ? 'Site güncellendi.' : 'Site eklendi.']);
             break;
 
         case 'delete_site':
             $id = (int)($_POST['id'] ?? 0);
             deleteScraperSite($pdo, $id);
-            echo json_encode(['success' => true, 'message' => 'Site silindi.']);
+            scraperApiRespond(['success' => true, 'message' => 'Site silindi.']);
             break;
 
         case 'get_site':
@@ -330,7 +371,7 @@ try {
                 $site['selectors'] = json_decode($site['selectors'] ?? '{}', true) ?: [];
                 $site['settings'] = json_decode($site['settings'] ?? '{}', true) ?: [];
             }
-            echo json_encode(['success' => (bool)$site, 'site' => $site]);
+            scraperApiRespond(['success' => (bool)$site, 'site' => $site]);
             break;
 
         // --- Category Mapping CRUD ---
@@ -342,7 +383,7 @@ try {
             }
             $id = (int)($data['mapping_id'] ?? 0) ?: null;
             $mappingId = saveScraperMapping($pdo, $data, $id);
-            echo json_encode(['success' => true, 'mapping_id' => $mappingId, 'message' => 'Eşleme kaydedildi.']);
+            scraperApiRespond(['success' => true, 'mapping_id' => $mappingId, 'message' => 'Eşleme kaydedildi.']);
             break;
 
         case 'get_mapping':
@@ -350,13 +391,13 @@ try {
             $stmt = $pdo->prepare("SELECT * FROM bot_category_mappings WHERE id = ?");
             $stmt->execute([$id]);
             $mapping = $stmt->fetch();
-            echo json_encode(['success' => (bool)$mapping, 'mapping' => $mapping]);
+            scraperApiRespond(['success' => (bool)$mapping, 'mapping' => $mapping]);
             break;
 
         case 'delete_mapping':
             $id = (int)($_POST['id'] ?? 0);
             deleteScraperMapping($pdo, $id);
-            echo json_encode(['success' => true, 'message' => 'Eşleme silindi.']);
+            scraperApiRespond(['success' => true, 'message' => 'Eşleme silindi.']);
             break;
 
         // -- Scrape Operations ---------------------------------
@@ -374,7 +415,7 @@ try {
                 }
             }
             if (!$siteId || !$categoryUrl) {
-                echo json_encode(['success' => false, 'error' => 'Site ve kategori URL gerekli.']);
+                scraperApiRespond(['success' => false, 'error' => 'Site ve kategori URL gerekli.']);
                 break;
             }
             // Site bulunamazsa URL üzerinden dene
@@ -387,7 +428,7 @@ try {
                 }
             }
             if (!$site) {
-                echo json_encode(['success' => false, 'error' => 'Site bulunamadı.']);
+                scraperApiRespond(['success' => false, 'error' => 'Site bulunamadı.']);
                 break;
             }
             $selectors = json_decode($site['selectors'] ?? '{}', true) ?: [];
@@ -410,7 +451,7 @@ try {
             $cachedDiscover = scraperReadJsonCache('scraper-discover', $discoverCacheKey, 900);
             if (is_array($cachedDiscover) && isset($cachedDiscover['urls'])) {
                 $cachedUrls = markScraperImportedTopics($pdo, $siteId, (array)$cachedDiscover['urls']);
-                echo json_encode([
+                scraperApiRespond([
                     'success' => true,
                     'urls' => $cachedUrls,
                     'count' => count($cachedUrls),
@@ -425,7 +466,7 @@ try {
             $engine = new ScraperEngine($discoverBotSettings);
             $html = $engine->fetchPage($categoryUrl);
             if (!$html) {
-                echo json_encode(['success' => false, 'error' => 'Sayfa indirilemedi.']);
+                scraperApiRespond(['success' => false, 'error' => 'Sayfa indirilemedi.']);
                 break;
             }
             // Kombine metot: HTML'i tek seferde parse eder - discoverTopicUrls + discoverPaginationUrl
@@ -461,7 +502,7 @@ try {
                 'cover_lookup_limit' => $coverLookupLimit,
             ]);
             $urls = markScraperImportedTopics($pdo, $siteId, $urls);
-            echo json_encode([
+            scraperApiRespond([
                 'success' => true,
                 'urls' => $urls,
                 'count' => count($urls),
@@ -474,14 +515,15 @@ try {
 
         case 'scrape_single':
             $siteId = (int)($_POST['site_id'] ?? 0);
+            $mappingId = (int)($_POST['mapping_id'] ?? 0);
             $url = trim($_POST['url'] ?? '');
             if (!$siteId || !$url) {
-                echo json_encode(['success' => false, 'error' => 'Site ve URL gerekli.']);
+                scraperApiRespond(['success' => false, 'error' => 'Site ve URL gerekli.']);
                 break;
             }
             $site = getScraperSite($pdo, $siteId);
             if (!$site) {
-                echo json_encode(['success' => false, 'error' => 'Site bulunamadı.']);
+                scraperApiRespond(['success' => false, 'error' => 'Site bulunamadı.']);
                 break;
             }
             $siteConfig = [
@@ -496,7 +538,7 @@ try {
             $duplicateImport = getScraperDuplicateImportBySource($pdo, $siteId, $url);
             $duplicate = resolveScraperDuplicateImportAction($duplicateImport, (string)($botSettings['bot_duplicate_strategy'] ?? 'skip'));
             if (!$duplicate['should_scrape']) {
-                echo json_encode([
+                scraperApiRespond([
                     'success' => true,
                     'import_id' => $duplicate['import_id'],
                     'duplicate' => true,
@@ -510,6 +552,7 @@ try {
             $result = $engine->scrapeUrl($url, $siteConfig, $botSettings);
 
             if ($result['success']) {
+                $result = scraperApplyTitlePrefixToResult($result, scraperResolveMappingTitlePrefix($pdo, $mappingId, $siteId));
                 $importUrl = $duplicate['action'] === 'draft' ? scraperDraftSourceUrl($url) : $url;
                 $importData = scraperImportDataFromResult($siteId, $importUrl, $result);
                 if ($duplicate['action'] === 'update' && !empty($duplicate['import_id'])) {
@@ -523,7 +566,7 @@ try {
                 }
                 $topicUrl = null;
                 if (($botSettings['bot_auto_publish'] ?? '0') === '1') {
-                    $publishDefaults = scraperResolvePublishDefaults($pdo, $site, null, $botSettings);
+                    $publishDefaults = scraperResolvePublishDefaults($pdo, $site, $mappingId > 0 ? $mappingId : null, $botSettings);
                     if ($publishDefaults['category_id'] > 0) {
                         $publishedSlug = publishScraperImport($pdo, $importId, (int)$publishDefaults['category_id'], (string)$publishDefaults['status']);
                         $topicUrl = $publishedSlug ? topicUrlBySlug($pdo, $publishedSlug) : null;
@@ -549,22 +592,23 @@ try {
                     'translation_errors' => $result['translation_errors'] ?? [],
                     'site_defaults' => $result['site_defaults'] ?? [],
                 ];
-                echo json_encode(['success' => true, 'import_id' => $importId, 'duplicate' => $duplicate['action'] !== 'create', 'warning' => $duplicate['warning'], 'topic_url' => $topicUrl, 'translation_errors' => $scrapeData['translation_errors'], 'data' => $scrapeData]);
+                scraperApiRespond(['success' => true, 'import_id' => $importId, 'duplicate' => $duplicate['action'] !== 'create', 'warning' => $duplicate['warning'], 'topic_url' => $topicUrl, 'translation_errors' => $scrapeData['translation_errors'], 'data' => $scrapeData]);
             } else {
-                echo json_encode(['success' => false, 'error' => $result['error']]);
+                scraperApiRespond(['success' => false, 'error' => $result['error']]);
             }
             break;
 
         case 'preview_url':
             $siteId = (int)($_POST['site_id'] ?? 0);
+            $mappingId = (int)($_POST['mapping_id'] ?? 0);
             $url = trim($_POST['url'] ?? '');
             if (!$siteId || !$url) {
-                echo json_encode(['success' => false, 'error' => 'Site ve URL gerekli.']);
+                scraperApiRespond(['success' => false, 'error' => 'Site ve URL gerekli.']);
                 break;
             }
             $site = getScraperSite($pdo, $siteId);
             if (!$site) {
-                echo json_encode(['success' => false, 'error' => 'Site bulunamadı.']);
+                scraperApiRespond(['success' => false, 'error' => 'Site bulunamadı.']);
                 break;
             }
             
@@ -583,6 +627,7 @@ try {
             $duplicate = resolveScraperDuplicateImportAction($duplicateImport, (string)($botSettings['bot_duplicate_strategy'] ?? 'skip'));
 
             if ($result['success']) {
+                $result = scraperApplyTitlePrefixToResult($result, scraperResolveMappingTitlePrefix($pdo, $mappingId, $siteId));
                 // Frontend'in beklediği alan adlarıyla eşleştir
                 $previewData = [
                     'site_id' => $siteId,
@@ -605,9 +650,9 @@ try {
                     'translation_errors' => $result['translation_errors'] ?? [],
                     'site_defaults' => $result['site_defaults'] ?? [],
                 ];
-                echo scraperJson(['success' => true, 'duplicate' => $duplicate['action'] !== 'create', 'warning' => $duplicate['warning'], 'translation_errors' => $previewData['translation_errors'], 'data' => $previewData]);
+                scraperApiRespond(['success' => true, 'duplicate' => $duplicate['action'] !== 'create', 'warning' => $duplicate['warning'], 'translation_errors' => $previewData['translation_errors'], 'data' => $previewData]);
             } else {
-                echo scraperJson(['success' => false, 'error' => $result['error'] ?: 'Onizleme alinamadi.']);
+                scraperApiRespond(['success' => false, 'error' => $result['error'] ?: 'Onizleme alinamadi.']);
             }
             break;
 
@@ -616,12 +661,12 @@ try {
             $mappingId = (int)($_POST['mapping_id'] ?? 0) ?: null;
             $urls = json_decode($_POST['urls'] ?? '[]', true) ?: [];
             if (!$siteId || empty($urls)) {
-                echo json_encode(['success' => false, 'error' => 'Site ve URL listesi gerekli.']);
+                scraperApiRespond(['success' => false, 'error' => 'Site ve URL listesi gerekli.']);
                 break;
             }
             $site = getScraperSite($pdo, $siteId);
             if (!$site) {
-                echo json_encode(['success' => false, 'error' => 'Site bulunamadı.']);
+                scraperApiRespond(['success' => false, 'error' => 'Site bulunamadı.']);
                 break;
             }
             $botSettings = getScraperBotSettings($pdo);
@@ -677,6 +722,7 @@ try {
 
                 $result = $engine->scrapeUrl($url, $siteConfig, $botSettings);
                 if ($result['success']) {
+                    $result = scraperApplyTitlePrefixToResult($result, scraperResolveMappingTitlePrefix($pdo, (int)($mappingId ?? 0), $siteId));
                     $importUrl = $duplicate['action'] === 'draft' ? scraperDraftSourceUrl($url) : $url;
                     $importData = scraperImportDataFromResult($siteId, $importUrl, $result, $jobId);
                     if ($duplicate['action'] === 'update' && !empty($duplicate['import_id'])) {
@@ -707,7 +753,7 @@ try {
                 ]);
             }
             updateScraperJob($pdo, $jobId, ['status' => 'completed']);
-            echo json_encode(['success' => true, 'job_id' => $jobId, 'processed' => $processed, 'failed' => $failed, 'imported' => $imported, 'skipped' => $skipped, 'warnings' => $warnings]);
+            scraperApiRespond(['success' => true, 'job_id' => $jobId, 'processed' => $processed, 'failed' => $failed, 'imported' => $imported, 'skipped' => $skipped, 'warnings' => $warnings]);
             break;
 
         // -- Import Operations ---------------------------------
@@ -726,7 +772,7 @@ try {
                 }
             }
             if (!$importId || !$categoryId) {
-                echo json_encode(['success' => false, 'error' => 'Import ID ve kategori gerekli.']);
+                scraperApiRespond(['success' => false, 'error' => 'Import ID ve kategori gerekli.']);
                 break;
             }
             
@@ -757,9 +803,9 @@ try {
 
             $slug = publishScraperImport($pdo, $importId, $categoryId, $status);
             if ($slug) {
-                echo json_encode(['success' => true, 'message' => 'İçerik yayınlandı.', 'topic_url' => topicUrlBySlug($pdo, $slug)]);
+                scraperApiRespond(['success' => true, 'message' => 'İçerik yayınlandı.', 'topic_url' => topicUrlBySlug($pdo, $slug)]);
             } else {
-                echo json_encode(['success' => false, 'error' => 'Yayınlama başarısız.']);
+                scraperApiRespond(['success' => false, 'error' => 'Yayınlama başarısız.']);
             }
             break;
 
@@ -768,12 +814,12 @@ try {
             $status = in_array($_POST['publish_status'] ?? '', ['published', 'draft']) ? $_POST['publish_status'] : 'draft';
             $dataStr = $_POST['data'] ?? '';
             if (!$dataStr) {
-                echo json_encode(['success' => false, 'error' => 'Veri gerekli.']);
+                scraperApiRespond(['success' => false, 'error' => 'Veri gerekli.']);
                 break;
             }
             $data = is_string($dataStr) ? json_decode($dataStr, true) : $dataStr;
             if (!$data || !isset($data['site_id'])) {
-                echo json_encode(['success' => false, 'error' => 'Geçersiz veri formatı.']);
+                scraperApiRespond(['success' => false, 'error' => 'Geçersiz veri formatı.']);
                 break;
             }
 
@@ -790,7 +836,7 @@ try {
                 }
             }
             if (!$categoryId) {
-                echo json_encode(['success' => false, 'error' => 'Kategori gerekli.']);
+                scraperApiRespond(['success' => false, 'error' => 'Kategori gerekli.']);
                 break;
             }
 
@@ -829,19 +875,19 @@ try {
             if ($importId) {
                 $slug = publishScraperImport($pdo, $importId, $categoryId, $status);
                 if ($slug) {
-                    echo json_encode(['success' => true, 'message' => 'İçerik yayınlandı.', 'topic_url' => topicUrlBySlug($pdo, $slug)]);
+                    scraperApiRespond(['success' => true, 'message' => 'İçerik yayınlandı.', 'topic_url' => topicUrlBySlug($pdo, $slug)]);
                 } else {
-                    echo json_encode(['success' => false, 'error' => 'Yayınlama başarısız.']);
+                    scraperApiRespond(['success' => false, 'error' => 'Yayınlama başarısız.']);
                 }
             } else {
-                echo json_encode(['success' => false, 'error' => 'İçerik veritabanına kaydedilemedi.']);
+                scraperApiRespond(['success' => false, 'error' => 'İçerik veritabanına kaydedilemedi.']);
             }
             break;
 
         case 'delete_import':
             $id = (int)($_POST['id'] ?? 0);
             deleteScraperImport($pdo, $id);
-            echo json_encode(['success' => true, 'message' => 'İçerik silindi.']);
+            scraperApiRespond(['success' => true, 'message' => 'İçerik silindi.']);
             break;
 
         case 'get_import':
@@ -850,32 +896,32 @@ try {
             if ($import) {
                 $import['site_defaults'] = getScraperImportSiteDefaults($pdo, $import);
             }
-            echo json_encode(['success' => (bool)$import, 'import' => $import]);
+            scraperApiRespond(['success' => (bool)$import, 'import' => $import]);
             break;
 
         // -- Bot Settings --------------------------------------
         case 'save_bot_settings':
             saveScraperBotSettings($pdo, $_POST);
-            echo json_encode(['success' => true, 'message' => 'Bot ayarları kaydedildi.']);
+            scraperApiRespond(['success' => true, 'message' => 'Bot ayarları kaydedildi.']);
             break;
 
         // -- Stats ---------------------------------------------
         case 'get_stats':
             $stats = getScraperStats($pdo);
-            echo json_encode(['success' => true, 'stats' => $stats]);
+            scraperApiRespond(['success' => true, 'stats' => $stats]);
             break;
 
         // -- Test Connection -----------------------------------
         case 'test_connection':
             $url = trim($_POST['url'] ?? '');
             if (!$url) {
-                echo json_encode(['success' => false, 'error' => 'URL gerekli.']);
+                scraperApiRespond(['success' => false, 'error' => 'URL gerekli.']);
                 break;
             }
             $botSettings = getScraperBotSettings($pdo);
             $engine = new ScraperEngine($botSettings);
             $html = $engine->fetchPage($url);
-            echo json_encode([
+            scraperApiRespond([
                 'success' => (bool)$html,
                 'length' => $html ? strlen($html) : 0,
                 'message' => $html ? 'Bağlantı başarılı (' . strlen($html) . ' byte)' : 'Bağlantı kurulamadı.',
@@ -884,11 +930,11 @@ try {
 
         default:
             http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Geçersiz işlem: ' . $action]);
+            scraperApiRespond(['success' => false, 'error' => 'Geçersiz işlem: ' . $action]);
     }
 } catch (Throwable $e) {
     appLogException($e, ['source' => 'api/scraper.php']);
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Sunucu hatası.']);
+    scraperApiRespond(['success' => false, 'error' => 'Sunucu hatası.']);
 }
 

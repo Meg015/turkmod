@@ -75,8 +75,9 @@ try {
     ];
 
     if ($deletedRows > 0 && function_exists('appLog')) {
-        appLog($pdo, 'info', 'maintenance', 'rate_limit_cleanup', [
+        appLog($pdo, 'info', 'cron', 'rate_limit_cleanup', [
             'action' => 'cron_cleanup',
+            'status' => 'success',
             'deleted' => $deletedRows,
             'job_key' => 'rate_limits_cleanup',
         ]);

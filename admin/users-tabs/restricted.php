@@ -4,9 +4,8 @@
  */
 ?>
 
-<div class="admin-card ui-admin-mb-md ui-panel">
-    <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
-        <form method="get" action="users.php" class="ui-admin-filter-row">
+<?= adminRenderFilterToolbarOpen('', 'ui-admin-mb-md') ?>
+        <form method="get" action="users.php" class="ui-admin-filter-row admin-filter-form">
             <input type="hidden" name="tab" value="moderation">
             <input type="hidden" name="moderation" value="restricted">
             <div class="ui-admin-filter-grow">
@@ -18,32 +17,28 @@
                 <a href="users.php?tab=moderation&amp;moderation=restricted" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
             <?php endif; ?>
         </form>
-    </div>
-</div>
+<?= adminRenderFilterToolbarClose() ?>
 
 <?php if (empty($restrictedUsers)): ?>
-    <div class="admin-card ui-panel">
-        <div class="card-body ui-admin-empty ui-panel__body ui-empty">
-            <div class="ui-admin-empty-icon tone-success ui-empty"><i class="bi bi-shield-check"></i></div>
-            <h3 class="ui-admin-empty-title ui-empty">Kısıtlı kullanıcı bulunmuyor</h3>
-            <p class="ui-admin-empty-desc ui-empty">Aktif kısıtlama kaydı yok. Yeni bir kısıtlama eklendiğinde burada listelenir.</p>
-        </div>
-    </div>
+    <?= adminRenderPanel(adminRenderEmptyState([
+                'icon' => 'bi-shield-check',
+                'tone' => 'success',
+                'title' => 'Kısıtlı kullanıcı bulunmuyor',
+                'description' => 'Aktif kısıtlama kaydı yok. Yeni bir kısıtlama eklendiğinde burada listelenir.',
+            ]), ['tag' => 'div']) ?>
 <?php else: ?>
-    <div class="admin-card ui-panel">
-        <div class="ui-admin-table-responsive">
-            <table class="ui-admin-table">
-                <thead>
-                    <tr>
-                        <th class="ui-admin-table-head-id">#</th>
-                        <th>Kullanıcı</th>
-                        <th>Grup</th>
-                        <th>Kısıtlamalar</th>
-                        <th>Toplam</th>
-                        <th class="ui-admin-table-actions">İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
+    <?= adminRenderPanelOpen(['tag' => 'div', 'body_class' => 'ui-admin-card-body-flush']) ?>
+            <?= adminRenderTableOpen([
+                ['label' => '#', 'class' => 'ui-admin-table-head-id'],
+                'Kullanıcı',
+                'Grup',
+                'Kısıtlamalar',
+                'Toplam',
+                ['label' => 'İşlemler', 'class' => 'ui-admin-table-actions'],
+            ], [
+                'wrap_class' => 'ui-admin-table-responsive',
+                'label' => 'Kısıtlı kullanıcılar',
+            ]) ?>
                     <?php foreach ($restrictedUsers as $user):
                         $userId = (int) $user['id'];
                         $displayUsername = (string) ($user['username'] ?? '');
@@ -124,7 +119,7 @@
                                 <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-warning" data-user-restrict="<?= $userId ?>" data-user-name="<?= htmlspecialchars($displayUsername, ENT_QUOTES) ?>" title="Kısıtlama Ekle">
                                     <i class="bi bi-plus-circle"></i>
                                 </button>
-                                <form method="post" class="ui-admin-inline-form" data-admin-confirm="Bu kullanıcının tüm kısıtlamalarını kaldırmak istediğinizden emin misiniz?" data-admin-confirm-title="Tüm kısıtlamalar kaldırılsın mı?" data-admin-confirm-ok="Kaldır" data-admin-confirm-tone="danger">
+                                <form method="post" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu kullanıcının tüm kısıtlamalarını kaldırmak istediğinizden emin misiniz?', 'title' => 'Tüm kısıtlamalar kaldırılsın mı?', 'ok' => 'Kaldır', 'tone' => 'danger']) ?>>
                                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                                     <input type="hidden" name="action" value="remove_all_restrictions">
                                     <input type="hidden" name="user_id" value="<?= $userId ?>">
@@ -136,8 +131,6 @@
                         </td>
                     </tr>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
+            <?= adminRenderTableClose() ?>
+    <?= adminRenderPanelClose('div') ?>
 <?php endif; ?>

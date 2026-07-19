@@ -314,18 +314,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
 ?>
 
 <main class="appeal-shell ui-section">
-    <?php if ($successMsg): ?>
-    <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success">
-        <i class="bi bi-check-circle-fill"></i>
-        <div><?= htmlspecialchars((string)$successMsg) ?></div>
-    </div>
-    <?php endif; ?>
-    <?php if ($errorMsg): ?>
-    <div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">
-        <i class="bi bi-exclamation-triangle-fill"></i>
-        <div><?= htmlspecialchars((string)$errorMsg) ?></div>
-    </div>
-    <?php endif; ?>
+    <?= uiRenderFlashAlerts($successMsg, $errorMsg) ?>
 
     <nav class="appeal-tabs" aria-label="Ban itiraz sekmeleri">
         <a href="<?= htmlspecialchars($appealOverviewUrl, ENT_QUOTES, 'UTF-8') ?>" class="<?= htmlspecialchars($appeal_overview_tab_class, ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-shield-exclamation" aria-hidden="true"></i> Ban Itirazlarim</a>
@@ -402,16 +391,10 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
         <p>Ban kararının hatalı olduğunu düşünüyorsanız, lütfen aşağıdaki formu doldurarak itirazınızı gönderiniz. Yöneticiler tarafından incelenecektir.</p>
         <?php endif; ?>
         <?php if (!$canSubmitAppeal): ?>
-            <div class="ui-admin-alert ui-admin-alert-warning ui-alert ui-alert--warning">
-                <i class="bi bi-info-circle"></i>
-                <div>Hesabinizda aktif ban veya kisitlama gorunmedigi icin itiraz formu su anda kullanilamaz.</div>
-            </div>
+            <?= uiRenderAlert('Hesabinizda aktif ban veya kisitlama gorunmedigi icin itiraz formu su anda kullanilamaz.', 'warning', ['icon' => 'bi-info-circle']) ?>
         <?php else: ?>
         <?php if ($hasActiveAppeal): ?>
-            <div class="ui-admin-alert ui-admin-alert-warning ui-alert ui-alert--warning">
-                <i class="bi bi-info-circle"></i>
-                <div>Açık veya incelenen bir itirazınız var. Yeni bir mesaj daha gönderebilirsiniz; tüm kayıtlar yönetici paneline düşer.</div>
-            </div>
+            <?= uiRenderAlert('Açık veya incelenen bir itirazınız var. Yeni bir mesaj daha gönderebilirsiniz; tüm kayıtlar yönetici paneline düşer.', 'warning', ['icon' => 'bi-info-circle']) ?>
         <?php endif; ?>
         <form method="post" action="<?= htmlspecialchars($appeal_action_url, ENT_QUOTES, 'UTF-8') ?>" class="appeal-form">
             <?= csrf_field() ?>

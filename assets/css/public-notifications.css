@@ -699,6 +699,54 @@
     line-height: var(--line-height-relaxed, 1.625);
 }
 
+.settings-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2, 0.5rem);
+    margin-top: var(--space-5, 1.25rem);
+    padding: var(--space-1, 0.25rem);
+    border: 1px solid var(--theme-border, #d8dee8);
+    border-radius: var(--radius-md, 8px);
+    background: var(--theme-surface-muted, #f8fafc);
+}
+
+.settings-tab {
+    display: inline-flex;
+    flex: 1 1 170px;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2, 0.5rem);
+    min-height: 40px;
+    padding: 0 var(--space-4, 1rem);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 6px);
+    background: transparent;
+    color: var(--theme-text-muted, #64748b);
+    cursor: pointer;
+    font-weight: var(--font-weight-bold, 700);
+}
+
+.settings-tab:hover,
+.settings-tab.is-active {
+    border-color: color-mix(in srgb, var(--brand-accent, #8b1538) 28%, var(--theme-border, #d8dee8));
+    background: var(--theme-surface, #fff);
+    color: var(--brand-accent, #8b1538);
+}
+
+.settings-groups-stack {
+    display: grid;
+    gap: var(--space-4, 1rem);
+    margin-top: var(--space-5, 1.25rem);
+}
+
+.settings-groups-stack .settings-group-panel {
+    margin-top: 0;
+}
+
+.settings-group-panel[hidden] {
+    display: none !important;
+}
+
 .settings-group-panel {
     margin-top: var(--space-5, 1.25rem);
 }
@@ -734,6 +782,10 @@
     color: var(--theme-text-muted, #64748b);
     font-size: var(--font-size-sm, 0.875rem);
     line-height: var(--line-height-relaxed, 1.625);
+}
+
+.settings-group-copy {
+    min-width: 0;
 }
 
 .settings-group-switch {
@@ -802,11 +854,44 @@
     font-size: var(--font-size-base, 1rem);
 }
 
+.setting-row-copy {
+    min-width: 0;
+}
+
 .setting-row span {
     display: block;
     margin-top: var(--space-1, 0.25rem);
     color: var(--theme-text-muted, #64748b);
     line-height: var(--line-height-relaxed, 1.625);
+}
+
+.setting-effect {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1, 0.25rem);
+    margin-top: var(--space-2, 0.5rem);
+    padding: 0;
+    color: color-mix(in srgb, var(--brand-accent, #8b1538) 72%, var(--theme-text, #111827));
+    font-size: var(--font-size-sm, 0.875rem);
+    font-weight: var(--font-weight-bold, 700);
+    line-height: 1.4;
+}
+
+.setting-effect::before {
+    content: "";
+    flex: 0 0 7px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #16a34a;
+}
+
+.setting-effect.is-disabled {
+    color: var(--theme-text-muted, #64748b);
+}
+
+.setting-effect.is-disabled::before {
+    background: #94a3b8;
 }
 
 .setting-row .setting-row-icon {

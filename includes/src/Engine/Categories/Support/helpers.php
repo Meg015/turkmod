@@ -103,7 +103,7 @@ function getPublicCategories(?PDO $pdo): array
 
 function getPublicCategoriesTree(?PDO $pdo): array
 {
-    $cacheFile = dirname(__DIR__, 4) . '/storage/cache/categories_tree.php';
+    $cacheFile = dirname(__DIR__, 5) . '/storage/cache/categories_tree.php';
     if (is_file($cacheFile) && filemtime($cacheFile) > (time() - 3600)) {
         return require $cacheFile;
     }

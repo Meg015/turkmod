@@ -1115,41 +1115,19 @@ if ($loadDatabaseSection && $pdo) {
 require_once __DIR__ . '/header.php';
 ?>
 <div class="health-page">
-    <section class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <span class="health-kicker"><i class="bi bi-clipboard2-pulse"></i> Operasyon merkezi</span>
-            <h2>Sistem Sağlığı</h2>
-            <p>Ortam, güvenlik, veritabanı, loglar, kuyruklar ve içerik sinyallerini tek ekranda izleyin.</p>
-        </div>
-        <div class="ui-admin-page-hero-actions">
-            <span class="ui-admin-badge <?= $requiredIssues > 0 ? 'ui-admin-badge-danger' : ($warningIssues > 0 ? 'ui-admin-badge-warning' : 'ui-admin-badge-success') ?>">
-                <i class="bi <?= $requiredIssues > 0 ? 'bi-exclamation-triangle-fill' : 'bi-check2-circle' ?>"></i>
-                Skor <?= $healthScore ?>/100
-            </span>
-        </div>
-    </section>
+    <?= adminRenderPageHero('bi-clipboard2-pulse', 'Operasyon merkezi', 'Sistem Sağlığı', 'Ortam, güvenlik, veritabanı, loglar, kuyruklar ve içerik sinyallerini tek ekranda izleyin.', [], [
+        'actions_html' => '<span class="ui-admin-badge ' . ($requiredIssues > 0 ? 'ui-admin-badge-danger' : ($warningIssues > 0 ? 'ui-admin-badge-warning' : 'ui-admin-badge-success')) . '"><i class="bi ' . ($requiredIssues > 0 ? 'bi-exclamation-triangle-fill' : 'bi-check2-circle') . '"></i> Skor ' . (int) $healthScore . '/100</span>',
+    ]) ?>
 
-    <div class="admin-stat-grid health-summary ui-grid">
-        <div class="admin-stat-card <?= $requiredIssues > 0 ? 'stat-danger' : 'stat-success' ?> health-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
-            <div class="stat-content"><span class="stat-label">Zorunlu Sorun</span><span class="stat-value"><?= number_format($requiredIssues, 0, ',', '.') ?></span></div>
-        </div>
-        <div class="admin-stat-card <?= $warningIssues > 0 ? 'stat-warning' : 'stat-success' ?> health-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-cone-striped"></i></div>
-            <div class="stat-content"><span class="stat-label">Uyarı</span><span class="stat-value"><?= number_format($warningIssues, 0, ',', '.') ?></span></div>
-        </div>
-        <div class="admin-stat-card <?= $operationsCount > 0 ? 'stat-warning' : 'stat-success' ?> health-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-inboxes-fill"></i></div>
-            <div class="stat-content"><span class="stat-label">Operasyon Yükü</span><span class="stat-value"><?= number_format($operationsCount, 0, ',', '.') ?></span></div>
-        </div>
-        <div class="admin-stat-card <?= $maintenanceMode === '1' ? 'stat-warning' : 'stat-success' ?> health-stat ui-card">
-            <div class="stat-icon"><i class="bi <?= $maintenanceMode === '1' ? 'bi-tools' : 'bi-check-circle-fill' ?>"></i></div>
-            <div class="stat-content"><span class="stat-label">Bakım Modu</span><span class="stat-value"><?= $maintenanceMode === '1' ? 'Açık' : 'Kapalı' ?></span></div>
-        </div>
-    </div>
+    <?= adminRenderStatCards([
+        ['tone' => $requiredIssues > 0 ? 'danger' : 'success', 'icon' => 'bi-exclamation-triangle-fill', 'label' => 'Zorunlu Sorun', 'value' => number_format($requiredIssues, 0, ',', '.'), 'class' => 'health-stat'],
+        ['tone' => $warningIssues > 0 ? 'warning' : 'success', 'icon' => 'bi-cone-striped', 'label' => 'Uyarı', 'value' => number_format($warningIssues, 0, ',', '.'), 'class' => 'health-stat'],
+        ['tone' => $operationsCount > 0 ? 'warning' : 'success', 'icon' => 'bi-inboxes-fill', 'label' => 'Operasyon Yükü', 'value' => number_format($operationsCount, 0, ',', '.'), 'class' => 'health-stat'],
+        ['tone' => $maintenanceMode === '1' ? 'warning' : 'success', 'icon' => $maintenanceMode === '1' ? 'bi-tools' : 'bi-check-circle-fill', 'label' => 'Bakım Modu', 'value' => $maintenanceMode === '1' ? 'Açık' : 'Kapalı', 'class' => 'health-stat'],
+    ], ['class' => 'health-summary', 'aria_label' => 'Sistem sağlığı özeti']) ?>
 
     <?php if ($activeTab === 'database'): ?>
-    <section class="admin-card ui-panel ui-admin-db-status-panel">
+    <?= adminRenderPanelShellOpen(['class' => 'ui-admin-db-status-panel']) ?>
         <div>
             <span class="health-kicker"><i class="bi bi-database-check"></i> Veritabanı Durumu</span>
             <h3 class="ui-admin-db-status-title">Veritabanı Optimizasyonu</h3>
@@ -1162,45 +1140,61 @@ require_once __DIR__ . '/header.php';
                 <?php endif; ?>
             </p>
         </div>
-        <form method="post" action="system-health.php?tab=database" class="ui-admin-m-0">
+        <form method="post" action="system-health.php?tab=database" class="ui-admin-m-0"<?= adminConfirmAttrs(['message' => 'Veritabanını optimize etmek istiyor musunuz? Bu işlem tablo sayısına göre biraz zaman alabilir.', 'title' => 'Veritabanı optimize edilsin mi?', 'ok' => 'Optimize Et', 'tone' => 'warning']) ?>>
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="optimize_db">
-            <button type="submit" class="btn-primary <?= $dbOverheadMb <= 10 ? 'ui-admin-disabled-soft' : '' ?>" data-ui-confirm="Veritabanını optimize etmek istiyor musunuz? Bu işlem tablo sayısına göre biraz zaman alabilir." <?= $dbOverheadMb <= 10 ? 'disabled' : '' ?>>
+            <button type="submit" class="btn-primary <?= $dbOverheadMb <= 10 ? 'ui-admin-disabled-soft' : '' ?>" <?= $dbOverheadMb <= 10 ? 'disabled' : '' ?>>
                 <i class="bi bi-magic"></i> Şimdi Optimize Et
             </button>
         </form>
-    </section>
+    <?= adminRenderPanelShellClose() ?>
     <?php endif; ?>
 
 
 
-    <nav class="health-tabs" aria-label="Sistem sağlığı sekmeleri">
-        <?php foreach ($sections as $key => $meta): ?>
-            <a class="health-tab <?= $activeTab === $key ? 'is-active' : '' ?>" href="system-health.php?tab=<?= htmlspecialchars($key) ?>" <?= $activeTab === $key ? 'aria-current="page"' : '' ?>>
-                <i class="bi <?= htmlspecialchars($meta[1]) ?>"></i>
-                <span>
-                    <strong><?= htmlspecialchars($meta[0]) ?></strong>
-                    <span><?= htmlspecialchars($meta[2]) ?></span>
-                </span>
-            </a>
-        <?php endforeach; ?>
-    </nav>
+    <?php
+    $healthTabItems = [];
+    foreach ($sections as $key => $meta) {
+        $healthTabItems[$key] = [
+            'href' => 'system-health.php?tab=' . urlencode((string) $key),
+            'icon' => (string) $meta[1],
+            'label' => (string) $meta[0],
+            'description' => (string) $meta[2],
+        ];
+    }
+    echo adminRenderTabBar($healthTabItems, $activeTab, [
+        'class' => 'health-tabs',
+        'link_class' => 'health-tab',
+        'active_class' => 'is-active',
+        'aria_label' => 'Sistem sağlığı sekmeleri',
+        'copy_class' => 'health-tab-copy',
+        'title_class' => 'health-tab-title',
+        'description_class' => 'health-tab-desc',
+    ]);
+    ?>
 
     <?php if ($activeTab === 'logs'): ?>
-    <nav class="site-subtabs health-log-subtabs" aria-label="Loglar ve hatalar alt sekmeleri">
-        <a class="site-subtab-link logs-subtab-link <?= $logsView === 'summary' ? 'active' : '' ?>" href="<?= htmlspecialchars($logsSummaryUrl, ENT_QUOTES, 'UTF-8') ?>">
-            <i class="bi bi-journal-text"></i>
-            <span>Loglar & Hatalar</span>
-        </a>
-        <a class="site-subtab-link logs-subtab-link <?= $logsView === 'center' ? 'active' : '' ?>" href="<?= htmlspecialchars($logsCenterUrl, ENT_QUOTES, 'UTF-8') ?>">
-            <i class="bi bi-exclamation-octagon"></i>
-            <span>Hata Merkezi</span>
-        </a>
-    </nav>
+    <?= adminRenderTabBar([
+        'summary' => [
+            'href' => $logsSummaryUrl,
+            'icon' => 'bi-journal-text',
+            'label' => 'Loglar & Hatalar',
+        ],
+        'center' => [
+            'href' => $logsCenterUrl,
+            'icon' => 'bi-exclamation-octagon',
+            'label' => 'Hata Merkezi',
+        ],
+    ], $logsView, [
+        'class' => 'health-log-subtabs',
+        'link_class' => 'logs-subtab-link',
+        'active_class' => 'active',
+        'aria_label' => 'Loglar ve hatalar alt sekmeleri',
+    ]) ?>
     <?php endif; ?>
 
     <?php if ($activeTab !== 'logs' || $logsView === 'summary'): ?>
-    <section class="admin-card health-panel ui-panel">
+    <?= adminRenderPanelShellOpen(['class' => 'health-panel']) ?>
         <div class="health-panel-head">
             <div>
                 <h2><?= htmlspecialchars($sections[$activeTab][0]) ?></h2>
@@ -1210,23 +1204,24 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <?php if ($rowsForTab === []): ?>
-            <div class="health-empty ui-admin-empty ui-empty">
-                <div class="ui-admin-empty-icon tone-success ui-empty"><i class="bi bi-check2-circle"></i></div>
-                <h3 class="ui-admin-empty-title ui-empty">Bu sekmede kontrol bulunamadı.</h3>
-                <p class="ui-admin-empty-desc ui-empty">Yeni kontroller eklendikçe burada listelenecek.</p>
-            </div>
+            <?= adminRenderEmptyState([
+                'icon' => 'bi-check2-circle',
+                'tone' => 'success',
+                'title' => 'Bu sekmede kontrol bulunamadı.',
+                'description' => 'Yeni kontroller eklendikçe burada listelenecek.',
+                'class' => 'health-empty',
+            ]) ?>
         <?php else: ?>
-            <div class="health-table-wrap">
-                <table class="health-table">
-                    <thead>
-                        <tr>
-                            <th>Kontrol</th>
-                            <th>Durum</th>
-                            <th>Detay</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <?= adminRenderTableOpen([
+                'Kontrol',
+                'Durum',
+                'Detay',
+                ['label' => ''],
+            ], [
+                'class' => 'health-table',
+                'wrap_class' => 'health-table-wrap',
+                'label' => 'Sistem sağlığı kontrolleri',
+            ]) ?>
                         <?php foreach ($rowsForTab as $row): ?>
                             <?php $tone = healthStatusTone($row); ?>
                             <tr>
@@ -1242,21 +1237,19 @@ require_once __DIR__ . '/header.php';
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+            <?= adminRenderTableClose() ?>
         <?php endif; ?>
-    </section>
+    <?= adminRenderPanelShellClose() ?>
     <?php endif; ?>
 
     <?php if ($activeTab === 'logs' && $logsView === 'center'): ?>
-    <section class="admin-card health-log-center ui-panel">
+    <?= adminRenderPanelShellOpen(['class' => 'health-log-center']) ?>
         <div class="health-panel-head">
             <div>
                 <h2>Hata Merkezi</h2>
                 <p>Çalışma zamanı ve uygulama hatalarını tek ekranda izleyin, filtreleyin ve aksiyon alın.</p>
             </div>
-            <div class="ui-admin-page-hero-actions">
+            <div class="ui-admin-action-row health-log-actions">
                 <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="<?= htmlspecialchars((string) $baseUri . '/admin/application-logs.php', ENT_QUOTES, 'UTF-8') ?>">
                     <i class="bi bi-journal-code"></i> Tüm Uygulama Logları
                 </a>
@@ -1267,28 +1260,15 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="health-log-center-body">
-            <div class="admin-stat-grid health-log-summary ui-grid">
-                <div class="admin-stat-card stat-danger health-log-stat ui-card">
-                    <div class="stat-icon"><i class="bi bi-exclamation-octagon"></i></div>
-                    <div class="stat-content"><span class="stat-label">Çalışma zamanı kritik</span><span class="stat-value"><?= number_format((int) ($runtimeLogSummary['critical'] ?? 0)) ?></span></div>
-                </div>
-                <div class="admin-stat-card stat-warning health-log-stat ui-card">
-                    <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
-                    <div class="stat-content"><span class="stat-label">Çalışma zamanı hata</span><span class="stat-value"><?= number_format((int) ($runtimeLogSummary['errors'] ?? 0)) ?></span></div>
-                </div>
-                <div class="admin-stat-card stat-danger health-log-stat ui-card">
-                    <div class="stat-icon"><i class="bi bi-calendar2-day"></i></div>
-                    <div class="stat-content"><span class="stat-label">Uygulama hataları (24s)</span><span class="stat-value"><?= number_format((int) $appErrors24h) ?></span></div>
-                </div>
-                <div class="admin-stat-card stat-warning health-log-stat ui-card">
-                    <div class="stat-icon"><i class="bi bi-calendar2-week"></i></div>
-                    <div class="stat-content"><span class="stat-label">Uygulama hataları (7g)</span><span class="stat-value"><?= number_format((int) $appErrors7d) ?></span></div>
-                </div>
-            </div>
+            <?= adminRenderStatCards([
+                ['tone' => 'danger', 'icon' => 'bi-exclamation-octagon', 'label' => 'Çalışma zamanı kritik', 'value' => number_format((int) ($runtimeLogSummary['critical'] ?? 0)), 'class' => 'health-log-stat'],
+                ['tone' => 'warning', 'icon' => 'bi-exclamation-triangle', 'label' => 'Çalışma zamanı hata', 'value' => number_format((int) ($runtimeLogSummary['errors'] ?? 0)), 'class' => 'health-log-stat'],
+                ['tone' => 'danger', 'icon' => 'bi-calendar2-day', 'label' => 'Uygulama hataları (24s)', 'value' => number_format((int) $appErrors24h), 'class' => 'health-log-stat'],
+                ['tone' => 'warning', 'icon' => 'bi-calendar2-week', 'label' => 'Uygulama hataları (7g)', 'value' => number_format((int) $appErrors7d), 'class' => 'health-log-stat'],
+            ], ['class' => 'health-log-summary', 'aria_label' => 'Hata merkezi özeti']) ?>
 
-            <div class="admin-card ui-panel health-log-filter-panel logs-toolbar-card">
-                <div class="card-header logs-toolbar-head ui-panel__head logs-toolbar-shell">
-                    <form method="get" action="system-health.php" class="logs-filter-form health-log-filter-form admin-log-filter-form">
+            <?= adminRenderFilterToolbarOpen('logs-toolbar-head ui-panel__head logs-toolbar-shell', 'health-log-filter-panel logs-toolbar-card') ?>
+                    <form method="get" action="system-health.php" class="logs-filter-form health-log-filter-form admin-log-filter-form admin-filter-form">
                         <input type="hidden" name="tab" value="logs">
                         <input type="hidden" name="logs_view" value="center">
                         <input type="text" name="log_q" class="ui-admin-form-control" placeholder="Mesaj, kanal veya IP ara..." value="<?= htmlspecialchars($logSearch, ENT_QUOTES, 'UTF-8') ?>">
@@ -1313,17 +1293,22 @@ require_once __DIR__ . '/header.php';
                             <a href="system-health.php?tab=logs&logs_view=center" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Temizle</a>
                         <?php endif; ?>
                     </form>
-                </div>
-            </div>
+            <?= adminRenderFilterToolbarClose() ?>
 
             <div class="health-log-grid">
-                <article class="admin-card ui-panel health-log-block logs-list-card">
-                    <div class="card-header ui-panel__head health-log-block-head logs-list-head">
-                        <h3><i class="bi bi-activity"></i> Çalışma Zamanı Hata Akışı</h3>
-                        <span class="ui-admin-badge ui-admin-badge-muted"><?= number_format(count($runtimeLogEntries), 0, ',', '.') ?> kayıt</span>
-                    </div>
-                    <div class="health-log-table-wrap ui-table-wrap ui-surface admin-log-table-wrap">
-                        <table class="health-table health-log-table admin-log-table">
+                <?= adminRenderLogListPanelOpen([
+                    'tag' => 'article',
+                    'class' => 'health-log-block',
+                    'header_class' => 'health-log-block-head',
+                    'icon' => 'bi-activity',
+                    'title' => 'Çalışma Zamanı Hata Akışı',
+                    'actions_html' => '<span class="ui-admin-badge ui-admin-badge-muted">' . number_format(count($runtimeLogEntries), 0, ',', '.') . ' kayıt</span>',
+                ]) ?>
+                    <?= adminRenderLogTableOpen([
+                        'wrapper_class' => 'health-log-table-wrap ui-table-wrap ui-surface admin-log-table-wrap',
+                        'table_class' => 'health-table health-log-table admin-log-table',
+                        'table_attrs' => ['aria-label' => 'Çalışma zamanı hata akışı'],
+                    ]) ?>
                             <thead>
                                 <tr>
                                     <th>Tarih</th>
@@ -1334,9 +1319,12 @@ require_once __DIR__ . '/header.php';
                             </thead>
                             <tbody>
                                 <?php if ($runtimeTotalRows === 0): ?>
-                                    <tr>
-                                        <td colspan="4" class="admin-log-empty-row">Çalışma zamanı log dosyalarında hata sinyali bulunamadı.</td>
-                                    </tr>
+                                    <?= adminRenderTableEmptyRow(4, [
+                                        'icon' => 'bi-check2-circle',
+                                        'tone' => 'success',
+                                        'title' => 'Hata sinyali bulunamadı.',
+                                        'description' => 'Çalışma zamanı log dosyalarında eşleşen hata kaydı yok.',
+                                    ]) ?>
                                 <?php else: ?>
                                     <?php foreach ($runtimePageItems as $runtimeRow): ?>
 <?php
@@ -1353,28 +1341,34 @@ require_once __DIR__ . '/header.php';
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
-                        </table>
-                    </div>
+                    <?= adminRenderLogTableClose() ?>
                     <?php if ($runtimeTotalPages > 1): ?>
                         <?= adminRenderPagination($runtimeTotalPages, $runtimePage, static fn (int $targetPage): string => $runtimePageBase . $targetPage, [
                             'wrapper_class' => 'health-log-pagination',
                             'aria_label' => 'PHP çalışma zamanı log sayfalama',
                         ]) ?>
                     <?php endif; ?>
-                </article>
+                <?= adminRenderLogListPanelClose('article') ?>
 
-                <article class="admin-card ui-panel health-log-block logs-list-card">
-                    <div class="card-header ui-panel__head health-log-block-head logs-list-head">
-                        <h3><i class="bi bi-journal-code"></i> Uygulama Hata Kayıtları</h3>
-                        <span class="ui-admin-badge ui-admin-badge-muted">
-                            <?= number_format((int) ($applicationErrorFeed['total'] ?? 0), 0, ',', '.') ?> toplam
-                            <?php if ((int) ($applicationErrorFeed['total'] ?? 0) > count($applicationErrorFeed['items'] ?? [])): ?>
-                                / <?= number_format(count($applicationErrorFeed['items'] ?? []), 0, ',', '.') ?> gösterim
-                            <?php endif; ?>
-                        </span>
-                    </div>
-                    <div class="health-log-table-wrap ui-table-wrap ui-surface admin-log-table-wrap">
-                        <table class="health-table health-log-table admin-log-table">
+                <?php
+                    $applicationLogCountText = number_format((int) ($applicationErrorFeed['total'] ?? 0), 0, ',', '.') . ' toplam';
+                    if ((int) ($applicationErrorFeed['total'] ?? 0) > count($applicationErrorFeed['items'] ?? [])) {
+                        $applicationLogCountText .= ' / ' . number_format(count($applicationErrorFeed['items'] ?? []), 0, ',', '.') . ' gösterim';
+                    }
+                ?>
+                <?= adminRenderLogListPanelOpen([
+                    'tag' => 'article',
+                    'class' => 'health-log-block',
+                    'header_class' => 'health-log-block-head',
+                    'icon' => 'bi-journal-code',
+                    'title' => 'Uygulama Hata Kayıtları',
+                    'actions_html' => '<span class="ui-admin-badge ui-admin-badge-muted">' . $applicationLogCountText . '</span>',
+                ]) ?>
+                    <?= adminRenderLogTableOpen([
+                        'wrapper_class' => 'health-log-table-wrap ui-table-wrap ui-surface admin-log-table-wrap',
+                        'table_class' => 'health-table health-log-table admin-log-table',
+                        'table_attrs' => ['aria-label' => 'Uygulama hata kayıtları'],
+                    ]) ?>
                             <thead>
                                 <tr>
                                     <th>Tarih</th>
@@ -1386,9 +1380,12 @@ require_once __DIR__ . '/header.php';
                             </thead>
                             <tbody>
                                 <?php if (empty($applicationErrorFeed['items'])): ?>
-                                    <tr>
-                                        <td colspan="5" class="admin-log-empty-row">Filtreye uyan uygulama hata kaydı yok.</td>
-                                    </tr>
+                                    <?= adminRenderTableEmptyRow(5, [
+                                        'icon' => 'bi-journal-x',
+                                        'tone' => 'info',
+                                        'title' => 'Uygulama hata kaydı yok.',
+                                        'description' => 'Seçili filtreyle eşleşen uygulama hata kaydı bulunamadı.',
+                                    ]) ?>
                                 <?php else: ?>
                                     <?php foreach ($applicationErrorFeed['items'] as $appRow): ?>
                                         <?php
@@ -1416,18 +1413,17 @@ require_once __DIR__ . '/header.php';
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
-                        </table>
-                    </div>
+                    <?= adminRenderLogTableClose() ?>
                     <?php if ($appTotalPages > 1): ?>
                         <?= adminRenderPagination($appTotalPages, $appPage, static fn (int $targetPage): string => $appPageBase . $targetPage, [
                             'wrapper_class' => 'health-log-pagination',
                             'aria_label' => 'Uygulama log sayfalama',
                         ]) ?>
                     <?php endif; ?>
-                </article>
+                <?= adminRenderLogListPanelClose('article') ?>
             </div>
         </div>
-    </section>
+    <?= adminRenderPanelShellClose() ?>
     <?php endif; ?>
 </div>
 

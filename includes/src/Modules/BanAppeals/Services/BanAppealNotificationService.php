@@ -101,7 +101,7 @@ final class BanAppealNotificationService
         $hasColumn = static fn (string $column): bool => isset($columns[$column]);
 
         $baseColumns = ['user_id', 'title', 'message', 'type', 'link'];
-        foreach (['event_key', 'entity_type', 'entity_id', 'actor_user_id', 'dedupe_key', 'delivery_channels'] as $column) {
+        foreach (['event_key', 'entity_type', 'entity_id', 'actor_user_id', 'dedupe_key', 'delivery_channels', 'is_admin_loggable'] as $column) {
             if ($hasColumn($column)) {
                 $baseColumns[] = $column;
             }
@@ -152,6 +152,9 @@ final class BanAppealNotificationService
                 }
                 if ($hasColumn('delivery_channels')) {
                     $params[] = json_encode(['in_app'], JSON_UNESCAPED_UNICODE);
+                }
+                if ($hasColumn('is_admin_loggable')) {
+                    $params[] = 1;
                 }
 
                 $stmt->execute($params);

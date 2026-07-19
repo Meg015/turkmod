@@ -1,12 +1,11 @@
 function openComplaintsModal(modal, trigger) {
     if (!modal) return;
-    if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-        window.TMUI.openDialog(modal, {
+    if (window.adminDialog && typeof window.adminDialog.open === 'function') {
+        window.adminDialog.open(modal, {
             bodyClass: 'ui-admin-dialog-open',
             initialFocus: '[data-complaints-modal-close]',
             returnFocus: trigger || document.activeElement
         });
-        modal.classList.add('ui-admin-modal-open');
         return;
     }
     modal.hidden = false;
@@ -18,9 +17,8 @@ function openComplaintsModal(modal, trigger) {
 
 function closeComplaintsModal(modal) {
     if (!modal) return;
-    if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-        window.TMUI.closeDialog(modal);
-        modal.classList.remove('ui-admin-modal-open');
+    if (window.adminDialog && typeof window.adminDialog.close === 'function') {
+        window.adminDialog.close(modal);
         return;
     }
     modal.hidden = true;
@@ -29,29 +27,32 @@ function closeComplaintsModal(modal) {
     document.body.classList.remove('ui-admin-dialog-open');
 }
 
-document.addEventListener('click', function(event) {
-    var openButton = event.target.closest('[data-complaints-modal-open]');
-    if (openButton) {
-        var modal = document.getElementById(openButton.getAttribute('data-complaints-modal-open'));
-        openComplaintsModal(modal, openButton);
-    }
-
-    if (event.target.closest('[data-complaints-modal-close]')) {
-        var closeTarget = event.target.closest('.complaints-modal');
-        if (!closeTarget) {
-            closeTarget = event.target.closest('[data-complaints-modal-close]') && event.target.closest('[data-complaints-modal-close]').closest('.complaints-modal');
+function initComplaintsModalDelegates() {
+    document.addEventListener('click', function(event) {
+        var openButton = event.target.closest('[data-complaints-modal-open]');
+        if (openButton) {
+            var modal = document.getElementById(openButton.getAttribute('data-complaints-modal-open'));
+            openComplaintsModal(modal, openButton);
         }
-        closeComplaintsModal(closeTarget);
-    }
-});
-document.addEventListener('keydown', function(event) {
-    if (window.TMUI && typeof window.TMUI.openDialog === 'function') return;
-    if (event.key !== 'Escape') return;
-    document.querySelectorAll('.complaints-modal:not([hidden])').forEach(function(modal) {
-        closeComplaintsModal(modal);
+
+        if (event.target.closest('[data-complaints-modal-close]')) {
+            var closeTarget = event.target.closest('.complaints-modal');
+            if (!closeTarget) {
+                closeTarget = event.target.closest('[data-complaints-modal-close]') && event.target.closest('[data-complaints-modal-close]').closest('.complaints-modal');
+            }
+            closeComplaintsModal(closeTarget);
+        }
     });
-});
-(function(){
+    document.addEventListener('keydown', function(event) {
+        if (window.adminDialog && typeof window.adminDialog.open === 'function') return;
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('.complaints-modal:not([hidden])').forEach(function(modal) {
+            closeComplaintsModal(modal);
+        });
+    });
+}
+
+function initComplaintsBulkSelection() {
     var selectAll = document.getElementById('selectAllReports');
     var rowChecks = Array.prototype.slice.call(document.querySelectorAll('.complaints-row-checkbox'));
     var selectedCount = document.getElementById('selectedReportCount');
@@ -73,9 +74,9 @@ document.addEventListener('keydown', function(event) {
     }
     rowChecks.forEach(function(input) { input.addEventListener('change', sync); });
     sync();
-})();
+}
 
-(function(){
+function initComplaintReasonBuilder() {
     var form = document.querySelector('[data-report-reasons-form]');
     if (!form) return;
     var list = form.querySelector('[data-report-reasons-list]');
@@ -147,4 +148,18 @@ document.addEventListener('keydown', function(event) {
     });
 
     syncButtons();
-})();
+}
+
+function initComplaintsReportsPage() {
+    initComplaintsModalDelegates();
+    initComplaintsBulkSelection();
+    initComplaintReasonBuilder();
+}
+
+window.openComplaintsModal = openComplaintsModal;
+window.closeComplaintsModal = closeComplaintsModal;
+
+window.adminPage.register('complaints-reports', initComplaintsReportsPage, {
+    id: 'complaints-reports-page',
+    selector: '[data-complaints-modal-open], .complaints-row-checkbox, [data-report-reasons-form]'
+});

@@ -88,7 +88,7 @@ if (class_exists(\App\Core\Bootstrap\Boot::class)) {
     try {
         $cache = \App\Core\Bootstrap\Boot::container()->get(\App\Core\Cache\Cache::class);
     } catch (Throwable $e) {
-        // Fallback to null
+        // Cache service unavailable; continue without full-page cache.
     }
 }
 
@@ -110,6 +110,7 @@ if ($canUseAnonHomeFullPageCache && $cache) {
         __DIR__ . '/assets/js/app.js',
         __DIR__ . '/assets/js/ui.js',
         __DIR__ . '/assets/js/ui-foundation.js',
+        __DIR__ . '/assets/js/public-api.js',
         __DIR__ . '/assets/js/public-toast-bridge.js',
         __DIR__ . '/assets/js/theme-mode-init.js',
     ];

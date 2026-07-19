@@ -122,10 +122,10 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             </div>
 
             <?php if ($errorMsg): ?>
-                <div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert" aria-live="assertive"><?= htmlspecialchars($errorMsg) ?></div>
+                <?= uiRenderAlert((string) $errorMsg, 'danger', ['attrs' => ['aria-live' => 'assertive']]) ?>
             <?php endif; ?>
             <?php if ($successMsg): ?>
-                <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success" role="alert"><?= htmlspecialchars($successMsg) ?></div>
+                <?= uiRenderAlert((string) $successMsg, 'success', ['role' => 'alert']) ?>
             <?php endif; ?>
 
             <form class="auth-form" method="post" action="<?= htmlspecialchars($forgotPasswordUrl, ENT_QUOTES, 'UTF-8') ?>" novalidate>

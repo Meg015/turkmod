@@ -379,7 +379,9 @@ final class NotificationTemplateService
             return null;
         }
 
-        if ((int) ($template['is_active'] ?? 1) !== 1 || (int) ($template['in_app_enabled'] ?? 1) !== 1) {
+        $inAppEnabled = (int) ($template['in_app_enabled'] ?? 1) === 1;
+        $emailEnabled = (int) ($template['email_enabled'] ?? 0) === 1;
+        if ((int) ($template['is_active'] ?? 1) !== 1 || (!$inAppEnabled && !$emailEnabled)) {
             return null;
         }
 

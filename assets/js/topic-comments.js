@@ -75,6 +75,16 @@
                     setTimeout(() => toast.remove(), 300);
                 }, 3000);
             }
+            function fetchCommentJson(url, options) {
+                if (window.publicFetchJson) {
+                    return window.publicFetchJson(url, options || {}).catch(function(error) {
+                        if (error && error.data && error.data._token) CSRF = error.data._token;
+                        throw error;
+                    });
+                }
+
+                return Promise.reject(new Error('Public API helper yuklenemedi.'));
+            }
             function dispatchCommentCreatedEvent(payload = {}) {
                 try {
                     const detail = Object.assign({
@@ -603,7 +613,7 @@
             // -- Fetch --
             function loadComments(page, append=false, options={}){
                 const params = new URLSearchParams({topic_id: TOPIC, page: page || 1, sort: currentSort, _t: new Date().getTime()});
-                return fetch(API + '?' + params.toString()).then(r=>r.json()).then(data=>{
+                return fetchCommentJson(API + '?' + params.toString()).then(data=>{
                     loading.classList.add('is-hidden');
                     if(append && page > 1) {
                         // Append to existing comments
@@ -647,7 +657,7 @@
                     if(currentPage > 1) return; // skip polling if user has loaded more pages
                     if(window._isPollingComments) return;
                     window._isPollingComments = true;
-                    fetch(API+'?topic_id='+TOPIC+'&page='+currentPage+'&sort='+currentSort+'&_t='+Date.now()).then(r=>r.json()).then(data=>{
+                    fetchCommentJson(API+'?topic_id='+TOPIC+'&page='+currentPage+'&sort='+currentSort+'&_t='+Date.now()).then(data=>{
                         renderAll(data, true); // true = isPollUpdate
                     }).catch(()=>{}).finally(()=>{ window._isPollingComments = false; });
                 }, POLL*1000);
@@ -756,11 +766,11 @@
                 setButtonBusy(submitBtn, 'Gönderiliyor...');
                 const payload={topic_id:parseInt(TOPIC),body:body,_token:CSRF};
                 if(replyTo) payload.parent_id=replyTo;
-                fetch(API,{
+                fetchCommentJson(API,{
                     method:'POST',
                     headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify(payload)
-                }).then(r=>r.json()).then(data=>{
+                    body:payload
+                }).then(data=>{
                     if(data._token) CSRF=data._token;
                     clearButtonBusy(submitBtn);
                     if(data.success){
@@ -781,8 +791,8 @@
                         showAlert(data.error||data.message||'Hata oluştu.','error');
                         submitBtn.disabled = false;
                     }
-                }).catch(()=>{
-                    showAlert('Bağlantı hatası.','error');
+                }).catch((error)=>{
+                    showAlert(error && error.message ? error.message : 'Bağlantı hatası.','error');
                     clearButtonBusy(submitBtn);
                     submitBtn.disabled = false;
                 }).finally(()=>{
@@ -851,11 +861,11 @@
                     const btn=wrap.querySelector('.ui-comment-inline-submit');
                     inlineReplyInFlight = true;
                     setButtonBusy(btn, 'Gönderiliyor...');
-                    fetch(API,{
+                    fetchCommentJson(API,{
                         method:'POST',
                         headers:{'Content-Type':'application/json'},
-                        body:JSON.stringify({topic_id:parseInt(TOPIC),body:body,parent_id:parentId,_token:CSRF})
-                    }).then(r=>r.json()).then(data=>{
+                        body:{topic_id:parseInt(TOPIC),body:body,parent_id:parentId,_token:CSRF}
+                    }).then(data=>{
                         if(data._token) CSRF=data._token;
                         if(data.success){
                             removeInlineReply();
@@ -873,8 +883,8 @@
                         clearButtonBusy(btn);
                         btn.disabled = false;
                     }
-                    }).catch(()=>{
-                        showAlert('Bağlantı hatası.','error');
+                    }).catch((error)=>{
+                        showAlert(error && error.message ? error.message : 'Bağlantı hatası.','error');
                         clearButtonBusy(btn);
                         btn.disabled = false;
                     }).finally(()=>{
@@ -933,11 +943,11 @@
                     const btn=wrap.querySelector('.ui-comment-inline-edit-submit');
                     inlineEditInFlight = true;
                     setButtonBusy(btn, 'Kaydediliyor...');
-                    fetch(API,{
+                    fetchCommentJson(API,{
                         method:'POST',
                         headers:{'Content-Type':'application/json'},
-                        body:JSON.stringify({action:'edit',id:commentId,body:body,_token:CSRF})
-                    }).then(r=>r.json()).then(data=>{
+                        body:{action:'edit',id:commentId,body:body,_token:CSRF}
+                    }).then(data=>{
                         if(data._token) CSRF=data._token;
                         if(data.success){
                             removeInlineEdit();
@@ -948,8 +958,8 @@
                             clearButtonBusy(btn);
                             btn.disabled = false;
                         }
-                    }).catch(()=>{
-                        showAlert('Bağlantı hatası.','error');
+                    }).catch((error)=>{
+                        showAlert(error && error.message ? error.message : 'Bağlantı hatası.','error');
                         clearButtonBusy(btn);
                         btn.disabled = false;
                     }).finally(()=>{
@@ -1071,18 +1081,18 @@
                     submitBtnEl.disabled = true;
                     submitBtnEl.innerHTML = '<i class="bi bi-hourglass-split"></i> Gönderiliyor...';
                     const details = modal.querySelector('.ui-comment-report-details').value.trim();
-                    fetch(API, {
+                    fetchCommentJson(API, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({action:'report', comment_id:commentId, reason:selectedReason, details:details, _token:CSRF})
-                    }).then(r=>r.json()).then(data=>{
+                        body: {action:'report', comment_id:commentId, reason:selectedReason, details:details, _token:CSRF}
+                    }).then(data=>{
                         if(data._token) CSRF=data._token;
                         closeModal();
                         if(data.success) showAlert(data.message, 'success');
                         else showAlert(data.error||'Şikayet gönderilemedi.', 'error');
-                    }).catch(()=>{
+                    }).catch((error)=>{
                         closeModal();
-                        showAlert('Bağlantı hatası.','error');
+                        showAlert(error && error.message ? error.message : 'Bağlantı hatası.','error');
                     });
                 });
             }
@@ -1100,11 +1110,11 @@
 
                         deleteInFlightIds.add(commentId);
                         setButtonBusy(deleteBtn, 'Siliniyor...');
-                        fetch(API,{
+                        fetchCommentJson(API,{
                             method:'POST',
                             headers:{'Content-Type':'application/json'},
-                            body:JSON.stringify({action:'delete',id:commentId,_token:CSRF})
-                        }).then(r=>r.json()).then(d=>{
+                            body:{action:'delete',id:commentId,_token:CSRF}
+                        }).then(d=>{
                             if(d._token) CSRF=d._token;
                             if(d.success){
                                 showAlert('Yorum silindi.');
@@ -1116,8 +1126,8 @@
                                 clearButtonBusy(deleteBtn);
                                 deleteBtn.disabled = false;
                             }
-                        }).catch(()=>{
-                            showAlert('Bağlantı hatası.','error');
+                        }).catch((error)=>{
+                            showAlert(error && error.message ? error.message : 'Bağlantı hatası.','error');
                             clearButtonBusy(deleteBtn);
                             deleteBtn.disabled = false;
                         }).finally(()=>{

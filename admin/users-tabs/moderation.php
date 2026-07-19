@@ -30,20 +30,28 @@ $moderationTabs = [
 ?>
 
 <div class="users-moderation-workspace">
-    <nav class="users-subtabs" aria-label="Moderasyon sekmeleri">
-        <?php foreach ($moderationTabs as $viewKey => $meta): ?>
-            <a href="users.php?tab=moderation&amp;moderation=<?= htmlspecialchars($viewKey, ENT_QUOTES, 'UTF-8') ?>"
-               class="users-subtab <?= $moderationView === $viewKey ? 'is-active' : '' ?>"
-               <?= $moderationView === $viewKey ? 'aria-current="page"' : '' ?>>
-                <span class="users-subtab-icon"><i class="bi <?= htmlspecialchars($meta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i></span>
-                <span class="users-subtab-copy">
-                    <strong><?= htmlspecialchars($meta['label'], ENT_QUOTES, 'UTF-8') ?></strong>
-                    <small><?= htmlspecialchars($meta['desc'], ENT_QUOTES, 'UTF-8') ?></small>
-                </span>
-                <span class="users-subtab-count"><?= number_format((int)$meta['count']) ?></span>
-            </a>
-        <?php endforeach; ?>
-    </nav>
+    <?php
+    $moderationTabItems = [];
+    foreach ($moderationTabs as $viewKey => $meta) {
+        $moderationTabItems[$viewKey] = [
+            'href' => 'users.php?tab=moderation&moderation=' . urlencode((string) $viewKey),
+            'icon' => (string) $meta['icon'],
+            'label' => (string) $meta['label'],
+            'description' => (string) $meta['desc'],
+            'badge' => number_format((int) $meta['count']),
+            'badge_tone' => (int) $meta['count'] > 0 ? 'warning' : 'muted',
+            'badge_class' => 'users-subtab-count',
+        ];
+    }
+    echo adminRenderTabBar($moderationTabItems, $moderationView, [
+        'class' => 'users-subtabs',
+        'link_class' => 'users-subtab',
+        'active_class' => 'is-active',
+        'aria_label' => 'Moderasyon sekmeleri',
+        'icon_wrap_class' => 'users-subtab-icon',
+        'copy_class' => 'users-subtab-copy',
+    ]);
+    ?>
 
     <?php
     if ($moderationView === 'restricted') {

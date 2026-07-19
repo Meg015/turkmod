@@ -183,19 +183,21 @@
         }
 
         try {
-            const response = await fetch(form.action, {
+            if (!window.publicFetchJson) {
+                throw new Error('Public API helper yuklenemedi.');
+            }
+
+            const payload = await window.publicFetchJson(form.action, {
                 method: 'POST',
                 body: new FormData(form),
                 headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-            const payload = await response.json().catch(function() {
-                return { success: false, message: 'Sunucudan geçerli cevap alınamadı.' };
+                    'Accept': 'application/json'
+                },
+                notifyError: false,
+                errorMessage: 'Mod güncellenemedi.'
             });
 
-            if (!response.ok || !payload.success) {
+            if (!payload.success) {
                 throw new Error(payload.message || 'Mod güncellenemedi.');
             }
 

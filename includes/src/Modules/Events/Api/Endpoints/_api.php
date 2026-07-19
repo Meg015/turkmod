@@ -5,8 +5,6 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 6) . '/includes/init.php';
 require_once dirname(__DIR__, 2) . '/init.php';
 
-header('Content-Type: application/json; charset=utf-8');
-
 function eventsApiMethod(array $methods): void
 {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';

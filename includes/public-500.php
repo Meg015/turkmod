@@ -2,7 +2,7 @@
 /**
  * 500 Hata Sayfası
  * ErrorHandler tarafından include edilir.
- * Tek başına çağrılırsa güvenli fallback gösterir.
+ * Tek başına çağrılırsa temel hata sayfasını gösterir.
  */
 
 if (!headers_sent()) {
@@ -11,7 +11,7 @@ if (!headers_sent()) {
 
 $projectRoot = dirname(__DIR__);
 
-// ErrorHandler üzerinden çağrılmadıysa temel CSS'i yükleyelim
+// ErrorHandler üzerinden çağrılmadıysa temel hata CSS'ini yükleyelim
 $baseUri = $GLOBALS['baseUri'] ?? '';
 $fallbackCss = rtrim($baseUri, '/') . '/assets/css/system-fallback.css';
 $cssVersion = is_file($projectRoot . '/assets/css/system-fallback.css')

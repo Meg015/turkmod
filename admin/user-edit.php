@@ -303,32 +303,24 @@ require_once __DIR__ . "/header.php";
 ?>
 
 <div class="ui-admin-container ui-container">
-    <div class="ui-admin-page-hero">
-        <div>
-            <h1 class="ui-admin-page-title"><i class="bi bi-person-lines-fill"></i> Kullanıcı Düzenle: <?= htmlspecialchars($displayUsername) ?></h1>
-            <p class="ui-admin-page-subtitle">Kullanıcı profili, grupları, sosyal bağlantıları ve gizlilik ayarlarını yönetin.</p>
-        </div>
-        <div class="ui-admin-hero-actions">
-            <a href="users.php" class="ui-admin-btn ui-admin-btn-secondary"><i class="bi bi-arrow-left"></i> Kullanıcılara Dön</a>
-        </div>
-    </div>
+    <?= adminRenderPageHero('bi-person-lines-fill', 'Kullanıcı düzenleme', 'Kullanıcı Düzenle: ' . $displayUsername, 'Kullanıcı profili, grupları, sosyal bağlantıları ve gizlilik ayarlarını yönetin.', [
+        ['href' => 'users.php', 'label' => 'Kullanıcılara Dön', 'icon' => 'bi-arrow-left', 'class' => 'ui-admin-btn-secondary'],
+    ], ['tag' => 'div', 'title_tag' => 'h1', 'title_class' => 'ui-admin-page-title', 'description_class' => 'ui-admin-page-subtitle']) ?>
 
-    <?php if ($message): ?>
-        <div class="ui-admin-alert ui-admin-alert-<?= $messageType ?> ui-alert">
-            <?= htmlspecialchars($message) ?>
-        </div>
-    <?php endif; ?>
+    <?= adminRenderAlert((string) $message, (string) $messageType) ?>
 
     <form method="post" action="user-edit.php?id=<?= $userId ?>" class="ui-admin-form ui-admin-grid-editor ui-grid">
         <?= csrf_field() ?>
 
         <div class="ui-admin-column-stack">
             <!-- Temel Bilgiler -->
-            <div class="ui-admin-premium-card ui-card">
-                <div class="ui-admin-card-header ui-panel__head ui-card">
-                    <h3 class="ui-admin-card-title ui-card"><i class="bi bi-info-circle"></i> Temel Bilgiler</h3>
-                </div>
-                <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
+            <?= adminRenderPanelOpen([
+                'tag' => 'div',
+                'class' => 'ui-admin-premium-card ui-card',
+                'header_class' => 'ui-admin-card-header',
+                'body_class' => 'ui-admin-card-body ui-admin-card-body-stack',
+                'header_html' => '<h3 class="ui-admin-card-title ui-card"><i class="bi bi-info-circle"></i> Temel Bilgiler</h3>',
+            ]) ?>
                     <div class="ui-admin-form-group">
                         <label class="ui-admin-form-label">Kullanıcı Adı <span class="ui-admin-required">*</span></label>
                         <input type="text" name="username" class="ui-admin-input" value="<?= htmlspecialchars((string) ($user['username'] ?? '')) ?>" required minlength="<?= (int) $usernameBounds['min'] ?>" maxlength="<?= (int) $usernameBounds['max'] ?>" pattern="[A-Za-z0-9_-]{<?= (int) $usernameBounds['min'] ?>,<?= (int) $usernameBounds['max'] ?>}" aria-invalid="<?= isset($formErrors['username']) ? 'true' : 'false' ?>" aria-describedby="user-edit-username-error">
@@ -352,15 +344,16 @@ require_once __DIR__ . "/header.php";
                         <label class="ui-admin-form-label">Avatar URL</label>
                         <input type="text" name="avatar" class="ui-admin-input" value="<?= htmlspecialchars($user['avatar'] ?? '') ?>">
                     </div>
-                </div>
-            </div>
+            <?= adminRenderPanelClose('div') ?>
 
             <!-- Profil ve Sosyal -->
-            <div class="ui-admin-premium-card ui-card">
-                <div class="ui-admin-card-header ui-panel__head ui-card">
-                    <h3 class="ui-admin-card-title ui-card"><i class="bi bi-person-badge"></i> Profil ve Sosyal</h3>
-                </div>
-                <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
+            <?= adminRenderPanelOpen([
+                'tag' => 'div',
+                'class' => 'ui-admin-premium-card ui-card',
+                'header_class' => 'ui-admin-card-header',
+                'body_class' => 'ui-admin-card-body ui-admin-card-body-stack',
+                'header_html' => '<h3 class="ui-admin-card-title ui-card"><i class="bi bi-person-badge"></i> Profil ve Sosyal</h3>',
+            ]) ?>
                     <div class="ui-admin-form-group">
                         <label class="ui-admin-form-label">Biyografi</label>
                         <textarea name="bio" class="ui-admin-input" rows="3"><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
@@ -391,17 +384,18 @@ require_once __DIR__ . "/header.php";
                         <label class="ui-admin-form-label"><i class="bi bi-discord"></i> Discord</label>
                         <input type="text" name="social_discord" class="ui-admin-input" value="<?= htmlspecialchars($user['social_discord'] ?? '') ?>">
                     </div>
-                </div>
-            </div>
+            <?= adminRenderPanelClose('div') ?>
         </div>
 
         <div class="ui-admin-column-stack">
             <!-- Grup ve Durum -->
-            <div class="ui-admin-premium-card ui-card">
-                <div class="ui-admin-card-header ui-panel__head ui-card">
-                    <h3 class="ui-admin-card-title ui-card"><i class="bi bi-shield-lock"></i> Grup ve Durum</h3>
-                </div>
-                <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
+            <?= adminRenderPanelOpen([
+                'tag' => 'div',
+                'class' => 'ui-admin-premium-card ui-card',
+                'header_class' => 'ui-admin-card-header',
+                'body_class' => 'ui-admin-card-body ui-admin-card-body-stack',
+                'header_html' => '<h3 class="ui-admin-card-title ui-card"><i class="bi bi-shield-lock"></i> Grup ve Durum</h3>',
+            ]) ?>
                     <div class="ui-admin-form-group">
                         <label class="ui-admin-form-label">Kullanıcı Grubu</label>
                         <select name="group_id" class="ui-admin-select">
@@ -420,35 +414,36 @@ require_once __DIR__ . "/header.php";
                             <option value="inactive" <?= $user['status'] === 'inactive' ? 'selected' : '' ?>>Pasif / Onay Bekliyor</option>
                         </select>
                     </div>
-                </div>
-            </div>
+            <?= adminRenderPanelClose('div') ?>
 
             <!-- Bireysel Yetki Ezme (Overrides) -->
-            <div class="ui-admin-premium-card ui-card ui-admin-mt-md">
-                <div class="ui-admin-card-header ui-panel__head ui-card">
-                    <h3 class="ui-admin-card-title ui-card"><i class="bi bi-shield-lock"></i> Özel Yetki Tanımlamaları</h3>
-                </div>
-                <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
+            <?= adminRenderPanelOpen([
+                'tag' => 'div',
+                'class' => 'ui-admin-premium-card ui-card ui-admin-mt-md',
+                'header_class' => 'ui-admin-card-header',
+                'body_class' => 'ui-admin-card-body ui-admin-card-body-stack',
+                'header_html' => '<h3 class="ui-admin-card-title ui-card"><i class="bi bi-shield-lock"></i> Özel Yetki Tanımlamaları</h3>',
+            ]) ?>
                     <p class="ui-admin-form-help ui-admin-mb-md">Gruptan gelen yetkileri bu kullanıcı için ezebilirsiniz (İzin ver/Engelle).</p>
 
                     <div class="user-permission-override-groups">
                         <?php foreach ($permissionGroups as $prefix => $items): ?>
-                            <details class="ui-admin-mb-sm ui-card" style="padding: 8px 12px; background: rgba(0,0,0,0.02);">
-                                <summary style="font-weight: 600; cursor: pointer;">
+                            <details class="ui-admin-mb-sm ui-card user-permission-override-group">
+                                <summary class="user-permission-override-summary">
                                     <?= htmlspecialchars($permissionGroupLabels[$prefix] ?? ucfirst($prefix)) ?>
                                 </summary>
-                                <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                                <div class="user-permission-override-list">
                                     <?php foreach ($items as $permissionKey => $permissionLabel): ?>
                                         <?php
                                         $currentOverride = $userOverridesMap[$permissionKey] ?? null;
                                         $selectedVal = $currentOverride === null ? 'default' : ($currentOverride === 1 ? 'grant' : 'deny');
                                         ?>
-                                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed rgba(0,0,0,0.1);">
-                                            <span style="font-size: 0.85rem; display: flex; flex-direction: column;">
+                                        <div class="user-permission-override-row">
+                                            <span class="user-permission-override-copy">
                                                 <strong><?= htmlspecialchars($permissionLabel) ?></strong>
-                                                <code style="font-size: 0.7rem; opacity: 0.7;"><?= htmlspecialchars($permissionKey) ?></code>
+                                                <code class="user-permission-override-key"><?= htmlspecialchars($permissionKey) ?></code>
                                             </span>
-                                            <select name="overrides[<?= htmlspecialchars($permissionKey) ?>]" class="ui-admin-select" style="width: auto; padding: 2px 6px; font-size: 0.8rem; height: auto;">
+                                            <select name="overrides[<?= htmlspecialchars($permissionKey) ?>]" class="ui-admin-select user-permission-override-select">
                                                 <option value="default" <?= $selectedVal === 'default' ? 'selected' : '' ?>>Gruptan Gelsin</option>
                                                 <option value="grant" <?= $selectedVal === 'grant' ? 'selected' : '' ?>>İzin Ver</option>
                                                 <option value="deny" <?= $selectedVal === 'deny' ? 'selected' : '' ?>>Engelle</option>
@@ -459,15 +454,16 @@ require_once __DIR__ . "/header.php";
                             </details>
                         <?php endforeach; ?>
                     </div>
-                </div>
-            </div>
+            <?= adminRenderPanelClose('div') ?>
 
             <!-- Gizlilik Ayarları -->
-            <div class="ui-admin-premium-card ui-card">
-                <div class="ui-admin-card-header ui-panel__head ui-card">
-                    <h3 class="ui-admin-card-title ui-card"><i class="bi bi-eye"></i> Gizlilik Ayarları</h3>
-                </div>
-                <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
+            <?= adminRenderPanelOpen([
+                'tag' => 'div',
+                'class' => 'ui-admin-premium-card ui-card',
+                'header_class' => 'ui-admin-card-header',
+                'body_class' => 'ui-admin-card-body ui-admin-card-body-stack',
+                'header_html' => '<h3 class="ui-admin-card-title ui-card"><i class="bi bi-eye"></i> Gizlilik Ayarları</h3>',
+            ]) ?>
                     <label class="ui-admin-form-checkbox">
                         <input type="checkbox" name="public_profile" <?= $user['public_profile'] ? 'checked' : '' ?>>
                         <span>Genel Profil Görünürlüğü (Profili Herkese Açık Yap)</span>
@@ -484,15 +480,16 @@ require_once __DIR__ . "/header.php";
                         <input type="checkbox" name="public_show_socials" <?= $user['public_show_socials'] ? 'checked' : '' ?>>
                         <span>Sosyal Medya Linklerini Profilinde Göster</span>
                     </label>
-                </div>
-            </div>
+            <?= adminRenderPanelClose('div') ?>
 
             <!-- Ban Yönetimi -->
-            <div class="ui-admin-premium-card ui-admin-danger-card ui-card">
-                <div class="ui-admin-card-header ui-panel__head ui-card">
-                    <h3 class="ui-admin-card-title ui-admin-danger-text ui-card"><i class="bi bi-slash-circle"></i> Ban Yönetimi</h3>
-                </div>
-                <div class="ui-admin-card-body ui-admin-card-body-stack ui-panel__body ui-card">
+            <?= adminRenderPanelOpen([
+                'tag' => 'div',
+                'class' => 'ui-admin-premium-card ui-admin-danger-card ui-card',
+                'header_class' => 'ui-admin-card-header',
+                'body_class' => 'ui-admin-card-body ui-admin-card-body-stack',
+                'header_html' => '<h3 class="ui-admin-card-title ui-admin-danger-text ui-card"><i class="bi bi-slash-circle"></i> Ban Yönetimi</h3>',
+            ]) ?>
                     <label class="ui-admin-form-checkbox">
                         <input type="checkbox" name="is_banned" <?= $user['is_banned'] ? 'checked' : '' ?>>
                         <span class="ui-admin-danger-strong">Bu Kullanıcıyı Banla</span>
@@ -501,8 +498,7 @@ require_once __DIR__ . "/header.php";
                         <label class="ui-admin-form-label">Ban Sebebi (Eğer banlıysa görünür)</label>
                         <textarea name="ban_reason" class="ui-admin-input" rows="2" placeholder="Kullanıcıya gösterilecek ban sebebi..."><?= htmlspecialchars($user['ban_reason'] ?? '') ?></textarea>
                     </div>
-                </div>
-            </div>
+            <?= adminRenderPanelClose('div') ?>
 
             <div class="ui-admin-form-group">
                 <label class="ui-admin-form-label">Değişiklik Gerekçesi <span class="ui-admin-muted">(grup/durum/ban değişiminde denetim kaydına yazılır)</span></label>

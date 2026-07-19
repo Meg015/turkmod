@@ -34,6 +34,7 @@ CREATE TABLE `admin_action_log` (
   KEY `admin_action_log_target_index` (`target_type`,`target_id`),
   KEY `admin_action_log_created_index` (`created_at`),
   KEY `admin_action_log_actor_index` (`actor_id`),
+  KEY `admin_action_log_target_created_index` (`target_type`,`target_id`,`created_at`),
   KEY `admin_action_log_reverted_by_foreign` (`reverted_by`),
   CONSTRAINT `admin_action_log_actor_foreign` FOREIGN KEY (`actor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `admin_action_log_reverted_by_foreign` FOREIGN KEY (`reverted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
@@ -94,6 +95,7 @@ CREATE TABLE `bot_category_mappings` (
   `bot_site_id` bigint(20) unsigned NOT NULL,
   `remote_category_name` varchar(255) NOT NULL,
   `remote_category_url` varchar(2048) NOT NULL,
+  `title_prefix` varchar(100) NOT NULL DEFAULT '',
   `local_category_id` bigint(20) unsigned DEFAULT NULL,
   `status` enum('active','inactive') DEFAULT 'active',
   `created_at` timestamp NULL DEFAULT NULL,
@@ -287,6 +289,7 @@ CREATE TABLE `comments` (
   KEY `idx_comments_topic_status_parent_deleted_created` (`topic_id`,`status`(191),`parent_id`,`deleted_at`,`created_at`),
   KEY `idx_comments_user_deleted_created` (`user_id`,`deleted_at`,`created_at`),
   KEY `idx_comments_status_deleted` (`status`(191),`deleted_at`),
+  KEY `comments_status_deleted_created_index` (`status`(191),`deleted_at`,`created_at`),
   CONSTRAINT `comments_parent_id_foreign` FOREIGN KEY (`parent_id`) REFERENCES `comments` (`id`) ON DELETE CASCADE,
   CONSTRAINT `comments_topic_id_foreign` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE,
   CONSTRAINT `comments_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
@@ -831,6 +834,31 @@ CREATE TABLE `notification_email_queue` (
   CONSTRAINT `notification_email_queue_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `notification_dispatch_suppression_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `event_key` varchar(100) NOT NULL,
+  `reason_key` varchar(80) NOT NULL,
+  `reason_label` varchar(160) NOT NULL,
+  `recipient_user_id` bigint(20) unsigned DEFAULT NULL,
+  `actor_user_id` bigint(20) unsigned DEFAULT NULL,
+  `entity_type` varchar(50) DEFAULT NULL,
+  `entity_id` bigint(20) unsigned DEFAULT NULL,
+  `dedupe_key` varchar(190) DEFAULT NULL,
+  `template_key` varchar(100) DEFAULT NULL,
+  `type` varchar(50) DEFAULT NULL,
+  `context_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`context_json`)),
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `notification_suppression_reason_created_index` (`reason_key`,`created_at`),
+  KEY `notification_suppression_event_created_index` (`event_key`,`created_at`),
+  KEY `notification_suppression_recipient_created_index` (`recipient_user_id`,`created_at`),
+  KEY `notification_suppression_entity_index` (`entity_type`,`entity_id`),
+  KEY `notification_suppression_dedupe_index` (`dedupe_key`),
+  KEY `notification_suppression_actor_foreign` (`actor_user_id`),
+  CONSTRAINT `notification_suppression_actor_foreign` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `notification_suppression_recipient_foreign` FOREIGN KEY (`recipient_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `notification_reads` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `notification_id` bigint(20) unsigned NOT NULL,
@@ -1249,6 +1277,7 @@ CREATE TABLE `user_restrictions` (
   KEY `user_restrictions_user_type_index` (`user_id`,`restriction_type`),
   KEY `user_restrictions_expires_index` (`expires_at`),
   KEY `user_restrictions_admin_index` (`admin_id`),
+  KEY `user_restrictions_user_expires_index` (`user_id`,`expires_at`),
   CONSTRAINT `user_restrictions_admin_foreign` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `user_restrictions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

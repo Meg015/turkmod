@@ -117,14 +117,14 @@ require_once __DIR__ . '/header.php';
                 </div>
 
                 <?php if ($id !== 'lay_sidebar' && $id !== 'lay_menu' && $id !== 'lay_header'): ?>
-                <div class="admin-card admin-card-spaced ui-panel">
-                    <div class="card-header ui-panel__head">
-                        <i class="bi <?= htmlspecialchars($section['icon']) ?> me-2"></i><?= htmlspecialchars($section['title']) ?> Yapılandırması
-                    </div>
-                    <div class="card-body ui-panel__body">
+                <?= adminRenderPanelOpen([
+                    'tag' => 'div',
+                    'class' => 'admin-card-spaced',
+                    'icon' => (string) $section['icon'],
+                    'title' => (string) $section['title'] . ' Yapılandırması',
+                ]) ?>
                         <?= adminRenderSettingsGrid($definitions, $settings, $id, null, 'admin-appearance-grid ui-grid') ?>
-                    </div>
-                </div>
+                <?= adminRenderPanelClose('div') ?>
                 <?php endif; ?>
 
                 <?php if ($id === 'lay_header'): ?>
@@ -152,11 +152,14 @@ require_once __DIR__ . '/header.php';
                     'header_custom_css',
                 ];
                 ?>
-                <div class="admin-card admin-card-spaced ui-panel">
-                    <div class="card-header profile-mini-row-wrap ui-panel__head">
-                        <span><i class="bi bi-window-stack me-2"></i>Header Yapilandirmasi</span>
-                    </div>
-                    <div class="card-body admin-card-body-flush ui-panel__body">
+                <?= adminRenderPanelOpen([
+                    'tag' => 'div',
+                    'class' => 'admin-card-spaced',
+                    'header_class' => 'profile-mini-row-wrap',
+                    'body_class' => 'admin-card-body-flush',
+                    'icon' => 'bi-window-stack',
+                    'title' => 'Header Yapilandirmasi',
+                ]) ?>
                         <div class="sidebar-subtabs">
                             <?php $hdFirst = true; foreach ($headerSubTabs as $hdId => $hdTab): ?>
                                 <button type="button" class="sidebar-subtab-btn <?= $hdFirst ? 'active' : '' ?>" data-subtab="<?= $hdId ?>">
@@ -260,8 +263,7 @@ require_once __DIR__ . '/header.php';
                             <?php endif; ?>
                         </div>
                         <?php $hdFirst = false; endforeach; ?>
-                    </div>
-                </div>
+                <?= adminRenderPanelClose('div') ?>
                 <?php endif; ?>
 
                 <?php if ($id === 'lay_footer'): ?>
@@ -284,9 +286,13 @@ require_once __DIR__ . '/header.php';
                 ];
                 ?>
                 <!-- Footer Önizleme -->
-                <div class="admin-card admin-card-spaced ui-panel">
-                    <div class="card-header ui-panel__head"><i class="bi bi-eye me-2"></i>Footer Önizleme</div>
-                    <div class="card-body admin-card-body-flush ui-panel__body">
+                <?= adminRenderPanelOpen([
+                    'tag' => 'div',
+                    'class' => 'admin-card-spaced',
+                    'body_class' => 'admin-card-body-flush',
+                    'icon' => 'bi-eye',
+                    'title' => 'Footer Önizleme',
+                ]) ?>
                         <div class="appearance-footer-preview"
                              data-ui-style-color="--appearance-footer-bg:<?= htmlspecialchars($settings['footer_bg_color'] ?? '#1a2332', ENT_QUOTES, 'UTF-8') ?>;--appearance-footer-text:<?= htmlspecialchars($settings['footer_text_color'] ?? '#94a3b8', ENT_QUOTES, 'UTF-8') ?>">
                             <?php $fLayout = $settings['footer_layout'] ?? 'simple'; ?>
@@ -320,8 +326,7 @@ require_once __DIR__ . '/header.php';
                                 <div class="appearance-footer-copyright"><?= htmlspecialchars($settings['footer_copyright']) ?></div>
                             <?php endif; ?>
                         </div>
-                    </div>
-                </div>
+                <?= adminRenderPanelClose('div') ?>
                 <?php endif; ?>
 
                 <?php if ($id === 'lay_sidebar'): ?>
@@ -334,11 +339,16 @@ require_once __DIR__ . '/header.php';
                 <script type="application/json" id="sidebarBuilderInitial"><?= $sidebarBuilderInitialJson ?: '{}' ?></script>
                 <script type="application/json" id="sidebarBuilderCatalog"><?= $sidebarWidgetCatalogJson ?: '{}' ?></script>
 
-                <div class="admin-card admin-card-spaced sidebar-builder-card ui-panel" data-sidebar-builder>
-                    <div class="card-header sidebar-builder-title ui-panel__head">
-                        <span><i class="bi bi-layout-sidebar me-2"></i>Sidebar Builder</span>
-                        <small>Sol ve sag alanlari surukle-birak yonet</small>
-                    </div>
+                <?= adminRenderPanelOpen([
+                    'tag' => 'div',
+                    'class' => 'admin-card-spaced sidebar-builder-card',
+                    'attrs' => ['data-sidebar-builder' => true],
+                    'header_class' => 'sidebar-builder-title',
+                    'body_class' => 'admin-card-body-flush',
+                    'icon' => 'bi-layout-sidebar',
+                    'title' => 'Sidebar Builder',
+                    'subtitle' => 'Sol ve sag alanlari surukle-birak yonet',
+                ]) ?>
                     <div class="sidebar-builder-shell">
                         <div class="sidebar-builder-hero">
                             <div class="sidebar-builder-summary">
@@ -390,7 +400,7 @@ require_once __DIR__ . '/header.php';
                             </aside>
                         </div>
                     </div>
-                </div>
+                <?= adminRenderPanelClose('div') ?>
 
                 <?php
                 $sidebarSubTabs = [
@@ -436,11 +446,14 @@ require_once __DIR__ . '/header.php';
                     'mn_cta'        => ['title' => 'Aksiyon Butonu',  'icon' => 'bi-megaphone',  'keys' => ['menu_cta_enabled', 'menu_cta_text', 'menu_cta_url', 'menu_cta_color', 'menu_cta_icon']],
                 ];
                 ?>
-                <div class="admin-card admin-card-spaced ui-panel">
-                    <div class="card-header profile-mini-row-wrap ui-panel__head">
-                        <span><i class="bi bi-list-nested me-2"></i>Menü Yapılandırması</span>
-                    </div>
-                    <div class="card-body admin-card-body-flush ui-panel__body">
+                <?= adminRenderPanelOpen([
+                    'tag' => 'div',
+                    'class' => 'admin-card-spaced',
+                    'header_class' => 'profile-mini-row-wrap',
+                    'body_class' => 'admin-card-body-flush',
+                    'icon' => 'bi-list-nested',
+                    'title' => 'Menü Yapılandırması',
+                ]) ?>
                         <!-- Sub-tab navigation -->
                         <div class="sidebar-subtabs">
                             <?php $mnFirst = true; foreach ($menuSubTabs as $mnId => $mnTab): ?>
@@ -496,8 +509,7 @@ require_once __DIR__ . '/header.php';
                             </div>
                         </div>
                         <?php $mnFirst = false; endforeach; ?>
-                    </div>
-                </div>
+                <?= adminRenderPanelClose('div') ?>
 
                 <?php endif; ?>
             </section>

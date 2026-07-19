@@ -2,6 +2,10 @@
     "use strict";
 
     function getCsrfToken() {
+        if (window.publicApi && typeof window.publicApi.csrfToken === "function") {
+            return window.publicApi.csrfToken();
+        }
+
         var meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute("content") || "" : "";
     }
@@ -24,6 +28,14 @@
         } catch (error) {
             return value;
         }
+    }
+
+    function fetchJson(url, options) {
+        if (window.publicFetchJson) {
+            return window.publicFetchJson(url, options || {});
+        }
+
+        return Promise.reject(new Error("Public API helper yuklenemedi."));
     }
 
     function initMessagesMenu(root) {
@@ -133,12 +145,9 @@
                 return Promise.resolve();
             }
 
-            return fetch(dropdownUrl(), {
+            return fetchJson(dropdownUrl(), {
                 headers: { "X-Requested-With": "XMLHttpRequest" }
             })
-                .then(function (response) {
-                    return response.json();
-                })
                 .then(render)
                 .catch(function () {
                     if (!list) {
@@ -159,14 +168,11 @@
             formData.append("_token", getCsrfToken());
             formData.append("action", "mark_all_read");
 
-            fetch(apiUrl, {
+            fetchJson(apiUrl, {
                 method: "POST",
                 body: formData,
                 headers: { "X-Requested-With": "XMLHttpRequest" }
             })
-                .then(function (response) {
-                    return response.json();
-                })
                 .then(function () {
                     fetchDropdown();
                 })

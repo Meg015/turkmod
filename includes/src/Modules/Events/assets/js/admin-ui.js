@@ -341,18 +341,18 @@
             `;
         }
         
-        return fetch(url, {
+        if (typeof window.adminFetchHtml !== 'function') {
+            window.location.href = url;
+            return Promise.resolve();
+        }
+
+        return window.adminFetchHtml(url, {
             credentials: 'same-origin',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+            errorMessage: 'Çark sayfası yüklenemedi.',
+            notifyError: false
         })
-            .then(response => {
-                if (!response.ok) throw new Error('Çark sayfası yüklenemedi.');
-                return response.text();
-            })
-            .then(html => {
-                replaceEventsWheelAjaxContent(html, url, pushState);
+            .then(result => {
+                replaceEventsWheelAjaxContent(result.text, url, pushState);
             })
             .catch(() => {
                 window.location.href = url;
@@ -1289,35 +1289,38 @@
 
         setFormBusy(form, true);
         try {
-            const response = await fetch(url, {
+            if (typeof window.adminFetchText !== 'function') {
+                throw new Error('Admin API helper yuklenemedi.');
+            }
+
+            const result = await window.adminFetchText(url, {
                 method,
                 body: formData,
                 headers: {
                     'Accept': 'application/json, text/html;q=0.9',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                errorMessage: 'İşlem tamamlanamadı.',
+                notifyError: false
             });
 
-            const contentType = response.headers.get('content-type') || '';
+            const contentType = result.contentType || '';
             if (contentType.includes('application/json')) {
-                const data = await response.json();
-                if (!response.ok || data.success === false) {
-                    throw new Error(data.message || data.error || 'İşlem tamamlanamadı.');
-                }
+                const data = result.data || {};
 
                 const successMessage = data.message || formActionLabel(form);
                 showFormInlineStatus(form, successMessage, 'success');
                 eventsToast(successMessage, 'success');
                 window.setTimeout(() => {
-                    window.location.href = data.redirect || response.url || window.location.href;
+                    window.location.href = data.redirect || result.url || window.location.href;
                 }, 450);
                 return;
             }
 
-            const html = await response.text();
+            const html = result.text;
             const htmlError = formErrorFromHtml(html);
-            if (!response.ok || htmlError) {
+            if (htmlError) {
                 throw new Error(htmlError || 'İşlem tamamlanamadı.');
             }
 
@@ -1325,7 +1328,7 @@
             showFormInlineStatus(form, successMessage, 'success');
             eventsToast(successMessage, 'success');
             window.setTimeout(() => {
-                window.location.href = response.url || window.location.href;
+                window.location.href = result.url || window.location.href;
             }, 450);
         } catch (error) {
             const errorMessage = error.message || 'İşlem tamamlanamadı.';
@@ -1363,7 +1366,10 @@
 
         if (button) button.disabled = true;
         try {
-            const response = await fetch(eventsAdminBaseUri() + '/events/api/raffle-draw', {
+            if (typeof window.adminFetchJson !== 'function') {
+                throw new Error('Admin API helper yuklenemedi.');
+            }
+            const data = await window.adminFetchJson(eventsAdminBaseUri() + '/events/api/raffle-draw', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1371,17 +1377,13 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({
+                body: {
                     _token: formData.get('_token') || '',
                     raffle_id: formData.get('raffle_id'),
                     notes: formData.get('notes') || ''
-                })
+                },
+                notifyError: false
             });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok || data.success === false) {
-                throw new Error(data.message || data.error || 'Çekim tamamlanamadı.');
-            }
 
             const successMessage = data.message || 'Çekiliş çekildi.';
             eventsToast(successMessage, 'success');
@@ -1440,17 +1442,16 @@
 
         if (button) button.disabled = true;
         try {
-            const response = await fetch(window.location.href, {
+            if (typeof window.adminFetchJson !== 'function') {
+                throw new Error('Admin API helper yuklenemedi.');
+            }
+            const data = await window.adminFetchJson(window.location.href, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'same-origin',
-                body: formData
+                body: formData,
+                notifyError: false
             });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok || data.success === false) {
-                throw new Error(data.message || data.error || 'İşlem tamamlanamadı.');
-            }
 
             eventsToast(data.message || 'İşlem tamamlandı.', 'success');
             window.setTimeout(() => window.location.reload(), 650);

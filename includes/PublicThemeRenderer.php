@@ -217,6 +217,10 @@ final class PublicThemeRenderer
                     }
                 }
                 $toastBridgeScript = '<script src="' . htmlspecialchars(asset_url('assets/js/public-toast-bridge.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                $publicApiScript = '<script src="' . htmlspecialchars(asset_url('assets/js/public-api.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                if (!str_contains($scripts, 'assets/js/public-api.js')) {
+                    $scripts = trim($publicApiScript . "\n" . $scripts);
+                }
                 if (!str_contains($scripts, 'assets/js/public-toast-bridge.js')) {
                     $scripts = trim($scripts . "\n" . $toastBridgeScript);
                 }
@@ -1006,6 +1010,9 @@ final class PublicThemeRenderer
                 'download_access_grant_duration_value',
                 'download_access_grant_duration_unit',
                 'download_access_relock_on_comment_delete',
+                'download_exempt_usernames',
+                'download_exempt_groups',
+                'download_exempt_scopes',
                 'download_access_login_message',
                 'download_access_comment_message',
                 'download_access_comment_title',
@@ -1045,6 +1052,9 @@ final class PublicThemeRenderer
         $securityNoticeText = trim((string) ($settings['download_security_notice_text'] ?? self::DOWNLOAD_SECURITY_NOTICE_DEFAULT)) ?: self::DOWNLOAD_SECURITY_NOTICE_DEFAULT;
         $topicId = (int) ($topic['id'] ?? 0);
         $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+        $downloadCountdownSeconds = function_exists('topicDownloadCountdownSeconds')
+            ? topicDownloadCountdownSeconds($pdo instanceof PDO ? $pdo : null, $settings, $currentUserId, 'download_countdown_seconds', 'inline_countdown', 5)
+            : max(0, (int) ($settings['download_countdown_seconds'] ?? 5));
         $downloadStatusApi = rtrim($baseUri, '/') . '/api/download-access.php';
         $downloadAuthApi = rtrim($baseUri, '/') . '/api/auth-popup.php';
         $downloadLoginUrl = routePublicStaticUrl('login');
@@ -1147,7 +1157,7 @@ final class PublicThemeRenderer
             return [
                 'has_downloads' => false,
                 'download_links' => [],
-                'download_countdown' => max(0, (int) ($settings['download_countdown_seconds'] ?? 5)),
+                'download_countdown' => $downloadCountdownSeconds,
                 'download_ready_text' => $readyText,
                 'download_wait_text' => $waitText,
                 'download_done_text' => $doneText,
@@ -1177,7 +1187,9 @@ final class PublicThemeRenderer
             }
             $id = (int) ($link['id'] ?? 0);
             $href = $id > 0
-                ? routePublicStaticUrl('download') . '?id=' . $id
+                ? (function_exists('topicDownloadBuildActionUrl')
+                    ? topicDownloadBuildActionUrl($id, $topicId)
+                    : routePublicStaticUrl('download') . '?id=' . $id)
                 : (function_exists('safeExternalUrl') ? safeExternalUrl($url, '') : $url);
             if ($href === '') {
                 continue;
@@ -1209,7 +1221,7 @@ final class PublicThemeRenderer
         return [
             'has_downloads' => $rows !== [],
             'download_links' => $rows,
-            'download_countdown' => max(0, (int) ($settings['download_countdown_seconds'] ?? 5)),
+            'download_countdown' => $downloadCountdownSeconds,
             'download_ready_text' => $readyText,
             'download_wait_text' => $waitText,
             'download_done_text' => $doneText,
@@ -1707,7 +1719,10 @@ final class PublicThemeRenderer
             return '';
         }
 
-        $countdown = max(0, (int) ($settings['download_countdown_seconds'] ?? 5));
+        $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+        $countdown = function_exists('topicDownloadCountdownSeconds')
+            ? topicDownloadCountdownSeconds($pdo instanceof PDO ? $pdo : null, $settings, $currentUserId, 'download_countdown_seconds', 'inline_countdown', 5)
+            : max(0, (int) ($settings['download_countdown_seconds'] ?? 5));
         $readyText = trim((string) ($settings['download_ready_text'] ?? 'İndirmek için tıklayınız')) ?: 'İndirmek için tıklayınız';
         $waitText = trim((string) ($settings['download_wait_text'] ?? 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz')) ?: 'İndirme linkiniz kontrol ediliyor, lütfen bekleyiniz';
         $doneText = trim((string) ($settings['download_done_text'] ?? 'İndirme linkiniz hazır, indirmek için tıklayın')) ?: 'İndirme linkiniz hazır, indirmek için tıklayın';
@@ -1725,7 +1740,9 @@ final class PublicThemeRenderer
             $id = (int) ($link['id'] ?? 0);
             $name = trim((string) ($link['name'] ?? '')) ?: 'İndirme Linki';
             $href = $id > 0
-                ? routePublicStaticUrl('download') . '?id=' . $id
+                ? (function_exists('topicDownloadBuildActionUrl')
+                    ? topicDownloadBuildActionUrl($id, (int) ($topic['id'] ?? 0))
+                    : routePublicStaticUrl('download') . '?id=' . $id)
                 : (function_exists('safeExternalUrl') ? safeExternalUrl($url, '') : $url);
             if ($href === '') {
                 continue;

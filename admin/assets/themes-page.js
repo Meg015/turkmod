@@ -1,16 +1,22 @@
-document.addEventListener('DOMContentLoaded', function () {
+function initThemesPage() {
     var search = document.querySelector('[data-theme-search]');
     var cards = Array.prototype.slice.call(document.querySelectorAll('[data-theme-card]'));
+    var setThemeVisibility = function (element, visible) {
+        if (!element) return;
+        if (window.adminVisibility && typeof window.adminVisibility.set === 'function') {
+            window.adminVisibility.set(element, visible, { aria: false });
+            return;
+        }
+
+        element.hidden = !visible;
+    };
+
     if (search) {
         search.addEventListener('input', function () {
             var query = search.value.trim().toLocaleLowerCase('tr-TR');
             cards.forEach(function (card) {
                 var haystack = (card.getAttribute('data-theme-search-text') || '').toLocaleLowerCase('tr-TR');
-                if (query !== '' && haystack.indexOf(query) === -1) {
-                    card.style.display = 'none';
-                } else {
-                    card.style.display = '';
-                }
+                setThemeVisibility(card, !(query !== '' && haystack.indexOf(query) === -1));
             });
         });
     }
@@ -70,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var query = editorSearch.value;
             editor.classList.remove('is-search-hit');
             if (searchStatus) {
-                searchStatus.hidden = true;
+                setThemeVisibility(searchStatus, false);
                 searchStatus.textContent = '';
             }
             if (!query) return;
@@ -80,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var index = haystack.indexOf(needle);
             if (index === -1) {
                 if (searchStatus) {
-                    searchStatus.hidden = false;
+                    setThemeVisibility(searchStatus, true);
                     searchStatus.textContent = 'Eşleşme bulunamadı.';
                 }
                 return;
@@ -91,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function () {
             editor.classList.add('is-search-hit');
             var line = editor.value.slice(0, index).split(/\r\n|\r|\n/).length;
             if (searchStatus) {
-                searchStatus.hidden = false;
+                setThemeVisibility(searchStatus, true);
                 searchStatus.textContent = 'İlk eşleşme satır ' + line.toLocaleString('tr-TR') + '.';
             }
             updateEditorStats();
@@ -103,4 +109,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (editorSearch) editorSearch.addEventListener('input', runEditorSearch);
         updateEditorStats();
     }
-});
+}
+
+if (window.adminPage && typeof window.adminPage.register === 'function') {
+    window.adminPage.register('themes', initThemesPage, { id: 'themes-page' });
+}

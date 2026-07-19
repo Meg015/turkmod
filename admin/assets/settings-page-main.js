@@ -1,3 +1,4 @@
+function initSettingsPageMainBindings() {
 document.querySelectorAll('.seo-subtab-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
         var target = this.getAttribute('data-seo-tab');
@@ -380,41 +381,6 @@ function validateUserUploadSettingLogic() {
     return true;
 }
 
-function captureButtonState(button) {
-    if (!button) {
-        return null;
-    }
-
-    return {
-        button: button,
-        html: button.innerHTML,
-        disabled: button.disabled,
-        className: button.className
-    };
-}
-
-function setGenericButtonLoading(button, label) {
-    if (!button) {
-        return null;
-    }
-
-    var state = captureButtonState(button);
-    button.disabled = true;
-    button.classList.add('loading');
-    button.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>' + label;
-    return state;
-}
-
-function restoreButtonState(state) {
-    if (!state || !state.button) {
-        return;
-    }
-
-    state.button.innerHTML = state.html;
-    state.button.disabled = state.disabled;
-    state.button.className = state.className;
-}
-
 [
     'user_upload_allow_video_url',
     'user_upload_wizard_enabled',
@@ -675,19 +641,15 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
     var active = document.querySelector('.settings-tabs .nav-link.active');
     if(active) document.getElementById('activeTabInput').value = active.getAttribute('href').replace('#','');
 
-    var originalIcon = '';
-    var originalText = '';
-    var genericSubmitState = null;
-    if (submitter && submitter === saveBtn) {
-        saveBtn.classList.add('loading');
-        var iconEl = saveBtn.querySelector('.btn-icon-wrapper i');
-        var textEl = saveBtn.querySelector('.btn-text');
-        originalIcon = iconEl ? iconEl.className : '';
-        originalText = textEl ? textEl.textContent : saveBtn.textContent;
-        if (iconEl) iconEl.className = 'bi bi-arrow-repeat';
-        if (textEl) textEl.textContent = 'Kaydediliyor...';
-    } else if (submitter) {
-        genericSubmitState = setGenericButtonLoading(submitter, 'Gönderiliyor...');
+    var submitButtonState = null;
+    if (submitter && window.adminAsync) {
+        submitButtonState = window.adminAsync.setButtonLoading(submitter, {
+            className: 'loading',
+            iconClass: submitter === saveBtn ? 'bi bi-arrow-repeat' : 'bi bi-arrow-repeat me-1',
+            loadingText: submitter === saveBtn ? 'Kaydediliyor...' : 'Gonderiliyor...',
+            iconSelector: submitter === saveBtn ? '.btn-icon-wrapper i' : '',
+            textSelector: submitter === saveBtn ? '.btn-text' : ''
+        });
     }
 
     syncAllAccountEmailEditors();
@@ -702,51 +664,20 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
     }
     formData.append('ajax', '1');
 
-    fetch('settings.php', {
+    window.adminFetchJson('settings.php', {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
+        notifyError: false
     })
     .then(function(response) {
-        return response.text().then(function(responseBody) {
-            var data;
-            try {
-                data = JSON.parse(responseBody);
-            } catch (parseError) {
-                throw new Error('Sunucu e-posta işlemi için geçersiz bir yanıt döndürdü.');
-            }
-
-            if (!response.ok && data.success !== false) {
-                data.success = false;
-            }
-
-            return data;
-        });
+        return response || {};
     })
     .then(data => {
-        if (submitter && submitter === saveBtn) {
-            saveBtn.classList.remove('loading');
-            var restoreIcon = saveBtn.querySelector('.btn-icon-wrapper i');
-            var restoreText = saveBtn.querySelector('.btn-text');
-            if (restoreIcon && originalIcon) restoreIcon.className = originalIcon;
-            if (restoreText) restoreText.textContent = originalText;
-            
-            if (data.success) {
-                saveBtn.classList.add('success');
-                setTimeout(() => saveBtn.classList.remove('success'), 2000);
-            }
-        } else {
-            restoreButtonState(genericSubmitState);
-            if (data.success && submitter) {
-                submitter.classList.add('success');
-                setTimeout(function() {
-                    if (submitter) {
-                        submitter.classList.remove('success');
-                    }
-                }, 2000);
-            }
+        if (window.adminAsync) {
+            window.adminAsync.restoreButton(submitButtonState);
+        }
+        if (data.success && submitter && window.adminAsync) {
+            window.adminAsync.markSuccess(submitter);
         }
         
         if (typeof window.showToast === 'function') {
@@ -754,14 +685,12 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
         }
     })
     .catch(error => {
-        if (submitter && submitter === saveBtn) {
-            saveBtn.classList.remove('loading');
-            var restoreIcon = saveBtn.querySelector('.btn-icon-wrapper i');
-            var restoreText = saveBtn.querySelector('.btn-text');
-            if (restoreIcon && originalIcon) restoreIcon.className = originalIcon;
-            if (restoreText) restoreText.textContent = originalText;
-        } else {
-            restoreButtonState(genericSubmitState);
+        if (window.adminAsync) {
+            window.adminAsync.restoreButton(submitButtonState);
+        }
+        if (window.adminNotifyError) {
+            window.adminNotifyError(error, 'Bir hata olustu. Lutfen tekrar deneyin.');
+            return;
         }
         console.error('Save error:', error);
         if (typeof window.showToast === 'function') {
@@ -770,8 +699,72 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
     });
 });
 
+activateSettingsSubtabFromHash();
+}
+
+function initSearchableMultiselects() {
+    document.querySelectorAll('[data-admin-searchable-multiselect]').forEach(function(wrapper) {
+        if (wrapper.dataset.searchReady === '1') {
+            return;
+        }
+
+        var search = wrapper.querySelector('[data-admin-multiselect-search]');
+        var select = wrapper.querySelector('[data-admin-multiselect-list]');
+        if (!search || !select) {
+            return;
+        }
+
+        wrapper.dataset.searchReady = '1';
+
+        var maxVisible = parseInt(wrapper.getAttribute('data-admin-multiselect-max-visible') || '0', 10);
+        if (!Number.isFinite(maxVisible) || maxVisible < 1) {
+            maxVisible = 0;
+        }
+
+        var options = Array.prototype.slice.call(select.options || []);
+        options.forEach(function(option) {
+            option.dataset.searchText = normalizeSettingsSearchText(option.textContent + ' ' + option.value);
+        });
+
+        function applyFilter() {
+            var query = normalizeSettingsSearchText(search.value);
+            var visibleCount = 0;
+            options.forEach(function(option) {
+                var matches = query === '' || option.dataset.searchText.indexOf(query) !== -1;
+                if (matches) {
+                    visibleCount += 1;
+                }
+                option.hidden = !matches || (maxVisible > 0 && visibleCount > maxVisible);
+            });
+        }
+
+        search.addEventListener('input', applyFilter);
+        search.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+            }
+        });
+        applyFilter();
+    });
+}
+
+function normalizeSettingsSearchText(value) {
+    return String(value || '')
+        .toLocaleLowerCase('tr-TR')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[\u00e7\u00c7]/g, 'c')
+        .replace(/[\u011f\u011e]/g, 'g')
+        .replace(/[\u0131\u0130]/g, 'i')
+        .replace(/[\u00f6\u00d6]/g, 'o')
+        .replace(/[\u015f\u015e]/g, 's')
+        .replace(/[\u00fc\u00dc]/g, 'u');
+}
+
 // Success animation on page load if there's a success message
-document.addEventListener('DOMContentLoaded', function() {
+function initSettingsPageEnhancements() {
+    initSettingsPageMainBindings();
+    initSearchableMultiselects();
     var successMsg = document.querySelector('.alert-success');
     var saveBtn = document.querySelector('.ui-admin-btn-save-enhanced');
 
@@ -783,8 +776,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     initSettingsTooltips();
-    activateSettingsSubtabFromHash();
     initConditionalSettingsFields();
+}
+
+window.adminPage.register('settings', initSettingsPageEnhancements, {
+    id: 'settings-page:main',
+    selector: '#settingsForm'
 });
 
 function initConditionalSettingsFields() {

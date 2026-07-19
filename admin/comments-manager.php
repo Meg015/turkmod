@@ -7,16 +7,33 @@ adminRequirePermission('comments.view', 'Yorumlari goruntulemek icin gerekli izi
 
 $pageTitle = 'Yorum Yönetimi';
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
+$currentUserId = (int)($_SESSION['_auth_user_id'] ?? 0);
+$canManageCommentUsers = $currentUserId > 0 && userHasPermission($pdo, $currentUserId, 'users.edit');
+$canViewCommentUserDetails = $currentUserId > 0 && ($canManageCommentUsers || userHasPermission($pdo, $currentUserId, 'admin.access'));
 
 // Filters
 $status = $_GET['status'] ?? 'all';
+$allowedStatuses = ['all', 'pending', 'approved', 'rejected', 'deleted'];
+if (!in_array($status, $allowedStatuses, true)) {
+    $status = 'all';
+}
 $search = trim($_GET['search'] ?? '');
 $topicId = (int)($_GET['topic_id'] ?? 0);
 $userId = (int)($_GET['user_id'] ?? 0);
+$userState = (string)($_GET['user_state'] ?? 'all');
+$allowedUserStates = ['all', 'banned', 'restricted'];
+if (!in_array($userState, $allowedUserStates, true)) {
+    $userState = 'all';
+}
+$dateRange = (string)($_GET['date_range'] ?? 'all');
+$allowedDateRanges = ['all', 'today', 'week', 'month'];
+if (!in_array($dateRange, $allowedDateRanges, true)) {
+    $dateRange = 'all';
+}
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = adminPaginationPerPage();
 
-$commentsManagerBuildWhereClause = static function (string $status, string $search, int $topicId, int $userId): array {
+$commentsManagerBuildWhereClause = static function (string $status, string $search, int $topicId, int $userId, string $userState, string $dateRange, bool $hasRestrictionTable): array {
     $where = ['1=1'];
     $params = [];
 
@@ -33,8 +50,10 @@ $commentsManagerBuildWhereClause = static function (string $status, string $sear
     }
 
     if ($search !== '') {
-        $where[] = '(c.body LIKE ? OR u.username LIKE ?)';
+        $where[] = '(c.body LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR t.title LIKE ?)';
         $searchTerm = '%' . $search . '%';
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
         $params[] = $searchTerm;
         $params[] = $searchTerm;
     }
@@ -47,6 +66,22 @@ $commentsManagerBuildWhereClause = static function (string $status, string $sear
     if ($userId > 0) {
         $where[] = 'c.user_id = ?';
         $params[] = $userId;
+    }
+
+    if ($userState === 'banned') {
+        $where[] = 'COALESCE(u.is_banned, 0) = 1';
+    } elseif ($userState === 'restricted') {
+        $where[] = $hasRestrictionTable
+            ? "EXISTS (SELECT 1 FROM user_restrictions ur WHERE ur.user_id = c.user_id AND (ur.expires_at IS NULL OR ur.expires_at > NOW()))"
+            : '0=1';
+    }
+
+    if ($dateRange === 'today') {
+        $where[] = 'c.created_at >= CURDATE()';
+    } elseif ($dateRange === 'week') {
+        $where[] = 'c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    } elseif ($dateRange === 'month') {
+        $where[] = 'c.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
     }
 
     return [implode(' AND ', $where), $params];
@@ -77,6 +112,38 @@ $commentsManagerTableExists = static function (PDO $pdo, string $table): bool {
     }
 
     return $cache[$table];
+};
+
+$commentsManagerHasRestrictionTable = function_exists('usersTableExists')
+    ? usersTableExists($pdo, 'user_restrictions')
+    : $commentsManagerTableExists($pdo, 'user_restrictions');
+
+$commentsManagerFilterQuery = static function (array $overrides = []) use ($status, $search, $topicId, $userId, $userState, $dateRange): array {
+    $query = [
+        'status' => $status,
+        'search' => $search,
+        'topic_id' => $topicId,
+        'user_id' => $userId,
+        'user_state' => $userState,
+        'date_range' => $dateRange,
+    ];
+
+    foreach ($overrides as $key => $value) {
+        $query[$key] = $value;
+    }
+
+    return array_filter($query, static function ($value, string $key): bool {
+        if ($value === null || $value === '') {
+            return false;
+        }
+        if (in_array($key, ['topic_id', 'user_id', 'page'], true)) {
+            return (int)$value > 0;
+        }
+        if (in_array($key, ['status', 'user_state', 'date_range'], true)) {
+            return $value !== 'all';
+        }
+        return true;
+    }, ARRAY_FILTER_USE_BOTH);
 };
 
 $commentsManagerDeleteByIds = static function (PDO $pdo, string $sqlTemplate, array $ids): int {
@@ -147,6 +214,138 @@ $commentsManagerCollectTreeRows = static function (PDO $pdo, array $seedRows): a
     return array_values($rowsById);
 };
 
+$commentsManagerBulkActions = [
+    'bulk_approve' => 'approve',
+    'bulk_reject' => 'reject',
+    'bulk_delete' => 'delete',
+    'bulk_restore' => 'restore',
+];
+
+$commentsManagerApplyCommentAction = static function (PDO $pdo, array $settings, array $commentRow, string $action): bool {
+    $commentId = (int)($commentRow['id'] ?? 0);
+    if ($commentId <= 0) {
+        return false;
+    }
+
+    switch ($action) {
+        case 'approve':
+            if ((string)($commentRow['status'] ?? '') === 'approved') {
+                return false;
+            }
+
+            $approvedAt = date('Y-m-d H:i:s');
+            $pdo->prepare("UPDATE comments SET status = 'approved', updated_at = NOW() WHERE id = ?")->execute([$commentId]);
+            $accessOpened = false;
+            if (empty($commentRow['deleted_at']) && function_exists('topicDownloadApproveAccessGrant')) {
+                $accessOpened = topicDownloadApproveAccessGrant($pdo, $settings, $commentRow, $approvedAt);
+            }
+            commentApplyTopicCountDelta($pdo, $commentRow, 'approved', !empty($commentRow['deleted_at']));
+            if (function_exists('eventsRecordActivity') && (int)$commentRow['user_id'] > 0 && empty($commentRow['deleted_at'])) {
+                eventsRecordActivity($pdo, (int)$commentRow['user_id'], 'comment_created', 'comment', $commentId, [
+                    'topic_id' => (int)$commentRow['topic_id'],
+                    'text_length' => mb_strlen((string)$commentRow['body']),
+                ]);
+            }
+            if ((int)($commentRow['user_id'] ?? 0) > 0 && empty($commentRow['deleted_at']) && function_exists('notificationDispatch')) {
+                try {
+                    $topicStmt = $pdo->prepare("SELECT id, title, slug FROM topics WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+                    $topicStmt->execute([(int)($commentRow['topic_id'] ?? 0)]);
+                    $topicRow = $topicStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                    $topicTitle = trim((string)($topicRow['title'] ?? 'Konu')) ?: 'Konu';
+                    $topicLink = topicUrl((string)($topicRow['slug'] ?? ''), (int)($topicRow['id'] ?? $commentRow['topic_id'])) . '#comment-' . $commentId;
+                    $payload = [
+                        'actor_name' => (string)($_SESSION['_auth_user_name'] ?? 'Yönetim'),
+                        'topic_title' => $topicTitle,
+                        'link' => $topicLink,
+                        'dedupe_key' => 'comment_approved:' . (int)$commentRow['user_id'] . ':' . $commentId,
+                    ];
+                    if ($accessOpened) {
+                        $payload['title'] = 'İndirme erişiminiz açıldı';
+                        $payload['message'] = '“' . $topicTitle . '” konusundaki yorumunuz onaylandı. İndirme bağlantıları artık kullanıma hazır.';
+                    }
+                    notificationDispatch(
+                        $pdo,
+                        'comment_approved',
+                        (int)$commentRow['user_id'],
+                        (int)($_SESSION['_auth_user_id'] ?? 0) ?: null,
+                        'comment',
+                        $commentId,
+                        $payload
+                    );
+                } catch (Throwable $e) {
+                    if (function_exists('appLogException')) {
+                        appLogException($e, ['source' => 'comments-manager.bulk-comment-approved-notification', 'comment_id' => $commentId]);
+                    } else {
+                        error_log('Bulk comment approval notification failed: ' . $e->getMessage());
+                    }
+                }
+            }
+            if (function_exists('invalidatePublicContentCache')) {
+                invalidatePublicContentCache();
+            }
+            return true;
+
+        case 'reject':
+            if ((string)($commentRow['status'] ?? '') === 'rejected') {
+                return false;
+            }
+
+            $pdo->prepare("UPDATE comments SET status = 'rejected' WHERE id = ?")->execute([$commentId]);
+            if (function_exists('topicDownloadRevokeAccessGrant')) {
+                topicDownloadRevokeAccessGrant($pdo, $commentId, 'comment_rejected');
+            }
+            commentApplyTopicCountDelta($pdo, $commentRow, 'rejected', !empty($commentRow['deleted_at']));
+            if (function_exists('eventsReverseActivityPoints') && (int)$commentRow['user_id'] > 0 && empty($commentRow['deleted_at']) && (string)$commentRow['status'] === 'approved') {
+                eventsReverseActivityPoints($pdo, (int)$commentRow['user_id'], 'comment_created', 'comment', $commentId, 'comment_rejected');
+            }
+            if (function_exists('invalidatePublicContentCache')) {
+                invalidatePublicContentCache();
+            }
+            return true;
+
+        case 'delete':
+            if (!empty($commentRow['deleted_at'])) {
+                return false;
+            }
+
+            $pdo->prepare("UPDATE comments SET deleted_at = NOW() WHERE id = ?")->execute([$commentId]);
+            if ((string)($settings['download_access_relock_on_comment_delete'] ?? '1') === '1' && function_exists('topicDownloadRevokeAccessGrant')) {
+                topicDownloadRevokeAccessGrant($pdo, $commentId, 'comment_deleted');
+            }
+            commentApplyTopicCountDelta($pdo, $commentRow, (string)($commentRow['status'] ?? ''), true);
+            if (function_exists('eventsReverseActivityPoints') && (int)$commentRow['user_id'] > 0 && (string)$commentRow['status'] === 'approved') {
+                eventsReverseActivityPoints($pdo, (int)$commentRow['user_id'], 'comment_created', 'comment', $commentId, 'comment_deleted');
+            }
+            if (function_exists('invalidatePublicContentCache')) {
+                invalidatePublicContentCache();
+            }
+            return true;
+
+        case 'restore':
+            if (empty($commentRow['deleted_at'])) {
+                return false;
+            }
+
+            $pdo->prepare("UPDATE comments SET deleted_at = NULL WHERE id = ?")->execute([$commentId]);
+            if (function_exists('topicDownloadRestoreAccessGrant')) {
+                topicDownloadRestoreAccessGrant($pdo, $settings, array_merge($commentRow, ['deleted_at' => null]));
+            }
+            commentApplyTopicCountDelta($pdo, $commentRow, (string)($commentRow['status'] ?? ''), false);
+            if (function_exists('eventsRecordActivity') && (int)$commentRow['user_id'] > 0 && (string)$commentRow['status'] === 'approved') {
+                eventsRecordActivity($pdo, (int)$commentRow['user_id'], 'comment_created', 'comment', $commentId, [
+                    'topic_id' => (int)$commentRow['topic_id'],
+                    'text_length' => mb_strlen((string)$commentRow['body']),
+                ]);
+            }
+            if (function_exists('invalidatePublicContentCache')) {
+                invalidatePublicContentCache();
+            }
+            return true;
+    }
+
+    return false;
+};
+
 // Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
@@ -155,11 +354,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $action = $_POST['action'] ?? '';
+    $action = (string)($_POST['action'] ?? '');
     $commentId = (int)($_POST['comment_id'] ?? 0);
-    $requiredPermission = in_array($action, ['delete', 'purge_deleted'], true) ? 'comments.delete' : 'comments.edit';
-    if (!adminCurrentUserCan($requiredPermission)) {
-        adminDenyAction('Yorum islemi yapmak icin gerekli izin hesabiniza tanimlanmamis.', 'comments-manager.php');
+    $userModerationActions = ['ban', 'unban', 'add_restriction'];
+    $commentBulkAction = $commentsManagerBulkActions[$action] ?? null;
+    if (in_array($action, $userModerationActions, true)) {
+        if (!$canManageCommentUsers) {
+            adminDenyAction('Kullanici moderasyonu icin gerekli izin hesabiniza tanimlanmamis.', 'comments-manager.php');
+        }
+    } else {
+        $requiredPermission = in_array($action, ['delete', 'purge_deleted', 'bulk_delete'], true) ? 'comments.delete' : 'comments.edit';
+        if (!adminCurrentUserCan($requiredPermission)) {
+            adminDenyAction('Yorum islemi yapmak icin gerekli izin hesabiniza tanimlanmamis.', 'comments-manager.php');
+        }
     }
 
     if ($action === 'purge_deleted') {
@@ -167,10 +374,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($status !== 'deleted') {
                 flash('error', 'Kalıcı silme için önce silinenler görünümüne geçin.');
             } else {
-                [$purgeWhereClause, $purgeParams] = $commentsManagerBuildWhereClause('deleted', $search, $topicId, $userId);
+                [$purgeWhereClause, $purgeParams] = $commentsManagerBuildWhereClause('deleted', $search, $topicId, $userId, $userState, $dateRange, $commentsManagerHasRestrictionTable);
                 $seedStmt = $pdo->prepare("SELECT c.id, c.topic_id, c.parent_id, c.status, c.deleted_at
                                            FROM comments c
                                            LEFT JOIN users u ON c.user_id = u.id
+                                           LEFT JOIN topics t ON t.id = c.topic_id
                                            WHERE {$purgeWhereClause}");
                 $seedStmt->execute($purgeParams);
                 $seedRows = $seedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -266,6 +474,139 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $e) {
             flash('error', 'Kalıcı silme hazırlığı başarısız: ' . safeErrorMessage($e));
+        }
+    } elseif ($commentBulkAction !== null) {
+        $selectedCommentIds = $commentsManagerNormalizeIds((array)($_POST['comment_ids'] ?? []));
+        try {
+            if ($selectedCommentIds === []) {
+                flash('error', 'Toplu işlem için en az bir yorum seçmelisiniz.');
+            } else {
+                $commentRowsById = [];
+                foreach (array_chunk($selectedCommentIds, 500) as $chunk) {
+                    $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+                    $bulkStmt = $pdo->prepare("SELECT id, topic_id, user_id, body, status, deleted_at, created_at, updated_at FROM comments WHERE id IN ({$placeholders})");
+                    $bulkStmt->execute($chunk);
+                    foreach ($bulkStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                        $commentRowsById[(int)$row['id']] = $row;
+                    }
+                }
+
+                $processed = 0;
+                $skipped = 0;
+                $failed = 0;
+                foreach ($selectedCommentIds as $selectedCommentId) {
+                    $commentRow = $commentRowsById[$selectedCommentId] ?? null;
+                    if (!$commentRow) {
+                        $skipped++;
+                        continue;
+                    }
+
+                    try {
+                        if ($commentsManagerApplyCommentAction($pdo, $settings, $commentRow, $commentBulkAction)) {
+                            $processed++;
+                        } else {
+                            $skipped++;
+                        }
+                    } catch (Throwable $bulkActionError) {
+                        $failed++;
+                        if (function_exists('appLogException')) {
+                            appLogException($bulkActionError, [
+                                'source' => 'comments-manager.bulk-comment-action',
+                                'action' => $commentBulkAction,
+                                'comment_id' => $selectedCommentId,
+                            ]);
+                        } else {
+                            error_log('Bulk comment action failed: ' . $bulkActionError->getMessage());
+                        }
+                    }
+                }
+
+                if ($processed > 0) {
+                    $message = $processed . ' yorum için toplu işlem tamamlandı.';
+                    if ($skipped > 0) {
+                        $message .= ' ' . $skipped . ' yorum atlandı.';
+                    }
+                    if ($failed > 0) {
+                        $message .= ' ' . $failed . ' yorum işlenemedi.';
+                    }
+                    flash('success', $message);
+                } elseif ($failed > 0) {
+                    flash('error', 'Seçili yorumlar işlenemedi.');
+                } else {
+                    flash('error', 'Seçili yorumlarda değişiklik yapılmadı.');
+                }
+            }
+        } catch (Throwable $e) {
+            flash('error', 'Toplu işlem başarısız: ' . safeErrorMessage($e));
+        }
+    } elseif (in_array($action, $userModerationActions, true)) {
+        $targetUserId = (int)($_POST['user_id'] ?? 0);
+        try {
+            if ($targetUserId <= 0) {
+                flash('error', 'Gecersiz kullanici.');
+            } elseif ($targetUserId === $currentUserId) {
+                flash('error', 'Kendi hesabiniz icin bu islemi yapamazsiniz.');
+            } else {
+                switch ($action) {
+                    case 'ban':
+                        $reason = trim((string)($_POST['ban_reason'] ?? ($_POST['reason'] ?? '')));
+                        if ($reason === '') {
+                            flash('error', 'Yasaklama icin gerekce zorunludur.');
+                            break;
+                        }
+                        usersBan($pdo, $targetUserId, $reason);
+                        adminAuditLogger()->logAction($pdo, 'ban', 'user', $targetUserId, $reason, ['is_banned' => 0], ['is_banned' => 1], true);
+                        flash('success', 'Kullanici banlandi.');
+                        break;
+
+                    case 'unban':
+                        $reason = trim((string)($_POST['reason'] ?? ''));
+                        $oldBanReasonStmt = $pdo->prepare("SELECT ban_reason FROM users WHERE id = ?");
+                        $oldBanReasonStmt->execute([$targetUserId]);
+                        $oldBanReason = (string)($oldBanReasonStmt->fetchColumn() ?: '');
+                        usersUnban($pdo, $targetUserId);
+                        adminAuditLogger()->logAction($pdo, 'unban', 'user', $targetUserId, $reason, ['is_banned' => 1, 'ban_reason' => $oldBanReason], ['is_banned' => 0], true);
+                        if (function_exists('usersDispatchAccountNotification')) {
+                            usersDispatchAccountNotification($pdo, 'user_unbanned', $targetUserId, $currentUserId, 'Hesabinizdaki ban kaldirildi.' . ($reason !== '' ? ' Gerekce: ' . $reason : ''), 'success');
+                        }
+                        flash('success', 'Kullanici bani kaldirildi.');
+                        break;
+
+                    case 'add_restriction':
+                        $restrictReason = trim((string)($_POST['restrict_reason'] ?? ''));
+                        if ($restrictReason === '') {
+                            flash('error', 'Kisitlama icin gerekce zorunludur.');
+                            break;
+                        }
+                        $restrictTypes = $_POST['restrict_types'] ?? [];
+                        if (empty($restrictTypes)) {
+                            $singleType = (string)($_POST['restrict_type'] ?? '');
+                            $restrictTypes = $singleType !== '' ? [$singleType] : ['all'];
+                        }
+                        $restrictDays = (int)($_POST['restrict_days'] ?? 0);
+                        $pdo->beginTransaction();
+                        try {
+                            foreach ($restrictTypes as $restrictType) {
+                                $restrictType = (string)$restrictType;
+                                usersAddRestriction($pdo, $targetUserId, $restrictType, $restrictReason, $restrictDays, $currentUserId);
+                                adminAuditLogger()->logAction($pdo, 'restrict', 'user', $targetUserId, $restrictReason, [], ['type' => $restrictType, 'days' => $restrictDays], false);
+                                if (function_exists('usersDispatchAccountNotification')) {
+                                    usersDispatchAccountNotification($pdo, 'user_restricted', $targetUserId, $currentUserId, usersGetRestrictionTypeLabel($restrictType) . ' kisitlamasi eklendi. Sebep: ' . $restrictReason, 'warning');
+                                }
+                            }
+                            $pdo->commit();
+                            flash('success', count($restrictTypes) . ' adet kisitlama basariyla eklendi.');
+                        } catch (Throwable $e) {
+                            if ($pdo->inTransaction()) {
+                                $pdo->rollBack();
+                            }
+                            throw $e;
+                        }
+                        break;
+                }
+            }
+        } catch (Throwable $e) {
+            flash('error', 'Kullanici islemi basarisiz: ' . safeErrorMessage($e));
         }
     } elseif ($commentId > 0) {
         try {
@@ -430,26 +771,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $redirectPage = $action === 'purge_deleted' ? 1 : $page;
-    header('Location: comments-manager.php?' . http_build_query(['status' => $status, 'search' => $search, 'topic_id' => $topicId, 'user_id' => $userId, 'page' => $redirectPage]));
+    header('Location: comments-manager.php?' . http_build_query($commentsManagerFilterQuery(['page' => $redirectPage])));
     exit;
 }
 
 // Build query
-[$whereClause, $params] = $commentsManagerBuildWhereClause($status, $search, $topicId, $userId);
+[$whereClause, $params] = $commentsManagerBuildWhereClause($status, $search, $topicId, $userId, $userState, $dateRange, $commentsManagerHasRestrictionTable);
 
 // Get total count
-$countSql = "SELECT COUNT(*) FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE $whereClause";
+$countSql = "SELECT COUNT(*) FROM comments c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN topics t ON t.id = c.topic_id WHERE $whereClause";
 $countStmt = $pdo->prepare($countSql);
 $countStmt->execute($params);
 $total = (int)$countStmt->fetchColumn();
 
 // Get comments
 $offset = ($page - 1) * $perPage;
+$authorActiveRestrictionCountSql = $commentsManagerHasRestrictionTable
+    ? "(SELECT COUNT(*) FROM user_restrictions ur WHERE ur.user_id = c.user_id AND (ur.expires_at IS NULL OR ur.expires_at > NOW()))"
+    : "0";
 $sql = "SELECT c.*,
-        u.username AS author_name, u.avatar as author_avatar,
+        u.username AS author_name, u.avatar as author_avatar, u.is_banned AS author_is_banned,
+        {$authorActiveRestrictionCountSql} AS author_active_restriction_count,
+        t.id AS topic_row_id, t.title AS topic_title, t.slug AS topic_slug,
         (SELECT COUNT(*) FROM comment_reactions WHERE comment_id = c.id) as reaction_count
         FROM comments c
         LEFT JOIN users u ON c.user_id = u.id
+        LEFT JOIN topics t ON t.id = c.topic_id
         WHERE $whereClause
         ORDER BY c.created_at DESC
         LIMIT ? OFFSET ?";
@@ -457,6 +804,65 @@ $sql = "SELECT c.*,
 $stmt = $pdo->prepare($sql);
 $stmt->execute(array_merge($params, [$perPage, $offset]));
 $comments = $stmt->fetchAll();
+
+$parentCommentMap = [];
+$parentIds = $commentsManagerNormalizeIds(array_column($comments, 'parent_id'));
+if ($parentIds !== []) {
+    $placeholders = implode(',', array_fill(0, count($parentIds), '?'));
+    $parentStmt = $pdo->prepare("SELECT pc.id, pc.body, pc.user_id, pc.deleted_at, pc.status, pu.username AS author_name
+        FROM comments pc
+        LEFT JOIN users pu ON pu.id = pc.user_id
+        WHERE pc.id IN ({$placeholders})");
+    $parentStmt->execute($parentIds);
+    foreach ($parentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+        $parentCommentMap[(int)$row['id']] = $row;
+    }
+}
+
+$commentsById = [];
+$childrenByParent = [];
+foreach ($comments as $comment) {
+    $commentIdForMap = (int)($comment['id'] ?? 0);
+    if ($commentIdForMap <= 0) {
+        continue;
+    }
+    $commentsById[$commentIdForMap] = $comment;
+}
+foreach ($comments as $comment) {
+    $commentIdForMap = (int)($comment['id'] ?? 0);
+    $parentIdForMap = (int)($comment['parent_id'] ?? 0);
+    if ($commentIdForMap > 0 && $parentIdForMap > 0 && isset($commentsById[$parentIdForMap])) {
+        $childrenByParent[$parentIdForMap][] = $commentIdForMap;
+    }
+}
+
+$commentRenderRows = [];
+$visitedCommentIds = [];
+$walkCommentTree = static function (int $commentId, int $depth) use (&$walkCommentTree, &$commentRenderRows, &$visitedCommentIds, $commentsById, $childrenByParent): void {
+    if ($commentId <= 0 || isset($visitedCommentIds[$commentId]) || !isset($commentsById[$commentId])) {
+        return;
+    }
+    $visitedCommentIds[$commentId] = true;
+    $row = $commentsById[$commentId];
+    $row['_depth'] = min($depth, 3);
+    $commentRenderRows[] = $row;
+    foreach ($childrenByParent[$commentId] ?? [] as $childId) {
+        $walkCommentTree((int)$childId, $depth + 1);
+    }
+};
+foreach ($comments as $comment) {
+    $commentIdForMap = (int)($comment['id'] ?? 0);
+    $parentIdForMap = (int)($comment['parent_id'] ?? 0);
+    if ($commentIdForMap > 0 && ($parentIdForMap <= 0 || !isset($commentsById[$parentIdForMap]))) {
+        $walkCommentTree($commentIdForMap, 0);
+    }
+}
+foreach ($comments as $comment) {
+    $commentIdForMap = (int)($comment['id'] ?? 0);
+    if ($commentIdForMap > 0 && !isset($visitedCommentIds[$commentIdForMap])) {
+        $walkCommentTree($commentIdForMap, 0);
+    }
+}
 
 // Get statistics
 $stats = [
@@ -475,33 +881,25 @@ $statusFilters = [
     'deleted' => ['label' => 'Silinmiş', 'count' => $stats['deleted'], 'icon' => 'bi-trash'],
 ];
 
-$previewComment = $comments[0] ?? null;
-
 $successMsg = get_flash('success');
 $errorMsg = get_flash('error');
 
 require_once __DIR__ . '/header.php';
 ?>
 <div class="comments-manager">
-    <?php if ($successMsg): ?>
-        <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success" role="status"><?= htmlspecialchars($successMsg) ?></div>
-    <?php endif; ?>
-
-    <?php if ($errorMsg): ?>
-        <div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert"><?= htmlspecialchars($errorMsg) ?></div>
-    <?php endif; ?>
+    <?= adminRenderFlashAlerts($successMsg, $errorMsg) ?>
 
     <div class="comments-manager-shell">
         <aside class="comments-manager-sidebar">
             <section class="comments-manager-top ui-card">
                 <div class="comments-manager-top__copy">
-                    <span class="comments-manager-kicker"><i class="bi bi-chat-left-text"></i> Moderasyon</span>
+                    <span class="comments-manager-kicker"><i class="bi bi-chat-left-text"></i> Yorumlar</span>
                     <h2>Yorum Yönetimi</h2>
-                    <p>Yalnızca yorumlar, kullanıcılar, durumlar ve işlem akışı.</p>
+                    <p>Konu ve yanıt bağlamıyla yorumları inceleyin.</p>
                 </div>
                 <div class="comments-manager-top__actions">
-                    <a href="?<?= htmlspecialchars(http_build_query(['status' => 'pending', 'search' => $search, 'topic_id' => $topicId, 'user_id' => $userId])) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-hourglass-split"></i> Bekleyenler</a>
-                    <a href="?<?= htmlspecialchars(http_build_query(['status' => 'deleted', 'search' => $search, 'topic_id' => $topicId, 'user_id' => $userId])) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-trash"></i> Silinenler</a>
+                    <a href="?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['status' => 'pending', 'page' => null]))) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-hourglass-split"></i> Bekleyenler</a>
+                    <a href="?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['status' => 'deleted', 'page' => null]))) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-trash"></i> Silinenler</a>
                 </div>
             </section>
 
@@ -513,16 +911,7 @@ require_once __DIR__ . '/header.php';
                 <div class="comments-manager-chip-row">
                     <?php foreach ($statusFilters as $statusKey => $statusMeta): ?>
                         <?php
-                            $statusQuery = ['status' => $statusKey];
-                            if ($search !== '') {
-                                $statusQuery['search'] = $search;
-                            }
-                            if ($topicId > 0) {
-                                $statusQuery['topic_id'] = $topicId;
-                            }
-                            if ($userId > 0) {
-                                $statusQuery['user_id'] = $userId;
-                            }
+                            $statusQuery = $commentsManagerFilterQuery(['status' => $statusKey, 'page' => null]);
                         ?>
                         <a href="?<?= htmlspecialchars(http_build_query($statusQuery)) ?>" class="comments-manager-chip<?= $status === $statusKey ? ' active' : '' ?>">
                             <?= htmlspecialchars($statusMeta['label']) ?>
@@ -560,18 +949,29 @@ require_once __DIR__ . '/header.php';
 
         <main class="comments-manager-board ui-card">
             <div class="comments-manager-toolbar">
-                <form method="get" action="comments-manager.php" class="comments-manager-search-form">
+                <form method="get" action="comments-manager.php" class="comments-manager-search-form admin-filter-form">
                     <input type="hidden" name="status" value="<?= htmlspecialchars($status) ?>">
                     <input type="hidden" name="topic_id" value="<?= (int) $topicId ?>">
                     <input type="hidden" name="user_id" value="<?= (int) $userId ?>">
                     <div class="comments-manager-search-row">
-                        <input type="text" name="search" class="ui-comment-manager-filter-input ui-input comments-manager-search" placeholder="Yorum, kullanıcı ara..." value="<?= htmlspecialchars($search) ?>">
+                        <input type="text" name="search" class="ui-comment-manager-filter-input ui-input comments-manager-search" placeholder="Yorum, kullanıcı, konu ara..." value="<?= htmlspecialchars($search) ?>">
+                        <select name="user_state" class="ui-admin-form-select comments-manager-filter-select" aria-label="Kullanıcı durumu">
+                            <option value="all"<?= $userState === 'all' ? ' selected' : '' ?>>Tüm kullanıcılar</option>
+                            <option value="banned"<?= $userState === 'banned' ? ' selected' : '' ?>>Banlı kullanıcılar</option>
+                            <option value="restricted"<?= $userState === 'restricted' ? ' selected' : '' ?>>Kısıtlı kullanıcılar</option>
+                        </select>
+                        <select name="date_range" class="ui-admin-form-select comments-manager-filter-select" aria-label="Tarih aralığı">
+                            <option value="all"<?= $dateRange === 'all' ? ' selected' : '' ?>>Tüm tarihler</option>
+                            <option value="today"<?= $dateRange === 'today' ? ' selected' : '' ?>>Bugün</option>
+                            <option value="week"<?= $dateRange === 'week' ? ' selected' : '' ?>>Son 7 gün</option>
+                            <option value="month"<?= $dateRange === 'month' ? ' selected' : '' ?>>Son 30 gün</option>
+                        </select>
                         <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-search"></i> Ara</button>
                         <a href="comments-manager.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-circle"></i> Temizle</a>
                     </div>
                 </form>
                 <?php if ($status === 'deleted' && !empty($comments)): ?>
-                    <form method="post" action="comments-manager.php?<?= htmlspecialchars(http_build_query(['status' => $status, 'search' => $search, 'topic_id' => $topicId, 'user_id' => $userId, 'page' => $page])) ?>" class="comments-manager-toolbar__actions" data-admin-confirm="Bu görünümdeki silinen yorumları, yanıtları ve ilişkili kayıtları kalıcı olarak silmek istediğinize emin misiniz?" data-admin-confirm-title="Tümünü kalıcı sil" data-admin-confirm-ok="Kalıcı sil" data-admin-confirm-tone="danger">
+                    <form method="post" action="comments-manager.php?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['page' => $page]))) ?>" class="comments-manager-toolbar__actions"<?= adminConfirmAttrs(['message' => 'Bu görünümdeki silinen yorumları, yanıtları ve ilişkili kayıtları kalıcı olarak silmek istediğinize emin misiniz?', 'title' => 'Tümünü kalıcı sil', 'ok' => 'Kalıcı sil', 'tone' => 'danger']) ?>>
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="purge_deleted">
                         <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm">
@@ -582,17 +982,48 @@ require_once __DIR__ . '/header.php';
             </div>
 
             <?php if (empty($comments)): ?>
-                <div class="ui-comment-manager-empty ui-empty comments-manager-empty">
-                    <div class="ui-comment-manager-empty-icon ui-empty">
-                        <i class="bi bi-inbox"></i>
-                    </div>
-                    <div class="ui-comment-manager-empty-title ui-empty">Yorum Bulunamadı</div>
-                    <div class="ui-comment-manager-empty-text ui-empty">Seçili filtrelere uygun yorum bulunmuyor.</div>
-                </div>
+                <?= adminRenderEmptyState([
+                    'icon' => 'bi-inbox',
+                    'tone' => 'info',
+                    'title' => 'Yorum Bulunamadı',
+                    'description' => 'Seçili filtrelere uygun yorum bulunmuyor.',
+                    'class' => 'ui-comment-manager-empty comments-manager-empty',
+                ]) ?>
             <?php else: ?>
+                <form method="post" action="comments-manager.php?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['page' => $page]))) ?>" id="commentsBulkForm" class="comments-manager-bulk-form" data-comments-bulk-form>
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="" data-comments-bulk-action>
+                    <div class="comments-manager-bulk-bar" data-comments-bulk-bar>
+                        <div class="comments-manager-bulk-main">
+                            <label class="comments-manager-bulk-select">
+                                <input type="checkbox" data-comment-bulk-select-all>
+                                <span>Tümünü seç</span>
+                            </label>
+                            <span class="comments-manager-bulk-count" data-comments-bulk-count>0 yorum seçildi</span>
+                        </div>
+                        <div class="comments-manager-bulk-actions">
+                            <?php if ($status === 'deleted'): ?>
+                                <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm comments-manager-bulk-submit" data-comments-bulk-submit data-comments-bulk-action-name="bulk_restore" disabled>
+                                    <i class="bi bi-arrow-counterclockwise"></i> Geri Yükle
+                                </button>
+                            <?php else: ?>
+                                <button type="submit" class="ui-admin-btn ui-admin-btn-success ui-admin-btn-sm comments-manager-bulk-submit" data-comments-bulk-submit data-comments-bulk-action-name="bulk_approve" disabled>
+                                    <i class="bi bi-check-lg"></i> Onayla
+                                </button>
+                                <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm comments-manager-bulk-submit" data-comments-bulk-submit data-comments-bulk-action-name="bulk_reject" disabled>
+                                    <i class="bi bi-x-lg"></i> Reddet
+                                </button>
+                                <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm comments-manager-bulk-submit" data-comments-bulk-submit data-comments-bulk-action-name="bulk_delete" disabled>
+                                    <i class="bi bi-trash"></i> Sil
+                                </button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </form>
+
                 <div class="comments-manager-list-head">
-                    <span></span>
-                    <span>Yorum</span>
+                    <span>Seç</span>
+                    <span>Konuşma</span>
                     <span>Kullanıcı</span>
                     <span>Durum</span>
                     <span>Tarih</span>
@@ -600,14 +1031,51 @@ require_once __DIR__ . '/header.php';
                 </div>
 
                 <div class="ui-comment-manager-comments-list comments-manager-list">
-                    <?php foreach ($comments as $comment): ?>
-                        <div class="ui-comment-manager-comment-card ui-card comments-manager-card">
+                    <?php foreach ($commentRenderRows as $comment): ?>
+                        <?php
+                            $commentIdValue = (int)($comment['id'] ?? 0);
+                            $commentDepth = (int)($comment['_depth'] ?? 0);
+                            $commentUserId = (int)($comment['user_id'] ?? 0);
+                            $commentAuthor = (string)($comment['author_name'] ?? 'Anonim');
+                            $commentParentId = (int)($comment['parent_id'] ?? 0);
+                            $parentContext = $commentParentId > 0 ? ($parentCommentMap[$commentParentId] ?? null) : null;
+                            $topicRowId = (int)($comment['topic_row_id'] ?? ($comment['topic_id'] ?? 0));
+                            $topicTitle = trim((string)($comment['topic_title'] ?? ''));
+                            $topicSlug = trim((string)($comment['topic_slug'] ?? ''));
+                            $commentUrl = ($topicRowId > 0 && $topicSlug !== '') ? topicUrl($topicSlug, $topicRowId) . '#comment-' . $commentIdValue : '';
+                            $canModerateAuthor = $canManageCommentUsers && $commentUserId > 0 && $commentUserId !== $currentUserId;
+                            $isAuthorBanned = (int)($comment['author_is_banned'] ?? 0) === 1;
+                            $authorRestrictionCount = (int)($comment['author_active_restriction_count'] ?? 0);
+                            $authorStateClass = $isAuthorBanned ? 'is-danger' : ($authorRestrictionCount > 0 ? 'is-warning' : 'is-success');
+                            $authorStateIcon = $isAuthorBanned ? 'bi-slash-circle' : ($authorRestrictionCount > 0 ? 'bi-shield-exclamation' : 'bi-check-circle');
+                            $authorStateLabel = $isAuthorBanned ? 'Banlı' : ($authorRestrictionCount > 0 ? 'Kısıtlı' : 'Temiz');
+                            $statusValue = (string)($comment['status'] ?? '');
+                        ?>
+                        <div class="ui-comment-manager-comment-card ui-card comments-manager-card<?= $commentDepth > 0 ? ' is-nested' : '' ?>" style="--comment-depth: <?= $commentDepth ?>">
                             <div class="ui-comment-manager-comment-header ui-panel__head comments-manager-card__head">
+                                <label class="comments-manager-select-cell" title="Yorumu seç">
+                                    <input type="checkbox" name="comment_ids[]" value="<?= $commentIdValue ?>" form="commentsBulkForm" class="comments-manager-select-checkbox" data-comment-bulk-checkbox aria-label="Yorum #<?= $commentIdValue ?> seç">
+                                </label>
                                 <div class="ui-comment-manager-comment-avatar default-avatar">
-                                    <?= function_exists('avatarImageHtml') ? avatarImageHtml((string) ($comment['author_name'] ?? 'Anonim'), (string) ($comment['author_avatar'] ?? ''), ['alt' => '']) : '' ?>
+                                    <?= function_exists('avatarImageHtml') ? avatarImageHtml($commentAuthor, (string) ($comment['author_avatar'] ?? ''), ['alt' => '']) : '' ?>
                                 </div>
                                 <div class="ui-comment-manager-comment-meta comments-manager-card__meta">
-                                    <div class="ui-comment-manager-comment-author"><?= htmlspecialchars($comment['author_name'] ?? 'Anonim') ?></div>
+                                    <?php if ($commentUserId > 0 && $canViewCommentUserDetails): ?>
+                                        <details class="comments-manager-user-insight-menu" data-comment-user-insight-menu data-user-id="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>" data-can-moderate="<?= $canModerateAuthor ? '1' : '0' ?>" data-is-banned="<?= $isAuthorBanned ? '1' : '0' ?>">
+                                            <summary class="comments-manager-user-chip <?= htmlspecialchars($authorStateClass) ?>" data-comment-user-insight-toggle>
+                                                <span class="comments-manager-user-chip__name"><?= htmlspecialchars($commentAuthor) ?></span>
+                                                <span class="comments-manager-user-chip__status"><i class="bi <?= htmlspecialchars($authorStateIcon) ?>"></i> <?= htmlspecialchars($authorStateLabel) ?></span>
+                                                <i class="bi bi-chevron-down comments-manager-user-chip__chevron" aria-hidden="true"></i>
+                                            </summary>
+                                            <div class="comments-manager-user-insight-popover" data-comment-user-insight-popover>
+                                                <div class="comments-manager-user-insight-content" data-comment-user-insight-content>
+                                                    <span class="ui-admin-muted-sm">Kullanıcı bilgisi yükleniyor...</span>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    <?php else: ?>
+                                        <div class="ui-comment-manager-comment-author"><?= htmlspecialchars($commentAuthor) ?></div>
+                                    <?php endif; ?>
                                     <div class="ui-comment-manager-comment-info">
                                         <span class="ui-comment-manager-comment-info-item">
                                             <i class="bi bi-calendar"></i>
@@ -617,118 +1085,133 @@ require_once __DIR__ . '/header.php';
                                             <i class="bi bi-heart"></i>
                                             <?= number_format((int) $comment['reaction_count']) ?> reaksiyon
                                         </span>
-                                        <span class="ui-comment-manager-comment-status <?= htmlspecialchars((string) $comment['status']) ?>">
-                                            <?php if ($comment['status'] === 'pending'): ?>
+                                        <span class="ui-comment-manager-comment-status <?= htmlspecialchars($statusValue) ?>">
+                                            <?php if ($statusValue === 'pending'): ?>
                                                 <i class="bi bi-clock"></i> Bekliyor
-                                            <?php elseif ($comment['status'] === 'approved'): ?>
+                                            <?php elseif ($statusValue === 'approved'): ?>
                                                 <i class="bi bi-check-circle"></i> Onaylı
                                             <?php else: ?>
                                                 <i class="bi bi-x-circle"></i> Reddedildi
                                             <?php endif; ?>
                                         </span>
                                     </div>
+                                    <div class="comments-manager-topic-line">
+                                        <i class="bi bi-folder2-open"></i>
+                                        <?php if ($commentUrl !== ''): ?>
+                                            <a href="<?= htmlspecialchars($commentUrl) ?>" target="_blank" rel="noopener"><?= htmlspecialchars($topicTitle !== '' ? $topicTitle : ('Konu #' . $topicRowId)) ?></a>
+                                        <?php elseif ($topicRowId > 0): ?>
+                                            <span><?= htmlspecialchars($topicTitle !== '' ? $topicTitle : ('Konu #' . $topicRowId)) ?></span>
+                                        <?php else: ?>
+                                            <span>Konu bulunamadı</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div id="admin-comment-body-<?= (int) $comment['id'] ?>" class="ui-comment-manager-comment-body ui-panel__body comments-manager-card__body" data-ui-comment-manager-body>
+                            <?php if ($commentParentId > 0): ?>
+                                <div class="comments-manager-parent-context">
+                                    <i class="bi bi-reply"></i>
+                                    <?php if ($parentContext): ?>
+                                        <span>
+                                            <strong><?= htmlspecialchars((string)($parentContext['author_name'] ?? 'Anonim')) ?></strong>
+                                            yorumuna yanıt:
+                                            <?= htmlspecialchars(mb_strimwidth(trim((string)($parentContext['body'] ?? '')), 0, 150, '...')) ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span>Yanıtlanan yorum silinmiş veya bu filtrede görünmüyor.</span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <div id="admin-comment-body-<?= $commentIdValue ?>" class="ui-comment-manager-comment-body ui-panel__body comments-manager-card__body" data-ui-comment-manager-body>
                                 <?= nl2br(htmlspecialchars($comment['body'])) ?>
                             </div>
 
                             <div class="ui-comment-manager-comment-footer ui-panel__foot comments-manager-card__foot">
                                 <div class="comments-manager-card__notes">
-                                    <span class="comments-manager-note"><i class="bi bi-chat-text"></i> Yorum #<?= (int) $comment['id'] ?></span>
-                                    <span class="comments-manager-note"><i class="bi bi-person"></i> <?= htmlspecialchars((string) ($comment['author_name'] ?? 'Anonim')) ?></span>
+                                    <span class="comments-manager-note"><i class="bi bi-chat-text"></i> Yorum #<?= $commentIdValue ?></span>
+                                    <?php if ($commentParentId > 0): ?>
+                                        <span class="comments-manager-note"><i class="bi bi-reply"></i> Yanıt #<?= $commentParentId ?></span>
+                                    <?php endif; ?>
+                                    <span class="comments-manager-note"><i class="bi bi-person"></i> <?= htmlspecialchars($commentAuthor) ?></span>
+                                    <?php if ($topicTitle !== '' || $topicRowId > 0): ?>
+                                        <span class="comments-manager-note"><i class="bi bi-folder"></i> <?= htmlspecialchars($topicTitle !== '' ? mb_strimwidth($topicTitle, 0, 48, '...') : ('Konu #' . $topicRowId)) ?></span>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="ui-comment-manager-comment-actions comments-manager-card__actions">
-                                    <?php if ($comment['deleted_at']): ?>
-                                        <form method="post" class="ui-admin-inline-form">
-                                            <?= csrf_field() ?>
-                                            <input type="hidden" name="action" value="restore">
-                                            <input type="hidden" name="comment_id" value="<?= $comment['id'] ?>">
-                                            <button type="submit" class="ui-comment-manager-action-btn approve">
-                                                <i class="bi bi-arrow-counterclockwise"></i> Geri Yükle
-                                            </button>
-                                        </form>
-                                    <?php else: ?>
-                                        <button type="button" class="ui-comment-manager-action-btn edit" data-comment-edit="<?= $comment['id'] ?>" data-comment-body="<?= htmlspecialchars((string) $comment['body'], ENT_QUOTES, 'UTF-8') ?>">
-                                            <i class="bi bi-pencil"></i> Düzenle
-                                        </button>
-                                        <?php if ($comment['status'] === 'pending'): ?>
-                                            <form method="post" class="ui-admin-inline-form">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="action" value="approve">
-                                                <input type="hidden" name="comment_id" value="<?= $comment['id'] ?>">
-                                                <button type="submit" class="ui-comment-manager-action-btn approve">
-                                                    <i class="bi bi-check-lg"></i> Onayla
+                                    <details class="user-row-actions-menu comments-manager-actions-menu" data-comment-actions-menu>
+                                        <summary class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline comments-manager-actions-toggle" data-comment-actions-toggle title="İşlemler">
+                                            <i class="bi bi-three-dots"></i>
+                                        </summary>
+                                        <div class="user-row-actions-popover comments-manager-actions-popover" data-comment-actions-popover>
+                                            <?php if ($comment['deleted_at']): ?>
+                                                <form method="post" class="ui-admin-inline-form comments-manager-menu-form">
+                                                    <?= csrf_field() ?>
+                                                    <input type="hidden" name="action" value="restore">
+                                                    <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
+                                                    <button type="submit" class="user-row-action comments-manager-menu-item is-success">
+                                                        <i class="bi bi-arrow-counterclockwise"></i> Geri Yükle
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <button type="button" class="user-row-action comments-manager-menu-item" data-comment-edit="<?= $commentIdValue ?>" data-comment-body="<?= htmlspecialchars((string) $comment['body'], ENT_QUOTES, 'UTF-8') ?>">
+                                                    <i class="bi bi-pencil"></i> Düzenle
                                                 </button>
-                                            </form>
-                                            <form method="post" class="ui-admin-inline-form">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="action" value="reject">
-                                                <input type="hidden" name="comment_id" value="<?= $comment['id'] ?>">
-                                                <button type="submit" class="ui-comment-manager-action-btn reject">
-                                                    <i class="bi bi-x-lg"></i> Reddet
+                                                <?php if ($statusValue === 'pending'): ?>
+                                                    <form method="post" class="ui-admin-inline-form comments-manager-menu-form">
+                                                        <?= csrf_field() ?>
+                                                        <input type="hidden" name="action" value="approve">
+                                                        <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
+                                                        <button type="submit" class="user-row-action comments-manager-menu-item is-success">
+                                                            <i class="bi bi-check-lg"></i> Onayla
+                                                        </button>
+                                                    </form>
+                                                    <form method="post" class="ui-admin-inline-form comments-manager-menu-form">
+                                                        <?= csrf_field() ?>
+                                                        <input type="hidden" name="action" value="reject">
+                                                        <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
+                                                        <button type="submit" class="user-row-action comments-manager-menu-item is-warning">
+                                                            <i class="bi bi-x-lg"></i> Reddet
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <form method="post" class="ui-admin-inline-form comments-manager-menu-form"<?= adminConfirmAttrs(['message' => 'Bu yorumu silmek istediğinize emin misiniz?', 'title' => 'Yorum silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                                    <?= csrf_field() ?>
+                                                    <input type="hidden" name="action" value="delete">
+                                                    <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
+                                                    <button type="submit" class="user-row-action comments-manager-menu-item is-danger">
+                                                        <i class="bi bi-trash"></i> Sil
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                            <?php if ($canModerateAuthor): ?>
+                                                <div class="comments-manager-menu-separator" aria-hidden="true"></div>
+                                                <?php if ($isAuthorBanned): ?>
+                                                    <button type="button" class="user-row-action comments-manager-menu-item is-success" data-comment-user-unban="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>">
+                                                        <i class="bi bi-check-circle"></i> Ban Kaldır
+                                                    </button>
+                                                <?php else: ?>
+                                                    <button type="button" class="user-row-action comments-manager-menu-item is-danger" data-comment-user-ban="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>">
+                                                        <i class="bi bi-slash-circle"></i> Banla
+                                                    </button>
+                                                <?php endif; ?>
+                                                <button type="button" class="user-row-action comments-manager-menu-item is-warning" data-comment-user-restrict="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>">
+                                                    <i class="bi bi-shield-exclamation"></i> Kısıtla
                                                 </button>
-                                            </form>
-                                        <?php endif; ?>
-                                        <form method="post" class="ui-admin-inline-form" data-admin-confirm="Bu yorumu silmek istediğinize emin misiniz?" data-admin-confirm-title="Yorum silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
-                                            <?= csrf_field() ?>
-                                            <input type="hidden" name="action" value="delete">
-                                            <input type="hidden" name="comment_id" value="<?= $comment['id'] ?>">
-                                            <button type="submit" class="ui-comment-manager-action-btn delete">
-                                                <i class="bi bi-trash"></i> Sil
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
+                                            <?php endif; ?>
+                                        </div>
+                                    </details>
                                 </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
 
-                <?php if ($previewComment): ?>
-                    <div class="comments-manager-preview">
-                        <section class="comments-manager-preview-card ui-card">
-                            <div class="comments-manager-section-head">
-                                <i class="bi bi-file-earmark-text"></i>
-                                <span>Yorum Önizlemesi</span>
-                            </div>
-                            <p class="comments-manager-preview-text"><?= htmlspecialchars(mb_strimwidth((string) $previewComment['body'], 0, 360, '...')) ?></p>
-                            <div class="comments-manager-preview-tags">
-                                <span class="comments-manager-preview-tag">#<?= (int) $previewComment['id'] ?></span>
-                                <span class="comments-manager-preview-tag"><?= htmlspecialchars((string) ($previewComment['author_name'] ?? 'Anonim')) ?></span>
-                                <span class="comments-manager-preview-tag">
-                                    <?php if ($previewComment['status'] === 'pending'): ?>Bekliyor<?php elseif ($previewComment['status'] === 'approved'): ?>Onaylı<?php else: ?>Reddedildi<?php endif; ?>
-                                </span>
-                                <span class="comments-manager-preview-tag"><?= date('d.m.Y H:i', strtotime((string) $previewComment['created_at'])) ?></span>
-                            </div>
-                        </section>
-                        <section class="comments-manager-preview-card comments-manager-preview-card--actions ui-card">
-                            <div class="comments-manager-section-head">
-                                <i class="bi bi-lightning-charge"></i>
-                                <span>Hızlı İşlem</span>
-                            </div>
-                            <p class="comments-manager-preview-text">Onayla, gizle, sil, not ekle ve kullanıcıyı kısıtla gibi işlemler burada toplanır.</p>
-                            <div class="comments-manager-preview-actions">
-                                <span class="comments-manager-preview-tag">Onayla</span>
-                                <span class="comments-manager-preview-tag">Gizle</span>
-                                <span class="comments-manager-preview-tag">Sil</span>
-                                <span class="comments-manager-preview-tag">Banla</span>
-                            </div>
-                        </section>
-                    </div>
-                <?php endif; ?>
-
                 <?php if ($total > $perPage): ?>
                     <?php
                     $totalPages = (int) ceil($total / $perPage);
-                    $queryParams = array_filter([
-                        'status' => $status,
-                        'search' => $search,
-                        'topic_id' => $topicId > 0 ? $topicId : null,
-                        'user_id' => $userId > 0 ? $userId : null,
-                    ], static fn ($value): bool => $value !== null && $value !== '');
+                    $queryParams = $commentsManagerFilterQuery(['page' => null]);
 
                     echo adminRenderPagination($totalPages, $page, static function (int $targetPage) use ($queryParams): string {
                         return '?' . http_build_query(array_merge($queryParams, ['page' => $targetPage]));
@@ -741,6 +1224,142 @@ require_once __DIR__ . '/header.php';
                 <?php endif; ?>
             <?php endif; ?>
         </main>
+    </div>
+</div>
+
+<div id="commentBanModal" class="media-modal-overlay" role="dialog" aria-modal="true" aria-label="Kullanıcı banla" hidden aria-hidden="true">
+    <div class="media-modal ui-admin-modal-sm ui-panel">
+        <div class="media-modal-header ui-panel__head">
+            <h3 class="ui-admin-modal-title"><i class="bi bi-slash-circle"></i> Kullanıcıyı Banla</h3>
+            <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-comment-ban-close>&times;</button>
+        </div>
+        <div class="media-modal-body ui-panel__body">
+            <form method="post" id="commentBanForm" data-comment-ban-form>
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="ban">
+                <input type="hidden" name="user_id" id="commentBanUserId">
+                <div class="ui-admin-mb-md">
+                    <label class="ui-admin-form-label">Kullanıcı</label>
+                    <input type="text" id="commentBanUserName" class="ui-admin-form-control" readonly>
+                </div>
+                <div class="ui-admin-moderation-context" data-comment-ban-context>
+                    <div class="ui-admin-moderation-context__current" data-comment-ban-current>
+                        <span class="ui-admin-muted-sm">Ban bilgisi yükleniyor...</span>
+                    </div>
+                    <div>
+                        <div class="ui-admin-moderation-context__title">Son 5 Moderasyon Geçmişi</div>
+                        <div class="ui-admin-moderation-context__list" data-comment-ban-history>
+                            <span class="ui-admin-muted-sm">Geçmiş yükleniyor...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="ui-admin-mb-md">
+                    <label class="ui-admin-form-label">Sebep</label>
+                    <textarea name="ban_reason" id="commentBanReason" class="ui-admin-form-control" rows="3" required placeholder="Ban gerekçesi..."></textarea>
+                </div>
+                <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-ban-close>İptal</button>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-slash-circle"></i> Banla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="commentUnbanModal" class="media-modal-overlay" role="dialog" aria-modal="true" aria-label="Kullanıcı banını kaldır" hidden aria-hidden="true">
+    <div class="media-modal ui-admin-modal-sm ui-panel">
+        <div class="media-modal-header ui-panel__head">
+            <h3 class="ui-admin-modal-title"><i class="bi bi-check-circle"></i> Kullanıcının Banını Kaldır</h3>
+            <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-comment-unban-close>&times;</button>
+        </div>
+        <div class="media-modal-body ui-panel__body">
+            <form method="post" id="commentUnbanForm" data-comment-unban-form>
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="unban">
+                <input type="hidden" name="user_id" id="commentUnbanUserId">
+                <div class="ui-admin-mb-md">
+                    <label class="ui-admin-form-label">Kullanıcı</label>
+                    <input type="text" id="commentUnbanUserName" class="ui-admin-form-control" readonly>
+                </div>
+                <div class="ui-admin-moderation-context" data-comment-unban-context>
+                    <div class="ui-admin-moderation-context__current" data-comment-unban-current>
+                        <span class="ui-admin-muted-sm">Ban bilgisi yükleniyor...</span>
+                    </div>
+                    <div>
+                        <div class="ui-admin-moderation-context__title">Son 5 Moderasyon Geçmişi</div>
+                        <div class="ui-admin-moderation-context__list" data-comment-unban-history>
+                            <span class="ui-admin-muted-sm">Geçmiş yükleniyor...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="ui-admin-mb-md">
+                    <label class="ui-admin-form-label">İşlem Notu <small class="ui-admin-muted-xs">(Opsiyonel)</small></label>
+                    <textarea name="reason" id="commentUnbanReason" class="ui-admin-form-control" rows="2" placeholder="Ban kaldırma notu..."></textarea>
+                </div>
+                <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-unban-close>İptal</button>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-success"><i class="bi bi-check-circle"></i> Ban Kaldır</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="commentRestrictionModal" class="media-modal-overlay" role="dialog" aria-modal="true" aria-label="Kısıtlama ekle" hidden aria-hidden="true">
+    <div class="media-modal ui-admin-modal-sm ui-panel">
+        <div class="media-modal-header ui-panel__head">
+            <h3 class="ui-admin-modal-title"><i class="bi bi-shield-exclamation"></i> Kısıtlama Ekle</h3>
+            <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-comment-restriction-close>&times;</button>
+        </div>
+        <div class="media-modal-body ui-panel__body">
+            <form method="post" id="commentRestrictionForm" data-comment-restriction-form>
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="add_restriction">
+                <input type="hidden" name="user_id" id="commentRestrictUserId">
+                <div class="ui-admin-mb-md">
+                    <label class="ui-admin-form-label">Kullanıcı</label>
+                    <input type="text" id="commentRestrictUserName" class="ui-admin-form-control" readonly>
+                </div>
+                <div class="ui-admin-moderation-context" data-comment-restriction-context>
+                    <div>
+                        <div class="ui-admin-moderation-context__title">Aktif Kısıtlamalar</div>
+                        <div class="ui-admin-moderation-context__list" data-comment-restriction-current>
+                            <span class="ui-admin-muted-sm">Kısıtlamalar yükleniyor...</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="ui-admin-moderation-context__title">Son 5 Moderasyon Geçmişi</div>
+                        <div class="ui-admin-moderation-context__list" data-comment-restriction-history>
+                            <span class="ui-admin-muted-sm">Geçmiş yükleniyor...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="ui-admin-mb-md">
+                    <label class="ui-admin-form-label">Kısıtlama Türleri</label>
+                    <select name="restrict_types[]" id="commentRestrictTypes" class="ui-admin-form-select ui-admin-select-auto" multiple size="7" required>
+                        <option value="profile">Profil Düzenleme</option>
+                        <option value="events">Etkinlik Kullanımı</option>
+                        <option value="all">Tüm İşlemler</option>
+                        <option value="comment">Yorum Yapma</option>
+                        <option value="topic">Konu Oluşturma</option>
+                        <option value="upload">Dosya Yükleme</option>
+                        <option value="download">İndirme</option>
+                    </select>
+                </div>
+                <div class="ui-admin-mb-md">
+                    <label class="ui-admin-form-label">Süre (gün)</label>
+                    <input type="number" name="restrict_days" class="ui-admin-form-control" min="0" placeholder="0 = Süresiz">
+                </div>
+                <div class="ui-admin-mb-md">
+                    <label class="ui-admin-form-label">Sebep</label>
+                    <textarea name="restrict_reason" class="ui-admin-form-control" rows="3" required placeholder="Kısıtlama sebebi..."></textarea>
+                </div>
+                <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-restriction-close>İptal</button>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-warning"><i class="bi bi-shield-exclamation"></i> Kısıtla</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

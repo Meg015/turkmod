@@ -54,39 +54,49 @@ $groupPriorityForAdmin = static function (array $group, int $fallback): int {
 ?>
 
 <div class="user-groups-workspace">
-    <nav class="user-groups-subtabs ui-cluster" aria-label="Grup yönetimi alt sekmeleri">
-        <a class="ui-admin-btn ui-admin-btn-primary" href="users.php?tab=groups&group_view=list">
-            <i class="bi bi-list-ul"></i> Mevcut Gruplar
-        </a>
-        <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-group-action="add" id="addGroupBtnTop">
-            <i class="bi bi-plus-circle"></i> Yeni Grup Ekle
-        </button>
-    </nav>
+    <?= adminRenderActionButtons([
+        [
+            'href' => 'users.php?tab=groups&group_view=list',
+            'icon' => 'bi-list-ul',
+            'label' => 'Mevcut Gruplar',
+            'class' => 'ui-admin-btn-primary',
+        ],
+        [
+            'icon' => 'bi-plus-circle',
+            'label' => 'Yeni Grup Ekle',
+            'class' => 'ui-admin-btn-outline',
+            'attrs' => [
+                'data-group-action' => 'add',
+                'id' => 'addGroupBtnTop',
+            ],
+        ],
+    ], [
+        'class' => 'user-groups-subtabs ui-cluster',
+        'attrs' => ['aria-label' => 'Grup yönetimi aksiyonları'],
+    ]) ?>
 
-    <section class="admin-card user-groups-table-panel ui-panel">
-        <div class="ui-panel__head user-groups-head">
-            <div>
-                <h3><i class="bi bi-diagram-3"></i> Mevcut Gruplar</h3>
-                <p>Sistemdeki tüm grupları, üye sayılarını, önceliklerini ve temel yetki kapsamlarını yönetin.</p>
-            </div>
-            <button type="button" class="ui-admin-btn ui-admin-btn-primary" data-group-action="add" id="addGroupBtnHead">
-                <i class="bi bi-plus-circle"></i> Yeni Grup Ekle
-            </button>
-        </div>
-        <div class="ui-admin-table-responsive">
-            <table class="ui-admin-table user-groups-table">
-                <thead>
-                    <tr>
-                        <th>Grup</th>
-                        <th>Üyeler</th>
-                        <th>Yetki</th>
-                        <th>Öncelik</th>
-                        <th>Oluşturulma</th>
-                        <th>Durum</th>
-                        <th class="ui-admin-table-actions">İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
+    <?= adminRenderPanelOpen([
+        'class' => 'user-groups-table-panel',
+        'title' => 'Mevcut Gruplar',
+        'icon' => 'bi-diagram-3',
+        'subtitle' => 'Sistemdeki tüm grupları, üye sayılarını, önceliklerini ve temel yetki kapsamlarını yönetin.',
+        'header_class' => 'user-groups-head',
+        'body_class' => 'ui-admin-card-body-flush',
+        'actions_html' => '<button type="button" class="ui-admin-btn ui-admin-btn-primary" data-group-action="add" id="addGroupBtnHead"><i class="bi bi-plus-circle"></i> Yeni Grup Ekle</button>',
+    ]) ?>
+            <?= adminRenderTableOpen([
+                'Grup',
+                'Üyeler',
+                'Yetki',
+                'Öncelik',
+                'Oluşturulma',
+                'Durum',
+                ['label' => 'İşlemler', 'class' => 'ui-admin-table-actions'],
+            ], [
+                'class' => 'user-groups-table',
+                'wrap_class' => 'ui-admin-table-responsive',
+                'label' => 'Kullanıcı grupları',
+            ]) ?>
                     <?php foreach ($groups as $groupIndex => $group): ?>
                         <?php
                         $groupId = (int)($group['id'] ?? 0);
@@ -161,11 +171,11 @@ $groupPriorityForAdmin = static function (array $group, int $fallback): int {
                                         <i class="bi bi-files"></i>
                                     </button>
                                     <?php if ($groupSlug !== 'admin'): ?>
-                                        <form method="post" action="users.php?tab=groups&group_view=list" class="ui-admin-inline-form">
+                                        <form method="post" action="users.php?tab=groups&group_view=list" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu grup pasife alınacak. Devam edilsin mi?', 'title' => 'Grup pasife alınsın mı?', 'ok' => 'Pasife Al', 'tone' => 'warning']) ?>>
                                             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                                             <input type="hidden" name="action" value="delete_group">
                                             <input type="hidden" name="group_id" value="<?= $groupId ?>">
-                                            <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger" data-ui-confirm="Bu grup pasife alınacak. Devam edilsin mi?" title="Sil">
+                                            <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger" title="Sil">
                                                 <i class="bi bi-archive"></i>
                                             </button>
                                         </form>
@@ -174,10 +184,8 @@ $groupPriorityForAdmin = static function (array $group, int $fallback): int {
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </section>
+            <?= adminRenderTableClose() ?>
+    <?= adminRenderPanelClose() ?>
 </div>
 
 <!-- Group Edit Modal -->
@@ -250,7 +258,7 @@ $groupPriorityForAdmin = static function (array $group, int $fallback): int {
                 </div>
 
                 <!-- Tab Pane: Permissions -->
-                <div class="group-tab-pane" data-group-tab-pane="permissions" style="display: none;">
+                <div class="group-tab-pane" data-group-tab-pane="permissions" hidden>
                     <div class="user-permission-shell" id="permissions" data-group-permission-tools>
                         <div class="user-permission-head">
                             <div>

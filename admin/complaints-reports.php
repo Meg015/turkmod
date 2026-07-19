@@ -358,67 +358,62 @@ $currentStatusLabel = $currentStatus !== ''
 require_once __DIR__ . '/header.php';
 ?>
 <div class="complaints-page">
-    <?php if ($successMsg): ?>
-    <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success"><i class="bi bi-check-circle-fill"></i><?= htmlspecialchars($successMsg) ?></div>
-    <?php endif; ?>
-    <?php if ($errorMsg): ?>
-    <div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error"><i class="bi bi-exclamation-triangle-fill"></i><?= htmlspecialchars($errorMsg) ?></div>
-    <?php endif; ?>
+    <?= adminRenderFlashAlerts($successMsg, $errorMsg) ?>
 
-    <section class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <span class="complaints-hero-kicker"><i class="bi bi-shield-exclamation"></i> Moderasyon merkezi</span>
-            <h2>Şikayetler & Raporlar</h2>
-            <p>Siteyle ilgili konu raporlarını ve kullanıcı şikayetlerini tek yönetim kuyruğunda takip edin.</p>
-        </div>
-        <div class="ui-admin-page-hero-actions">
-            <span class="ui-admin-badge ui-admin-badge-warning"><i class="bi bi-inbox"></i> <?= number_format($totalActiveCount, 0, ',', '.') ?> aktif iş</span>
-        </div>
-    </section>
+    <?= adminRenderPageHero('bi-shield-exclamation', 'Moderasyon merkezi', 'Şikayetler & Raporlar', 'Siteyle ilgili konu raporlarını ve kullanıcı şikayetlerini tek yönetim kuyruğunda takip edin.', [], [
+        'actions_html' => '<span class="ui-admin-badge ui-admin-badge-warning"><i class="bi bi-inbox"></i> ' . number_format($totalActiveCount, 0, ',', '.') . ' aktif iş</span>',
+    ]) ?>
 
-    <nav class="complaints-tabs" aria-label="Rapor sekmeleri">
-        <a class="complaints-tab <?= $activeTab === 'topics' ? 'is-active' : '' ?>" href="<?= htmlspecialchars(adminComplaintsUrl('topics')) ?>" <?= $activeTab === 'topics' ? 'aria-current="page"' : '' ?>>
-            <span class="complaints-tab-main">
-                <span class="complaints-tab-icon"><i class="bi bi-flag"></i></span>
-                <span>
-                    <span class="complaints-tab-title">Konu Raporları</span>
-                    <span class="complaints-tab-desc">İçerik ve bağlantı bildirimleri</span>
-                </span>
-            </span>
-            <span class="ui-admin-badge <?= $topicActiveCount > 0 ? 'ui-admin-badge-danger' : 'ui-admin-badge-muted' ?>"><?= number_format($topicActiveCount, 0, ',', '.') ?></span>
-        </a>
-        <a class="complaints-tab <?= $activeTab === 'users' ? 'is-active' : '' ?>" href="<?= htmlspecialchars(adminComplaintsUrl('users')) ?>" <?= $activeTab === 'users' ? 'aria-current="page"' : '' ?>>
-            <span class="complaints-tab-main">
-                <span class="complaints-tab-icon"><i class="bi bi-person-exclamation"></i></span>
-                <span>
-                    <span class="complaints-tab-title">Kullanıcı Şikayetleri</span>
-                    <span class="complaints-tab-desc">Üye davranışı ve güvenlik bildirimleri</span>
-                </span>
-            </span>
-            <span class="ui-admin-badge <?= $userActiveCount > 0 ? 'ui-admin-badge-danger' : 'ui-admin-badge-muted' ?>"><?= number_format($userActiveCount, 0, ',', '.') ?></span>
-        </a>
-        <a class="complaints-tab <?= $activeTab === 'reasons' ? 'is-active' : '' ?>" href="<?= htmlspecialchars(adminComplaintsUrl('reasons')) ?>" <?= $activeTab === 'reasons' ? 'aria-current="page"' : '' ?>>
-            <span class="complaints-tab-main">
-                <span class="complaints-tab-icon"><i class="bi bi-list-check"></i></span>
-                <span>
-                    <span class="complaints-tab-title">Rapor Nedenleri</span>
-                    <span class="complaints-tab-desc">Public rapor seçeneklerini düzenle</span>
-                </span>
-            </span>
-            <span class="ui-admin-badge ui-admin-badge-muted"><?= number_format(count(adminComplaintsReasonLabels('topics')), 0, ',', '.') ?></span>
-        </a>
-    </nav>
+    <?= adminRenderTabBar([
+        'topics' => [
+            'href' => adminComplaintsUrl('topics'),
+            'icon' => 'bi-flag',
+            'label' => 'Konu Raporları',
+            'description' => 'İçerik ve bağlantı bildirimleri',
+            'badge' => number_format($topicActiveCount, 0, ',', '.'),
+            'badge_tone' => $topicActiveCount > 0 ? 'danger' : 'muted',
+        ],
+        'users' => [
+            'href' => adminComplaintsUrl('users'),
+            'icon' => 'bi-person-exclamation',
+            'label' => 'Kullanıcı Şikayetleri',
+            'description' => 'Üye davranışı ve güvenlik bildirimleri',
+            'badge' => number_format($userActiveCount, 0, ',', '.'),
+            'badge_tone' => $userActiveCount > 0 ? 'danger' : 'muted',
+        ],
+        'reasons' => [
+            'href' => adminComplaintsUrl('reasons'),
+            'icon' => 'bi-list-check',
+            'label' => 'Rapor Nedenleri',
+            'description' => 'Public rapor seçeneklerini düzenle',
+            'badge' => number_format(count(adminComplaintsReasonLabels('topics')), 0, ',', '.'),
+            'badge_tone' => 'muted',
+        ],
+    ], $activeTab, [
+        'class' => 'complaints-tabs',
+        'link_class' => 'complaints-tab',
+        'active_class' => 'is-active',
+        'aria_label' => 'Rapor sekmeleri',
+        'leading_class' => 'complaints-tab-main',
+        'icon_wrap_class' => 'complaints-tab-icon',
+        'title_class' => 'complaints-tab-title',
+        'description_class' => 'complaints-tab-desc',
+        'badge_class' => 'complaints-tab-badge',
+    ]) ?>
 
     <?php if ($activeTab === 'reasons'): ?>
-    <section class="admin-card complaints-reasons-panel ui-panel">
-        <div class="complaints-reasons-head">
+    <?= adminRenderPanelOpen([
+        'class' => 'complaints-reasons-panel',
+        'header_class' => 'complaints-reasons-head',
+        'body_class' => 'ui-admin-card-body-flush',
+        'header_html' => '
             <div>
                 <span class="complaints-hero-kicker"><i class="bi bi-sliders"></i> Public raporlama ayarı</span>
                 <h3>Konu rapor nedenleri</h3>
                 <p>Buradaki sıralama ve başlıklar public konu raporlama penceresine doğrudan yansır. Mevcut anahtarlar geçmiş raporlarla uyum için sabit tutulur.</p>
             </div>
-            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-report-reason-add><i class="bi bi-plus-lg"></i> Yeni neden</button>
-        </div>
+            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-report-reason-add><i class="bi bi-plus-lg"></i> Yeni neden</button>',
+    ]) ?>
         <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl('reasons')) ?>" class="complaints-reasons-form" data-report-reasons-form>
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="save_topic_reasons">
@@ -466,32 +461,38 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
         </template>
-    </section>
+    <?= adminRenderPanelClose() ?>
 </div>
 <script src="<?= asset_url('admin/assets/complaints-reports-page.js', $baseUri) ?>" defer></script>
 <?php require_once __DIR__ . '/footer.php'; exit; ?>
     <?php endif; ?>
 
-    <section class="admin-stat-grid complaints-summary-row ui-grid" aria-label="<?= htmlspecialchars($scopeTitle) ?> özeti">
-        <a href="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="admin-stat-card stat-info complaints-summary-card<?= $currentStatus === '' ? ' is-active' : '' ?> ui-card">
-            <div class="stat-icon"><i class="bi <?= htmlspecialchars($scopeIcon) ?>"></i></div>
-            <div class="stat-content">
-                <span class="stat-label">Tüm kayıtlar</span>
-                <span class="stat-value"><?= number_format($scopeTotal, 0, ',', '.') ?></span>
-            </div>
-        </a>
-        <?php foreach ($statusLabels as $key => $meta): ?>
-            <a href="<?= htmlspecialchars(adminComplaintsUrl($activeTab, ['status' => $key])) ?>" class="admin-stat-card stat-<?= htmlspecialchars($meta[1] === 'muted' ? 'info' : $meta[1]) ?> complaints-summary-card<?= $currentStatus === $key ? ' is-active' : '' ?> ui-card">
-                <div class="stat-icon"><i class="bi <?= htmlspecialchars($meta[2]) ?>"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label"><?= htmlspecialchars($meta[0]) ?></span>
-                    <span class="stat-value"><?= number_format((int) ($scopeCounts[$key] ?? 0), 0, ',', '.') ?></span>
-                </div>
-            </a>
-        <?php endforeach; ?>
-    </section>
+    <?php
+    $complaintsSummaryCards = [[
+        'href' => adminComplaintsUrl($activeTab),
+        'tone' => 'info',
+        'icon' => $scopeIcon,
+        'label' => 'Tüm kayıtlar',
+        'value' => number_format($scopeTotal, 0, ',', '.'),
+        'class' => 'complaints-summary-card' . ($currentStatus === '' ? ' is-active' : ''),
+    ]];
+    foreach ($statusLabels as $key => $meta) {
+        $complaintsSummaryCards[] = [
+            'href' => adminComplaintsUrl($activeTab, ['status' => $key]),
+            'tone' => $meta[1] === 'muted' ? 'info' : (string) $meta[1],
+            'icon' => (string) $meta[2],
+            'label' => (string) $meta[0],
+            'value' => number_format((int) ($scopeCounts[$key] ?? 0), 0, ',', '.'),
+            'class' => 'complaints-summary-card' . ($currentStatus === $key ? ' is-active' : ''),
+        ];
+    }
+    echo adminRenderStatCards($complaintsSummaryCards, [
+        'class' => 'complaints-summary-row',
+        'aria_label' => $scopeTitle . ' özeti',
+    ]);
+    ?>
 
-    <section class="admin-card complaints-board ui-panel">
+    <?= adminRenderPanelOpen(['class' => 'complaints-board', 'body_class' => 'ui-admin-card-body-flush']) ?>
         <div class="complaints-toolbar">
             <div class="complaints-toolbar-title">
                 <div>
@@ -499,7 +500,7 @@ require_once __DIR__ . '/header.php';
                     <span><?= number_format(count($reports), 0, ',', '.') ?> kayıt listeleniyor</span>
                 </div>
                 <?php if ($activeTab === 'topics'): ?>
-                <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl('topics')) ?>" class="ui-admin-inline-form complaints-delete-all-form" data-admin-confirm="Tüm konu raporları; geçmişleri, rapora bağlı bildirimleri ve aktivite kayıtlarıyla birlikte kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?" data-admin-confirm-title="Tüm konu raporları silinsin mi?" data-admin-confirm-ok="Tümünü Kalıcı Sil" data-admin-confirm-tone="danger">
+                <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl('topics')) ?>" class="ui-admin-inline-form complaints-delete-all-form"<?= adminConfirmAttrs(['message' => 'Tüm konu raporları; geçmişleri, rapora bağlı bildirimleri ve aktivite kayıtlarıyla birlikte kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?', 'title' => 'Tüm konu raporları silinsin mi?', 'ok' => 'Tümünü Kalıcı Sil', 'tone' => 'danger']) ?>>
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="delete_all_topic_reports">
                     <input type="hidden" name="report_scope" value="topics">
@@ -508,7 +509,7 @@ require_once __DIR__ . '/header.php';
                 <?php endif; ?>
             </div>
 
-            <form method="get" class="complaints-filter">
+            <form method="get" class="complaints-filter admin-filter-form">
                 <input type="hidden" name="tab" value="<?= htmlspecialchars($activeTab) ?>">
                 <div class="complaints-filter-primary">
                     <div>
@@ -555,11 +556,15 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <?php if (empty($reports)): ?>
-            <div class="complaints-empty">
-                <div><i class="bi <?= htmlspecialchars($scopeIcon) ?>"></i><strong>Bu filtrede kayıt yok.</strong><p>Yeni bildirimler geldiğinde burada listelenecek.</p></div>
-            </div>
+            <?= adminRenderEmptyState([
+                'icon' => $scopeIcon,
+                'tone' => 'info',
+                'title' => 'Bu filtrede kayıt yok.',
+                'description' => 'Yeni bildirimler geldiğinde burada listelenecek.',
+                'class' => 'complaints-empty',
+            ]) ?>
         <?php else: ?>
-            <form id="bulkReportsForm" method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-bulk-bar" data-admin-confirm="Seçili kayıtlar güncellensin mi?" data-admin-confirm-title="Raporlar güncellensin mi?" data-admin-confirm-ok="Güncelle" data-admin-confirm-tone="warning">
+            <form id="bulkReportsForm" method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-bulk-bar admin-bulk-action-bar"<?= adminConfirmAttrs(['message' => 'Seçili kayıtlar güncellensin mi?', 'title' => 'Raporlar güncellensin mi?', 'ok' => 'Güncelle', 'tone' => 'warning']) ?>>
                 <?= csrf_field() ?>
                 <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
                 <input type="hidden" name="action" value="bulk_update">
@@ -743,7 +748,7 @@ require_once __DIR__ . '/header.php';
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
-    </section>
+    <?= adminRenderPanelClose() ?>
 </div>
 
 <script src="<?= asset_url('admin/assets/complaints-reports-page.js', $baseUri) ?>" defer></script>

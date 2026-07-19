@@ -8,7 +8,7 @@ function adminTopicToast(message, type = 'info', duration) {
     }
 }
 
-(function(){
+function initTopicsSelection() {
     const selectAll = document.getElementById('selectAllTopics');
     const rowChecks = Array.from(document.querySelectorAll('.topic-row-checkbox'));
     const selectedCount = document.getElementById('selectedTopicCount');
@@ -72,9 +72,9 @@ function adminTopicToast(message, type = 'info', duration) {
     }
 
     syncSelectionState();
-})();
+}
 
-(function(){
+function initTopicsEditableRows() {
     const interactiveSelector = 'a, button, input, select, textarea, label, form, [role="button"], [data-moderation-note-open]';
     const bindEditableRows = function(selector, attributeName) {
         document.querySelectorAll(selector).forEach(function(row) {
@@ -105,9 +105,9 @@ function adminTopicToast(message, type = 'info', duration) {
 
     bindEditableRows('.ui-admin-topic-click-row[data-topic-edit-url]', 'data-topic-edit-url');
     bindEditableRows('[data-health-edit-url]', 'data-health-edit-url');
-})();
+}
 
-(function(){
+function initTopicsModerationNoteModal() {
     const modal = document.getElementById('moderationNoteModal');
     const title = document.getElementById('moderationNoteTitle');
     const body = document.getElementById('moderationNoteBody');
@@ -118,8 +118,10 @@ function adminTopicToast(message, type = 'info', duration) {
     }
 
     function closeModal() {
-        if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-            window.TMUI.closeDialog(modal);
+        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
+            window.adminDialog.close(modal, function () {
+                modal.classList.remove('ui-admin-modal-open');
+            });
             return;
         }
         modal.hidden = true;
@@ -138,8 +140,8 @@ function adminTopicToast(message, type = 'info', duration) {
             const topicTitle = trigger.getAttribute('data-moderation-topic') || '';
             title.textContent = topicTitle ? 'Moderasyon notu: ' + topicTitle : 'Son moderasyon notu';
             body.textContent = trigger.getAttribute('data-moderation-note') || '';
-            if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-                window.TMUI.openDialog(modal, {
+            if (window.adminDialog && typeof window.adminDialog.open === 'function') {
+                window.adminDialog.open(modal, {
                     bodyClass: 'ui-admin-dialog-open',
                     initialFocus: '[data-moderation-note-close]',
                     returnFocus: lastTrigger,
@@ -147,7 +149,6 @@ function adminTopicToast(message, type = 'info', duration) {
                         modal.classList.remove('ui-admin-modal-open');
                     }
                 });
-                modal.classList.add('ui-admin-modal-open');
             } else {
                 modal.hidden = false;
                 modal.setAttribute('aria-hidden', 'false');
@@ -167,14 +168,14 @@ function adminTopicToast(message, type = 'info', duration) {
     });
 
     document.addEventListener('keydown', function(event) {
-        if (window.TMUI && typeof window.TMUI.openDialog === 'function') return;
+        if (window.adminDialog && typeof window.adminDialog.open === 'function') return;
         if (event.key === 'Escape' && !modal.hidden) {
             closeModal();
         }
     });
-})();
+}
 
-(function(){
+function initTopicsModerationActionNoteModal() {
     const modal = document.getElementById('moderationActionNoteModal');
     const title = document.getElementById('moderationActionNoteTitle');
     const textarea = document.getElementById('moderationActionNoteText');
@@ -190,8 +191,14 @@ function adminTopicToast(message, type = 'info', duration) {
     }
 
     function closeModal() {
-        if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-            window.TMUI.closeDialog(modal);
+        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
+            window.adminDialog.close(modal, function () {
+                modal.classList.remove('ui-admin-modal-open');
+                error.textContent = '';
+                error.hidden = true;
+                pendingForm = null;
+                pendingField = null;
+            });
             return;
         }
         modal.hidden = true;
@@ -223,8 +230,8 @@ function adminTopicToast(message, type = 'info', duration) {
             textarea.value = field.value || '';
             error.textContent = '';
             error.hidden = true;
-            if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-                window.TMUI.openDialog(modal, {
+            if (window.adminDialog && typeof window.adminDialog.open === 'function') {
+                window.adminDialog.open(modal, {
                     bodyClass: 'ui-admin-dialog-open',
                     initialFocus: '#moderationActionNoteText',
                     returnFocus: lastTrigger,
@@ -236,7 +243,6 @@ function adminTopicToast(message, type = 'info', duration) {
                         pendingField = null;
                     }
                 });
-                modal.classList.add('ui-admin-modal-open');
             } else {
                 modal.hidden = false;
                 modal.setAttribute('aria-hidden', 'false');
@@ -276,12 +282,12 @@ function adminTopicToast(message, type = 'info', duration) {
     });
 
     document.addEventListener('keydown', function(event) {
-        if (window.TMUI && typeof window.TMUI.openDialog === 'function') return;
+        if (window.adminDialog && typeof window.adminDialog.getOpen === 'function' && window.adminDialog.getOpen()) return;
         if (event.key === 'Escape' && !modal.hidden) {
             closeModal();
         }
     });
-})();
+}
 
 async function handleBulkTopicSubmit(form) {
     const selected = document.querySelectorAll('.topic-row-checkbox:checked');
@@ -302,7 +308,8 @@ async function handleBulkTopicSubmit(form) {
     return true;
 }
 
-document.getElementById('bulkTopicsForm')?.addEventListener('submit', async function(event) {
+function initTopicsBulkSubmit() {
+    document.getElementById('bulkTopicsForm')?.addEventListener('submit', async function(event) {
     if (this.dataset.adminBulkConfirmed === '1') {
         return;
     }
@@ -315,14 +322,15 @@ document.getElementById('bulkTopicsForm')?.addEventListener('submit', async func
     this.dataset.adminBulkConfirmed = '1';
     const button = document.getElementById('bulkTopicApply');
     if (button) {
-        button.classList.add('is-ui-loading');
-        button.disabled = true;
-        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Uygulanıyor';
+        window.adminAsync?.setButtonLoading(button, {
+            loadingHtml: '<i class="bi bi-hourglass-split"></i> Uygulanıyor'
+        });
     }
-    this.submit();
-});
+        this.submit();
+    });
+}
 
-(function(){
+function initTopicHealthScan() {
     const shell = document.querySelector('[data-topic-health-shell]');
     if (!shell) {
         return;
@@ -394,18 +402,18 @@ document.getElementById('bulkTopicsForm')?.addEventListener('submit', async func
         body.append('offset', String(offset));
         body.append('batch_size', String(batchSize));
 
-        const response = await fetch(apiUrl, {
+        const payload = await window.adminFetchJson(apiUrl, {
             method: 'POST',
             body: body,
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            notifyError: false
         });
 
-        const payload = await response.json();
         if (payload._token) {
             csrfToken = payload._token;
             actions.setAttribute('data-health-token', csrfToken);
         }
-        if (!response.ok || !payload.success) {
+        if (!payload.success && !payload.ok) {
             throw new Error(payload.message || 'Sağlık kontrolü başarısız.');
         }
 
@@ -418,9 +426,10 @@ document.getElementById('bulkTopicsForm')?.addEventListener('submit', async func
         }
 
         isRunning = true;
-        startButton.disabled = true;
-        startButton.classList.add('is-loading');
-        startButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Kontrol ediliyor';
+        const startButtonState = window.adminAsync ? window.adminAsync.setButtonLoading(startButton, {
+            className: 'is-loading',
+            loadingHtml: '<i class="bi bi-hourglass-split"></i> Kontrol ediliyor'
+        }) : null;
         
         let total = resumeTotal || Number(actions.getAttribute('data-health-total') || 0);
         setProgress(resumeOffset, total, 'Kontrol başlatılıyor...');
@@ -459,8 +468,7 @@ document.getElementById('bulkTopicsForm')?.addEventListener('submit', async func
             localStorage.setItem(STATE_KEY, JSON.stringify({ offset: offset, total: total, isRunning: false }));
             progressText.textContent = error.message || 'Kontrol sırasında hata oluştu.';
             adminTopicToast(progressText.textContent, 'error', 8000);
-            startButton.disabled = false;
-            startButton.classList.remove('is-loading');
+            if (window.adminAsync) window.adminAsync.restoreButton(startButtonState);
             startButton.innerHTML = '<i class="bi bi-play-circle"></i> Devam Et';
             isRunning = false;
         }
@@ -491,4 +499,20 @@ document.getElementById('bulkTopicsForm')?.addEventListener('submit', async func
     } catch (e) {
         // ignore
     }
-})();
+}
+
+function initTopicsPage() {
+    initTopicsSelection();
+    initTopicsEditableRows();
+    initTopicsModerationNoteModal();
+    initTopicsModerationActionNoteModal();
+    initTopicsBulkSubmit();
+    initTopicHealthScan();
+}
+
+window.handleBulkTopicSubmit = handleBulkTopicSubmit;
+
+window.adminPage.register('topics', initTopicsPage, {
+    id: 'topics-page',
+    selector: '#bulkTopicsForm, .topic-row-checkbox, [data-topic-health-shell], [data-health-edit-url]'
+});

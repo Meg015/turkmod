@@ -1,49 +1,61 @@
-function openAdminManagedModal(modal, options) {
+function openGroupManagedModal(modal, options) {
     if (!modal) return null;
-    const opts = options || {};
-    if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-        const dialog = window.TMUI.openDialog(modal, {
-            openClass: opts.openClass || 'is-open',
-            bodyClass: opts.bodyClass || 'ui-admin-dialog-open',
-            initialFocus: opts.initialFocus,
-            returnFocus: opts.returnFocus || document.activeElement,
-            onClose: opts.onClose
-        });
-        modal.classList.add('ui-admin-modal-open');
-        return dialog;
+    if (window.adminModal && typeof window.adminModal.open === 'function') {
+        return window.adminModal.open(modal, options || {});
+    }
+    if (window.openAdminManagedModal && window.openAdminManagedModal !== openGroupManagedModal) {
+        return window.openAdminManagedModal(modal, options || {});
     }
     modal.hidden = false;
     modal.setAttribute('aria-hidden', 'false');
-    modal.classList.add(opts.openClass || 'is-open', 'ui-admin-modal-open');
-    modal.classList.remove('is-closing');
-    if (opts.initialFocus) {
-        const focusTarget = modal.querySelector(opts.initialFocus);
-        if (focusTarget) setTimeout(() => focusTarget.focus(), 80);
-    }
+    modal.classList.add((options && options.openClass) || 'is-open', 'ui-admin-modal-open');
     return null;
 }
 
-function closeAdminManagedModal(modal, resetCallback) {
+function closeGroupManagedModal(modal, resetCallback) {
     if (!modal) return;
-    if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-        window.TMUI.closeDialog(modal);
-        modal.classList.remove('ui-admin-modal-open');
-        if (typeof resetCallback === 'function') resetCallback();
+    if (window.adminModal && typeof window.adminModal.close === 'function') {
+        window.adminModal.close(modal, resetCallback);
         return;
     }
-    modal.classList.add('is-closing');
-    setTimeout(() => {
-        modal.classList.remove('is-open', 'is-closing', 'ui-admin-modal-open');
-        modal.hidden = true;
-        modal.setAttribute('aria-hidden', 'true');
-        if (typeof resetCallback === 'function') resetCallback();
-    }, 160);
+    if (window.closeAdminManagedModal && window.closeAdminManagedModal !== closeGroupManagedModal) {
+        window.closeAdminManagedModal(modal, resetCallback);
+        return;
+    }
+    modal.classList.remove('is-open', 'ui-admin-modal-open');
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+    if (typeof resetCallback === 'function') resetCallback();
 }
 
 function escHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+}
+
+function setGroupElementVisibility(element, visible) {
+    if (!element) return;
+    if (window.adminVisibility && typeof window.adminVisibility.set === 'function') {
+        window.adminVisibility.set(element, visible, { aria: false });
+        return;
+    }
+
+    element.hidden = !visible;
+}
+
+function setGroupPaneVisibility(pane, visible) {
+    if (!pane) return;
+    if (window.adminVisibility && typeof window.adminVisibility.set === 'function') {
+        window.adminVisibility.set(pane, visible, {
+            visibleClass: 'active',
+            aria: false,
+        });
+        return;
+    }
+
+    pane.hidden = !visible;
+    pane.classList.toggle('active', visible);
 }
 
 function switchTab(tabName) {
@@ -63,13 +75,8 @@ function switchTab(tabName) {
     });
 
     tabPanes.forEach(pane => {
-        if (pane.getAttribute('data-group-tab-pane') === tabName) {
-            pane.style.display = 'block';
-            pane.classList.add('active');
-        } else {
-            pane.style.display = 'none';
-            pane.classList.remove('active');
-        }
+        const isActive = pane.getAttribute('data-group-tab-pane') === tabName;
+        setGroupPaneVisibility(pane, isActive);
     });
 }
 
@@ -143,17 +150,18 @@ function openGroupModal(action, dataset) {
         switchTab(initialTab);
     }
 
-    openAdminManagedModal(modal, {
+    openGroupManagedModal(modal, {
         initialFocus: '#groupName'
     });
 }
 
 function closeGroupModal() {
     const modal = document.getElementById('groupEditModal');
-    closeAdminManagedModal(modal);
+    closeGroupManagedModal(modal);
 }
 
 // Delegated action handlers
+function initUsersGroupsActions() {
 document.addEventListener('click', function(e) {
     const trigger = e.target.closest('[data-group-action]');
     if (trigger) {
@@ -197,9 +205,10 @@ document.addEventListener('keydown', function (e) {
         }
     }
 });
+}
 
 // Permission catalog tools inside modal
-(function bindGroupPermissionTools() {
+function bindGroupPermissionTools() {
     const shell = document.querySelector('[data-group-permission-tools]');
     if (!shell) return;
 
@@ -218,10 +227,10 @@ document.addEventListener('keydown', function (e) {
             group.querySelectorAll('[data-permission-item]').forEach(item => {
                 const text = String(item.getAttribute('data-permission-text') || '').toLowerCase();
                 const visible = categoryMatches && (!query || text.includes(query));
-                item.hidden = !visible;
+                setGroupElementVisibility(item, visible);
                 if (visible) visibleCount += 1;
             });
-            group.hidden = visibleCount === 0;
+            setGroupElementVisibility(group, visibleCount > 0);
         });
     }
 
@@ -245,10 +254,10 @@ document.addEventListener('keydown', function (e) {
             }
         });
     });
-})();
+}
 
 // Auto-open logic from URL deep links
-document.addEventListener('DOMContentLoaded', function() {
+function initUsersGroupsDeepLinks() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     if (tab === 'groups') {
@@ -273,4 +282,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+}
+
+function initUsersGroupsTab() {
+    initUsersGroupsActions();
+    bindGroupPermissionTools();
+    initUsersGroupsDeepLinks();
+}
+
+window.openGroupModal = openGroupModal;
+window.closeGroupModal = closeGroupModal;
+
+window.adminPage.register('users:groups', initUsersGroupsTab, {
+    id: 'users-groups-tab',
+    selector: '[data-group-action], [data-group-permission-tools], #groupEditModal'
 });

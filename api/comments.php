@@ -8,8 +8,6 @@ if (is_file(__DIR__ . '/../includes/src/Modules/Events/init.php')) {
     require_once __DIR__ . '/../includes/src/Modules/Events/init.php';
 }
 
-header('Content-Type: application/json; charset=utf-8');
-
 $pdo = requireDatabaseConnection($pdo ?? null);
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 
@@ -34,31 +32,15 @@ $commentReactionRateMax = max(1, (int) ($settings['comment_reaction_rate_max'] ?
 $commentReactionRateWindow = max(1, (int) ($settings['comment_reaction_rate_window'] ?? 1));
 $commentReportRateMax = max(1, (int) ($settings['comment_report_rate_max'] ?? 5));
 $commentReportRateWindow = max(1, (int) ($settings['comment_report_rate_window'] ?? 10));
-$bannedWords = array_filter(array_map('trim', explode("\n", (string) ($settings['banned_words'] ?? ''))));
 
 $reactionsEnabled = ($settings['comment_reactions_enabled'] ?? '1') === '1';
 $reactionTypes = ['like', 'dislike'];
 $markdownEnabled = ($settings['comment_markdown_enabled'] ?? '1') === '1';
 $mentionsEnabled = ($settings['comment_mentions_enabled'] ?? '1') === '1';
 $editHistoryEnabled = ($settings['comment_edit_history'] ?? '1') === '1';
-$spamDetection = ($settings['comment_spam_detection'] ?? '1') === '1';
-
-$wordFilterValue = trim((string) ($settings['comment_word_filter'] ?? ''));
-$wordFilter = $wordFilterValue !== ''
-    ? array_filter(array_map('trim', explode(',', $wordFilterValue)))
-    : [];
-$autoBanAction = (string) ($settings['comment_auto_ban_words'] ?? 'pending');
 $autoHideCount = max(0, (int) ($settings['comment_auto_hide_reports'] ?? 5));
-$spamAction = (string) ($settings['comment_spam_action'] ?? 'reject');
-$spamAction = in_array($spamAction, ['reject', 'pending', 'store_rejected'], true) ? $spamAction : 'reject';
-$spamRejectMessage = trim((string) ($settings['comment_spam_reject_message'] ?? ''));
-if ($spamRejectMessage === '') {
-    $spamRejectMessage = 'Yorumunuz spam veya anlamsız içerik olarak algılandı. Lütfen daha açıklayıcı bir yorum yazın.';
-}
-$spamPendingMessage = trim((string) ($settings['comment_spam_pending_message'] ?? ''));
-if ($spamPendingMessage === '') {
-    $spamPendingMessage = 'Yorumunuz spam filtresine takıldı ve onaya gönderildi.';
-}
+$spamAction = (string) ($settings['comment_spam_violation_action'] ?? 'reject');
+$spamAction = in_array($spamAction, ['reject', 'pending'], true) ? $spamAction : 'reject';
 $isLoggedIn = !empty($_SESSION['_auth_user_id']);
 $currentUserIsAdmin = $isLoggedIn
     && function_exists('userHasPermission')
@@ -79,16 +61,6 @@ function jsonResponse(int $code, array $data): void
     // extra icinde tutuyoruz; sendJsonResponse'in array_merge'i override etmez
     // cunku biz zaten ayri alanlari set ediyoruz.
     sendJsonResponse($code, $success, $message !== '' ? $message : null, $extra, $errorCode);
-}
-
-function filterBannedWords(string $text, array $words): bool
-{
-    if (empty($words)) return false;
-    $lower = mb_strtolower($text);
-    foreach ($words as $w) {
-        if ($w !== '' && str_contains($lower, mb_strtolower($w))) return true;
-    }
-    return false;
 }
 
 function _commentsUsersHasUsername(PDO $pdo): bool
@@ -513,33 +485,6 @@ function parseMarkdown(string $text): string
     return $text;
 }
 
-/**
- * Detect spam patterns in comment
- */
-function detectSpam(string $body, PDO $pdo, int $userId): bool
-{
-    // Check for repeated comments (same user, same text in last 5 minutes)
-    try {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM comments
-                               WHERE user_id = ? AND body = ?
-                               AND created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-                               AND deleted_at IS NULL");
-        $stmt->execute([$userId, $body]);
-        if ((int)$stmt->fetchColumn() > 0) return true;
-    } catch (Throwable $e) {
-        // Ignore
-    }
-
-    // Check for excessive links (more than 3)
-    if (substr_count($body, 'http://') + substr_count($body, 'https://') > 3) return true;
-
-    // Check for excessive caps (more than 70%)
-    $upperCount = preg_match_all('/[A-Z]/', $body);
-    $totalLetters = preg_match_all('/[a-zA-Z]/', $body);
-    if ($totalLetters > 10 && ($upperCount / $totalLetters) > 0.7) return true;
-
-    return false;
-}
 
 // ─── POST: Add / Delete / Edit comment ────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -693,35 +638,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (mb_strlen($body) < $minLength) jsonResponse(400, ['error' => "Yorum en az {$minLength} karakter olmalı."]);
         if (mb_strlen($body) > $maxLength) jsonResponse(400, ['error' => "Yorum en fazla {$maxLength} karakter olabilir."]);
 
-        if (!$commentSpamExempt) {
-            // Banned words check (Old array)
-            if (filterBannedWords($body, $bannedWords)) {
-                jsonResponse(400, ['error' => 'Yorumunuz yasaklı kelimeler içeriyor.']);
-            }
+        $spamDetected = false;
+        $spamReasons = [];
+        $spamReasonCodes = [];
+        $spamMatchedTerm = null;
+        $spamUserMessage = '';
+        $guestSpamDuplicateKey = null;
+        $duplicateWindowMinutes = function_exists('commentSpamResolveDuplicateWindowMinutes')
+            ? commentSpamResolveDuplicateWindowMinutes($settings)
+            : max(0, min(1440, (int) ($settings['comment_spam_duplicate_minutes'] ?? 5)));
+        $duplicateCheckEnabled = (string) ($settings['comment_spam_detection'] ?? '1') === '1'
+            && (string) ($settings['comment_spam_duplicate_enabled'] ?? '1') === '1'
+            && $duplicateWindowMinutes > 0;
 
-            // New Word Filter check
-            if (!empty($wordFilter) && filterBannedWords($body, $wordFilter)) {
-                if ($autoBanAction === 'reject') {
-                    jsonResponse(400, ['error' => 'Yorumunuz izin verilmeyen kelimeler içerdiği için reddedildi.']);
-                } elseif ($autoBanAction === 'censor') {
-                    foreach ($wordFilter as $word) {
-                        if (mb_stripos($body, $word) !== false) {
-                            $body = preg_replace('/' . preg_quote($word, '/') . '/iu', str_repeat('*', mb_strlen($word)), $body);
-                        }
+        if (!$commentSpamExempt) {
+            $spamResult = commentSpamEvaluate($body, $settings);
+            if ($duplicateCheckEnabled) {
+                $duplicateMatch = null;
+                if ($isLoggedIn) {
+                    $duplicateMatch = function_exists('commentSpamFindRecentDuplicateComment')
+                        ? commentSpamFindRecentDuplicateComment($pdo, $body, $topicId, $userId, $duplicateWindowMinutes)
+                        : null;
+                } elseif (function_exists('commentSpamDuplicateRateKey') && function_exists('checkRateLimit')) {
+                    $guestSpamDuplicateKey = commentSpamDuplicateRateKey($body, $topicId);
+                    if ($guestSpamDuplicateKey !== '' && !checkRateLimit($guestSpamDuplicateKey, 1, $duplicateWindowMinutes)) {
+                        $duplicateMatch = mb_substr(commentSpamNormalizeComparableBody($body), 0, 80, 'UTF-8');
                     }
-                } elseif ($autoBanAction === 'pending') {
-                    $status = 'pending';
+                }
+
+                if ($duplicateMatch !== null && function_exists('commentSpamAddReason')) {
+                    $spamResult = commentSpamAddReason($spamResult, [
+                        'code' => 'duplicate_comment',
+                        'matched_term' => $duplicateMatch,
+                        'window_minutes' => $duplicateWindowMinutes,
+                    ]);
                 }
             }
 
-            $spamAction = in_array($spamAction, ['reject', 'pending', 'store_rejected'], true) ? $spamAction : 'reject';
-            $guestDuplicateKey = !$isLoggedIn ? commentSpamGuestDuplicateKey($body) : null;
-            $spamResult = commentSpamEvaluate($body, $settings, $isLoggedIn ? $pdo : null, $userId, $guestDuplicateKey);
             $spamDetected = !empty($spamResult['is_spam']);
-            $spamReasons = $spamDetected ? array_values(array_filter(array_map('strval', (array) ($spamResult['reasons'] ?? [])))) : [];
+            $spamReasons = $spamDetected ? array_values((array) ($spamResult['reasons'] ?? [])) : [];
+            $spamReasonCodes = $spamDetected ? array_values(array_filter(array_map('strval', (array) ($spamResult['reason_codes'] ?? [])))) : [];
+            $spamMatchedTerm = $spamDetected && isset($spamResult['matched_term']) ? (string) $spamResult['matched_term'] : null;
+
             if ($spamDetected) {
+                $primaryReason = function_exists('commentSpamPrimaryReason') ? commentSpamPrimaryReason($spamReasons) : ($spamReasons[0] ?? []);
+                $spamUserMessage = function_exists('commentSpamUserMessage')
+                    ? commentSpamUserMessage($primaryReason, $spamAction === 'pending')
+                    : (string) ($spamResult['message'] ?? 'Yorumunuz spam filtresine takıldı. Lütfen sorunu düzelterek tekrar yorum yapın.');
+
                 $spamLogPayload = [
                     'reasons' => $spamReasons,
+                    'reason_codes' => $spamReasonCodes,
+                    'matched_term' => $spamMatchedTerm,
+                    'message' => $spamUserMessage,
                     'body_length' => mb_strlen($body),
                     'spam_action' => $spamAction,
                     'topic_id' => $topicId,
@@ -730,31 +699,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($spamAction === 'reject') {
                     logActivity($pdo, 'comment_spam_blocked', 'topic', $topicId, $spamLogPayload);
-                    jsonResponse(422, ['error' => $spamRejectMessage, 'message' => $spamRejectMessage, 'code' => 'comment_spam_rejected']);
+                    jsonResponse(422, [
+                        'error' => $spamUserMessage,
+                        'message' => $spamUserMessage,
+                        'code' => 'comment_spam_rejected',
+                        'spam_reason' => (string) ($spamResult['primary_reason'] ?? ''),
+                        'matched_term' => $spamMatchedTerm,
+                        '_token' => csrf_token(),
+                    ]);
                 }
 
-                $spamLogPayload['comment_status'] = $spamAction === 'pending' ? 'pending' : 'rejected';
-                $status = $spamAction === 'pending' ? 'pending' : 'rejected';
+                $status = 'pending';
             }
+        }
 
-            // Rate limit (0 = devre dışı; admin'ler comment_rate_admin_bypass açıkken muaf)
-            $skipRate = ($rateAdminBypass && $currentUserIsAdmin) || $commentSpamExempt;
-            if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
-                $rateSubject = $isLoggedIn
-                    ? 'user_' . $userId
-                    : 'guest_' . preg_replace('/[^a-zA-Z0-9_.:-]/', '', getRealIp());
-                $rateKey = 'comment_' . $rateSubject;
-                if (!checkRateLimit($rateKey, $rateMax, $rateMinutes)) {
-                    $remaining = getRateLimitRemainingSeconds($rateKey, $rateMinutes);
-                    jsonResponse(429, ['error' => "Çok hızlı yorum yapıyorsunuz. {$remaining} saniye bekleyin."]);
-                }
+        // Rate limit (0 = devre dışı; admin'ler comment_rate_admin_bypass açıkken muaf)
+        $skipRate = ($rateAdminBypass && $currentUserIsAdmin);
+        if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
+            $rateSubject = $isLoggedIn
+                ? 'user_' . $userId
+                : 'guest_' . preg_replace('/[^a-zA-Z0-9_.:-]/', '', getRealIp());
+            $rateKey = 'comment_' . $rateSubject;
+            if (!checkRateLimit($rateKey, $rateMax, $rateMinutes)) {
+                $remaining = getRateLimitRemainingSeconds($rateKey, $rateMinutes);
+                jsonResponse(429, ['error' => "Çok hızlı yorum yapıyorsunuz. {$remaining} saniye bekleyin."]);
             }
-        } else {
-            $spamAction = in_array($spamAction, ['reject', 'pending', 'store_rejected'], true) ? $spamAction : 'reject';
-            $guestDuplicateKey = null;
-            $spamDetected = false;
-            $spamReasons = [];
-            $skipRate = ($rateAdminBypass && $currentUserIsAdmin) || $commentSpamExempt;
         }
 
     if ($parentId && !$nestedComments) {
@@ -801,6 +770,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
         $stmt->execute([$topicId, $userId, $parentId, $body, $status, $markdownEnabled ? 1 : 0, $mentionCount]);        $newId = (int)$pdo->lastInsertId();
 
+        if (!$isLoggedIn && $guestSpamDuplicateKey !== null && function_exists('incrementRateLimit')) {
+            incrementRateLimit($guestSpamDuplicateKey, $duplicateWindowMinutes);
+        }
+
         if ($status === 'approved' && $userId && function_exists('topicDownloadCreateAccessGrant')) {
             $createdAt = date('Y-m-d H:i:s');
             topicDownloadCreateAccessGrant($pdo, $settings, [
@@ -812,13 +785,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'created_at' => $createdAt,
                 'updated_at' => $createdAt,
             ], $createdAt);
-        }
-
-        if (!$isLoggedIn && $guestDuplicateKey !== null && function_exists('incrementRateLimit')) {
-            $guestDuplicateWindowMinutes = max(0, (int) ($settings['comment_spam_duplicate_window_minutes'] ?? 5));
-            if ($guestDuplicateWindowMinutes > 0) {
-                incrementRateLimit($guestDuplicateKey, $guestDuplicateWindowMinutes);
-            }
         }
 
         // Save mentions (only if table exists)
@@ -927,32 +893,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($status === 'approved') {
-        // Rate limit sayacını yorum başarıyla eklendikten SONRA artır.
-        if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
-            incrementRateLimit($rateKey, $rateMinutes);
-        }
+            // Rate limit sayacını yorum başarıyla eklendikten SONRA artır.
+            if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
+                incrementRateLimit($rateKey, $rateMinutes);
+            }
 
-        logActivity($pdo, 'comment_created', 'comment', $newId, ['topic_id' => $topicId]);
+            logActivity($pdo, 'comment_created', 'comment', $newId, ['topic_id' => $topicId]);
         } else {
             if (!$skipRate && $rateMax > 0 && $rateMinutes > 0) {
                 incrementRateLimit($rateKey, $rateMinutes);
             }
 
-            logActivity($pdo, $spamDetected ? ($status === 'pending' ? 'comment_spam_pending' : 'comment_spam_rejected') : 'comment_pending', 'comment', $newId, [
+            logActivity($pdo, $spamDetected ? 'comment_spam_pending' : 'comment_pending', 'comment', $newId, [
                 'topic_id' => $topicId,
                 'status' => $status,
                 'spam' => $spamDetected ? 1 : 0,
                 'spam_reasons' => $spamReasons,
+                'spam_reason_codes' => $spamReasonCodes,
+                'spam_matched_term' => $spamMatchedTerm,
+                'spam_message' => $spamUserMessage,
             ]);
-
-        if ($status === 'rejected') {
-            jsonResponse(422, [
-                'error' => $spamRejectMessage,
-                'message' => $spamRejectMessage,
-                'code' => 'comment_spam_rejected',
-                '_token' => csrf_token(),
-            ]);
-            }
         }
 
         // Fetch the newly created comment
@@ -963,7 +923,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newComment = $newStmt->fetch(PDO::FETCH_ASSOC);
 
         $message = $status === 'pending'
-            ? ($spamDetected ? $spamPendingMessage : 'Yorumunuz onay bekliyor.')
+            ? ($spamDetected ? $spamUserMessage : 'Yorumunuz onay bekliyor.')
             : 'Yorumunuz eklendi.';
         jsonResponse(201, [
             'success' => true,

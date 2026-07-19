@@ -86,26 +86,27 @@ require_once __DIR__ . '/header.php';
     <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="topics.php"><i class="bi bi-files"></i> Konular</a>
 </div>
 
-<div class="admin-card ui-admin-mb-sm ui-panel">
-    <div class="card-header ui-panel__head"><i class="bi bi-clock-history me-2"></i><?= htmlspecialchars((string)$topic['title'], ENT_QUOTES, 'UTF-8') ?></div>
-    <div class="card-body ui-panel__body">
+<?= adminRenderPanelOpen([
+    'tag' => 'div',
+    'class' => 'ui-admin-mb-sm',
+    'icon' => 'bi-clock-history',
+    'title' => (string) $topic['title'],
+]) ?>
         <div class="revision-grid">
             <div class="revision-field"><span>Kategori</span><?= htmlspecialchars((string)($topic['category_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
             <div class="revision-field"><span>Mevcut durum</span><?= htmlspecialchars((string)$topic['status'], ENT_QUOTES, 'UTF-8') ?></div>
         </div>
-    </div>
-</div>
+<?= adminRenderPanelClose('div') ?>
 
 <div class="revision-shell">
-    <section class="admin-card ui-panel">
-        <div class="card-header ui-panel__head">Kayitli Versiyonlar (<?= count($revisions) ?>)</div>
-        <div class="card-body ui-panel__body">
+    <?= adminRenderPanelOpen(['title' => 'Kayitli Versiyonlar (' . count($revisions) . ')']) ?>
             <?php if (!$revisions): ?>
-                <div class="ui-admin-empty ui-empty">
-                    <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-clock-history"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Versiyon kaydı yok</h3>
-                    <p class="ui-admin-empty-desc ui-empty">Bu konu için henüz geçmiş sürüm oluşturulmamış.</p>
-                </div>
+                <?= adminRenderEmptyState([
+                    'icon' => 'bi-clock-history',
+                    'tone' => 'info',
+                    'title' => 'Versiyon kaydı yok',
+                    'description' => 'Bu konu için henüz geçmiş sürüm oluşturulmamış.',
+                ]) ?>
             <?php else: ?>
                 <div class="revision-list">
                     <?php foreach ($revisions as $revision): ?>
@@ -122,28 +123,34 @@ require_once __DIR__ . '/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-        </div>
-    </section>
+    <?= adminRenderPanelClose() ?>
 
-    <section class="admin-card ui-panel">
-        <div class="card-header ui-admin-card-header-actions ui-panel__head ui-card">
-            <span>Versiyon Detayi</span>
-            <?php if ($selectedRevision): ?>
-                <form method="post" data-admin-confirm="Bu konuyu secilen eski versiyona geri almak istiyor musunuz?" data-admin-confirm-title="Eski versiyona dönülsün mü?" data-admin-confirm-ok="Geri Al" data-admin-confirm-tone="danger">
+    <?php
+    $revisionActionsHtml = '';
+    if ($selectedRevision) {
+        ob_start();
+        ?>
+                <form method="post"<?= adminConfirmAttrs(['message' => 'Bu konuyu secilen eski versiyona geri almak istiyor musunuz?', 'title' => 'Eski versiyona dönülsün mü?', 'ok' => 'Geri Al', 'tone' => 'danger']) ?>>
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="restore">
                     <input type="hidden" name="revision_id" value="<?= (int)$selectedRevision['id'] ?>">
                     <button class="ui-admin-btn ui-admin-btn-danger ui-admin-btn-sm" type="submit"><i class="bi bi-arrow-counterclockwise"></i> Bu Versiyona Don</button>
                 </form>
-            <?php endif; ?>
-        </div>
-        <div class="card-body ui-panel__body">
+        <?php
+        $revisionActionsHtml = ob_get_clean();
+    }
+    ?>
+    <?= adminRenderPanelOpen([
+        'title' => 'Versiyon Detayi',
+        'actions_html' => $revisionActionsHtml,
+    ]) ?>
             <?php if (!$selectedRevision): ?>
-                <div class="ui-admin-empty ui-empty">
-                    <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-file-earmark-text"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Görüntülenecek versiyon yok</h3>
-                    <p class="ui-admin-empty-desc ui-empty">Bir versiyon seçtiğinizde detaylar burada açılacak.</p>
-                </div>
+                <?= adminRenderEmptyState([
+                    'icon' => 'bi-file-earmark-text',
+                    'tone' => 'info',
+                    'title' => 'Görüntülenecek versiyon yok',
+                    'description' => 'Bir versiyon seçtiğinizde detaylar burada açılacak.',
+                ]) ?>
             <?php else: ?>
                 <div class="revision-grid ui-admin-mb-sm">
                     <div class="revision-field"><span>Baslik</span><?= htmlspecialchars((string)$selectedRevision['title'], ENT_QUOTES, 'UTF-8') ?></div>
@@ -160,11 +167,18 @@ require_once __DIR__ . '/header.php';
                 </div>
 
                 <h3 class="ui-admin-section-title-sm">Indirme Baglantilari</h3>
-                <table class="revision-table ui-admin-mb-sm">
-                    <thead><tr><th>Ad</th><th>URL</th></tr></thead>
-                    <tbody>
+                <?= adminRenderTableOpen(['Ad', 'URL'], [
+                    'class' => 'revision-table ui-admin-mb-sm',
+                    'wrap_class' => 'revision-table-wrap',
+                    'label' => 'Revizyon indirme bağlantıları',
+                ]) ?>
                         <?php if (!$links): ?>
-                            <tr><td colspan="2">Kayit yok.</td></tr>
+                            <?= adminRenderTableEmptyRow(2, [
+                                'icon' => 'bi-link-45deg',
+                                'tone' => 'info',
+                                'title' => 'Kayit yok.',
+                                'description' => 'Bu revizyonda indirme bağlantısı bulunmuyor.',
+                            ]) ?>
                         <?php else: ?>
                             <?php foreach ($links as $link): ?>
                                 <tr>
@@ -173,15 +187,21 @@ require_once __DIR__ . '/header.php';
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
-                    </tbody>
-                </table>
+                <?= adminRenderTableClose() ?>
 
                 <h3 class="ui-admin-section-title-sm">Medya Snapshot</h3>
-                <table class="revision-table">
-                    <thead><tr><th>Tur</th><th>Yol</th><th>Birincil</th></tr></thead>
-                    <tbody>
+                <?= adminRenderTableOpen(['Tur', 'Yol', 'Birincil'], [
+                    'class' => 'revision-table',
+                    'wrap_class' => 'revision-table-wrap',
+                    'label' => 'Revizyon medya snapshot',
+                ]) ?>
                         <?php if (!$media): ?>
-                            <tr><td colspan="3">Kayit yok.</td></tr>
+                            <?= adminRenderTableEmptyRow(3, [
+                                'icon' => 'bi-images',
+                                'tone' => 'info',
+                                'title' => 'Kayit yok.',
+                                'description' => 'Bu revizyonda medya snapshot kaydı bulunmuyor.',
+                            ]) ?>
                         <?php else: ?>
                             <?php foreach ($media as $item): ?>
                                 <tr>
@@ -191,11 +211,9 @@ require_once __DIR__ . '/header.php';
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
-                    </tbody>
-                </table>
+                <?= adminRenderTableClose() ?>
             <?php endif; ?>
-        </div>
-    </section>
+    <?= adminRenderPanelClose() ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

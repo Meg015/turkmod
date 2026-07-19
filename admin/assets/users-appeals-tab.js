@@ -1,4 +1,4 @@
-(function () {
+function initUsersAppealsTab() {
         var selectAll = document.getElementById('selectAllAppeals');
         var counter = document.getElementById('appealsBulkCount');
         var boxes = function () { return Array.prototype.slice.call(document.querySelectorAll('.appeal-row-checkbox')); };
@@ -19,4 +19,9 @@
         }
         boxes().forEach(function (b) { b.addEventListener('change', updateCount); });
         updateCount();
-    })();
+}
+
+window.adminPage.register('users:appeals', initUsersAppealsTab, {
+    id: 'users:appeals',
+    selector: '#selectAllAppeals, .appeal-row-checkbox'
+});

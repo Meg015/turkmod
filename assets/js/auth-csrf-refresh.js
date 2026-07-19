@@ -1,13 +1,13 @@
 (function () {
     "use strict";
 
-    function baseUri() {
-        var meta = document.querySelector('meta[name="app-base-uri"]');
-        return meta ? (meta.getAttribute("content") || "").replace(/\/+$/, "") : "";
-    }
-
     function updateTokens(token) {
         if (!token) {
+            return;
+        }
+
+        if (window.publicApi && typeof window.publicApi.updateCsrfToken === "function") {
+            window.publicApi.updateCsrfToken(token);
             return;
         }
 
@@ -23,6 +23,21 @@
 
     function nativeSubmit(form) {
         HTMLFormElement.prototype.submit.call(form);
+    }
+
+    function refreshToken() {
+        if (!window.publicApi || typeof window.publicApi.refreshCsrfToken !== "function") {
+            return Promise.resolve(false);
+        }
+
+        return window.publicApi.refreshCsrfToken().then(function (refreshed) {
+            if (refreshed && typeof window.publicApi.csrfToken === "function") {
+                updateTokens(window.publicApi.csrfToken());
+            }
+            return refreshed;
+        }).catch(function () {
+            return false;
+        });
     }
 
     function bindAuthForm(form) {
@@ -45,19 +60,8 @@
             form.dataset.authCsrfSubmitting = "1";
             form.setAttribute("aria-busy", "true");
 
-            fetch(baseUri() + "/api/csrf-token.php", {
-                method: "GET",
-                credentials: "same-origin",
-                cache: "no-store",
-                headers: { "Accept": "application/json" }
-            })
-                .then(function (response) {
-                    return response.ok ? response.json() : null;
-                })
-                .then(function (data) {
-                    if (data && (data._token || data.csrf_token)) {
-                        updateTokens(data._token || data.csrf_token);
-                    }
+            refreshToken()
+                .then(function () {
                     nativeSubmit(form);
                 })
                 .catch(function () {
@@ -81,20 +85,6 @@
             return;
         }
 
-        fetch(baseUri() + "/api/csrf-token.php", {
-            method: "GET",
-            credentials: "same-origin",
-            cache: "no-store",
-            headers: { "Accept": "application/json" }
-        })
-            .then(function (response) {
-                return response.ok ? response.json() : null;
-            })
-            .then(function (data) {
-                if (data && (data._token || data.csrf_token)) {
-                    updateTokens(data._token || data.csrf_token);
-                }
-            })
-            .catch(function () {});
+        refreshToken();
     });
 })();

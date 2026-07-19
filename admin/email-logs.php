@@ -221,67 +221,29 @@ require_once __DIR__ . '/header.php';
 <?php adminRenderLogsSubtabs('email'); ?>
 
 <div class="logs-page email-logs-page">
-    <section class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <span class="ui-admin-kicker"><i class="bi bi-envelope-paper"></i> Gönderim izi</span>
-            <h2>E-posta Logları</h2>
-            <p>SMTP, mail() ve kuyruk kaynaklı gönderimlerin teknik izlerini tek ekranda takip edin.</p>
-        </div>
-    </section>
+    <?= adminRenderLogPageHero('bi-envelope-paper', 'Gönderim izi', 'E-posta Logları', 'SMTP, mail() ve kuyruk kaynaklı gönderimlerin teknik izlerini tek ekranda takip edin.') ?>
 
-    <?php if ($successMsg !== ''): ?>
-        <div class="ui-admin-alert ui-admin-alert-success ui-alert">
-            <i class="bi bi-check2-circle"></i>
-            <div><?= htmlspecialchars($successMsg, ENT_QUOTES, 'UTF-8') ?></div>
-        </div>
-    <?php endif; ?>
-
-    <?php if ($errorMsg !== ''): ?>
-        <div class="ui-admin-alert ui-admin-alert-danger ui-alert">
-            <i class="bi bi-exclamation-octagon"></i>
-            <div><?= htmlspecialchars($errorMsg, ENT_QUOTES, 'UTF-8') ?></div>
-        </div>
-    <?php endif; ?>
-
+    <?= adminRenderAlert($successMsg, 'success', ['icon' => 'bi-check2-circle']) ?>
+    <?= adminRenderAlert($errorMsg, 'danger', ['icon' => 'bi-exclamation-octagon']) ?>
     <?php if ($pageError !== ''): ?>
-        <div class="ui-admin-alert ui-admin-alert-warning ui-alert">
-            <i class="bi bi-database-exclamation"></i>
-            <div><strong>Yükleme notu:</strong> <?= htmlspecialchars($pageError, ENT_QUOTES, 'UTF-8') ?></div>
-        </div>
+        <?= adminRenderAlert($pageError, 'warning', ['icon' => 'bi-database-exclamation', 'title' => 'Yükleme notu:']) ?>
     <?php endif; ?>
 
-    <div class="admin-stat-grid logs-summary email-logs-summary ui-grid">
-        <?php
-        $emailStatCards = [
-            ['tone' => 'info', 'icon' => 'bi-journal-code', 'label' => 'Toplam Log', 'value' => (int) ($emailStats['total'] ?? 0)],
-            ['tone' => 'success', 'icon' => 'bi-clock', 'label' => '24 Saat', 'value' => (int) ($emailStats['total_24h'] ?? 0)],
-            ['tone' => 'info', 'icon' => 'bi-calendar-week', 'label' => '7 Gün', 'value' => (int) ($emailStats['total_7d'] ?? 0)],
-            ['tone' => 'success', 'icon' => 'bi-send-check', 'label' => 'Gönderildi 24s', 'value' => (int) ($emailStats['sent_24h'] ?? 0)],
-            ['tone' => 'danger', 'icon' => 'bi-exclamation-octagon', 'label' => 'Hatalı 24s', 'value' => (int) ($emailStats['failed_24h'] ?? 0)],
-        ];
-        foreach ($emailStatCards as $card):
-        ?>
-            <div class="admin-stat-card stat-<?= htmlspecialchars((string) $card['tone'], ENT_QUOTES, 'UTF-8') ?> logs-stat ui-card">
-                <div class="stat-icon"><i class="bi <?= htmlspecialchars((string) $card['icon'], ENT_QUOTES, 'UTF-8') ?>"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label"><?= htmlspecialchars((string) $card['label'], ENT_QUOTES, 'UTF-8') ?></span>
-                    <span class="stat-value"><?= number_format((int) $card['value'], 0, ',', '.') ?></span>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
+    <?= adminRenderLogStatCards([
+        ['tone' => 'info', 'icon' => 'bi-journal-code', 'label' => 'Toplam Log', 'value' => number_format((int) ($emailStats['total'] ?? 0), 0, ',', '.')],
+        ['tone' => 'success', 'icon' => 'bi-clock', 'label' => '24 Saat', 'value' => number_format((int) ($emailStats['total_24h'] ?? 0), 0, ',', '.')],
+        ['tone' => 'info', 'icon' => 'bi-calendar-week', 'label' => '7 Gün', 'value' => number_format((int) ($emailStats['total_7d'] ?? 0), 0, ',', '.')],
+        ['tone' => 'success', 'icon' => 'bi-send-check', 'label' => 'Gönderildi 24s', 'value' => number_format((int) ($emailStats['sent_24h'] ?? 0), 0, ',', '.')],
+        ['tone' => 'danger', 'icon' => 'bi-exclamation-octagon', 'label' => 'Hatalı 24s', 'value' => number_format((int) ($emailStats['failed_24h'] ?? 0), 0, ',', '.')],
+    ], ['class' => 'email-logs-summary', 'aria_label' => 'E-posta logları özeti']) ?>
 
-    <div class="ui-admin-alert ui-admin-alert-info ui-alert">
-        <i class="bi bi-shield-check"></i>
-        <div>
-            <strong>Teknik ayrıntılar korunur:</strong>
-            SMTP kodu, sağlayıcı yanıtı, exception bilgisi ve kayıt bağlamı saklanır; parola, token ve cookie gibi hassas alanlar maskeleme ile korunur.
-        </div>
-    </div>
+    <?= adminRenderAlert('', 'info', [
+        'icon' => 'bi-shield-check',
+        'html' => '<div><strong>Teknik ayrıntılar korunur:</strong> SMTP kodu, sağlayıcı yanıtı, exception bilgisi ve kayıt bağlamı saklanır; parola, token ve cookie gibi hassas alanlar maskeleme ile korunur.</div>',
+    ]) ?>
 
-    <div class="admin-card logs-toolbar-card ui-panel">
-        <div class="card-body ui-admin-card-compact ui-panel__body ui-card logs-toolbar-shell">
-            <form method="get" action="email-logs.php" class="logs-filter-form ui-admin-filter-row admin-log-filter-form">
+    <?= adminRenderLogToolbarOpen() ?>
+            <form method="get" action="email-logs.php" class="logs-filter-form ui-admin-filter-row admin-log-filter-form admin-filter-form">
                 <div class="ui-admin-filter-grow-lg">
                     <label class="ui-admin-form-label" for="email-log-q">Ara</label>
                     <input id="email-log-q" type="text" name="q" class="ui-admin-form-control" placeholder="Alıcı, konu, kaynak, hata veya yanıt ara..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
@@ -335,32 +297,30 @@ require_once __DIR__ . '/header.php';
                         <a href="email-logs.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-x-lg"></i> Temizle</a>
                     <?php endif; ?>
                     <?php if ($canManageLogs): ?>
-                        <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm" data-clear-logs-open>
-                            <i class="bi bi-trash"></i> Günlüğü Temizle
-                        </button>
+                        <?= adminRenderLogClearTrigger([
+                            'label' => 'Günlüğü Temizle',
+                            'base_class' => 'ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm',
+                        ]) ?>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
-        </div>
-    </div>
+    <?= adminRenderLogToolbarClose() ?>
 
-    <div class="admin-card logs-list-card ui-panel">
-        <div class="card-header logs-list-head ui-admin-card-header-actions ui-panel__head ui-card">
-            <div>
-                <h3><i class="bi bi-envelope-paper"></i> E-posta Gönderim Kayıtları</h3>
-                <span><?= number_format((int) ($emailLogs['total'] ?? 0), 0, ',', '.') ?> kayıt</span>
-            </div>
-        </div>
-        <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
+    <?= adminRenderLogListPanelOpen([
+        'tag' => 'div',
+        'icon' => 'bi-envelope-paper',
+        'title' => 'E-posta Gönderim Kayıtları',
+        'count_text' => number_format((int) ($emailLogs['total'] ?? 0), 0, ',', '.') . ' kayıt',
+    ]) ?>
             <?php if (empty($emailLogs['items'])): ?>
-                <div class="ui-admin-empty ui-empty admin-log-empty">
-                    <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-envelope-paper"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Kayıt bulunamadı</h3>
-                    <p class="ui-admin-empty-desc ui-empty"><?= $hasFilters ? 'Seçili filtrelerle eşleşen e-posta kaydı yok.' : 'Henüz e-posta gönderim kaydı oluşmamış.' ?></p>
-                </div>
+                <?= adminRenderLogEmptyState([
+                    'icon' => 'bi-envelope-paper',
+                    'tone' => 'info',
+                    'title' => 'Kayıt bulunamadı',
+                    'description' => $hasFilters ? 'Seçili filtrelerle eşleşen e-posta kaydı yok.' : 'Henüz e-posta gönderim kaydı oluşmamış.',
+                ]) ?>
             <?php else: ?>
-                <div class="table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
-                    <table class="admin-table admin-log-table">
+                <?= adminRenderLogTableOpen() ?>
                         <thead>
                             <tr>
                                 <th>Tarih</th>
@@ -515,8 +475,7 @@ require_once __DIR__ . '/header.php';
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
-                    </table>
-                </div>
+                <?= adminRenderLogTableClose() ?>
 
                 <?php
                 if ($emailLogsTotalPages > 1):
@@ -529,15 +488,13 @@ require_once __DIR__ . '/header.php';
                         'date_to' => $dateTo,
                     ], static fn ($value): bool => $value !== '' && $value !== null);
                     $pageBase = 'email-logs.php?' . ($pageParams ? http_build_query($pageParams) . '&' : '') . 'page=';
-                    echo adminRenderPagination($emailLogsTotalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
-                        'wrapper_class' => 'logs-pagination-wrapper',
+                    echo adminRenderLogPagination($emailLogsTotalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
                         'aria_label' => 'E-posta logları sayfalama',
                     ]);
                 endif;
                 ?>
             <?php endif; ?>
-        </div>
-    </div>
+    <?= adminRenderLogListPanelClose('div') ?>
 
     <?php if ($canManageLogs): ?>
     <?php
@@ -558,7 +515,7 @@ require_once __DIR__ . '/header.php';
         ],
         'warning' => 'Tüm e-posta logları kalıcı olarak silinir. SMTP yanıtları ve teknik hata ayrıntıları dahil bu işlem geri alınamaz.',
     ];
-    include __DIR__ . '/partials/log-clear-modal.php';
+    adminRenderLogClearModal($logClearModal);
     unset($logClearModal);
     ?>
     <?php endif; ?>

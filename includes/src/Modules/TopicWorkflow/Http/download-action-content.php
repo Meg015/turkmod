@@ -118,7 +118,7 @@ try {
         http_response_code(404);
         $pageTitle = 'İndirme Bağlantısı Bulunamadı';
         $download_has_alert = true;
-        $download_alert_class = 'ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error';
+        $download_alert_class = uiAlertClass('danger');
         $download_alert_message = downloadSettingText($downloadSettings, 'download_redirect_missing_message', 'İndirme bağlantısı bulunamadı veya kaldırılmış.');
         $publicHeaderVars = downloadThemePageVars([
             'download_has_alert' => true,
@@ -130,12 +130,22 @@ try {
             require_once $projectRoot . '/includes/public-footer.php';
             exit;
         }
-        echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert">' . htmlspecialchars($download_alert_message, ENT_QUOTES, 'UTF-8') . '</div>';
+        echo uiRenderAlert($download_alert_message, 'danger');
         require_once $projectRoot . '/includes/public-footer.php';
         exit;
     }
 
     $downloadTopicId = (int) ($link['topic_id'] ?? 0);
+    $downloadTopicHref = topicUrl((string) ($link['topic_slug'] ?? ''), $downloadTopicId);
+    $downloadIntent = trim((string) ($_GET['intent'] ?? ''));
+    $downloadIntentValid = function_exists('topicDownloadAccessIntentIsValid')
+        ? topicDownloadAccessIntentIsValid($linkId, $downloadTopicId, $downloadIntent)
+        : false;
+    if (!$downloadIntentValid) {
+        header('Location: ' . $downloadTopicHref, true, 302);
+        exit;
+    }
+
     $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
     $downloadAccessState = function_exists('topicDownloadAccessState')
         ? topicDownloadAccessState($pdo, $downloadSettings, $downloadTopicId, $currentUserId)
@@ -144,14 +154,14 @@ try {
         http_response_code(403);
         $pageTitle = 'İndirme Kilitli';
         $download_has_alert = true;
-        $download_alert_class = 'ui-admin-alert ui-admin-alert-warning ui-alert ui-alert--warning';
+        $download_alert_class = uiAlertClass('warning');
         $download_alert_message = trim((string) ($downloadAccessState['message'] ?? ''));
         if ($download_alert_message === '') {
             $download_alert_message = (string) ($downloadAccessState['reason'] ?? '') === 'comment_required'
                 ? 'İndirme linklerini görmek için önce yorum yapmanız gerekir.'
                 : 'Bu içeriği görmek için kayıt olmanız veya giriş yapmanız gerekir.';
         }
-        $topicHref = topicUrl((string) ($link['topic_slug'] ?? ''), $downloadTopicId);
+        $topicHref = $downloadTopicHref;
         $loginHref = routePublicStaticUrl('login');
         $loginHref .= (str_contains($loginHref, '?') ? '&' : '?') . 'redirect=' . rawurlencode((string) ($_SERVER['REQUEST_URI'] ?? ''));
 
@@ -166,7 +176,7 @@ try {
             exit;
         }
 
-        echo '<div class="' . htmlspecialchars($download_alert_class, ENT_QUOTES, 'UTF-8') . '" role="alert">' . htmlspecialchars($download_alert_message, ENT_QUOTES, 'UTF-8') . '</div>';
+        echo uiRenderAlert($download_alert_message, 'warning');
         echo '<div class="download-lock-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">';
         if ((string) ($downloadAccessState['reason'] ?? '') === 'auth_required') {
             echo '<a class="ui-admin-btn ui-admin-btn-primary" href="' . htmlspecialchars($loginHref, ENT_QUOTES, 'UTF-8') . '">Giriş Yap / Kayıt Ol</a>';
@@ -187,7 +197,7 @@ try {
         http_response_code(400);
         $pageTitle = 'Geçersiz Bağlantı';
         $download_has_alert = true;
-        $download_alert_class = 'ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error';
+        $download_alert_class = uiAlertClass('danger');
         $download_alert_message = downloadSettingText($downloadSettings, 'download_redirect_invalid_message', 'Geçersiz indirme bağlantısı.');
         $publicHeaderVars = downloadThemePageVars([
             'download_has_alert' => true,
@@ -199,7 +209,7 @@ try {
             require_once $projectRoot . '/includes/public-footer.php';
             exit;
         }
-        echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert">' . htmlspecialchars($download_alert_message, ENT_QUOTES, 'UTF-8') . '</div>';
+        echo uiRenderAlert($download_alert_message, 'danger');
         require_once $projectRoot . '/includes/public-footer.php';
         exit;
     }
@@ -208,6 +218,9 @@ try {
 
     if (($_GET['confirm'] ?? '') !== '1') {
         if ((string) ($downloadSettings['download_redirect_page_enabled'] ?? '1') !== '1') {
+            if (function_exists('topicDownloadConsumeAccessIntent')) {
+                topicDownloadConsumeAccessIntent($linkId, $downloadTopicId, $downloadIntent);
+            }
             downloadRedirectAfterCount($pdo, $linkId, $targetUrl);
         }
 
@@ -216,14 +229,13 @@ try {
         $bodyClass = trim(($bodyClass ?? '') . ' download-confirm-page');
         $linkName = trim((string) ($link['name'] ?? ''));
         $topicTitle = trim((string) ($link['topic_title'] ?? ''));
-        $topicHref = topicUrl((string) ($link['topic_slug'] ?? ''), (int) ($link['topic_id'] ?? 0));
+        $topicHref = $downloadTopicHref;
         $downloadActionBaseUrl = routePublicStaticUrl('download');
-        $confirmHref = $downloadActionBaseUrl . '?id=' . $linkId . '&confirm=1';
+        $confirmHref = $downloadActionBaseUrl . '?id=' . $linkId . '&confirm=1&intent=' . rawurlencode($downloadIntent);
         $targetScheme = strtoupper((string) $scheme);
-        $downloadCountdownSeconds = max(
-            0,
-            (int) ($downloadSettings['download_redirect_countdown_seconds'] ?? 5)
-        );
+        $downloadCountdownSeconds = function_exists('topicDownloadCountdownSeconds')
+            ? topicDownloadCountdownSeconds($pdo, $downloadSettings, $currentUserId, 'download_redirect_countdown_seconds', 'redirect_countdown', 5)
+            : max(0, (int) ($downloadSettings['download_redirect_countdown_seconds'] ?? 5));
         $downloadAutoRedirectEnabled = (string) ($downloadSettings['download_redirect_auto_enabled'] ?? '1') === '1';
         $downloadShowTargetUrl = (string) ($downloadSettings['download_redirect_show_target_url'] ?? '1') === '1';
         [$downloadTimerPrefix, $downloadTimerSuffix] = downloadTimerTemplateParts(
@@ -369,12 +381,15 @@ try {
         exit;
     }
 
+    if (function_exists('topicDownloadConsumeAccessIntent')) {
+        topicDownloadConsumeAccessIntent($linkId, $downloadTopicId, $downloadIntent);
+    }
     downloadRedirectAfterCount($pdo, $linkId, $targetUrl);
 } catch (Throwable $e) {
     http_response_code(500);
     $pageTitle = 'Hata';
     $download_has_alert = true;
-    $download_alert_class = 'ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error';
+    $download_alert_class = uiAlertClass('danger');
     $download_alert_message = downloadSettingText($downloadSettings, 'download_redirect_error_message', 'İndirme işlemi sırasında bir hata oluştu.');
     $publicHeaderVars = downloadThemePageVars([
         'download_has_alert' => true,
@@ -386,7 +401,7 @@ try {
         require_once $projectRoot . '/includes/public-footer.php';
         exit;
     }
-    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert">' . htmlspecialchars($download_alert_message, ENT_QUOTES, 'UTF-8') . '</div>';
+    echo uiRenderAlert($download_alert_message, 'danger');
     require_once $projectRoot . '/includes/public-footer.php';
     exit;
 }

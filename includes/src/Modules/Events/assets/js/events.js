@@ -59,6 +59,10 @@
     }
 
     function csrfToken() {
+        if (window.publicApi && typeof window.publicApi.csrfToken === 'function') {
+            return window.publicApi.csrfToken();
+        }
+
         var meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute('content') || '' : '';
     }
@@ -541,22 +545,18 @@
     }
 
     async function postJson(url, payload) {
-        var response = await fetch(url, {
+        if (typeof window.publicFetchJson !== 'function') {
+            throw new Error('Public API helper yuklenemedi.');
+        }
+
+        return window.publicFetchJson(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': csrfToken()
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload || {})
+            body: payload || {},
+            notifyError: false
         });
-        var data = await response.json().catch(function () { return {}; });
-        if (!response.ok || data.success === false) {
-            var requestError = new Error(data.message || data.error || 'İşlem tamamlanamadı.');
-            requestError.data = data;
-            requestError.status = response.status;
-            throw requestError;
-        }
-        return data;
     }
 
     function activateEventsTab(root, target) {
@@ -1292,9 +1292,11 @@
     });
     function pollToastNotifications() {
         if (typeof window.showToast !== 'function') return;
+        if (typeof window.publicFetchJson !== 'function') return;
 
-        fetch(baseUri() + '/events/api/notifications?toast_poll=1')
-            .then(function(res) { return res.json(); })
+        window.publicFetchJson(baseUri() + '/events/api/notifications?toast_poll=1', {
+            notifyError: false
+        })
             .then(function(data) {
                 if (data && data.success && data.payload && Array.isArray(data.payload.toasts)) {
                     data.payload.toasts.forEach(function(toast) {

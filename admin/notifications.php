@@ -173,6 +173,33 @@ function admin_notification_preview(string $message, int $limit): string
     return rtrim(mb_substr($message, 0, max(0, $limit - 1))) . '…';
 }
 
+function admin_notification_insert(
+    PDO $pdo,
+    ?int $userId,
+    string $title,
+    string $message,
+    string $type,
+    ?string $link,
+    bool $adminLoggable = false
+): void {
+    $columns = ['user_id', 'title', 'message', 'type', 'link'];
+    $values = [$userId, $title, $message, $type, $link];
+
+    try {
+        if (function_exists('adminColumnExists') && adminColumnExists($pdo, 'notifications', 'is_admin_loggable')) {
+            $columns[] = 'is_admin_loggable';
+            $values[] = ($adminLoggable || $type === 'system') ? 1 : 0;
+        }
+    } catch (Throwable $e) {
+        error_log('Notification admin loggable column lookup failed: ' . $e->getMessage());
+    }
+
+    $quotedColumns = array_map(static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`', $columns);
+    $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+    $stmt = $pdo->prepare('INSERT INTO notifications (' . implode(', ', $quotedColumns) . ") VALUES ({$placeholders})");
+    $stmt->execute($values);
+}
+
 function admin_notification_template_anchor(string $templateKey): string
 {
     return 'template-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', $templateKey);
@@ -203,6 +230,64 @@ function admin_notification_email_status_meta(?string $status): array
         'failed' => ['label' => 'Hatalı', 'class' => 'failed', 'icon' => 'bi-exclamation-octagon'],
         default => ['label' => 'E-posta yok', 'class' => 'none', 'icon' => 'bi-dash-circle'],
     };
+}
+
+function admin_notification_delivery_channels(mixed $rawChannels): array
+{
+    if (is_array($rawChannels)) {
+        $channels = $rawChannels;
+    } elseif (is_string($rawChannels) && trim($rawChannels) !== '') {
+        $decoded = json_decode($rawChannels, true);
+        $channels = is_array($decoded) ? $decoded : [];
+    } else {
+        $channels = [];
+    }
+
+    $channels = array_values(array_unique(array_filter(array_map(
+        static fn (mixed $channel): string => trim((string) $channel),
+        $channels
+    ))));
+
+    return $channels !== [] ? $channels : ['in_app'];
+}
+
+function admin_notification_is_email_only_delivery(array $log): bool
+{
+    $channels = admin_notification_delivery_channels($log['delivery_channels'] ?? null);
+    if (in_array('in_app', $channels, true)) {
+        return false;
+    }
+
+    return array_intersect($channels, ['email_queue', 'email_queue_pending', 'email_queue_failed']) !== [];
+}
+
+function admin_notification_suppression_context_lines(?string $json): array
+{
+    if ($json === null || trim($json) === '') {
+        return [];
+    }
+
+    $decoded = json_decode($json, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
+
+    $lines = [];
+    foreach ($decoded as $key => $value) {
+        if (count($lines) >= 4) {
+            break;
+        }
+        if (is_array($value)) {
+            $value = implode(', ', array_map(static fn (mixed $item): string => (string) $item, array_slice($value, 0, 5)));
+        } elseif (is_bool($value)) {
+            $value = $value ? '1' : '0';
+        } elseif ($value === null) {
+            $value = '-';
+        }
+        $lines[] = trim((string) $key) . ': ' . trim((string) $value);
+    }
+
+    return $lines;
 }
 
 function admin_notification_log_filter(string $key, array $allowed, string $default = 'all'): string
@@ -316,8 +401,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 throw new RuntimeException('Harici bildirim linkleri HTTPS olmalıdır.');
             }
 
-            $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$userId, $title, $message, $type, $link !== '' ? $link : null]);
+            admin_notification_insert($pdo, $userId, $title, $message, $type, $link !== '' ? $link : null, $type === 'system');
 
             flash('success', 'Bildirim başarıyla gönderildi.');
             header('Location: notifications.php?tab=history');
@@ -407,14 +491,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 $testType = in_array($preview['type'], $validTypes, true) ? $preview['type'] : 'info';
                 $testTitle = mb_substr('Test: ' . $preview['title'], 0, 255);
 
-                $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([
+                admin_notification_insert(
+                    $pdo,
                     $currentUserId,
                     $testTitle,
                     $preview['message'],
                     $testType,
                     $preview['link'] !== '' ? $preview['link'] : null,
-                ]);
+                    $testType === 'system'
+                );
 
                 flash('success', 'Test bildirimi kendi hesabınıza gönderildi.');
                 header('Location: notifications.php?tab=templates#' . admin_notification_template_anchor($templateKey));
@@ -471,12 +556,20 @@ $defaultLink = (string) ($adminSettings['notif_default_link'] ?? '');
 
 $notifications = [];
 $notificationLogs = [];
+$notificationSuppressionLogs = [];
 $totalNotifications = 0;
 $totalPages = 1;
 $totalNotificationLogs = 0;
 $logTotalPages = 1;
 $notificationStats = ['total' => 0, 'global' => 0, 'direct' => 0, 'unread' => 0];
 $notificationLogStats = ['total' => 0, 'read' => 0, 'unread' => 0, 'email_sent' => 0, 'email_failed' => 0];
+$notificationSuppressionStats = ['total' => 0, 'today' => 0, 'user_preferences' => 0, 'admin_policy' => 0, 'duplicates' => 0];
+$notificationSuppressionLogReady = false;
+$notificationSuppressionFilteredTotal = 0;
+$notificationSuppressionReasonOptions = function_exists('notificationSuppressionReasonOptions')
+    ? notificationSuppressionReasonOptions()
+    : [];
+$notificationSuppressionReasonKeys = array_merge(['all'], array_keys($notificationSuppressionReasonOptions));
 $notificationTemplates = [];
 $composerTemplates = [];
 $composerTemplatePayload = [];
@@ -487,6 +580,7 @@ $logFilters = [
     'read' => admin_notification_log_filter('read', ['all', 'read', 'unread']),
     'email' => admin_notification_log_filter('email', ['all', 'none', 'queued', 'processing', 'sent', 'failed']),
     'target' => admin_notification_log_filter('target', ['all', 'global', 'direct']),
+    'suppression_reason' => admin_notification_log_filter('suppression_reason', $notificationSuppressionReasonKeys),
     'q' => trim((string) ($_GET['q'] ?? '')),
 ];
 
@@ -532,6 +626,11 @@ if ($pdo) {
         $notificationLogStats['unread'] = (int) ($logStatsRow['unread_count'] ?? 0);
         $notificationLogStats['email_sent'] = (int) ($logStatsRow['email_sent_count'] ?? 0);
         $notificationLogStats['email_failed'] = (int) ($logStatsRow['email_failed_count'] ?? 0);
+        $notificationSuppressionLogReady = function_exists('notificationSuppressionLogTableExists')
+            && notificationSuppressionLogTableExists($pdo);
+        if ($notificationSuppressionLogReady) {
+            $notificationSuppressionStats = notificationSuppressionLogStats($pdo);
+        }
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
 
     try {
@@ -576,6 +675,16 @@ if ($pdo && $tab === 'history') {
 if ($pdo && $tab === 'logs') {
     try {
         notificationEnsureEmailQueueSchema($pdo);
+        if (function_exists('notificationSuppressionLogTableExists')) {
+            $notificationSuppressionLogReady = notificationSuppressionLogTableExists($pdo);
+            if ($notificationSuppressionLogReady) {
+                $notificationSuppressionStats = notificationSuppressionLogStats($pdo);
+                $notificationSuppressionFilteredTotal = function_exists('notificationSuppressionLogCount')
+                    ? notificationSuppressionLogCount($pdo, $logFilters['suppression_reason'])
+                    : (int) $notificationSuppressionStats['total'];
+                $notificationSuppressionLogs = notificationSuppressionLogRecent($pdo, 10, $logFilters['suppression_reason']);
+            }
+        }
         $where = [];
         $params = [];
 
@@ -669,38 +778,37 @@ $csrfToken = csrf_token();
 ?>
 
 <?php if ($successMsg): ?>
-<div class="ui-admin-alert notification-flash notification-flash-success ui-alert" role="status">
-    <span class="notification-flash-icon"><i class="bi bi-check2-circle"></i></span>
-    <span class="notification-flash-copy">
-        <strong>İşlem tamamlandı</strong>
-        <span><?= htmlspecialchars($successMsg) ?></span>
-    </span>
-    <button type="button" class="ui-admin-alert-close notification-flash-close" aria-label="Uyarıyı kapat"><i class="bi bi-x-lg"></i></button>
-</div>
+<?= adminRenderAlert('', 'success', [
+    'icon' => '',
+    'class' => 'notification-flash notification-flash-success',
+    'role' => 'status',
+    'closable' => true,
+    'close_class' => 'notification-flash-close',
+    'close_label' => 'Uyarıyı kapat',
+    'html' => '<span class="notification-flash-icon"><i class="bi bi-check2-circle"></i></span><span class="notification-flash-copy"><strong>İşlem tamamlandı</strong><span>' . htmlspecialchars($successMsg) . '</span></span>',
+]) ?>
 <?php endif; ?>
 <?php if ($errorMsg): ?>
-<div class="ui-admin-alert notification-flash notification-flash-error ui-alert" role="alert">
-    <span class="notification-flash-icon"><i class="bi bi-exclamation-triangle"></i></span>
-    <span class="notification-flash-copy">
-        <strong>İşlem tamamlanamadı</strong>
-        <span><?= htmlspecialchars($errorMsg) ?></span>
-    </span>
-    <button type="button" class="ui-admin-alert-close notification-flash-close" aria-label="Uyarıyı kapat"><i class="bi bi-x-lg"></i></button>
-</div>
+<?= adminRenderAlert('', 'danger', [
+    'icon' => '',
+    'class' => 'notification-flash notification-flash-error',
+    'role' => 'alert',
+    'closable' => true,
+    'close_class' => 'notification-flash-close',
+    'close_label' => 'Uyarıyı kapat',
+    'html' => '<span class="notification-flash-icon"><i class="bi bi-exclamation-triangle"></i></span><span class="notification-flash-copy"><strong>İşlem tamamlanamadı</strong><span>' . htmlspecialchars($errorMsg) . '</span></span>',
+]) ?>
 <?php endif; ?>
 <div class="notifications-page">
-    <div class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <h2><i class="bi bi-bell"></i> Bildirim Merkezi</h2>
-            <p>Tüm kullanıcılara duyuru yapın, gönderim kurallarını yönetin ve bildirim deneyimini tek merkezden ayarlayın.</p>
-        </div>
-        <div class="notif-stats" aria-label="Bildirim özeti">
-            <div class="notif-stat"><strong><?= (int) $notificationStats['total'] ?></strong><span>Toplam</span></div>
-            <div class="notif-stat"><strong><?= (int) $notificationStats['global'] ?></strong><span>Genel yayın</span></div>
-            <div class="notif-stat"><strong><?= (int) $notificationStats['direct'] ?></strong><span>Özel hedef</span></div>
-            <div class="notif-stat"><strong><?= (int) $notificationStats['unread'] ?></strong><span>Hiç okunmamış</span></div>
-        </div>
-    </div>
+    <?= adminRenderPageHero('bi-bell', 'Bildirim merkezi', 'Bildirim Merkezi', 'Tüm kullanıcılara duyuru yapın, gönderim kurallarını yönetin ve bildirim deneyimini tek merkezden ayarlayın.', [], [
+        'tag' => 'div',
+        'actions_html' => '<div class="notif-stats" aria-label="Bildirim özeti">'
+            . '<div class="notif-stat"><strong>' . (int) $notificationStats['total'] . '</strong><span>Toplam</span></div>'
+            . '<div class="notif-stat"><strong>' . (int) $notificationStats['global'] . '</strong><span>Genel yayın</span></div>'
+            . '<div class="notif-stat"><strong>' . (int) $notificationStats['direct'] . '</strong><span>Özel hedef</span></div>'
+            . '<div class="notif-stat"><strong>' . (int) $notificationStats['unread'] . '</strong><span>Hiç okunmamış</span></div>'
+            . '</div>',
+    ]) ?>
 
     <div class="notif-tabs">
         <a href="notifications.php?tab=history" class="ui-admin-btn <?= $tab === 'history' ? 'ui-admin-btn-primary' : 'ui-admin-btn-outline' ?>">
@@ -788,27 +896,36 @@ $csrfToken = csrf_token();
     <?php endif; ?>
 
     <?php if ($tab === 'history'): ?>
-        <div class="notif-card notif-card-flush logs-list-card ui-panel ui-card">
-            <div class="notif-card-header notif-card-header-flush ui-admin-card-header-actions logs-list-head ui-panel__head">
-                <div>
-                    <h3>Gönderilmiş Bildirimler</h3>
-                    <p>Mesaj önizleme uzunluğu ve sayfa başına kayıt sayısı ayarlardan yönetilir.</p>
-                </div>
-                <div class="ui-admin-action-row">
-                    <span class="notif-badge notif-badge-global"><?= (int) $totalNotifications ?> kayıt</span>
-                    <?php if ($totalNotifications > 0): ?>
-                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form" data-admin-confirm="Tüm bildirim geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz." data-admin-confirm-title="Günlüğü Temizle" data-admin-confirm-ok="Tümünü Kalıcı Olarak Sil" data-admin-confirm-cancel="İptal" data-admin-confirm-tone="danger" data-admin-confirm-kind="logs-clear" data-admin-confirm-icon="bi-trash">
+        <?php
+            $historyActionsHtml = '<span class="notif-badge notif-badge-global">' . (int) $totalNotifications . ' kayıt</span>';
+            if ($totalNotifications > 0) {
+                ob_start();
+                ?>
+                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Tüm bildirim geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz.', 'title' => 'Günlüğü Temizle', 'ok' => 'Tümünü Kalıcı Olarak Sil', 'cancel' => 'İptal', 'tone' => 'danger', 'kind' => 'logs-clear', 'icon' => 'bi-trash']) ?>>
                             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                             <input type="hidden" name="action" value="clear_all">
                             <button type="submit" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger-outline" title="Tümünü Sil">
                                 <i class="bi bi-trash"></i> Tümünü Sil
                             </button>
                         </form>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <div class="ui-admin-table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
-                <table class="ui-admin-table admin-log-table">
+                <?php
+                $historyActionsHtml .= ob_get_clean();
+            }
+            echo adminRenderLogListPanelOpen([
+                'tag' => 'div',
+                'class' => 'notif-card notif-card-flush ui-card',
+                'header_class' => 'notif-card-header notif-card-header-flush',
+                'icon' => 'bi-send-check',
+                'title' => 'Gönderilmiş Bildirimler',
+                'count_text' => 'Mesaj önizleme uzunluğu ve sayfa başına kayıt sayısı ayarlardan yönetilir.',
+                'actions_html' => $historyActionsHtml,
+            ]);
+        ?>
+            <?= adminRenderLogTableOpen([
+                'wrapper_class' => 'ui-admin-table-wrapper ui-table-wrap ui-surface admin-log-table-wrap',
+                'table_class' => 'ui-admin-table admin-log-table',
+                'table_attrs' => ['aria-label' => 'Gönderilmiş bildirimler'],
+            ]) ?>
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -820,12 +937,12 @@ $csrfToken = csrf_token();
                     </thead>
                     <tbody>
                         <?php if (empty($notifications)): ?>
-                        <tr>
-                            <td colspan="5" class="admin-log-empty-row">
-                                <i class="bi bi-inbox"></i>
-                                Henüz hiç bildirim gönderilmemiş.
-                            </td>
-                        </tr>
+                        <?= adminRenderTableEmptyRow(5, [
+                            'icon' => 'bi-inbox',
+                            'tone' => 'info',
+                            'title' => 'Henüz hiç bildirim gönderilmemiş.',
+                            'description' => 'Yeni bildirimler gönderildiğinde burada listelenir.',
+                        ]) ?>
                         <?php else: ?>
                             <?php foreach ($notifications as $notification): ?>
                                 <?php
@@ -857,7 +974,7 @@ $csrfToken = csrf_token();
                                     </td>
                                     <td class="notif-date-cell"><?= date('d.m.Y H:i', strtotime((string) $notification['created_at'])) ?></td>
                                     <td class="notif-action-cell">
-                                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form" data-admin-confirm="Bu bildirim kalıcı olarak silinecek ve kullanıcılardan da kaldırılacak. Bu işlem geri alınamaz." data-admin-confirm-title="Kayıtları Temizle" data-admin-confirm-ok="Seçilenleri Kalıcı Olarak Sil" data-admin-confirm-cancel="İptal" data-admin-confirm-tone="danger" data-admin-confirm-kind="logs-clear" data-admin-confirm-icon="bi-trash">
+                                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu bildirim kalıcı olarak silinecek ve kullanıcılardan da kaldırılacak. Bu işlem geri alınamaz.', 'title' => 'Kayıtları Temizle', 'ok' => 'Seçilenleri Kalıcı Olarak Sil', 'cancel' => 'İptal', 'tone' => 'danger', 'kind' => 'logs-clear', 'icon' => 'bi-trash']) ?>>
                                             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="id" value="<?= (int) $notification['id'] ?>">
@@ -870,8 +987,7 @@ $csrfToken = csrf_token();
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
-                </table>
-            </div>
+            <?= adminRenderLogTableClose() ?>
 
             <?php if ($totalPages > 1): ?>
             <div class="notif-pagination-bar">
@@ -883,7 +999,7 @@ $csrfToken = csrf_token();
                 ]) ?>
             </div>
             <?php endif; ?>
-        </div>
+        <?= adminRenderLogListPanelClose('div') ?>
     <?php endif; ?>
 
     <?php if ($tab === 'logs'): ?>
@@ -893,29 +1009,33 @@ $csrfToken = csrf_token();
                 'read' => $logFilters['read'],
                 'email' => $logFilters['email'],
                 'target' => $logFilters['target'],
+                'suppression_reason' => $logFilters['suppression_reason'],
                 'q' => $logFilters['q'],
             ];
         ?>
-        <div class="notif-card notif-card-flush logs-list-card ui-panel ui-card">
-            <div class="notif-card-header notif-card-header-flush logs-list-head ui-panel__head">
-                <div>
-                    <h3><i class="bi bi-activity"></i> Bildirim Logları</h3>
-                    <p>Site içi gönderim, okunma ve e-posta kuyruğu durumlarını tek ekranda izleyin.</p>
-                </div>
-                <span class="notif-badge notif-badge-global"><?= (int) $totalNotificationLogs ?> log</span>
-            </div>
+        <?= adminRenderLogListPanelOpen([
+            'tag' => 'div',
+            'class' => 'notif-card notif-card-flush ui-card',
+            'header_class' => 'notif-card-header notif-card-header-flush',
+            'icon' => 'bi-activity',
+            'title' => 'Bildirim Logları',
+            'count_text' => 'Site içi gönderim, okunma ve e-posta kuyruğu durumlarını tek ekranda izleyin.',
+            'actions_html' => '<span class="notif-badge notif-badge-global">' . (int) $totalNotificationLogs . ' log</span>',
+        ]) ?>
 
             <div class="notif-filter-wrap logs-toolbar-shell admin-log-filter-panel">
-                <div class="notification-log-summary">
-                    <div class="notification-log-stat"><strong><?= (int) $notificationLogStats['total'] ?></strong><span>Toplam kayıt</span></div>
-                    <div class="notification-log-stat"><strong><?= (int) $notificationLogStats['read'] ?></strong><span>Okunmuş</span></div>
-                    <div class="notification-log-stat"><strong><?= (int) $notificationLogStats['unread'] ?></strong><span>Okunmamış</span></div>
-                    <div class="notification-log-stat"><strong><?= (int) $notificationLogStats['email_sent'] ?></strong><span>E-posta gönderildi</span></div>
-                    <div class="notification-log-stat"><strong><?= (int) $notificationLogStats['email_failed'] ?></strong><span>E-posta hatalı</span></div>
-                </div>
+                <?= adminRenderStatCards([
+                    ['tone' => 'info', 'icon' => 'bi-collection', 'label' => 'Toplam kayıt', 'value' => number_format((int) $notificationLogStats['total'], 0, ',', '.')],
+                    ['tone' => 'success', 'icon' => 'bi-eye', 'label' => 'Okunmuş', 'value' => number_format((int) $notificationLogStats['read'], 0, ',', '.')],
+                    ['tone' => 'warning', 'icon' => 'bi-eye-slash', 'label' => 'Okunmamış', 'value' => number_format((int) $notificationLogStats['unread'], 0, ',', '.')],
+                    ['tone' => 'success', 'icon' => 'bi-envelope-check', 'label' => 'E-posta gönderildi', 'value' => number_format((int) $notificationLogStats['email_sent'], 0, ',', '.')],
+                    ['tone' => 'danger', 'icon' => 'bi-envelope-exclamation', 'label' => 'E-posta hatalı', 'value' => number_format((int) $notificationLogStats['email_failed'], 0, ',', '.')],
+                    ['tone' => 'warning', 'icon' => 'bi-bell-slash', 'label' => 'Gönderilmeyen', 'value' => number_format((int) $notificationSuppressionStats['total'], 0, ',', '.')],
+                ], ['class' => 'notification-log-summary', 'aria_label' => 'Bildirim log özeti']) ?>
 
-                <form method="GET" action="notifications.php" class="notification-log-filters logs-filter-form ui-admin-filter-row admin-log-filter-form">
+                <form method="GET" action="notifications.php" class="notification-log-filters logs-filter-form ui-admin-filter-row admin-log-filter-form admin-filter-form">
                     <input type="hidden" name="tab" value="logs">
+                    <input type="hidden" name="suppression_reason" value="<?= htmlspecialchars($logFilters['suppression_reason'], ENT_QUOTES, 'UTF-8') ?>">
                     <div>
                         <label class="ui-admin-form-label">Okunma Durumu</label>
                         <select name="read" class="ui-admin-form-control">
@@ -954,8 +1074,11 @@ $csrfToken = csrf_token();
                 </form>
             </div>
 
-            <div class="ui-admin-table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
-                <table class="ui-admin-table admin-log-table">
+            <?= adminRenderLogTableOpen([
+                'wrapper_class' => 'ui-admin-table-wrapper ui-table-wrap ui-surface admin-log-table-wrap',
+                'table_class' => 'ui-admin-table admin-log-table',
+                'table_attrs' => ['aria-label' => 'Bildirim logları'],
+            ]) ?>
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -968,12 +1091,12 @@ $csrfToken = csrf_token();
                     </thead>
                     <tbody>
                         <?php if (empty($notificationLogs)): ?>
-                            <tr>
-                                <td colspan="6" class="admin-log-empty-row">
-                                    <i class="bi bi-journal-x"></i>
-                                    Bu filtrelerle eşleşen bildirim logu bulunamadı.
-                                </td>
-                            </tr>
+                            <?= adminRenderTableEmptyRow(6, [
+                                'icon' => 'bi-journal-x',
+                                'tone' => 'info',
+                                'title' => 'Bildirim logu bulunamadı.',
+                                'description' => 'Seçili filtrelerle eşleşen bildirim logu yok.',
+                            ]) ?>
                         <?php else: ?>
                             <?php foreach ($notificationLogs as $log): ?>
                                 <?php
@@ -987,6 +1110,9 @@ $csrfToken = csrf_token();
                                     $lastReadAt = !empty($log['last_read_at']) ? date('d.m.Y H:i', strtotime((string) $log['last_read_at'])) : '';
                                     $sentAt = !empty($log['sent_at']) ? date('d.m.Y H:i', strtotime((string) $log['sent_at'])) : '';
                                     $availableAt = !empty($log['available_at']) ? date('d.m.Y H:i', strtotime((string) $log['available_at'])) : '';
+                                    $deliveryChannels = admin_notification_delivery_channels($log['delivery_channels'] ?? null);
+                                    $isInAppDelivery = in_array('in_app', $deliveryChannels, true);
+                                    $isEmailOnlyDelivery = admin_notification_is_email_only_delivery($log);
                                 ?>
                                 <tr class="notif-row-priority-<?= htmlspecialchars($priority) ?>">
                                     <td>#<?= (int) $log['id'] ?></td>
@@ -998,7 +1124,13 @@ $csrfToken = csrf_token();
                                                 <span class="notif-priority-badge is-<?= htmlspecialchars($priority) ?>"><i class="bi bi-flag-fill"></i> <?= htmlspecialchars($priorityLabel) ?></span>
                                                 <div class="history-message"><?= htmlspecialchars(admin_notification_preview((string) $log['message'], $previewLength)) ?></div>
                                                 <div class="notification-log-meta">
-                                                    <span class="notification-log-chip sent"><i class="bi bi-check2-circle"></i> Site içi gönderildi</span>
+                                                    <?php if ($isInAppDelivery): ?>
+                                                        <span class="notification-log-chip sent"><i class="bi bi-check2-circle"></i> Site içi gönderildi</span>
+                                                    <?php elseif ($isEmailOnlyDelivery): ?>
+                                                        <span class="notification-log-chip email-sent"><i class="bi bi-envelope-check"></i> Sadece e-posta</span>
+                                                    <?php else: ?>
+                                                        <span class="notification-log-chip email-none"><i class="bi bi-bell-slash"></i> Site içi kapalı</span>
+                                                    <?php endif; ?>
                                                     <?php if (!empty($log['event_key'])): ?>
                                                         <span class="notification-log-chip"><i class="bi bi-diagram-3"></i> <?= htmlspecialchars((string) $log['event_key']) ?></span>
                                                     <?php endif; ?>
@@ -1060,8 +1192,7 @@ $csrfToken = csrf_token();
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
-                </table>
-            </div>
+            <?= adminRenderLogTableClose() ?>
 
             <?php if ($logTotalPages > 1): ?>
                 <div class="notif-pagination-bar">
@@ -1073,7 +1204,148 @@ $csrfToken = csrf_token();
                     ]) ?>
                 </div>
             <?php endif; ?>
-        </div>
+
+            <div class="notification-suppression-panel ui-surface">
+                <div class="notification-suppression-head">
+                    <div>
+                        <h3><i class="bi bi-bell-slash"></i> Gönderilmeyen Olaylar</h3>
+                        <p>Kullanıcı tercihi, admin kuralı, şablon veya tekrar engeli nedeniyle bildirim oluşmayan son olaylar.</p>
+                    </div>
+                    <div class="notification-suppression-stats">
+                        <span class="notification-log-chip email-none"><i class="bi bi-calendar-day"></i> Bugün <?= (int) $notificationSuppressionStats['today'] ?></span>
+                        <span class="notification-log-chip email-none"><i class="bi bi-person-gear"></i> Tercih <?= (int) $notificationSuppressionStats['user_preferences'] ?></span>
+                        <span class="notification-log-chip email-none"><i class="bi bi-intersect"></i> Tekrar <?= (int) $notificationSuppressionStats['duplicates'] ?></span>
+                    </div>
+                </div>
+
+                <?php
+                    $activeSuppressionReasonMeta = $logFilters['suppression_reason'] === 'all'
+                        ? ['label' => 'Tüm sebepler', 'class' => 'none', 'icon' => 'bi-list-ul']
+                        : (function_exists('notificationSuppressionReasonMeta')
+                            ? notificationSuppressionReasonMeta($logFilters['suppression_reason'])
+                            : ['label' => $logFilters['suppression_reason'], 'class' => 'none', 'icon' => 'bi-bell-slash']);
+                    $suppressionResetUrl = 'notifications.php?' . http_build_query(array_merge($logQueryBase, ['suppression_reason' => 'all']));
+                ?>
+                <form method="GET" action="notifications.php" class="notification-suppression-filter-form admin-log-filter-form">
+                    <input type="hidden" name="tab" value="logs">
+                    <input type="hidden" name="read" value="<?= htmlspecialchars($logFilters['read'], ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="email" value="<?= htmlspecialchars($logFilters['email'], ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="target" value="<?= htmlspecialchars($logFilters['target'], ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="q" value="<?= htmlspecialchars($logFilters['q'], ENT_QUOTES, 'UTF-8') ?>">
+                    <div>
+                        <label class="ui-admin-form-label">Gönderilmeme Sebebi</label>
+                        <select name="suppression_reason" class="ui-admin-form-control">
+                            <option value="all" <?= $logFilters['suppression_reason'] === 'all' ? 'selected' : '' ?>>Tüm sebepler</option>
+                            <?php foreach ($notificationSuppressionReasonOptions as $reasonKey => $reasonMeta): ?>
+                                <option value="<?= htmlspecialchars((string) $reasonKey, ENT_QUOTES, 'UTF-8') ?>" <?= $logFilters['suppression_reason'] === (string) $reasonKey ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars((string) ($reasonMeta['label'] ?? $reasonKey), ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-funnel"></i> Sebebi Filtrele</button>
+                    <?php if ($logFilters['suppression_reason'] !== 'all'): ?>
+                        <a href="<?= htmlspecialchars($suppressionResetUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-lg"></i> Sıfırla</a>
+                    <?php endif; ?>
+                    <span class="notification-suppression-filter-summary notification-log-chip email-<?= htmlspecialchars((string) ($activeSuppressionReasonMeta['class'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>">
+                        <i class="bi <?= htmlspecialchars((string) ($activeSuppressionReasonMeta['icon'] ?? 'bi-list-ul'), ENT_QUOTES, 'UTF-8') ?>"></i>
+                        <?= htmlspecialchars((string) ($activeSuppressionReasonMeta['label'] ?? 'Tüm sebepler'), ENT_QUOTES, 'UTF-8') ?> · <?= (int) $notificationSuppressionFilteredTotal ?> kayıt
+                    </span>
+                </form>
+
+                <?php if (!$notificationSuppressionLogReady): ?>
+                    <div class="notification-suppression-empty">
+                        <i class="bi bi-database-exclamation"></i>
+                        <div>
+                            <strong>Gönderilmeyen olay audit tablosu hazır değil.</strong>
+                            <span>Veritabanı senkronizasyonu tamamlandıktan sonra gönderilmeyen bildirim kayıtları burada görünür.</span>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <?= adminRenderLogTableOpen([
+                        'wrapper_class' => 'ui-admin-table-wrapper ui-table-wrap ui-surface admin-log-table-wrap notification-suppression-table-wrap',
+                        'table_class' => 'ui-admin-table admin-log-table notification-suppression-table',
+                        'table_attrs' => ['aria-label' => 'Gönderilmeyen bildirim olayları'],
+                    ]) ?>
+                        <thead>
+                            <tr>
+                                <th>Sebep</th>
+                                <th>Olay</th>
+                                <th>Hedef</th>
+                                <th>Bağlam</th>
+                                <th>Tarih</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($notificationSuppressionLogs)): ?>
+                                <?= adminRenderTableEmptyRow(5, [
+                                    'icon' => 'bi-check2-circle',
+                                    'tone' => 'success',
+                                    'title' => 'Gönderilmeyen olay kaydı yok.',
+                                    'description' => 'Seçili sistemde henüz suppression audit kaydı oluşmamış.',
+                                ]) ?>
+                            <?php else: ?>
+                                <?php foreach ($notificationSuppressionLogs as $suppressionLog): ?>
+                                    <?php
+                                        $reasonMeta = function_exists('notificationSuppressionReasonMeta')
+                                            ? notificationSuppressionReasonMeta((string) ($suppressionLog['reason_key'] ?? 'unknown'))
+                                            : ['label' => (string) ($suppressionLog['reason_label'] ?? 'Gönderim atlandı'), 'class' => 'none', 'icon' => 'bi-bell-slash'];
+                                        $createdAt = !empty($suppressionLog['created_at']) ? date('d.m.Y H:i', strtotime((string) $suppressionLog['created_at'])) : '-';
+                                        $contextLines = admin_notification_suppression_context_lines($suppressionLog['context_json'] ?? null);
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <span class="notification-log-chip email-<?= htmlspecialchars((string) ($reasonMeta['class'] ?? 'none')) ?>">
+                                                <i class="bi <?= htmlspecialchars((string) ($reasonMeta['icon'] ?? 'bi-bell-slash')) ?>"></i>
+                                                <?= htmlspecialchars((string) ($reasonMeta['label'] ?? ($suppressionLog['reason_label'] ?? 'Gönderim atlandı'))) ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="notification-suppression-event">
+                                                <strong><?= htmlspecialchars((string) ($suppressionLog['event_key'] ?? '-')) ?></strong>
+                                                <?php if (!empty($suppressionLog['template_key'])): ?>
+                                                    <small>Şablon: <?= htmlspecialchars((string) $suppressionLog['template_key']) ?></small>
+                                                <?php endif; ?>
+                                                <?php if (!empty($suppressionLog['dedupe_key'])): ?>
+                                                    <small>Dedupe: <?= htmlspecialchars(admin_notification_preview((string) $suppressionLog['dedupe_key'], 70)) ?></small>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="notification-log-target">
+                                                <?php if (!empty($suppressionLog['recipient_user_id'])): ?>
+                                                    <span class="notif-badge notif-badge-user">#<?= (int) $suppressionLog['recipient_user_id'] ?></span>
+                                                    <small><?= htmlspecialchars((string) ($suppressionLog['target_username'] ?? 'Silinmiş kullanıcı')) ?></small>
+                                                <?php else: ?>
+                                                    <span class="notif-badge notif-badge-global">Hedef yok</span>
+                                                <?php endif; ?>
+                                                <?php if (!empty($suppressionLog['actor_user_id'])): ?>
+                                                    <small>Aktör: <?= htmlspecialchars((string) ($suppressionLog['actor_username'] ?? ('#' . (int) $suppressionLog['actor_user_id']))) ?></small>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="notification-suppression-context">
+                                                <?php if (!empty($suppressionLog['entity_type']) || !empty($suppressionLog['entity_id'])): ?>
+                                                    <small><?= htmlspecialchars((string) ($suppressionLog['entity_type'] ?? '-')) ?> #<?= (int) ($suppressionLog['entity_id'] ?? 0) ?></small>
+                                                <?php endif; ?>
+                                                <?php foreach ($contextLines as $contextLine): ?>
+                                                    <small><?= htmlspecialchars($contextLine) ?></small>
+                                                <?php endforeach; ?>
+                                                <?php if (empty($suppressionLog['entity_type']) && empty($suppressionLog['entity_id']) && $contextLines === []): ?>
+                                                    <small>Ek bağlam yok.</small>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td class="notif-date-cell"><?= htmlspecialchars($createdAt) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    <?= adminRenderLogTableClose() ?>
+                <?php endif; ?>
+            </div>
+        <?= adminRenderLogListPanelClose('div') ?>
     <?php endif; ?>
 
     <?php if ($tab === 'templates'): ?>
@@ -1098,13 +1370,12 @@ $csrfToken = csrf_token();
             </div>
 
             <?php if ($templateLoadError): ?>
-                <div class="ui-admin-alert notification-flash notification-flash-error ui-alert" role="alert">
-                    <span class="notification-flash-icon"><i class="bi bi-exclamation-triangle"></i></span>
-                    <span class="notification-flash-copy">
-                        <strong>Şablonlar yüklenemedi</strong>
-                        <span><?= htmlspecialchars($templateLoadError) ?></span>
-                    </span>
-                </div>
+                <?= adminRenderAlert('', 'danger', [
+                    'icon' => '',
+                    'class' => 'notification-flash notification-flash-error',
+                    'role' => 'alert',
+                    'html' => '<span class="notification-flash-icon"><i class="bi bi-exclamation-triangle"></i></span><span class="notification-flash-copy"><strong>Şablonlar yüklenemedi</strong><span>' . htmlspecialchars($templateLoadError) . '</span></span>',
+                ]) ?>
             <?php endif; ?>
 
             <div class="notification-template-grid ui-grid">
@@ -1278,11 +1549,11 @@ $csrfToken = csrf_token();
                             </span>
                             <div class="notification-template-actions-group">
                                 <?php if (!empty($template['is_default'])): ?>
-                                    <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate data-admin-confirm="Bu şablonu varsayılan metinlere döndürmek istiyor musunuz?" data-admin-confirm-title="Şablon sıfırlansın mı?" data-admin-confirm-ok="Sıfırla" data-admin-confirm-tone="warning">
+                                    <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu şablonu varsayılan metinlere döndürmek istiyor musunuz?', 'title' => 'Şablon sıfırlansın mı?', 'ok' => 'Sıfırla', 'tone' => 'warning']) ?>>
                                         <i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön
                                     </button>
                                 <?php else: ?>
-                                    <button type="submit" name="action" value="delete_template" class="ui-admin-btn ui-admin-btn-danger" formnovalidate data-admin-confirm="Bu özel şablonu silmek istiyor musunuz?" data-admin-confirm-title="Şablon silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
+                                    <button type="submit" name="action" value="delete_template" class="ui-admin-btn ui-admin-btn-danger" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu özel şablonu silmek istiyor musunuz?', 'title' => 'Şablon silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
                                         <i class="bi bi-trash"></i> Sil
                                     </button>
                                 <?php endif; ?>
@@ -1312,12 +1583,12 @@ $csrfToken = csrf_token();
                 <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                 <input type="hidden" name="action" value="save_settings">
 
-                <div class="notification-email-queue-summary" aria-label="E-posta kuyruğu özeti">
-                    <div class="notification-email-queue-stat"><strong><?= (int) $emailQueueStats['queued'] ?></strong><span>Kuyrukta</span></div>
-                    <div class="notification-email-queue-stat"><strong><?= (int) $emailQueueStats['processing'] ?></strong><span>İşleniyor</span></div>
-                    <div class="notification-email-queue-stat"><strong><?= (int) $emailQueueStats['sent'] ?></strong><span>Gönderildi</span></div>
-                    <div class="notification-email-queue-stat"><strong><?= (int) $emailQueueStats['failed'] ?></strong><span>Hatalı</span></div>
-                </div>
+                <?= adminRenderStatCards([
+                    ['tone' => 'warning', 'icon' => 'bi-hourglass-split', 'label' => 'Kuyrukta', 'value' => number_format((int) $emailQueueStats['queued'], 0, ',', '.')],
+                    ['tone' => 'info', 'icon' => 'bi-arrow-repeat', 'label' => 'İşleniyor', 'value' => number_format((int) $emailQueueStats['processing'], 0, ',', '.')],
+                    ['tone' => 'success', 'icon' => 'bi-envelope-check', 'label' => 'Gönderildi', 'value' => number_format((int) $emailQueueStats['sent'], 0, ',', '.')],
+                    ['tone' => 'danger', 'icon' => 'bi-envelope-exclamation', 'label' => 'Hatalı', 'value' => number_format((int) $emailQueueStats['failed'], 0, ',', '.')],
+                ], ['class' => 'notification-email-queue-summary', 'aria_label' => 'E-posta kuyruğu özeti']) ?>
                 <small class="notif-help notif-cron-help">Cron komutu: <code>php cron/send-notification-email-queue.php --limit=25</code></small>
 
                 <div class="notification-settings-layout ui-section">

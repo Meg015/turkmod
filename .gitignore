@@ -17,6 +17,7 @@ storage/sessions/*
 !storage/sessions/.gitkeep
 uploads/*
 !uploads/.gitkeep
+includes/storage/
 
 # ---- Vendor (managed by Composer) ----
 /vendor/

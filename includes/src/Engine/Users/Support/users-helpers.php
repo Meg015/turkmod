@@ -675,6 +675,9 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
         if ($hasColumn($columns, 'delivery_channels')) {
             $baseColumns[] = 'delivery_channels';
         }
+        if ($hasColumn($columns, 'is_admin_loggable')) {
+            $baseColumns[] = 'is_admin_loggable';
+        }
 
         $quotedColumns = array_map(static fn (string $column): string => '`' . $column . '`', $baseColumns);
         $placeholders = array_fill(0, count($baseColumns), '?');
@@ -712,6 +715,9 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
             }
             if ($hasColumn($columns, 'delivery_channels')) {
                 $params[] = json_encode(['in_app'], JSON_UNESCAPED_UNICODE);
+            }
+            if ($hasColumn($columns, 'is_admin_loggable')) {
+                $params[] = 1;
             }
 
             $stmt->execute($params);
@@ -934,6 +940,9 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
         if ($hasColumn($columns, 'delivery_channels')) {
             $baseColumns[] = 'delivery_channels';
         }
+        if ($hasColumn($columns, 'is_admin_loggable')) {
+            $baseColumns[] = 'is_admin_loggable';
+        }
 
         $quotedColumns = array_map(static fn (string $column): string => '`' . $column . '`', $baseColumns);
         $placeholders = array_fill(0, count($baseColumns), '?');
@@ -965,6 +974,9 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
             }
             if ($hasColumn($columns, 'delivery_channels')) {
                 $params[] = json_encode(['in_app'], JSON_UNESCAPED_UNICODE);
+            }
+            if ($hasColumn($columns, 'is_admin_loggable')) {
+                $params[] = 1;
             }
 
             $stmt->execute($params);

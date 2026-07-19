@@ -13,6 +13,7 @@
         if (!window.showToast._uiFoundationEnhanced || container.dataset.uiFoundationFlashDispatched === "1") {
             return;
         }
+        container.dataset.uiFoundationFlashDispatched = "1";
 
         [
             ["success", container.getAttribute("data-toast-success")],
@@ -20,6 +21,9 @@
             ["warning", container.getAttribute("data-toast-warning")],
             ["info", container.getAttribute("data-toast-info")]
         ].forEach(function (entry) {
+            if (entry[0] === "info" && shouldSuppressInfoToasts()) {
+                return;
+            }
             if (entry[1]) {
                 window.showToast(entry[1], entry[0]);
             }
@@ -108,6 +112,14 @@
         return "info";
     }
 
+    function shouldSuppressInfoToasts() {
+        return !!document.querySelector(".logs-subtabs, [data-suppress-info-toasts='1']");
+    }
+
+    function shouldSuppressInlineAlertToasts(alert) {
+        return !!(alert && alert.closest("[data-suppress-inline-alert-toasts='1']"));
+    }
+
     function shouldKeepInlineAlert(alert) {
         if (!alert) {
             return false;
@@ -141,10 +153,18 @@
             if (shouldKeepInlineAlert(alert)) {
                 return;
             }
+            if (shouldSuppressInlineAlertToasts(alert)) {
+                return;
+            }
 
             var message = normalizeAlertText(alert);
+            var tone = alertTone(alert);
+            if (tone === "info" && shouldSuppressInfoToasts()) {
+                return;
+            }
+
             if (message && !footerFlashMessages.has(message) && typeof window.showToast === "function") {
-                window.showToast(message, alertTone(alert));
+                window.showToast(message, tone);
                 footerFlashMessages.add(message);
             }
 
@@ -288,12 +308,16 @@
 
     window.initQuillEditors = initQuillEditors;
 
-    document.addEventListener("DOMContentLoaded", function () {
+    function initAdminShell() {
         dispatchInlineFlashes();
         consumeInlineAdminFlashes();
         initSidebar();
         initAlertDismiss();
         initSettingsTabs();
         setTimeout(initQuillEditors, 100);
-    });
+    }
+
+    if (window.adminPage && typeof window.adminPage.register === "function") {
+        window.adminPage.register("*", initAdminShell, { id: "admin-shell:core" });
+    }
 })();

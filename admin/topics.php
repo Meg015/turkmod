@@ -323,65 +323,44 @@ if (empty($topics)) {
 
 require_once __DIR__ . '/header.php';
 ?>
-<div class="ui-admin-page-hero">
-    <div class="ui-admin-page-hero-text">
-        <h2><i class="bi bi-card-heading ui-admin-icon-gap"></i> Konu Yönetimi</h2>
-        <p>İçeriklerinizi premium arayüzle inceleyin, onaylayın veya düzenleyin.</p>
-    </div>
-    <div class="ui-admin-page-hero-actions">
-        <a href="<?= $baseUri ?>/admin/create.php" class="btn-create-topic"><i class="bi bi-plus-lg"></i> Yeni Konu</a>
-    </div>
-</div>
+<div class="topics-page">
+<?= adminRenderPageHero('bi-card-heading', 'Konu yönetimi', 'Konu Yönetimi', 'İçeriklerinizi premium arayüzle inceleyin, onaylayın veya düzenleyin.', [
+    ['href' => $baseUri . '/admin/create.php', 'label' => 'Yeni Konu', 'icon' => 'bi-plus-lg', 'class' => 'btn-create-topic ui-admin-btn-primary'],
+], ['tag' => 'div']) ?>
 
-<nav class="admin-tabs topics-admin-tabs" aria-label="Konu yönetimi sekmeleri">
-    <a href="topics.php" class="admin-tab<?= $activeTab === 'list' ? ' active' : '' ?>">
-        <i class="bi bi-list-ul"></i>
-        <span>Konu Listesi</span>
-    </a>
-    <a href="topics.php?tab=health" class="admin-tab<?= $activeTab === 'health' ? ' active' : '' ?>">
-        <i class="bi bi-heart-pulse"></i>
-        <span>Konu Sağlığı</span>
-        <?php if ((int)($topicHealthSummary['broken'] ?? 0) > 0): ?>
-            <span class="badge"><?= number_format((int)$topicHealthSummary['broken'], 0, ',', '.') ?></span>
-        <?php endif; ?>
-    </a>
-    <a href="topics.php?tab=settings" class="admin-tab<?= $activeTab === 'settings' ? ' active' : '' ?>">
-        <i class="bi bi-sliders"></i>
-        <span>Ayarlar</span>
-    </a>
-</nav>
+<?= adminRenderTabBar([
+    'list' => [
+        'href' => 'topics.php',
+        'icon' => 'bi-list-ul',
+        'label' => 'Konu Listesi',
+    ],
+    'health' => [
+        'href' => 'topics.php?tab=health',
+        'icon' => 'bi-heart-pulse',
+        'label' => 'Konu Sağlığı',
+        'badge' => (int) ($topicHealthSummary['broken'] ?? 0) > 0 ? number_format((int) $topicHealthSummary['broken'], 0, ',', '.') : '',
+        'badge_tone' => 'danger',
+        'badge_class' => 'ui-admin-badge-xs',
+    ],
+    'settings' => [
+        'href' => 'topics.php?tab=settings',
+        'icon' => 'bi-sliders',
+        'label' => 'Ayarlar',
+    ],
+], $activeTab, [
+    'class' => 'admin-tabs topics-admin-tabs',
+    'link_class' => 'admin-tab',
+    'active_class' => 'active',
+    'aria_label' => 'Konu yönetimi sekmeleri',
+]) ?>
 
 <?php if ($activeTab === 'list'): ?>
-<div class="admin-stat-grid topics-stat-grid ui-grid">
-    <a href="topics.php?view=active" class="admin-stat-card stat-info topics-stat-card<?= $viewFilter !== 'deleted' && $statusFilter === '' ? ' is-active' : '' ?> ui-card">
-        <div class="stat-icon"><i class="bi bi-collection"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Toplam Konu</span>
-            <span class="stat-value"><?= $stats['total'] ?></span>
-        </div>
-    </a>
-    <a href="topics.php?view=active&amp;status=published" class="admin-stat-card stat-success topics-stat-card<?= $viewFilter !== 'deleted' && $statusFilter === 'published' ? ' is-active' : '' ?> ui-card">
-        <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Yayında</span>
-            <span class="stat-value"><?= $stats['published'] ?></span>
-        </div>
-    </a>
-    <a href="topics.php?view=active&amp;status=draft" class="admin-stat-card stat-warning topics-stat-card<?= $viewFilter !== 'deleted' && $statusFilter === 'draft' ? ' is-active' : '' ?> ui-card">
-        <div class="stat-icon"><i class="bi bi-pencil-square"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Taslak</span>
-            <span class="stat-value"><?= $stats['draft'] ?></span>
-        </div>
-    </a>
-    <a href="topics.php?view=deleted" class="admin-stat-card stat-danger topics-stat-card<?= $viewFilter === 'deleted' ? ' is-active' : '' ?> ui-card">
-        <div class="stat-icon"><i class="bi bi-trash"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Çöp Kutusu</span>
-            <span class="stat-value"><?= $stats['deleted'] ?></span>
-        </div>
-    </a>
-</div>
+<?= adminRenderStatCards([
+    ['href' => 'topics.php?view=active', 'tone' => 'info', 'icon' => 'bi-collection', 'label' => 'Toplam Konu', 'value' => number_format((int) $stats['total'], 0, ',', '.'), 'class' => 'topics-stat-card' . ($viewFilter !== 'deleted' && $statusFilter === '' ? ' is-active' : '')],
+    ['href' => 'topics.php?view=active&status=published', 'tone' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Yayında', 'value' => number_format((int) $stats['published'], 0, ',', '.'), 'class' => 'topics-stat-card' . ($viewFilter !== 'deleted' && $statusFilter === 'published' ? ' is-active' : '')],
+    ['href' => 'topics.php?view=active&status=draft', 'tone' => 'warning', 'icon' => 'bi-pencil-square', 'label' => 'Taslak', 'value' => number_format((int) $stats['draft'], 0, ',', '.'), 'class' => 'topics-stat-card' . ($viewFilter !== 'deleted' && $statusFilter === 'draft' ? ' is-active' : '')],
+    ['href' => 'topics.php?view=deleted', 'tone' => 'danger', 'icon' => 'bi-trash', 'label' => 'Çöp Kutusu', 'value' => number_format((int) $stats['deleted'], 0, ',', '.'), 'class' => 'topics-stat-card' . ($viewFilter === 'deleted' ? ' is-active' : '')],
+], ['class' => 'topics-stat-grid', 'aria_label' => 'Konu özeti']) ?>
 
 <form id="bulkTopicsForm" method="post" action="topics.php">
     <?= csrf_field() ?>
@@ -399,7 +378,7 @@ require_once __DIR__ . '/header.php';
                 <a href="topics.php" class="topics-filter-reset"><i class="bi bi-x-circle"></i> Filtreleri temizle</a>
             <?php endif; ?>
         </div>
-        <form method="get" action="topics.php" class="topics-filter-form">
+        <form method="get" action="topics.php" class="topics-filter-form admin-filter-form">
             <label class="topics-filter-field topics-filter-search">
                 <span>Arama</span>
                 <i class="bi bi-search"></i>
@@ -425,7 +404,7 @@ require_once __DIR__ . '/header.php';
         </form>
     </div>
 
-    <div class="bulk-bar topics-bulk-bar" data-topic-bulk-bar>
+    <div class="bulk-bar topics-bulk-bar admin-bulk-action-bar ui-panel" data-topic-bulk-bar>
         <div class="topics-bulk-status">
             <div class="topics-bulk-count-badge" aria-hidden="true">
                 <strong id="selectedTopicCount">0</strong>
@@ -463,85 +442,32 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
-<?php if (false): ?>
-<div class="topics-filter-bar">
-    <form method="get" action="topics.php" class="filter-form">
-        <input type="text" name="q" class="ui-admin-form-control ui-admin-filter-input-grow" placeholder="Ara..." value="<?= htmlspecialchars($search) ?>">
-        <select name="status" class="ui-admin-form-select">
-            <option value="">Tüm Durumlar</option>
-            <?php foreach ($allowedStatuses as $statusOption): ?>
-                <option value="<?= htmlspecialchars($statusOption) ?>" <?= $statusFilter === $statusOption ? 'selected' : '' ?>><?= htmlspecialchars($statusLabels[$statusOption][0] ?? ucfirst($statusOption)) ?></option>
-            <?php endforeach; ?>
-        </select>
-        <select name="view" class="ui-admin-form-select">
-            <option value="active" <?= $viewFilter !== 'deleted' ? 'selected' : '' ?>>Aktifler</option>
-            <option value="deleted" <?= $viewFilter === 'deleted' ? 'selected' : '' ?>>Çöpte</option>
-        </select>
-        <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-funnel"></i> Filtrele</button>
-        <?php if($search !== '' || $statusFilter !== '' || $viewFilter === 'deleted'): ?>
-            <a href="topics.php" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-muted-link"><i class="bi bi-x-circle"></i> Temizle</a>
-        <?php endif; ?>
-    </form>
-</div>
-
-<div class="bulk-bar">
-    <div class="bulk-bar-right">
-        <label class="ui-admin-bulk-check-label">
-            <input type="checkbox" id="selectAllTopics" class="chk-styled">
-            <span class="ui-admin-font-600"><span id="selectedTopicCount">0</span> seçildi</span>
-        </label>
-        <select name="bulk_action" form="bulkTopicsForm" id="bulkTopicAction" class="ui-admin-form-select">
-            <option value="">Toplu İşlem Seç...</option>
-            <?php if ($viewFilter === 'deleted'): ?>
-                <option value="restore">Geri Yükle</option>
-                <option value="purge">Kalıcı Sil</option>
-            <?php else: ?>
-                <option value="publish">Yayına Al</option>
-                <option value="draft">Taslağa Döndür</option>
-                <option value="delete">Çöpe Taşı</option>
-            <?php endif; ?>
-        </select>
-        <button type="submit" form="bulkTopicsForm" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-check2-circle"></i> Uygula</button>
-    </div>
-</div>
-
-<?php endif; ?>
-
-<div class="topics-table-container" data-ui-table="topics">
-    <table class="ui-admin-table topics-table">
-        <colgroup>
-            <col class="topics-col-check">
-            <col class="topics-col-topic">
-            <col class="topics-col-category">
-            <col class="topics-col-author">
-            <col class="topics-col-status">
-            <col class="topics-col-date">
-            <col class="topics-col-actions">
-        </colgroup>
-        <thead>
-            <tr>
-                <th class="ui-admin-table-head-check"></th>
-                <th>Konu</th>
-                <th>Kategori</th>
-                <th>Yazar</th>
-                <th>Durum</th>
-                <th>Tarih</th>
-                <th class="ui-admin-table-head-actions">İşlemler</th>
-            </tr>
-        </thead>
-        <tbody>
+<?= adminRenderTableOpen([
+    ['label' => '', 'class' => 'ui-admin-table-head-check'],
+    'Konu',
+    'Kategori',
+    'Yazar',
+    'Durum',
+    'Tarih',
+    ['label' => 'İşlemler', 'class' => 'ui-admin-table-head-actions'],
+], [
+    'class' => 'topics-table',
+    'wrap_class' => 'topics-table-container',
+    'wrap_attrs' => ['data-ui-table' => 'topics'],
+    'label' => 'Konu listesi',
+    'colgroup_html' => '<colgroup><col class="topics-col-check"><col class="topics-col-topic"><col class="topics-col-category"><col class="topics-col-author"><col class="topics-col-status"><col class="topics-col-date"><col class="topics-col-actions"></colgroup>',
+]) ?>
             <?php if (empty($topics)): ?>
-                <tr><td colspan="7">
-                    <div class="ui-admin-empty ui-empty">
-                        <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-search"></i></div>
-                        <h3 class="ui-admin-empty-title ui-empty">Konu bulunamadı</h3>
-                        <p class="ui-admin-empty-desc ui-empty">Seçili filtrelerle eşleşen konu yok. Filtreleri temizleyip tekrar deneyebilirsiniz.</p>
-                        <div class="ui-admin-empty-actions ui-empty">
-                            <a href="topics.php" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Filtreleri Temizle</a>
-                            <a href="<?= $baseUri ?>/admin/create.php" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-plus-circle"></i> Yeni Konu</a>
-                        </div>
-                    </div>
-                </td></tr>
+                <?= adminRenderTableEmptyRow(7, [
+                        'icon' => 'bi-search',
+                        'tone' => 'info',
+                        'title' => 'Konu bulunamadı',
+                        'description' => 'Seçili filtrelerle eşleşen konu yok. Filtreleri temizleyip tekrar deneyebilirsiniz.',
+                        'actions' => [
+                            ['href' => 'topics.php', 'label' => 'Filtreleri Temizle', 'icon' => 'bi-x-circle'],
+                            ['href' => $baseUri . '/admin/create.php', 'label' => 'Yeni Konu', 'icon' => 'bi-plus-circle', 'class' => 'ui-admin-btn-primary'],
+                        ],
+                    ]) ?>
             <?php else: ?>
                 <?php foreach ($topics as $t): ?>
                     <?php
@@ -551,11 +477,16 @@ require_once __DIR__ . '/header.php';
                         'archived' => 'published',
                         default => $rawStatusKey,
                     };
-                    $statusMeta = $statusLabels[$statusKey] ?? [ucfirst($statusKey), 'secondary'];
+                    $statusMeta = function_exists('adminStatusMeta')
+                        ? adminStatusMeta($statusKey, 'topic')
+                        : [
+                            'label' => $statusLabels[$statusKey][0] ?? ucfirst($statusKey),
+                            'tone' => $statusLabels[$statusKey][1] ?? 'secondary',
+                            'icon' => '',
+                        ];
                     $isDeleted = !empty($t['deleted_at']);
                     $displayDate = $t['published_at'] ?: ($t['updated_at'] ?: ($t['created_at'] ?? null));
-                    $badgeClass = 'badge-' . $statusKey;
-                    $coverPath = !empty($t['cover_image']) ? (strpos($t['cover_image'], 'http') === 0 ? $t['cover_image'] : $baseUri . '/' . ltrim($t['cover_image'], '/')) : '';
+                    $coverPath = adminSafeImageUrl((string) ($t['cover_image'] ?? ''), $baseUri);
                     $authorName = $t['author_name'] ?? 'Sistem';
                     $authorInitial = mb_substr($authorName, 0, 1, 'UTF-8');
                     $moderationNote = '';
@@ -575,7 +506,7 @@ require_once __DIR__ . '/header.php';
                                 <?php if($coverPath): ?>
                                     <img src="<?= htmlspecialchars($coverPath) ?>" alt="" class="topic-thumbnail" width="48" height="48">
                                 <?php else: ?>
-                                    <div class="topic-thumbnail-empty"><i class="bi bi-image"></i></div>
+                                    <?= adminRenderImagePlaceholder('topic-thumbnail topic-thumbnail-empty') ?>
                                 <?php endif; ?>
                                 <div class="topic-title-info">
                                     <strong><?= htmlspecialchars((string) ($t['title'] ?? 'Başlıksız konu')) ?></strong>
@@ -599,9 +530,11 @@ require_once __DIR__ . '/header.php';
                             </div>
                         </td>
                         <td>
-                            <span class="minimal-badge <?= $badgeClass ?>">
-                                <?= htmlspecialchars($statusMeta[0]) ?>
-                            </span>
+                            <?= adminRenderBadge((string) ($statusMeta['label'] ?? ucfirst($statusKey)), [
+                                'tone' => (string) ($statusMeta['tone'] ?? 'muted'),
+                                'icon' => (string) ($statusMeta['icon'] ?? ''),
+                                'class' => 'minimal-badge badge-' . $statusKey,
+                            ]) ?>
                         </td>
                         <td class="ui-admin-table-cell-muted">
                             <?= $displayDate ? htmlspecialchars(date('d.m.Y', strtotime((string) $displayDate))) : '-' ?>
@@ -635,13 +568,13 @@ require_once __DIR__ . '/header.php';
                                         <button type="submit" class="btn-icon-minimal warning" title="Revizyon İste"><i class="bi bi-arrow-repeat"></i></button>
                                     </form>
                                     
-                                    <form action="<?= $baseUri ?>/admin/delete.php" method="post" class="ui-admin-inline-form-block" data-admin-confirm="Bu konuyu çöpe taşımak istediğinize emin misiniz?" data-admin-confirm-title="Konu çöpe taşınsın mı?" data-admin-confirm-ok="Çöpe Taşı" data-admin-confirm-tone="danger">
+                                    <form action="<?= $baseUri ?>/admin/delete.php" method="post" class="ui-admin-inline-form-block"<?= adminConfirmAttrs(['message' => 'Bu konuyu çöpe taşımak istediğinize emin misiniz?', 'title' => 'Konu çöpe taşınsın mı?', 'ok' => 'Çöpe Taşı', 'tone' => 'danger']) ?>>
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
                                         <button type="submit" class="btn-icon-minimal danger" title="Çöpe Taşı"><i class="bi bi-trash"></i></button>
                                     </form>
                                 <?php else: ?>
-                                    <form action="<?= $baseUri ?>/admin/delete.php" method="post" class="ui-admin-inline-form-block" data-admin-confirm="Bu konu ve bağlı tüm dosyalar kalıcı olarak silinecek. Onaylıyor musunuz?" data-admin-confirm-title="Kalıcı silme" data-admin-confirm-ok="Kalıcı Sil" data-admin-confirm-tone="danger">
+                                    <form action="<?= $baseUri ?>/admin/delete.php" method="post" class="ui-admin-inline-form-block"<?= adminConfirmAttrs(['message' => 'Bu konu ve bağlı tüm dosyalar kalıcı olarak silinecek. Onaylıyor musunuz?', 'title' => 'Kalıcı silme', 'ok' => 'Kalıcı Sil', 'tone' => 'danger']) ?>>
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
                                         <input type="hidden" name="permanent" value="1">
@@ -653,9 +586,7 @@ require_once __DIR__ . '/header.php';
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
-        </tbody>
-    </table>
-</div>
+<?= adminRenderTableClose() ?>
 
 <?php if ($totalPages > 1): ?>
     <?php
@@ -672,14 +603,12 @@ require_once __DIR__ . '/header.php';
 
 
 <?php if ($activeTab === 'settings'): ?>
-<section class="admin-card admin-card-spaced topic-settings-panel ui-panel">
-    <div class="card-header ui-panel__head">
-        <div>
-            <strong><i class="bi bi-sliders me-2"></i>Konu Yönetimi Ayarları</strong>
-            <span class="admin-section-desc">Konu oluşturma, kullanıcı düzenleme onayı ve manuel sağlık taraması davranışlarını buradan yönetin.</span>
-        </div>
-    </div>
-    <div class="card-body ui-panel__body">
+<?= adminRenderPanelOpen([
+    'class' => 'admin-card-spaced topic-settings-panel',
+    'icon' => 'bi-sliders',
+    'title' => 'Konu Yönetimi Ayarları',
+    'subtitle' => 'Konu oluşturma, kullanıcı düzenleme onayı ve manuel sağlık taraması davranışlarını buradan yönetin.',
+]) ?>
         <form method="post" action="topics.php?tab=settings" class="settings-admin-form topic-settings-form">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="save_topic_settings">
@@ -696,8 +625,7 @@ require_once __DIR__ . '/header.php';
                 <a href="topics.php" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-list-ul"></i>Konu Listesine Dön</a>
             </div>
         </form>
-    </div>
-</section>
+<?= adminRenderPanelClose() ?>
 
 <?php endif; ?>
 <?php if ($activeTab === 'health'): ?>
@@ -769,7 +697,7 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
             <button type="button" class="ui-admin-btn ui-admin-btn-primary topic-health-start" id="topicHealthScanStart">
                 <i class="bi bi-play-circle"></i> Kontrolü Başlat
             </button>
-            <form method="post" action="topics.php?tab=health" class="topic-health-clear-form" data-admin-confirm="Tüm konu sağlığı verileri sıfırlanacak ve sağlık taraması geçmişi silinecek. Bu işlem geri alınamaz. Devam edilsin mi?" data-admin-confirm-title="Konu sağlığı temizlensin mi?" data-admin-confirm-ok="Temizle" data-admin-confirm-tone="danger">
+            <form method="post" action="topics.php?tab=health" class="topic-health-clear-form"<?= adminConfirmAttrs(['message' => 'Tüm konu sağlığı verileri sıfırlanacak ve sağlık taraması geçmişi silinecek. Bu işlem geri alınamaz. Devam edilsin mi?', 'title' => 'Konu sağlığı temizlensin mi?', 'ok' => 'Temizle', 'tone' => 'danger']) ?>>
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="clear_topic_health">
                 <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline topic-health-clear-btn">
@@ -813,7 +741,7 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
                 <a href="topics.php?tab=health" class="topics-filter-reset"><i class="bi bi-x-circle"></i> Filtreleri temizle</a>
             <?php endif; ?>
         </div>
-        <form method="get" action="topics.php" class="topic-health-filter-form">
+        <form method="get" action="topics.php" class="topic-health-filter-form admin-filter-form">
             <input type="hidden" name="tab" value="health">
             <label class="topics-filter-field topic-health-search">
                 <span>Arama</span>
@@ -841,31 +769,28 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
         </form>
     </div>
 
-    <div class="topics-table-container topic-health-table-wrap">
-        <table class="ui-admin-table topic-health-table">
-            <thead>
-                <tr>
-                    <th>Konu</th>
-                    <th>Kategori</th>
-                    <th>Sağlık</th>
-                    <th>İndirme</th>
-                    <th>Görsel</th>
-                    <th>Harici Link</th>
-                    <th>Son Kontrol</th>
-                    <th class="ui-admin-table-head-actions"></th>
-                </tr>
-            </thead>
-            <tbody id="topicHealthRows">
+    <?= adminRenderTableOpen([
+        'Konu',
+        'Kategori',
+        'Sağlık',
+        'İndirme',
+        'Görsel',
+        'Harici Link',
+        'Son Kontrol',
+        ['label' => '', 'class' => 'ui-admin-table-head-actions'],
+    ], [
+        'class' => 'topic-health-table',
+        'wrap_class' => 'topics-table-container topic-health-table-wrap',
+        'tbody_attrs' => ['id' => 'topicHealthRows'],
+        'label' => 'Konu sağlık kayıtları',
+    ]) ?>
                 <?php if (empty($topicHealthRows)): ?>
-                    <tr>
-                        <td colspan="8">
-                            <div class="ui-admin-empty ui-empty">
-                                <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-heart-pulse"></i></div>
-                                <h3 class="ui-admin-empty-title ui-empty">Sağlık verisi yok</h3>
-                                <p class="ui-admin-empty-desc ui-empty">Kontrolü başlattığınızda yayınlı konular burada listelenir.</p>
-                            </div>
-                        </td>
-                    </tr>
+                    <?= adminRenderTableEmptyRow(8, [
+                                'icon' => 'bi-heart-pulse',
+                                'tone' => 'info',
+                                'title' => 'Sağlık verisi yok',
+                                'description' => 'Kontrolü başlattığınızda yayınlı konular burada listelenir.',
+                            ]) ?>
                 <?php else: ?>
                     <?php foreach ($topicHealthRows as $row): ?>
                         <?php
@@ -929,9 +854,7 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+    <?= adminRenderTableClose() ?>
     <?php if ($topicHealthTotalPages > 1): ?>
         <?php
         $healthQs = $_GET;
@@ -973,6 +896,8 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
             <button type="button" class="ui-admin-btn ui-admin-btn-primary" id="moderationActionNoteSubmit"><i class="bi bi-send"></i> Gönder</button>
         </div>
     </div>
+</div>
+
 </div>
 
 <script src="<?= asset_url('admin/assets/topics-page.js', $baseUri) ?>" defer></script>

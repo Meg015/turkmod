@@ -34,7 +34,8 @@ final class SecurityHeadersMiddleware implements Middleware
         ?array $crossOrigin = null,
         ?string $reportUri = null,
     ) {
-        $this->isProduction = $this->envBool('APP_ENV') === 'production';
+        $appEnv = strtolower(trim((string) ($this->envConfig['APP_ENV'] ?? ($_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'production'))));
+        $this->isProduction = in_array($appEnv, ['production', 'prod'], true);
         $this->csp = $csp ?? $this->defaultCsp();
         $this->hsts = $this->isProduction && $this->envBool('APP_FORCE_HTTPS', false)
             ? ($hsts ?? $this->defaultHsts())
@@ -50,18 +51,20 @@ final class SecurityHeadersMiddleware implements Middleware
      */
     public static function fromEnvConfig(array $envConfig = []): self
     {
-        $reportUri = null;
-        $cspReportEndpoint = (string) ($envConfig['APP_CSP_REPORT_URI'] ?? '');
-        if ($cspReportEndpoint !== '') {
-            $reportUri = $cspReportEndpoint;
+        $middleware = new self($envConfig);
+
+        $reportOnlyEnabled = $middleware->envBool('APP_CSP_REPORT_ONLY', true);
+        if ($reportOnlyEnabled) {
+            $cspReportEndpoint = trim((string) ($envConfig['APP_CSP_REPORT_URI'] ?? ''));
+            $middleware->reportUri = $cspReportEndpoint !== ''
+                ? $cspReportEndpoint
+                : $middleware->defaultCspReportUri();
         }
 
-        $middleware = new self($envConfig, null, null, null, $reportUri);
-
-        $strictNonce = (bool) ($envConfig['APP_CSP_STRICT_NONCE'] ?? false);
-        $allowUnsafeInline = (bool) ($envConfig['APP_CSP_ALLOW_UNSAFE_INLINE'] ?? !$strictNonce);
-        $allowUnsafeInlineStyles = (bool) ($envConfig['APP_CSP_ALLOW_UNSAFE_INLINE_STYLES'] ?? !$strictNonce);
-        $appDebug = (bool) ($envConfig['APP_DEBUG'] ?? false);
+        $strictNonce = $middleware->envBool('APP_CSP_STRICT_NONCE', $middleware->isProduction());
+        $allowUnsafeInline = $middleware->envBool('APP_CSP_ALLOW_UNSAFE_INLINE', !$strictNonce);
+        $allowUnsafeInlineStyles = $middleware->envBool('APP_CSP_ALLOW_UNSAFE_INLINE_STYLES', !$strictNonce);
+        $appDebug = $middleware->envBool('APP_DEBUG', false);
 
         $csp = $middleware->getCsp();
 
@@ -116,6 +119,11 @@ final class SecurityHeadersMiddleware implements Middleware
         // CSP violation reporting
         if ($this->reportUri !== null) {
             $headers['Content-Security-Policy-Report-Only'] = $this->buildCspReportOnly();
+            $reportToConfig = $this->getReportToConfig();
+            if ($reportToConfig !== null) {
+                $headers['Report-To'] = (string) json_encode($reportToConfig, JSON_UNESCAPED_SLASHES);
+                $headers['Reporting-Endpoints'] = 'csp-endpoint="' . addcslashes($this->reportEndpointUrl(), '\\"') . '"';
+            }
         }
 
         // HTTP Strict Transport Security (production only, HTTPS only)
@@ -178,14 +186,7 @@ final class SecurityHeadersMiddleware implements Middleware
 
     private function buildCsp(): string
     {
-        $parts = [];
-        foreach ($this->csp as $directive => $sources) {
-            if ($sources !== []) {
-                $parts[] = $directive . ' ' . implode(' ', $sources);
-            }
-        }
-
-        $csp = implode('; ', $parts);
+        $csp = $this->buildCspFromDirectives($this->csp);
 
         // Append report-uri/report-to to the main CSP when reportUri is set
         if ($this->reportUri !== null) {
@@ -198,14 +199,13 @@ final class SecurityHeadersMiddleware implements Middleware
 
     private function buildCspReportOnly(): string
     {
-        $parts = [];
-        foreach ($this->csp as $directive => $sources) {
-            if ($sources !== []) {
-                $parts[] = $directive . ' ' . implode(' ', $sources);
-            }
-        }
+        $reportOnlyCsp = $this->csp;
+        $reportOnlyCsp['script-src'] = $this->withoutCspSources($reportOnlyCsp['script-src'] ?? [], ["'unsafe-inline'", "'unsafe-eval'"]);
+        $reportOnlyCsp['style-src'] = $this->withoutCspSources($reportOnlyCsp['style-src'] ?? [], ["'unsafe-inline'"]);
+        $reportOnlyCsp['script-src-attr'] = ["'none'"];
+        $reportOnlyCsp['style-src-attr'] = ["'none'"];
 
-        $csp = implode('; ', $parts);
+        $csp = $this->buildCspFromDirectives($reportOnlyCsp);
         $csp .= '; report-uri ' . $this->reportUri;
         $csp .= '; report-to csp-endpoint';
 
@@ -225,9 +225,81 @@ final class SecurityHeadersMiddleware implements Middleware
             'group' => 'csp-endpoint',
             'max_age' => 10886400,
             'endpoints' => [
-                ['url' => $this->reportUri],
+                ['url' => $this->reportEndpointUrl()],
             ],
         ];
+    }
+
+    /**
+     * @param array<string, list<string>> $directives
+     */
+    private function buildCspFromDirectives(array $directives): string
+    {
+        $parts = [];
+        foreach ($directives as $directive => $sources) {
+            $sources = $this->normalizeCspSources($sources);
+            if ($sources !== []) {
+                $parts[] = $directive . ' ' . implode(' ', $sources);
+            }
+        }
+
+        return implode('; ', $parts);
+    }
+
+    /**
+     * @param list<string> $sources
+     * @return list<string>
+     */
+    private function normalizeCspSources(array $sources): array
+    {
+        return array_values(array_unique(array_filter(array_map('strval', $sources), static function (string $source): bool {
+            return trim($source) !== '';
+        })));
+    }
+
+    /**
+     * @param list<string> $sources
+     * @param list<string> $blockedSources
+     * @return list<string>
+     */
+    private function withoutCspSources(array $sources, array $blockedSources): array
+    {
+        $blocked = array_flip($blockedSources);
+
+        return array_values(array_filter($this->normalizeCspSources($sources), static function (string $source) use ($blocked): bool {
+            return !isset($blocked[$source]);
+        }));
+    }
+
+    private function defaultCspReportUri(): string
+    {
+        $baseUri = \function_exists('base_uri') ? (string) \base_uri() : '';
+        $baseUri = trim($baseUri, '/');
+
+        return ($baseUri !== '' ? '/' . $baseUri : '') . '/api/csp-report.php';
+    }
+
+    private function reportEndpointUrl(): string
+    {
+        $reportUri = (string) $this->reportUri;
+        if (preg_match('#^https?://#i', $reportUri) === 1) {
+            return $reportUri;
+        }
+
+        $host = \function_exists('appTrustedHostFromRequest')
+            ? (string) \appTrustedHostFromRequest(false, $this->envConfig)
+            : (string) ($_SERVER['HTTP_HOST'] ?? '');
+        $host = (string) preg_replace('/[^A-Za-z0-9.:\-\[\]]/', '', $host);
+        if ($host === '') {
+            return $reportUri;
+        }
+
+        $forwardedProto = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+        $isHttps = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+            || $forwardedProto === 'https';
+        $scheme = $isHttps ? 'https' : 'http';
+
+        return $scheme . '://' . $host . '/' . ltrim($reportUri, '/');
     }
 
     private function buildPermissionsPolicy(): string

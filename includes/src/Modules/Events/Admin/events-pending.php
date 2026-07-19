@@ -17,9 +17,7 @@ if ($ready && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
         $errorMsg = 'Güvenlik doğrulaması başarısız.';
         if ($isAjax) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => $errorMsg]);
-            exit;
+            sendJsonResponse(419, false, $errorMsg, ['ok' => false], 'csrf_token_invalid');
         }
         flash('error', $errorMsg);
         header('Location: events-pending.php');
@@ -43,9 +41,7 @@ if ($ready && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 : eventsApplyCustomReward($pdo, $rewardId, $adminId, (string)($_POST['note'] ?? ''), $baseUri ?? '');
 
             if ($isAjax) {
-                header('Content-Type: application/json');
-                echo json_encode($result);
-                exit;
+                sendJsonResponse(!empty($result['success']) ? 200 : 422, !empty($result['success']), (string) ($result['message'] ?? 'İşlem tamamlandı.'), $result, !empty($result['success']) ? null : 'events_reward_apply_failed');
             }
 
             flash($result['success'] ? 'success' : 'error', $result['success'] ? 'Ödül teslim edildi.' : (string)$result['message']);
@@ -64,9 +60,7 @@ if ($ready && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             }
 
             if ($isAjax) {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => $success, 'message' => $success ? 'Ödül iptal edildi.' : 'Ödül bulunamadı.']);
-                exit;
+                sendJsonResponse($success ? 200 : 404, $success, $success ? 'Ödül iptal edildi.' : 'Ödül bulunamadı.', ['ok' => $success], $success ? null : 'events_reward_not_found');
             }
 
             flash('success', 'Ödül iptal edildi.');
@@ -109,12 +103,10 @@ if ($ready && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             }
 
             if ($isAjax) {
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'success' => $errorCount === 0,
-                    'message' => "{$successCount} ödül teslim edildi" . ($errorCount > 0 ? ", {$errorCount} hata oluştu" : '') . '.'
-                ]);
-                exit;
+                sendJsonResponse($errorCount === 0 ? 200 : 422, $errorCount === 0, "{$successCount} ödül teslim edildi" . ($errorCount > 0 ? ", {$errorCount} hata oluştu" : '') . '.', [
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount,
+                ], $errorCount === 0 ? null : 'events_bulk_reward_apply_failed');
             }
 
             flash('success', "{$successCount} ödül teslim edildi.");
@@ -137,9 +129,9 @@ if ($ready && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             }
 
             if ($isAjax) {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => true, 'message' => "{$successCount} ödül iptal edildi."]);
-                exit;
+                sendJsonResponse(200, true, "{$successCount} ödül iptal edildi.", [
+                    'success_count' => $successCount,
+                ]);
             }
 
             flash('success', "{$successCount} ödül iptal edildi.");
@@ -150,9 +142,7 @@ if ($ready && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         eventsErrorLog($pdo, 'Admin pending action failed.', ['error' => $e->getMessage(), 'action' => $action], 'ERROR');
         $errorMsg = 'İşlem sırasında hata oluştu.';
         if ($isAjax) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => $errorMsg]);
-            exit;
+            sendJsonResponse(500, false, $errorMsg, ['ok' => false], 'events_pending_action_failed');
         }
         flash('error', $errorMsg);
         header('Location: events-pending.php');

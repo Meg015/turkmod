@@ -2,8 +2,47 @@
     "use strict";
 
     function getCsrfToken() {
+        if (window.publicApi && typeof window.publicApi.csrfToken === "function") {
+            return window.publicApi.csrfToken();
+        }
+
         var meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute("content") || "" : "";
+    }
+
+    function setCsrfToken(token) {
+        if (window.publicApi && typeof window.publicApi.updateCsrfToken === "function") {
+            window.publicApi.updateCsrfToken(token);
+            return;
+        }
+        if (!token) {
+            return;
+        }
+
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) {
+            meta.setAttribute("content", token);
+        }
+    }
+
+    function notifyError(error, defaultMessage) {
+        var message = error && error.message ? error.message : defaultMessage;
+        if (window.showToast) {
+            window.showToast(message || "Bildirim islemi tamamlanamadi.", "error");
+        }
+    }
+
+    function fetchJson(url, options) {
+        if (window.publicFetchJson) {
+            return window.publicFetchJson(url, options || {}).then(function (data) {
+                if (data && (data._token || data.csrf_token)) {
+                    setCsrfToken(data._token || data.csrf_token);
+                }
+                return data;
+            });
+        }
+
+        return Promise.reject(new Error("Public API helper yuklenemedi."));
     }
 
     function createState(iconClass, text) {
@@ -115,13 +154,14 @@
                         formData.append("_token", getCsrfToken());
                         formData.append("id", notification.id);
 
-                        fetch(readApiUrl, {
+                        fetchJson(readApiUrl, {
                             method: "POST",
                             body: formData,
-                            headers: { "X-Requested-With": "XMLHttpRequest" }
-                        })
-                        .then(function (response) {
-                            return response.json();
+                            credentials: "same-origin",
+                            headers: {
+                                "Accept": "application/json",
+                                "X-Requested-With": "XMLHttpRequest"
+                            }
                         })
                         .then(function (data) {
                             if (!isApiSuccess(data)) {
@@ -133,9 +173,7 @@
                             window.location.href = item.href;
                         })
                         .catch(function (error) {
-                            if (window.showToast) {
-                                window.showToast(error && error.message ? error.message : "Bildirimler g\\u00fcncellenemedi.", "error");
-                            }
+                            notifyError(error, "Bildirimler guncellenemedi.");
                             window.location.href = item.href;
                         });
                     });
@@ -150,11 +188,21 @@
                 return Promise.resolve();
             }
 
-            return fetch(apiUrl)
-                .then(function (response) {
-                    return response.json();
-                })
-                .then(renderNotifications);
+            return fetchJson(apiUrl, {
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            })
+                .then(renderNotifications)
+                .catch(function () {
+                    if (list) {
+                        list.innerHTML = "";
+                        list.appendChild(createState("bi bi-exclamation-triangle", "Bildirimler yuklenemedi"));
+                    }
+                    updateNotificationBadge(0);
+                });
         }
 
         function markAllNotificationsAsRead(event) {
@@ -174,14 +222,15 @@
             formData.append("_token", getCsrfToken());
             formData.append("id", "all");
 
-            fetch(readApiUrl, {
+            fetchJson(readApiUrl, {
                 method: "POST",
                 body: formData,
-                headers: { "X-Requested-With": "XMLHttpRequest" }
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
             })
-                .then(function (response) {
-                    return response.json();
-                })
                 .then(function (data) {
                     if (!isApiSuccess(data)) {
                         throw new Error(data.message || "Bildirimler g\\u00fcncellenemedi.");
@@ -201,9 +250,7 @@
                 .catch(function (error) {
                     updateNotificationBadge(parseInt(previousBadge.replace(/\D/g, ""), 10) || 0);
                     fetchNotifications();
-                    if (window.showToast) {
-                        window.showToast(error.message || "Bildirimler g\\u00fcncellenemedi.", "error");
-                    }
+                    notifyError(error, "Bildirimler guncellenemedi.");
                 });
         }
 

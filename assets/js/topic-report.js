@@ -88,15 +88,17 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
             button.innerHTML = '<i class="bi bi-hourglass-split" aria-hidden="true"></i> ' + loadingLabel;
             const body = Object.fromEntries(new FormData(form).entries());
             const endpoint = form.getAttribute('action');
-            fetch(endpoint, {
+            const requestOptions = {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-                body: JSON.stringify(body)
-            }).then(function(response) {
-                return response.json().then(function(payload) {
-                    return {ok: response.ok, payload: payload};
-                });
-            }).then(function(result) {
+                body: body
+            };
+            (window.publicFetchJson
+                ? window.publicFetchJson(endpoint, Object.assign({}, requestOptions, { notifyError: false })).then(function(payload) {
+                    return {ok: true, payload: payload};
+                })
+                : Promise.reject(new Error('Public API helper yuklenemedi.'))
+            ).then(function(result) {
                 const isSuccess = !!(result.ok && result.payload.success);
                 const message = result.payload.message || (isSuccess ? 'Rapor gönderildi.' : 'Rapor gönderilemedi.');
                 feedback.textContent = message;
@@ -119,8 +121,8 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
                         solution: 'Lütfen alanları kontrol edip tekrar deneyin.'
                     });
                 }
-            }).catch(function() {
-                feedback.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
+            }).catch(function(error) {
+                feedback.textContent = error && error.message ? error.message : 'Bağlantı hatası. Lütfen tekrar deneyin.';
                 feedback.className = 'topic-report-feedback is-error';
                 if (window.showToast) {
                     window.showToast('Rapor gönderilemedi.', 'error', {

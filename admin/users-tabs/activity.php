@@ -224,17 +224,16 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
 ?>
 
 <div class="user-activity-page ui-admin-activity-page">
-    <div class="user-activity-summary">
-        <div class="user-activity-stat"><span>Toplam olay</span><strong><?= number_format($stats['total'], 0, ',', '.') ?></strong></div>
-        <div class="user-activity-stat"><span>Giriş hareketi</span><strong><?= number_format($stats['auth_total'], 0, ',', '.') ?></strong></div>
-        <div class="user-activity-stat"><span>Güvenlik</span><strong><?= number_format($stats['security_total'], 0, ',', '.') ?></strong></div>
-        <div class="user-activity-stat"><span>Benzersiz IP</span><strong><?= number_format($stats['unique_ips'], 0, ',', '.') ?></strong></div>
-        <div class="user-activity-stat"><span>Son hareket</span><strong><?= htmlspecialchars($fmtDate($stats['last_seen_at'])) ?></strong></div>
-    </div>
+    <?= adminRenderLogStatCards([
+        ['tone' => 'info', 'icon' => 'bi-activity', 'label' => 'Toplam olay', 'value' => number_format($stats['total'], 0, ',', '.'), 'class' => 'user-activity-stat'],
+        ['tone' => 'success', 'icon' => 'bi-box-arrow-in-right', 'label' => 'Giriş hareketi', 'value' => number_format($stats['auth_total'], 0, ',', '.'), 'class' => 'user-activity-stat'],
+        ['tone' => 'danger', 'icon' => 'bi-shield-lock', 'label' => 'Güvenlik', 'value' => number_format($stats['security_total'], 0, ',', '.'), 'class' => 'user-activity-stat'],
+        ['tone' => 'warning', 'icon' => 'bi-router', 'label' => 'Benzersiz IP', 'value' => number_format($stats['unique_ips'], 0, ',', '.'), 'class' => 'user-activity-stat'],
+        ['tone' => 'info', 'icon' => 'bi-clock-history', 'label' => 'Son hareket', 'value' => $fmtDate($stats['last_seen_at']), 'class' => 'user-activity-stat'],
+    ], ['class' => 'user-activity-summary', 'aria_label' => 'Kullanıcı işlem günlüğü özeti']) ?>
 
-    <div class="admin-card user-activity-filter-card ui-panel ui-card">
-        <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
-            <form method="get" action="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-filter-row user-activity-filter admin-log-filter-form">
+    <?= adminRenderLogToolbarOpen('', 'user-activity-filter-card ui-card') ?>
+            <form method="get" action="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-filter-row user-activity-filter admin-log-filter-form admin-filter-form">
                 <?php if ($showTabInput): ?>
                     <input type="hidden" name="tab" value="activity">
                 <?php endif; ?>
@@ -286,12 +285,10 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                     <a href="<?= htmlspecialchars($activityBuildUrl(), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
                 <?php endif; ?>
             </form>
-        </div>
-    </div>
+    <?= adminRenderLogToolbarClose() ?>
 
     <?php if ($selectedUser): ?>
-        <div class="admin-card user-activity-selected ui-panel">
-            <div class="card-body ui-panel__body">
+        <?= adminRenderPanelOpen(['tag' => 'div', 'class' => 'user-activity-selected']) ?>
                 <div class="user-activity-selected-main">
                     <div class="ui-admin-user-line">
                         <div class="user-avatar-badge default-avatar">
@@ -307,32 +304,28 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                         <a class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" href="user-edit.php?id=<?= (int) $selectedUser['id'] ?>"><i class="bi bi-person-vcard"></i> Kart</a>
                     </div>
                 </div>
-            </div>
-        </div>
+        <?= adminRenderPanelClose('div') ?>
     <?php endif; ?>
 
     <div class="user-activity-layout ui-section">
-        <section class="admin-card user-activity-feed-card logs-list-card ui-panel ui-card">
-            <div class="card-header user-activity-card-head logs-list-head ui-admin-card-header-actions ui-panel__head ui-card">
-                <div>
-                    <h3><i class="bi bi-activity"></i> Hareket Akışı</h3>
-                    <span><?= number_format($totalEvents, 0, ',', '.') ?> kayıt</span>
-                </div>
-                <?php if ($canManageLogs): ?>
-                    <div>
-                        <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger" data-clear-logs-open>
-                            <i class="bi bi-trash"></i> Kayıtları Temizle
-                        </button>
-                    </div>
-                <?php endif; ?>
-            </div>
-            <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
+        <?= adminRenderLogListPanelOpen([
+            'class' => 'user-activity-feed-card ui-card',
+            'header_class' => 'user-activity-card-head',
+            'icon' => 'bi-activity',
+            'title' => 'Hareket Akışı',
+            'count_text' => number_format($totalEvents, 0, ',', '.') . ' kayıt',
+            'actions_html' => $canManageLogs ? adminRenderLogClearTrigger([
+                'label' => 'Kayıtları Temizle',
+                'base_class' => 'ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger',
+            ]) : '',
+        ]) ?>
                 <?php if (empty($events)): ?>
-                    <div class="ui-admin-empty ui-empty admin-log-empty">
-                        <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-search"></i></div>
-                        <h3 class="ui-admin-empty-title ui-empty">Kayıt bulunamadı</h3>
-                        <p class="ui-admin-empty-desc ui-empty">Filtreleri genişletin veya yeni kullanıcı hareketleri oluşmasını bekleyin.</p>
-                    </div>
+                    <?= adminRenderLogEmptyState([
+                        'icon' => 'bi-search',
+                        'tone' => 'info',
+                        'title' => 'Kayıt bulunamadı',
+                        'description' => 'Filtreleri genişletin veya yeni kullanıcı hareketleri oluşmasını bekleyin.',
+                    ]) ?>
                 <?php else: ?>
                     <div class="user-activity-feed">
                         <?php
@@ -463,20 +456,17 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                         <div class="user-activity-pagination-meta">
                             Sayfa <strong><?= (int) $page ?></strong> / <?= (int) $totalPages ?> · Toplam <?= number_format((int) ($totalEvents ?? 0)) ?> olay
                         </div>
-                        <?= adminRenderPagination($totalPages, $page, $queryForPage, [
-                            'wrapper_class' => 'user-activity-pagination-wrapper logs-pagination-wrapper',
+                        <?= adminRenderLogPagination($totalPages, $page, $queryForPage, [
+                            'wrapper_class' => 'user-activity-pagination-wrapper',
                             'inner_class' => 'user-activity-pagination',
                             'aria_label' => 'Kullanıcı işlem günlüğü sayfalama',
                         ]) ?>
                     <?php endif; ?>
                 <?php endif; ?>
-            </div>
-        </section>
+        <?= adminRenderLogListPanelClose() ?>
 
         <aside class="user-activity-side">
-            <section class="admin-card ui-panel">
-                <div class="card-header user-activity-card-head ui-panel__head ui-card"><h3><i class="bi bi-shield-lock"></i> Güvenlik</h3></div>
-                <div class="card-body ui-panel__body">
+            <?= adminRenderPanelOpen(['title' => 'Güvenlik', 'icon' => 'bi-shield-lock', 'header_class' => 'user-activity-card-head']) ?>
                     <?php if (empty($securityRows)): ?>
                         <p class="ui-admin-muted-sm">Güvenlik kaydı yok.</p>
                     <?php else: ?>
@@ -489,12 +479,9 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                             <?php endforeach; ?>
                         </ul>
                     <?php endif; ?>
-                </div>
-            </section>
+            <?= adminRenderPanelClose() ?>
 
-            <section class="admin-card ui-panel">
-                <div class="card-header user-activity-card-head ui-panel__head ui-card"><h3><i class="bi bi-person-gear"></i> Yönetici İşlemleri</h3></div>
-                <div class="card-body ui-panel__body">
+            <?= adminRenderPanelOpen(['title' => 'Yönetici İşlemleri', 'icon' => 'bi-person-gear', 'header_class' => 'user-activity-card-head']) ?>
                     <?php if (empty($adminRows)): ?>
                         <p class="ui-admin-muted-sm">Yönetici işlem kaydı yok.</p>
                     <?php else: ?>
@@ -507,13 +494,10 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                             <?php endforeach; ?>
                         </ul>
                     <?php endif; ?>
-                </div>
-            </section>
+            <?= adminRenderPanelClose() ?>
 
             <?php if ($contentSummary): ?>
-                <section class="admin-card ui-panel">
-                    <div class="card-header user-activity-card-head ui-panel__head ui-card"><h3><i class="bi bi-collection"></i> İçerikler</h3></div>
-                    <div class="card-body ui-panel__body">
+                <?= adminRenderPanelOpen(['title' => 'İçerikler', 'icon' => 'bi-collection', 'header_class' => 'user-activity-card-head']) ?>
                         <div class="user-activity-content-counts">
                             <span><b><?= (int) $contentSummary['counts']['topics'] ?></b> konu</span>
                             <span><b><?= (int) $contentSummary['counts']['comments'] ?></b> yorum</span>
@@ -534,12 +518,9 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                                 </li>
                             <?php endforeach; ?>
                         </ul>
-                    </div>
-                </section>
+                <?= adminRenderPanelClose() ?>
 
-                <section class="admin-card ui-panel">
-                    <div class="card-header user-activity-card-head ui-panel__head ui-card"><h3><i class="bi bi-journal-text"></i> Admin Notları</h3></div>
-                    <div class="card-body ui-panel__body">
+                <?= adminRenderPanelOpen(['title' => 'Admin Notları', 'icon' => 'bi-journal-text', 'header_class' => 'user-activity-card-head']) ?>
                         <?php if (empty($adminNotes)): ?>
                             <p class="ui-admin-muted-sm">Bu kullanıcı için admin notu yok.</p>
                         <?php else: ?>
@@ -552,8 +533,7 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                                 <?php endforeach; ?>
                             </ul>
                         <?php endif; ?>
-                    </div>
-                </section>
+                <?= adminRenderPanelClose() ?>
             <?php endif; ?>
         </aside>
     </div>
@@ -595,7 +575,7 @@ $logClearModal = [
     'options' => $activityClearOptions,
     'warning' => 'Bu işlem geri alınamaz. Silinen kayıtlar veritabanından kalıcı olarak silinecektir.',
 ];
-include __DIR__ . '/../partials/log-clear-modal.php';
+adminRenderLogClearModal($logClearModal);
 unset($logClearModal, $activityClearOptions);
 ?>
 <?php endif; ?>

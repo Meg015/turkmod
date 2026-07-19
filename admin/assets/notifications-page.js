@@ -1,7 +1,16 @@
-const adminNotificationsPageDataNode = document.getElementById('adminNotificationsPageData');
-const adminNotificationsPageData = adminNotificationsPageDataNode ? JSON.parse(adminNotificationsPageDataNode.textContent || '{}') : {};
+function getAdminNotificationsPageData() {
+    const node = document.getElementById('adminNotificationsPageData');
+    if (!node) {
+        return {};
+    }
+    try {
+        return JSON.parse(node.textContent || '{}') || {};
+    } catch (error) {
+        return {};
+    }
+}
 
-(function () {
+function initNotificationComposerTemplates(adminNotificationsPageData) {
     const templates = adminNotificationsPageData.composerTemplates || {};
     const picker = document.getElementById('notificationTemplatePicker');
     if (!picker) {
@@ -37,9 +46,9 @@ const adminNotificationsPageData = adminNotificationsPageDataNode ? JSON.parse(a
             type.value = template.type;
         }
     });
-})();
+}
 
-(function () {
+function initNotificationTemplatePreviews(adminNotificationsPageData) {
     const payloads = adminNotificationsPageData.templatePreviewPayloads || {};
     const typeMeta = adminNotificationsPageData.typeMeta || {};
 
@@ -89,4 +98,15 @@ const adminNotificationsPageData = adminNotificationsPageDataNode ? JSON.parse(a
         });
         updatePreview(form);
     });
-})();
+}
+
+function initNotificationsPage() {
+    const adminNotificationsPageData = getAdminNotificationsPageData();
+    initNotificationComposerTemplates(adminNotificationsPageData);
+    initNotificationTemplatePreviews(adminNotificationsPageData);
+}
+
+window.adminPage.register('notifications', initNotificationsPage, {
+    id: 'notifications-page',
+    selector: '#adminNotificationsPageData'
+});

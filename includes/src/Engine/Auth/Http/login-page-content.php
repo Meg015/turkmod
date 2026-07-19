@@ -212,10 +212,10 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
             </div>
 
             <?php if ($errorMsg): ?>
-                <div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert" aria-live="assertive"><?= htmlspecialchars($errorMsg) ?></div>
+                <?= uiRenderAlert((string) $errorMsg, 'danger', ['attrs' => ['aria-live' => 'assertive']]) ?>
             <?php endif; ?>
             <?php if ($successMsg): ?>
-                <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success" role="status"><?= htmlspecialchars($successMsg) ?></div>
+                <?= uiRenderAlert((string) $successMsg, 'success', ['role' => 'status']) ?>
             <?php endif; ?>
             <?php if ($showOnboarding): ?>
                 <div class="auth-onboarding" role="status" aria-live="polite">

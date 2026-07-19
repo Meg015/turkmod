@@ -13,19 +13,18 @@ if (!function_exists('applicationLogsLevelBadgeClass')) {
     function applicationLogsLevelBadgeClass(string $level): string
     {
         $normalized = strtolower(trim($level));
-        if (in_array($normalized, ['emergency', 'alert', 'critical', 'error'], true)) {
-            return 'admin-badge-danger';
+        if (function_exists('adminStatusMeta') && function_exists('adminToneBadgeClass')) {
+            $meta = adminStatusMeta($normalized, 'log_level');
+            return adminToneBadgeClass((string) ($meta['tone'] ?? 'muted'), 'admin-badge-');
         }
-        if (in_array($normalized, ['warning', 'warn'], true)) {
-            return 'admin-badge-warning';
-        }
-        if ($normalized === 'notice') {
-            return 'admin-badge-info';
-        }
-        if ($normalized === 'info') {
-            return 'admin-badge-success';
-        }
-        return 'admin-badge-secondary';
+
+        return match ($normalized) {
+            'emergency', 'alert', 'critical', 'error' => 'admin-badge-danger',
+            'warning', 'warn' => 'admin-badge-warning',
+            'notice' => 'admin-badge-info',
+            'info' => 'admin-badge-success',
+            default => 'admin-badge-secondary',
+        };
     }
 }
 
@@ -33,6 +32,7 @@ $normalizeDate = static function ($value): string {
     $date = trim((string) $value);
     return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1 ? $date : '';
 };
+$applicationLogExcludedChannels = ['cron'];
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $postAction = (string) ($_POST['action'] ?? '');
@@ -61,7 +61,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'permission_message' => 'Uygulama loglarını temizlemek için gerekli izin hesabınıza tanımlanmamış.',
                 'redirect_url' => $redirectUrl,
                 'source' => 'application_logs',
-                'delete' => static fn (PDO $pdo): int => appLogsClearAll($pdo),
+                'delete' => static fn (PDO $pdo): int => appLogsClearAll($pdo, $applicationLogExcludedChannels),
                 'success_message' => static fn (int $deleted): string => $deleted . ' uygulama logu temizlendi.',
             ]);
         }
@@ -76,7 +76,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'permission_message' => 'Uygulama loglarını temizlemek için gerekli izin hesabınıza tanımlanmamış.',
                 'redirect_url' => $redirectUrl,
                 'source' => 'application_logs',
-                'delete' => static fn (PDO $pdo): int => appLogsClearOld($pdo, $days),
+                'delete' => static fn (PDO $pdo): int => appLogsClearOld($pdo, $days, $applicationLogExcludedChannels),
                 'context' => [
                     'days' => $days,
                 ],
@@ -101,7 +101,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'redirect_url' => $redirectUrl,
             'source' => 'application_logs',
             'validate' => static fn (): string => $hasFilter ? '' : 'Filtre seçmeden filtreye göre temizleme yapamazsınız.',
-            'delete' => static fn (PDO $pdo): int => appLogsClearFiltered($pdo, $postSearch, $postLevel, $postChannel, $postDateFrom, $postDateTo),
+            'delete' => static fn (PDO $pdo): int => appLogsClearFiltered($pdo, $postSearch, $postLevel, $postChannel, $postDateFrom, $postDateTo, $applicationLogExcludedChannels),
             'context' => [
                 'filters' => $filters,
             ],
@@ -113,6 +113,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 $search = trim((string) ($_GET['q'] ?? ''));
 $filterLevel = trim((string) ($_GET['level'] ?? ''));
 $filterChannel = trim((string) ($_GET['channel'] ?? ''));
+if (in_array(strtolower($filterChannel), $applicationLogExcludedChannels, true)) {
+    $filterChannel = '';
+}
 $dateFrom = $normalizeDate($_GET['date_from'] ?? '');
 $dateTo = $normalizeDate($_GET['date_to'] ?? '');
 $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -125,19 +128,19 @@ $channels = [];
 
 if ($pdo) {
     try {
-        $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, $perPage, $dateFrom, $dateTo);
+        $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, $perPage, $dateFrom, $dateTo, $applicationLogExcludedChannels);
         if (!empty($logs['items']) && function_exists('appLogsDecorateItems')) {
             $logs['items'] = appLogsDecorateItems($pdo, $logs['items']);
         }
-        $stats = appLogsGetStats($pdo);
+        $stats = appLogsGetStats($pdo, $applicationLogExcludedChannels);
         if (!isset($stats['total_24h'])) {
             $stats['total_24h'] = (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn();
         }
         if (!isset($stats['total_7d'])) {
             $stats['total_7d'] = (int) $pdo->query("SELECT COUNT(*) FROM application_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
         }
-        $levels = appLogsGetLevels($pdo);
-        $channels = appLogsGetChannels($pdo);
+        $levels = appLogsGetLevels($pdo, $applicationLogExcludedChannels);
+        $channels = appLogsGetChannels($pdo, $applicationLogExcludedChannels);
     } catch (Throwable $e) {
         flash('error', 'Uygulama loglari yuklenemedi: ' . safeErrorMessage($e));
     }
@@ -158,7 +161,7 @@ $logsTotalPages = max(1, (int) ceil($logsTotalRows / $logsPerPage));
 if ($pdo && $page > $logsTotalPages) {
     $page = $logsTotalPages;
     try {
-        $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, $perPage, $dateFrom, $dateTo);
+        $logs = appLogsGetList($pdo, $search, $filterLevel, $filterChannel, $page, $perPage, $dateFrom, $dateTo, $applicationLogExcludedChannels);
         if (!empty($logs['items']) && function_exists('appLogsDecorateItems')) {
             $logs['items'] = appLogsDecorateItems($pdo, $logs['items']);
         }
@@ -187,45 +190,21 @@ require_once __DIR__ . '/header.php';
 <?php adminRenderLogsSubtabs('application'); ?>
 
 <div class="logs-page application-logs-page">
-    <section class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <span class="ui-admin-kicker"><i class="bi bi-journal-code"></i> Sistem kayıtları</span>
-            <h2>Uygulama Logları</h2>
-            <p>Sistem, hata ve bakım kayıtlarını tek listede izleyin.</p>
-        </div>
-    </section>
+    <?= adminRenderLogPageHero('bi-journal-code', 'Sistem kayıtları', 'Uygulama Logları', 'Sistem, hata ve bakım kayıtlarını tek listede izleyin.') ?>
 
-    <div class="ui-admin-alert ui-admin-alert-info ui-alert">
-        <i class="bi bi-info-circle"></i>
-        <div>
-            <strong>Hata merkezi güncellendi:</strong>
-            Sistem kaynaklı hataları tek noktadan takip etmek için
-            <a href="<?= htmlspecialchars(rtrim((string) $baseUri, '/') . '/admin/system-health.php?tab=logs', ENT_QUOTES, 'UTF-8') ?>">Sistem Sağlığı > Loglar & Hatalar</a>
-            sekmesini kullanın.
-        </div>
-    </div>
-    <div class="admin-stat-grid logs-summary application-logs-summary ui-grid">
-        <div class="admin-stat-card stat-info logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-journal-code"></i></div>
-            <div class="stat-content"><span class="stat-label">Toplam Kayıt</span><span class="stat-value"><?= number_format((int) ($stats['total'] ?? 0)) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-success logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-clock"></i></div>
-            <div class="stat-content"><span class="stat-label">Kayıt (24s)</span><span class="stat-value"><?= number_format((int) ($stats['total_24h'] ?? 0)) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-info logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-calendar-week"></i></div>
-            <div class="stat-content"><span class="stat-label">Kayıt (7g)</span><span class="stat-value"><?= number_format((int) ($stats['total_7d'] ?? 0)) ?></span></div>
-        </div>
-        <div class="admin-stat-card stat-success logs-stat ui-card">
-            <div class="stat-icon"><i class="bi bi-diagram-3"></i></div>
-            <div class="stat-content"><span class="stat-label">Aktif Kanal</span><span class="stat-value"><?= number_format((int) ($stats['channels'] ?? 0)) ?></span></div>
-        </div>
-    </div>
+    <?= adminRenderAlert('', 'info', [
+        'icon' => 'bi-info-circle',
+        'html' => '<div><strong>Hata merkezi güncellendi:</strong> Sistem kaynaklı hataları tek noktadan takip etmek için <a href="' . htmlspecialchars(rtrim((string) $baseUri, '/') . '/admin/system-health.php?tab=logs', ENT_QUOTES, 'UTF-8') . '">Sistem Sağlığı &gt; Loglar &amp; Hatalar</a> sekmesini kullanın.</div>',
+    ]) ?>
+    <?= adminRenderLogStatCards([
+        ['tone' => 'info', 'icon' => 'bi-journal-code', 'label' => 'Toplam Kayıt', 'value' => number_format((int) ($stats['total'] ?? 0))],
+        ['tone' => 'success', 'icon' => 'bi-clock', 'label' => 'Kayıt (24s)', 'value' => number_format((int) ($stats['total_24h'] ?? 0))],
+        ['tone' => 'info', 'icon' => 'bi-calendar-week', 'label' => 'Kayıt (7g)', 'value' => number_format((int) ($stats['total_7d'] ?? 0))],
+        ['tone' => 'success', 'icon' => 'bi-diagram-3', 'label' => 'Aktif Kanal', 'value' => number_format((int) ($stats['channels'] ?? 0))],
+    ], ['class' => 'application-logs-summary', 'aria_label' => 'Uygulama logları özeti']) ?>
 
-    <div class="admin-card logs-toolbar-card ui-panel">
-        <div class="card-body ui-admin-card-compact ui-panel__body ui-card application-logs-toolbar logs-toolbar-shell">
-            <form method="get" action="application-logs.php" class="ui-admin-filter-row logs-filter-form application-logs-filter-form admin-log-filter-form">
+    <?= adminRenderLogToolbarOpen('application-logs-toolbar') ?>
+            <form method="get" action="application-logs.php" class="ui-admin-filter-row logs-filter-form application-logs-filter-form admin-log-filter-form admin-filter-form">
                 <div class="ui-admin-filter-grow application-logs-search">
                     <label class="ui-admin-form-label">Ara</label>
                     <input type="text" name="q" class="ui-admin-form-control" placeholder="Mesaj, kanal, seviye veya IP ara..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
@@ -270,40 +249,49 @@ require_once __DIR__ . '/header.php';
                 <div class="application-logs-maintenance">
                     <div class="application-logs-maintenance-label"><i class="bi bi-tools"></i> Bakım işlemleri</div>
                     <div class="application-logs-actions logs-toolbar-actions">
-                        <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-xs" data-clear-logs-open>
-                            <i class="bi bi-trash"></i> Günlüğü Temizle
-                        </button>
+                        <?= adminRenderLogClearTrigger(['label' => 'Günlüğü Temizle']) ?>
                     </div>
                 </div>
             <?php endif; ?>
-        </div>
-    </div>
+    <?= adminRenderLogToolbarClose() ?>
 
-    <div class="admin-card logs-list-card ui-panel">
-        <div class="card-header logs-list-head ui-admin-card-header-actions ui-panel__head ui-card">
-            <div>
-                <h3><i class="bi bi-journal-code"></i> Uygulama Logları</h3>
-                <span><?= number_format((int) ($logs['total'] ?? 0), 0, ',', '.') ?> kayıt</span>
-            </div>
-        </div>
-        <div class="card-body ui-admin-card-body-flush ui-panel__body ui-card">
+    <?= adminRenderLogListPanelOpen([
+        'tag' => 'div',
+        'class' => 'application-logs-list-card',
+        'body_class' => 'application-logs-list-body',
+        'icon' => 'bi-journal-code',
+        'title' => 'Uygulama Logları',
+        'count_text' => number_format((int) ($logs['total'] ?? 0), 0, ',', '.') . ' kayıt',
+    ]) ?>
             <?php if (empty($logs['items'])): ?>
-                <div class="ui-admin-empty ui-empty admin-log-empty">
-                    <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-journal-code"></i></div>
-                    <h3 class="ui-admin-empty-title ui-empty">Kayıt bulunamadı</h3>
-                    <p class="ui-admin-empty-desc ui-empty"><?= $hasFilters ? 'Seçili filtreyle eşleşen uygulama logu yok.' : 'Henüz uygulama logu oluşmamış.' ?></p>
-                </div>
+                <?= adminRenderLogEmptyState([
+                    'icon' => 'bi-journal-code',
+                    'tone' => 'info',
+                    'title' => 'Kayıt bulunamadı',
+                    'description' => $hasFilters ? 'Seçili filtreyle eşleşen uygulama logu yok.' : 'Henüz uygulama logu oluşmamış.',
+                ]) ?>
             <?php else: ?>
-                <div class="table-wrapper ui-table-wrap ui-surface admin-log-table-wrap">
-                    <table class="admin-table admin-log-table">
+                <?= adminRenderLogTableOpen([
+                    'wrapper_class' => 'application-logs-table-wrap',
+                    'table_class' => 'application-logs-table admin-log-card-table',
+                    'table_attrs' => ['aria-label' => 'Uygulama logları'],
+                ]) ?>
+                        <colgroup>
+                            <col class="application-logs-col-date">
+                            <col class="application-logs-col-level">
+                            <col class="application-logs-col-channel">
+                            <col class="application-logs-col-message">
+                            <col class="application-logs-col-ip">
+                            <col class="application-logs-col-detail">
+                        </colgroup>
                         <thead>
                             <tr>
-                            <th>Tarih</th>
-                            <th>Seviye</th>
-                            <th>Kanal</th>
-                            <th>Mesaj</th>
-                            <th>IP</th>
-                            <th>Ayrıntı</th>
+                            <th class="application-logs-date-head">Tarih</th>
+                            <th class="application-logs-level-head">Seviye</th>
+                            <th class="application-logs-channel-head">Kanal</th>
+                            <th class="application-logs-message-head">Mesaj</th>
+                            <th class="application-logs-ip-head">IP</th>
+                            <th class="application-logs-detail-head">Ayrıntı</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -320,18 +308,18 @@ require_once __DIR__ . '/header.php';
                             $technicalContext = trim((string) ($log['context_technical'] ?? ''));
                             ?>
                             <tr>
-                                <td class="ui-admin-table-cell-date"><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></td>
-                                <td>
+                                <td class="ui-admin-table-cell-date application-logs-date-cell" data-label="Tarih"><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="application-logs-level-cell" data-label="Seviye">
                                     <span class="admin-badge <?= htmlspecialchars(applicationLogsLevelBadgeClass($level), ENT_QUOTES, 'UTF-8') ?>">
                                         <?= htmlspecialchars($levelLabel !== '' ? $levelLabel : 'Bilinmiyor', ENT_QUOTES, 'UTF-8') ?>
                                     </span>
                                 </td>
-                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm"><?= htmlspecialchars($channelLabel !== '' ? $channelLabel : '-', ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="ui-admin-table-cell-desc ui-admin-log-message-cell">
+                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm application-logs-channel-cell" data-label="Kanal"><?= htmlspecialchars($channelLabel !== '' ? $channelLabel : '-', ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="ui-admin-table-cell-desc ui-admin-log-message-cell application-logs-message-cell" data-label="Mesaj">
                                     <div class="ui-admin-log-message-title"><?= htmlspecialchars($humanMessage !== '' ? $humanMessage : '-', ENT_QUOTES, 'UTF-8') ?></div>
                                 </td>
-                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm"><?= htmlspecialchars((string) (($log['ip_address'] ?? '') !== '' ? $log['ip_address'] : '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
+                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm application-logs-ip-cell" data-label="IP"><?= htmlspecialchars((string) (($log['ip_address'] ?? '') !== '' ? $log['ip_address'] : '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell application-logs-detail-cell" data-label="Ayrıntı">
                                     <div class="ui-admin-log-summary"><?= htmlspecialchars($contextSummary !== '' ? $contextSummary : 'Ek detay yok', ENT_QUOTES, 'UTF-8') ?></div>
                                     <?php if ($technicalContext !== ''): ?>
                                         <details class="ui-admin-log-technical">
@@ -343,8 +331,7 @@ require_once __DIR__ . '/header.php';
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
-                    </table>
-                </div>
+                <?= adminRenderLogTableClose() ?>
 
                 <?php
                 $perPage = max(1, (int) ($logs['perPage'] ?? adminPaginationPerPage()));
@@ -359,15 +346,13 @@ require_once __DIR__ . '/header.php';
                         'date_to' => $dateTo,
                     ], static fn ($value): bool => $value !== '' && $value !== null);
                     $pageBase = 'application-logs.php?' . ($pageParams ? http_build_query($pageParams) . '&' : '') . 'page=';
-                    echo adminRenderPagination($totalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
-                        'wrapper_class' => 'logs-pagination-wrapper',
+                    echo adminRenderLogPagination($totalPages, $page, static fn (int $targetPage): string => $pageBase . $targetPage, [
                         'aria_label' => 'Uygulama logları sayfalama',
                     ]);
                 endif;
                 ?>
             <?php endif; ?>
-        </div>
-    </div>
+    <?= adminRenderLogListPanelClose('div') ?>
 
     <?php if ($canManageLogs): ?>
     <?php
@@ -418,7 +403,7 @@ require_once __DIR__ . '/header.php';
         ],
         'warning' => 'Seçilen kapsam kalıcı olarak silinir. Güvenlik incelemeleri için son logların tutulması önerilir. İşlem geri alınamaz.',
     ];
-    include __DIR__ . '/partials/log-clear-modal.php';
+    adminRenderLogClearModal($logClearModal);
     unset($logClearModal, $applicationClearOptions);
     ?>
     <?php endif; ?>

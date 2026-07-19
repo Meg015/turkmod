@@ -23,13 +23,7 @@ function uploadTopicIsAjaxRequest(): bool
 function uploadTopicRespond(bool $success, string $message, int $statusCode = 200, array $data = []): void
 {
     if (uploadTopicIsAjaxRequest()) {
-        http_response_code($statusCode);
-        header("Content-Type: application/json; charset=utf-8");
-        echo json_encode(array_merge([
-            "success" => $success,
-            "message" => $message,
-        ], $data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        exit();
+        sendJsonResponse($statusCode, $success, $message, $data, $success ? null : 'topic_upload_failed');
     }
 
     $_SESSION[$success ? "_flash_success" : "_flash_error"] = $message;
@@ -184,7 +178,7 @@ function uploadTopicValidateImageFile(array $file, string $label, array $setting
 if (!$userUploadEnabled) {
     http_response_code(403);
     require_once $projectRoot . "/includes/public-header.php";
-    echo '<div class="container py-5 ui-container"><div class="ui-admin-alert ui-admin-alert-warning ui-alert ui-alert--warning">Kullanıcı mod yükleme özelliği şu anda kapalı.</div></div>';
+    echo '<div class="container py-5 ui-container">' . uiRenderAlert('Kullanıcı mod yükleme özelliği şu anda kapalı.', 'warning') . '</div>';
     require_once $projectRoot . "/includes/public-footer.php";
     exit();
 }
@@ -192,7 +186,7 @@ if (!$userUploadEnabled) {
 if ($pdo && function_exists('userHasPermission') && !userHasPermission($pdo, (int)$_SESSION['_auth_user_id'], 'topics.create')) {
     http_response_code(403);
     require_once $projectRoot . "/includes/public-header.php";
-    echo '<div class="container py-5 ui-container"><div class="ui-admin-alert ui-admin-alert-warning ui-alert ui-alert--warning">Konu oluşturmak için gerekli izin hesabınıza tanımlanmamış.</div></div>';
+    echo '<div class="container py-5 ui-container">' . uiRenderAlert('Konu oluşturmak için gerekli izin hesabınıza tanımlanmamış.', 'warning') . '</div>';
     require_once $projectRoot . "/includes/public-footer.php";
     exit();
 }

@@ -97,6 +97,9 @@ function ensureScraperSchema(?PDO $pdo): void
     if (!adminColumnExists($pdo, 'bot_sites', 'total_imports')) {
         $missing[] = 'bot_sites.total_imports';
     }
+    if (!adminColumnExists($pdo, 'bot_category_mappings', 'title_prefix')) {
+        $missing[] = 'bot_category_mappings.title_prefix';
+    }
     if ($missing !== []) {
         throw new RuntimeException('Missing scraper schema: ' . implode(', ', $missing) . '; run Database Synchronization.');
     }
@@ -448,16 +451,17 @@ function saveScraperMapping(?PDO $pdo, array $data, ?int $id = null): int
     $siteId = (int)($data['bot_site_id'] ?? 0);
     $remoteName = trim($data['remote_category_name'] ?? '');
     $remoteUrl = trim($data['remote_category_url'] ?? '');
+    $titlePrefix = trim((string)($data['title_prefix'] ?? ''));
     $localCatId = (int)($data['local_category_id'] ?? 0) ?: null;
     $status = in_array($data['status'] ?? '', ['active', 'inactive']) ? $data['status'] : 'active';
 
     if ($id && $id > 0) {
-        $stmt = $pdo->prepare("UPDATE bot_category_mappings SET remote_category_name=?, remote_category_url=?, local_category_id=?, status=?, updated_at=NOW() WHERE id=?");
-        $stmt->execute([$remoteName, $remoteUrl, $localCatId, $status, $id]);
+        $stmt = $pdo->prepare("UPDATE bot_category_mappings SET remote_category_name=?, remote_category_url=?, title_prefix=?, local_category_id=?, status=?, updated_at=NOW() WHERE id=?");
+        $stmt->execute([$remoteName, $remoteUrl, $titlePrefix, $localCatId, $status, $id]);
         return $id;
     } else {
-        $stmt = $pdo->prepare("INSERT INTO bot_category_mappings (bot_site_id, remote_category_name, remote_category_url, local_category_id, status, created_at, updated_at) VALUES (?,?,?,?,?,NOW(),NOW())");
-        $stmt->execute([$siteId, $remoteName, $remoteUrl, $localCatId, $status]);
+        $stmt = $pdo->prepare("INSERT INTO bot_category_mappings (bot_site_id, remote_category_name, remote_category_url, title_prefix, local_category_id, status, created_at, updated_at) VALUES (?,?,?,?,?,?,NOW(),NOW())");
+        $stmt->execute([$siteId, $remoteName, $remoteUrl, $titlePrefix, $localCatId, $status]);
         return (int)$pdo->lastInsertId();
     }
 }

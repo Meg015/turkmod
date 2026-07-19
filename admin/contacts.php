@@ -330,36 +330,14 @@ require_once __DIR__ . '/header.php';
 ?>
 
 <div class="contacts-page">
-    <?php if ($successMsg): ?>
-        <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success" role="status">
-            <i class="bi bi-check-circle-fill"></i>
-            <?= htmlspecialchars((string) $successMsg, ENT_QUOTES, 'UTF-8') ?>
-        </div>
-    <?php endif; ?>
-    <?php if ($infoMsg): ?>
-        <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert--info" role="status">
-            <i class="bi bi-info-circle-fill"></i>
-            <?= htmlspecialchars((string) $infoMsg, ENT_QUOTES, 'UTF-8') ?>
-        </div>
-    <?php endif; ?>
-    <?php if ($errorMsg): ?>
-        <div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            <?= htmlspecialchars((string) $errorMsg, ENT_QUOTES, 'UTF-8') ?>
-        </div>
-    <?php endif; ?>
+    <?= adminRenderAlert((string) $successMsg, 'success') ?>
+    <?= adminRenderAlert((string) $infoMsg, 'info') ?>
+    <?= adminRenderAlert((string) $errorMsg, 'danger') ?>
 
-    <section class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <span class="ui-admin-kicker"><i class="bi bi-envelope-paper"></i> İletişim merkezi</span>
-            <h2>İletişim Yönetimi</h2>
-            <p>Tek seferlik şikayet ve iletişim mesajlarını, kategori bazlı şekilde takip edin. Yanıtlar e-posta olarak gider, konuşma geçmişi tutulmaz.</p>
-        </div>
-        <div class="ui-admin-page-hero-actions">
-            <span class="ui-admin-badge ui-admin-badge-warning"><i class="bi bi-inbox"></i> <?= number_format($activeMessageCount, 0, ',', '.') ?> yeni mesaj</span>
-            <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-envelope-check"></i> <?= number_format((int) ($messageStats['replied'] ?? 0), 0, ',', '.') ?> yanıtlandı</span>
-        </div>
-    </section>
+    <?= adminRenderPageHero('bi-envelope-paper', 'İletişim merkezi', 'İletişim Yönetimi', 'Tek seferlik şikayet ve iletişim mesajlarını, kategori bazlı şekilde takip edin. Yanıtlar e-posta olarak gider, konuşma geçmişi tutulmaz.', [], [
+        'actions_html' => '<span class="ui-admin-badge ui-admin-badge-warning"><i class="bi bi-inbox"></i> ' . number_format($activeMessageCount, 0, ',', '.') . ' yeni mesaj</span>'
+            . '<span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-envelope-check"></i> ' . number_format((int) ($messageStats['replied'] ?? 0), 0, ',', '.') . ' yanıtlandı</span>',
+    ]) ?>
 
     <div class="ui-admin-tabs ui-admin-tabs-spaced">
         <a class="ui-admin-tab <?= $activeTab === 'messages' ? 'is-active' : '' ?>" href="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => $requestedMessageId]), ENT_QUOTES, 'UTF-8') ?>"<?= $activeTab === 'messages' ? ' aria-current="page"' : '' ?>><i class="bi bi-inbox"></i> Mesajlar <span class="ui-admin-badge ui-admin-badge-danger ui-admin-badge-xs"><?= number_format($activeMessageCount, 0, ',', '.') ?></span></a>
@@ -367,43 +345,13 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <?php if ($activeTab === 'messages'): ?>
-        <section class="admin-stat-grid ui-grid">
-            <div class="admin-stat-card stat-info ui-card">
-                <div class="stat-icon"><i class="bi bi-envelope-paper"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Toplam</span>
-                    <span class="stat-value"><?= number_format((int) ($messageStats['total'] ?? 0), 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-danger ui-card">
-                <div class="stat-icon"><i class="bi bi-inbox"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Yeni</span>
-                    <span class="stat-value"><?= number_format((int) ($messageStats['new'] ?? 0), 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-warning ui-card">
-                <div class="stat-icon"><i class="bi bi-reply"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Yanıtlandı</span>
-                    <span class="stat-value"><?= number_format((int) ($messageStats['replied'] ?? 0), 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-success ui-card">
-                <div class="stat-icon"><i class="bi bi-check2-circle"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Çözüldü</span>
-                    <span class="stat-value"><?= number_format((int) ($messageStats['resolved'] ?? 0), 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-info ui-card">
-                <div class="stat-icon"><i class="bi bi-eye-slash"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Görülmedi</span>
-                    <span class="stat-value"><?= number_format((int) ($messageStats['unseen'] ?? 0), 0, ',', '.') ?></span>
-                </div>
-            </div>
-        </section>
+        <?= adminRenderStatCards([
+            ['tone' => 'info', 'icon' => 'bi-envelope-paper', 'label' => 'Toplam', 'value' => number_format((int) ($messageStats['total'] ?? 0), 0, ',', '.')],
+            ['tone' => 'danger', 'icon' => 'bi-inbox', 'label' => 'Yeni', 'value' => number_format((int) ($messageStats['new'] ?? 0), 0, ',', '.')],
+            ['tone' => 'warning', 'icon' => 'bi-reply', 'label' => 'Yanıtlandı', 'value' => number_format((int) ($messageStats['replied'] ?? 0), 0, ',', '.')],
+            ['tone' => 'success', 'icon' => 'bi-check2-circle', 'label' => 'Çözüldü', 'value' => number_format((int) ($messageStats['resolved'] ?? 0), 0, ',', '.')],
+            ['tone' => 'info', 'icon' => 'bi-eye-slash', 'label' => 'Görülmedi', 'value' => number_format((int) ($messageStats['unseen'] ?? 0), 0, ',', '.')],
+        ], ['class' => 'contacts-summary contacts-message-summary', 'aria_label' => 'İletişim mesaj özeti']) ?>
 
         <section class="ui-admin-premium-card contacts-message-list-panel ui-card">
             <div class="ui-admin-premium-card-header ui-panel__head ui-card contacts-message-panel-head">
@@ -419,7 +367,7 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <div class="ui-admin-premium-card-body ui-panel__body ui-card contacts-message-panel-body">
-                <form method="get" action="contacts.php" class="contacts-message-filter-form">
+                <form method="get" action="contacts.php" class="contacts-message-filter-form admin-filter-form">
                     <input type="hidden" name="tab" value="messages">
                     <label class="contacts-message-filter-field contacts-message-filter-search" for="contactSearch">
                         <span>Ara</span>
@@ -477,38 +425,35 @@ require_once __DIR__ . '/header.php';
                 </div>
 
                 <?php if ($messages === []): ?>
-                    <div class="ui-admin-empty ui-admin-empty-pro contacts-empty-state contacts-empty-state-list">
-                        <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-inbox"></i></div>
-                        <h3 class="ui-admin-empty-title ui-empty"><?= $hasMessageFilters ? 'Filtreye uyan mesaj yok' : 'Henüz mesaj yok' ?></h3>
-                        <p class="ui-admin-empty-desc ui-empty"><?= $hasMessageFilters ? 'Seçili filtrelerle eşleşen bir kayıt bulamadım. Filtreleri sıfırlayıp yeniden deneyin.' : 'Yeni iletişim talepleri burada listelenecek. Şu anda gelen kutusu boş görünüyor.' ?></p>
-                        <div class="ui-admin-empty-meta">
-                            <span><i class="bi bi-eye-slash"></i> <?= number_format((int) ($messageStats['unseen'] ?? 0), 0, ',', '.') ?> görülmemiş</span>
-                            <span><i class="bi bi-reply"></i> <?= number_format((int) ($messageStats['replied'] ?? 0), 0, ',', '.') ?> yanıtlanmış</span>
-                            <?php if ($hasMessageFilters): ?>
-                                <span><i class="bi bi-funnel"></i> Filtre aktif</span>
-                            <?php endif; ?>
-                        </div>
-                        <div class="ui-admin-empty-actions">
-                            <?php if ($hasMessageFilters): ?>
-                                <a href="contacts.php?tab=messages" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-x-lg"></i> Filtreleri temizle</a>
-                            <?php endif; ?>
-                            <a href="<?= htmlspecialchars(adminContactsUrl('categories', $selectedCategoryId > 0 ? ['category_id' => $selectedCategoryId] : []), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-tags"></i> Kategoriler</a>
-                        </div>
-                    </div>
+                    <?= adminRenderEmptyState([
+                        'icon' => 'bi-inbox',
+                        'tone' => 'info',
+                        'title' => $hasMessageFilters ? 'Filtreye uyan mesaj yok' : 'Henüz mesaj yok',
+                        'description' => $hasMessageFilters ? 'Seçili filtrelerle eşleşen bir kayıt bulamadım. Filtreleri sıfırlayıp yeniden deneyin.' : 'Yeni iletişim talepleri burada listelenecek. Şu anda gelen kutusu boş görünüyor.',
+                        'pro' => true,
+                        'class' => 'contacts-empty-state contacts-empty-state-list',
+                        'meta' => array_values(array_filter([
+                            ['icon' => 'bi-eye-slash', 'label' => number_format((int) ($messageStats['unseen'] ?? 0), 0, ',', '.') . ' görülmemiş'],
+                            ['icon' => 'bi-reply', 'label' => number_format((int) ($messageStats['replied'] ?? 0), 0, ',', '.') . ' yanıtlanmış'],
+                            $hasMessageFilters ? ['icon' => 'bi-funnel', 'label' => 'Filtre aktif'] : null,
+                        ])),
+                        'actions' => array_values(array_filter([
+                            $hasMessageFilters ? ['href' => 'contacts.php?tab=messages', 'label' => 'Filtreleri temizle', 'icon' => 'bi-x-lg', 'class' => 'ui-admin-btn-primary ui-admin-btn-sm'] : null,
+                            ['href' => adminContactsUrl('categories', $selectedCategoryId > 0 ? ['category_id' => $selectedCategoryId] : []), 'label' => 'Kategoriler', 'icon' => 'bi-tags', 'class' => 'ui-admin-btn-sm'],
+                        ])),
+                    ]) ?>
                 <?php else: ?>
-                    <div class="ui-admin-table-wrap-x">
-                        <table class="ui-admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Durum</th>
-                                    <th>Gönderen</th>
-                                    <th>Konu</th>
-                                    <th>Kategori</th>
-                                    <th>Tarih</th>
-                                    <th class="ui-admin-table-head-actions">İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                    <?= adminRenderTableOpen([
+                        'Durum',
+                        'Gönderen',
+                        'Konu',
+                        'Kategori',
+                        'Tarih',
+                        ['label' => 'İşlem', 'class' => 'ui-admin-table-head-actions'],
+                    ], [
+                        'wrap_class' => 'ui-admin-table-wrap-x',
+                        'label' => 'İletişim mesajları',
+                    ]) ?>
                                 <?php foreach ($messages as $message): ?>
                                     <?php
                                         $messageId = (int) ($message['id'] ?? 0);
@@ -552,7 +497,7 @@ require_once __DIR__ . '/header.php';
                                             <div class="ui-admin-actions-inline">
                                                 <a href="<?= htmlspecialchars($messageUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-eye"></i> Aç</a>
                                                 <?php if (function_exists('adminCurrentUserCan') && adminCurrentUserCan('contact.manage')): ?>
-                                                <form method="post" action="<?= htmlspecialchars($messageUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form" data-admin-confirm="Bu mesaj kalıcı olarak silinecek. Devam edilsin mi?" data-admin-confirm-title="Mesaj silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
+                                                <form method="post" action="<?= htmlspecialchars($messageUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu mesaj kalıcı olarak silinecek. Devam edilsin mi?', 'title' => 'Mesaj silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
                                                     <?= csrf_field() ?>
                                                     <input type="hidden" name="action" value="delete_message">
                                                     <input type="hidden" name="tab" value="messages">
@@ -568,9 +513,7 @@ require_once __DIR__ . '/header.php';
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                    <?= adminRenderTableClose() ?>
 
                     <?php if ($totalMessagePages > 1): ?>
                         <?php
@@ -690,11 +633,14 @@ require_once __DIR__ . '/header.php';
                                         <?php endif; ?>
                                     </div>
                                 <?php else: ?>
-                                    <div class="ui-admin-empty ui-admin-empty-pro contacts-empty-state contacts-empty-state-compact">
-                                        <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-reply"></i></div>
-                                        <h3 class="ui-admin-empty-title ui-empty">Henüz yanıt yok</h3>
-                                        <p class="ui-admin-empty-desc ui-empty">İsterseniz aşağıdan tek bir e-posta yanıtı gönderebilirsiniz.</p>
-                                    </div>
+                                    <?= adminRenderEmptyState([
+                                        'icon' => 'bi-reply',
+                                        'tone' => 'info',
+                                        'title' => 'Henüz yanıt yok',
+                                        'description' => 'İsterseniz aşağıdan tek bir e-posta yanıtı gönderebilirsiniz.',
+                                        'pro' => true,
+                                        'class' => 'contacts-empty-state contacts-empty-state-compact',
+                                    ]) ?>
                                 <?php endif; ?>
                             </div>
 
@@ -732,7 +678,7 @@ require_once __DIR__ . '/header.php';
                                         <button type="submit" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-check2-circle"></i> Çözüldü</button>
                                     </form>
 
-                                    <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form" data-admin-confirm="Bu mesaj kalıcı olarak silinecek. Devam edilsin mi?" data-admin-confirm-title="Mesaj silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
+                                    <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu mesaj kalıcı olarak silinecek. Devam edilsin mi?', 'title' => 'Mesaj silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="action" value="delete_message">
                                         <input type="hidden" name="tab" value="messages">
@@ -745,10 +691,7 @@ require_once __DIR__ . '/header.php';
                                     </form>
                                 </div>
                             <?php else: ?>
-                                <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert--info">
-                                    <i class="bi bi-info-circle"></i>
-                                    Sadece görüntüleme yetkiniz var. Yanıt ve silme işlemleri kapalı.
-                                </div>
+                                <?= adminRenderAlert('Sadece görüntüleme yetkiniz var. Yanıt ve silme işlemleri kapalı.', 'info', ['icon' => 'bi-info-circle']) ?>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -756,36 +699,12 @@ require_once __DIR__ . '/header.php';
             </div>
         <?php endif; ?>
     <?php else: ?>
-        <section class="admin-stat-grid ui-grid">
-            <div class="admin-stat-card stat-info ui-card">
-                <div class="stat-icon"><i class="bi bi-tags"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Toplam</span>
-                    <span class="stat-value"><?= number_format($categoryStats['total'], 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-success ui-card">
-                <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Aktif</span>
-                    <span class="stat-value"><?= number_format($categoryStats['active'], 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-warning ui-card">
-                <div class="stat-icon"><i class="bi bi-pause-circle"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Pasif</span>
-                    <span class="stat-value"><?= number_format($categoryStats['inactive'], 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-info ui-card">
-                <div class="stat-icon"><i class="bi bi-chat-left-text"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Kullanılan</span>
-                    <span class="stat-value"><?= number_format($categoryStats['used'], 0, ',', '.') ?></span>
-                </div>
-            </div>
-        </section>
+        <?= adminRenderStatCards([
+            ['tone' => 'info', 'icon' => 'bi-tags', 'label' => 'Toplam', 'value' => number_format($categoryStats['total'], 0, ',', '.')],
+            ['tone' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Aktif', 'value' => number_format($categoryStats['active'], 0, ',', '.')],
+            ['tone' => 'warning', 'icon' => 'bi-pause-circle', 'label' => 'Pasif', 'value' => number_format($categoryStats['inactive'], 0, ',', '.')],
+            ['tone' => 'info', 'icon' => 'bi-chat-left-text', 'label' => 'Kullanılan', 'value' => number_format($categoryStats['used'], 0, ',', '.')],
+        ], ['class' => 'contacts-summary contacts-category-summary', 'aria_label' => 'İletişim kategori özeti']) ?>
 
         <div class="ui-admin-two-col">
             <section class="ui-admin-premium-card ui-card">
@@ -796,35 +715,34 @@ require_once __DIR__ . '/header.php';
                     <p class="ui-admin-table-cell-desc contacts-section-copy">Kategoriler public formda listelenir. Silinen kayıtların adı ve ikonu mesajların içinde snapshot olarak kalır.</p>
 
                     <?php if ($categories === []): ?>
-                        <div class="ui-admin-empty ui-admin-empty-pro contacts-empty-state contacts-empty-state-list">
-                            <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-tags"></i></div>
-                            <h3 class="ui-admin-empty-title ui-empty">Henüz kategori yok</h3>
-                            <p class="ui-admin-empty-desc ui-empty">Mesajları gruplamak için ilk kategoriyi oluşturun. İkon, sıra ve aktif/pasif durumu bu panelden yönetilir.</p>
-                            <div class="ui-admin-empty-meta">
-                                <span><i class="bi bi-diagram-3"></i> Sıralı yapı</span>
-                                <span><i class="bi bi-icons"></i> Bootstrap ikonları</span>
-                            </div>
-                            <?php if (adminCurrentUserCan('contact.categories.manage')): ?>
-                                <div class="ui-admin-empty-actions">
-                                    <a href="#categoryName" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-arrow-down"></i> Forma git</a>
-                                </div>
-                            <?php endif; ?>
-                        </div>
+                        <?= adminRenderEmptyState([
+                            'icon' => 'bi-tags',
+                            'tone' => 'info',
+                            'title' => 'Henüz kategori yok',
+                            'description' => 'Mesajları gruplamak için ilk kategoriyi oluşturun. İkon, sıra ve aktif/pasif durumu bu panelden yönetilir.',
+                            'pro' => true,
+                            'class' => 'contacts-empty-state contacts-empty-state-list',
+                            'meta' => [
+                                ['icon' => 'bi-diagram-3', 'label' => 'Sıralı yapı'],
+                                ['icon' => 'bi-icons', 'label' => 'Bootstrap ikonları'],
+                            ],
+                            'actions' => adminCurrentUserCan('contact.categories.manage')
+                                ? [['href' => '#categoryName', 'label' => 'Forma git', 'icon' => 'bi-arrow-down', 'class' => 'ui-admin-btn-primary ui-admin-btn-sm']]
+                                : [],
+                        ]) ?>
                     <?php else: ?>
-                        <div class="ui-admin-table-wrap-x">
-                            <table class="ui-admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>İkon</th>
-                                        <th>Ad</th>
-                                        <th>Slug</th>
-                                        <th>Sıra</th>
-                                        <th>Durum</th>
-                                        <th>Mesaj</th>
-                                        <th class="ui-admin-table-head-actions">İşlem</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                        <?= adminRenderTableOpen([
+                            'İkon',
+                            'Ad',
+                            'Slug',
+                            'Sıra',
+                            'Durum',
+                            'Mesaj',
+                            ['label' => 'İşlem', 'class' => 'ui-admin-table-head-actions'],
+                        ], [
+                            'wrap_class' => 'ui-admin-table-wrap-x',
+                            'label' => 'İletişim kategorileri',
+                        ]) ?>
                                     <?php foreach ($categories as $category): ?>
                                         <?php
                                             $categoryId = (int) ($category['id'] ?? 0);
@@ -854,7 +772,7 @@ require_once __DIR__ . '/header.php';
                                                             <input type="hidden" name="is_active" value="<?= (int) ($category['is_active'] ?? 0) === 1 ? 0 : 1 ?>">
                                                             <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi <?= (int) ($category['is_active'] ?? 0) === 1 ? 'bi-pause-circle' : 'bi-play-circle' ?>"></i> <?= (int) ($category['is_active'] ?? 0) === 1 ? 'Pasif' : 'Aktif' ?></button>
                                                         </form>
-                                                        <form method="post" action="<?= htmlspecialchars(adminContactsUrl('categories'), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form" data-admin-confirm="Bu kategori kalıcı olarak silinecek. Mesajlardaki kategori adı ve ikonu korunur. Devam edilsin mi?" data-admin-confirm-title="Kategori silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
+                                                        <form method="post" action="<?= htmlspecialchars(adminContactsUrl('categories'), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu kategori kalıcı olarak silinecek. Mesajlardaki kategori adı ve ikonu korunur. Devam edilsin mi?', 'title' => 'Kategori silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
                                                             <?= csrf_field() ?>
                                                             <input type="hidden" name="action" value="delete_category">
                                                             <input type="hidden" name="tab" value="categories">
@@ -868,9 +786,7 @@ require_once __DIR__ . '/header.php';
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                        <?= adminRenderTableClose() ?>
                     <?php endif; ?>
                 </div>
             </section>
@@ -881,11 +797,14 @@ require_once __DIR__ . '/header.php';
                 </div>
                 <div class="ui-admin-premium-card-body ui-panel__body ui-card">
                     <?php if (!adminCurrentUserCan('contact.categories.manage')): ?>
-                        <div class="ui-admin-empty ui-admin-empty-pro contacts-empty-state contacts-empty-state-compact">
-                            <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-lock"></i></div>
-                            <h3 class="ui-admin-empty-title ui-empty">Yetki yok</h3>
-                            <p class="ui-admin-empty-desc ui-empty">Kategori düzenleme ve silme işlemleri kapalı.</p>
-                        </div>
+                        <?= adminRenderEmptyState([
+                            'icon' => 'bi-lock',
+                            'tone' => 'info',
+                            'title' => 'Yetki yok',
+                            'description' => 'Kategori düzenleme ve silme işlemleri kapalı.',
+                            'pro' => true,
+                            'class' => 'contacts-empty-state contacts-empty-state-compact',
+                        ]) ?>
                     <?php else: ?>
                         <form method="post" action="<?= htmlspecialchars(adminContactsUrl('categories', $selectedCategoryId > 0 ? ['category_id' => $selectedCategoryId] : []), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-form ui-stack">
                             <?= csrf_field() ?>

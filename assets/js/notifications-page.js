@@ -2,12 +2,22 @@
     "use strict";
 
     document.addEventListener("DOMContentLoaded", function () {
-        var root = document.querySelector("[data-notifications-page], [data-notifications-root]");
+        var root = document.querySelector("[data-notifications-page]") || document.querySelector("[data-notifications-root]");
         if (!root) {
             return;
         }
 
         function rootAttribute(name) {
+            if (Array.isArray(name)) {
+                for (var index = 0; index < name.length; index += 1) {
+                    var value = root.getAttribute(name[index]) || "";
+                    if (value) {
+                        return value;
+                    }
+                }
+                return "";
+            }
+
             return root.getAttribute(name) || "";
         }
 
@@ -19,45 +29,105 @@
             return !!data && (data.ok === true || data.success === true);
         }
 
-        var csrfToken = rootAttribute("data-notifications-csrf");
-        var readEndpoint = rootAttribute("data-notifications-read-endpoint");
-        var deleteEndpoint = rootAttribute("data-notifications-delete-endpoint");
-        var readMoreEnabled = boolAttr(rootAttribute("data-notifications-read-more"));
-        var autoMarkOnOpen = boolAttr(rootAttribute("data-notifications-auto-mark"));
+        var csrfToken = rootAttribute(["data-notifications-csrf", "data-csrf-token"]);
+        var readEndpoint = rootAttribute(["data-notifications-read-endpoint", "data-read-endpoint"]);
+        var deleteEndpoint = rootAttribute(["data-notifications-delete-endpoint", "data-delete-endpoint"]);
+        var readMoreEnabled = boolAttr(rootAttribute(["data-notifications-read-more", "data-read-more-enabled"]));
+        var autoMarkOnOpen = boolAttr(rootAttribute(["data-notifications-auto-mark", "data-auto-mark-on-open"]));
 
-        function postNotificationRead(id) {
-            var formData = new FormData();
-            formData.append("_token", csrfToken);
-            formData.append("id", id);
+        function setCsrfToken(token) {
+            if (!token) {
+                return;
+            }
 
-            return fetch(readEndpoint, {
+            csrfToken = token;
+            if (window.publicApi && typeof window.publicApi.updateCsrfToken === "function") {
+                window.publicApi.updateCsrfToken(token);
+            }
+            root.setAttribute("data-notifications-csrf", token);
+            root.setAttribute("data-csrf-token", token);
+        }
+
+        function currentCsrfToken() {
+            var publicToken = window.publicApi && typeof window.publicApi.csrfToken === "function"
+                ? window.publicApi.csrfToken()
+                : "";
+            var metaToken = document.querySelector('meta[name="csrf-token"]');
+            var token = publicToken || (metaToken ? (metaToken.getAttribute("content") || "") : "");
+            if (token && token !== csrfToken) {
+                setCsrfToken(token);
+            }
+
+            return csrfToken;
+        }
+
+        function refreshCsrfToken() {
+            if (!window.publicApi || typeof window.publicApi.refreshCsrfToken !== "function") {
+                return Promise.resolve(false);
+            }
+
+            return window.publicApi.refreshCsrfToken().then(function (refreshed) {
+                currentCsrfToken();
+                return refreshed;
+            });
+        }
+
+        function sendNotificationPost(endpoint, buildFormData) {
+            if (!endpoint) {
+                return Promise.reject(new Error("Bildirim servisi adresi bulunamadi. Lutfen sayfayi yenileyip tekrar deneyin."));
+            }
+
+            var token = currentCsrfToken();
+            var formData = buildFormData(token);
+
+            if (!window.publicFetchJson) {
+                return Promise.reject(new Error("Public API helper yuklenemedi."));
+            }
+
+            return window.publicFetchJson(endpoint, {
                 method: "POST",
                 body: formData,
+                credentials: "same-origin",
                 headers: {
-                    "X-Requested-With": "XMLHttpRequest"
+                    "Accept": "application/json",
+                    "X-CSRF-Token": token
                 }
-            }).then(function (response) {
-                return response.json();
+            }).then(function (data) {
+                if (data && (data._token || data.csrf_token)) {
+                    setCsrfToken(data._token || data.csrf_token);
+                }
+                return data || {};
+            });
+        }
+
+        function postNotificationRead(id) {
+            return sendNotificationPost(readEndpoint, function (token) {
+                var formData = new FormData();
+                formData.append("_token", token);
+                formData.append("id", id);
+                return formData;
             });
         }
 
         function postNotificationDelete(ids) {
-            var formData = new FormData();
-            formData.append("_token", csrfToken);
-            ids.forEach(function (id) {
-                formData.append("ids[]", String(id));
-            });
-
-            return fetch(deleteEndpoint, {
-                method: "POST",
-                body: formData,
-                headers: {
-                    "X-Requested-With": "XMLHttpRequest"
-                }
-            }).then(function (response) {
-                return response.json();
+            return sendNotificationPost(deleteEndpoint, function (token) {
+                var formData = new FormData();
+                formData.append("_token", token);
+                ids.forEach(function (id) {
+                    formData.append("ids[]", String(id));
+                });
+                return formData;
             });
         }
+
+        window.addEventListener("pageshow", function (event) {
+            if (!event.persisted) {
+                currentCsrfToken();
+                return;
+            }
+
+            refreshCsrfToken();
+        });
 
         function refreshNotificationsPage() {
             var refreshUrl;
@@ -127,6 +197,29 @@
             });
         }
 
+        function syncPreferenceEffect(input) {
+            if (!input) {
+                return;
+            }
+            var row = input.closest("[data-notification-effect-row]");
+            if (!row) {
+                return;
+            }
+            var effect = row.querySelector("[data-notification-effect]");
+            if (!effect) {
+                return;
+            }
+            var nextText = input.checked ? row.getAttribute("data-effect-on") : row.getAttribute("data-effect-off");
+            effect.textContent = nextText || "";
+            effect.classList.toggle("is-disabled", !input.checked);
+        }
+
+        function initPreferenceEffects() {
+            root.querySelectorAll("[data-notification-effect-row] input[type='checkbox']").forEach(function (input) {
+                syncPreferenceEffect(input);
+            });
+        }
+
         function initPreferenceGroups() {
             root.querySelectorAll("[data-notification-preference-group]").forEach(function (group) {
                 var master = group.querySelector("[data-notification-group-toggle]");
@@ -138,6 +231,7 @@
                 function setGroupState(enabled) {
                     items.forEach(function (input) {
                         input.checked = enabled;
+                        syncPreferenceEffect(input);
                     });
                     master.checked = enabled;
                     master.indeterminate = false;
@@ -158,7 +252,10 @@
                 });
 
                 items.forEach(function (input) {
-                    input.addEventListener("change", syncMasterFromItems);
+                    input.addEventListener("change", function () {
+                        syncPreferenceEffect(input);
+                        syncMasterFromItems();
+                    });
                 });
 
                 if (!master.checked) {
@@ -169,10 +266,50 @@
             });
         }
 
+        function initPreferenceTabs() {
+            var tabs = Array.from(root.querySelectorAll("[data-notification-settings-tab]"));
+            var panels = Array.from(root.querySelectorAll("[data-notification-settings-panel]"));
+            if (tabs.length === 0 || panels.length === 0) {
+                return;
+            }
+
+            function activate(tabKey) {
+                tabs.forEach(function (tab) {
+                    var isActive = tab.getAttribute("data-notification-settings-tab") === tabKey;
+                    tab.classList.toggle("is-active", isActive);
+                    tab.setAttribute("aria-selected", isActive ? "true" : "false");
+                });
+
+                panels.forEach(function (panel) {
+                    var isActive = panel.getAttribute("data-notification-settings-panel") === tabKey;
+                    panel.classList.toggle("is-active", isActive);
+                    panel.hidden = !isActive;
+                });
+            }
+
+            tabs.forEach(function (tab) {
+                tab.addEventListener("click", function () {
+                    activate(tab.getAttribute("data-notification-settings-tab") || "");
+                });
+            });
+
+            var activeTab = tabs.find(function (tab) {
+                return tab.classList.contains("is-active");
+            }) || tabs[0];
+            activate(activeTab.getAttribute("data-notification-settings-tab") || "");
+        }
+
+        initPreferenceTabs();
+        initPreferenceEffects();
         initPreferenceGroups();
         refreshMessageToggles();
 
         root.addEventListener("change", function (event) {
+            var preferenceInput = event.target.closest("input[type='checkbox']");
+            if (preferenceInput && root.contains(preferenceInput) && preferenceInput.closest("[data-notification-effect-row]")) {
+                syncPreferenceEffect(preferenceInput);
+            }
+
             var selectAll = event.target.closest("[data-notif-select-all]");
             if (selectAll && root.contains(selectAll)) {
                 setNotificationSelection(selectAll.checked);

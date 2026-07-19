@@ -317,19 +317,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'remove_restriction':
                 $restrictionId = (int)($_POST['restriction_id'] ?? 0);
-                $restrictionStmt = $pdo->prepare("SELECT user_id, restriction_type, reason FROM user_restrictions WHERE id = ? LIMIT 1");
+                $restrictionStmt = $pdo->prepare("SELECT user_id, restriction_type, reason, expires_at FROM user_restrictions WHERE id = ? LIMIT 1");
                 $restrictionStmt->execute([$restrictionId]);
                 $restrictionBefore = $restrictionStmt->fetch(PDO::FETCH_ASSOC) ?: null;
                 usersRemoveRestriction($pdo, $restrictionId);
                 if ($restrictionBefore) {
                     $targetUserId = (int) $restrictionBefore['user_id'];
+                    adminAuditLogger()->logAction($pdo, 'unrestrict', 'user', $targetUserId, usersGetRestrictionTypeLabel((string) $restrictionBefore['restriction_type']) . ' kisitlamasi kaldirildi.', [
+                        'restriction_id' => $restrictionId,
+                        'restriction_type' => (string) $restrictionBefore['restriction_type'],
+                        'reason' => (string) ($restrictionBefore['reason'] ?? ''),
+                        'expires_at' => (string) ($restrictionBefore['expires_at'] ?? ''),
+                    ], ['removed' => true], false);
                     usersDispatchAccountNotification($pdo, 'user_restriction_removed', $targetUserId, $currentUserId, usersGetRestrictionTypeLabel((string) $restrictionBefore['restriction_type']) . ' kisitlamasi kaldirildi.', 'success');
                 }
                 $respond(true, 'Kısıtlama kaldırıldı.');
                 break;
 
             case 'remove_all_restrictions':
+                $restrictionStmt = $pdo->prepare("SELECT id, restriction_type, reason, expires_at FROM user_restrictions WHERE user_id = ? ORDER BY created_at DESC, id DESC");
+                $restrictionStmt->execute([$userId]);
+                $restrictionsBefore = $restrictionStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
                 usersRemoveAllRestrictions($pdo, $userId);
+                if (!empty($restrictionsBefore)) {
+                    adminAuditLogger()->logAction($pdo, 'unrestrict_all', 'user', $userId, 'Tum kisitlamalar kaldirildi.', [
+                        'restrictions' => array_map(static function (array $row): array {
+                            return [
+                                'restriction_id' => (int) ($row['id'] ?? 0),
+                                'restriction_type' => (string) ($row['restriction_type'] ?? ''),
+                                'reason' => (string) ($row['reason'] ?? ''),
+                                'expires_at' => (string) ($row['expires_at'] ?? ''),
+                            ];
+                        }, $restrictionsBefore),
+                    ], ['removed' => count($restrictionsBefore)], false);
+                }
                 usersDispatchAccountNotification($pdo, 'user_restriction_removed', $userId, $currentUserId, 'Hesabinizdaki tum kisitlamalar kaldirildi.', 'success');
                 $respond(true, 'Tüm kısıtlamalar kaldırıldı.');
                 break;
@@ -518,45 +539,50 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="users-page">
     <?php if ($successMsg): ?>
-        <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success"><i class="bi bi-check-circle-fill"></i><?= htmlspecialchars($successMsg) ?><button type="button" class="ui-admin-alert-close">&times;</button></div>
+        <?= adminRenderAlert((string) $successMsg, 'success', ['closable' => true]) ?>
     <?php endif; ?>
     <?php if ($errorMsg): ?>
-        <div class="ui-admin-alert ui-admin-alert-error ui-alert ui-alert--error"><i class="bi bi-exclamation-triangle-fill"></i><?= htmlspecialchars($errorMsg) ?><button type="button" class="ui-admin-alert-close">&times;</button></div>
+        <?= adminRenderAlert((string) $errorMsg, 'danger', ['closable' => true]) ?>
     <?php endif; ?>
 
-    <section class="ui-admin-page-hero">
-        <div class="ui-admin-page-hero-text">
-            <h2><i class="bi bi-people"></i> <?= htmlspecialchars($pageTitle) ?></h2>
-            <p>Kullanıcıları, grupları, banları, kısıtlamaları ve itirazları tek çalışma alanında yönetin.</p>
-        </div>
-    </section>
-
-    <div class="users-summary">
-        <a class="users-stat <?= $activeTab === 'users' && $search === '' && $filterGroup === '' && $filterStatus === '' ? 'is-active' : '' ?>" href="users.php?tab=users"><span>Toplam</span><strong><?= number_format((int)$stats['total']) ?></strong></a>
-        <a class="users-stat <?= $activeTab === 'users' && $filterStatus === 'active' ? 'is-active' : '' ?>" href="users.php?tab=users&amp;status=active"><span>Aktif</span><strong><?= number_format((int)$stats['active']) ?></strong></a>
-        <a class="users-stat <?= $activeTab === 'moderation' && $moderationView === 'banned' ? 'is-active' : '' ?>" href="users.php?tab=moderation&amp;moderation=banned"><span>Banlı</span><strong><?= number_format((int)$stats['banned']) ?></strong></a>
-        <a class="users-stat <?= $activeTab === 'moderation' && $moderationView === 'restricted' ? 'is-active' : '' ?>" href="users.php?tab=moderation&amp;moderation=restricted"><span>Kısıtlı</span><strong><?= number_format((int)$stats['restricted']) ?></strong></a>
-        <a class="users-stat <?= $activeTab === 'users' && $adminGroupId > 0 && (int)$filterGroup === $adminGroupId ? 'is-active' : '' ?>" href="users.php?tab=users<?= $adminGroupId > 0 ? '&amp;group=' . $adminGroupId : '' ?>"><span>Admin</span><strong><?= number_format((int)$stats['admins']) ?></strong></a>
+    <?= adminRenderPageHero('bi-people', 'Kullanıcı yönetimi', $pageTitle, 'Kullanıcıları, grupları, banları, kısıtlamaları ve itirazları tek çalışma alanında yönetin.') ?>
 
-        <a class="users-stat users-stat-attention <?= $activeTab === 'moderation' && $moderationView === 'appeals' && $appealFilter === 'open' ? 'is-active' : '' ?>" href="users.php?tab=moderation&amp;moderation=appeals&amp;appeal_status=open"><span>Açık İtiraz</span><strong><?= number_format((int)($appealStats['open'] ?? 0)) ?></strong></a>
-    </div>
-
-    <nav class="users-tabs" aria-label="Kullanıcı yönetimi sekmeleri">
-        <?php
-        $tabLinks = [
-            'users' => ['Tüm Kullanıcılar', 'bi-people'],
-            'groups' => ['Gruplar', 'bi-diagram-3'],
-            'moderation' => ['Moderasyon', 'bi-shield-check'],
-            'activity' => ['Kullanıcı İzleme', 'bi-activity'],
-        ];
-        foreach ($tabLinks as $tabKey => [$label, $icon]):
-        ?>
-            <a href="users.php?tab=<?= htmlspecialchars($tabKey) ?>" class="ui-admin-btn <?= $activeTab === $tabKey ? 'ui-admin-btn-primary' : 'ui-admin-btn-outline' ?>" <?= $activeTab === $tabKey ? 'aria-current="page"' : '' ?>>
-                <i class="bi <?= htmlspecialchars($icon) ?>"></i> <?= htmlspecialchars($label) ?>
-            </a>
-        <?php endforeach; ?>
-    </nav>
-
+    <?= adminRenderStatCards([
+        ['href' => 'users.php?tab=users', 'tone' => 'info', 'icon' => 'bi-people', 'label' => 'Toplam', 'value' => number_format((int) $stats['total']), 'class' => $activeTab === 'users' && $search === '' && $filterGroup === '' && $filterStatus === '' ? 'is-active' : ''],
+        ['href' => 'users.php?tab=users&status=active', 'tone' => 'success', 'icon' => 'bi-person-check', 'label' => 'Aktif', 'value' => number_format((int) $stats['active']), 'class' => $activeTab === 'users' && $filterStatus === 'active' ? 'is-active' : ''],
+        ['href' => 'users.php?tab=moderation&moderation=banned', 'tone' => 'danger', 'icon' => 'bi-slash-circle', 'label' => 'Banlı', 'value' => number_format((int) $stats['banned']), 'class' => $activeTab === 'moderation' && $moderationView === 'banned' ? 'is-active' : ''],
+        ['href' => 'users.php?tab=moderation&moderation=restricted', 'tone' => 'warning', 'icon' => 'bi-shield-exclamation', 'label' => 'Kısıtlı', 'value' => number_format((int) $stats['restricted']), 'class' => $activeTab === 'moderation' && $moderationView === 'restricted' ? 'is-active' : ''],
+        ['href' => 'users.php?tab=users' . ($adminGroupId > 0 ? '&group=' . $adminGroupId : ''), 'tone' => 'info', 'icon' => 'bi-person-gear', 'label' => 'Admin', 'value' => number_format((int) $stats['admins']), 'class' => $activeTab === 'users' && $adminGroupId > 0 && (int) $filterGroup === $adminGroupId ? 'is-active' : ''],
+        ['href' => 'users.php?tab=moderation&moderation=appeals&appeal_status=open', 'tone' => 'warning', 'icon' => 'bi-inbox', 'label' => 'Açık İtiraz', 'value' => number_format((int) ($appealStats['open'] ?? 0)), 'class' => $activeTab === 'moderation' && $moderationView === 'appeals' && $appealFilter === 'open' ? 'is-active users-stat-attention' : 'users-stat-attention'],
+    ], ['class' => 'users-summary', 'aria_label' => 'Kullanıcı özeti']) ?>
+    <?= adminRenderTabBar([
+        'users' => [
+            'href' => 'users.php?tab=users',
+            'icon' => 'bi-people',
+            'label' => 'Tüm Kullanıcılar',
+        ],
+        'groups' => [
+            'href' => 'users.php?tab=groups',
+            'icon' => 'bi-diagram-3',
+            'label' => 'Gruplar',
+        ],
+        'moderation' => [
+            'href' => 'users.php?tab=moderation',
+            'icon' => 'bi-shield-check',
+            'label' => 'Moderasyon',
+        ],
+        'activity' => [
+            'href' => 'users.php?tab=activity',
+            'icon' => 'bi-activity',
+            'label' => 'Kullanıcı İzleme',
+        ],
+    ], $activeTab, [
+        'class' => 'users-tabs',
+        'link_class' => 'ui-admin-btn',
+        'active_class' => 'ui-admin-btn-primary',
+        'inactive_class' => 'ui-admin-btn-outline',
+        'aria_label' => 'Kullanıcı yönetimi sekmeleri',
+    ]) ?>
     <?php
     if ($activeTab === 'groups') {
         require dirname(__DIR__) . '/' . $tabPartials['groups'];
@@ -679,7 +705,20 @@ require_once __DIR__ . '/header.php';
                     <input type="hidden" name="user_id" id="banUserId">
                     <div class="ui-admin-mb-md">
                         <label class="ui-admin-form-label">Kullanıcı</label>
-                        <input type="text" id="banUserName" class="ui-admin-form-control" readonly>
+                        <input type="text" id="banUserName" class="ui-admin-form-control" readonly>
+
+                    </div>
+
+                    <div class="ui-admin-moderation-context" data-ban-context>
+                        <div class="ui-admin-moderation-context__current" data-ban-current>
+                            <span class="ui-admin-muted-sm">Ban bilgisi yükleniyor...</span>
+                        </div>
+                        <div>
+                            <div class="ui-admin-moderation-context__title">Son 5 Moderasyon Geçmişi</div>
+                            <div class="ui-admin-moderation-context__list" data-ban-history>
+                                <span class="ui-admin-muted-sm">Geçmiş yükleniyor...</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="ui-admin-mb-md">
                         <label class="ui-admin-form-label">Sebep</label>
@@ -698,7 +737,77 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
-    <!-- Admin Note Modal -->
+    <!-- Unban Modal -->
+
+    <div class="media-modal-overlay" id="unbanModal" role="dialog" aria-modal="true" aria-label="Kullanıcı banını kaldır" hidden aria-hidden="true">
+
+        <div class="media-modal ui-admin-modal-sm ui-panel">
+
+            <div class="media-modal-header ui-panel__head">
+
+                <h3 class="ui-admin-modal-title"><i class="bi bi-check-circle"></i> Kullanıcının Banını Kaldır</h3>
+
+                <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-unban-close>&times;</button>
+
+            </div>
+
+            <div class="media-modal-body ui-panel__body">
+
+                <form id="unbanForm" data-unban-form>
+
+                    <input type="hidden" name="_token" value="<?= $csrfToken ?>">
+
+                    <input type="hidden" name="action" value="unban">
+
+                    <input type="hidden" name="user_id" id="unbanUserId">
+
+                    <div class="ui-admin-mb-md">
+
+                        <label class="ui-admin-form-label">Kullanıcı</label>
+
+                        <input type="text" id="unbanUserName" class="ui-admin-form-control" readonly>
+
+                    </div>
+
+                    <div class="ui-admin-moderation-context" data-unban-context>
+                        <div class="ui-admin-moderation-context__current" data-unban-current>
+                            <span class="ui-admin-muted-sm">Ban bilgisi yükleniyor...</span>
+                        </div>
+                        <div>
+                            <div class="ui-admin-moderation-context__title">Son 5 Moderasyon Geçmişi</div>
+                            <div class="ui-admin-moderation-context__list" data-unban-history>
+                                <span class="ui-admin-muted-sm">Geçmiş yükleniyor...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ui-admin-mb-md">
+
+                        <label class="ui-admin-form-label">İşlem Notu <small class="ui-admin-muted-xs">(Opsiyonel)</small></label>
+
+                        <textarea name="reason" id="unbanReason" class="ui-admin-form-control" rows="2" placeholder="Ban kaldırma notu..."></textarea>
+
+                    </div>
+
+                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+
+                        <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-unban-close>İptal</button>
+
+                        <button type="submit" class="ui-admin-btn ui-admin-btn-success"><i class="bi bi-check-circle"></i> Ban Kaldır</button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Admin Note Modal -->
     <div class="media-modal-overlay" id="adminNoteModal" role="dialog" aria-modal="true" aria-label="Admin notu" hidden aria-hidden="true">
         <div class="media-modal ui-admin-modal-sm ui-panel">
             <div class="media-modal-header ui-panel__head">
@@ -754,7 +863,23 @@ require_once __DIR__ . '/header.php';
 
                     <div class="ui-admin-mb-md">
                         <label class="ui-admin-form-label">Kullanıcı</label>
-                        <input type="text" id="restrictUserName" class="ui-admin-form-control" readonly>
+                        <input type="text" id="restrictUserName" class="ui-admin-form-control" readonly>
+
+                    </div>
+
+                    <div class="ui-admin-moderation-context" data-restriction-context>
+                        <div>
+                            <div class="ui-admin-moderation-context__title">Aktif Kısıtlamalar</div>
+                            <div class="ui-admin-moderation-context__list" data-restriction-current>
+                                <span class="ui-admin-muted-sm">Kısıtlamalar yükleniyor...</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="ui-admin-moderation-context__title">Son 5 Moderasyon Geçmişi</div>
+                            <div class="ui-admin-moderation-context__list" data-restriction-history>
+                                <span class="ui-admin-muted-sm">Geçmiş yükleniyor...</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="ui-admin-mb-md">
@@ -818,7 +943,7 @@ require_once __DIR__ . '/header.php';
                     <p class="ui-admin-m-0 ui-admin-muted-sm">
                         Toplam <?= count($userRestrictions) ?> kısıtlama
                     </p>
-                    <form method="post" class="ui-admin-inline-form" data-admin-confirm="Tüm kısıtlamaları kaldırmak istediğinizden emin misiniz?" data-admin-confirm-title="Tüm kısıtlamalar kaldırılsın mı?" data-admin-confirm-ok="Kaldır" data-admin-confirm-tone="danger">
+                    <form method="post" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Tüm kısıtlamaları kaldırmak istediğinizden emin misiniz?', 'title' => 'Tüm kısıtlamalar kaldırılsın mı?', 'ok' => 'Kaldır', 'tone' => 'danger']) ?>>
                         <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                         <input type="hidden" name="action" value="remove_all_restrictions">
                         <input type="hidden" name="user_id" value="<?= $viewRestrictionsUserId ?>">
@@ -837,7 +962,7 @@ require_once __DIR__ . '/header.php';
                                     <?= htmlspecialchars(usersGetRestrictionTypeLabel($restriction['restriction_type'])) ?>
                                 </span>
                             </div>
-                            <form method="post" class="ui-admin-inline-form" data-admin-confirm="Bu kısıtlamayı kaldırmak istediğinizden emin misiniz?" data-admin-confirm-title="Kısıtlama kaldırılsın mı?" data-admin-confirm-ok="Kaldır" data-admin-confirm-tone="danger">
+                            <form method="post" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu kısıtlamayı kaldırmak istediğinizden emin misiniz?', 'title' => 'Kısıtlama kaldırılsın mı?', 'ok' => 'Kaldır', 'tone' => 'danger']) ?>>
                                 <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                                 <input type="hidden" name="action" value="remove_restriction">
                                 <input type="hidden" name="restriction_id" value="<?= (int) $restriction['id'] ?>">

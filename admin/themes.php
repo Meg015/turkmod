@@ -307,11 +307,12 @@ require_once __DIR__ . '/header.php';
                                 $themeId = (string) ($theme['id'] ?? '');
                                 $themeName = (string) ($theme['name'] ?? $themeId);
                                 $themeSearchText = $themeId . ' ' . $themeName . ' ' . (string) ($theme['author'] ?? '');
+                                $themePreviewUrl = adminSafeImageUrl((string) ($theme['preview_url'] ?? ''), $baseUri);
                                 ?>
                                 <article class="theme-card<?= $themeId === $selectedTheme ? ' is-selected' : '' ?>" data-theme-card data-theme-search-text="<?= htmlspecialchars($themeSearchText) ?>">
                                     <a class="theme-card-preview" href="themes.php?theme=<?= urlencode($themeId) ?>" aria-label="<?= htmlspecialchars($themeName) ?> temasını aç">
-                                        <?php if (($theme['preview_url'] ?? '') !== ''): ?>
-                                            <img src="<?= htmlspecialchars((string) $theme['preview_url']) ?>" alt="" width="320" height="180">
+                                        <?php if ($themePreviewUrl !== ''): ?>
+                                            <img src="<?= htmlspecialchars($themePreviewUrl) ?>" alt="" width="320" height="180">
                                         <?php else: ?>
                                             <?= htmlspecialchars(mb_strtoupper(mb_substr($themeName, 0, 1))) ?>
                                         <?php endif; ?>
@@ -378,8 +379,9 @@ require_once __DIR__ . '/header.php';
                         <div id="theme-tab-summary" class="ui-admin-tab-content <?= $activeTab === 'summary' ? 'is-active' : '' ?> ui-section">
                             <div class="theme-selected-summary">
                             <div class="theme-selected-preview">
-                                <?php if (($selectedThemeSummary['preview_url'] ?? '') !== ''): ?>
-                                    <img src="<?= htmlspecialchars((string) $selectedThemeSummary['preview_url']) ?>" alt="" width="320" height="180">
+                                <?php $selectedThemePreviewUrl = adminSafeImageUrl((string) ($selectedThemeSummary['preview_url'] ?? ''), $baseUri); ?>
+                                <?php if ($selectedThemePreviewUrl !== ''): ?>
+                                    <img src="<?= htmlspecialchars($selectedThemePreviewUrl) ?>" alt="" width="320" height="180">
                                 <?php else: ?>
                                     <?= htmlspecialchars(mb_strtoupper(mb_substr((string) ($selectedThemeSummary['name'] ?? $selectedTheme), 0, 1))) ?>
                                 <?php endif; ?>

@@ -15,7 +15,7 @@
 
             var topicId = element.getAttribute('data-topic-view-id') || '';
             var endpoint = element.getAttribute('data-topic-view-url') || '';
-            if (!topicId || !endpoint || typeof window.fetch !== 'function' || typeof window.FormData !== 'function') {
+            if (!topicId || !endpoint || typeof window.publicFetchJson !== 'function' || typeof window.FormData !== 'function') {
                 return;
             }
 
@@ -25,10 +25,11 @@
                 var token = element.getAttribute('data-csrf') || csrfToken();
                 formData.append('id', topicId);
                 formData.append('_token', token);
-                window.fetch(endpoint, {
+                window.publicFetchJson(endpoint, {
                     method: 'POST',
                     body: formData,
-                    credentials: 'same-origin'
+                    credentials: 'same-origin',
+                    notifyError: false
                 }).catch(function () {});
             }, 1000);
         });

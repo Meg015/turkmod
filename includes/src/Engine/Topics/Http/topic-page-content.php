@@ -133,7 +133,7 @@ if (!$topic) {
 
     require_once $projectRoot . "/includes/public-header.php";
 
-    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert">Konu bulunamadı veya silinmiş.</div>';
+    echo uiRenderAlert('Konu bulunamadı veya silinmiş.', 'danger');
 
     require_once $projectRoot . "/includes/public-footer.php";
 
@@ -1665,7 +1665,9 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                         }
 
                                                 $dlHref = $dlId > 0
-                            ? routePublicStaticUrl('download') . '?id=' . $dlId
+                            ? (function_exists('topicDownloadBuildActionUrl')
+                                ? topicDownloadBuildActionUrl($dlId, $downloadTopicId)
+                                : routePublicStaticUrl('download') . '?id=' . $dlId)
                             : $dlUrl;
                         $cardLocked = $downloadLocked;
 

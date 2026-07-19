@@ -28,6 +28,93 @@ async function listCssSourceFiles(directory) {
     return files;
 }
 
+async function listJavaScriptSourceFiles(directory) {
+    const files = [];
+    const entries = await readdir(directory, { withFileTypes: true });
+
+    for (const entry of entries) {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...await listJavaScriptSourceFiles(entryPath));
+        } else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.endsWith('.min.js')) {
+            files.push(entryPath);
+        }
+    }
+
+    return files;
+}
+
+async function assertAdminAjaxUsesSharedHelpers() {
+    const adminFiles = (await listJavaScriptSourceFiles(fromRoot('admin', 'assets')))
+        .filter(file => path.basename(file) !== 'admin-ui.js');
+    const eventAdminFile = fromRoot('includes', 'src', 'Modules', 'Events', 'assets', 'js', 'admin-ui.js');
+    const files = [...adminFiles, eventAdminFile];
+    const checks = [
+        ['fetch(', /\bfetch\s*\(/g],
+        ['response.json()', /\b(?:response|res|r)\s*\.\s*json\s*\(/g],
+        ['response.text()', /\b(?:response|res|r)\s*\.\s*text\s*\(/g],
+    ];
+    const violations = [];
+
+    for (const file of files) {
+        const source = await readFile(file, 'utf8');
+        const lines = source.split(/\r?\n/);
+
+        for (const [label, pattern] of checks) {
+            pattern.lastIndex = 0;
+            let match;
+            while ((match = pattern.exec(source)) !== null) {
+                const lineNumber = source.slice(0, match.index).split(/\r?\n/).length;
+                const line = lines[lineNumber - 1]?.trim() || '';
+                violations.push(`${path.relative(root, file)}:${lineNumber} uses ${label}: ${line}`);
+            }
+        }
+    }
+
+    if (violations.length > 0) {
+        throw new Error(
+            'Direct admin AJAX usage detected. Use adminFetchJson/adminFetchText/adminFetchHtml from admin/assets/admin-ui.js.\n' +
+            violations.join('\n')
+        );
+    }
+}
+
+async function assertPublicAjaxUsesSharedHelpers() {
+    const publicFiles = [
+        ...await listJavaScriptSourceFiles(fromRoot('assets', 'js')),
+        ...await listJavaScriptSourceFiles(fromRoot('themes', 'turkmod', 'js')),
+        fromRoot('includes', 'src', 'Modules', 'Events', 'assets', 'js', 'events.js'),
+    ].filter(file => path.basename(file) !== 'public-api.js');
+    const checks = [
+        ['fetch(', /\bfetch\s*\(/g],
+        ['response.json()', /\b(?:response|res|r)\s*\.\s*json\s*\(/g],
+        ['response.text()', /\b(?:response|res|r)\s*\.\s*text\s*\(/g],
+    ];
+    const violations = [];
+
+    for (const file of publicFiles) {
+        const source = await readFile(file, 'utf8');
+        const lines = source.split(/\r?\n/);
+
+        for (const [label, pattern] of checks) {
+            pattern.lastIndex = 0;
+            let match;
+            while ((match = pattern.exec(source)) !== null) {
+                const lineNumber = source.slice(0, match.index).split(/\r?\n/).length;
+                const line = lines[lineNumber - 1]?.trim() || '';
+                violations.push(`${path.relative(root, file)}:${lineNumber} uses ${label}: ${line}`);
+            }
+        }
+    }
+
+    if (violations.length > 0) {
+        throw new Error(
+            'Direct public AJAX usage detected. Use publicFetchJson/publicFetchText/publicFetchHtml from assets/js/public-api.js.\n' +
+            violations.join('\n')
+        );
+    }
+}
+
 async function assertNoDestructiveUniversalCssReset() {
     const sourceRoots = [
         fromRoot('assets', 'css'),
@@ -57,6 +144,9 @@ async function assertNoDestructiveUniversalCssReset() {
 }
 
 async function buildJavaScript() {
+    await assertAdminAjaxUsesSharedHelpers();
+    await assertPublicAjaxUsesSharedHelpers();
+
     await build({
         entryPoints: [fromRoot('assets', 'js', 'app.js')],
         outfile: fromRoot('assets', 'dist', 'public.min.js'),

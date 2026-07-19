@@ -7,6 +7,7 @@ use App\Modules\Notifications\Services\NotificationDispatchService;
 use App\Modules\Notifications\Services\NotificationEmailQueueService;
 use App\Modules\Notifications\Services\NotificationPreferenceService;
 use App\Modules\Notifications\Services\NotificationSchemaService;
+use App\Modules\Notifications\Services\NotificationSuppressionLogService;
 use App\Modules\Notifications\Services\NotificationTemplateService;
 
 function notificationPreferenceService(): NotificationPreferenceService
@@ -37,6 +38,13 @@ function notificationEmailQueueService(): NotificationEmailQueueService
     return $service ??= new NotificationEmailQueueService(notificationSchemaService());
 }
 
+function notificationSuppressionLogService(): NotificationSuppressionLogService
+{
+    static $service = null;
+
+    return $service ??= new NotificationSuppressionLogService(notificationSchemaService());
+}
+
 function notificationDispatchService(): NotificationDispatchService
 {
     static $service = null;
@@ -45,7 +53,8 @@ function notificationDispatchService(): NotificationDispatchService
         notificationPreferenceService(),
         notificationSchemaService(),
         notificationTemplateService(),
-        notificationEmailQueueService()
+        notificationEmailQueueService(),
+        notificationSuppressionLogService()
     );
 }
 
@@ -74,6 +83,11 @@ function notificationEventDefinitions(): array
 function notificationEventPreferenceItems(): array
 {
     return notificationPreferenceService()->eventPreferenceItems();
+}
+
+function notificationEmailEventPreferenceItems(): array
+{
+    return notificationPreferenceService()->emailEventPreferenceItems();
 }
 
 function notificationEventBool(array $settings, string $key, string $default = '1'): bool
@@ -109,6 +123,11 @@ function notificationEnabledTypesForUser(array $settings): array
 function notificationEnabledEventKeysForUser(array $settings): array
 {
     return notificationPreferenceService()->enabledEventKeysForUser($settings);
+}
+
+function notificationEnabledEmailEventKeysForUser(array $settings): array
+{
+    return notificationPreferenceService()->enabledEmailEventKeysForUser($settings);
 }
 
 function notificationPreferenceWhereSql(array $settings, string $alias = 'n', bool $filterEvents = true): array
@@ -154,6 +173,41 @@ function notificationEnsureTemplateSchema(PDO $pdo): void
 function notificationEnsureEmailQueueSchema(PDO $pdo): void
 {
     notificationSchemaService()->ensureEmailQueueSchema($pdo);
+}
+
+function notificationEnsureSuppressionLogSchema(PDO $pdo): void
+{
+    notificationSchemaService()->ensureSuppressionLogSchema($pdo);
+}
+
+function notificationSuppressionLogTableExists(PDO $pdo): bool
+{
+    return notificationSuppressionLogService()->tableExists($pdo);
+}
+
+function notificationSuppressionReasonMeta(string $reasonKey): array
+{
+    return notificationSuppressionLogService()->reasonMeta($reasonKey);
+}
+
+function notificationSuppressionReasonOptions(): array
+{
+    return notificationSuppressionLogService()->reasonOptions();
+}
+
+function notificationSuppressionLogStats(PDO $pdo): array
+{
+    return notificationSuppressionLogService()->stats($pdo);
+}
+
+function notificationSuppressionLogCount(PDO $pdo, string $reasonKey = 'all'): int
+{
+    return notificationSuppressionLogService()->count($pdo, $reasonKey);
+}
+
+function notificationSuppressionLogRecent(PDO $pdo, int $limit = 10, string $reasonKey = 'all'): array
+{
+    return notificationSuppressionLogService()->recent($pdo, $limit, $reasonKey);
 }
 
 function notificationEnsureDismissalSchema(PDO $pdo, bool $respectRuntimeGate = true): void

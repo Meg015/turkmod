@@ -230,6 +230,8 @@ if (!function_exists('userActivityHiddenEventTypes')) {
             'leaderboard_settings_updated',
             'admin_action_log_cleared',
             'cron_logs_cleared',
+            'system_notifications_deleted',
+            'system_notifications_cleared',
             'application_logs_cleared',
             'email_logs_cleared',
             'activity_logs_cleared',

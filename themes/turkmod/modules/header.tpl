@@ -7,7 +7,7 @@
 {if logo_url}
 <img class="header__logo-img" src="{logo_url}" alt="" title="{site_name}">
 {else}
-<img class="header__logo-img" src="{base_url}/themes/turkmod/images/logo-sample.svg" alt="" title="{site_name}">
+<img class="header__logo-img" src="{base_url}/themes/turkmod/images/logo.svg" alt="" title="{site_name}">
 {/if}
 </span>
 <span class="header__logo-text">{site_name}</span>

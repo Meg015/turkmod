@@ -1,7 +1,7 @@
 <?php
 
 declare(strict_types=1);
-// $baseUri init.php'den geliyor, fallback
+// $baseUri normalde init.php'den gelir; erken include durumunda burada hazırlanır.
 if (!isset($baseUri)) {
     $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
     $baseUri = rtrim(str_replace('\\', '/', dirname(dirname($scriptName))), '/');

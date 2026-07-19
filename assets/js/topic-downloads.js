@@ -19,11 +19,6 @@
         console.log('[topic-downloads]', message);
     }
 
-    function appBaseUri() {
-        const meta = document.querySelector('meta[name="app-base-uri"]');
-        return meta ? (meta.getAttribute('content') || '').replace(/\/+$/, '') : '';
-    }
-
     function sectionState(section) {
         const topicId = parseInt(section.dataset.topicId || '0', 10) || 0;
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
@@ -403,15 +398,23 @@
             return null;
         }
         const url = state.statusApi + '?topic_id=' + encodeURIComponent(String(state.topicId)) + '&_=' + Date.now();
-        const response = await fetch(url, {
-            method: 'GET',
-            credentials: 'same-origin',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-        const data = await response.json().catch(function () { return null; });
-        if (!response.ok || !data || data.success === false) {
+        if (!window.publicFetchJson) {
+            return null;
+        }
+        let data = null;
+        try {
+            data = await window.publicFetchJson(url, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                notifyError: false
+            });
+        } catch (error) {
+            return null;
+        }
+        if (!data || data.success === false) {
             return null;
         }
         if (data._token) {
@@ -904,17 +907,30 @@
 
     async function refreshAuthCsrfToken(section, state) {
         try {
-            const tokenResponse = await fetch(appBaseUri() + '/api/csrf-token.php', {
-                method: 'GET',
-                credentials: 'same-origin',
-                cache: 'no-store',
-                headers: {
-                    'Accept': 'application/json'
+            if (window.publicApi && typeof window.publicApi.refreshCsrfToken === 'function') {
+                const refreshed = await window.publicApi.refreshCsrfToken();
+                const nextToken = typeof window.publicApi.csrfToken === 'function' ? window.publicApi.csrfToken() : '';
+                if (refreshed && nextToken) {
+                    updateCsrfTokenFromResponse(state, section, { _token: nextToken });
+                    return true;
                 }
-            });
-            const tokenData = await tokenResponse.json().catch(function () { return null; });
-            if (updateCsrfTokenFromResponse(state, section, tokenData)) {
-                return true;
+            }
+        } catch (error) {}
+
+        try {
+            if (window.publicFetchJson) {
+                const refreshData = await window.publicFetchJson(state.statusApi, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: { topic_id: state.topicId, _token: state.csrf },
+                    notifyError: false,
+                    csrfRetry: false
+                });
+                return updateCsrfTokenFromResponse(state, section, refreshData);
             }
         } catch (error) {}
 
@@ -923,16 +939,20 @@
         }
 
         try {
-            const refreshResponse = await fetch(state.statusApi, {
+            if (!window.publicFetchJson) {
+                return false;
+            }
+            const refreshData = await window.publicFetchJson(state.statusApi, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ topic_id: state.topicId, _token: state.csrf })
+                body: { topic_id: state.topicId, _token: state.csrf },
+                notifyError: false,
+                csrfRetry: false
             });
-            const refreshData = await refreshResponse.json().catch(function () { return null; });
             return updateCsrfTokenFromResponse(state, section, refreshData);
         } catch (error) {
             return false;
@@ -986,22 +1006,37 @@
         setModalFeedback(state, '', 'info');
 
         try {
+            if (!window.publicFetchJson) {
+                setModalFeedback(state, 'Public API helper yuklenemedi.', 'error');
+                return;
+            }
+
             let response = null;
             let data = null;
+            let requestError = null;
             let csrfRetryCount = 0;
 
             while (true) {
                 payload._token = state.csrf;
-                response = await fetch(state.authApi, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                data = await response.json().catch(function () { return null; });
+                requestError = null;
+                try {
+                    data = await window.publicFetchJson(state.authApi, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: payload,
+                        notifyError: false,
+                        csrfRetry: false
+                    });
+                    response = { ok: true, status: 200 };
+                } catch (error) {
+                    requestError = error;
+                    data = error && error.data ? error.data : null;
+                    response = { ok: false, status: Number(error && error.status ? error.status : 0) };
+                }
 
                 const tokenChanged = updateCsrfTokenFromResponse(state, section, data);
                 if (csrfRetryCount < 2 && isCsrfFailureResponse(response, data)) {
@@ -1019,7 +1054,9 @@
                     setModalFeedback(state, 'Form yenilendi. Lutfen tekrar gonderin.', 'info');
                     return;
                 }
-                const errorMsg = data && (data.message || data.error) ? String(data.message || data.error) : 'Kimlik dogrulama basarisiz.';
+                const errorMsg = data && (data.message || data.error)
+                    ? String(data.message || data.error)
+                    : (requestError && requestError.message ? requestError.message : 'Kimlik dogrulama basarisiz.');
                 setModalFeedback(state, errorMsg, 'error');
                 return;
             }

@@ -13,14 +13,11 @@ if ($pdo) {
 
 // AJAX JSON handler
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-    header('Content-Type: application/json; charset=utf-8');
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
-        echo json_encode(['ok' => false, 'message' => 'Güvenlik hatası.']);
-        exit;
+        sendJsonResponse(419, false, 'Güvenlik hatası.', ['ok' => false], 'csrf_token_invalid');
     }
     if (!adminCurrentUserCan('categories.delete')) {
-        echo json_encode(['ok' => false, 'message' => 'Kategori silmek icin gerekli izin hesabiniza tanimlanmamis.']);
-        exit;
+        sendJsonResponse(403, false, 'Kategori silmek icin gerekli izin hesabiniza tanimlanmamis.', ['ok' => false], 'forbidden');
     }
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
@@ -32,12 +29,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !empty($_SERVER['HTTP_X_
             $pdo->prepare("UPDATE categories SET status = 'inactive', deleted_at = NOW() WHERE id = ?")->execute([$id]);
             logActivity($pdo, 'category_deleted', 'category', $id);
             adminAuditLogger()->logAction($pdo, 'category_deleted', 'category', $id, 'Kategori silindi', [], [], false);
-            echo json_encode(['ok' => true, 'message' => 'Kategori silindi.']);
+            sendJsonResponse(200, true, 'Kategori silindi.', ['ok' => true]);
         } else {
-            echo json_encode(['ok' => false, 'message' => 'Bilinmeyen işlem.']);
+            sendJsonResponse(422, false, 'Bilinmeyen işlem.', ['ok' => false], 'invalid_action');
         }
     } catch (Throwable $e) {
-        echo json_encode(['ok' => false, 'message' => safeErrorMessage($e)]);
+        sendJsonResponse(500, false, safeErrorMessage($e), ['ok' => false], 'category_action_failed');
     }
     exit;
 }
@@ -166,66 +163,21 @@ require_once __DIR__ . '/header.php';
 $csrfToken = csrf_token();
 ?>
 <div class="category-page">
-<?php if ($successMsg): ?>
-<div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success">
-    <i class="bi bi-check-circle-fill"></i>
-    <?= htmlspecialchars($successMsg) ?>
-    <button type="button" class="ui-admin-alert-close">&times;</button>
-</div>
-<?php endif; ?>
+<?= adminRenderFlashAlerts($successMsg, $errorMsg, [
+    'success' => ['closable' => true],
+    'error' => ['closable' => true],
+]) ?>
 
-<?php if ($errorMsg): ?>
-<div class="ui-admin-alert ui-admin-alert-error ui-alert ui-alert--error">
-    <i class="bi bi-exclamation-triangle-fill"></i>
-    <?= htmlspecialchars($errorMsg) ?>
-    <button type="button" class="ui-admin-alert-close">&times;</button>
-</div>
-<?php endif; ?>
+<?= adminRenderPageHero('bi-folder2-open', 'Kategoriler', 'Kategori Yönetimi', 'Ana kategori, alt kategori, SEO alanları, sıralama ve durum tek ekrandan yönetilir.', [
+    ['href' => 'categories.php#categoryForm', 'label' => 'Yeni Kategori', 'icon' => 'bi-plus-lg', 'class' => 'ui-admin-btn-primary'],
+]) ?>
 
-<!-- Hero Header -->
-<section class="ui-admin-page-hero">
-    <div class="ui-admin-page-hero-text">
-        <h2><i class="bi bi-folder2-open ui-admin-icon-gap"></i>Kategori Yönetimi</h2>
-        <p>Ana kategori, alt kategori, SEO alanları, sıralama ve durum tek ekrandan yönetilir.</p>
-    </div>
-    <div class="ui-admin-page-hero-actions">
-        <a class="ui-admin-btn-hero" href="categories.php#categoryForm">
-            <i class="bi bi-plus-lg"></i> Yeni Kategori
-        </a>
-    </div>
-</section>
-
-<!-- Stat Tiles -->
-<div class="admin-stat-grid category-summary ui-grid">
-    <div class="admin-stat-card stat-info category-stat ui-card">
-        <div class="stat-icon"><i class="bi bi-folder2-open"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Toplam</span>
-            <span class="stat-value"><?= count($categories) ?></span>
-        </div>
-    </div>
-    <div class="admin-stat-card stat-success category-stat ui-card">
-        <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Aktif</span>
-            <span class="stat-value"><?= count(array_filter($categories, fn($c) => ($c['status'] ?? '') === 'active')) ?></span>
-        </div>
-    </div>
-    <div class="admin-stat-card stat-warning category-stat ui-card">
-        <div class="stat-icon"><i class="bi bi-diagram-3"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Alt Kategori</span>
-            <span class="stat-value"><?= count(array_filter($categories, fn($c) => !empty($c['parent_id']))) ?></span>
-        </div>
-    </div>
-    <div class="admin-stat-card stat-info category-stat ui-card">
-        <div class="stat-icon"><i class="bi bi-card-heading"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Konu Bağlı</span>
-            <span class="stat-value"><?= array_sum(array_map(fn($c) => (int)($c['topic_count'] ?? 0), $categories)) ?></span>
-        </div>
-    </div>
-</div>
+<?= adminRenderStatCards([
+    ['tone' => 'info', 'icon' => 'bi-folder2-open', 'label' => 'Toplam', 'value' => count($categories), 'class' => 'category-stat'],
+    ['tone' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Aktif', 'value' => count(array_filter($categories, fn($c) => ($c['status'] ?? '') === 'active')), 'class' => 'category-stat'],
+    ['tone' => 'warning', 'icon' => 'bi-diagram-3', 'label' => 'Alt Kategori', 'value' => count(array_filter($categories, fn($c) => !empty($c['parent_id']))), 'class' => 'category-stat'],
+    ['tone' => 'info', 'icon' => 'bi-card-heading', 'label' => 'Konu Bağlı', 'value' => array_sum(array_map(fn($c) => (int)($c['topic_count'] ?? 0), $categories)), 'class' => 'category-stat'],
+], ['class' => 'category-summary', 'aria_label' => 'Kategori özeti']) ?>
 
 <!-- Two-column layout -->
 <div class="ui-admin-two-col">
@@ -234,26 +186,25 @@ $csrfToken = csrf_token();
         <div class="ui-admin-premium-card-header ui-panel__head ui-card">
             <i class="bi bi-list-nested"></i> Kategori Listesi
         </div>
-        <div class="ui-admin-table-wrap-x">
-            <table class="ui-admin-premium-table">
-                <thead>
-                    <tr>
-                        <th>Ad</th>
-                        <th>Slug</th>
-                        <th>Durum</th>
-                        <th>Konu</th>
-                        <th class="ui-admin-table-head-actions">İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody id="categoryTableBody">
+        <?= adminRenderTableOpen([
+            'Ad',
+            'Slug',
+            'Durum',
+            'Konu',
+            ['label' => 'İşlemler', 'class' => 'ui-admin-table-head-actions'],
+        ], [
+            'class' => 'ui-admin-premium-table',
+            'wrap_class' => 'ui-admin-table-wrap-x',
+            'tbody_attrs' => ['id' => 'categoryTableBody'],
+            'label' => 'Kategori listesi',
+        ]) ?>
                     <?php if (empty($categoryTree)): ?>
-                        <tr><td colspan="5">
-                            <div class="ui-admin-empty ui-empty">
-                                <div class="ui-admin-empty-icon tone-info ui-empty"><i class="bi bi-inbox"></i></div>
-                                <h3 class="ui-admin-empty-title ui-empty">Henüz kategori yok</h3>
-                                <p class="ui-admin-empty-desc ui-empty">Yeni kategori oluşturduğunuzda liste burada görünecek.</p>
-                            </div>
-                        </td></tr>
+                        <?= adminRenderTableEmptyRow(5, [
+                                'icon' => 'bi-inbox',
+                                'tone' => 'info',
+                                'title' => 'Henüz kategori yok',
+                                'description' => 'Yeni kategori oluşturduğunuzda liste burada görünecek.',
+                            ]) ?>
                     <?php endif; ?>
                     <?php foreach ($categoryTree as $category): ?>
                         <tr id="cat-row-<?= (int)$category['id'] ?>">
@@ -292,9 +243,7 @@ $csrfToken = csrf_token();
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
+        <?= adminRenderTableClose() ?>
     </div>
 
     <!-- Form Panel -->

@@ -67,6 +67,7 @@ final class NotificationPreferenceService
                 'title' => 'Konunuz onaylandı',
                 'message' => '"{{topic_title}}" konunuz onaylandı ve yayına alındı.',
                 'type' => 'success',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-patch-check',
@@ -79,6 +80,7 @@ final class NotificationPreferenceService
                 'title' => 'Konunuz reddedildi',
                 'message' => '"{{topic_title}}" konunuz reddedildi.{{moderation_note_line}}',
                 'type' => 'error',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-x-octagon',
@@ -91,6 +93,7 @@ final class NotificationPreferenceService
                 'title' => 'Konunuz için revizyon istendi',
                 'message' => '"{{topic_title}}" konunuz için düzenleme istendi.{{moderation_note_line}}',
                 'type' => 'warning',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-pencil-square',
@@ -103,6 +106,7 @@ final class NotificationPreferenceService
                 'title' => 'Yorumunuz onaylandı',
                 'message' => '"{{topic_title}}" konusundaki yorumunuz onaylandı.',
                 'type' => 'success',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-check2-circle',
@@ -115,6 +119,7 @@ final class NotificationPreferenceService
                 'title' => 'Yorumunuz düzenlendi',
                 'message' => '“{{topic_title}}” konusundaki yorumunuz {{actor_name}} tarafından düzenlendi.{{moderation_note_line}}',
                 'type' => 'warning',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-pencil-square',
@@ -139,6 +144,7 @@ final class NotificationPreferenceService
                 'title' => 'Hesabiniz banlandi',
                 'message' => '{{moderation_note}}',
                 'type' => 'error',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-slash-circle',
@@ -151,6 +157,7 @@ final class NotificationPreferenceService
                 'title' => 'Ban kaldirildi',
                 'message' => '{{moderation_note}}',
                 'type' => 'success',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-check-circle',
@@ -163,6 +170,7 @@ final class NotificationPreferenceService
                 'title' => 'Hesabiniz kisitlandi',
                 'message' => '{{moderation_note}}',
                 'type' => 'warning',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-shield-exclamation',
@@ -175,6 +183,7 @@ final class NotificationPreferenceService
                 'title' => 'Kisitlama kaldirildi',
                 'message' => '{{moderation_note}}',
                 'type' => 'success',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-shield-check',
@@ -187,6 +196,7 @@ final class NotificationPreferenceService
                 'title' => 'Grubunuz guncellendi',
                 'message' => '{{moderation_note}}',
                 'type' => 'info',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-person-badge',
@@ -199,6 +209,7 @@ final class NotificationPreferenceService
                 'title' => 'Yeni ban itirazi',
                 'message' => '{{moderation_note}}',
                 'type' => 'warning',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-envelope-exclamation',
@@ -211,6 +222,7 @@ final class NotificationPreferenceService
                 'title' => 'Ban itirazina yeni mesaj',
                 'message' => '{{moderation_note}}',
                 'type' => 'info',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-chat-dots',
@@ -223,6 +235,7 @@ final class NotificationPreferenceService
                 'title' => 'Ban itiraziniz guncellendi',
                 'message' => '{{moderation_note}}',
                 'type' => 'info',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-envelope-check',
@@ -235,6 +248,7 @@ final class NotificationPreferenceService
                 'title' => 'Konu raporunuz güncellendi',
                 'message' => '"{{topic_title}}" raporunuzun durumu "{{report_status}}" olarak güncellendi.{{moderation_note_line}}',
                 'type' => 'info',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-flag',
@@ -247,6 +261,7 @@ final class NotificationPreferenceService
                 'title' => 'Kullanıcı şikayetiniz güncellendi',
                 'message' => 'Kullanıcı şikayetinizin durumu "{{report_status}}" olarak güncellendi.{{moderation_note_line}}',
                 'type' => 'info',
+                'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-person-exclamation',
@@ -274,9 +289,45 @@ final class NotificationPreferenceService
         return $items;
     }
 
+    public function emailEventSettingKey(string $eventKey): string
+    {
+        $normalized = preg_replace('/[^a-zA-Z0-9_]+/', '_', $eventKey) ?: $eventKey;
+        $normalized = trim($normalized, '_');
+
+        return 'notif_email_event_' . ($normalized !== '' ? $normalized : 'unknown');
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function emailEventPreferenceItems(): array
+    {
+        $items = [];
+        foreach ($this->eventDefinitions() as $eventKey => $definition) {
+            $items[] = [
+                'key' => $this->emailEventSettingKey((string) $eventKey),
+                'fallback_key' => $definition['setting_key'],
+                'icon' => $definition['icon'],
+                'title' => $definition['preference_title'],
+                'description' => 'Bu olay icin e-posta bildirimi al.',
+                'default' => $definition['default'],
+                'event_key' => $eventKey,
+            ];
+        }
+
+        return $items;
+    }
+
     public function bool(array $settings, string $key, string $default = '1'): bool
     {
         return (($settings[$key] ?? $default) === '1');
+    }
+
+    /** @param array<string,mixed>|null $definition */
+    public function eventAdminLoggable(string $eventKey, ?array $definition = null): bool
+    {
+        $definition ??= $this->eventDefinitions()[$eventKey] ?? [];
+        $value = $definition['admin_loggable'] ?? false;
+
+        return $value === true || $value === 1 || $value === '1';
     }
 
     /** @return array<string,mixed> */
@@ -319,14 +370,45 @@ final class NotificationPreferenceService
         return $this->bool($settings, $groupKey, $defaults[$groupKey] ?? '1');
     }
 
+    /** @param array<string,mixed>|null $definition */
+    public function eventEnabledForUser(array $settings, string $eventKey, ?array $definition = null): bool
+    {
+        $definition ??= $this->eventDefinitions()[$eventKey] ?? [];
+        $settingKey = (string) ($definition['setting_key'] ?? '');
+        $default = (string) ($definition['default'] ?? '1');
+
+        return $settingKey !== '' && $this->bool($settings, $settingKey, $default);
+    }
+
+    /** @param array<string,mixed>|null $definition */
+    public function emailEventEnabledForUser(array $settings, string $eventKey, ?array $definition = null): bool
+    {
+        $definition ??= $this->eventDefinitions()[$eventKey] ?? [];
+        $default = (string) ($definition['default'] ?? '1');
+        $emailSettingKey = $this->emailEventSettingKey($eventKey);
+        if (array_key_exists($emailSettingKey, $settings)) {
+            return $this->bool($settings, $emailSettingKey, $default);
+        }
+
+        $siteSettingKey = (string) ($definition['setting_key'] ?? '');
+        if ($siteSettingKey !== '' && array_key_exists($siteSettingKey, $settings)) {
+            return $this->bool($settings, $siteSettingKey, $default);
+        }
+
+        return $this->bool($settings, $emailSettingKey, $default);
+    }
+
     /** @return list<string> */
     public function enabledTypesForUser(array $settings): array
     {
-        $types = ['info', 'success', 'warning', 'error', 'system'];
-
-        return array_values(array_filter($types, function (string $type) use ($settings): bool {
+        $types = ['info', 'success', 'warning', 'error'];
+        $enabled = array_values(array_filter($types, function (string $type) use ($settings): bool {
             return $this->bool($settings, 'notif_type_' . $type, '1');
         }));
+
+        $enabled[] = 'system';
+
+        return $enabled;
     }
 
     /** @return list<string> */
@@ -338,9 +420,27 @@ final class NotificationPreferenceService
 
         $enabled = [];
         foreach ($this->eventDefinitions() as $eventKey => $definition) {
-            $settingKey = (string) ($definition['setting_key'] ?? '');
-            $default = (string) ($definition['default'] ?? '1');
-            if ($settingKey !== '' && $this->bool($settings, $settingKey, $default)) {
+            if ($this->eventEnabledForUser($settings, (string) $eventKey, $definition)) {
+                $enabled[] = (string) $eventKey;
+            }
+        }
+
+        return $enabled;
+    }
+
+    /** @return list<string> */
+    public function enabledEmailEventKeysForUser(array $settings): array
+    {
+        if (
+            !$this->groupEnabled($settings, 'notif_group_email')
+            || !$this->bool($settings, 'notif_email_updates', '1')
+        ) {
+            return [];
+        }
+
+        $enabled = [];
+        foreach ($this->eventDefinitions() as $eventKey => $definition) {
+            if ($this->emailEventEnabledForUser($settings, (string) $eventKey, $definition)) {
                 $enabled[] = (string) $eventKey;
             }
         }
@@ -364,6 +464,8 @@ final class NotificationPreferenceService
         }
 
         if ($filterEvents) {
+            $clauses[] = "({$alias}.delivery_channels IS NULL OR {$alias}.delivery_channels = '' OR {$alias}.delivery_channels LIKE '%\"in_app\"%')";
+
             if (!$this->groupEnabled($settings, 'notif_group_events')) {
                 $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '')";
             } else {

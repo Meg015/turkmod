@@ -382,6 +382,7 @@ if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && $
     <?php if ($_themeManager instanceof ThemeManager): ?>
     <?= $_themeManager->renderAssetTags("css") . "\n" ?>
     <?php endif; ?>
+    <script src="<?= asset_url("assets/js/public-api.js", $baseUri) ?>" defer></script>
     <?php if (is_file($_publicJsBundle)): ?>
     <script src="<?= asset_url("assets/dist/public.min.js", $baseUri) ?>" defer></script>
     <?php else: ?>

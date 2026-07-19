@@ -23,18 +23,18 @@ $usersSortUrl = static function (string $column) use ($search, $filterGroup, $fi
     return 'users.php?' . http_build_query($params);
 };
 
-$usersSortHeader = static function (string $column, string $label, string $class = '') use ($usersSortUrl, $usersSort, $usersDir): void {
+$usersSortHeader = static function (string $column, string $label, string $class = '') use ($usersSortUrl, $usersSort, $usersDir): array {
     $isActive = $usersSort === $column;
     $icon = $isActive ? ($usersDir === 'asc' ? 'bi-arrow-up' : 'bi-arrow-down') : 'bi-arrow-down-up';
     $aria = $isActive ? ($usersDir === 'asc' ? 'ascending' : 'descending') : 'none';
-    ?>
-    <th class="<?= htmlspecialchars($class, ENT_QUOTES, 'UTF-8') ?>" aria-sort="<?= htmlspecialchars($aria, ENT_QUOTES, 'UTF-8') ?>">
-        <a class="users-sort-link <?= $isActive ? 'is-active' : '' ?>" href="<?= htmlspecialchars($usersSortUrl($column), ENT_QUOTES, 'UTF-8') ?>">
-            <span><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span>
-            <i class="bi <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
-        </a>
-    </th>
-    <?php
+    return [
+        'class' => $class,
+        'attrs' => ['aria-sort' => $aria],
+        'html' => '<a class="users-sort-link ' . ($isActive ? 'is-active' : '') . '" href="' . htmlspecialchars($usersSortUrl($column), ENT_QUOTES, 'UTF-8') . '">'
+            . '<span>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span>'
+            . '<i class="bi ' . htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') . '" aria-hidden="true"></i>'
+            . '</a>',
+    ];
 };
 
 $usersFormatDateTime = static function ($value, string $fallback = '-'): string {
@@ -47,9 +47,8 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
 };
 ?>
 
-<div class="admin-card ui-admin-mb-md ui-panel">
-    <div class="card-body ui-admin-card-compact ui-panel__body ui-card">
-        <form method="get" action="users.php" class="ui-admin-filter-row">
+<?= adminRenderFilterToolbarOpen('', 'ui-admin-mb-md') ?>
+        <form method="get" action="users.php" class="ui-admin-filter-row admin-filter-form">
             <input type="hidden" name="tab" value="users">
             <input type="hidden" name="sort" value="<?= htmlspecialchars($usersSort, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="dir" value="<?= htmlspecialchars($usersDir, ENT_QUOTES, 'UTF-8') ?>">
@@ -81,26 +80,24 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
                 <a href="users.php?tab=users" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-x-circle"></i> Temizle</a>
             <?php endif; ?>
         </form>
-    </div>
-</div>
+<?= adminRenderFilterToolbarClose() ?>
 
 <?php if (empty($users)): ?>
-    <div class="admin-card ui-panel">
-        <div class="card-body ui-admin-empty ui-panel__body ui-empty">
-            <div class="ui-admin-empty-icon ui-empty"><i class="bi bi-search"></i></div>
-            <h3 class="ui-admin-empty-title ui-empty">Kullanıcı bulunamadı</h3>
-            <p class="ui-admin-empty-desc ui-empty">Arama veya filtre kriterlerini değiştirerek tekrar deneyin.</p>
-            <div class="ui-admin-empty-actions ui-empty">
-                <a href="users.php?tab=users" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-arrow-counterclockwise"></i> Filtreleri Temizle</a>
-            </div>
-        </div>
-    </div>
+    <?= adminRenderPanel(adminRenderEmptyState([
+                'icon' => 'bi-search',
+                'tone' => 'info',
+                'title' => 'Kullanıcı bulunamadı',
+                'description' => 'Arama veya filtre kriterlerini değiştirerek tekrar deneyin.',
+                'actions' => [
+                    ['href' => 'users.php?tab=users', 'label' => 'Filtreleri Temizle', 'icon' => 'bi-arrow-counterclockwise'],
+                ],
+            ]), ['tag' => 'div']) ?>
 <?php else: ?>
-    <form method="post" action="users.php?tab=users" id="userBulkForm" class="user-bulk-form" data-user-bulk-form>
+    <form method="post" action="users.php?tab=users" id="userBulkForm" class="user-bulk-form" data-user-bulk-form<?= adminConfirmAttrs(['message' => 'Seçili kullanıcılara toplu işlem uygulanacak. Devam edilsin mi?', 'title' => 'Toplu işlem uygulansın mı?', 'ok' => 'Uygula', 'tone' => 'warning']) ?>>
         <input type="hidden" name="_token" value="<?= $csrfToken ?>">
         <input type="hidden" name="action" value="bulk_action">
 
-        <div class="user-bulk-bar ui-panel">
+        <div class="user-bulk-bar admin-bulk-action-bar ui-panel">
             <label class="user-bulk-select">
                 <input type="checkbox" data-user-select-all>
                 <span>Tümünü seç</span>
@@ -126,25 +123,22 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
             </button>
         </div>
 
-        <div class="admin-card ui-panel users-table-panel">
-            <div class="ui-admin-table-responsive">
-                <table class="ui-admin-table users-table">
-                    <thead>
-                        <tr>
-                            <th class="ui-admin-table-head-check">
-                                <span class="ui-admin-sr-only">Seç</span>
-                            </th>
-                            <?php $usersSortHeader('id', '#', 'ui-admin-table-head-id'); ?>
-                            <?php $usersSortHeader('user', 'Kullanıcı', 'ui-admin-table-head-user'); ?>
-                            <?php $usersSortHeader('group', 'Grup', 'ui-admin-table-head-role'); ?>
-                            <?php $usersSortHeader('status', 'Durum', 'ui-admin-table-head-status'); ?>
-                            <?php $usersSortHeader('restrictions', 'Kısıtlamalar', 'ui-admin-table-head-restrictions'); ?>
-                            <?php $usersSortHeader('activity', 'Son Aktivite', 'ui-admin-table-head-activity'); ?>
-                            <?php $usersSortHeader('created', 'Kayıt', 'ui-admin-table-head-date'); ?>
-                            <th class="ui-admin-table-actions">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <?= adminRenderPanelOpen(['tag' => 'div', 'class' => 'users-table-panel', 'body_class' => 'ui-admin-card-body-flush']) ?>
+                <?= adminRenderTableOpen([
+                    ['label' => 'Seç', 'class' => 'ui-admin-table-head-check', 'html' => '<span class="ui-admin-sr-only">Seç</span>'],
+                    $usersSortHeader('id', '#', 'ui-admin-table-head-id'),
+                    $usersSortHeader('user', 'Kullanıcı', 'ui-admin-table-head-user'),
+                    $usersSortHeader('group', 'Grup', 'ui-admin-table-head-role'),
+                    $usersSortHeader('status', 'Durum', 'ui-admin-table-head-status'),
+                    $usersSortHeader('restrictions', 'Kısıtlamalar', 'ui-admin-table-head-restrictions'),
+                    $usersSortHeader('activity', 'Son Aktivite', 'ui-admin-table-head-activity'),
+                    $usersSortHeader('created', 'Kayıt', 'ui-admin-table-head-date'),
+                    ['label' => 'İşlemler', 'class' => 'ui-admin-table-actions'],
+                ], [
+                    'class' => 'users-table',
+                    'wrap_class' => 'ui-admin-table-responsive',
+                    'label' => 'Kullanıcı listesi',
+                ]) ?>
                         <?php foreach ($users as $user):
                             $userId = (int)$user['id'];
                             $displayUsername = (string)($user['username'] ?? '');
@@ -252,7 +246,7 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
                                             <?php endif; ?>
                                             <?php if (!$isSelf): ?>
                                                 <?php if ($isBanned): ?>
-                                                    <button type="button" class="user-row-action is-success" data-user-unban="<?= $userId ?>"><i class="bi bi-check-circle"></i> Ban Kaldır</button>
+                                                    <button type="button" class="user-row-action is-success" data-user-unban="<?= $userId ?>" data-user-name="<?= $userAttrName ?>"><i class="bi bi-check-circle"></i> Ban Kaldır</button>
                                                 <?php else: ?>
                                                     <button type="button" class="user-row-action is-danger" data-user-ban="<?= $userId ?>" data-user-name="<?= $userAttrName ?>"><i class="bi bi-slash-circle"></i> Banla</button>
                                                 <?php endif; ?>
@@ -264,9 +258,7 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
                             </td>
                         </tr>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                <?= adminRenderTableClose() ?>
             <?php if (($usersTotalPages ?? 1) > 1): ?>
                 <?php
                 $pageUrl = static function (int $page) use ($search, $filterGroup, $filterStatus, $usersSort, $usersDir): string {
@@ -289,6 +281,6 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
                     'aria_label' => 'Kullanıcı sayfalama',
                 ]) ?>
             <?php endif; ?>
-        </div>
+        <?= adminRenderPanelClose('div') ?>
     </form>
 <?php endif; ?>

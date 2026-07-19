@@ -14,7 +14,7 @@ final class CspReportEndpoint implements Handler
         private string $logDir = '',
     ) {
         if ($this->logDir === '') {
-            $this->logDir = dirname(__DIR__, 4) . '/storage/logs';
+            $this->logDir = dirname(__DIR__, 5) . '/storage/logs';
         }
     }
 
@@ -22,7 +22,7 @@ final class CspReportEndpoint implements Handler
     {
         $method = strtoupper($request->getMethod());
         if (!in_array($method, ['POST', 'PUT'], true)) {
-            return new Response('', 405);
+            return new Response('', 405, ['Allow' => 'POST, PUT']);
         }
 
         $contentType = strtolower((string) $request->header('Content-Type', ''));
@@ -31,25 +31,34 @@ final class CspReportEndpoint implements Handler
         if ($body === '') {
             return new Response('', 400);
         }
-
-        if (str_contains($contentType, 'application/csp-report')) {
-            $report = $this->parseCspReport($body);
-        } else {
-            $decoded = json_decode($body, true);
-            $report = is_array($decoded) ? $decoded : ['raw' => $body];
+        if (strlen($body) > 65536) {
+            return new Response('', 413);
         }
+
+        $report = $this->parseReportBody($body, $contentType);
 
         $this->logReport($report);
 
         return new Response('', 204);
     }
 
-    private function parseCspReport(string $body): array
+    private function parseReportBody(string $body, string $contentType): array
     {
-        $data = [];
-        parse_str($body, $data);
+        $decoded = json_decode($body, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
 
-        return is_array($data) ? $data : ['raw' => $body];
+        if (str_contains($contentType, 'application/x-www-form-urlencoded')) {
+            $data = [];
+            parse_str($body, $data);
+
+            if (is_array($data) && $data !== []) {
+                return $data;
+            }
+        }
+
+        return ['raw' => substr($body, 0, 8192)];
     }
 
     private function logReport(array $report): void
@@ -60,7 +69,11 @@ final class CspReportEndpoint implements Handler
         }
 
         $logFile = $logDir . '/csp-reports.log';
-        $entry = date('Y-m-d H:i:s') . ' ' . json_encode($report, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        $entry = date('Y-m-d H:i:s') . ' ' . json_encode([
+            'ip' => substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64),
+            'user_agent' => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+            'report' => $report,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
 
         file_put_contents($logFile, $entry, FILE_APPEND | LOCK_EX);
     }

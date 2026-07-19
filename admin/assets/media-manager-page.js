@@ -8,6 +8,15 @@ function mediaManagerToast(message, type = 'info', duration) {
     }
 }
 
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function toggleUploadPanel() {
     var panel = document.getElementById('uploadPanel');
     if (!panel) return;
@@ -43,8 +52,8 @@ function openMediaPreview(el) {
 
     var modal = document.getElementById('mediaPreviewModal');
     if (modal) {
-        if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-            window.TMUI.openDialog(modal, {
+        if (window.adminDialog && typeof window.adminDialog.open === 'function') {
+            window.adminDialog.open(modal, {
                 bodyClass: 'ui-admin-dialog-open',
                 initialFocus: '#mediaPreviewClose',
                 returnFocus: document.activeElement,
@@ -69,14 +78,13 @@ function openMediaPreview(el) {
     formData.append('url', url);
     formData.append('path', path);
     
-    fetch('media-manager.php', {
+    window.adminFetchJson('media-manager.php', {
         method: 'POST',
         body: formData,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        notifyError: false
     })
-    .then(r => r.json())
     .then(data => {
-        if (data.success) {
+        if (data.success || data.ok) {
             if (data.usages.length === 0) {
                 usageContainer.innerHTML = '<span class="mm-usage-muted"><i class="bi bi-info-circle"></i> Bu dosya hiçbir yerde kullanılmıyor gibi görünüyor.</span>';
             } else {
@@ -92,15 +100,19 @@ function openMediaPreview(el) {
         }
     })
     .catch(err => {
-        usageContainer.innerHTML = '<span class="mm-usage-error"><i class="bi bi-exclamation-circle"></i> Bir hata oluştu.</span>';
+        var message = err && err.message ? err.message : 'Bir hata oluştu.';
+        usageContainer.innerHTML = '<span class="mm-usage-error"><i class="bi bi-exclamation-circle"></i> ' + escapeHtml(message) + '</span>';
     });
 }
 
 function closeMediaPreview() {
     var modal = document.getElementById('mediaPreviewModal');
     if (modal) {
-        if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-            window.TMUI.closeDialog(modal);
+        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
+            window.adminDialog.close(modal, function () {
+                modal.classList.remove('active', 'ui-admin-modal-open');
+                resetMediaPreviewContent();
+            });
             modal.classList.remove('active', 'ui-admin-modal-open');
             return;
         }
@@ -135,57 +147,6 @@ function copyPreviewUrl() {
     document.execCommand('copy');
 }
 
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeMediaPreview();
-    }
-});
-
-document.getElementById('mediaUploadToggle')?.addEventListener('click', toggleUploadPanel);
-document.getElementById('mediaDropzoneTrigger')?.addEventListener('click', function() {
-    document.getElementById('fileInput')?.click();
-});
-document.querySelectorAll('[data-media-preview-card]').forEach(function(card) {
-    card.addEventListener('click', function() {
-        openMediaPreview(card);
-    });
-});
-document.getElementById('mediaPreviewModal')?.addEventListener('click', function(event) {
-    if (event.target === event.currentTarget) {
-        closeMediaPreview();
-    }
-});
-document.getElementById('mediaPreviewClose')?.addEventListener('click', closeMediaPreview);
-document.getElementById('previewCopyButton')?.addEventListener('click', copyPreviewUrl);
-
-var dropZone = document.getElementById('dropZone');
-var fileInput = document.getElementById('fileInput');
-
-if (dropZone && fileInput) {
-    ['dragenter', 'dragover'].forEach(function(eventName) {
-        dropZone.addEventListener(eventName, function(e) {
-            e.preventDefault();
-            dropZone.classList.add('is-dragover');
-        });
-    });
-
-    ['dragleave', 'drop'].forEach(function(eventName) {
-        dropZone.addEventListener(eventName, function(e) {
-            e.preventDefault();
-            dropZone.classList.remove('is-dragover');
-        });
-    });
-
-    dropZone.addEventListener('drop', function(e) {
-        fileInput.files = e.dataTransfer.files;
-        showPreviews(e.dataTransfer.files);
-    });
-
-    fileInput.addEventListener('change', function() {
-        showPreviews(this.files);
-    });
-}
-
 function showPreviews(files) {
     var list = document.getElementById('previewList');
     if (!list) return;
@@ -211,9 +172,63 @@ function showPreviews(files) {
     });
 }
 
-// Ajax Upload Interceptor
-var uploadForm = document.querySelector('#uploadPanel form');
-if (uploadForm) {
+function initMediaManagerPage() {
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeMediaPreview();
+        }
+    });
+
+    document.getElementById('mediaUploadToggle')?.addEventListener('click', toggleUploadPanel);
+    document.getElementById('mediaDropzoneTrigger')?.addEventListener('click', function() {
+        document.getElementById('fileInput')?.click();
+    });
+    document.querySelectorAll('[data-media-preview-card]').forEach(function(card) {
+        card.addEventListener('click', function() {
+            openMediaPreview(card);
+        });
+    });
+    document.getElementById('mediaPreviewModal')?.addEventListener('click', function(event) {
+        if (event.target === event.currentTarget) {
+            closeMediaPreview();
+        }
+    });
+    document.getElementById('mediaPreviewClose')?.addEventListener('click', closeMediaPreview);
+    document.getElementById('previewCopyButton')?.addEventListener('click', copyPreviewUrl);
+
+    var dropZone = document.getElementById('dropZone');
+    var fileInput = document.getElementById('fileInput');
+
+    if (dropZone && fileInput) {
+        ['dragenter', 'dragover'].forEach(function(eventName) {
+            dropZone.addEventListener(eventName, function(e) {
+                e.preventDefault();
+                dropZone.classList.add('is-dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function(eventName) {
+            dropZone.addEventListener(eventName, function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('is-dragover');
+            });
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            fileInput.files = e.dataTransfer.files;
+            showPreviews(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', function() {
+            showPreviews(this.files);
+        });
+    }
+
+    var uploadForm = document.querySelector('#uploadPanel form');
+    if (!uploadForm) {
+        return;
+    }
+
     uploadForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -230,21 +245,31 @@ if (uploadForm) {
         var progressText = document.getElementById('uploadProgressText');
         var submitBtn = document.getElementById('uploadSubmitBtn');
 
-        submitBtn.disabled = true;
+        var uploadButtonState = window.adminAsync ? window.adminAsync.setButtonLoading(submitBtn, {
+            loadingHtml: '<i class="bi bi-hourglass-split"></i> Yukleniyor...'
+        }) : null;
         progressContainer.classList.remove('mm-hidden');
-        progressBar.style.width = '0%';
-        progressText.textContent = '0%';
+        if (window.adminAsync) {
+            window.adminAsync.setProgress(progressBar, progressText, 0);
+        } else {
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+        }
 
         xhr.upload.addEventListener('progress', function(e) {
             if (e.lengthComputable) {
                 var percent = Math.round((e.loaded / e.total) * 100);
-                progressBar.style.width = percent + '%';
-                progressText.textContent = percent + '%';
+                if (window.adminAsync) {
+                    window.adminAsync.setProgress(progressBar, progressText, percent);
+                } else {
+                    progressBar.style.width = percent + '%';
+                    progressText.textContent = percent + '%';
+                }
             }
         });
 
         xhr.addEventListener('load', function() {
-            submitBtn.disabled = false;
+            if (window.adminAsync) window.adminAsync.restoreButton(uploadButtonState);
             if (xhr.status === 200) {
                 try {
                     var data = JSON.parse(xhr.responseText);
@@ -266,7 +291,7 @@ if (uploadForm) {
         });
 
         xhr.addEventListener('error', function() {
-            submitBtn.disabled = false;
+            if (window.adminAsync) window.adminAsync.restoreButton(uploadButtonState);
             progressText.textContent = 'Bağlantı hatası!';
             progressBar.style.background = 'var(--alert-error-text, #ef4444)';
             mediaManagerToast('Ağ hatası.', 'error');
@@ -277,3 +302,13 @@ if (uploadForm) {
         xhr.send(formData);
     });
 }
+
+window.toggleUploadPanel = toggleUploadPanel;
+window.openMediaPreview = openMediaPreview;
+window.closeMediaPreview = closeMediaPreview;
+window.copyPreviewUrl = copyPreviewUrl;
+
+window.adminPage.register('media-manager', initMediaManagerPage, {
+    id: 'media-manager-page',
+    selector: '#uploadPanel, [data-media-preview-card], #mediaPreviewModal'
+});

@@ -50,12 +50,17 @@ class Analytics {
 
         if (useBeacon && navigator.sendBeacon) {
             navigator.sendBeacon(this.baseUri + '/api/analytics/track.php', payload);
-        } else {
-            fetch(this.baseUri + '/api/analytics/track.php', {
+            return;
+        }
+
+        if (typeof window.publicFetchJson === 'function') {
+            window.publicFetchJson(this.baseUri + '/api/analytics/track.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: payload,
                 keepalive: true,
+                notifyError: false,
+                csrfRetry: false,
             }).catch(() => {});
         }
     }
@@ -463,7 +468,7 @@ window.addEventListener('unhandledrejection', (event) => {
             button.disabled = true;
 
             try {
-                const response = await fetch(`${baseUri}/api/favorites/toggle.php`, {
+                const requestOptions = {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -471,15 +476,14 @@ window.addEventListener('unhandledrejection', (event) => {
                         'X-CSRF-TOKEN': csrfToken(),
                     },
                     body: JSON.stringify({ topic_id: Number(topicId || button.dataset.topicId || 0) }),
-                });
-
-                if (response.status === 401) {
-                    window.location.href = `${baseUri}/giris`;
-                    return;
+                };
+                if (!window.publicFetchJson) {
+                    throw new Error('Public API helper yuklenemedi.');
                 }
-
-                const payload = await response.json();
-                if (!response.ok || !payload.success) throw new Error(payload.error || 'favorite_failed');
+                const payload = await window.publicFetchJson(`${baseUri}/api/favorites/toggle.php`, Object.assign({}, requestOptions, {
+                    notifyError: false
+                }));
+                if (!payload.success) throw new Error(payload.error || 'favorite_failed');
                 setTopicFavoriteState(topicId, Boolean(payload.favorited), Number(payload.count || 0));
                 if (!payload.favorited && button.closest('.profile-favorite-remove-form')) {
                     const card = button.closest('.profile-topic-item');
@@ -506,6 +510,10 @@ window.addEventListener('unhandledrejection', (event) => {
                 window.showToast?.(payload.favorited ? 'Favorilere eklendi' : 'Favorilerden kaldırıldı', 'success');
                 window.analytics?.trackFavorite?.(payload.topic_id, payload.favorited ? 'add' : 'remove');
             } catch (error) {
+                if (Number(error && error.status) === 401) {
+                    window.location.href = `${baseUri}/giris`;
+                    return;
+                }
                 setTopicFavoriteState(topicId, previous.active, previous.count);
                 window.showToast?.(optimistic.messageFor(error.message, 'Favori işlemi tamamlanamadı.'), 'error');
             } finally {
@@ -609,9 +617,10 @@ window.addEventListener('unhandledrejection', (event) => {
             this.renderSkeleton();
 
             try {
-                const response = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
-                if (!response.ok) throw new Error('filter_failed');
-                const payload = await response.json();
+                if (!window.publicFetchJson) {
+                    throw new Error('Public API helper yuklenemedi.');
+                }
+                const payload = await window.publicFetchJson(apiUrl, { headers: { 'Accept': 'application/json' } });
                 this.container.innerHTML = payload.html || '';
                 if (pushState) history.pushState({}, '', pageUrl);
                 this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });

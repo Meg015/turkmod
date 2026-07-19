@@ -7,6 +7,8 @@ function toggleCheckbox(key) {
     }
 }
 
+function initAppearancePage() {
+
 // Sidebar sub-tab switching
 document.querySelectorAll('.sidebar-subtab-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
@@ -655,3 +657,11 @@ document.querySelectorAll('[data-color-field]').forEach(function(field) {
 
     form.addEventListener('submit', serializeRows);
 })();
+}
+
+window.toggleCheckbox = toggleCheckbox;
+
+window.adminPage.register('appearance', initAppearancePage, {
+    id: 'appearance-page',
+    selector: '#appearanceForm'
+});

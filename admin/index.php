@@ -103,40 +103,12 @@ require_once __DIR__ . '/header.php';
 ?>
 
 
-<div class="admin-stat-grid ui-grid">
-    <a href="<?= $baseUri ?>/admin/topics.php?status=published" class="admin-stat-card stat-success ui-admin-link-plain ui-card">
-        <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Yayındaki Konular</span>
-            <span class="stat-value"><?= number_format($stats['published'], 0, ',', '.') ?></span>
-            <span class="stat-change positive"><i class="bi bi-arrow-up"></i> Canlı</span>
-        </div>
-    </a>
-    <a href="<?= $baseUri ?>/admin/topics.php?status=draft" class="admin-stat-card stat-warning ui-admin-link-plain ui-card">
-        <div class="stat-icon"><i class="bi bi-clock-history"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Taslak Konular</span>
-            <span class="stat-value"><?= number_format($stats['pending'], 0, ',', '.') ?></span>
-            <span class="stat-change neutral"><i class="bi bi-dash"></i> Taslak</span>
-        </div>
-    </a>
-    <a href="<?= $baseUri ?>/admin/categories.php" class="admin-stat-card stat-info ui-admin-link-plain ui-card">
-        <div class="stat-icon"><i class="bi bi-diagram-3-fill"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Kategoriler</span>
-            <span class="stat-value"><?= number_format($stats['categories'], 0, ',', '.') ?></span>
-            <span class="stat-change positive"><i class="bi bi-arrow-up"></i> Aktif</span>
-        </div>
-    </a>
-    <a href="<?= $baseUri ?>/admin/complaints-reports.php" class="admin-stat-card stat-danger ui-admin-link-plain ui-card">
-        <div class="stat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Raporlar</span>
-            <span class="stat-value"><?= number_format($stats['reports'], 0, ',', '.') ?></span>
-            <span class="stat-change <?= $stats['reports'] > 0 ? 'negative' : 'neutral' ?>"><i class="bi <?= $stats['reports'] > 0 ? 'bi-arrow-up' : 'bi-dash' ?>"></i> Açık</span>
-        </div>
-    </a>
-</div>
+<?= adminRenderStatCards([
+    ['href' => $baseUri . '/admin/topics.php?status=published', 'tone' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Yayındaki Konular', 'value' => number_format($stats['published'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Canlı', 'change_icon' => 'bi-arrow-up', 'change_class' => 'positive'],
+    ['href' => $baseUri . '/admin/topics.php?status=draft', 'tone' => 'warning', 'icon' => 'bi-clock-history', 'label' => 'Taslak Konular', 'value' => number_format($stats['pending'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Taslak', 'change_icon' => 'bi-dash', 'change_class' => 'neutral'],
+    ['href' => $baseUri . '/admin/categories.php', 'tone' => 'info', 'icon' => 'bi-diagram-3-fill', 'label' => 'Kategoriler', 'value' => number_format($stats['categories'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Aktif', 'change_icon' => 'bi-arrow-up', 'change_class' => 'positive'],
+    ['href' => $baseUri . '/admin/complaints-reports.php', 'tone' => 'danger', 'icon' => 'bi-exclamation-triangle-fill', 'label' => 'Raporlar', 'value' => number_format($stats['reports'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Açık', 'change_icon' => $stats['reports'] > 0 ? 'bi-arrow-up' : 'bi-dash', 'change_class' => $stats['reports'] > 0 ? 'negative' : 'neutral'],
+], ['class' => 'dashboard-topic-summary', 'aria_label' => 'Dashboard konu özeti']) ?>
 
 
 <?php
@@ -144,40 +116,16 @@ $attentionTotal = $attentionTotal ?? 0;
 ?>
 
 <!-- Kullanıcı İstatistikleri -->
-<div class="ui-admin-stat-grid ui-admin-stat-grid-compact ui-grid">
-    <a href="<?= $baseUri ?>/admin/users.php" class="admin-stat-card stat-info ui-admin-link-plain ui-card">
-        <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Toplam Üye</span>
-            <span class="stat-value"><?= number_format($userStats['total'], 0, ',', '.') ?></span>
-            <span class="stat-change neutral"><i class="bi bi-person"></i> Kayıtlı</span>
-        </div>
-    </a>
-    <a href="<?= $baseUri ?>/admin/users.php" class="admin-stat-card stat-success ui-admin-link-plain ui-card">
-        <div class="stat-icon"><i class="bi bi-person-check-fill"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Aktif Üye</span>
-            <span class="stat-value"><?= number_format($userStats['active'], 0, ',', '.') ?></span>
-            <span class="stat-change positive"><i class="bi bi-check-circle"></i> Aktif</span>
-        </div>
-    </a>
-    <a href="<?= $baseUri ?>/admin/users.php" class="admin-stat-card stat-danger ui-admin-link-plain ui-card">
-        <div class="stat-icon"><i class="bi bi-person-slash"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Banlı Üye</span>
-            <span class="stat-value"><?= number_format($userStats['banned'], 0, ',', '.') ?></span>
-            <span class="stat-change <?= $userStats['banned'] > 0 ? 'negative' : 'neutral' ?>"><i class="bi bi-slash-circle"></i> Banlı</span>
-        </div>
-    </a>
-    <a href="<?= $baseUri ?>/admin/topics.php?status=draft" class="admin-stat-card stat-warning ui-admin-link-plain ui-card">
-        <div class="stat-icon"><i class="bi bi-shield-check"></i></div>
-        <div class="stat-content">
-            <span class="stat-label">Taslak Konular</span>
-            <span class="stat-value"><?= (int)($moderationQuality['pending'] ?? 0) ?></span>
-            <span class="stat-change negative"><i class="bi bi-clock"></i> Moderasyon</span>
-        </div>
-    </a>
-</div>
+<?= adminRenderStatCards([
+    ['href' => $baseUri . '/admin/users.php', 'tone' => 'info', 'icon' => 'bi-people-fill', 'label' => 'Toplam Üye', 'value' => number_format($userStats['total'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Kayıtlı', 'change_icon' => 'bi-person', 'change_class' => 'neutral'],
+    ['href' => $baseUri . '/admin/users.php', 'tone' => 'success', 'icon' => 'bi-person-check-fill', 'label' => 'Aktif Üye', 'value' => number_format($userStats['active'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Aktif', 'change_icon' => 'bi-check-circle', 'change_class' => 'positive'],
+    ['href' => $baseUri . '/admin/users.php', 'tone' => 'danger', 'icon' => 'bi-person-slash', 'label' => 'Banlı Üye', 'value' => number_format($userStats['banned'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Banlı', 'change_icon' => 'bi-slash-circle', 'change_class' => $userStats['banned'] > 0 ? 'negative' : 'neutral'],
+    ['href' => $baseUri . '/admin/topics.php?status=draft', 'tone' => 'warning', 'icon' => 'bi-shield-check', 'label' => 'Taslak Konular', 'value' => number_format((int) ($moderationQuality['pending'] ?? 0), 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Moderasyon', 'change_icon' => 'bi-clock', 'change_class' => 'negative'],
+], [
+    'base_class' => 'ui-admin-stat-grid ui-admin-stat-grid-compact ui-grid admin-ui-stat-grid',
+    'class' => 'dashboard-user-summary',
+    'aria_label' => 'Dashboard kullanıcı özeti',
+]) ?>
 
 <!-- Dikkat Bekleyenler: tüm moderasyon kuyruklarının tek birleşik özeti -->
 <?php
@@ -190,14 +138,14 @@ $attentionQueues = [
 $attention = $attention ?? [];
 $attentionTotal = $attentionTotal ?? 0;
 ?>
-<div class="admin-card ui-admin-attention-card ui-panel ui-card">
-    <div class="card-header ui-panel__head">
-        <i class="bi bi-bell<?= $attentionTotal > 0 ? '-fill' : '' ?>"></i>Dikkat Bekleyenler
-        <?php if ($attentionTotal > 0): ?>
-            <span class="ui-admin-attention-badge"><?= number_format($attentionTotal, 0, ',', '.') ?></span>
-        <?php endif; ?>
-    </div>
-    <div class="card-body ui-admin-card-flush ui-panel__body ui-card">
+<?= adminRenderPanelOpen([
+    'tag' => 'div',
+    'class' => 'ui-admin-attention-card ui-card',
+    'icon' => $attentionTotal > 0 ? 'bi-bell-fill' : 'bi-bell',
+    'title' => 'Dikkat Bekleyenler',
+    'actions_html' => $attentionTotal > 0 ? '<span class="ui-admin-attention-badge">' . number_format($attentionTotal, 0, ',', '.') . '</span>' : '',
+    'body_class' => 'ui-admin-card-flush',
+]) ?>
         <?php if ($attentionTotal === 0): ?>
             <div class="quick-action-item">
                 <div class="quick-action-icon"><i class="bi bi-check2-circle"></i></div>
@@ -220,14 +168,16 @@ $attentionTotal = $attentionTotal ?? 0;
                 <?php endif; ?>
             <?php endforeach; ?>
         <?php endif; ?>
-    </div>
-</div>
+<?= adminRenderPanelClose('div') ?>
 
 <!-- Hızlı İşlemler + Son Aktiviteler -->
 <div class="dashboard-grid ui-grid">
-    <div class="admin-card ui-panel">
-        <div class="card-header ui-panel__head"><i class="bi bi-compass"></i>Operasyon Merkezi</div>
-        <div class="card-body ui-admin-card-flush ui-panel__body ui-card">
+    <?= adminRenderPanelOpen([
+        'tag' => 'div',
+        'icon' => 'bi-compass',
+        'title' => 'Operasyon Merkezi',
+        'body_class' => 'ui-admin-card-flush',
+    ]) ?>
             <a href="<?= $baseUri ?>/admin/system-health.php" class="quick-action-item">
                 <div class="quick-action-icon"><i class="bi bi-clipboard2-pulse"></i></div>
                 <div class="quick-action-content">
@@ -268,12 +218,14 @@ $attentionTotal = $attentionTotal ?? 0;
                 </div>
                 <i class="bi bi-chevron-right"></i>
             </a>
-        </div>
-    </div>
+    <?= adminRenderPanelClose('div') ?>
 
-    <div class="admin-card ui-panel">
-        <div class="card-header ui-panel__head"><i class="bi bi-clock-history"></i>Son Yönetim İşlemleri</div>
-        <div class="card-body ui-admin-card-flush ui-panel__body ui-card">
+    <?= adminRenderPanelOpen([
+        'tag' => 'div',
+        'icon' => 'bi-clock-history',
+        'title' => 'Son Yönetim İşlemleri',
+        'body_class' => 'ui-admin-card-flush',
+    ]) ?>
             <?php if (empty($recentActivity)): ?>
                 <div class="activity-item">
                     <div class="activity-icon info"><i class="bi bi-info-circle"></i></div>
@@ -308,8 +260,7 @@ $attentionTotal = $attentionTotal ?? 0;
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
-        </div>
-    </div>
+    <?= adminRenderPanelClose('div') ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

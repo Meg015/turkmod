@@ -42,7 +42,7 @@ if (!$pdo) {
     $pageTitle = "Hata";
 
     require_once $projectRoot . "/includes/public-header.php";
-    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">Veritabanı bağlantısı kurulamadı.</div>';
+    echo uiRenderAlert('Veritabanı bağlantısı kurulamadı.', 'danger');
 
     require_once $projectRoot . "/includes/public-footer.php";
     exit();
@@ -534,7 +534,7 @@ if (!$user) {
     $pageTitle = "Profil Bulunamadı";
 
     require_once $projectRoot . "/includes/public-header.php";
-    echo '<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error">Kullanıcı profili bulunamadı.</div>';
+    echo uiRenderAlert('Kullanıcı profili bulunamadı.', 'danger');
 
     require_once $projectRoot . "/includes/public-footer.php";
     exit();
@@ -1038,21 +1038,13 @@ require_once $projectRoot . "/includes/public-header.php";
 
 <?php if ($successMsg && !$suppressPageSuccessAlert): ?>
 
-<div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success" role="alert"><?= htmlspecialchars(
-
-    $successMsg,
-
-) ?><button type="button" class="ui-admin-alert-close" aria-label="Kapat"><i class="bi bi-x-lg"></i></button></div>
+<?= uiRenderAlert((string) $successMsg, 'success', ['role' => 'alert', 'closable' => true]) ?>
 
 <?php endif; ?>
 
 <?php if ($errorMsg): ?>
 
-<div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error" role="alert"><?= htmlspecialchars(
-
-    $errorMsg,
-
-) ?><button type="button" class="ui-admin-alert-close" aria-label="Kapat"><i class="bi bi-x-lg"></i></button></div>
+<?= uiRenderAlert((string) $errorMsg, 'danger', ['role' => 'alert', 'closable' => true]) ?>
 
 <?php endif; ?>
 
@@ -2653,21 +2645,13 @@ require_once $projectRoot . "/includes/public-header.php";
 
         <?php if ($pwSuccess): ?>
 
-            <div class="ui-admin-alert ui-admin-alert-success profile-alert-sm ui-alert ui-alert--success"><?= htmlspecialchars(
-
-                $pwSuccess,
-
-            ) ?></div>
+            <?= uiRenderAlert((string) $pwSuccess, 'success', ['class' => 'profile-alert-sm']) ?>
 
         <?php endif; ?>
 
         <?php if ($pwError): ?>
 
-            <div class="ui-admin-alert ui-admin-alert-danger profile-alert-sm ui-alert ui-alert--error"><?= htmlspecialchars(
-
-                $pwError,
-
-            ) ?></div>
+            <?= uiRenderAlert((string) $pwError, 'danger', ['class' => 'profile-alert-sm']) ?>
 
         <?php endif; ?>
 

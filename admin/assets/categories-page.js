@@ -1,6 +1,8 @@
-const _catCsrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+function categoryCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+}
 
-function confirmDeleteCategory(id, name) {
+function confirmDeleteCategory(id, name, trigger) {
     adminConfirm('<strong>' + name + '</strong> kategorisi kalıcı olarak silinecek.', {
         title: 'Kategoriyi sil?',
         ok: '<i class="bi bi-trash"></i> Evet, sil',
@@ -13,18 +15,25 @@ function confirmDeleteCategory(id, name) {
         if (row) row.classList.add('ui-admin-row-pending');
 
         const fd = new FormData();
-        fd.append('_token', _catCsrf);
+        fd.append('_token', categoryCsrfToken());
         fd.append('action', 'delete');
         fd.append('id', id);
 
-        fetch('categories.php', {
+        const request = window.adminAsync ? window.adminAsync.fetchJson('categories.php', {
+            button: trigger || null,
+            loadingHtml: '<i class="bi bi-hourglass-split"></i>',
             method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: fd,
-        })
-        .then(function(r) { return r.json(); })
+            notifyError: false
+        }) : window.adminFetchJson('categories.php', {
+            method: 'POST',
+            body: fd,
+            notifyError: false
+        });
+
+        request
         .then(function(data) {
-            if (data.ok) {
+            if (data.ok || data.success) {
                 if (row) {
                     row.classList.remove('ui-admin-row-pending');
                     row.classList.add('ui-admin-row-removing');
@@ -37,15 +46,22 @@ function confirmDeleteCategory(id, name) {
                 adminAlert(data.message, { title: 'Hata', tone: 'danger' });
             }
         })
-        .catch(function() {
+        .catch(function(error) {
             if (row) row.classList.remove('ui-admin-row-pending');
-            adminAlert('Sunucu ile iletişim kurulamadı.', { title: 'Hata', tone: 'danger' });
+            adminAlert(error && error.message ? error.message : 'Sunucu ile iletişim kurulamadı.', { title: 'Hata', tone: 'danger' });
         });
     });
 }
 
-document.addEventListener('click', function(event) {
-    const deleteTrigger = event.target.closest('[data-category-delete]');
-    if (!deleteTrigger) return;
-    confirmDeleteCategory(deleteTrigger.getAttribute('data-category-delete'), deleteTrigger.getAttribute('data-category-name') || '');
+function initCategoriesPage() {
+    document.addEventListener('click', function(event) {
+        const deleteTrigger = event.target.closest('[data-category-delete]');
+        if (!deleteTrigger) return;
+        confirmDeleteCategory(deleteTrigger.getAttribute('data-category-delete'), deleteTrigger.getAttribute('data-category-name') || '', deleteTrigger);
+    });
+}
+
+window.adminPage.register('categories', initCategoriesPage, {
+    id: 'categories-page',
+    selector: '[data-category-delete]'
 });

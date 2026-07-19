@@ -36,6 +36,28 @@
         return String(text || "").replace(/[&<>"']/g, function(m) { return map[m]; });
     }
 
+    function fetchJson(url, options) {
+        if (window.publicFetchJson) {
+            return window.publicFetchJson(url, options || {});
+        }
+
+        return Promise.reject(new Error("Public API helper yuklenemedi."));
+    }
+
+    function toast(message, type) {
+        if (typeof window.showToast === "function") {
+            window.showToast(message, type || "info");
+        }
+    }
+
+    function postSilently(url, body) {
+        return fetchJson(url, {
+            method: "POST",
+            body: body,
+            notifyError: false
+        }).catch(function () {});
+    }
+
     function createSearchItem(user, onSelect) {
         var button = document.createElement("button");
         button.type = "button";
@@ -146,10 +168,9 @@
             url.searchParams.set("q", value);
             url.searchParams.set("limit", "8");
 
-            fetch(url.toString(), {
+            fetchJson(url.toString(), {
                 headers: { "X-Requested-With": "XMLHttpRequest" }
             })
-            .then(function (response) { return response.json(); })
             .then(function (data) {
                 var users = Array.isArray(data.users) ? data.users : [];
                 renderResults(users);
@@ -184,7 +205,7 @@
                     event.preventDefault();
                     searchInput.classList.add("is-invalid");
                     searchInput.setAttribute("aria-invalid", "true");
-                    if (typeof window.showToast === "function") window.showToast("Lütfen listeden bir kullanıcı seçin.", "warning");
+                    toast("Lütfen listeden bir kullanıcı seçin.", "warning");
                     searchInput.focus();
                 });
             }
@@ -276,11 +297,7 @@
                         fd.append("action", "typing");
                         fd.append("_token", csrfToken);
                         fd.append("thread_id", activeThreadId);
-                        fetch(apiUrl, {
-                            method: "POST",
-                            body: fd,
-                            headers: { "X-Requested-With": "XMLHttpRequest" }
-                        }).catch(function(){});
+                        postSilently(apiUrl, fd);
                     }
 
                     clearTimeout(stopTypingTimer);
@@ -289,11 +306,7 @@
                         fdStop.append("action", "stop_typing");
                         fdStop.append("_token", csrfToken);
                         fdStop.append("thread_id", activeThreadId);
-                        fetch(apiUrl, {
-                            method: "POST",
-                            body: fdStop,
-                            headers: { "X-Requested-With": "XMLHttpRequest" }
-                        }).catch(function(){});
+                        postSilently(apiUrl, fdStop);
                         lastTypingSent = 0;
                     }, 1500);
                 } else {
@@ -302,11 +315,7 @@
                     fdStop.append("action", "stop_typing");
                     fdStop.append("_token", csrfToken);
                     fdStop.append("thread_id", activeThreadId);
-                    fetch(apiUrl, {
-                        method: "POST",
-                        body: fdStop,
-                        headers: { "X-Requested-With": "XMLHttpRequest" }
-                    }).catch(function(){});
+                    postSilently(apiUrl, fdStop);
                     lastTypingSent = 0;
                 }
             });
@@ -330,14 +339,16 @@
                 fd.append("action", "delete");
                 fd.append("_token", csrfToken);
                 fd.append("message_id", msgId);
-                fetch(apiUrl, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
-                .then(function(res) { return res.json(); })
+                fetchJson(apiUrl, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
                 .then(function(data) {
                     if (data.ok) {
-                        if (typeof window.showToast === "function") window.showToast(data.message || "Mesaj silindi.", "success");
+                        toast(data.message || "Mesaj silindi.", "success");
                         pollThread(false); // refresh thread
                     }
-                    else if (typeof window.showToast === "function") window.showToast(data.message || "Hata oluştu", "error");
+                    else toast(data.message || "Hata oluştu", "error");
+                })
+                .catch(function (error) {
+                    toast(error && error.message ? error.message : "Mesaj silinemedi.", "error");
                 });
             } else if (action === 'edit') {
                 var msgBodyEl = article.querySelector('.msg-body');
@@ -349,14 +360,16 @@
                     fd2.append("_token", csrfToken);
                     fd2.append("message_id", msgId);
                     fd2.append("body", newBody);
-                    fetch(apiUrl, { method: "POST", body: fd2, headers: { "X-Requested-With": "XMLHttpRequest" } })
-                    .then(function(res) { return res.json(); })
+                    fetchJson(apiUrl, { method: "POST", body: fd2, headers: { "X-Requested-With": "XMLHttpRequest" } })
                     .then(function(data) {
                         if (data.ok) {
-                            if (typeof window.showToast === "function") window.showToast(data.message || "Mesaj duzenlendi.", "success");
+                            toast(data.message || "Mesaj duzenlendi.", "success");
                             pollThread(false); // refresh thread
                         }
-                        else if (typeof window.showToast === "function") window.showToast(data.message || "Hata oluştu", "error");
+                        else toast(data.message || "Hata oluştu", "error");
+                    })
+                    .catch(function (error) {
+                        toast(error && error.message ? error.message : "Mesaj duzenlenemedi.", "error");
                     });
                 }
             }
@@ -500,8 +513,7 @@
                     url.searchParams.set("thread_id", activeThreadId);
                     url.searchParams.set("before_id", beforeId);
 
-                    fetch(url.toString(), { headers: { "X-Requested-With": "XMLHttpRequest" } })
-                    .then(function(res) { return res.json(); })
+                    fetchJson(url.toString(), { headers: { "X-Requested-With": "XMLHttpRequest" } })
                     .then(function(data) {
                         if (data.ok && data.messages) {
                             if (data.messages.length === 0) {
@@ -530,12 +542,11 @@
                 if (btn) btn.disabled = true;
 
                 var fd = new FormData(sendForm);
-                fetch(apiUrl, {
+                fetchJson(apiUrl, {
                     method: "POST",
                     body: fd,
                     headers: { "X-Requested-With": "XMLHttpRequest" }
                 })
-                .then(function(res) { return res.json(); })
                 .then(function(data) {
                     if (data.ok) {
                         if (composerTextarea) {
@@ -543,9 +554,7 @@
                             composerTextarea.style.height = "auto";
                             composerTextarea.focus();
                         }
-                        if (typeof window.showToast === "function") {
-                            window.showToast(data.message || "Mesaj gonderildi.", "success");
-                        }
+                        toast(data.message || "Mesaj gonderildi.", "success");
                         // Mesaj gönderilince "yazıyor..." göstergesini hemen temizle
                         if (activeThreadData) {
                             activeThreadData.is_typing_now = false;
@@ -553,14 +562,12 @@
                         clearTimeout(window.typingTimer);
                         lastTypingSent = 0;
                         pollThread(true);
-                    } else if (typeof window.showToast === "function") {
-                        window.showToast(data.message || "Mesaj gonderilemedi", "error");
+                    } else {
+                        toast(data.message || "Mesaj gonderilemedi", "error");
                     }
                 })
-                .catch(function() {
-                    if (typeof window.showToast === "function") {
-                        window.showToast("Baglanti hatasi", "error");
-                    }
+                .catch(function(error) {
+                    toast(error && error.message ? error.message : "Baglanti hatasi", "error");
                 })
                 .finally(function() {
                     if (btn) btn.disabled = false;
@@ -577,10 +584,9 @@
             url.searchParams.set("action", "thread");
             url.searchParams.set("thread_id", activeThreadId);
 
-            fetch(url.toString(), {
+            fetchJson(url.toString(), {
                 headers: { "X-Requested-With": "XMLHttpRequest" }
             })
-            .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.ok && data.thread && data.messages) {
                     var wasAtBottom = false;

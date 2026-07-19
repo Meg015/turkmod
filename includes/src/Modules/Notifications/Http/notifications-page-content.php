@@ -46,21 +46,12 @@ function notification_int_setting(array $settings, string $key, int $default, in
 function notification_user_preference_groups(): array
 {
     return [
-        'email' => [
-            'key' => 'notif_group_email',
-            'icon' => 'bi-envelope-check',
-            'title' => 'E-posta Bildirimleri',
-            'description' => 'E-posta ile gonderilecek hesap, guvenlik ve icerik bildirimlerini yonetin.',
-            'default' => '1',
-            'items' => [
-                ['key' => 'notif_email_updates', 'icon' => 'bi-envelope', 'title' => 'E-posta teslimi', 'description' => 'E-posta destekleyen bildirimler hesabinizdaki e-posta adresine kuyruklanir.', 'default' => '1'],
-            ],
-        ],
         'header' => [
+            'tab' => 'in_app',
             'key' => 'notif_group_header',
             'icon' => 'bi-bell',
-            'title' => 'Ust Menu Bildirimleri',
-            'description' => 'Header rozeti, acilir bildirim listesi ve gorunen bildirim tonlarini yonetin.',
+            'title' => 'Site Ici Bildirim Merkezi',
+            'description' => 'Header rozeti, acilir bildirim listesi ve gelen kutusunda gorunen bildirim tonlarini yonetin.',
             'default' => '1',
             'items' => [
                 ['key' => 'notif_browser_push', 'icon' => 'bi-bell', 'title' => 'Header bildirim merkezi', 'description' => 'Okunmamis rozeti ve acilir bildirim listesini ust menude goster.', 'default' => '1'],
@@ -68,54 +59,42 @@ function notification_user_preference_groups(): array
                 ['key' => 'notif_type_success', 'icon' => 'bi-check2-circle', 'title' => 'Basari bildirimleri', 'description' => 'Tamamlanan islem, onay ve olumlu sonuc bildirimleri.', 'default' => '1'],
                 ['key' => 'notif_type_warning', 'icon' => 'bi-exclamation-triangle', 'title' => 'Uyari bildirimleri', 'description' => 'Dikkat gerektiren hesap ve icerik uyarilari.', 'default' => '1'],
                 ['key' => 'notif_type_error', 'icon' => 'bi-x-circle', 'title' => 'Kritik hata bildirimleri', 'description' => 'Guvenlik, erisim ve kritik sistem uyarilari.', 'default' => '1'],
-                ['key' => 'notif_type_system', 'icon' => 'bi-cpu', 'title' => 'Sistem bildirimleri', 'description' => 'Bakim, surum ve altyapi duyurulari.', 'default' => '1'],
+            ],
+        ],
+        'events' => [
+            'tab' => 'in_app',
+            'key' => 'notif_group_events',
+            'icon' => 'bi-activity',
+            'title' => 'Site Ici Bildirim Olaylari',
+            'description' => 'Yorum, mesaj, favori konu ve moderasyon olaylarindan hangilerinin site icinde gorunecegini secin.',
+            'default' => '1',
+            'items' => notificationEventPreferenceItems(),
+        ],
+        'experience' => [
+            'tab' => 'in_app',
+            'key' => '',
+            'icon' => 'bi-layout-text-sidebar-reverse',
+            'title' => 'Okuma Deneyimi',
+            'description' => 'Bildirim listesinin acilis ve yogunluk davranisini ayarlayin.',
+            'default' => '1',
+            'items' => [
                 ['key' => 'notif_auto_mark_on_open', 'icon' => 'bi-check2-all', 'title' => 'Link acinca okundu yap', 'description' => 'Bildirim baglantisina tikladiginizda bildirimi otomatik okundu olarak isaretle.', 'default' => '1'],
                 ['key' => 'notif_compact_view', 'icon' => 'bi-layout-text-sidebar-reverse', 'title' => 'Kompakt gorunum', 'description' => 'Gelen kutusunda daha sik araliklarla daha fazla bildirimi ayni anda goster.', 'default' => '0'],
             ],
         ],
-        'events' => [
-            'key' => 'notif_group_events',
-            'icon' => 'bi-activity',
-            'title' => 'Site Etkinlikleri',
-            'description' => 'Yorum, bahsetme, favori konu ve moderasyon olaylarindan hangilerinin bildirime donusecegini secin.',
+        'email' => [
+            'tab' => 'email',
+            'key' => 'notif_group_email',
+            'icon' => 'bi-envelope-check',
+            'title' => 'E-posta Bildirimleri',
+            'description' => 'E-posta ile gonderilecek hesap, guvenlik ve icerik bildirimlerini site ici tercihlerden bagimsiz yonetin.',
             'default' => '1',
-            'items' => notificationEventPreferenceItems(),
-        ],
-    ];
-
-    return [
-        'channels' => [
-            'title' => 'Kanallar',
-            'description' => 'Bildirimlerin hangi yüzeylerde görüneceğini seçin.',
-            'items' => [
-                ['key' => 'notif_email_updates', 'icon' => 'bi-envelope', 'title' => 'E-posta bildirimleri', 'description' => 'Hesap, güvenlik ve önemli duyuruları e-posta adresinize gönderelim.', 'default' => '1'],
-                ['key' => 'notif_browser_push', 'icon' => 'bi-bell', 'title' => 'Üst menü bildirimleri', 'description' => 'Okunmamış rozetini ve açılır bildirim listesini üst menüde göster.', 'default' => '1'],
-                ['key' => 'notif_marketing', 'icon' => 'bi-megaphone', 'title' => 'Duyuru ve kampanyalar', 'description' => 'Yeni özellikler, topluluk duyuruları ve özel etkinlik haberlerini al.', 'default' => '0'],
-            ],
-        ],
-        'types' => [
-            'title' => 'Bildirim Tipleri',
-            'description' => 'Gelen kutunuzda ve üst menüde görmek istediğiniz bildirim türlerini belirleyin.',
-            'items' => [
-                ['key' => 'notif_type_info', 'icon' => 'bi-info-circle', 'title' => 'Bilgi bildirimleri', 'description' => 'Genel bilgilendirme ve standart platform duyuruları.', 'default' => '1'],
-                ['key' => 'notif_type_success', 'icon' => 'bi-check2-circle', 'title' => 'Başarı bildirimleri', 'description' => 'Tamamlanan işlem, onay ve olumlu sonuç bildirimleri.', 'default' => '1'],
-                ['key' => 'notif_type_warning', 'icon' => 'bi-exclamation-triangle', 'title' => 'Uyarı bildirimleri', 'description' => 'Dikkat gerektiren hesap ve içerik uyarıları.', 'default' => '1'],
-                ['key' => 'notif_type_error', 'icon' => 'bi-x-circle', 'title' => 'Kritik hata bildirimleri', 'description' => 'Güvenlik, erişim ve kritik sistem uyarıları.', 'default' => '1'],
-                ['key' => 'notif_type_system', 'icon' => 'bi-cpu', 'title' => 'Sistem bildirimleri', 'description' => 'Bakım, sürüm ve altyapı duyuruları.', 'default' => '1'],
-            ],
-        ],
-        'events' => [
-            'title' => 'Site Etkinlikleri',
-            'description' => 'Yorumlar, bahsetmeler, favori konular ve moderasyon kararları için hangi olaylardan bildirim alacağınızı seçin.',
-            'items' => notificationEventPreferenceItems(),
-        ],
-        'experience' => [
-            'title' => 'Okuma Deneyimi',
-            'description' => 'Bildirim listesinin çalışma şeklini kişiselleştirin.',
-            'items' => [
-                ['key' => 'notif_auto_mark_on_open', 'icon' => 'bi-check2-all', 'title' => 'Link açınca okundu yap', 'description' => 'Bildirim bağlantısına tıkladığınızda bildirimi otomatik okundu olarak işaretle.', 'default' => '1'],
-                ['key' => 'notif_compact_view', 'icon' => 'bi-layout-text-sidebar-reverse', 'title' => 'Kompakt görünüm', 'description' => 'Gelen kutusunda daha sıkı aralıklarla daha fazla bildirimi aynı anda göster.', 'default' => '0'],
-            ],
+            'items' => array_merge(
+                [
+                    ['key' => 'notif_email_updates', 'icon' => 'bi-envelope', 'title' => 'E-posta teslimi', 'description' => 'E-posta destekleyen bildirimler hesabinizdaki e-posta adresine kuyruklanir.', 'default' => '1'],
+                ],
+                notificationEmailEventPreferenceItems()
+            ),
         ],
     ];
 }
@@ -150,6 +129,23 @@ function notification_user_default_settings(): array
     return $defaults;
 }
 
+function notification_preference_effect_text(array $item, string $channel, bool $enabled): string
+{
+    $title = trim((string) ($item['title'] ?? 'Bu bildirim'));
+    $title = $title !== '' ? $title : 'Bu bildirim';
+    $normalizedTitle = mb_strtolower($title, 'UTF-8');
+
+    if ($channel === 'email') {
+        return $enabled
+            ? 'Acik: ' . $normalizedTitle . ' icin e-posta alirsiniz.'
+            : 'Kapali: ' . $normalizedTitle . ' icin e-posta almazsiniz.';
+    }
+
+    return $enabled
+        ? 'Acik: ' . $normalizedTitle . ' bildirim merkezinde gorunur.'
+        : 'Kapali: ' . $normalizedTitle . ' bildirim merkezinde gorunmez.';
+}
+
 function notification_enabled_types(array $settings): array
 {
     return function_exists('notificationEnabledTypesForUser') ? notificationEnabledTypesForUser($settings) : [];
@@ -178,6 +174,19 @@ function notification_safe_link(string $link, string $baseUri): string
     }
 
     return $link;
+}
+
+function notification_public_notification_row(array $notification, string $baseUri): array
+{
+    return [
+        'id' => (int) ($notification['id'] ?? 0),
+        'title' => (string) ($notification['title'] ?? ''),
+        'message' => (string) ($notification['message'] ?? ''),
+        'type' => (string) ($notification['type'] ?? 'info'),
+        'link' => notification_safe_link((string) ($notification['link'] ?? ''), $baseUri),
+        'created_at' => (string) ($notification['created_at'] ?? ''),
+        'is_read' => (int) ($notification['is_read'] ?? 0),
+    ];
 }
 
 $adminSettings = function_exists('getAdminSettings') && $pdo ? getAdminSettings($pdo) : [];
@@ -349,7 +358,11 @@ if ($pdo && $tab === 'list') {
         $stmt->bindValue($bindIndex, $perPage, PDO::PARAM_INT);
         $stmt->bindValue($bindIndex + 1, $offset, PDO::PARAM_INT);
         $stmt->execute();
-        $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $notificationRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $notifications = array_map(
+            static fn (array $notification): array => notification_public_notification_row($notification, (string) ($baseUri ?? '')),
+            $notificationRows
+        );
     } catch (Throwable $e) {
         $loadError = 'Bildirimler yüklenemedi.';
     }
@@ -429,7 +442,7 @@ foreach ($notifications as $notification) {
     $typeMeta = notification_type_meta((string) ($notification['type'] ?? 'info'));
     $isUnread = (int) ($notification['is_read'] ?? 0) === 0;
     $createdAt = !empty($notification['created_at']) ? strtotime((string) $notification['created_at']) : false;
-    $link = notification_safe_link((string) ($notification['link'] ?? ''), (string) ($baseUri ?? ''));
+    $link = (string) ($notification['link'] ?? '');
     $notifications_items[] = [
         'id' => (string) (int) ($notification['id'] ?? 0),
         'class' => $isUnread ? 'notification-item is-unread' : 'notification-item is-read',
@@ -458,17 +471,51 @@ $notifications_has_prev = $page > 1;
 $notifications_has_next = $page < $totalPages;
 $notifications_page_label = (string) (int) $page;
 $notifications_total_pages_label = (string) (int) $totalPages;
+$notification_preference_tabs = [
+    'in_app' => ['icon' => 'bi-bell', 'label' => 'Site Ici Bildirimler'],
+    'email' => ['icon' => 'bi-envelope-check', 'label' => 'E-posta Bildirimleri'],
+];
+$notification_preference_active_tab = 'in_app';
+$notification_preference_tab_items = [];
+foreach ($notification_preference_tabs as $preferenceTabKey => $preferenceTabMeta) {
+    $notification_preference_tab_items[] = [
+        'key' => (string) $preferenceTabKey,
+        'icon' => (string) ($preferenceTabMeta['icon'] ?? 'bi-sliders'),
+        'label' => (string) ($preferenceTabMeta['label'] ?? $preferenceTabKey),
+        'is_active' => $preferenceTabKey === $notification_preference_active_tab,
+    ];
+}
 $notification_preference_groups = [];
 foreach (notification_user_preference_groups() as $preferenceGroup) {
     $items = [];
     foreach ($preferenceGroup['items'] as $preferenceItem) {
+        $preferenceItemKey = (string) ($preferenceItem['key'] ?? '');
+        $preferenceItemDefault = (string) ($preferenceItem['default'] ?? '1');
+        $preferenceFallbackKey = (string) ($preferenceItem['fallback_key'] ?? '');
+        if (
+            $preferenceFallbackKey !== ''
+            && $preferenceItemKey !== ''
+            && !array_key_exists($preferenceItemKey, $userSettings)
+            && array_key_exists($preferenceFallbackKey, $userSettings)
+        ) {
+            $preferenceItemDefault = (string) $userSettings[$preferenceFallbackKey];
+        }
+        $preferenceItemChecked = notification_setting_checked($userSettings, $preferenceItemKey, $preferenceItemDefault);
+        $preferenceItemEnabled = $preferenceItemChecked !== '';
+        $preferenceItemChannel = (string) ($preferenceGroup['tab'] ?? 'in_app');
+        $enabledEffect = notification_preference_effect_text($preferenceItem, $preferenceItemChannel, true);
+        $disabledEffect = notification_preference_effect_text($preferenceItem, $preferenceItemChannel, false);
         $items[] = [
-            'key' => (string) ($preferenceItem['key'] ?? ''),
-            'input_id' => 'notif-setting-' . preg_replace('/[^a-z0-9_-]+/i', '-', (string) ($preferenceItem['key'] ?? '')),
+            'key' => $preferenceItemKey,
+            'input_id' => 'notif-setting-' . preg_replace('/[^a-z0-9_-]+/i', '-', $preferenceItemKey),
             'icon' => (string) ($preferenceItem['icon'] ?? 'bi-bell'),
             'title' => (string) ($preferenceItem['title'] ?? ''),
             'description' => (string) ($preferenceItem['description'] ?? ''),
-            'checked' => notification_setting_checked($userSettings, (string) ($preferenceItem['key'] ?? ''), (string) ($preferenceItem['default'] ?? '1')),
+            'checked' => $preferenceItemChecked,
+            'enabled_effect' => $enabledEffect,
+            'disabled_effect' => $disabledEffect,
+            'current_effect' => $preferenceItemEnabled ? $enabledEffect : $disabledEffect,
+            'effect_disabled_class' => $preferenceItemEnabled ? '' : ' is-disabled',
         ];
     }
     $groupKey = (string) ($preferenceGroup['key'] ?? '');
@@ -477,8 +524,11 @@ foreach (notification_user_preference_groups() as $preferenceGroup) {
         : '';
     $notification_preference_groups[] = [
         'key' => $groupKey,
+        'has_key' => $groupKey !== '',
         'input_id' => 'notif-group-' . preg_replace('/[^a-z0-9_-]+/i', '-', $groupKey),
         'icon' => (string) ($preferenceGroup['icon'] ?? 'bi-bell'),
+        'tab' => (string) ($preferenceGroup['tab'] ?? 'in_app'),
+        'is_active_tab' => (string) ($preferenceGroup['tab'] ?? 'in_app') === $notification_preference_active_tab,
         'title' => (string) ($preferenceGroup['title'] ?? ''),
         'description' => (string) ($preferenceGroup['description'] ?? ''),
         'checked' => $groupChecked,
@@ -490,7 +540,7 @@ foreach (notification_user_preference_groups() as $preferenceGroup) {
 $publicHeaderVars = isset($publicHeaderVars) && is_array($publicHeaderVars) ? $publicHeaderVars : [];
 $notificationThemeVars = get_defined_vars();
 foreach ($notificationThemeVars as $notificationThemeKey => $notificationThemeValue) {
-    if ($notificationThemeKey === 'notification_preference_groups' || str_starts_with((string) $notificationThemeKey, 'notifications_')) {
+    if (in_array($notificationThemeKey, ['notification_preference_groups', 'notification_preference_tabs', 'notification_preference_tab_items', 'notification_preference_active_tab'], true) || str_starts_with((string) $notificationThemeKey, 'notifications_')) {
         $publicHeaderVars[$notificationThemeKey] = $notificationThemeValue;
     }
 }
@@ -659,7 +709,7 @@ require_once $projectRoot . '/includes/public-header.php';
                                 $createdAt = !empty($notification['created_at']) ? strtotime((string) $notification['created_at']) : false;
                                 $dateTitle = $createdAt ? date('d.m.Y H:i', $createdAt) : '';
                                 $dateShort = $createdAt ? date('d.m.Y', $createdAt) : 'Tarih yok';
-                                $link = notification_safe_link((string) ($notification['link'] ?? ''), (string) ($baseUri ?? ''));
+                                $link = (string) ($notification['link'] ?? '');
                             ?>
                             <article class="notification-item <?= $isUnread ? 'is-unread' : 'is-read' ?>" data-notif-item data-id="<?= (int) $notification['id'] ?>">
                                 <div class="notification-meta-actions">
@@ -735,41 +785,78 @@ require_once $projectRoot . '/includes/public-header.php';
                     <div class="settings-intro">
                         <div>
                             <h2>Bildirim Tercihleri</h2>
-                            <p>Hangi kanallardan haber almak istediğinizi seçin. Kritik hesap ve güvenlik bildirimleri gerektiğinde yine gösterilebilir.</p>
+                            <p>Site ici ve e-posta bildirimlerini birbirinden bagimsiz yonetin. Kritik hesap ve guvenlik bildirimleri gerektiginde yine gosterilebilir.</p>
                         </div>
                         <i class="bi bi-shield-check" aria-hidden="true"></i>
                     </div>
 
+                    <div class="settings-tabs" role="tablist" aria-label="Bildirim tercih bölümleri">
+                        <?php foreach ($notification_preference_tabs as $tabKey => $tabMeta): ?>
+                            <?php $isPreferenceTabActive = $tabKey === $notification_preference_active_tab; ?>
+                            <button
+                                type="button"
+                                class="settings-tab<?= $isPreferenceTabActive ? ' is-active' : '' ?>"
+                                role="tab"
+                                aria-selected="<?= $isPreferenceTabActive ? 'true' : 'false' ?>"
+                                data-notification-settings-tab="<?= htmlspecialchars((string) $tabKey, ENT_QUOTES, 'UTF-8') ?>"
+                            >
+                                <i class="bi <?= htmlspecialchars((string) ($tabMeta['icon'] ?? 'bi-sliders'), ENT_QUOTES, 'UTF-8') ?>"></i>
+                                <span><?= htmlspecialchars((string) ($tabMeta['label'] ?? $tabKey), ENT_QUOTES, 'UTF-8') ?></span>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="settings-groups-stack">
                     <?php foreach ($notification_preference_groups as $preferenceGroup): ?>
-                        <section class="settings-group-panel ui-panel" data-notification-preference-group>
+                        <?php
+                        $preferenceGroupTab = (string) ($preferenceGroup['tab'] ?? 'in_app');
+                        $preferenceGroupVisible = $preferenceGroupTab === $notification_preference_active_tab;
+                        ?>
+                        <section
+                            class="settings-group-panel ui-panel<?= $preferenceGroupVisible ? ' is-active' : '' ?>"
+                            data-notification-preference-group
+                            data-notification-settings-panel="<?= htmlspecialchars($preferenceGroupTab, ENT_QUOTES, 'UTF-8') ?>"
+                            <?= $preferenceGroupVisible ? '' : 'hidden' ?>
+                        >
                             <div class="settings-group-head ui-panel__head">
                                 <span class="settings-group-icon" aria-hidden="true"><i class="bi <?= htmlspecialchars((string) $preferenceGroup['icon'], ENT_QUOTES, 'UTF-8') ?>"></i></span>
-                                <div>
+                                <div class="settings-group-copy">
                                     <h3><?= htmlspecialchars((string) $preferenceGroup['title'], ENT_QUOTES, 'UTF-8') ?></h3>
                                     <p><?= htmlspecialchars((string) $preferenceGroup['description'], ENT_QUOTES, 'UTF-8') ?></p>
                                 </div>
-                                <label class="settings-group-switch" for="<?= htmlspecialchars((string) $preferenceGroup['input_id'], ENT_QUOTES, 'UTF-8') ?>">
-                                    <span class="settings-group-switch-text">Grubu aktif tut</span>
-                                    <span class="notification-switch">
-                                        <input
-                                            id="<?= htmlspecialchars((string) $preferenceGroup['input_id'], ENT_QUOTES, 'UTF-8') ?>"
-                                            type="checkbox"
-                                            name="<?= htmlspecialchars((string) $preferenceGroup['key'], ENT_QUOTES, 'UTF-8') ?>"
-                                            value="1"
-                                            data-notification-group-toggle
-                                            <?= (string) $preferenceGroup['checked'] ?>
-                                        >
-                                        <span class="notification-slider"></span>
-                                    </span>
-                                </label>
+                                <?php if (!empty($preferenceGroup['key'])): ?>
+                                    <label class="settings-group-switch" for="<?= htmlspecialchars((string) $preferenceGroup['input_id'], ENT_QUOTES, 'UTF-8') ?>">
+                                        <span class="settings-group-switch-text">Grubu aktif tut</span>
+                                        <span class="notification-switch">
+                                            <input
+                                                id="<?= htmlspecialchars((string) $preferenceGroup['input_id'], ENT_QUOTES, 'UTF-8') ?>"
+                                                type="checkbox"
+                                                name="<?= htmlspecialchars((string) $preferenceGroup['key'], ENT_QUOTES, 'UTF-8') ?>"
+                                                value="1"
+                                                data-notification-group-toggle
+                                                <?= (string) $preferenceGroup['checked'] ?>
+                                            >
+                                            <span class="notification-slider"></span>
+                                        </span>
+                                    </label>
+                                <?php endif; ?>
                             </div>
                             <div class="settings-grid ui-grid">
                                 <?php foreach ($preferenceGroup['items'] as $preferenceItem): ?>
-                                    <label class="setting-row" for="<?= htmlspecialchars((string) $preferenceItem['input_id'], ENT_QUOTES, 'UTF-8') ?>">
+                                    <label
+                                        class="setting-row"
+                                        for="<?= htmlspecialchars((string) $preferenceItem['input_id'], ENT_QUOTES, 'UTF-8') ?>"
+                                        data-notification-effect-row
+                                        data-effect-on="<?= htmlspecialchars((string) $preferenceItem['enabled_effect'], ENT_QUOTES, 'UTF-8') ?>"
+                                        data-effect-off="<?= htmlspecialchars((string) $preferenceItem['disabled_effect'], ENT_QUOTES, 'UTF-8') ?>"
+                                    >
                                         <span class="setting-row-icon"><i class="bi <?= htmlspecialchars((string) $preferenceItem['icon'], ENT_QUOTES, 'UTF-8') ?>"></i></span>
-                                        <span>
+                                        <span class="setting-row-copy">
                                             <strong><?= htmlspecialchars((string) $preferenceItem['title'], ENT_QUOTES, 'UTF-8') ?></strong>
                                             <span><?= htmlspecialchars((string) $preferenceItem['description'], ENT_QUOTES, 'UTF-8') ?></span>
+                                            <small class="setting-effect<?= htmlspecialchars((string) $preferenceItem['effect_disabled_class'], ENT_QUOTES, 'UTF-8') ?>" data-notification-effect>
+                                                <?= htmlspecialchars((string) $preferenceItem['current_effect'], ENT_QUOTES, 'UTF-8') ?>
+                                            </small>
                                         </span>
                                         <span class="notification-switch">
                                             <input
@@ -787,6 +874,7 @@ require_once $projectRoot . '/includes/public-header.php';
                             </div>
                         </section>
                     <?php endforeach; ?>
+                    </div>
 
                     <div class="settings-actions">
                         <button type="submit" class="settings-save-btn">
@@ -804,7 +892,7 @@ require_once $projectRoot . '/includes/public-header.php';
     </div>
 </main>
 
-<script src="<?= asset_url('assets/js/notifications-page.js', $baseUri) ?>?v=<?= time() ?>" defer></script>
+<script src="<?= asset_url('assets/js/notifications-page.js', $baseUri) ?>" defer></script>
 
 <?php require_once $projectRoot . '/includes/public-footer.php'; ?>
 

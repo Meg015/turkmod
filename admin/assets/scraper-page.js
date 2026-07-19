@@ -1,10 +1,31 @@
-const adminScraperConfigNode = document.getElementById('adminScraperConfig');
-const adminScraperConfig = adminScraperConfigNode ? JSON.parse(adminScraperConfigNode.textContent || '{}') : {};
+function getAdminScraperConfig() {
+    const node = document.getElementById('adminScraperConfig');
+    if (!node) {
+        return {};
+    }
+    try {
+        return JSON.parse(node.textContent || '{}') || {};
+    } catch (error) {
+        return {};
+    }
+}
+
+const adminScraperConfig = getAdminScraperConfig();
 const baseUri = adminScraperConfig.baseUri || '';
 const botDefaultStatus = adminScraperConfig.botDefaultStatus || 'published';
 const botBulkDefaultSelected = adminScraperConfig.botBulkDefaultSelected || '1';
 const botBulkMaxTopicsPerPage = adminScraperConfig.botBulkMaxTopicsPerPage || '0';
 const botBulkContinueOnError = adminScraperConfig.botBulkContinueOnError || '1';
+
+function setScraperLogVisibility(element, visible) {
+    if (!element) return;
+    if (window.adminVisibility && typeof window.adminVisibility.set === 'function') {
+        window.adminVisibility.set(element, visible, { aria: false });
+        return;
+    }
+
+    element.hidden = !visible;
+}
 
 // Bot Logları Filtreleme Sistemi
 function filterLogs(status) {
@@ -13,6 +34,7 @@ function filterLogs(status) {
     
     const rows = table.querySelectorAll('tr');
     let visibleCount = 0;
+    let emptyRow = null;
     
     // Filtreleme butonlarını güncelle
     document.querySelectorAll('.log-filter-btn').forEach(btn => {
@@ -28,14 +50,15 @@ function filterLogs(status) {
     rows.forEach(row => {
         // Boş satırı atla
         if (row.cells.length === 1) {
-            row.style.display = status === 'all' ? '' : 'none';
+            emptyRow = row;
+            setScraperLogVisibility(row, status === 'all');
             return;
         }
         
         // Durum badge'ini bul
         const statusBadge = row.querySelector('.admin-badge');
         if (!statusBadge) {
-            row.style.display = '';
+            setScraperLogVisibility(row, true);
             return;
         }
         
@@ -44,10 +67,10 @@ function filterLogs(status) {
                          statusBadge.classList.contains('admin-badge-warning') ? 'preview' : 'other';
         
         if (status === 'all' || rowStatus === status) {
-            row.style.display = '';
+            setScraperLogVisibility(row, true);
             visibleCount++;
         } else {
-            row.style.display = 'none';
+            setScraperLogVisibility(row, false);
         }
     });
     
@@ -65,9 +88,8 @@ function filterLogs(status) {
     
     // Sonuç mesajı göster
     if (visibleCount === 0 && status !== 'all') {
-        const emptyRow = table.querySelector('tr[style*="display: none"]');
         if (emptyRow && emptyRow.cells.length === 1) {
-            emptyRow.style.display = '';
+            setScraperLogVisibility(emptyRow, true);
             const cell = emptyRow.cells[0];
             const statusText = status === 'imported' ? 'başarılı' :
                               status === 'failed' ? 'hatalı' :
@@ -81,11 +103,17 @@ function filterLogs(status) {
     }
 }
 
-// Sayfa yüklendiğinde tüm logları göster
-document.addEventListener('DOMContentLoaded', function() {
+window.filterLogs = filterLogs;
+
+function initScraperPageFilters() {
     // İlk yüklemede "Tümü" seçili olsun
     const allBtn = document.querySelector('.log-filter-btn[data-filter="all"]');
     if (allBtn) {
         allBtn.classList.add('active');
     }
+}
+
+window.adminPage.register('scraper', initScraperPageFilters, {
+    id: 'scraper-page:filters',
+    selector: '.log-filter-btn'
 });

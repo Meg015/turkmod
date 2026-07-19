@@ -866,25 +866,21 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     }
 
     try {
-        const response = await fetch(form.action, {
+        if (!window.publicFetchJson) {
+            throw new Error('Public API helper yuklenemedi.');
+        }
+
+        const payload = await window.publicFetchJson(form.action, {
             method: 'POST',
             body: new FormData(form),
             headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-        const payload = await response.json().catch(function() {
-            return { success: false, message: 'Sunucudan geçerli cevap alınamadı.' };
+                'Accept': 'application/json'
+            },
+            notifyError: false,
+            errorMessage: 'Mod gönderilemedi.'
         });
 
-        if (!response.ok || !payload.success) {
-            if (response.status === 409 && submitButton) {
-                form.dataset.submitted = '1';
-                submitButton.classList.remove('is-submitting');
-                submitButton.classList.add('is-submit-locked');
-                submitButton.innerHTML = '<i class="bi bi-lock"></i> Gönderim Kilitlendi';
-            }
+        if (!payload.success) {
             throw new Error(payload.message || 'Mod gönderilemedi.');
         }
 
@@ -912,6 +908,12 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         }
     } catch (error) {
         delete form.dataset.submitting;
+        if (Number(error && error.status) === 409 && submitButton) {
+            form.dataset.submitted = '1';
+            submitButton.classList.remove('is-submitting');
+            submitButton.classList.add('is-submit-locked');
+            submitButton.innerHTML = '<i class="bi bi-lock"></i> Gönderim Kilitlendi';
+        }
         window.showToast?.(error.message || 'Mod gönderilemedi.', 'error', {
             solution: 'Zorunlu alanları, görsel limitlerini ve indirme linkini kontrol edip tekrar deneyin.'
         });

@@ -36,48 +36,26 @@ require_once __DIR__ . '/header.php';
         <a class="bot-tab scraper-tab-link" data-tab="settings"><i class="bi bi-gear"></i>Bot Ayarları</a>
     </div>
 
-<div class="admin-card scraper-tab-pane active ui-panel" id="tab-dashboard">
-    <div class="card-header ui-panel__head">Bot İstatistikleri</div>
-    <div class="card-body ui-panel__body">
-        <div class="admin-stat-grid ui-grid">
-            <div class="admin-stat-card stat-info ui-card">
-                <div class="stat-icon"><i class="bi bi-globe"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Toplam Site</span>
-                    <span class="stat-value"><?= number_format($stats['sites']) ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-warning ui-card">
-                <div class="stat-icon"><i class="bi bi-cloud-arrow-down"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Bekleyen İçerik</span>
-                    <span class="stat-value"><?= number_format($stats['pending']) ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-success ui-card">
-                <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Yayınlanan</span>
-                    <span class="stat-value"><?= number_format($stats['imported']) ?></span>
-                </div>
-            </div>
-        </div>
+<?= adminRenderPanelOpen([
+    'tag' => 'div',
+    'class' => 'scraper-tab-pane active',
+    'attrs' => ['id' => 'tab-dashboard'],
+    'title' => 'Bot İstatistikleri',
+]) ?>
+        <?= adminRenderStatCards([
+            ['tone' => 'info', 'icon' => 'bi-globe', 'label' => 'Toplam Site', 'value' => number_format((int) $stats['sites'], 0, ',', '.')],
+            ['tone' => 'warning', 'icon' => 'bi-cloud-arrow-down', 'label' => 'Bekleyen İçerik', 'value' => number_format((int) $stats['pending'], 0, ',', '.')],
+            ['tone' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Yayınlanan', 'value' => number_format((int) $stats['imported'], 0, ',', '.')],
+        ], ['class' => 'scraper-summary', 'aria_label' => 'Bot istatistikleri']) ?>
         
         <h4 class="mt-4 mb-3 scraper-section-title">Son Bot Görevleri</h4>
-        <div class="table-wrapper ui-table-wrap ui-surface">
-            <table class="admin-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Site</th>
-                        <th>Durum</th>
-                        <th>URL'ler</th>
-                        <th>Tarih</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <?= adminRenderTableOpen(['ID', 'Site', 'Durum', "URL'ler", 'Tarih'], [
+            'class' => 'admin-table',
+            'wrap_class' => 'table-wrapper ui-table-wrap ui-surface',
+            'label' => 'Son bot görevleri',
+        ]) ?>
                     <?php if (empty($jobs)): ?>
-                    <tr><td colspan="5" class="ui-admin-empty-state ui-empty">Henüz görev bulunmuyor.</td></tr>
+                    <?= adminRenderTableEmptyRow(5, ['icon' => 'bi-inbox', 'tone' => 'info', 'title' => 'Henüz görev bulunmuyor.', 'description' => 'Bot görevi oluştuğunda burada listelenecek.']) ?>
                     <?php else: foreach ($jobs as $j): ?>
                     <tr>
                         <td>#<?= $j['id'] ?></td>
@@ -91,16 +69,15 @@ require_once __DIR__ . '/header.php';
                         <td><?= date('d.m.Y H:i', strtotime($j['created_at'])) ?></td>
                     </tr>
                     <?php endforeach; endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+        <?= adminRenderTableClose() ?>
+<?= adminRenderPanelClose('div') ?>
 
 <div class="scraper-tab-pane" id="tab-sites">
-    <div class="admin-card mb-4 ui-panel">
-        <div class="card-header ui-panel__head" id="siteFormTitle">Yeni Site Ekle</div>
-        <div class="card-body ui-panel__body">
+    <?= adminRenderPanelOpen([
+        'tag' => 'div',
+        'class' => 'mb-4',
+        'header_html' => '<span id="siteFormTitle">Yeni Site Ekle</span>',
+    ]) ?>
             <form id="siteForm">
                 <?= csrf_field() ?>
                 <input type="hidden" id="site_id" name="site_id" value="">
@@ -112,14 +89,11 @@ require_once __DIR__ . '/header.php';
                 </div>
                 <div class="row g-3">
                     <div class="col-12 site-subtab-pane active" id="site-tab-basic">
-                        <div class="settings-card ui-card">
-                            <div class="settings-card-header ui-panel__head">
-                                <div class="settings-card-icon"><i class="bi bi-info-circle"></i></div>
-                                <div>
-                                    <h6 class="settings-card-title">Temel Bilgiler</h6>
-                                    <p class="settings-card-desc">Site adı, URL ve genel ayarlar</p>
-                                </div>
-                            </div>
+                        <?= adminRenderSettingsCardOpen([
+                            'icon' => 'bi-info-circle',
+                            'title' => 'Temel Bilgiler',
+                            'description' => 'Site adı, URL ve genel ayarlar',
+                        ]) ?>
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="ui-admin-form-label">Site Adı</label>
@@ -141,17 +115,14 @@ require_once __DIR__ . '/header.php';
                                     <input type="text" id="site_description" name="description" class="ui-admin-form-control">
                                 </div>
                             </div>
-                        </div>
+                        <?= adminRenderSettingsCardClose() ?>
                     </div>
                     <div class="col-12 site-subtab-pane" id="site-tab-selectors">
-                        <div class="settings-card ui-card">
-                            <div class="settings-card-header ui-panel__head">
-                                <div class="settings-card-icon"><i class="bi bi-crosshair"></i></div>
-                                <div>
-                                    <h6 class="settings-card-title">CSS Seçiciler (Selectors)</h6>
-                                    <p class="settings-card-desc">İçerik çekmek için kullanılacak CSS selector'ları</p>
-                                </div>
-                            </div>
+                        <?= adminRenderSettingsCardOpen([
+                            'icon' => 'bi-crosshair',
+                            'title' => 'CSS Seçiciler (Selectors)',
+                            'description' => "İçerik çekmek için kullanılacak CSS selector'ları",
+                        ]) ?>
                         <div class="row g-3">
                             <div class="col-md-6"><label class="ui-admin-form-label">Konu Listesi (Kapsayıcı)</label><input type="text" id="sel_topic_list" name="sel_topic_list" class="ui-admin-form-control" placeholder=".article-list .item"></div>
                             <div class="col-md-6"><label class="ui-admin-form-label">Konu Linki</label><input type="text" id="sel_topic_link" name="sel_topic_link" class="ui-admin-form-control" placeholder="a.title"></div>
@@ -161,34 +132,28 @@ require_once __DIR__ . '/header.php';
                             <div class="col-md-6"><label class="ui-admin-form-label">İndirme Linkleri</label><input type="text" id="sel_download_links" name="sel_download_links" class="ui-admin-form-control" placeholder="a.download-btn"></div>
                             <div class="col-md-6"><label class="ui-admin-form-label">Sayfalama Sonraki Linki</label><input type="text" id="sel_pagination" name="sel_pagination" class="ui-admin-form-control" placeholder=".pagination a.next"></div>
                         </div>
-                        </div>
+                        <?= adminRenderSettingsCardClose() ?>
                     </div>
                     <div class="col-12 site-subtab-pane" id="site-tab-settings">
-                        <div class="settings-card ui-card">
-                            <div class="settings-card-header ui-panel__head">
-                                <div class="settings-card-icon"><i class="bi bi-sliders"></i></div>
-                                <div>
-                                    <h6 class="settings-card-title">Siteye Özel Ayarlar</h6>
-                                    <p class="settings-card-desc">Resim, dil ve çeviri ayarları</p>
-                                </div>
-                            </div>
+                        <?= adminRenderSettingsCardOpen([
+                            'icon' => 'bi-sliders',
+                            'title' => 'Siteye Özel Ayarlar',
+                            'description' => 'Resim, dil ve çeviri ayarları',
+                        ]) ?>
                             <div class="row g-3">
                                 <div class="col-md-4"><label class="ui-admin-form-label">Max Resim İndirme</label><input type="number" id="max_images" name="max_images" class="ui-admin-form-control" value="5"></div>
                                 <div class="col-md-4"><label class="ui-admin-form-label">Kaynak Dil</label><input type="text" id="source_lang" name="source_lang" class="ui-admin-form-control" value="EN" placeholder="EN"></div>
                                 <div class="col-md-4"><label class="ui-admin-form-label">Hedef Dil</label><input type="text" id="target_lang" name="target_lang" class="ui-admin-form-control" value="TR" placeholder="TR"></div>
                                 <div class="col-12"><label class="ui-admin-switch"><input type="checkbox" id="translate" name="translate" value="1"><span class="ui-admin-switch-label">Bu site için çeviriyi aktifleştir</span></label></div>
                             </div>
-                        </div>
+                        <?= adminRenderSettingsCardClose() ?>
                     </div>
                     <div class="col-12 site-subtab-pane" id="site-tab-customize">
-                        <div class="settings-card ui-card">
-                            <div class="settings-card-header ui-panel__head">
-                                <div class="settings-card-icon"><i class="bi bi-magic"></i></div>
-                                <div>
-                                    <h6 class="settings-card-title">Özelleştirme & Otomasyonlar</h6>
-                                    <p class="settings-card-desc">Bul-değiştir kuralları, otomatik tespit ve özel ayarlar</p>
-                                </div>
-                            </div>
+                        <?= adminRenderSettingsCardOpen([
+                            'icon' => 'bi-magic',
+                            'title' => 'Özelleştirme & Otomasyonlar',
+                            'description' => 'Bul-değiştir kuralları, otomatik tespit ve özel ayarlar',
+                        ]) ?>
                         <div id="replaceRulesContainer" class="replace-rule-list"></div>
                         <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline scraper-button-offset" data-scraper-action="add-replace-rule"><i class="bi bi-plus-circle"></i> Bul Değiştir Kuralı Ekle</button>
                         <hr>
@@ -239,25 +204,21 @@ require_once __DIR__ . '/header.php';
                     <button type="button" id="btnTestConn" class="ui-admin-btn ui-admin-btn-outline ms-auto" data-scraper-action="test-connection"><i class="bi bi-wifi"></i> Bağlantı Test</button>
                 </div>
             </form>
-        </div>
-    </div>
+    <?= adminRenderPanelClose('div') ?>
     
-    <div class="admin-card ui-panel">
-        <div class="card-header ui-panel__head">Kayıtlı Siteler</div>
-        <div class="card-body ui-panel__body">
-            <div class="table-wrapper ui-table-wrap ui-surface">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Site Adı</th>
-                            <th>Base URL</th>
-                            <th>İçerik/Eşleme</th>
-                            <th>Durum</th>
-                            <th class="text-end">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+    <?= adminRenderPanelOpen(['tag' => 'div', 'title' => 'Kayıtlı Siteler']) ?>
+            <?= adminRenderTableOpen([
+                'ID',
+                'Site Adı',
+                'Base URL',
+                'İçerik/Eşleme',
+                'Durum',
+                ['label' => 'İşlemler', 'class' => 'text-end'],
+            ], [
+                'class' => 'admin-table',
+                'wrap_class' => 'table-wrapper ui-table-wrap ui-surface',
+                'label' => 'Kayıtlı siteler',
+            ]) ?>
                         <?php foreach ($sites as $s): ?>
                         <tr>
                             <td>#<?= $s['id'] ?></td>
@@ -274,19 +235,14 @@ require_once __DIR__ . '/header.php';
                         </tr>
                         <?php endforeach; ?>
                         <?php if (empty($sites)): ?>
-                        <tr><td colspan="6" class="ui-admin-empty-state ui-empty">Kayıtlı site bulunamadı.</td></tr>
+                        <?= adminRenderTableEmptyRow(6, ['icon' => 'bi-globe', 'tone' => 'info', 'title' => 'Kayıtlı site bulunamadı.', 'description' => 'Yeni site eklediğinizde burada görünecek.']) ?>
                         <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+            <?= adminRenderTableClose() ?>
+    <?= adminRenderPanelClose('div') ?>
 </div>
 
 <div class="scraper-tab-pane" id="tab-mappings">
-    <div class="admin-card mb-4 ui-panel">
-        <div class="card-header ui-panel__head">Kategori Eşleme Ekle</div>
-        <div class="card-body ui-panel__body">
+    <?= adminRenderPanelOpen(['tag' => 'div', 'class' => 'mb-4', 'title' => 'Kategori Eşleme Ekle']) ?>
             <form id="mappingForm" class="scraper-mapping-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="mapping_id" value="">
@@ -308,34 +264,35 @@ require_once __DIR__ . '/header.php';
                         <?php foreach ($categories as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option><?php endforeach; ?>
                     </select>
                 </div>
+                <div class="scraper-map-col">
+                    <label class="ui-admin-form-label">Başlık Ön Eki</label>
+                    <input type="text" name="title_prefix" class="ui-admin-form-control" maxlength="100" placeholder="ETS2 -">
+                </div>
                 <div class="scraper-map-actions">
                     <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-plus-circle"></i> Ekle</button>
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline scraper-hidden" data-scraper-action="reset-mapping-form" id="btnCancelMapping"><i class="bi bi-x-circle"></i> İptal</button>
                 </div>
             </form>
-        </div>
-    </div>
+    <?= adminRenderPanelClose('div') ?>
     
-    <div class="admin-card ui-panel">
-        <div class="card-header ui-panel__head">Mevcut Eşlemeler</div>
-        <div class="card-body ui-panel__body">
-            <div class="table-wrapper ui-table-wrap ui-surface">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Site</th>
-                            <th>Uzak Kategori</th>
-                            <th>Yerel Kategori</th>
-                            <th class="text-end">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+    <?= adminRenderPanelOpen(['tag' => 'div', 'title' => 'Mevcut Eşlemeler']) ?>
+            <?= adminRenderTableOpen([
+                'Site',
+                'Uzak Kategori',
+                'Yerel Kategori',
+                ['label' => 'İşlemler', 'class' => 'text-end'],
+            ], [
+                'class' => 'admin-table',
+                'wrap_class' => 'table-wrapper ui-table-wrap ui-surface',
+                'label' => 'Mevcut eşlemeler',
+            ]) ?>
                         <?php foreach ($mappings as $m): ?>
                         <tr>
                             <td><?= htmlspecialchars($m['site_name']) ?></td>
                             <td>
                                 <strong><?= htmlspecialchars($m['remote_category_name']) ?></strong><br>
                                 <a href="<?= htmlspecialchars($m['remote_category_url']) ?>" target="_blank" class="text-muted scraper-link-sm"><?= htmlspecialchars($m['remote_category_url']) ?></a>
+                                <?php if (trim((string)($m['title_prefix'] ?? '')) !== ''): ?><br><span class="admin-badge admin-badge-secondary"><i class="bi bi-type"></i> <?= htmlspecialchars((string)$m['title_prefix']) ?></span><?php endif; ?>
                             </td>
                             <td><span class="admin-badge admin-badge-info"><?= htmlspecialchars($m['local_category_name'] ?? 'Bilinmiyor') ?></span></td>
                             <td class="text-end">
@@ -356,37 +313,32 @@ require_once __DIR__ . '/header.php';
                         </tr>
                         <?php endforeach; ?>
                         <?php if (empty($mappings)): ?>
-                        <tr><td colspan="4" class="ui-admin-empty-state ui-empty">Eşleme bulunamadı.</td></tr>
+                        <?= adminRenderTableEmptyRow(4, ['icon' => 'bi-diagram-2', 'tone' => 'info', 'title' => 'Eşleme bulunamadı.', 'description' => 'Kategori eşlemeleri oluşturulduğunda burada listelenecek.']) ?>
                         <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+            <?= adminRenderTableClose() ?>
+    <?= adminRenderPanelClose('div') ?>
 </div>
 
 <div class="scraper-tab-pane" id="tab-scrape">
-    <div class="admin-card ui-panel">
-        <div class="card-header ui-panel__head">Toplu İçerik Çek</div>
-        <div class="card-body ui-panel__body">
-            <div class="table-wrapper ui-table-wrap ui-surface">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Site</th>
-                            <th>Uzak Kategori</th>
-                            <th>Yerel Kategori</th>
-                            <th>Sayfa Aralığı</th>
-                            <th class="text-end">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+    <?= adminRenderPanelOpen(['tag' => 'div', 'title' => 'Toplu İçerik Çek']) ?>
+            <?= adminRenderTableOpen([
+                'Site',
+                'Uzak Kategori',
+                'Yerel Kategori',
+                'Sayfa Aralığı',
+                ['label' => 'İşlemler', 'class' => 'text-end'],
+            ], [
+                'class' => 'admin-table',
+                'wrap_class' => 'table-wrapper ui-table-wrap ui-surface',
+                'label' => 'Toplu içerik çekilecek eşlemeler',
+            ]) ?>
                         <?php foreach ($mappings as $m): ?>
                         <tr>
                             <td><?= htmlspecialchars($m['site_name']) ?></td>
                             <td>
                                 <strong><?= htmlspecialchars($m['remote_category_name']) ?></strong><br>
                                 <a href="<?= htmlspecialchars($m['remote_category_url']) ?>" target="_blank" class="text-muted scraper-link-sm"><?= htmlspecialchars($m['remote_category_url']) ?></a>
+                                <?php if (trim((string)($m['title_prefix'] ?? '')) !== ''): ?><br><span class="admin-badge admin-badge-secondary"><i class="bi bi-type"></i> <?= htmlspecialchars((string)$m['title_prefix']) ?></span><?php endif; ?>
                             </td>
                             <td><span class="admin-badge admin-badge-info"><?= htmlspecialchars($m['local_category_name'] ?? 'Bilinmiyor') ?></span></td>
                             <td>
@@ -417,19 +369,18 @@ require_once __DIR__ . '/header.php';
                         </tr>
                         <?php endforeach; ?>
                         <?php if (empty($mappings)): ?>
-                        <tr><td colspan="5" class="ui-admin-empty-state ui-empty">Eşleme bulunamadı.</td></tr>
+                        <?= adminRenderTableEmptyRow(5, ['icon' => 'bi-diagram-2', 'tone' => 'info', 'title' => 'Eşleme bulunamadı.', 'description' => 'Toplu içerik çekmek için önce bir eşleme oluşturun.']) ?>
                         <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+            <?= adminRenderTableClose() ?>
+    <?= adminRenderPanelClose('div') ?>
 </div>
 
 <div class="scraper-tab-pane" id="tab-imports">
-    <div class="admin-card ui-panel">
-        <div class="card-header ui-panel__head"><i class="bi bi-journal-text me-2"></i>Bot Logları & İçerik Havuzu</div>
-        <div class="card-body ui-panel__body">
+    <?= adminRenderPanelOpen([
+        'tag' => 'div',
+        'title' => 'Bot Logları & İçerik Havuzu',
+        'icon' => 'bi-journal-text',
+    ]) ?>
             <!-- Filtreleme Butonları -->
             <div class="scraper-filterbar">
                 <span class="scraper-filter-label">Filtrele:</span>
@@ -507,27 +458,27 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <?php endif; ?>
-            <div class="table-wrapper ui-table-wrap ui-surface">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>
-                                <input type="checkbox" id="selectAllImportsHeader" data-import-select-all class="scraper-check">
-                            </th>
-                            <th>ID</th>
-                            <th>Site</th>
-                            <th>Başlık (Çeviri / Kaynak)</th>
-                            <th>Görsel</th>
-                            <th>Tarih</th>
-                            <th>Durum</th>
-                            <th class="text-end">İşlem</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <?= adminRenderTableOpen([
+                [
+                    'html' => '<input type="checkbox" id="selectAllImportsHeader" data-import-select-all class="scraper-check">',
+                    'attrs' => ['aria-label' => 'Tüm içerikleri seç'],
+                ],
+                'ID',
+                'Site',
+                'Başlık (Çeviri / Kaynak)',
+                'Görsel',
+                'Tarih',
+                'Durum',
+                ['label' => 'İşlem', 'class' => 'text-end'],
+            ], [
+                'class' => 'admin-table',
+                'wrap_class' => 'table-wrapper ui-table-wrap ui-surface',
+                'label' => 'Bot logları ve içerik havuzu',
+            ]) ?>
                         <?php foreach ($imports as $imp):
                             $title = $imp['translated_title'] ?: $imp['source_title'] ?: '(Başlıksız)';
                             $images = array_filter(explode("\n", $imp['downloaded_images'] ?: $imp['source_images'] ?: ''));
-                            $thumb = !empty($images) ? $baseUri . '/' . $images[0] : '';
+                            $thumb = !empty($images) ? adminSafeImageUrl((string) $images[0], $baseUri) : '';
                             
                             // Durum badge renkleri
                             $statusClass = 'secondary';
@@ -575,9 +526,7 @@ require_once __DIR__ . '/header.php';
                                         fetchpriority="low"
                                     >
                                 <?php else: ?>
-                                    <div class="scraper-thumb-empty">
-                                        <i class="bi bi-image"></i>
-                                    </div>
+                                    <?= adminRenderImagePlaceholder('scraper-thumb scraper-thumb-empty') ?>
                                 <?php endif; ?>
                             </td>
                             <td><?= date('d.m H:i', strtotime($imp['created_at'])) ?></td>
@@ -600,23 +549,19 @@ require_once __DIR__ . '/header.php';
                         </tr>
                         <?php endforeach; ?>
                         <?php if(empty($imports)): ?>
-                        <tr><td colspan="8" class="scraper-empty-table">
-                            <i class="bi bi-inbox"></i>
-                            <strong>Henüz log kaydı yok</strong>
-                            <span>Bot içerik çekmeye başladığında loglar burada görünecek</span>
-                        </td></tr>
+                        <?= adminRenderTableEmptyRow(8, [
+                            'icon' => 'bi-inbox',
+                            'tone' => 'info',
+                            'title' => 'Henüz log kaydı yok',
+                            'description' => 'Bot içerik çekmeye başladığında loglar burada görünecek',
+                        ]) ?>
                         <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+            <?= adminRenderTableClose() ?>
+    <?= adminRenderPanelClose('div') ?>
 </div>
 
 <div class="scraper-tab-pane" id="tab-settings">
-    <div class="admin-card ui-panel">
-        <div class="card-header ui-panel__head">Bot Motoru Ayarları</div>
-        <div class="card-body ui-panel__body">
+    <?= adminRenderPanelOpen(['tag' => 'div', 'title' => 'Bot Motoru Ayarları']) ?>
             <form id="botSettingsForm">
                 <?= csrf_field() ?>
                 <div class="settings-subtabs" role="tablist">
@@ -628,14 +573,11 @@ require_once __DIR__ . '/header.php';
                     <button type="button" class="settings-subtab-link" data-settings-tab="bulk"><i class="bi bi-collection"></i> Toplu İşlem</button>
                 </div>
                 <div class="settings-subtab-pane active" id="settings-tab-general">
-                    <div class="settings-card ui-card">
-                        <div class="settings-card-header ui-panel__head">
-                            <div class="settings-card-icon"><i class="bi bi-gear"></i></div>
-                            <div>
-                                <h6 class="settings-card-title">Bağlantı Ayarları</h6>
-                                <p class="settings-card-desc">HTTP istek ayarları ve bağlantı parametreleri</p>
-                            </div>
-                        </div>
+                    <?= adminRenderSettingsCardOpen([
+                        'icon' => 'bi-gear',
+                        'title' => 'Bağlantı Ayarları',
+                        'description' => 'HTTP istek ayarları ve bağlantı parametreleri',
+                    ]) ?>
                     <div class="row g-3">
                         <div class="col-md-12">
                             <label class="ui-admin-form-label">User-Agent (Bot Kimliği)</label>
@@ -671,19 +613,16 @@ require_once __DIR__ . '/header.php';
                             <label class="ui-admin-form-label">Proxy Bağlantısı</label>
                             <div class="ui-admin-form-control scraper-readonly-box">
                                 Güvenli hedef sabitleme desteği tamamlanana kadar proxy kullanımı kapalıdır.
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    </div>
+                        <?= adminRenderSettingsCardClose() ?>
 
-                    <div class="settings-card ui-card">
-                        <div class="settings-card-header ui-panel__head">
-                            <div class="settings-card-icon"><i class="bi bi-shield-check"></i></div>
-                            <div>
-                                <h6 class="settings-card-title">Güvenlik & Protokol</h6>
-                                <p class="settings-card-desc">SSL doğrulama ve yönlendirme ayarları</p>
-                            </div>
-                        </div>
+                    <?= adminRenderSettingsCardOpen([
+                        'icon' => 'bi-shield-check',
+                        'title' => 'Güvenlik & Protokol',
+                        'description' => 'SSL doğrulama ve yönlendirme ayarları',
+                    ]) ?>
                     <div class="row g-3 scraper-settings-row">
                         <div class="col-md-6">
                             <label class="ui-admin-switch">
@@ -701,23 +640,20 @@ require_once __DIR__ . '/header.php';
                         </div>
                     </div>
 
-                    </div>
+                    <?= adminRenderSettingsCardClose() ?>
 
-                    <div class="settings-card ui-card">
-                        <div class="settings-card-header ui-panel__head">
-                            <div class="settings-card-icon"><i class="bi bi-code-square"></i></div>
-                            <div>
-                                <h6 class="settings-card-title">Gelişmiş Ayarlar</h6>
-                                <p class="settings-card-desc">Özel HTTP header'ları ve diğer gelişmiş seçenekler</p>
-                            </div>
-                        </div>
+                    <?= adminRenderSettingsCardOpen([
+                        'icon' => 'bi-code-square',
+                        'title' => 'Gelişmiş Ayarlar',
+                        'description' => "Özel HTTP header'ları ve diğer gelişmiş seçenekler",
+                    ]) ?>
                     <div class="row g-3">
                         <div class="col-md-12">
                             <label class="ui-admin-form-label">Özel HTTP Headerlar</label>
                             <textarea name="bot_custom_headers" class="ui-admin-form-control" rows="3" placeholder="Header: Değer&#10;Authorization: Bearer token&#10;X-Custom-Header: value"><?= htmlspecialchars($botSettings['bot_custom_headers']) ?></textarea>
                             <small class="text-muted">Her satıra bir header yazın (Header: Değer formatında)</small>
                         </div>
-                    </div>
+                    <?= adminRenderSettingsCardClose() ?>
                     </div>
                 </div>
                 <div class="settings-subtab-pane" id="settings-tab-content">
@@ -989,8 +925,7 @@ require_once __DIR__ . '/header.php';
                     <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-save"></i> Bot Ayarlarını Kaydet</button>
                 </div>
             </form>
-        </div>
-    </div>
+    <?= adminRenderPanelClose('div') ?>
 </div>
 
 <div id="previewModal" class="ui-admin-modal-overlay scraper-preview-modal" role="dialog" aria-modal="true" aria-label="Icerik inceleme ve duzenleme" hidden aria-hidden="true">

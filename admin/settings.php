@@ -308,57 +308,40 @@ $commentGroups = [
     'comments-tab-spam' => [
         'title' => 'Spam Yönetimi',
         'icon' => 'bi-shield-exclamation',
-        'description' => 'Yorum spam davranışını, hızlı filtreleri ve ince ayarları daha kontrollü gruplar halinde yönetin.',
+        'description' => 'Yorum spam davranışını sade filtreler, açıklamalı kullanıcı mesajları ve tek eylem seçimiyle yönetin.',
         'sections' => [
             [
                 'title' => 'Temel Koruma',
                 'icon' => 'bi-shield-check',
-                'description' => 'Spam filtresini açıp kapatın ve spam yakalandığında uygulanacak ana davranışı seçin.',
+                'description' => 'Spam filtresini açıp kapatın ve spam yakalandığında uygulanacak davranışı seçin.',
                 'class' => 'comments-spam-section comments-spam-section--primary',
-                'keys' => ['comment_spam_detection', 'comment_spam_action'],
+                'keys' => ['comment_spam_detection', 'comment_spam_violation_action'],
             ],
             [
-                'title' => 'Hızlı Filtreler',
+                'title' => 'Filtreler',
                 'icon' => 'bi-toggles',
-                'description' => 'Günlük kullanımda en çok ihtiyaç duyulan spam kontrollerini buradan yönetin.',
+                'description' => 'Tek kelimeleri, cümle içinde geçen ifadeleri, kısa içerikleri ve tamamen büyük harf yazımını denetleyin.',
                 'class' => 'comments-spam-section comments-spam-section--quick',
                 'keys' => [
-                    'comment_spam_punctuation_only_enabled',
-                    'comment_spam_meaningless_enabled',
-                    'comment_spam_gibberish_enabled',
-                    'comment_spam_repeated_chars_enabled',
-                    'comment_spam_caps_enabled',
-                    'comment_spam_max_links',
+                    'comment_spam_exact_terms',
+                    'comment_spam_contains_terms',
+                    'comment_spam_min_alnum_count',
+                    'comment_spam_block_uppercase',
                 ],
             ],
             [
-                'title' => 'Gelişmiş Eşikler',
-                'icon' => 'bi-sliders',
-                'description' => 'Filtreler fazla gevşek veya fazla sert davranırsa bu sayısal eşikleri ayarlayın.',
-                'class' => 'comments-spam-section comments-spam-section--advanced',
-                'keys' => [
-                    'comment_spam_min_meaningful_chars',
-                    'comment_spam_gibberish_max_length',
-                    'comment_spam_gibberish_score_threshold',
-                    'comment_spam_repeated_chars_limit',
-                    'comment_spam_duplicate_window_minutes',
-                    'comment_spam_caps_min_letters',
-                    'comment_spam_caps_percent',
-                ],
+                'title' => 'Anlamsız Kelime Engelleme',
+                'icon' => 'bi-regex',
+                'description' => 'Rastgele harf/rakam dizilerini ve sesli harfsiz anlamsız kelimeleri sade bir aç/kapat filtresiyle yakalayın.',
+                'class' => 'comments-spam-section comments-spam-section--nonsense',
+                'keys' => ['comment_spam_nonsense_words_enabled'],
             ],
             [
-                'title' => 'Metin Filtreleri',
-                'icon' => 'bi-chat-square-text',
-                'description' => 'Yorumun tamamı eşleşirse spam sayılacak kısa ifadeleri ve yorum içinde geçerse işlem uygulanacak kelimeleri ayrı ayrı yönetin.',
-                'class' => 'comments-spam-section comments-spam-section--lists',
-                'keys' => ['comment_spam_meaningless_phrases', 'comment_word_filter', 'comment_auto_ban_words'],
-            ],
-            [
-                'title' => 'Kullanıcı Mesajları',
-                'icon' => 'bi-chat-left-text',
-                'description' => 'Spam filtresine takılan kullanıcılara gösterilecek kısa bilgilendirme metinleri.',
-                'class' => 'comments-spam-section comments-spam-section--messages',
-                'keys' => ['comment_spam_reject_message', 'comment_spam_pending_message'],
+                'title' => 'Tekrarlı Yorum Kontrolü',
+                'icon' => 'bi-copy',
+                'description' => 'Aynı kullanıcının belirlenen dakika içinde aynı yorumu tekrar göndermesini spam sebebi olarak yakalayın.',
+                'class' => 'comments-spam-section comments-spam-section--duplicate',
+                'keys' => ['comment_spam_duplicate_enabled', 'comment_spam_duplicate_minutes'],
             ],
             [
                 'title' => 'Spam Muafiyetleri',
@@ -435,6 +418,17 @@ $downloadGroups = [
                 'keys' => [
                     'download_access_mode',
                     'download_access_comment_requirement',
+                ],
+            ],
+            [
+                'title' => 'İndirme Muafiyetleri',
+                'icon' => 'bi-person-check',
+                'description' => 'Belirli kullanıcı adları ve grupları, seçtiğiniz kapsam dahilindeki indirme kilitleri ve sınırlarından muaf tutun.',
+                'class' => 'download-access-settings-section--exemptions',
+                'keys' => [
+                    'download_exempt_usernames',
+                    'download_exempt_groups',
+                    'download_exempt_scopes',
                 ],
             ],
             [
@@ -1048,8 +1042,8 @@ $simpleSettingsGroups = [
         [
             'title' => 'Temel Moderasyon Kuralları',
             'icon' => 'bi-shield-check',
-            'description' => 'Raporlanan konular, rapor eşiği ve yasaklı kelime listesini yönetin.',
-            'keys' => ['auto_hide_reported', 'report_threshold', 'banned_words'],
+            'description' => 'Raporlanan konular ve rapor eşiğine bağlı otomatik gizleme davranışını yönetin.',
+            'keys' => ['auto_hide_reported', 'report_threshold'],
         ],
     ],
     'notifications' => [
@@ -1564,6 +1558,161 @@ if (!function_exists('settingsCronRunSnapshots')) {
     }
 }
 
+function settingsCommentSpamExemptionToken(string $value): string
+{
+    if (function_exists('commentSpamNormalizeExemptionToken')) {
+        return commentSpamNormalizeExemptionToken($value);
+    }
+
+    return mb_strtolower(trim($value), 'UTF-8');
+}
+
+function settingsCommentSpamExemptUserOptions(?PDO $pdo, string $currentValue): array
+{
+    $options = [];
+    foreach (adminSettingListValues($currentValue, true) as $token) {
+        $options[$token] = $token . ' (kayitli deger)';
+    }
+
+    if (!$pdo instanceof PDO || !function_exists('usersTableExists') || !usersTableExists($pdo, 'users')
+        || !function_exists('usersColumnExists') || !usersColumnExists($pdo, 'users', 'username')) {
+        return $options;
+    }
+
+    $where = ["username IS NOT NULL", "username <> ''"];
+    if (usersColumnExists($pdo, 'users', 'deleted_at')) {
+        $where[] = 'deleted_at IS NULL';
+    }
+    if (usersColumnExists($pdo, 'users', 'status')) {
+        $where[] = "status = 'active'";
+    }
+    if (usersColumnExists($pdo, 'users', 'is_banned')) {
+        $where[] = '(is_banned = 0 OR is_banned IS NULL)';
+    }
+
+    try {
+        $stmt = $pdo->query('SELECT username FROM users WHERE ' . implode(' AND ', $where) . ' ORDER BY username ASC');
+        foreach (($stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : []) as $username) {
+            $username = trim((string) $username);
+            $token = settingsCommentSpamExemptionToken($username);
+            if ($token === '') {
+                continue;
+            }
+
+            $options[$token] = $username;
+        }
+    } catch (Throwable $e) {
+        error_log('[settings-comment-spam-options] ' . $e->getMessage());
+    }
+
+    return $options;
+}
+
+function settingsCommentSpamExemptGroupRows(?PDO $pdo): array
+{
+    if (!$pdo instanceof PDO || !function_exists('usersTableExists') || !usersTableExists($pdo, 'user_groups')) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->query("SELECT name, slug FROM user_groups WHERE is_active = 1 ORDER BY display_order ASC, name ASC");
+        return $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+    } catch (Throwable $e) {
+        error_log('[settings-comment-spam-groups] ' . $e->getMessage());
+        return [];
+    }
+}
+
+function settingsCommentSpamExemptGroupOptions(array $groupRows, string $currentValue): array
+{
+    $options = [];
+    foreach (adminSettingListValues($currentValue, true) as $token) {
+        $options[$token] = $token . ' (kayitli deger)';
+    }
+
+    foreach ($groupRows as $group) {
+        $name = trim((string) ($group['name'] ?? ''));
+        $slug = trim((string) ($group['slug'] ?? ''));
+        $value = settingsCommentSpamExemptionToken($slug !== '' ? $slug : $name);
+        if ($value === '') {
+            continue;
+        }
+
+        $label = $name !== '' ? $name : $value;
+        if ($slug !== '' && $slug !== $label) {
+            $label .= ' (' . $slug . ')';
+        }
+        $options[$value] = $label;
+    }
+
+    return $options;
+}
+
+function settingsCommentSpamResolveGroupSelection(string $currentValue, array $groupRows): string
+{
+    $resolved = [];
+    foreach (adminSettingListValues($currentValue, true) as $token) {
+        $match = $token;
+        foreach ($groupRows as $group) {
+            $slug = settingsCommentSpamExemptionToken((string) ($group['slug'] ?? ''));
+            $name = settingsCommentSpamExemptionToken((string) ($group['name'] ?? ''));
+            if ($token !== '' && ($token === $slug || $token === $name)) {
+                $match = $slug !== '' ? $slug : $name;
+                break;
+            }
+        }
+        if ($match !== '') {
+            $resolved[$match] = $match;
+        }
+    }
+
+    return implode(',', array_values($resolved));
+}
+
+function settingsApplyCommentSpamExemptionOptions(array &$definitions, array &$settings, ?PDO $pdo): void
+{
+    if (isset($definitions['comment_spam_exempt_usernames'])) {
+        $definitions['comment_spam_exempt_usernames']['options'] = settingsCommentSpamExemptUserOptions(
+            $pdo,
+            (string) ($settings['comment_spam_exempt_usernames'] ?? '')
+        );
+    }
+
+    if (isset($definitions['comment_spam_exempt_groups'])) {
+        $groupRows = settingsCommentSpamExemptGroupRows($pdo);
+        $settings['comment_spam_exempt_groups'] = settingsCommentSpamResolveGroupSelection(
+            (string) ($settings['comment_spam_exempt_groups'] ?? ''),
+            $groupRows
+        );
+        $definitions['comment_spam_exempt_groups']['options'] = settingsCommentSpamExemptGroupOptions(
+            $groupRows,
+            (string) ($settings['comment_spam_exempt_groups'] ?? '')
+        );
+    }
+}
+
+function settingsApplyDownloadExemptionOptions(array &$definitions, array &$settings, ?PDO $pdo): void
+{
+    if (isset($definitions['download_exempt_usernames'])) {
+        $definitions['download_exempt_usernames']['options'] = settingsCommentSpamExemptUserOptions(
+            $pdo,
+            (string) ($settings['download_exempt_usernames'] ?? '')
+        );
+    }
+
+    if (isset($definitions['download_exempt_groups'])) {
+        $groupRows = settingsCommentSpamExemptGroupRows($pdo);
+        $settings['download_exempt_groups'] = settingsCommentSpamResolveGroupSelection(
+            (string) ($settings['download_exempt_groups'] ?? ''),
+            $groupRows
+        );
+        $definitions['download_exempt_groups']['options'] = settingsCommentSpamExemptGroupOptions(
+            $groupRows,
+            (string) ($settings['download_exempt_groups'] ?? '')
+        );
+    }
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $isAjax = !empty($_POST['ajax']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
 
@@ -1836,6 +1985,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 
 $settings = getAdminSettings($pdo);
+settingsApplyCommentSpamExemptionOptions($definitions, $settings, $pdo instanceof PDO ? $pdo : null);
+settingsApplyDownloadExemptionOptions($definitions, $settings, $pdo instanceof PDO ? $pdo : null);
 $seoPublicPageGroups = function_exists('seoPublicPageGroups')
     ? seoPublicPageGroups($settings)
     : [];
@@ -1859,6 +2010,10 @@ $cronJobKeys = array_values(array_unique(array_filter(array_map(
 ))));
 $cronRunSnapshots = settingsCronRunSnapshots($pdo, $cronJobKeys);
 $cronStatusLabel = static function (string $status): string {
+    if (function_exists('adminStatusMeta')) {
+        return (string) adminStatusMeta($status, 'cron')['label'];
+    }
+
     return match (strtolower(trim($status))) {
         'success' => 'Basarili',
         'warning' => 'Uyari',
@@ -1869,6 +2024,11 @@ $cronStatusLabel = static function (string $status): string {
     };
 };
 $cronStatusBadgeClass = static function (string $status): string {
+    if (function_exists('adminStatusMeta') && function_exists('adminToneBadgeClass')) {
+        $meta = adminStatusMeta($status, 'cron');
+        return adminToneBadgeClass((string) ($meta['tone'] ?? 'muted'));
+    }
+
     return match (strtolower(trim($status))) {
         'success' => 'ui-admin-badge-success',
         'warning' => 'ui-admin-badge-warning',
@@ -1938,7 +2098,7 @@ $errorMsg = get_flash('error');
 require_once __DIR__ . '/header.php';
 ?>
 
-<form method="post" action="settings.php" class="settings-admin-form" id="settingsForm" data-admin-no-lock="1">
+<form method="post" action="settings.php" class="settings-admin-form" id="settingsForm" data-admin-no-lock="1" data-suppress-info-toasts="1" data-suppress-inline-alert-toasts="1">
     <?= csrf_field() ?>
     <input type="hidden" name="_active_tab" id="activeTabInput" value="general">
     <input type="hidden" name="_sections" value="<?= htmlspecialchars(implode(',', array_keys($sections))) ?>">
@@ -1959,11 +2119,12 @@ require_once __DIR__ . '/header.php';
         <?php foreach ($sections as $id => $section): ?>
             <section id="<?= htmlspecialchars($id) ?>" class="settings-section ui-section">
                 <?php if ($id !== 'file_manager'): ?>
-                <div class="admin-card admin-card-spaced ui-panel">
-                    <div class="card-header ui-panel__head">
-                        <i class="bi <?= htmlspecialchars($section['icon']) ?> me-2"></i><?= htmlspecialchars($section['title']) ?> Ayarları
-                    </div>
-                    <div class="card-body ui-panel__body">
+                <?= adminRenderPanelOpen([
+                    'tag' => 'div',
+                    'class' => 'admin-card-spaced',
+                    'icon' => (string) $section['icon'],
+                    'title' => (string) $section['title'] . ' Ayarları',
+                ]) ?>
                 <?php endif; ?>
                         <?php if (!empty($sectionDescriptions[$id] ?? '')): ?>
                             <div class="admin-section-note ui-section">
@@ -1981,11 +2142,12 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $routeFirst = true; foreach ($routeFilterGroups as $routeTabId => $routeGroup): ?>
-                                <div class="route-filter-subtab-panel settings-subtab-panel<?= $routeFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($routeTabId) ?>">
-                                    <div class="card-header ui-panel__head">
-                                        <i class="bi <?= htmlspecialchars((string) ($routeGroup['icon'] ?? 'bi-sliders')) ?> me-2"></i><?= htmlspecialchars((string) ($routeGroup['title'] ?? $routeTabId)) ?>
-                                    </div>
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'route-filter-subtab-panel' . ($routeFirst ? ' is-active' : ''),
+                                    'attrs' => ['id' => (string) $routeTabId],
+                                    'icon' => (string) ($routeGroup['icon'] ?? 'bi-sliders'),
+                                    'title' => (string) ($routeGroup['title'] ?? $routeTabId),
+                                ]) ?>
                                         <?php if (!empty($routeGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($routeGroup['description'])) ?></div>
                                         <?php endif; ?>
@@ -2034,8 +2196,7 @@ require_once __DIR__ . '/header.php';
                                                 'keys' => (array) ($routeGroup['keys'] ?? []),
                                             ]]) ?>
                                         <?php endif; ?>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $routeFirst = false; endforeach; ?>
 
 
@@ -2051,20 +2212,20 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $cronFirst = true; foreach ($cronGroups as $cronTabId => $cronGroup): ?>
-                                <div class="route-filter-subtab-panel cron-subtab-panel settings-subtab-panel<?= $cronFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($cronTabId) ?>">
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'route-filter-subtab-panel cron-subtab-panel' . ($cronFirst ? ' is-active' : ''),
+                                    'attrs' => ['id' => (string) $cronTabId],
+                                ]) ?>
                                         <?php if (!empty($cronGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($cronGroup['description'])) ?></div>
                                         <?php endif; ?>
 
                                         <?php if ($cronTabId === 'cron-tab-endpoints'): ?>
-    <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
-        <i class="bi bi-info-square-fill"></i>
-        <div>
-            <strong>Görev yönetimi:</strong> Her cron görevi için CLI komutu, HTTP yedek komutu, URL endpoint'i ve manuel tetikleme aksiyonu tek kartta sunulur.
-            HestiaCP/CPanel/Plesk tarafında CLI komutunu kullanın; PHP yolu boş bırakılırsa sistem uygun CLI yolunu otomatik seçer.
-        </div>
-    </div>
+    <?= adminRenderAlert('', 'info', [
+        'icon' => 'bi-info-square-fill',
+        'class' => 'ui-admin-alert-spaced',
+        'html' => '<div><strong>Görev yönetimi:</strong> Her cron görevi için CLI komutu, HTTP yedek komutu, URL endpoint\'i ve manuel tetikleme aksiyonu tek kartta sunulur. HestiaCP/CPanel/Plesk tarafında CLI komutunu kullanın; PHP yolu boş bırakılırsa sistem uygun CLI yolunu otomatik seçer.</div>',
+    ]) ?>
 
     <?php foreach ($cronTaskGroups as $groupName => $groupTasks): ?>
         <div class="admin-divider-block mt-4">
@@ -2145,33 +2306,26 @@ require_once __DIR__ . '/header.php';
         ? 'Tum cron gorevleri saglikli gorunuyor'
         : ($healthTone === 'warning' ? 'Bazi cron gorevleri kontrol edilmeli' : 'Cron gorevlerinde acil kontrol gerekiyor');
     ?>
-    <div class="ui-admin-alert ui-admin-alert-<?= $healthTone === 'danger' ? 'danger' : htmlspecialchars($healthTone) ?> ui-alert ui-admin-alert-spaced">
-        <i class="bi <?= $healthTone === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' ?>"></i>
-        <div>
-            <strong><?= htmlspecialchars($healthTitle) ?></strong><br>
-            Toplam <?= (int) $cronHealthTotal ?> görevden <?= (int) $cronHealthOkCount ?> tanesi son kaydına göre başarılı.
-            <?php if ($cronLatestAt): ?>
-                Son cron hareketi: <?= htmlspecialchars(date('d.m.Y H:i:s', strtotime((string) $cronLatestAt) ?: time())) ?>.
-            <?php else: ?>
-                Henüz cron kaydı görünmüyor.
-            <?php endif; ?>
-            <br><a href="logs.php?view=cron">Cron loglarını aç</a>
-        </div>
-    </div>
+    <?= adminRenderAlert('', $healthTone, [
+        'icon' => $healthTone === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill',
+        'class' => 'ui-admin-alert-spaced',
+        'html' => '<div><strong>' . htmlspecialchars($healthTitle) . '</strong><br>Toplam ' . (int) $cronHealthTotal . ' görevden ' . (int) $cronHealthOkCount . ' tanesi son kaydına göre başarılı. '
+            . ($cronLatestAt ? 'Son cron hareketi: ' . htmlspecialchars(date('d.m.Y H:i:s', strtotime((string) $cronLatestAt) ?: time())) . '.' : 'Henüz cron kaydı görünmüyor.')
+            . '<br><a href="logs.php?view=cron">Cron loglarını aç</a></div>',
+    ]) ?>
 
-    <div class="table-responsive mt-3">
-        <table class="ui-admin-table w-100">
-            <thead>
-                <tr>
-                    <th>Görev</th>
-                    <th>İş Anahtarı</th>
-                    <th>Plan</th>
-                    <th>Durum</th>
-                    <th>Son Çalışma</th>
-                    <th>Log</th>
-                </tr>
-            </thead>
-            <tbody>
+    <?= adminRenderTableOpen([
+        'Görev',
+        'İş Anahtarı',
+        'Plan',
+        'Durum',
+        'Son Çalışma',
+        'Log',
+    ], [
+        'class' => 'w-100',
+        'wrap_class' => 'table-responsive mt-3',
+        'label' => 'Cron sağlık durumu',
+    ]) ?>
                 <?php foreach ($cronHealthRows as $healthRow): ?>
                     <?php
                     $rowStatus = (string) ($healthRow['status'] ?? 'missing');
@@ -2188,9 +2342,7 @@ require_once __DIR__ . '/header.php';
                         <td><a href="logs.php?view=cron&cron_job=<?= urlencode((string) ($healthRow['job_key'] ?? '')) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">Aç</a></td>
                     </tr>
                 <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
+    <?= adminRenderTableClose() ?>
 <?php else: ?>
                                             <?= adminRenderSettingsRuleSections($definitions, $settings, 'cron', [[
                                                 'title' => 'Genel Cron Kuralları',
@@ -2228,8 +2380,7 @@ require_once __DIR__ . '/header.php';
                                                 </div>
                                             </div>
                                         <?php endif; ?>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $cronFirst = false; endforeach; ?>
 
                             <script src="<?= asset_url('admin/assets/settings-page-cron.js', $baseUri) ?>" defer></script>
@@ -2243,8 +2394,10 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $seoFirst = true; foreach ($seoGroups as $seoTabId => $seoGroup): ?>
-                                <div class="seo-subtab-panel settings-subtab-panel<?= $seoFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($seoTabId) ?>">
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'seo-subtab-panel' . ($seoFirst ? ' is-active' : ''),
+                                    'attrs' => ['id' => (string) $seoTabId],
+                                ]) ?>
                                         <?php if (!empty($seoGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($seoGroup['description'])) ?></div>
                                         <?php endif; ?>
@@ -2542,8 +2695,7 @@ require_once __DIR__ . '/header.php';
                                             'keys' => (array) ($seoGroup['keys'] ?? []),
                                         ]]) ?>
                                     <?php endif; ?>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $seoFirst = false; endforeach; ?>
                         <?php elseif ($id === 'comments'): ?>
                             <div class="comments-subtabs">
@@ -2555,11 +2707,12 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $commentFirst = true; foreach ($commentGroups as $commentTabId => $commentGroup): ?>
-                                <div class="comments-subtab-panel settings-subtab-panel<?= $commentFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($commentTabId) ?>">
-                                    <div class="card-header ui-panel__head">
-                                        <i class="bi <?= htmlspecialchars((string) ($commentGroup['icon'] ?? 'bi-gear')) ?> me-2"></i><?= htmlspecialchars((string) ($commentGroup['title'] ?? $commentTabId)) ?>
-                                    </div>
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'comments-subtab-panel' . ($commentFirst ? ' is-active' : ''),
+                                    'attrs' => ['id' => (string) $commentTabId],
+                                    'icon' => (string) ($commentGroup['icon'] ?? 'bi-gear'),
+                                    'title' => (string) ($commentGroup['title'] ?? $commentTabId),
+                                ]) ?>
                                         <?php if (!empty($commentGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($commentGroup['description'])) ?></div>
                                         <?php endif; ?>
@@ -2574,8 +2727,7 @@ require_once __DIR__ . '/header.php';
                                                 'keys' => (array) ($commentGroup['keys'] ?? []),
                                             ]]) ?>
                                         <?php endif; ?>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $commentFirst = false; endforeach; ?>
 
                             <script src="<?= asset_url('admin/assets/settings-page-comments.js', $baseUri) ?>" defer></script>
@@ -2589,8 +2741,14 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $userSystemFirst = true; foreach ($userSystemGroups as $userSystemTabId => $userSystemGroup): ?>
-                                <div class="route-filter-subtab-panel user-system-subtab-panel settings-subtab-panel<?= $userSystemFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($userSystemTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($userSystemTabId) ?>" data-settings-subtab-scope="user-system">
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'route-filter-subtab-panel user-system-subtab-panel' . ($userSystemFirst ? ' is-active' : ''),
+                                    'attrs' => [
+                                        'id' => (string) $userSystemTabId,
+                                        'data-settings-subtab-panel' => (string) $userSystemTabId,
+                                        'data-settings-subtab-scope' => 'user-system',
+                                    ],
+                                ]) ?>
                                         <?php if (!empty($userSystemGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($userSystemGroup['description'])) ?></div>
                                         <?php endif; ?>
@@ -2602,16 +2760,15 @@ require_once __DIR__ . '/header.php';
                                                 $emailVerificationTtlMinutes = max(15, min(10080, (int) ($settings['account_email_verification_ttl_minutes'] ?? 1440)));
                                                 $emailVerificationCooldownMinutes = max(1, min(1440, (int) ($settings['account_email_verification_resend_cooldown_minutes'] ?? 10)));
                                             ?>
-                                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert-spaced">
-                                                <i class="bi bi-shield-check"></i>
-                                                <div>
-                                                    <strong>Kısa durum özeti</strong><br>
-                                                    <?= $registrationApprovalEnabled ? 'Yeni kayıtlar yönetici onayına düşer.' : 'Yeni kayıtlar otomatik olarak aktif açılır.' ?>
-                                                    <?= $emailVerificationEnabled ? ' E-posta doğrulama aktiftir.' : ' E-posta doğrulama kapalıdır.' ?>
-                                                    <?= $emailVerificationRequired ? ' Girişte doğrulama zorunludur.' : ' Girişte doğrulama zorunlu değildir.' ?>
-                                                    Doğrulama bağlantısı <?= (int) $emailVerificationTtlMinutes ?> dakika, tekrar gönderme bekleme süresi <?= (int) $emailVerificationCooldownMinutes ?> dakikadır.
-                                                </div>
-                                            </div>
+                                            <?= adminRenderAlert('', 'info', [
+                                                'icon' => 'bi-shield-check',
+                                                'class' => 'ui-alert-spaced',
+                                                'html' => '<div><strong>Kısa durum özeti</strong><br>'
+                                                    . ($registrationApprovalEnabled ? 'Yeni kayıtlar yönetici onayına düşer.' : 'Yeni kayıtlar otomatik olarak aktif açılır.')
+                                                    . ($emailVerificationEnabled ? ' E-posta doğrulama aktiftir.' : ' E-posta doğrulama kapalıdır.')
+                                                    . ($emailVerificationRequired ? ' Girişte doğrulama zorunludur.' : ' Girişte doğrulama zorunlu değildir.')
+                                                    . ' Doğrulama bağlantısı ' . (int) $emailVerificationTtlMinutes . ' dakika, tekrar gönderme bekleme süresi ' . (int) $emailVerificationCooldownMinutes . ' dakikadır.</div>',
+                                            ]) ?>
                                         <?php endif; ?>
                                         <?php $userSystemSections = (array) ($userSystemGroup['sections'] ?? []); ?>
                                         <?php if (!empty($userSystemSections)): ?>
@@ -2668,8 +2825,7 @@ require_once __DIR__ . '/header.php';
                                         <?php else: ?>
                                             <?= adminRenderSettingsGrid($definitions, $settings, 'user_system', (array) ($userSystemGroup['keys'] ?? []), 'user-system-rule-grid ui-grid') ?>
                                         <?php endif; ?>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $userSystemFirst = false; endforeach; ?>
                         <?php elseif ($id === 'email'): ?>
                             <div class="settings-subtabs" data-settings-subtabs>
@@ -2681,8 +2837,14 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $emailFirst = true; foreach ($emailGroups as $emailTabId => $emailGroup): ?>
-                                <div class="route-filter-subtab-panel settings-subtab-panel<?= $emailFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($emailTabId) ?>" data-settings-subtab-scope="email">
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'route-filter-subtab-panel' . ($emailFirst ? ' is-active' : ''),
+                                    'attrs' => [
+                                        'id' => (string) $emailTabId,
+                                        'data-settings-subtab-panel' => (string) $emailTabId,
+                                        'data-settings-subtab-scope' => 'email',
+                                    ],
+                                ]) ?>
                                         <?php if (!empty($emailGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($emailGroup['description'])) ?></div>
                                         <?php endif; ?>
@@ -2696,13 +2858,11 @@ require_once __DIR__ . '/header.php';
                                             ]]) ?>
                                         <?php elseif ($emailTabId === 'email-tab-test'): ?>
                                             <?php $currentAdminEmail = trim((string) ($_SESSION['_auth_user_email'] ?? '')); ?>
-                                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
-                                                <i class="bi bi-info-circle"></i>
-                                                <div>
-                                                    <strong>Test gönderimi</strong><br>
-                                                    Bu araç, üstteki SMTP alanlarında yaptığınız mevcut değişiklikleri de kullanır ve ayarları kaydetmeden tek başına test gönderir.
-                                                </div>
-                                            </div>
+                                            <?= adminRenderAlert('', 'info', [
+                                                'icon' => 'bi-info-circle',
+                                                'class' => 'ui-admin-alert-spaced',
+                                                'html' => '<div><strong>Test gönderimi</strong><br>Bu araç, üstteki SMTP alanlarında yaptığınız mevcut değişiklikleri de kullanır ve ayarları kaydetmeden tek başına test gönderir.</div>',
+                                            ]) ?>
 
                                             <div class="admin-settings-grid ui-grid">
                                                 <div class="admin-field-wide">
@@ -2722,16 +2882,17 @@ require_once __DIR__ . '/header.php';
                                             </div>
                                         <?php else: ?>
                                             <?php $accountEmailCatalog = \App\Engine\Email\AccountEmailService::catalog(); ?>
-                                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
-                                                <i class="bi bi-info-circle"></i>
-                                                <div>
-                                                    <strong>Tek kaynak, duplicate ayar yok</strong><br>
-                                                    SMTP ve gönderen bilgileri E-posta Ayarları sekmesinden kullanılır. Yorum, mesaj ve moderasyon e-postaları <a href="notifications.php?tab=templates">Bildirim Şablonları</a> ekranında kalır.
-                                                </div>
-                                            </div>
+                                            <?= adminRenderAlert('', 'info', [
+                                                'icon' => 'bi-info-circle',
+                                                'class' => 'ui-admin-alert-spaced',
+                                                'html' => '<div><strong>Tek kaynak, duplicate ayar yok</strong><br>SMTP ve gönderen bilgileri E-posta Ayarları sekmesinden kullanılır. Yorum, mesaj ve moderasyon e-postaları <a href="notifications.php?tab=templates">Bildirim Şablonları</a> ekranında kalır.</div>',
+                                            ]) ?>
                                             <section class="account-email-behavior admin-section-block ui-section">
                                                 <div class="admin-inline-head ui-panel__head"><i class="bi bi-shield-check"></i><span class="admin-inline-title">Hesap E-posta Davranışı</span></div>
-                                                <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-alert-spaced">Kayıt onayı ve şifre sıfırlama davranışı artık Kullanıcı Sistemi alt sekmelerinde yönetiliyor.</div>
+                                                <?= adminRenderAlert('Kayıt onayı ve şifre sıfırlama davranışı artık Kullanıcı Sistemi alt sekmelerinde yönetiliyor.', 'info', [
+                                                    'icon' => '',
+                                                    'class' => 'ui-alert-spaced',
+                                                ]) ?>
                                             </section>
                                             <div class="account-email-template-list">
                                                 <?php foreach ($accountEmailCatalog as $accountTemplateKey => $accountTemplate): ?>
@@ -2743,15 +2904,16 @@ require_once __DIR__ . '/header.php';
                                                         $subjectValue = (string) ($settings[$subjectKey] ?? $accountTemplate['subject']);
                                                         $bodyValue = (string) ($settings[$bodyKey] ?? $accountTemplate['body']);
                                                     ?>
-                                                    <section class="account-email-template-card settings-rule ui-panel" data-account-email-card="<?= htmlspecialchars($accountTemplateKey) ?>">
-                                                        <div class="card-header ui-panel__head">
-                                                            <div><strong><?= htmlspecialchars($accountTemplate['label']) ?></strong><small class="d-block"><?= htmlspecialchars($accountTemplate['description']) ?></small></div>
-                                                            <label class="ui-admin-switch">
-                                                                <input type="checkbox" name="<?= htmlspecialchars($enabledKey) ?>" value="1" <?= $enabledValue === '1' ? 'checked' : '' ?>>
-                                                                <span class="ui-admin-switch-label">Aktif</span>
-                                                            </label>
-                                                        </div>
-                                                        <div class="card-body ui-panel__body">
+                                                    <?= adminRenderPanelShellOpen([
+                                                        'tag' => 'section',
+                                                        'class' => 'account-email-template-card settings-rule',
+                                                        'attrs' => ['data-account-email-card' => (string) $accountTemplateKey],
+                                                    ]) ?>
+                                                        <?= adminRenderPanelHeader([
+                                                            'html' => '<div><strong>' . htmlspecialchars((string) $accountTemplate['label'], ENT_QUOTES, 'UTF-8') . '</strong><small class="d-block">' . htmlspecialchars((string) $accountTemplate['description'], ENT_QUOTES, 'UTF-8') . '</small></div>'
+                                                                . '<label class="ui-admin-switch"><input type="checkbox" name="' . htmlspecialchars($enabledKey, ENT_QUOTES, 'UTF-8') . '" value="1"' . ($enabledValue === '1' ? ' checked' : '') . '><span class="ui-admin-switch-label">Aktif</span></label>',
+                                                        ]) ?>
+                                                        <?= adminRenderPanelBodyOpen() ?>
                                                             <label class="ui-admin-form-label" for="<?= htmlspecialchars($subjectKey) ?>">E-posta Konusu</label>
                                                             <input id="<?= htmlspecialchars($subjectKey) ?>" name="<?= htmlspecialchars($subjectKey) ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($subjectValue) ?>" required>
                                                             <label class="ui-admin-form-label mt-3" for="<?= htmlspecialchars($bodyKey) ?>">HTML E-posta İçeriği</label>
@@ -2774,24 +2936,19 @@ require_once __DIR__ . '/header.php';
                                                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm account-email-reset" data-default-subject="<?= htmlspecialchars((string) $accountTemplate['subject']) ?>"><i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön</button>
                                                                 <button type="submit" name="action" value="send_account_email_test" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm" data-account-email-template="<?= htmlspecialchars($accountTemplateKey) ?>"><i class="bi bi-send-check"></i> Test Gönder</button>
                                                             </div>
-                                                        </div>
-                                                    </section>
+                                                        <?= adminRenderPanelBodyClose() ?>
+                                                    <?= adminRenderPanelShellClose() ?>
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php endif; ?>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $emailFirst = false; endforeach; ?>
                         <?php elseif ($id === 'rate_limit'): ?>
-                            <div class="ui-admin-alert ui-admin-alert-info ui-alert ui-admin-alert-spaced">
-                                <i class="bi bi-info-circle"></i>
-                                <div>
-                                    <strong>Hızlı Kullanım:</strong>
-                                    Limit alanı, yanındaki süre içinde kaç deneme, istek veya işlem yapılabileceğini belirler.
-                                    Süre alanı dakika bazlıdır.
-                                    Örnek: Limit 5 + Süre 15 = 15 dakikada en fazla 5 işlem.
-                                </div>
-                            </div>
+                            <?= adminRenderAlert('', 'info', [
+                                'icon' => 'bi-info-circle',
+                                'class' => 'ui-admin-alert-spaced',
+                                'html' => '<div><strong>Hızlı Kullanım:</strong> Limit alanı, yanındaki süre içinde kaç deneme, istek veya işlem yapılabileceğini belirler. Süre alanı dakika bazlıdır. Örnek: Limit 5 + Süre 15 = 15 dakikada en fazla 5 işlem.</div>',
+                            ]) ?>
                             <div class="rate-limit-subtabs">
                                 <?php $rateFirst = true; foreach ($rateLimitGroups as $rateTabId => $rateGroup): ?>
                                     <button type="button" class="rate-limit-subtab-btn<?= $rateFirst ? ' active' : '' ?>" data-rate-tab="<?= htmlspecialchars($rateTabId) ?>">
@@ -2801,11 +2958,12 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $rateFirst = true; foreach ($rateLimitGroups as $rateTabId => $rateGroup): ?>
-                                <div class="rate-limit-subtab-panel settings-subtab-panel<?= $rateFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($rateTabId) ?>">
-                                    <div class="card-header ui-panel__head">
-                                        <i class="bi <?= htmlspecialchars((string) ($rateGroup['icon'] ?? 'bi-speedometer2')) ?> me-2"></i><?= htmlspecialchars((string) ($rateGroup['title'] ?? $rateTabId)) ?>
-                                    </div>
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'rate-limit-subtab-panel' . ($rateFirst ? ' is-active' : ''),
+                                    'attrs' => ['id' => (string) $rateTabId],
+                                    'icon' => (string) ($rateGroup['icon'] ?? 'bi-speedometer2'),
+                                    'title' => (string) ($rateGroup['title'] ?? $rateTabId),
+                                ]) ?>
                                         <?php if (!empty($rateGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($rateGroup['description'])) ?></div>
                                         <?php endif; ?>
@@ -2895,7 +3053,7 @@ require_once __DIR__ . '/header.php';
                                                                        data-rate-role="window">
                                                             </div>
                                                         </div>
-                                                        <div class="rate-limit-summary" data-rate-summary-text></div>
+                                                        <div class="rate-limit-rule-summary" data-rate-summary-text></div>
                                                     </div>
                                                 <?php elseif (isset($rateLimitWindowKeys[$key])): ?>
                                                     <?php $renderedRateKeys[$key] = true; ?>
@@ -2968,13 +3126,12 @@ require_once __DIR__ . '/header.php';
                                                                 <?php endif; ?>
                                                             </div>
                                                         <?php endif; ?>
-                                                        <div class="rate-limit-summary" data-rate-summary-text></div>
+                                                        <div class="rate-limit-rule-summary" data-rate-summary-text></div>
                                                     </div>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>
                                         </div>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $rateFirst = false; endforeach; ?>
 
                             <script src="<?= asset_url('admin/assets/settings-page-rate-limit.js', $baseUri) ?>" defer></script>
@@ -3018,8 +3175,14 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $downloadFirst = true; foreach ($downloadGroups as $downloadTabId => $downloadGroup): ?>
-                                <div class="route-filter-subtab-panel settings-subtab-panel<?= $downloadFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($downloadTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($downloadTabId) ?>" data-settings-subtab-scope="downloads">
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'route-filter-subtab-panel' . ($downloadFirst ? ' is-active' : ''),
+                                    'attrs' => [
+                                        'id' => (string) $downloadTabId,
+                                        'data-settings-subtab-panel' => (string) $downloadTabId,
+                                        'data-settings-subtab-scope' => 'downloads',
+                                    ],
+                                ]) ?>
                                         <?php if (!empty($downloadGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($downloadGroup['description'])) ?></div>
                                         <?php endif; ?>
@@ -3033,8 +3196,7 @@ require_once __DIR__ . '/header.php';
                                                 'keys' => (array) ($downloadGroup['keys'] ?? []),
                                             ]]) ?>
                                         <?php endif; ?>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $downloadFirst = false; endforeach; ?>
                         <?php elseif ($id === 'content_moderation'): ?>
                             <div class="route-filter-subtabs settings-subtabs" data-settings-subtabs>
@@ -3046,8 +3208,14 @@ require_once __DIR__ . '/header.php';
                             </div>
 
                             <?php $contentModerationFirst = true; foreach ($contentModerationGroups as $moderationTabId => $moderationGroup): ?>
-                                <div class="route-filter-subtab-panel settings-subtab-panel<?= $contentModerationFirst ? ' is-active' : '' ?> ui-panel" id="<?= htmlspecialchars($moderationTabId) ?>" data-settings-subtab-panel="<?= htmlspecialchars($moderationTabId) ?>" data-settings-subtab-scope="content-moderation">
-                                    <div class="card-body ui-panel__body">
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'route-filter-subtab-panel' . ($contentModerationFirst ? ' is-active' : ''),
+                                    'attrs' => [
+                                        'id' => (string) $moderationTabId,
+                                        'data-settings-subtab-panel' => (string) $moderationTabId,
+                                        'data-settings-subtab-scope' => 'content-moderation',
+                                    ],
+                                ]) ?>
                                         <?php if (!empty($moderationGroup['description'])): ?>
                                             <div class="admin-section-desc"><?= htmlspecialchars((string) ($moderationGroup['description'])) ?></div>
                                         <?php endif; ?>
@@ -3057,8 +3225,7 @@ require_once __DIR__ . '/header.php';
                                             'description' => (string) ($moderationGroup['description'] ?? ''),
                                             'keys' => (array) ($moderationGroup['keys'] ?? []),
                                         ]]) ?>
-                                    </div>
-                                </div>
+                                <?= adminRenderSubtabPanelClose() ?>
                             <?php $contentModerationFirst = false; endforeach; ?>
                         <?php elseif (isset($simpleSettingsGroups[$id])): ?>
                             <?= adminRenderSettingsRuleSections($definitions, $settings, $id, $simpleSettingsGroups[$id]) ?>
@@ -3069,11 +3236,12 @@ require_once __DIR__ . '/header.php';
                     <?php endif; ?>
                 <?php if ($id === 'file_manager'): ?>
                 <!-- Dosya Yöneticisi Ayarları -->
-                <div class="admin-card admin-card-spaced ui-panel">
-                    <div class="card-header ui-panel__head">
-                        <i class="bi bi-folder2-open me-2"></i>Dosya Yöneticisi Ayarları
-                    </div>
-                    <div class="card-body ui-panel__body">
+                <?= adminRenderPanelOpen([
+                    'tag' => 'div',
+                    'class' => 'admin-card-spaced',
+                    'icon' => 'bi-folder2-open',
+                    'title' => 'Dosya Yöneticisi Ayarları',
+                ]) ?>
                         <div class="admin-section-desc">
                             Dosya yükleme kuralları ile görsel optimizasyon ayarlarını aynı merkezden yönetin. Dosya Ayarları kabul edilen türleri ve hedef klasörü, Resim Ayarları ise WebP, thumbnail ve filigran davranışlarını kontrol eder.
                         </div>
@@ -3197,10 +3365,9 @@ require_once __DIR__ . '/header.php';
                                 <p>WebP dönüşümü için PHP GD kütüphanesinin WebP desteğiyle derlenmiş olması gerekir. Hosting sağlayıcınıza başvurun.</p>
                             </div>
                         </div>
-                        <?php endif; ?>
+                    <?php endif; ?>
                     </div>
-</div>
-                </div>
+                <?= adminRenderPanelClose('div') ?>
                 <?php endif; ?>
             </section>
         <?php endforeach; ?>

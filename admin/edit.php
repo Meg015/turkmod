@@ -173,12 +173,12 @@ $pageTitle = 'Konu Düzenle';
 $errorMsg = get_flash('error');
 require_once __DIR__ . '/header.php';
 ?>
-<div class="admin-card ui-panel">
-    <div class="card-header ui-admin-card-header-actions ui-panel__head ui-card">
-        <span><i class="bi bi-pencil me-2"></i>Konu Düzenle — #<?= $id ?></span>
-        <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="topic-revisions.php?topic_id=<?= (int)$id ?>"><i class="bi bi-clock-history"></i> Versiyonlar</a>
-    </div>
-    <div class="card-body ui-panel__body">
+<?= adminRenderPanelOpen([
+    'tag' => 'div',
+    'icon' => 'bi-pencil',
+    'title' => 'Konu Düzenle — #' . $id,
+    'actions_html' => '<a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="topic-revisions.php?topic_id=' . (int) $id . '"><i class="bi bi-clock-history"></i> Versiyonlar</a>',
+]) ?>
         <form id="topicForm" method="post" action="edit.php?id=<?= $id ?>" enctype="multipart/form-data">
             <?= csrf_field() ?>
             <div class="seo-checklist ui-admin-seo-checklist">
@@ -258,7 +258,12 @@ require_once __DIR__ . '/header.php';
                     <?php if (!empty($currentPrimaryImage)): ?>
                         <div class="media-existing-grid ui-grid">
                             <div class="media-existing-item" data-existing-media-card title="Kapağı silmek/geri almak için tıklayın">
-                                <img src="<?= htmlspecialchars(strpos($currentPrimaryImage, 'http') === 0 ? $currentPrimaryImage : $baseUri . '/' . ltrim($currentPrimaryImage, '/')) ?>" alt="Mevcut kapak görseli" width="120" height="95">
+                                <?php $currentPrimaryImageSrc = adminSafeImageUrl((string) $currentPrimaryImage, $baseUri); ?>
+                                <?php if ($currentPrimaryImageSrc !== ''): ?>
+                                    <img src="<?= htmlspecialchars($currentPrimaryImageSrc) ?>" alt="Mevcut kapak görseli" width="120" height="95">
+                                <?php else: ?>
+                                    <?= adminRenderImagePlaceholder('media-existing-placeholder') ?>
+                                <?php endif; ?>
                                 <label class="media-existing-action-bar">
                                     <?php if ($currentPrimaryMediaId > 0): ?>
                                         <input type="hidden" name="keep_media[]" value="<?= $currentPrimaryMediaId ?>">
@@ -297,7 +302,12 @@ require_once __DIR__ . '/header.php';
                             <div class="media-existing-grid ui-grid">
                                 <?php foreach ($currentImages as $mediaImage): ?>
                                     <div class="media-existing-item" data-existing-media-card title="Silmek veya geri almak için tıklayın">
-                                        <img src="<?= htmlspecialchars(strpos($mediaImage['path'], 'http') === 0 ? $mediaImage['path'] : $baseUri . '/' . ltrim($mediaImage['path'], '/')) ?>" alt="Mevcut galeri görseli" width="120" height="95">
+                                        <?php $mediaImageSrc = adminSafeImageUrl((string) ($mediaImage['path'] ?? ''), $baseUri); ?>
+                                        <?php if ($mediaImageSrc !== ''): ?>
+                                            <img src="<?= htmlspecialchars($mediaImageSrc) ?>" alt="Mevcut galeri görseli" width="120" height="95">
+                                        <?php else: ?>
+                                            <?= adminRenderImagePlaceholder('media-existing-placeholder') ?>
+                                        <?php endif; ?>
                                         <label class="media-existing-action-bar">
                                             <input type="checkbox" name="keep_media[]" value="<?= (int)$mediaImage['id'] ?>" checked class="d-none ui-admin-hidden-file-input">
                                             <div class="action-bar-content">
@@ -386,6 +396,5 @@ require_once __DIR__ . '/header.php';
                 <a href="topics.php" class="ui-admin-btn ui-admin-btn-outline">İptal</a>
             </div>
         </form>
-    </div>
-</div>
+<?= adminRenderPanelClose('div') ?>
 <?php require_once __DIR__ . '/footer.php'; ?>

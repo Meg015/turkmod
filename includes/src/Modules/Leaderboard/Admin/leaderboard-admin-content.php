@@ -335,106 +335,113 @@ $errorMsg = get_flash('error');
 require_once $leaderboardProjectRoot . '/admin/header.php';
 ?>
 <div class="leaderboard-page">
-<div class="ui-admin-page-hero">
-    <div class="ui-admin-page-hero-text">
-        <h2 class="ui-admin-mb-xs"><i class="bi bi-trophy ui-admin-icon-gap"></i>Liderlik Tablosu Kontrol Paneli</h2>
-        <p class="ui-admin-m-0">Topluluk Performansı: Önbellek sağlığını izleyin, periyotları yenileyin ve sıralama hesaplamalarını tek ekrandan yönetin.</p>
-    </div>
+<?= adminRenderPageHero(
+    'bi-trophy',
+    'Liderlik tablosu',
+    'Liderlik Tablosu Kontrol Paneli',
+    'Topluluk Performansı: Önbellek sağlığını izleyin, periyotları yenileyin ve sıralama hesaplamalarını tek ekrandan yönetin.'
+) ?>
 
-</div>
-
-<div class="leaderboard-admin-tabs" role="tablist" aria-label="Liderlik tablosu yönetimi">
-    <button type="button" class="leaderboard-admin-tab is-active" data-tab-target="leaderboard-status" role="tab" aria-selected="true">
-        <i class="bi bi-speedometer2"></i> Durum
-    </button>
-    <button type="button" class="leaderboard-admin-tab" data-tab-target="leaderboard-settings" role="tab" aria-selected="false">
-        <i class="bi bi-sliders"></i> Ayarlar
-    </button>
-</div>
+<?= adminRenderButtonTabs([
+    'leaderboard-status' => [
+        'target' => 'leaderboard-status',
+        'icon' => 'bi-speedometer2',
+        'label' => 'Durum',
+    ],
+    'leaderboard-settings' => [
+        'target' => 'leaderboard-settings',
+        'icon' => 'bi-sliders',
+        'label' => 'Ayarlar',
+    ],
+], 'leaderboard-status', [
+    'class' => 'leaderboard-admin-tabs',
+    'button_class' => 'leaderboard-admin-tab',
+    'aria_label' => 'Liderlik tablosu yönetimi',
+]) ?>
 
 <section id="leaderboard-status" class="leaderboard-admin-tab-panel is-active ui-panel" role="tabpanel">
-<div class="admin-card leaderboard-admin-panel ui-panel">
-    <div class="card-header ui-panel__head">
-        <i class="bi bi-activity me-2"></i>Sistem Özeti
-    </div>
-    <div class="card-body ui-panel__body">
-        <?php if ($successMsg): ?>
-            <div class="ui-admin-alert ui-admin-alert-success ui-alert ui-alert--success"><?= htmlspecialchars($successMsg) ?></div>
-        <?php endif; ?>
-        <?php if ($errorMsg): ?>
-            <div class="ui-admin-alert ui-admin-alert-danger ui-alert ui-alert--error"><?= htmlspecialchars($errorMsg) ?></div>
-        <?php endif; ?>
+<?= adminRenderPanelOpen([
+    'tag' => 'div',
+    'class' => 'leaderboard-admin-panel',
+    'title' => 'Sistem Özeti',
+    'icon' => 'bi-activity',
+]) ?>
+    <?= adminRenderFlashAlerts($successMsg, $errorMsg) ?>
+    <?= adminRenderStatCards([
+        [
+            'tone' => 'info',
+            'icon' => 'bi-database',
+            'label' => 'Toplam Önbellek Kayıtları',
+            'value' => number_format($totalCached),
+            'class' => 'leaderboard-admin-stat',
+        ],
+        [
+            'tone' => 'success',
+            'icon' => 'bi-people-fill',
+            'label' => 'Toplam Kullanıcı',
+            'value' => number_format($totalUsers),
+            'class' => 'leaderboard-admin-stat',
+        ],
+        [
+            'tone' => 'warning',
+            'icon' => 'bi-folder2-open',
+            'label' => 'Kategori Sayısı',
+            'value' => count($categories),
+            'class' => 'leaderboard-admin-stat',
+        ],
+        [
+            'tone' => 'info',
+            'icon' => 'bi-calendar-range',
+            'label' => 'Periyot Sayısı',
+            'value' => count($periods),
+            'class' => 'leaderboard-admin-stat',
+        ],
+    ], [
+        'class' => 'leaderboard-admin-stats',
+        'aria_label' => 'Liderlik sistemi özeti',
+    ]) ?>
+<?= adminRenderPanelClose('div') ?>
 
-        <div class="admin-stat-grid leaderboard-admin-stats ui-grid">
-            <div class="admin-stat-card stat-info leaderboard-admin-stat ui-card">
-                <div class="stat-icon"><i class="bi bi-database"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Toplam Önbellek Kayıtları</span>
-                    <span class="stat-value"><?= number_format($totalCached) ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-success leaderboard-admin-stat ui-card">
-                <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Toplam Kullanıcı</span>
-                    <span class="stat-value"><?= number_format($totalUsers) ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-warning leaderboard-admin-stat ui-card">
-                <div class="stat-icon"><i class="bi bi-folder2-open"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Kategori Sayısı</span>
-                    <span class="stat-value"><?= count($categories) ?></span>
-                </div>
-            </div>
-            <div class="admin-stat-card stat-info leaderboard-admin-stat ui-card">
-                <div class="stat-icon"><i class="bi bi-calendar-range"></i></div>
-                <div class="stat-content">
-                    <span class="stat-label">Periyot Sayısı</span>
-                    <span class="stat-value"><?= count($periods) ?></span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<div class="admin-card leaderboard-admin-panel ui-panel">
-    <div class="card-header ui-panel__head ui-admin-header-split">
-        <div>
-            <i class="bi bi-table me-2"></i>Önbellek Durumu
-        </div>
-        <div class="ui-admin-action-row ui-admin-action-row-compact">
-            <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" id="recalculateAllBtn">
-                <i class="bi bi-arrow-repeat"></i> Tümünü Yeniden Hesapla
-            </button>
-            <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger" id="clearAllCacheBtn">
-                <i class="bi bi-trash"></i> Tüm Önbelleği Temizle
-            </button>
-        </div>
-    </div>
-    <div class="card-body ui-panel__body">
-        <div
-            class="leaderboard-admin-table-wrap"
-            data-leaderboard-admin-config="<?= htmlspecialchars(json_encode([
+<?= adminRenderPanelOpen([
+    'tag' => 'div',
+    'class' => 'leaderboard-admin-panel',
+    'title' => 'Önbellek Durumu',
+    'icon' => 'bi-table',
+    'header_class' => 'ui-admin-header-split',
+    'actions_html' => adminRenderActionButtons([
+        [
+            'label' => 'Tümünü Yeniden Hesapla',
+            'icon' => 'bi-arrow-repeat',
+            'class' => 'ui-admin-btn-sm ui-admin-btn-outline',
+            'attrs' => ['id' => 'recalculateAllBtn'],
+        ],
+        [
+            'label' => 'Tüm Önbelleği Temizle',
+            'icon' => 'bi-trash',
+            'class' => 'ui-admin-btn-sm ui-admin-btn-danger',
+            'attrs' => ['id' => 'clearAllCacheBtn'],
+        ],
+    ], ['class' => 'ui-admin-action-row ui-admin-action-row-compact']),
+]) ?>
+    <?= adminRenderTableOpen([
+        'Kategori',
+        'Periyot',
+        'Son Güncelleme',
+        'Kullanıcı Sayısı',
+        'Boyut (yaklaşık)',
+        'Durum',
+        'İşlemler',
+    ], [
+        'wrap_class' => 'leaderboard-admin-table-wrap',
+        'wrap_attrs' => [
+            'data-leaderboard-admin-config' => json_encode([
                 'apiBase' => rtrim($baseUri, '/') . '/admin/api',
                 'categories' => array_keys($categories),
                 'periods' => array_keys($periods),
-            ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8') ?>"
-        >
-            <table class="ui-admin-table">
-                <thead>
-                    <tr>
-                        <th>Kategori</th>
-                        <th>Periyot</th>
-                        <th>Son Güncelleme</th>
-                        <th>Kullanıcı Sayısı</th>
-                        <th>Boyut (yaklaşık)</th>
-                        <th>Durum</th>
-                        <th>İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
+            ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?: '{}',
+        ],
+        'label' => 'Liderlik önbellek durumu',
+    ]) ?>
                     <?php foreach ($cacheStatus as $status): ?>
                         <tr data-category="<?= htmlspecialchars($status['category']) ?>" data-period="<?= htmlspecialchars($status['period']) ?>">
                             <td><strong><?= htmlspecialchars($status['category_label']) ?></strong></td>
@@ -451,52 +458,70 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                             <td><?= number_format($status['user_count']) ?></td>
                             <td><?= number_format($status['approx_size'] / 1024, 2) ?> KB</td>
                             <td>
-                                <?php if (!empty($status['is_empty'])): ?>
-                                    <span class="ui-admin-badge ui-admin-badge-muted" title="<?= htmlspecialchars((string) ($status['status_title'] ?? '')) ?>">
-                                        <i class="bi bi-dash-circle"></i> Veri yok
-                                    </span>
-                                <?php elseif ($status['is_stale']): ?>
-                                    <span class="ui-admin-badge ui-admin-badge-warning" title="<?= htmlspecialchars((string) ($status['status_title'] ?? '')) ?>">
-                                        <i class="bi bi-exclamation-triangle"></i> Güncel değil
-                                    </span>
-                                <?php else: ?>
-                                    <span class="ui-admin-badge ui-admin-badge-success" title="<?= htmlspecialchars((string) ($status['status_title'] ?? '')) ?>">
-                                        <i class="bi bi-check-circle"></i> Güncel
-                                    </span>
-                                <?php endif; ?>
+                                <?php
+                                if (!empty($status['is_empty'])) {
+                                    echo adminRenderBadge('Veri yok', [
+                                        'tone' => 'muted',
+                                        'icon' => 'bi-dash-circle',
+                                        'title' => (string) ($status['status_title'] ?? ''),
+                                    ]);
+                                } elseif ($status['is_stale']) {
+                                    echo adminRenderBadge('Güncel değil', [
+                                        'tone' => 'warning',
+                                        'icon' => 'bi-exclamation-triangle',
+                                        'title' => (string) ($status['status_title'] ?? ''),
+                                    ]);
+                                } else {
+                                    echo adminRenderBadge('Güncel', [
+                                        'tone' => 'success',
+                                        'icon' => 'bi-check-circle',
+                                        'title' => (string) ($status['status_title'] ?? ''),
+                                    ]);
+                                }
+                                ?>
                             </td>
                             <td>
-                                <div class="leaderboard-admin-actions">
-                                    <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline recalculate-btn"
-                                            data-category="<?= htmlspecialchars($status['category']) ?>"
-                                            data-period="<?= htmlspecialchars($status['period']) ?>">
-                                        <i class="bi bi-arrow-repeat"></i> Hesapla
-                                    </button>
-                                    <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger clear-cache-btn"
-                                            data-category="<?= htmlspecialchars($status['category']) ?>"
-                                            data-period="<?= htmlspecialchars($status['period']) ?>">
-                                        <i class="bi bi-trash"></i> Temizle
-                                    </button>
-                                </div>
+                                <?= adminRenderActionButtons([
+                                    [
+                                        'label' => 'Hesapla',
+                                        'icon' => 'bi-arrow-repeat',
+                                        'class' => 'ui-admin-btn-sm ui-admin-btn-outline recalculate-btn',
+                                        'attrs' => [
+                                            'data-category' => $status['category'],
+                                            'data-period' => $status['period'],
+                                        ],
+                                    ],
+                                    [
+                                        'label' => 'Temizle',
+                                        'icon' => 'bi-trash',
+                                        'class' => 'ui-admin-btn-sm ui-admin-btn-danger clear-cache-btn',
+                                        'attrs' => [
+                                            'data-category' => $status['category'],
+                                            'data-period' => $status['period'],
+                                        ],
+                                    ],
+                                ], ['class' => 'leaderboard-admin-actions']) ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+    <?= adminRenderTableClose() ?>
+<?= adminRenderPanelClose('div') ?>
 
-<div class="admin-card leaderboard-admin-panel ui-panel">
-    <div class="card-header ui-panel__head ui-admin-header-split">
-        <div>
-            <i class="bi bi-clock-history me-2"></i>Son Aktiviteler
-        </div>
-        <span class="ui-admin-count-pill"><?= number_format($activityTotal) ?></span>
-    </div>
-    <div class="card-body ui-panel__body">
+<?= adminRenderPanelOpen([
+    'tag' => 'div',
+    'class' => 'leaderboard-admin-panel',
+    'title' => 'Son Aktiviteler',
+    'icon' => 'bi-clock-history',
+    'header_class' => 'ui-admin-header-split',
+    'actions_html' => '<span class="ui-admin-count-pill">' . number_format($activityTotal) . '</span>',
+]) ?>
         <?php if (empty($activityLog)): ?>
-            <p class="ui-admin-muted-centered">Henüz aktivite kaydı yok.</p>
+            <?= adminRenderEmptyState([
+                'icon' => 'bi-clock-history',
+                'tone' => 'muted',
+                'title' => 'Henüz aktivite kaydı yok',
+                'description' => 'Liderlik tablosu işlemleri başladığında son aktiviteler burada listelenir.',
+            ]) ?>
         <?php else: ?>
             <?php if ($canManageLeaderboard): ?>
                 <form
@@ -523,19 +548,16 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                     </button>
                 </form>
             <?php endif; ?>
-            <div class="leaderboard-admin-table-wrap">
-                <table class="ui-admin-table">
-                    <thead>
-                        <tr>
-                            <th>Tarih</th>
-                            <th>İşlem</th>
-                            <th>Detaylar</th>
-                            <?php if ($canManageLeaderboard): ?>
-                                <th>İşlemler</th>
-                            <?php endif; ?>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <?php
+            $activityHeaders = ['Tarih', 'İşlem', 'Detaylar'];
+            if ($canManageLeaderboard) {
+                $activityHeaders[] = 'İşlemler';
+            }
+            ?>
+            <?= adminRenderTableOpen($activityHeaders, [
+                'wrap_class' => 'leaderboard-admin-table-wrap',
+                'label' => 'Liderlik son aktiviteler',
+            ]) ?>
                         <?php foreach ($activityLog as $log): ?>
                             <tr>
                                 <td><?= date('d.m.Y H:i:s', strtotime($log['created_at'])) ?></td>
@@ -573,9 +595,7 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                                 <?php endif; ?>
                             </tr>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+            <?= adminRenderTableClose() ?>
             <?php if ($activityTotalPages > 1): ?>
                 <?= adminRenderPagination($activityTotalPages, $activityPage, $leaderboardActivityUrl, [
                     'wrapper_class' => 'ui-admin-pagination-center leaderboard-activity-pagination',
@@ -584,18 +604,22 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                 ]) ?>
             <?php endif; ?>
         <?php endif; ?>
-    </div>
-</div>
+<?= adminRenderPanelClose('div') ?>
 </section>
 
 <section id="leaderboard-settings" class="leaderboard-admin-tab-panel ui-panel" role="tabpanel" hidden>
-    <form method="post" action="<?= htmlspecialchars($leaderboardAdminUrl, ENT_QUOTES, 'UTF-8') ?>#leaderboard-settings" class="admin-card leaderboard-admin-panel leaderboard-settings-card ui-panel">
+    <?= adminRenderPanelOpen([
+        'tag' => 'form',
+        'class' => 'leaderboard-admin-panel leaderboard-settings-card',
+        'attrs' => [
+            'method' => 'post',
+            'action' => $leaderboardAdminUrl . '#leaderboard-settings',
+        ],
+        'title' => 'Liderlik Ayarları',
+        'icon' => 'bi-sliders',
+    ]) ?>
         <?= csrf_field() ?>
         <input type="hidden" name="_leaderboard_settings" value="1">
-        <div class="card-header ui-panel__head">
-            <i class="bi bi-sliders me-2"></i>Liderlik Ayarları
-        </div>
-        <div class="card-body ui-panel__body">
             <div class="leaderboard-settings-intro">
                 <div>
                     <h3>Görünüm ve önbellek davranışı</h3>
@@ -646,8 +670,7 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                     </div>
                 <?php endforeach; ?>
             </div>
-        </div>
-    </form>
+    <?= adminRenderPanelClose('form') ?>
 </section>
 
 </div>

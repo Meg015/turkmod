@@ -7,6 +7,7 @@ namespace App\Engine\Scraper\Support;
 use DOMAttr;
 use DOMDocument;
 use DOMElement;
+use DOMNode;
 use DOMNodeList;
 use DOMXPath;
 
@@ -106,6 +107,29 @@ class ScraperEngine
     {
         $host = strtolower((string)(parse_url($url, PHP_URL_HOST) ?: ''));
         return $host === 'steamcommunity.com' || $host === 'www.steamcommunity.com';
+    }
+
+    private function isModsClubSource(string $url, string $baseUrl): bool
+    {
+        foreach ([$url, $baseUrl] as $candidate) {
+            $host = strtolower((string)(parse_url($candidate, PHP_URL_HOST) ?: ''));
+            $host = preg_replace('/^www\./i', '', $host) ?? $host;
+            if ($host === 'mods.club' || str_ends_with($host, '.mods.club')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizeModsClubTitleVersion(string $title): string
+    {
+        $title = trim($title);
+        if ($title === '') {
+            return $title;
+        }
+
+        return trim(preg_replace('/\s+v\s*(\d+(?:\.\d+){1,3})\s*$/iu', ' ($1)', $title) ?? $title);
     }
 
     private function steamCommunityHeaders(string $url): array
@@ -843,6 +867,9 @@ class ScraperEngine
         $authorDetection = $this->detectAuthorFromContent($parsed['content'] ?? '', $settings, $botSettings);
         $versionDetection = $this->detectVersionFromContent($parsed['content'] ?? '', $settings, $botSettings);
         $result['title'] = $this->applySiteTextReplacements($parsed['title'], $replacementRules, 'title');
+        if ($this->isModsClubSource($url, $baseUrl)) {
+            $result['title'] = $this->normalizeModsClubTitleVersion($result['title']);
+        }
         $content = $this->applySiteTextReplacements($parsed['content'], $replacementRules, 'content');
         $result['content'] = $this->applyContentAlignment($content, $contentAlign);
         $result['images'] = array_slice($parsed['images'], 0, $maxImages);
@@ -1781,9 +1808,14 @@ class ScraperEngine
 
     private function normalizeDetectionText(string $content): string
     {
+        $content = preg_replace('~<\s*br\s*/?\s*>~iu', "\n", $content) ?? $content;
+        $content = preg_replace('~<\s*/\s*(?:p|div|li|tr|td|th|h[1-6]|section|article|blockquote)\s*>~iu', "\n", $content) ?? $content;
+        $content = preg_replace('~<\s*(?:p|div|li|tr|td|th|h[1-6]|section|article|blockquote)(?:\s[^>]*)?>~iu', "\n", $content) ?? $content;
         $text = html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\x{00a0}/u', ' ', $text) ?? $text;
         $text = preg_replace("/\r\n?|\n/u", "\n", $text) ?? $text;
         $text = preg_replace('/[\t ]+/u', ' ', $text) ?? $text;
+        $text = preg_replace('/ *\n */u', "\n", $text) ?? $text;
         $text = preg_replace('/\n{2,}/u', "\n", $text) ?? $text;
         return trim($text);
     }
