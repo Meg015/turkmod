@@ -3636,7 +3636,9 @@ body {
 .ui-comment-form-wrap {
     display: flex;
     gap: .75rem;
+    position: relative;
     margin-bottom: 1.25rem;
+    padding-bottom: 1.8rem;
 }
 
 .ui-comment-form-avatar {
@@ -3682,6 +3684,47 @@ body {
     align-items: center;
     justify-content: space-between;
     margin-top: .5rem;
+}
+
+.ui-comment-form-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .75rem;
+    margin-top: .5rem;
+}
+
+.ui-comment-form-footer .ui-comment-form-actions {
+    flex: 0 0 auto;
+    gap: .75rem;
+    margin-top: 0;
+}
+
+.ui-comment-form-info {
+    display: inline-flex;
+    position: absolute;
+    left: .12rem;
+    bottom: .05rem;
+    max-width: calc(100% - .24rem);
+    align-items: flex-start;
+    min-width: 0;
+    gap: .38rem;
+    color: var(--text-dim);
+    font-size: .76rem;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.ui-comment-form-info i {
+    flex: 0 0 auto;
+    margin-top: .05rem;
+    color: var(--primary);
+    font-size: .85rem;
+}
+
+.ui-comment-form-info span {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .ui-comment-char-count {
@@ -7887,8 +7930,9 @@ body.topic-report-modal-open {
 .topic-comments .ui-comment-form-wrap {
     display: flex;
     gap: 10px;
+    position: relative;
     margin-bottom: 16px;
-    padding-bottom: 16px;
+    padding-bottom: 34px;
     border-bottom: 1px solid var(--border);
 }
 
@@ -7937,6 +7981,35 @@ body.topic-report-modal-open {
     align-items: center;
     gap: 12px;
     margin-top: 12px;
+}
+
+.topic-comments .ui-comment-form-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.topic-comments .ui-comment-form-footer .ui-comment-form-actions {
+    flex: 0 0 auto;
+    gap: 12px;
+    margin-top: 0;
+}
+
+@media (max-width: 768px) {
+    .ui-comment-form-footer,
+    .topic-comments .ui-comment-form-footer {
+        align-items: flex-end;
+        flex-direction: row;
+        gap: .6rem;
+    }
+
+    .ui-comment-form-footer .ui-comment-form-actions,
+    .topic-comments .ui-comment-form-footer .ui-comment-form-actions {
+        justify-content: flex-end;
+        width: auto;
+    }
 }
 
 .topic-comments .ui-comment-btn-submit {

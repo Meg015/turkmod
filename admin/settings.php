@@ -318,6 +318,13 @@ $commentGroups = [
                 'keys' => ['comment_spam_detection', 'comment_spam_violation_action'],
             ],
             [
+                'title' => 'Yorum Kutusu Bilgisi',
+                'icon' => 'bi-info-circle',
+                'description' => 'Yorum yazan kullanıcılara spam ve kalite kurallarını kısa bir notla hatırlatın.',
+                'class' => 'comments-spam-section comments-spam-section--form-info',
+                'keys' => ['comment_form_info_text'],
+            ],
+            [
                 'title' => 'Filtreler',
                 'icon' => 'bi-toggles',
                 'description' => 'Tek kelimeleri, cümle içinde geçen ifadeleri, kısa içerikleri ve tamamen büyük harf yazımını denetleyin.',
@@ -332,7 +339,7 @@ $commentGroups = [
             [
                 'title' => 'Anlamsız Kelime Engelleme',
                 'icon' => 'bi-regex',
-                'description' => 'Rastgele harf/rakam dizilerini ve sesli harfsiz anlamsız kelimeleri sade bir aç/kapat filtresiyle yakalayın.',
+                'description' => 'Rastgele harf/rakam dizilerini, tekrarlı kalıpları, klavye dizilerini ve uzun sayı yorumlarını sade bir aç/kapat filtresiyle yakalayın.',
                 'class' => 'comments-spam-section comments-spam-section--nonsense',
                 'keys' => ['comment_spam_nonsense_words_enabled'],
             ],

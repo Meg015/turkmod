@@ -1865,6 +1865,8 @@ $defaultAvatarUrl = function_exists('defaultAvatarUrl')
 
     : $baseUri . '/assets/images/noavatar-neon-helmet.svg';
 
+$commentFormInfoText = trim((string) ($settings['comment_form_info_text'] ?? 'Spam, anlamsız veya tekrarlı yorumlar otomatik olarak engellenir. Lütfen konuya katkı sağlayan bir yorum yazın.'));
+
 ?>
 
 <?php if ($topicDetailCommentsEnabled): ?>
@@ -1962,6 +1964,14 @@ $defaultAvatarUrl = function_exists('defaultAvatarUrl')
 
                     <textarea id="tcInput" class="ui-comment-textarea" placeholder="Düşüncelerini paylaş..." maxlength="<?= COMMENT_MAX_LENGTH ?>" rows="1"></textarea>
 
+                    <div class="ui-comment-form-footer">
+
+                        <?php if ($commentFormInfoText !== ''): ?>
+
+                            <span class="ui-comment-form-info" role="note"><i class="bi bi-info-circle" aria-hidden="true"></i><span><?= htmlspecialchars($commentFormInfoText, ENT_QUOTES, 'UTF-8') ?></span></span>
+
+                        <?php endif; ?>
+
                     <div class="ui-comment-form-actions is-hidden" id="tcActions">
 
                         <span class="ui-comment-char-count"><span id="tcCharCount">0</span>/<?= COMMENT_MAX_LENGTH ?></span>
@@ -1973,6 +1983,8 @@ $defaultAvatarUrl = function_exists('defaultAvatarUrl')
                             <button type="button" class="ui-comment-btn-submit" id="tcSubmit" disabled>Gönder</button>
 
                         </div>
+
+                    </div>
 
                     </div>
 

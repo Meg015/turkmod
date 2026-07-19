@@ -54,7 +54,8 @@
 .topic-comments .ui-comment-form-wrap {
     display: flex !important;
     gap: 16px !important;
-    padding: 20px 24px !important;
+    position: relative !important;
+    padding: 20px 24px 34px !important;
     background: var(--ui-admin-surface) !important;
     border: 1px solid var(--ui-admin-border) !important;
     border-radius: var(--radius-lg) !important;
@@ -112,6 +113,47 @@
     align-items: center !important;
     justify-content: space-between !important;
     margin-top: 8px !important;
+}
+
+.topic-comments .ui-comment-form-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 12px !important;
+    margin-top: 8px !important;
+}
+
+.topic-comments .ui-comment-form-footer .ui-comment-form-actions {
+    flex: 0 0 auto !important;
+    gap: 12px !important;
+    margin-top: 0 !important;
+}
+
+.topic-comments .ui-comment-form-info {
+    display: inline-flex !important;
+    position: absolute !important;
+    left: 6px !important;
+    bottom: 5px !important;
+    max-width: calc(100% - 12px) !important;
+    align-items: flex-start !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+    color: var(--text-dim) !important;
+    font-size: .75rem !important;
+    font-weight: 500 !important;
+    line-height: 1.4 !important;
+}
+
+.topic-comments .ui-comment-form-info i {
+    flex: 0 0 auto !important;
+    margin-top: 1px !important;
+    color: var(--primary) !important;
+    font-size: .85rem !important;
+}
+
+.topic-comments .ui-comment-form-info span {
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
 }
 
 .topic-comments .ui-comment-form-btns {
@@ -1326,7 +1368,18 @@ html[data-public-theme="turkmod"] .ui-theme-comments-area .topic-comments .ui-co
     }
 
     .topic-comments .ui-comment-form-wrap {
-        padding: 14px 16px !important;
+        padding: 14px 16px 36px !important;
+    }
+
+    .topic-comments .ui-comment-form-footer {
+        align-items: flex-end !important;
+        flex-direction: row !important;
+        gap: 10px !important;
+    }
+
+    .topic-comments .ui-comment-form-footer .ui-comment-form-actions {
+        justify-content: flex-end !important;
+        width: auto !important;
     }
 
     .topic-comments .ui-comment-header {

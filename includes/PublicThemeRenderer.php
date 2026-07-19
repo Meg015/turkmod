@@ -1406,6 +1406,7 @@ final class PublicThemeRenderer
                 'author' => (string) ($topic['author'] ?? ''),
                 'comment_poll' => 0,
                 'comment_max_length' => defined('COMMENT_MAX_LENGTH') ? (int) COMMENT_MAX_LENGTH : 2000,
+                'comment_form_info_text' => trim((string) ($settings['comment_form_info_text'] ?? 'Spam, anlamsız veya tekrarlı yorumlar otomatik olarak engellenir. Lütfen konuya katkı sağlayan bir yorum yazın.')),
                 'csrf_token' => function_exists('csrf_token') ? csrf_token() : '',
             ];
         }
@@ -1433,6 +1434,7 @@ final class PublicThemeRenderer
             'author' => (string) ($topic['author'] ?? ''),
             'comment_poll' => (int) ($settings['comment_realtime_poll'] ?? 15),
             'comment_max_length' => $maxLength,
+            'comment_form_info_text' => trim((string) ($settings['comment_form_info_text'] ?? 'Spam, anlamsız veya tekrarlı yorumlar otomatik olarak engellenir. Lütfen konuya katkı sağlayan bir yorum yazın.')),
             'csrf_token' => function_exists('csrf_token') ? csrf_token() : '',
         ];
     }
@@ -1779,13 +1781,17 @@ final class PublicThemeRenderer
             ? defaultAvatarUrl($baseUri)
             : rtrim($baseUri, '/') . '/assets/images/noavatar-neon-helmet.svg';
         $maxLength = defined('COMMENT_MAX_LENGTH') ? (int) COMMENT_MAX_LENGTH : 2000;
+        $commentFormInfoText = trim((string) ($settings['comment_form_info_text'] ?? 'Spam, anlamsız veya tekrarlı yorumlar otomatik olarak engellenir. Lütfen konuya katkı sağlayan bir yorum yazın.'));
+        $commentFormInfoHtml = $commentFormInfoText !== ''
+            ? '<span class="ui-comment-form-info" role="note"><i class="bi bi-info-circle" aria-hidden="true"></i><span>' . htmlspecialchars($commentFormInfoText, ENT_QUOTES, 'UTF-8') . '</span></span>'
+            : '';
         $html = '<section class="topic-section topic-comments ui-section" aria-labelledby="comments-heading" data-topic-id="' . (int) ($topic['id'] ?? 0) . '" data-api="' . htmlspecialchars(rtrim($baseUri, '/') . '/api/comments.php', ENT_QUOTES, 'UTF-8') . '" data-csrf="' . htmlspecialchars(function_exists('csrf_token') ? csrf_token() : '', ENT_QUOTES, 'UTF-8') . '" data-logged-in="' . ($isLoggedIn ? '1' : '0') . '" data-user-name="' . htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') . '" data-user-avatar="' . htmlspecialchars($avatar, ENT_QUOTES, 'UTF-8') . '" data-avatar-fallback="' . htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8') . '" data-report-enabled="' . (($settings['comment_report_enabled'] ?? '1') === '1' ? '1' : '0') . '" data-topic-author="' . htmlspecialchars((string) ($topic['author'] ?? ''), ENT_QUOTES, 'UTF-8') . '" data-poll="' . (int) ($settings['comment_realtime_poll'] ?? 15) . '">';
         $html .= '<div class="ui-comment-header ui-comment-header--compact ui-panel__head"><h2 id="comments-heading" class="ui-comment-header__title">Yorumlar <span class="ui-comment-count" id="tcCount">(0)</span></h2><div class="ui-comment-sort ui-comment-header__sort"><span class="ui-comment-sort-label">Sırala:</span><select class="ui-comment-sort-select" id="tcSort"><option value="asc">En Eski</option><option value="desc">En Yeni</option><option value="popular">Popüler</option><option value="liked">Beğenilenler</option><option value="disliked">Beğenilmeyenler</option></select></div></div>';
         if ($isLoggedIn) {
             $avatarHtml = function_exists('avatarImageHtml')
                 ? avatarImageHtml($userName !== '' ? $userName : 'U', $avatar, ['base_uri' => $baseUri, 'width' => 48, 'height' => 48])
                 : '<img src="' . htmlspecialchars($avatar !== '' ? $avatar : $avatarFallback, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($userName !== '' ? $userName : 'U', ENT_QUOTES, 'UTF-8') . '" title="' . htmlspecialchars($userName !== '' ? $userName : 'U', ENT_QUOTES, 'UTF-8') . '" width="48" height="48" loading="lazy" data-ui-avatar-img data-ui-avatar-fallback="' . htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8') . '">';
-            $form = '<div class="ui-comment-form-wrap" id="tcFormWrap"><div class="ui-comment-form-avatar">' . $avatarHtml . '</div><div class="ui-comment-form-body ui-panel__body"><textarea id="tcInput" class="ui-comment-textarea" placeholder="Düşüncelerini paylaş..." maxlength="' . $maxLength . '" rows="1"></textarea><div class="ui-comment-form-actions is-hidden" id="tcActions"><span class="ui-comment-char-count"><span id="tcCharCount">0</span>/' . $maxLength . '</span><div class="ui-comment-form-btns"><button type="button" class="ui-comment-btn-cancel" id="tcCancel">İptal</button><button type="button" class="ui-comment-btn-submit" id="tcSubmit" disabled>Gönder</button></div></div></div></div>';
+            $form = '<div class="ui-comment-form-wrap" id="tcFormWrap"><div class="ui-comment-form-avatar">' . $avatarHtml . '</div><div class="ui-comment-form-body ui-panel__body"><textarea id="tcInput" class="ui-comment-textarea" placeholder="Düşüncelerini paylaş..." maxlength="' . $maxLength . '" rows="1"></textarea><div class="ui-comment-form-footer">' . $commentFormInfoHtml . '<div class="ui-comment-form-actions is-hidden" id="tcActions"><span class="ui-comment-char-count"><span id="tcCharCount">0</span>/' . $maxLength . '</span><div class="ui-comment-form-btns"><button type="button" class="ui-comment-btn-cancel" id="tcCancel">İptal</button><button type="button" class="ui-comment-btn-submit" id="tcSubmit" disabled>Gönder</button></div></div></div></div></div>';
         } else {
             $form = '<div class="ui-comment-login-prompt">Yorum yapmak için <a href="' . htmlspecialchars(routePublicStaticUrl('login'), ENT_QUOTES, 'UTF-8') . '">giriş yapın</a>.</div>';
         }

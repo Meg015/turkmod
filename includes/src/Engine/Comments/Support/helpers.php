@@ -380,6 +380,229 @@ if (!function_exists('commentSpamMaxConsonantRun')) {
     }
 }
 
+if (!function_exists('commentSpamTokenCharacters')) {
+    function commentSpamTokenCharacters(string $token): array
+    {
+        $characters = preg_split('//u', $token, -1, PREG_SPLIT_NO_EMPTY);
+
+        return is_array($characters) ? $characters : [];
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeRepeatedFragment')) {
+    function commentSpamLooksLikeRepeatedFragment(string $token): bool
+    {
+        $tokenLength = mb_strlen($token, 'UTF-8');
+        if ($tokenLength < 6 || $tokenLength > 40) {
+            return false;
+        }
+
+        $letters = preg_replace('/[^\p{L}]+/u', '', $token) ?? '';
+        if (mb_strlen($letters, 'UTF-8') < 3) {
+            return false;
+        }
+
+        $characters = commentSpamTokenCharacters($token);
+        if ($characters === []) {
+            return false;
+        }
+
+        $maxFragmentLength = min(6, intdiv($tokenLength, 2));
+        for ($fragmentLength = 1; $fragmentLength <= $maxFragmentLength; $fragmentLength++) {
+            $repeatCount = $tokenLength / $fragmentLength;
+            if ($repeatCount < 2.75) {
+                continue;
+            }
+
+            $fragmentCharacters = array_slice($characters, 0, $fragmentLength);
+            $fragmentLetters = preg_replace('/[^\p{L}]+/u', '', implode('', $fragmentCharacters)) ?? '';
+            if ($fragmentLetters === '') {
+                continue;
+            }
+
+            $matches = 0;
+            foreach ($characters as $index => $character) {
+                if ($character === $fragmentCharacters[$index % $fragmentLength]) {
+                    $matches++;
+                }
+            }
+
+            if (($matches / $tokenLength) >= 0.82) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeKeyboardNoise')) {
+    function commentSpamLooksLikeKeyboardNoise(string $token): bool
+    {
+        $asciiToken = mb_strtolower($token, 'UTF-8');
+        $asciiToken = preg_replace('/[^a-z0-9]+/', '', $asciiToken) ?? '';
+        $length = strlen($asciiToken);
+        if ($length < 5 || $asciiToken === '' || ctype_digit($asciiToken)) {
+            return false;
+        }
+
+        static $keyboardRuns = [
+            'qwertyuiop',
+            'poiuytrewq',
+            'asdfghjkl',
+            'lkjhgfdsa',
+            'zxcvbnm',
+            'mnbvcxz',
+            'qazwsxedc',
+            'cdewsxzaq',
+            'plokmijn',
+            'njimkolp',
+        ];
+
+        foreach ($keyboardRuns as $run) {
+            if (str_contains($run, $asciiToken)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeLowVarietyNoise')) {
+    function commentSpamLooksLikeLowVarietyNoise(string $letters): bool
+    {
+        $letterCount = mb_strlen($letters, 'UTF-8');
+        if ($letterCount < 9) {
+            return false;
+        }
+
+        $characters = commentSpamTokenCharacters($letters);
+        if ($characters === []) {
+            return false;
+        }
+
+        $uniqueCount = count(array_unique($characters));
+        if ($uniqueCount <= 3) {
+            return true;
+        }
+
+        if ($letterCount >= 14 && $uniqueCount <= 4) {
+            $frequencies = array_count_values($characters);
+            $highestFrequency = max($frequencies);
+
+            return ($highestFrequency / $letterCount) >= 0.28;
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeNumericNoise')) {
+    function commentSpamLooksLikeNumericNoise(string $token): bool
+    {
+        return preg_match('/^\p{N}{6,20}$/u', $token) === 1;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeLowVarietySegment')) {
+    function commentSpamLooksLikeLowVarietySegment(string $segment): bool
+    {
+        $segmentLength = mb_strlen($segment, 'UTF-8');
+        if ($segmentLength < 7) {
+            return false;
+        }
+
+        $characters = commentSpamTokenCharacters($segment);
+        if ($characters === []) {
+            return false;
+        }
+
+        $uniqueCount = count(array_unique($characters));
+        $frequencies = array_count_values($characters);
+        $highestFrequency = max($frequencies);
+        $dominance = $highestFrequency / $segmentLength;
+
+        return $uniqueCount <= 4 && $dominance >= 0.28;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeShortRepeatedSegment')) {
+    function commentSpamLooksLikeShortRepeatedSegment(string $segment): bool
+    {
+        $segmentLength = mb_strlen($segment, 'UTF-8');
+        if ($segmentLength < 6 || $segmentLength > 12) {
+            return false;
+        }
+
+        $characters = commentSpamTokenCharacters($segment);
+        if ($characters === []) {
+            return false;
+        }
+
+        $uniqueCount = count(array_unique($characters));
+        if ($uniqueCount > 4) {
+            return false;
+        }
+
+        for ($fragmentLength = 2; $fragmentLength <= 4; $fragmentLength++) {
+            if ($segmentLength % $fragmentLength !== 0) {
+                continue;
+            }
+
+            $repeatCount = intdiv($segmentLength, $fragmentLength);
+            if ($repeatCount < 2) {
+                continue;
+            }
+
+            $fragment = array_slice($characters, 0, $fragmentLength);
+            $matches = 0;
+            foreach ($characters as $index => $character) {
+                if ($character === $fragment[$index % $fragmentLength]) {
+                    $matches++;
+                }
+            }
+
+            if ($matches === $segmentLength) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeLocalNoise')) {
+    function commentSpamLooksLikeLocalNoise(string $letters): bool
+    {
+        $letterCount = mb_strlen($letters, 'UTF-8');
+        if ($letterCount < 7) {
+            return false;
+        }
+
+        $characters = commentSpamTokenCharacters($letters);
+        if ($characters === []) {
+            return false;
+        }
+
+        $maxWindowLength = min(12, $letterCount);
+        for ($windowLength = 6; $windowLength <= $maxWindowLength; $windowLength++) {
+            for ($offset = 0; $offset <= $letterCount - $windowLength; $offset++) {
+                $segment = implode('', array_slice($characters, $offset, $windowLength));
+                if (commentSpamLooksLikeShortRepeatedSegment($segment)) {
+                    return true;
+                }
+
+                if (commentSpamLooksLikeLowVarietySegment($segment)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+}
+
 if (!function_exists('commentSpamLooksLikeNonsenseToken')) {
     function commentSpamLooksLikeNonsenseToken(string $token): bool
     {
@@ -387,6 +610,10 @@ if (!function_exists('commentSpamLooksLikeNonsenseToken')) {
         $token = preg_replace('/[^\p{L}\p{N}]+/u', '', $token) ?? '';
         if ($token === '' || commentSpamIsNonsenseSafeToken($token)) {
             return false;
+        }
+
+        if (commentSpamLooksLikeNumericNoise($token)) {
+            return true;
         }
 
         $letters = preg_replace('/[^\p{L}]+/u', '', $token) ?? '';
@@ -397,8 +624,24 @@ if (!function_exists('commentSpamLooksLikeNonsenseToken')) {
             return false;
         }
 
+        if (commentSpamLooksLikeRepeatedFragment($token) || commentSpamLooksLikeKeyboardNoise($token)) {
+            return true;
+        }
+
+        if (commentSpamLooksLikeLowVarietyNoise($letters)) {
+            return true;
+        }
+
         $hasVowel = preg_match('/[aeıioöuüâîû]/u', $letters) === 1;
         $maxConsonantRun = commentSpamMaxConsonantRun($letters);
+        if (commentSpamLooksLikeLocalNoise($letters)) {
+            return true;
+        }
+
+        if ($maxConsonantRun >= 4 && $letterCount <= 8) {
+            return true;
+        }
+
         if (!$hasVowel && $letterCount <= 12) {
             return true;
         }
