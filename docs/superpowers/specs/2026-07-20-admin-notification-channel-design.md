@@ -120,6 +120,23 @@ Keep `Bildirim Ayarlari` focused on global behavior and limits:
 
 Email-specific operational status belongs in `E-Posta Bildirimleri`.
 
+## UI Quality And Consistency
+
+The implementation must look like a clean, professional part of the existing admin panel rather than a separate one-off screen.
+
+Follow the shared admin UI conventions already used in the project:
+
+- Reuse existing admin buttons, switches, form controls, badges, stat cards, alerts, tables, panels, spacing, and icon patterns.
+- Keep the two channel tabs visually consistent with each other.
+- Use the same card anatomy for notification event editors: header, status/actions, fields, preview, footer actions.
+- Keep controls predictable: switches for enabled states, selects for notification type, text inputs for short fields, textareas for bodies, and icon-plus-text buttons for concrete actions.
+- Avoid nested cards, oversized decorative layouts, and marketing-style sections.
+- Keep dense admin workflows scannable on desktop and mobile.
+- Make warnings and disabled states consistent with existing admin alert and badge styles.
+- Preserve readable Turkish labels and helper text without reintroducing `Bildirim Sablonlari` or `Bildirim Loglari` as admin-facing areas.
+
+The final UI should feel orderly, uniform, and aligned with shared admin rules across the rest of the panel.
+
 ## Removed Admin-Facing Residue
 
 Remove visible references to:
@@ -159,4 +176,3 @@ Verify:
 - Missing email copy blocks email test behavior and displays a warning.
 - Email queue summary appears only under `E-Posta Bildirimleri`.
 - Notification logs remain accessible through `Gunlukler`.
-
