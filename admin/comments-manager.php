@@ -214,6 +214,186 @@ $commentsManagerCollectTreeRows = static function (PDO $pdo, array $seedRows): a
     return array_values($rowsById);
 };
 
+$commentsManagerParseMentions = static function (PDO $pdo, string $body): array {
+    preg_match_all('/@([\w\-]+)/', $body, $matches);
+    if (empty($matches[1])) {
+        return [];
+    }
+
+    $usernames = array_values(array_unique(array_filter(array_map('strval', $matches[1]))));
+    if ($usernames === []) {
+        return [];
+    }
+
+    try {
+        $lookupColumn = (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username'))
+            ? 'username'
+            : 'name';
+        $selectName = $lookupColumn === 'username' ? 'username' : 'name';
+        $placeholders = implode(',', array_fill(0, count($usernames), '?'));
+        $sql = "SELECT id, {$selectName} AS mention_name FROM users WHERE {$lookupColumn} IN ({$placeholders})";
+        if (!function_exists('usersColumnExists') || usersColumnExists($pdo, 'users', 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+        $sql .= ' LIMIT 10';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($usernames);
+
+        return $stmt->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['source' => 'comments-manager.parse-mentions']);
+        }
+    }
+
+    return [];
+};
+
+$commentsManagerDispatchApprovalNotifications = static function (PDO $pdo, array $commentRow, bool $accessOpened) use ($commentsManagerTableExists, $commentsManagerParseMentions): void {
+    $commentId = (int) ($commentRow['id'] ?? 0);
+    $topicId = (int) ($commentRow['topic_id'] ?? 0);
+    $commentAuthorId = (int) ($commentRow['user_id'] ?? 0);
+    if ($commentId <= 0 || $topicId <= 0 || !empty($commentRow['deleted_at']) || !function_exists('notificationDispatch')) {
+        return;
+    }
+
+    try {
+        $topicStmt = $pdo->prepare("SELECT id, author_id, title, slug FROM topics WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+        $topicStmt->execute([$topicId]);
+        $topicRow = $topicStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        if ($topicRow === []) {
+            return;
+        }
+
+        $topicTitle = trim((string) ($topicRow['title'] ?? 'Konu')) ?: 'Konu';
+        $topicLink = topicUrl((string) ($topicRow['slug'] ?? ''), (int) ($topicRow['id'] ?? $topicId));
+        $commentLink = $topicLink . '#comment-' . $commentId;
+        $adminActorId = (int) ($_SESSION['_auth_user_id'] ?? 0) ?: null;
+        $adminActorName = (string) ($_SESSION['_auth_user_name'] ?? 'Yönetim');
+
+        $commentAuthorName = 'Bir kullanıcı';
+        if ($commentAuthorId > 0) {
+            try {
+                $authorStmt = $pdo->prepare('SELECT username FROM users WHERE id = ? LIMIT 1');
+                $authorStmt->execute([$commentAuthorId]);
+                $authorName = trim((string) $authorStmt->fetchColumn());
+                if ($authorName !== '') {
+                    $commentAuthorName = $authorName;
+                }
+            } catch (Throwable $e) {
+                error_log('Comment approval author lookup failed: ' . $e->getMessage());
+            }
+
+            $approvalPayload = [
+                'actor_name' => $adminActorName,
+                'topic_title' => $topicTitle,
+                'link' => $commentLink,
+                'dedupe_key' => 'comment_approved:' . $commentAuthorId . ':' . $commentId,
+            ];
+            if ($accessOpened) {
+                $approvalPayload['title'] = 'İndirme erişiminiz açıldı';
+                $approvalPayload['message'] = '"' . $topicTitle . '" konusundaki yorumunuz onaylandı. İndirme bağlantıları artık kullanıma hazır.';
+            }
+            notificationDispatch($pdo, 'comment_approved', $commentAuthorId, $adminActorId, 'comment', $commentId, $approvalPayload);
+        }
+
+        $basePayload = [
+            'actor_name' => $commentAuthorName,
+            'topic_title' => $topicTitle,
+            'link' => $commentLink,
+        ];
+        $notifiedRecipients = [];
+        $notifyRecipient = static function (int $recipientId, string $eventKey) use (
+            $pdo,
+            $commentId,
+            $commentAuthorId,
+            $basePayload,
+            &$notifiedRecipients
+        ): bool {
+            if ($recipientId <= 0 || isset($notifiedRecipients[$recipientId])) {
+                return false;
+            }
+
+            $sent = notificationDispatch(
+                $pdo,
+                $eventKey,
+                $recipientId,
+                $commentAuthorId > 0 ? $commentAuthorId : null,
+                'comment',
+                $commentId,
+                $basePayload
+            );
+            if ($sent) {
+                $notifiedRecipients[$recipientId] = true;
+            }
+
+            return $sent;
+        };
+
+        $notifyRecipient((int) ($topicRow['author_id'] ?? 0), 'comment_on_topic');
+
+        $parentId = (int) ($commentRow['parent_id'] ?? 0);
+        if ($parentId > 0) {
+            try {
+                $parentStmt = $pdo->prepare('SELECT user_id FROM comments WHERE id = ? LIMIT 1');
+                $parentStmt->execute([$parentId]);
+                $notifyRecipient((int) $parentStmt->fetchColumn(), 'comment_reply');
+            } catch (Throwable $e) {
+                error_log('Comment approval parent notification lookup failed: ' . $e->getMessage());
+            }
+        }
+
+        $mentionedUsers = $commentAuthorId > 0
+            ? $commentsManagerParseMentions($pdo, (string) ($commentRow['body'] ?? ''))
+            : [];
+        $mentionRecipientIds = array_map('intval', array_keys($mentionedUsers));
+        $mentionsTableReady = $commentAuthorId > 0 && $commentsManagerTableExists($pdo, 'comment_mentions');
+        if ($mentionsTableReady && $mentionedUsers !== []) {
+            try {
+                $mentionStmt = $pdo->prepare('INSERT IGNORE INTO comment_mentions (comment_id, mentioned_user_id, mentioner_user_id, created_at) VALUES (?, ?, ?, NOW())');
+                foreach ($mentionedUsers as $mentionedUserId => $mentionedName) {
+                    $mentionStmt->execute([$commentId, (int) $mentionedUserId, $commentAuthorId]);
+                }
+                if (function_exists('usersColumnExists') && usersColumnExists($pdo, 'comments', 'mention_count')) {
+                    $pdo->prepare('UPDATE comments SET mention_count = ? WHERE id = ?')->execute([count($mentionedUsers), $commentId]);
+                }
+                $mentionRowsStmt = $pdo->prepare('SELECT mentioned_user_id FROM comment_mentions WHERE comment_id = ? AND is_notified = 0');
+                $mentionRowsStmt->execute([$commentId]);
+                $mentionRecipientIds = array_map('intval', $mentionRowsStmt->fetchAll(PDO::FETCH_COLUMN) ?: $mentionRecipientIds);
+            } catch (Throwable $e) {
+                if (function_exists('appLogException')) {
+                    appLogException($e, ['source' => 'comments-manager.comment-approval-mentions', 'comment_id' => $commentId]);
+                }
+            }
+        }
+
+        foreach (array_unique($mentionRecipientIds) as $mentionedUserId) {
+            if ($notifyRecipient((int) $mentionedUserId, 'comment_mention') && $mentionsTableReady) {
+                try {
+                    $pdo->prepare('UPDATE comment_mentions SET is_notified = 1 WHERE comment_id = ? AND mentioned_user_id = ?')
+                        ->execute([$commentId, (int) $mentionedUserId]);
+                } catch (Throwable $e) {
+                    error_log('Comment approval mention notified flag failed: ' . $e->getMessage());
+                }
+            }
+        }
+
+        if ($commentsManagerTableExists($pdo, 'topic_favorites')) {
+            $favoriteStmt = $pdo->prepare('SELECT user_id FROM topic_favorites WHERE topic_id = ?');
+            $favoriteStmt->execute([$topicId]);
+            foreach ($favoriteStmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $favoriteUserId) {
+                $notifyRecipient((int) $favoriteUserId, 'favorite_topic_comment');
+            }
+        }
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['source' => 'comments-manager.comment-approval-notifications', 'comment_id' => $commentId]);
+        } else {
+            error_log('Comment approval notifications failed: ' . $e->getMessage());
+        }
+    }
+};
+
 $commentsManagerBulkActions = [
     'bulk_approve' => 'approve',
     'bulk_reject' => 'reject',
@@ -221,7 +401,7 @@ $commentsManagerBulkActions = [
     'bulk_restore' => 'restore',
 ];
 
-$commentsManagerApplyCommentAction = static function (PDO $pdo, array $settings, array $commentRow, string $action): bool {
+$commentsManagerApplyCommentAction = static function (PDO $pdo, array $settings, array $commentRow, string $action) use ($commentsManagerDispatchApprovalNotifications): bool {
     $commentId = (int)($commentRow['id'] ?? 0);
     if ($commentId <= 0) {
         return false;
@@ -246,40 +426,7 @@ $commentsManagerApplyCommentAction = static function (PDO $pdo, array $settings,
                     'text_length' => mb_strlen((string)$commentRow['body']),
                 ]);
             }
-            if ((int)($commentRow['user_id'] ?? 0) > 0 && empty($commentRow['deleted_at']) && function_exists('notificationDispatch')) {
-                try {
-                    $topicStmt = $pdo->prepare("SELECT id, title, slug FROM topics WHERE id = ? AND deleted_at IS NULL LIMIT 1");
-                    $topicStmt->execute([(int)($commentRow['topic_id'] ?? 0)]);
-                    $topicRow = $topicStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-                    $topicTitle = trim((string)($topicRow['title'] ?? 'Konu')) ?: 'Konu';
-                    $topicLink = topicUrl((string)($topicRow['slug'] ?? ''), (int)($topicRow['id'] ?? $commentRow['topic_id'])) . '#comment-' . $commentId;
-                    $payload = [
-                        'actor_name' => (string)($_SESSION['_auth_user_name'] ?? 'Yönetim'),
-                        'topic_title' => $topicTitle,
-                        'link' => $topicLink,
-                        'dedupe_key' => 'comment_approved:' . (int)$commentRow['user_id'] . ':' . $commentId,
-                    ];
-                    if ($accessOpened) {
-                        $payload['title'] = 'İndirme erişiminiz açıldı';
-                        $payload['message'] = '“' . $topicTitle . '” konusundaki yorumunuz onaylandı. İndirme bağlantıları artık kullanıma hazır.';
-                    }
-                    notificationDispatch(
-                        $pdo,
-                        'comment_approved',
-                        (int)$commentRow['user_id'],
-                        (int)($_SESSION['_auth_user_id'] ?? 0) ?: null,
-                        'comment',
-                        $commentId,
-                        $payload
-                    );
-                } catch (Throwable $e) {
-                    if (function_exists('appLogException')) {
-                        appLogException($e, ['source' => 'comments-manager.bulk-comment-approved-notification', 'comment_id' => $commentId]);
-                    } else {
-                        error_log('Bulk comment approval notification failed: ' . $e->getMessage());
-                    }
-                }
-            }
+            $commentsManagerDispatchApprovalNotifications($pdo, $commentRow, $accessOpened);
             if (function_exists('invalidatePublicContentCache')) {
                 invalidatePublicContentCache();
             }
@@ -484,7 +631,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $commentRowsById = [];
                 foreach (array_chunk($selectedCommentIds, 500) as $chunk) {
                     $placeholders = implode(',', array_fill(0, count($chunk), '?'));
-                    $bulkStmt = $pdo->prepare("SELECT id, topic_id, user_id, body, status, deleted_at, created_at, updated_at FROM comments WHERE id IN ({$placeholders})");
+                    $bulkStmt = $pdo->prepare("SELECT id, topic_id, parent_id, user_id, body, status, deleted_at, created_at, updated_at FROM comments WHERE id IN ({$placeholders})");
                     $bulkStmt->execute($chunk);
                     foreach ($bulkStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
                         $commentRowsById[(int)$row['id']] = $row;
@@ -610,7 +757,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($commentId > 0) {
         try {
-            $commentStmt = $pdo->prepare("SELECT id, topic_id, user_id, body, status, deleted_at, created_at, updated_at FROM comments WHERE id = ? LIMIT 1");
+            $commentStmt = $pdo->prepare("SELECT id, topic_id, parent_id, user_id, body, status, deleted_at, created_at, updated_at FROM comments WHERE id = ? LIMIT 1");
             $commentStmt->execute([$commentId]);
             $commentRow = $commentStmt->fetch(PDO::FETCH_ASSOC) ?: null;
             switch ($action) {
@@ -633,39 +780,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (function_exists('invalidatePublicContentCache')) {
                         invalidatePublicContentCache();
                     }
-                    if ($commentRow && (int) ($commentRow['user_id'] ?? 0) > 0 && (string) ($commentRow['status'] ?? '') !== 'approved' && empty($commentRow['deleted_at']) && function_exists('notificationDispatch')) {
-                        try {
-                            $topicStmt = $pdo->prepare("SELECT id, title, slug FROM topics WHERE id = ? AND deleted_at IS NULL LIMIT 1");
-                            $topicStmt->execute([(int) ($commentRow['topic_id'] ?? 0)]);
-                            $topicRow = $topicStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-                            $topicTitle = trim((string) ($topicRow['title'] ?? 'Konu')) ?: 'Konu';
-                            $topicLink = topicUrl((string) ($topicRow['slug'] ?? ''), (int) ($topicRow['id'] ?? $commentRow['topic_id'])) . '#comment-' . $commentId;
-                            $payload = [
-                                'actor_name' => (string) ($_SESSION['_auth_user_name'] ?? 'Yönetim'),
-                                'topic_title' => $topicTitle,
-                                'link' => $topicLink,
-                                'dedupe_key' => 'comment_approved:' . (int) $commentRow['user_id'] . ':' . $commentId,
-                            ];
-                            if ($accessOpened) {
-                                $payload['title'] = 'İndirme erişiminiz açıldı';
-                                $payload['message'] = '“' . $topicTitle . '” konusundaki yorumunuz onaylandı. İndirme bağlantıları artık kullanıma hazır.';
-                            }
-                            notificationDispatch(
-                                $pdo,
-                                'comment_approved',
-                                (int) $commentRow['user_id'],
-                                (int) ($_SESSION['_auth_user_id'] ?? 0) ?: null,
-                                'comment',
-                                $commentId,
-                                $payload
-                            );
-                        } catch (Throwable $e) {
-                            if (function_exists('appLogException')) {
-                                appLogException($e, ['source' => 'comments-manager.comment-approved-notification', 'comment_id' => $commentId]);
-                            } else {
-                                error_log('Comment approval notification failed: ' . $e->getMessage());
-                            }
-                        }
+                    if ($commentRow && (string) ($commentRow['status'] ?? '') !== 'approved') {
+                        $commentsManagerDispatchApprovalNotifications($pdo, $commentRow, $accessOpened);
                     }
                     flash('success', 'Yorum onaylandı.');
                     break;

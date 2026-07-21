@@ -3,6 +3,8 @@
 declare(strict_types=1);
 require_once $projectRoot . '/includes/init.php';
 
+$appDebug = isset($appDebug) ? (bool) $appDebug : ((defined('APP_DEBUG') && APP_DEBUG) ? true : false);
+
 if ($isLoggedIn) {
     header('Location: ' . $baseUri . '/index.php');
     exit;

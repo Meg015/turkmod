@@ -150,7 +150,25 @@ echo "\n--- 4. Send Email Queue (E-posta Kuyruğu) ---\n";
         $sent = 0; $failed = 0;
         foreach ($rows as $row) {
             try {
-                $ok = function_exists('appSendMail') ? appSendMail((string)$row['email_to'], (string)$row['email_subject'], (string)$row['email_body'], [
+                $emailSubject = (string) $row['email_subject'];
+                $emailBody = (string) $row['email_body'];
+                if (
+                    function_exists('appRenderMailLayout')
+                    && !(function_exists('appMailIsStandardLayout') && appMailIsStandardLayout($emailBody))
+                ) {
+                    $bodyContent = function_exists('appMailLooksLikeHtml') && appMailLooksLikeHtml($emailBody)
+                        ? $emailBody
+                        : (function_exists('appMailPlainTextHtml') ? appMailPlainTextHtml($emailBody) : nl2br(htmlspecialchars($emailBody, ENT_QUOTES, 'UTF-8')));
+                    $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
+                    $emailBody = appRenderMailLayout([
+                        'site_name' => (string) ($settings['site_name'] ?? 'Türk Mod'),
+                        'eyebrow' => 'Etkinlik bildirimi',
+                        'title' => $emailSubject,
+                        'content_html' => $bodyContent,
+                        'footer_note' => 'Bu e-posta etkinlik sistemi tarafından otomatik gönderilmiştir.',
+                    ]);
+                }
+                $ok = function_exists('appSendMail') ? appSendMail((string)$row['email_to'], $emailSubject, $emailBody, [
                     'email_log' => [
                         'source' => 'events',
                         'source_key' => 'master_queue',

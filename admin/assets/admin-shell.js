@@ -207,6 +207,10 @@
                 hash = "";
             }
 
+            if (hash === "content_moderation" || hash.indexOf("content-moderation:") === 0 || hash.indexOf("user-uploads:") === 0) {
+                return "user_uploads";
+            }
+
             if (hash.indexOf(":") !== -1) {
                 hash = hash.split(":")[0];
             }

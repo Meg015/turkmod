@@ -52,14 +52,14 @@ final class NotificationPreferenceService
             'direct_message_received' => [
                 'setting_key' => 'notif_event_direct_message_received',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Yeni mesaj aldiniz',
-                'message' => '{{actor_name}} size bir ozel mesaj gonderdi.',
+                'title' => 'Yeni mesaj aldınız',
+                'message' => '{{actor_name}} size özel mesaj gönderdi.',
                 'type' => 'info',
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-chat-left-text',
-                'preference_title' => 'Mesaj aldigimda',
-                'preference_description' => 'Baska bir uye size ozel mesaj gonderdiginde bildirim alin.',
+                'preference_title' => 'Mesaj aldığımda',
+                'preference_description' => 'Başka bir üye size özel mesaj gönderdiğinde bildirim alın.',
             ],
             'topic_approved' => [
                 'setting_key' => 'notif_event_topic_approved',
@@ -141,7 +141,7 @@ final class NotificationPreferenceService
             'user_banned' => [
                 'setting_key' => 'notif_event_user_banned',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Hesabiniz banlandi',
+                'title' => 'Hesabınız banlandı',
                 'message' => '{{moderation_note}}',
                 'type' => 'error',
                 'admin_loggable' => true,
@@ -149,98 +149,98 @@ final class NotificationPreferenceService
                 'admin_default' => '1',
                 'icon' => 'bi-slash-circle',
                 'preference_title' => 'Hesap ban bildirimi',
-                'preference_description' => 'Hesabiniz banlandiginda bildirim alin.',
+                'preference_description' => 'Hesabınız banlandığında bildirim alın.',
             ],
             'user_unbanned' => [
                 'setting_key' => 'notif_event_user_unbanned',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Ban kaldirildi',
+                'title' => 'Ban kaldırıldı',
                 'message' => '{{moderation_note}}',
                 'type' => 'success',
                 'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-check-circle',
-                'preference_title' => 'Ban kaldirma bildirimi',
-                'preference_description' => 'Baniniz kaldirildiginda bildirim alin.',
+                'preference_title' => 'Ban kaldırma bildirimi',
+                'preference_description' => 'Banınız kaldırıldığında bildirim alın.',
             ],
             'user_restricted' => [
                 'setting_key' => 'notif_event_user_restricted',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Hesabiniz kisitlandi',
+                'title' => 'Hesabınız kısıtlandı',
                 'message' => '{{moderation_note}}',
                 'type' => 'warning',
                 'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-shield-exclamation',
-                'preference_title' => 'Kisitlama bildirimi',
-                'preference_description' => 'Hesabiniza kisitlama eklendiginde bildirim alin.',
+                'preference_title' => 'Kısıtlama bildirimi',
+                'preference_description' => 'Hesabınıza kısıtlama eklendiğinde bildirim alın.',
             ],
             'user_restriction_removed' => [
                 'setting_key' => 'notif_event_user_restriction_removed',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Kisitlama kaldirildi',
+                'title' => 'Kısıtlama kaldırıldı',
                 'message' => '{{moderation_note}}',
                 'type' => 'success',
                 'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-shield-check',
-                'preference_title' => 'Kisitlama kaldirma bildirimi',
-                'preference_description' => 'Hesap kisitlamaniz kaldirildiginda bildirim alin.',
+                'preference_title' => 'Kısıtlama kaldırma bildirimi',
+                'preference_description' => 'Hesap kısıtlamanız kaldırıldığında bildirim alın.',
             ],
             'user_group_changed' => [
                 'setting_key' => 'notif_event_user_group_changed',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Grubunuz guncellendi',
+                'title' => 'Grubunuz güncellendi',
                 'message' => '{{moderation_note}}',
                 'type' => 'info',
                 'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-person-badge',
-                'preference_title' => 'Grup degisikligi bildirimi',
-                'preference_description' => 'Hesap grubunuz degistiginde bildirim alin.',
+                'preference_title' => 'Grup değişikliği bildirimi',
+                'preference_description' => 'Hesap grubunuz değiştiğinde bildirim alın.',
             ],
             'ban_appeal_created' => [
                 'setting_key' => 'notif_event_ban_appeal_created',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Yeni ban itirazi',
+                'title' => 'Yeni ban itirazı',
                 'message' => '{{moderation_note}}',
                 'type' => 'warning',
                 'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-envelope-exclamation',
-                'preference_title' => 'Yeni ban itirazi',
-                'preference_description' => 'Yeni ban itirazi geldiginde bildirim al.',
+                'preference_title' => 'Yeni ban itirazı',
+                'preference_description' => 'Yeni ban itirazı geldiğinde bildirim alın.',
             ],
             'ban_appeal_message_added' => [
                 'setting_key' => 'notif_event_ban_appeal_message_added',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Ban itirazina yeni mesaj',
+                'title' => 'Ban itirazına yeni mesaj',
                 'message' => '{{moderation_note}}',
                 'type' => 'info',
                 'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-chat-dots',
-                'preference_title' => 'Ban itirazi mesaji',
-                'preference_description' => 'Acik ban itirazina kullanici mesaji eklendiginde bildirim al.',
+                'preference_title' => 'Ban itirazı mesajı',
+                'preference_description' => 'Açık ban itirazına kullanıcı mesajı eklendiğinde bildirim alın.',
             ],
             'ban_appeal_updated' => [
                 'setting_key' => 'notif_event_ban_appeal_updated',
                 'admin_setting' => 'notif_events_enabled',
-                'title' => 'Ban itiraziniz guncellendi',
+                'title' => 'Ban itirazınız güncellendi',
                 'message' => '{{moderation_note}}',
                 'type' => 'info',
                 'admin_loggable' => true,
                 'default' => '1',
                 'admin_default' => '1',
                 'icon' => 'bi-envelope-check',
-                'preference_title' => 'Ban itirazi bildirimi',
-                'preference_description' => 'Ban itiraziniz incelendiginde bildirim alin.',
+                'preference_title' => 'Ban itirazı bildirimi',
+                'preference_description' => 'Ban itirazınız incelendiğinde bildirim alın.',
             ],
             'topic_report_status_updated' => [
                 'setting_key' => 'notif_event_topic_report_status_updated',
@@ -449,32 +449,36 @@ final class NotificationPreferenceService
     }
 
     /** @return array{sql:string,params:list<string>} */
-    public function whereSql(array $settings, string $alias = 'n', bool $filterEvents = true): array
+    public function whereSql(array $settings, string $alias = 'n', bool $filterEvents = true, bool $respectUserPreferences = true): array
     {
         $alias = preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $alias) === 1 ? $alias : 'n';
         $params = [];
         $clauses = [];
 
-        $enabledTypes = $this->enabledTypesForUser($settings);
-        if ($enabledTypes === []) {
-            $clauses[] = '1 = 0';
-        } else {
-            $clauses[] = "{$alias}.type IN (" . implode(',', array_fill(0, count($enabledTypes), '?')) . ')';
-            $params = array_merge($params, $enabledTypes);
+        if ($respectUserPreferences) {
+            $enabledTypes = $this->enabledTypesForUser($settings);
+            if ($enabledTypes === []) {
+                $clauses[] = '1 = 0';
+            } else {
+                $clauses[] = "{$alias}.type IN (" . implode(',', array_fill(0, count($enabledTypes), '?')) . ')';
+                $params = array_merge($params, $enabledTypes);
+            }
         }
 
         if ($filterEvents) {
             $clauses[] = "({$alias}.delivery_channels IS NULL OR {$alias}.delivery_channels = '' OR {$alias}.delivery_channels LIKE '%\"in_app\"%')";
 
-            if (!$this->groupEnabled($settings, 'notif_group_events')) {
-                $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '')";
-            } else {
-                $enabledEvents = $this->enabledEventKeysForUser($settings);
-                if ($enabledEvents === []) {
+            if ($respectUserPreferences) {
+                if (!$this->groupEnabled($settings, 'notif_group_events')) {
                     $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '')";
                 } else {
-                    $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '' OR {$alias}.event_key IN (" . implode(',', array_fill(0, count($enabledEvents), '?')) . '))';
-                    $params = array_merge($params, $enabledEvents);
+                    $enabledEvents = $this->enabledEventKeysForUser($settings);
+                    if ($enabledEvents === []) {
+                        $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '')";
+                    } else {
+                        $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '' OR {$alias}.event_key IN (" . implode(',', array_fill(0, count($enabledEvents), '?')) . '))';
+                        $params = array_merge($params, $enabledEvents);
+                    }
                 }
             }
         }

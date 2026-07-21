@@ -177,8 +177,8 @@ return [
             'type' => 'number',
             'default' => '10',
             'section' => 'notifications',
-            'min' => 10,
-            'max' => 10,
+            'min' => 5,
+            'max' => 100,
             'tooltip' => 'Admin bildirim geçmişinde sayfa başına gösterilecek kayıt sayısı.',
         ],
         'notif_history_message_preview' => [
@@ -205,6 +205,20 @@ return [
             'default' => '1',
             'section' => 'notifications',
             'tooltip' => 'Yorum, bahsetme, rapor ve moderasyon olaylarından otomatik bildirim oluşturulmasına izin verir.',
+        ],
+        'notif_admin_registration_site_enabled' => [
+            'label' => 'Yeni Kullanıcı Kaydı Admin Site İçi Bildirimi',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'notifications',
+            'tooltip' => 'Yeni kullanıcı kayıt olduğunda admin ve yetkili hesaplara site içi bildirim gönderir.',
+        ],
+        'notif_admin_registration_email_enabled' => [
+            'label' => 'Yeni Kullanıcı Kaydı Admin E-postası',
+            'type' => 'bool',
+            'default' => '1',
+            'section' => 'notifications',
+            'tooltip' => 'Yeni kullanıcı kayıt olduğunda admin ve yetkili hesaplara e-posta kuyruğu üzerinden bildirim gönderir.',
         ],
         'notif_event_comments_enabled' => [
             'label' => 'Yorum Olayları',
@@ -253,7 +267,7 @@ return [
             'type' => 'bool',
             'default' => '0',
             'section' => 'notifications',
-            'tooltip' => 'E-posta açık şablonlardan kuyruk kaydı oluşturur; cron worker bu kayıtları SMTP/mail ayarlarıyla gönderir.',
+            'tooltip' => 'E-posta açık bildirim metinlerinden kuyruk kaydı oluşturur; cron worker bu kayıtları SMTP/mail ayarlarıyla gönderir.',
         ],
         'notif_email_queue_max_attempts' => [
             'label' => 'E-posta Deneme Hakkı',

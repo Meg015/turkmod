@@ -126,33 +126,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (function_exists('usersNotifyAdminsOnRegistration')) {
                             usersNotifyAdminsOnRegistration($pdo, $newUserId, $username, $email, $registrationRequiresAdminApproval);
                         }
-                        if (($settings['notif_center_enabled'] ?? '1') === '1' && ($settings['notif_welcome_enabled'] ?? '0') === '1') {
-                            try {
-                                $senderName = trim((string) ($settings['notif_system_sender'] ?? 'Sistem'));
-                                $senderName = $senderName !== '' ? $senderName : 'Sistem';
-                                $welcomeMessage = trim((string) ($settings['notif_welcome_msg'] ?? 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.'));
-                                $welcomeMessage = $welcomeMessage !== '' ? $welcomeMessage : 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.';
-                                $welcomeTitle = mb_substr($senderName . ' hoş geldin dedi', 0, 255);
-                                $notificationColumns = function_exists('notificationEventTableColumns') ? notificationEventTableColumns($pdo) : [];
-                                $insertColumns = ['user_id', 'title', 'message', 'type', 'link'];
-                                $insertValues = [$newUserId, $welcomeTitle, $welcomeMessage, 'system', $notificationsUrl];
-                                if (isset($notificationColumns['is_admin_loggable'])) {
-                                    $insertColumns[] = 'is_admin_loggable';
-                                    $insertValues[] = 1;
-                                }
-                                $quotedColumns = array_map(static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`', $insertColumns);
-                                $placeholders = implode(', ', array_fill(0, count($insertColumns), '?'));
-                                $notificationStmt = $pdo->prepare('INSERT INTO notifications (' . implode(', ', $quotedColumns) . ") VALUES ({$placeholders})");
-                                $notificationStmt->execute($insertValues);
-                            } catch (Throwable $notificationError) {
-                                // Kayıt akışı bildirim gönderilemedi diye bozulmasın.
-                            }
+                        if (function_exists('usersCreateWelcomeNotification')) {
+                            usersCreateWelcomeNotification($pdo, $newUserId, $settings, $notificationsUrl);
                         }
                         $emailVerificationEnabled = authEmailVerificationEnabled($settings);
                         $verificationEmailSent = false;
                         try {
                             $accountMailer = accountEmailService($pdo);
-                            $accountMailer->send('welcome', $email, ['username' => $username, 'login_url' => $loginUrl]);
+                            $welcomeEmailSent = $accountMailer->send('welcome', $email, ['username' => $username, 'login_url' => $loginUrl]);
+                            if (!$welcomeEmailSent) {
+                                $welcomeEnabledKey = \App\Engine\Email\AccountEmailService::settingKey('welcome', 'enabled');
+                                $welcomeTemplate = \App\Engine\Email\AccountEmailService::catalog()['welcome'] ?? ['enabled' => '1'];
+                                if (
+                                    (string) ($settings['account_email_system_enabled'] ?? '1') === '1'
+                                    && (string) ($settings[$welcomeEnabledKey] ?? $welcomeTemplate['enabled'] ?? '1') === '1'
+                                ) {
+                                    $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
+                                    $context = [
+                                        'source' => 'registration_welcome_email_failed',
+                                        'user_id' => $newUserId,
+                                        'template' => 'welcome',
+                                        'recipient_email' => $email,
+                                        'reason' => function_exists('appSendMail') ? 'send_returned_false' : 'mail_helper_missing',
+                                        'mail_error' => (string) ($mailResult['error'] ?? ''),
+                                        'smtp_code' => $mailResult['smtp_code'] ?? null,
+                                        'smtp_response' => (string) ($mailResult['smtp_response'] ?? ''),
+                                    ];
+                                    if (function_exists('appFileLog')) {
+                                        appFileLog('warning', 'Registration welcome email was not sent.', $context);
+                                    } else {
+                                        error_log('Registration welcome email was not sent: ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                                    }
+                                }
+                            }
                             $verificationEmailSent = $accountMailer->issueVerification($newUserId, $email, $username);
                         } catch (Throwable $mailError) {
                             if (function_exists('appLogException')) {

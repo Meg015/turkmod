@@ -182,33 +182,32 @@ final class ContactMailService
     {
         $baseUri = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
         $adminLink = $baseUri !== '' ? $baseUri . '/admin/contacts.php?tab=messages&message_id=' . (int) ($message['id'] ?? 0) : '';
-        $categoryName = htmlspecialchars((string) ($category['name'] ?? $message['category_name_snapshot'] ?? 'Iletisim'), ENT_QUOTES, 'UTF-8');
-        $subject = htmlspecialchars((string) ($message['subject'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $name = htmlspecialchars((string) ($message['sender_name'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $email = htmlspecialchars((string) ($message['sender_email'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $bodyText = nl2br(htmlspecialchars((string) ($message['message'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        $adminLinkHtml = $adminLink !== '' ? '<p><a href="' . htmlspecialchars($adminLink, ENT_QUOTES, 'UTF-8') . '">Mesaji admin panelinde ac</a></p>' : '';
+        $categoryName = (string) ($category['name'] ?? $message['category_name_snapshot'] ?? 'Iletisim');
+        $subject = (string) ($message['subject'] ?? '');
+        $name = (string) ($message['sender_name'] ?? '');
+        $email = (string) ($message['sender_email'] ?? '');
+        $bodyText = function_exists('appMailPlainTextHtml')
+            ? appMailPlainTextHtml((string) ($message['message'] ?? ''))
+            : nl2br(htmlspecialchars((string) ($message['message'] ?? ''), ENT_QUOTES, 'UTF-8'));
 
-        return <<<HTML
-<!doctype html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <title>Yeni Iletisim Mesaji</title>
-</head>
-<body style="font-family:Roboto,sans-serif;background:#f8fafc;margin:0;padding:24px;">
-    <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;">
-        <h2 style="margin:0 0 16px;">Yeni Iletisim Mesaji</h2>
-        <p><strong>Kategori:</strong> {$categoryName}</p>
-        <p><strong>Konu:</strong> {$subject}</p>
-        <p><strong>Gonderen:</strong> {$name} ({$email})</p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
-        <div style="white-space:normal;line-height:1.6;">{$bodyText}</div>
-        {$adminLinkHtml}
-    </div>
-</body>
-</html>
-HTML;
+        if (function_exists('appRenderMailLayout')) {
+            return appRenderMailLayout([
+                'site_name' => (string) (($GLOBALS['envConfig']['APP_NAME'] ?? '') ?: ($GLOBALS['_lay']['header_brand_text'] ?? 'Türk Mod')),
+                'eyebrow' => 'İletişim bildirimi',
+                'title' => 'Yeni iletişim mesajı',
+                'content_html' => $bodyText,
+                'detail_rows' => [
+                    'Kategori' => $categoryName,
+                    'Konu' => $subject,
+                    'Gönderen' => trim($name . ' (' . $email . ')'),
+                ],
+                'action_url' => $adminLink,
+                'action_label' => 'Mesajı Aç',
+                'footer_note' => 'Bu e-posta iletişim formu tarafından otomatik gönderilmiştir.',
+            ]);
+        }
+
+        return '<!doctype html><html lang="tr"><head><meta charset="UTF-8"></head><body>' . $bodyText . '</body></html>';
     }
 
     /**
@@ -218,36 +217,32 @@ HTML;
     private function replyBody(array $message, array $category, string $replyBody, string $adminName): string
     {
         $siteName = (string) (($GLOBALS['envConfig']['APP_NAME'] ?? '') ?: ($GLOBALS['_lay']['header_brand_text'] ?? 'Site'));
-        $categoryName = htmlspecialchars((string) ($category['name'] ?? $message['category_name_snapshot'] ?? 'Iletisim'), ENT_QUOTES, 'UTF-8');
-        $subject = htmlspecialchars((string) ($message['subject'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $replyHtml = nl2br(htmlspecialchars($replyBody, ENT_QUOTES, 'UTF-8'));
-        $senderName = htmlspecialchars((string) ($message['sender_name'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $senderEmail = htmlspecialchars((string) ($message['sender_email'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $adminName = htmlspecialchars($adminName !== '' ? $adminName : 'Yonetim', ENT_QUOTES, 'UTF-8');
+        $categoryName = (string) ($category['name'] ?? $message['category_name_snapshot'] ?? 'Iletisim');
+        $subject = (string) ($message['subject'] ?? '');
+        $replyHtml = function_exists('appMailPlainTextHtml')
+            ? appMailPlainTextHtml($replyBody)
+            : nl2br(htmlspecialchars($replyBody, ENT_QUOTES, 'UTF-8'));
+        $senderName = (string) ($message['sender_name'] ?? '');
+        $senderEmail = (string) ($message['sender_email'] ?? '');
+        $adminName = $adminName !== '' ? $adminName : 'Yonetim';
 
-        return <<<HTML
-<!doctype html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <title>Iletisim Yaniti</title>
-</head>
-<body style="font-family:Roboto,sans-serif;background:#f8fafc;margin:0;padding:24px;">
-    <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;">
-        <h2 style="margin:0 0 16px;">Iletisim Yaniti</h2>
-        <p>Merhaba <strong>{$senderName}</strong>,</p>
-        <p><strong>Kategori:</strong> {$categoryName}</p>
-        <p><strong>Konu:</strong> {$subject}</p>
-        <div style="margin:20px 0;padding:16px;border-left:4px solid #8b1538;background:#f8fafc;line-height:1.7;">
-            {$replyHtml}
-        </div>
-        <p style="color:#64748b;">Bu yanit {$siteName} tarafindan gonderildi.</p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
-        <p style="font-size:0.92rem;color:#475569;"><strong>Orijinal gonderici:</strong> {$senderName} ({$senderEmail})</p>
-        <p style="font-size:0.92rem;color:#475569;"><strong>Yaniti hazirlayan:</strong> {$adminName}</p>
-    </div>
-</body>
-</html>
-HTML;
+        if (function_exists('appRenderMailLayout')) {
+            return appRenderMailLayout([
+                'site_name' => $siteName,
+                'eyebrow' => 'İletişim yanıtı',
+                'title' => 'İletişim mesajınıza yanıt',
+                'intro' => 'Merhaba ' . ($senderName !== '' ? $senderName : 'değerli kullanıcı') . ',',
+                'content_html' => '<div style="margin:18px 0;padding:16px 18px;border-left:4px solid #8b1538;background:#f8fafc;border-radius:9px;">' . $replyHtml . '</div>',
+                'detail_rows' => [
+                    'Kategori' => $categoryName,
+                    'Konu' => $subject,
+                    'Orijinal gönderen' => trim($senderName . ' (' . $senderEmail . ')'),
+                    'Yanıtlayan' => $adminName,
+                ],
+                'footer_note' => 'Bu yanıt ' . $siteName . ' yönetimi tarafından gönderilmiştir.',
+            ]);
+        }
+
+        return '<!doctype html><html lang="tr"><head><meta charset="UTF-8"></head><body>' . $replyHtml . '</body></html>';
     }
 }

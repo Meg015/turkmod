@@ -110,10 +110,14 @@ final class NotificationEmailQueueService
                     subject = VALUES(subject),
                     body = VALUES(body),
                     link = VALUES(link),
-                    status = IF(status = 'sent', status, 'queued'),
+                    attempts = IF(status = 'sent', attempts, 0),
+                    locked_at = IF(status = 'sent', locked_at, NULL),
+                    error_message = IF(status = 'sent', error_message, NULL),
+                    sent_at = IF(status = 'sent', sent_at, NULL),
                     max_attempts = VALUES(max_attempts),
                     metadata_json = VALUES(metadata_json),
                     available_at = IF(status = 'sent', available_at, NOW()),
+                    status = IF(status = 'sent', status, 'queued'),
                     updated_at = NOW()
             ");
 
@@ -185,24 +189,46 @@ final class NotificationEmailQueueService
 
     public function buildHtml(array $row): string
     {
-        $subject = htmlspecialchars((string) ($row['subject'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $body = nl2br(htmlspecialchars((string) ($row['body'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        $link = $this->absoluteLink(isset($row['link']) ? (string) $row['link'] : null);
-        $linkHtml = '';
-        if ($link !== null) {
-            $safeLink = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
-            $linkHtml = '<p style="text-align:center;margin:24px 0;"><a href="' . $safeLink . '" style="display:inline-block;background:#ef3f6b;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700;">Bildirimi Ac</a></p>';
+        $subject = (string) ($row['subject'] ?? '');
+        $rawBody = (string) ($row['body'] ?? '');
+        if (function_exists('appMailIsStandardLayout') && appMailIsStandardLayout($rawBody)) {
+            return $rawBody;
         }
 
-        return '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"></head>'
-            . '<body style="margin:0;background:#f6f8fb;font-family:Roboto,sans-serif;color:#1f2937;">'
-            . '<div style="max-width:560px;margin:0 auto;padding:32px 18px;">'
-            . '<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:28px;box-shadow:0 12px 28px rgba(15,23,42,.08);">'
-            . '<h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#111827;">' . $subject . '</h1>'
-            . '<div style="font-size:15px;line-height:1.7;color:#374151;">' . $body . '</div>'
-            . $linkHtml
-            . '<p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Bu e-posta Bildirim Merkezi tarafindan otomatik hazirlanmistir.</p>'
-            . '</div></div></body></html>';
+        $metadata = [];
+        if (!empty($row['metadata_json']) && is_string($row['metadata_json'])) {
+            $decoded = json_decode($row['metadata_json'], true);
+            $metadata = is_array($decoded) ? $decoded : [];
+        }
+        $preheader = trim((string) ($metadata['email_preview'] ?? ''));
+        $link = $this->absoluteLink(isset($row['link']) ? (string) $row['link'] : null);
+        if (function_exists('appMailIsHtmlDocument') && appMailIsHtmlDocument($rawBody)) {
+            $contentHtml = function_exists('appMailPlainTextHtml')
+                ? appMailPlainTextHtml(trim(html_entity_decode(strip_tags($rawBody), ENT_QUOTES | ENT_HTML5, 'UTF-8')))
+                : nl2br(htmlspecialchars(strip_tags($rawBody), ENT_QUOTES, 'UTF-8'));
+        } elseif (function_exists('appMailLooksLikeHtml') && appMailLooksLikeHtml($rawBody)) {
+            $contentHtml = $rawBody;
+        } else {
+            $contentHtml = function_exists('appMailPlainTextHtml')
+                ? appMailPlainTextHtml($rawBody)
+                : nl2br(htmlspecialchars($rawBody, ENT_QUOTES, 'UTF-8'));
+        }
+
+        if (function_exists('appRenderMailLayout')) {
+            $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($GLOBALS['pdo'] ?? null) : [];
+            return appRenderMailLayout([
+                'site_name' => (string) ($settings['site_name'] ?? 'Türk Mod'),
+                'eyebrow' => (string) ($metadata['eyebrow'] ?? 'Bildirim Merkezi'),
+                'title' => (string) ($metadata['mail_title'] ?? $subject),
+                'preheader' => $preheader,
+                'content_html' => $contentHtml,
+                'action_url' => $link ?? '',
+                'action_label' => (string) ($metadata['action_label'] ?? 'Bildirimi Aç'),
+                'footer_note' => (string) ($metadata['footer_note'] ?? 'Bu e-posta Bildirim Merkezi tarafından otomatik hazırlanmıştır.'),
+            ]);
+        }
+
+        return '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"></head><body>' . $contentHtml . '</body></html>';
     }
 
     /**

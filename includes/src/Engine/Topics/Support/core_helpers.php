@@ -2,6 +2,31 @@
 
 declare(strict_types=1);
 
+if (!function_exists('topicSearchBuildBooleanQuery')) {
+function topicSearchBuildBooleanQuery(string $search): string
+{
+    $search = trim($search);
+    if ($search === '') {
+        return '';
+    }
+
+    $search = preg_replace('/[+\-><()~*"@]+/u', ' ', $search) ?? $search;
+    $search = preg_replace('/[^\p{L}\p{N}_]+/u', ' ', $search) ?? $search;
+
+    $terms = [];
+    foreach (preg_split('/\s+/u', $search) ?: [] as $token) {
+        $token = trim((string) $token, '_');
+        if (mb_strlen($token, 'UTF-8') < 2) {
+            continue;
+        }
+
+        $terms[$token] = '+' . $token . '*';
+    }
+
+    return implode(' ', array_slice(array_values($terms), 0, 8));
+}
+}
+
 if (!function_exists('getTopics')) {
 function getTopics(
     ?PDO $pdo,
@@ -41,18 +66,27 @@ function getTopics(
         }
 
         if ($search !== "") {
-            // FULLTEXT arama kullan (DB'de FULLTEXT index: title, topic_descriptions)
-            $where .=
-                " AND MATCH(t.title, t.topic_descriptions) AGAINST(:search IN BOOLEAN MODE)";
-            // Boolean mode'da kelime bazlÄ± arama iÃ§in + prefix ekle
-            $searchTerms = implode(
-                " ",
-                array_map(
-                    fn($w) => "+" . $w . "*",
-                    preg_split("/\s+/", trim($search)),
-                ),
-            );
-            $params["search"] = $searchTerms;
+            // Keep BOOLEAN MODE safe for version-like searches such as (1.60).
+            $searchLike = '%' . $search . '%';
+            $searchFilters = [
+                "t.title LIKE :search_title_like",
+                "t.slug LIKE :search_slug_like",
+                "COALESCE(cat.name, '') LIKE :search_category_like",
+            ];
+            $params["search_title_like"] = $searchLike;
+            $params["search_slug_like"] = $searchLike;
+            $params["search_category_like"] = $searchLike;
+
+            $fullTextSearch = topicSearchBuildBooleanQuery($search);
+            if ($fullTextSearch !== '') {
+                array_unshift(
+                    $searchFilters,
+                    "MATCH(t.title, t.topic_descriptions) AGAINST(:search_fulltext IN BOOLEAN MODE)"
+                );
+                $params["search_fulltext"] = $fullTextSearch;
+            }
+
+            $where .= " AND (" . implode(" OR ", $searchFilters) . ")";
         }
 
         $orderBy = match ($sort) {

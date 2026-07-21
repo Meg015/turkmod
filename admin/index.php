@@ -194,11 +194,11 @@ $attentionTotal = $attentionTotal ?? 0;
                 </div>
                 <i class="bi bi-chevron-right"></i>
             </a>
-            <a href="<?= $baseUri ?>/admin/notifications.php?tab=logs" class="quick-action-item">
+            <a href="<?= $baseUri ?>/admin/notifications.php?tab=email" class="quick-action-item">
                 <div class="quick-action-icon"><i class="bi bi-envelope-paper"></i></div>
                 <div class="quick-action-content">
                     <span class="quick-action-title">E-posta Kuyruğu</span>
-                    <span class="quick-action-desc">Gönderim logları ve hatalı denemeler</span>
+                    <span class="quick-action-desc">Kanal durumu ve kuyruk özeti</span>
                 </div>
                 <i class="bi bi-chevron-right"></i>
             </a>

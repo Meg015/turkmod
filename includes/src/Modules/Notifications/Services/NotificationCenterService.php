@@ -36,7 +36,12 @@ final class NotificationCenterService
         $adminSettings = $this->preferences->adminSettings($pdo);
         $userSettings = $this->preferences->userSettings($pdo, $userId);
         $canFilterEvents = $this->canFilterEvents($pdo);
-        $this->schema->ensureNotificationDismissalSchema($pdo);
+        $respectUserPreferences = $this->preferences->bool($adminSettings, 'notif_respect_user_preferences', '1');
+        try {
+            $this->schema->ensureNotificationDismissalSchema($pdo);
+        } catch (Throwable $e) {
+            error_log('Notification dismissal schema check failed: ' . $e->getMessage());
+        }
         $dismissalSql = $this->dismissalSql($pdo);
         $dismissalParams = $dismissalSql !== '' ? [$userId] : [];
 
@@ -54,7 +59,7 @@ final class NotificationCenterService
             return $this->emptyDropdown(false, true, false, $autoMarkOnOpen);
         }
 
-        $preferenceWhere = $this->preferences->whereSql($userSettings, 'n', $canFilterEvents);
+        $preferenceWhere = $this->preferences->whereSql($userSettings, 'n', $canFilterEvents, $respectUserPreferences);
         $typeSql = (string) ($preferenceWhere['sql'] ?? '');
         $typeParams = is_array($preferenceWhere['params'] ?? null) ? $preferenceWhere['params'] : [];
 
@@ -134,16 +139,34 @@ final class NotificationCenterService
         }
 
         if ((string) $notificationId === 'all') {
+            $adminSettings = $this->preferences->adminSettings($pdo);
+            if (!$this->preferences->bool($adminSettings, 'notif_center_enabled', '1')) {
+                return true;
+            }
+
+            $userSettings = $this->preferences->userSettings($pdo, $userId);
+            $preferenceWhere = $this->preferences->whereSql(
+                $userSettings,
+                'n',
+                $this->canFilterEvents($pdo),
+                $this->preferences->bool($adminSettings, 'notif_respect_user_preferences', '1')
+            );
+            $typeSql = (string) ($preferenceWhere['sql'] ?? '');
+            $typeParams = is_array($preferenceWhere['params'] ?? null) ? $preferenceWhere['params'] : [];
+            $dismissalSql = $this->dismissalSql($pdo);
+            $dismissalParams = $dismissalSql !== '' ? [$userId] : [];
+
             $stmtUnread = $pdo->prepare("
                 SELECT id FROM notifications n
                 WHERE (n.user_id IS NULL OR n.user_id = ?)
+                {$typeSql}
                 AND NOT EXISTS (
                     SELECT 1 FROM notification_reads nr
                     WHERE nr.notification_id = n.id AND nr.user_id = ?
                 )
-                {$this->dismissalSql($pdo)}
+                {$dismissalSql}
             ");
-            $stmtUnread->execute(array_merge([$userId, $userId], $this->dismissalSql($pdo) !== '' ? [$userId] : []));
+            $stmtUnread->execute(array_merge([$userId], $typeParams, [$userId], $dismissalParams));
             $unreadIds = $stmtUnread->fetchAll(PDO::FETCH_COLUMN) ?: [];
 
             if ($unreadIds === []) {

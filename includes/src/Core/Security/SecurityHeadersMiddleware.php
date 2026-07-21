@@ -203,7 +203,7 @@ final class SecurityHeadersMiddleware implements Middleware
         $reportOnlyCsp['script-src'] = $this->withoutCspSources($reportOnlyCsp['script-src'] ?? [], ["'unsafe-inline'", "'unsafe-eval'"]);
         $reportOnlyCsp['style-src'] = $this->withoutCspSources($reportOnlyCsp['style-src'] ?? [], ["'unsafe-inline'"]);
         $reportOnlyCsp['script-src-attr'] = ["'none'"];
-        $reportOnlyCsp['style-src-attr'] = ["'none'"];
+        $reportOnlyCsp['style-src-attr'] = $this->normalizeCspSources($reportOnlyCsp['style-src-attr'] ?? []);
 
         $csp = $this->buildCspFromDirectives($reportOnlyCsp);
         $csp .= '; report-uri ' . $this->reportUri;
@@ -335,14 +335,14 @@ final class SecurityHeadersMiddleware implements Middleware
             'script-src' => ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdn.quilljs.com"],
             'style-src' => ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdn.quilljs.com"],
             'style-src-attr' => ["'unsafe-inline'"],
-            'img-src' => ["'self'", "data:", "https:"],
-            'font-src' => ["'self'", "data:", "https://cdn.jsdelivr.net"],
+            'img-src' => ["'self'", "data:", "blob:", "https:"],
+            'font-src' => ["'self'", "data:", "https://cdn.jsdelivr.net", "https://fonts.gstatic.com"],
             'connect-src' => ["'self'", 'ws:', 'wss:', "https://cdn.jsdelivr.net", "https://cdn.quilljs.com", "https:"],
             'frame-ancestors' => ["'self'"],
             'base-uri' => ["'self'"],
             'form-action' => ["'self'"],
             'object-src' => ["'none'"],
-            'media-src' => ["'self'", "https:"],
+            'media-src' => ["'self'", "data:", "blob:", "https:"],
             'frame-src' => ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com", "https://player.vimeo.com"],
         ];
     }

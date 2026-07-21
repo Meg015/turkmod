@@ -501,7 +501,153 @@ if (!function_exists('commentSpamLooksLikeLowVarietyNoise')) {
 if (!function_exists('commentSpamLooksLikeNumericNoise')) {
     function commentSpamLooksLikeNumericNoise(string $token): bool
     {
-        return preg_match('/^\p{N}{6,20}$/u', $token) === 1;
+        $token = commentSpamNormalizeTerm($token);
+        if ($token === '' || preg_match('/^\p{N}+$/u', $token) !== 1) {
+            return false;
+        }
+
+        if (preg_match('/^\p{N}{1,3}$/u', $token) === 1) {
+            return false;
+        }
+
+        if (preg_match('/^(?:19|20)\d{2}$/u', $token) === 1) {
+            return false;
+        }
+
+        return preg_match('/^\p{N}{4,20}$/u', $token) === 1;
+    }
+}
+
+if (!function_exists('commentSpamLooksLikeVersionReference')) {
+    function commentSpamLooksLikeVersionReference(string $body): bool
+    {
+        $body = commentSpamNormalizeComparableBody($body);
+        if ($body === '') {
+            return false;
+        }
+
+        return preg_match('/(?:^|[^\p{L}\p{N}_])v?\p{N}+(?:[._-]\p{N}+){1,4}(?:[^\p{L}\p{N}_]|$)/u', $body) === 1;
+    }
+}
+
+if (!function_exists('commentSpamIsCommonShortCommentToken')) {
+    function commentSpamIsCommonShortCommentToken(string $token): bool
+    {
+        static $tokens = [
+            'as' => true,
+            'az' => true,
+            'bi' => true,
+            'bu' => true,
+            'da' => true,
+            'de' => true,
+            'en' => true,
+            'ha' => true,
+            'he' => true,
+            'hi' => true,
+            'ki' => true,
+            'mi' => true,
+            'mu' => true,
+            'mü' => true,
+            'mı' => true,
+            'ne' => true,
+            'o' => true,
+            'of' => true,
+            'ok' => true,
+            'sa' => true,
+            'su' => true,
+            'şu' => true,
+            've' => true,
+            'ya' => true,
+        ];
+
+        return isset($tokens[commentSpamNormalizeTerm($token)]);
+    }
+}
+
+if (!function_exists('commentSpamFindShortFragmentNoise')) {
+    function commentSpamFindShortFragmentNoise(string $body): ?string
+    {
+        $normalizedBody = commentSpamNormalizeComparableBody($body);
+        if ($normalizedBody === '' || commentSpamLooksLikeVersionReference($normalizedBody)) {
+            return null;
+        }
+
+        $meaningfulCharacters = commentSpamMeaningfulCharacterCount($normalizedBody);
+        if ($meaningfulCharacters < 6 || $meaningfulCharacters > 24) {
+            return null;
+        }
+
+        if (preg_match_all('/[\p{L}\p{N}]+/u', $normalizedBody, $matches) < 2) {
+            return null;
+        }
+
+        $tokens = [];
+        foreach (($matches[0] ?? []) as $rawToken) {
+            $token = commentSpamNormalizeTerm((string) $rawToken);
+            if ($token !== '') {
+                $tokens[] = $token;
+            }
+        }
+
+        $tokenCount = count($tokens);
+        if ($tokenCount < 2 || $tokenCount > 5) {
+            return null;
+        }
+
+        $hasSymbolNoise = preg_match('/[^\p{L}\p{N}\p{Z}\s._-]/u', $body) === 1;
+        $shortFragments = [];
+        $longTokens = [];
+
+        foreach ($tokens as $token) {
+            $letters = preg_replace('/[^\p{L}]+/u', '', $token) ?? '';
+            if ($letters === '') {
+                continue;
+            }
+
+            $tokenLength = mb_strlen($token, 'UTF-8');
+            if ($tokenLength <= 2 && !commentSpamIsCommonShortCommentToken($token)) {
+                $shortFragments[] = $token;
+            }
+
+            if ($tokenLength >= 7) {
+                $longTokens[] = $token;
+            }
+        }
+
+        if ($shortFragments === []) {
+            return null;
+        }
+
+        $shortRatio = count($shortFragments) / $tokenCount;
+        if (count($shortFragments) < 2 || $shortRatio < 0.5) {
+            return null;
+        }
+
+        if ($longTokens === []) {
+            $shortFrequencies = array_count_values($shortFragments);
+            $mostRepeatedShortFragment = max($shortFrequencies);
+
+            return $hasSymbolNoise && count($shortFragments) >= 3 && $shortRatio >= 0.6 && $mostRepeatedShortFragment >= 2
+                ? mb_substr($normalizedBody, 0, 80, 'UTF-8')
+                : null;
+        }
+
+        $longStartsWithShortFragment = false;
+        foreach ($longTokens as $longToken) {
+            foreach ($shortFragments as $shortFragment) {
+                $fragmentLength = mb_strlen($shortFragment, 'UTF-8');
+                if ($fragmentLength >= 2 && mb_substr($longToken, 0, $fragmentLength, 'UTF-8') === $shortFragment) {
+                    $longStartsWithShortFragment = true;
+                    break 2;
+                }
+            }
+        }
+
+        if (!$hasSymbolNoise && !$longStartsWithShortFragment) {
+            return null;
+        }
+
+        return mb_substr($normalizedBody, 0, 80, 'UTF-8');
     }
 }
 
@@ -607,6 +753,10 @@ if (!function_exists('commentSpamLooksLikeNonsenseToken')) {
     function commentSpamLooksLikeNonsenseToken(string $token): bool
     {
         $token = commentSpamNormalizeTerm($token);
+        if (commentSpamLooksLikeVersionReference($token)) {
+            return false;
+        }
+
         $token = preg_replace('/[^\p{L}\p{N}]+/u', '', $token) ?? '';
         if ($token === '' || commentSpamIsNonsenseSafeToken($token)) {
             return false;
@@ -662,6 +812,11 @@ if (!function_exists('commentSpamLooksLikeNonsenseToken')) {
 if (!function_exists('commentSpamFindNonsenseToken')) {
     function commentSpamFindNonsenseToken(string $body): ?string
     {
+        $fragmentNoiseMatch = commentSpamFindShortFragmentNoise($body);
+        if ($fragmentNoiseMatch !== null) {
+            return $fragmentNoiseMatch;
+        }
+
         if ($body === '' || preg_match_all('/[\p{L}\p{N}]{3,}/u', $body, $matches) < 1) {
             return null;
         }

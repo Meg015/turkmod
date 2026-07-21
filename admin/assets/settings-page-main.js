@@ -77,14 +77,28 @@ document.querySelectorAll('[data-settings-subtab]').forEach(function(btn) {
         if (window.history && window.history.replaceState) {
             window.history.replaceState(null, '', '#' + scope + ':' + target);
         }
-        if (target === 'email-tab-account') {
-            ensureAccountEmailRichEditors();
-        }
     });
 });
 
 function activateSettingsSubtabFromHash() {
     var hash = String(window.location.hash || '').replace(/^#/, '');
+    if (hash === 'content_moderation') {
+        var userUploadsTab = document.querySelector('.settings-tabs .nav-link[href="#user_uploads"]');
+        if (userUploadsTab) {
+            userUploadsTab.click();
+        }
+        window.history.replaceState(null, '', '#user_uploads');
+        return;
+    }
+    if (hash.indexOf('content-moderation:') === 0) {
+        var mappedTarget = hash.replace('content-moderation:content-moderation-', 'user-uploads:user-upload-');
+        var uploadTab = document.querySelector('.settings-tabs .nav-link[href="#user_uploads"]');
+        if (uploadTab) {
+            uploadTab.click();
+        }
+        window.history.replaceState(null, '', '#' + mappedTarget);
+        hash = mappedTarget;
+    }
     if (!hash || hash.indexOf(':') === -1) {
         return;
     }
@@ -429,188 +443,6 @@ if (downloadAccessGrantUnit) {
 }
 updateDownloadAccessDurationSettings();
 
-var accountEmailEditorInitStarted = false;
-
-function parseAccountEmailDocument(value) {
-    value = String(value || '');
-    if (!/<(?:!doctype|html|body)\b/i.test(value)) return null;
-    var parsed = new DOMParser().parseFromString(value, 'text/html');
-    var editable = parsed.querySelector('[data-account-email-editable="1"]');
-    if (!editable && parsed.body) editable = parsed.body.querySelector('div[style*="background:#fff"], div[style*="background: #fff"]');
-    if (!editable) editable = parsed.body;
-    return { document: parsed, editable: editable, hasDoctype: /<!doctype\s+html/i.test(value) };
-}
-
-function accountEmailEditableHtml(value) {
-    var parsed = parseAccountEmailDocument(value);
-    return parsed && parsed.editable ? parsed.editable.innerHTML : String(value || '');
-}
-
-function composeAccountEmailDocument(template, editorHtml) {
-    var parsed = parseAccountEmailDocument(template);
-    if (!parsed || !parsed.editable) return String(editorHtml || '');
-    parsed.editable.innerHTML = String(editorHtml || '');
-    return (parsed.hasDoctype ? '<!doctype html>' : '') + parsed.document.documentElement.outerHTML;
-}
-
-function setAccountEmailEditorValue(textarea, value) {
-    if (!textarea) return;
-    var documentValue = String(value || '');
-    var editableValue = accountEmailEditableHtml(documentValue);
-    textarea.value = documentValue;
-    textarea.accountEmailDocumentTemplate = documentValue;
-    textarea.accountEmailInitialEditorHtml = editableValue;
-    if (textarea.quillInstance) {
-        textarea.quillInstance.clipboard.dangerouslyPasteHTML(editableValue, 'silent');
-        textarea.accountEmailInitialEditorHtml = textarea.quillInstance.root.innerHTML;
-    }
-}
-
-function syncAccountEmailEditor(textarea) {
-    if (!textarea) return;
-    var editorHtml = '';
-    if (textarea.quillInstance) {
-        editorHtml = textarea.quillInstance.root.innerHTML;
-    } else {
-        return;
-    }
-    if (editorHtml === textarea.accountEmailInitialEditorHtml) return;
-    textarea.value = composeAccountEmailDocument(textarea.accountEmailDocumentTemplate || textarea.value, editorHtml);
-}
-
-function syncAllAccountEmailEditors() {
-    document.querySelectorAll('textarea.account-email-body').forEach(syncAccountEmailEditor);
-}
-
-
-function initAccountEmailQuill(textarea) {
-    if (!textarea || textarea.dataset.accountEmailEditorInit === '1') return;
-    textarea.dataset.accountEmailEditorInit = '1';
-    var wrapper = document.createElement('div');
-    wrapper.className = 'quill-container account-email-quill-container';
-    var editor = document.createElement('div');
-    wrapper.appendChild(editor);
-    textarea.insertAdjacentElement('afterend', wrapper);
-    textarea.classList.add('ui-admin-hidden');
-    var quill = new Quill(editor, {
-        theme: 'snow',
-        modules: {
-            toolbar: [
-                [{ header: [1, 2, 3, false] }],
-                ['bold', 'italic', 'underline', 'strike'],
-                ['blockquote'],
-                [{ list: 'ordered' }, { list: 'bullet' }],
-                [{ align: [] }],
-                ['link', 'image', 'video'],
-                ['clean']
-            ]
-        }
-    });
-    var sourceDocument = textarea.value || '';
-    var editableHtml = accountEmailEditableHtml(sourceDocument);
-    textarea.accountEmailDocumentTemplate = sourceDocument;
-    if (editableHtml) {
-        try {
-            quill.setContents(quill.clipboard.convert(editableHtml), 'silent');
-        } catch (error) {
-            quill.clipboard.dangerouslyPasteHTML(editableHtml, 'silent');
-        }
-    }
-    textarea.accountEmailInitialEditorHtml = quill.root.innerHTML;
-    quill.on('text-change', function() {
-        syncAccountEmailEditor(textarea);
-        var card = textarea.closest('[data-account-email-card]');
-        if (card && card.querySelector('[data-account-email-preview] iframe')) refreshAccountEmailPreview(card);
-    });
-    textarea.quillInstance = quill;
-}
-
-function ensureAccountEmailRichEditors(attempt) {
-    if (accountEmailEditorInitStarted && document.querySelector('textarea.account-email-body[data-account-email-editor-init="1"]')) return;
-    attempt = Number(attempt || 0);
-    if (typeof window.Quill === 'undefined' && attempt < 8) {
-        window.setTimeout(function() { ensureAccountEmailRichEditors(attempt + 1); }, 150);
-        return;
-    }
-    accountEmailEditorInitStarted = true;
-    document.querySelectorAll('textarea.account-email-body').forEach(function(textarea) {
-        if (typeof window.Quill !== 'undefined') {
-            initAccountEmailQuill(textarea);
-        } else {
-            console.error('Quill is not loaded. Account email editor cannot be initialized.');
-        }
-    });
-}
-
-function refreshAccountEmailPreview(card) {
-    if (!card) return;
-    var body = card.querySelector('.account-email-body');
-    var preview = card.querySelector('[data-account-email-preview]');
-    if (!body || !preview) return;
-    syncAccountEmailEditor(body);
-    var html = String(body.value || '');
-    var samples = {
-        site_name: 'Türk Mod', username: 'Test Kullanıcısı', recipient_email: 'test@example.com',
-        action_url: '#', login_url: '#', profile_url: '#', expires_minutes: '60',
-        old_email: 'eski@example.com', new_email: 'yeni@example.com',
-        actor_context: 'Hesap sahibi', ip_address: '127.0.0.1', date_time: '12.07.2026 23:30', support_email: 'info@example.com'
-    };
-    Object.keys(samples).forEach(function(key) {
-        html = html.split('{{' + key + '}}').join(samples[key]);
-    });
-    var frame = preview.querySelector('iframe');
-    if (!frame) {
-        frame = document.createElement('iframe');
-        frame.className = 'account-email-preview-frame';
-        frame.setAttribute('sandbox', '');
-        frame.setAttribute('title', 'E-posta şablonu önizlemesi');
-        preview.replaceChildren(frame);
-    }
-    frame.srcdoc = html;
-}
-
-document.querySelectorAll('[data-account-email-card]').forEach(function(card) {
-    var body = card.querySelector('.account-email-body');
-    if (body) body.addEventListener('input', function() {
-        if (card.querySelector('[data-account-email-preview] iframe')) refreshAccountEmailPreview(card);
-    });
-    var previewButton = card.querySelector('.account-email-preview-button');
-    if (previewButton) previewButton.addEventListener('click', function() { refreshAccountEmailPreview(card); });
-    card.querySelectorAll('.account-email-token').forEach(function(button) {
-        button.addEventListener('click', function() {
-            if (!body) return;
-            var token = String(button.getAttribute('data-token') || '');
-            if (body.quillInstance) {
-                var range = body.quillInstance.getSelection(true);
-                var index = range ? range.index : Math.max(0, body.quillInstance.getLength() - 1);
-                body.quillInstance.insertText(index, token, 'user');
-                body.quillInstance.setSelection(index + token.length, 0, 'silent');
-                syncAccountEmailEditor(body);
-                refreshAccountEmailPreview(card);
-                return;
-            }
-            var start = body.selectionStart || body.value.length;
-            var end = body.selectionEnd || body.value.length;
-            body.value = body.value.slice(0, start) + token + body.value.slice(end);
-            body.focus();
-            body.selectionStart = body.selectionEnd = start + token.length;
-            refreshAccountEmailPreview(card);
-        });
-    });
-    var resetButton = card.querySelector('.account-email-reset');
-    if (resetButton) {
-        resetButton.addEventListener('click', function() {
-            var subject = card.querySelector('input[name$="_subject"]');
-            var defaultBody = card.querySelector('.account-email-default-body');
-            if (subject) subject.value = String(resetButton.getAttribute('data-default-subject') || '');
-            if (body && defaultBody) {
-                setAccountEmailEditorValue(body, defaultBody.value);
-            }
-            refreshAccountEmailPreview(card);
-        });
-    }
-});
-
 // Track active tab for form submission
 document.getElementById('settingsForm').addEventListener('submit', function(e){
     e.preventDefault();
@@ -652,16 +484,8 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
         });
     }
 
-    syncAllAccountEmailEditors();
     var formData = new FormData(this);
     formData.set('action', submitAction);
-    if (submitter && submitter.hasAttribute('data-account-email-template')) {
-        var accountTemplateKey = String(submitter.getAttribute('data-account-email-template') || '');
-        var accountCard = submitter.closest('[data-account-email-card]');
-        var accountRecipient = accountCard ? accountCard.querySelector('input[type="email"]') : null;
-        formData.set('account_email_template_key', accountTemplateKey);
-        formData.set('account_email_test_recipient', accountRecipient ? accountRecipient.value : '');
-    }
     formData.append('ajax', '1');
 
     window.adminFetchJson('settings.php', {

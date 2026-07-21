@@ -475,11 +475,11 @@ if (!function_exists('buildContentSecurityPolicy')) {
             'script-src' => $scriptSources,
             'style-src' => $styleSources,
             'style-src-attr' => ["'unsafe-inline'"],
-            'font-src' => ["'self'", 'data:'],
-            'img-src' => ["'self'", 'data:', 'https:'],
+            'font-src' => ["'self'", 'data:', 'https://fonts.gstatic.com'],
+            'img-src' => ["'self'", 'data:', 'blob:', 'https:'],
             'connect-src' => ["'self'", 'ws:', 'wss:', 'https://cdn.jsdelivr.net', 'https://cdn.quilljs.com', 'https:'],
             'frame-src' => ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
-            'media-src' => ["'self'", 'https:', 'data:'],
+            'media-src' => ["'self'", 'https:', 'data:', 'blob:'],
         ];
 
         $parts = [];

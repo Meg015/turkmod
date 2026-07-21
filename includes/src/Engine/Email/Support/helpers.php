@@ -178,6 +178,157 @@ if (!function_exists('appGenerateMailMessageId')) {
     }
 }
 
+if (!function_exists('appMailHtml')) {
+    function appMailHtml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('appMailPlainTextHtml')) {
+    function appMailPlainTextHtml(string $text): string
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return '';
+        }
+
+        $paragraphs = preg_split('/\R{2,}/u', $text) ?: [$text];
+        $html = '';
+        foreach ($paragraphs as $paragraph) {
+            $paragraph = trim($paragraph);
+            if ($paragraph === '') {
+                continue;
+            }
+            $html .= '<p style="margin:0 0 14px;color:#344054;font-size:15px;line-height:1.65;">'
+                . nl2br(appMailHtml($paragraph))
+                . '</p>';
+        }
+
+        return $html;
+    }
+}
+
+if (!function_exists('appMailLooksLikeHtml')) {
+    function appMailLooksLikeHtml(string $value): bool
+    {
+        return preg_match('/<[a-z][a-z0-9:-]*(?:\s[^>]*)?>/i', $value) === 1;
+    }
+}
+
+if (!function_exists('appMailIsHtmlDocument')) {
+    function appMailIsHtmlDocument(string $value): bool
+    {
+        return preg_match('/<(?:!doctype|html|body)\b/i', $value) === 1;
+    }
+}
+
+if (!function_exists('appMailIsStandardLayout')) {
+    function appMailIsStandardLayout(string $value): bool
+    {
+        return stripos($value, 'data-app-mail-layout="1"') !== false
+            || stripos($value, "data-app-mail-layout='1'") !== false;
+    }
+}
+
+if (!function_exists('appMailActionHtml')) {
+    function appMailActionHtml(string $url, string $label): string
+    {
+        $url = trim($url);
+        $label = trim($label);
+        if ($url === '' || $label === '') {
+            return '';
+        }
+
+        return '<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:24px auto 6px;border-collapse:collapse;">'
+            . '<tr><td align="center" bgcolor="#8b1538" style="border-radius:9px;background:#8b1538;">'
+            . '<a href="' . appMailHtml($url) . '" style="display:inline-block;padding:13px 22px;color:#ffffff;font-size:14px;font-weight:700;line-height:1.2;text-decoration:none;border-radius:9px;">'
+            . appMailHtml($label)
+            . '</a></td></tr></table>';
+    }
+}
+
+if (!function_exists('appMailDetailTableHtml')) {
+    /**
+     * @param array<string,string|int|float|null> $rows
+     */
+    function appMailDetailTableHtml(array $rows): string
+    {
+        $rowHtml = '';
+        foreach ($rows as $label => $value) {
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+            $rowHtml .= '<tr>'
+                . '<th align="left" style="padding:10px 12px;border-bottom:1px solid #eaecf0;color:#667085;font-size:12px;font-weight:700;line-height:1.4;text-transform:uppercase;width:38%;">' . appMailHtml((string) $label) . '</th>'
+                . '<td style="padding:10px 12px;border-bottom:1px solid #eaecf0;color:#101828;font-size:14px;line-height:1.5;">' . appMailHtml($value) . '</td>'
+                . '</tr>';
+        }
+
+        if ($rowHtml === '') {
+            return '';
+        }
+
+        return '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:18px 0;border-collapse:collapse;border:1px solid #eaecf0;border-radius:10px;overflow:hidden;background:#fcfcfd;">'
+            . $rowHtml
+            . '</table>';
+    }
+}
+
+if (!function_exists('appRenderMailLayout')) {
+    /**
+     * @param array<string,mixed> $options
+     */
+    function appRenderMailLayout(array $options): string
+    {
+        $siteName = trim((string) ($options['site_name'] ?? ''));
+        if ($siteName === '') {
+            $siteName = 'Türk Mod';
+        }
+        $title = trim((string) ($options['title'] ?? 'Bildirim'));
+        $eyebrow = trim((string) ($options['eyebrow'] ?? $siteName));
+        $preheader = trim((string) ($options['preheader'] ?? ''));
+        $intro = trim((string) ($options['intro'] ?? ''));
+        $contentHtml = (string) ($options['content_html'] ?? '');
+        if ($contentHtml === '' && isset($options['body_text'])) {
+            $contentHtml = appMailPlainTextHtml((string) $options['body_text']);
+        }
+        if (!empty($options['detail_rows']) && is_array($options['detail_rows'])) {
+            $contentHtml .= appMailDetailTableHtml($options['detail_rows']);
+        }
+        $actionHtml = appMailActionHtml((string) ($options['action_url'] ?? ''), (string) ($options['action_label'] ?? ''));
+        $footerNote = trim((string) ($options['footer_note'] ?? 'Bu e-posta sistem tarafından otomatik olarak gönderilmiştir.'));
+        $editableAttr = !empty($options['editable']) ? ' data-account-email-editable="1"' : '';
+
+        $preheaderHtml = $preheader !== ''
+            ? '<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">' . appMailHtml($preheader) . '</span>'
+            : '';
+        $introHtml = $intro !== ''
+            ? '<p style="margin:0 0 16px;color:#344054;font-size:15px;line-height:1.65;">' . appMailHtml($intro) . '</p>'
+            : '';
+
+        return '<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+            . '<body style="margin:0;padding:0;background:#f3f5f8;color:#172033;font-family:Segoe UI,Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased;">'
+            . $preheaderHtml
+            . '<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;background:#f3f5f8;border-collapse:collapse;">'
+            . '<tr><td align="center" style="padding:34px 16px;">'
+            . '<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" data-app-mail-layout="1" style="width:100%;max-width:640px;border-collapse:collapse;">'
+            . '<tr><td style="padding:0 4px 12px;color:#667085;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">' . appMailHtml($siteName) . '</td></tr>'
+            . '<tr><td style="background:#ffffff;border:1px solid #e4e8ef;border-radius:14px;box-shadow:0 18px 38px rgba(16,24,40,.08);overflow:hidden;">'
+            . '<div' . $editableAttr . ' style="padding:30px 30px 28px;">'
+            . '<div style="margin:0 0 10px;color:#8b1538;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;">' . appMailHtml($eyebrow) . '</div>'
+            . '<h1 style="margin:0 0 18px;color:#101828;font-size:23px;line-height:1.28;font-weight:800;">' . appMailHtml($title) . '</h1>'
+            . $introHtml
+            . '<div style="color:#344054;font-size:15px;line-height:1.65;">' . $contentHtml . '</div>'
+            . $actionHtml
+            . '<p style="margin:24px 0 0;padding-top:18px;border-top:1px solid #eaecf0;color:#98a2b3;font-size:12px;line-height:1.55;">' . appMailHtml($footerNote) . '</p>'
+            . '</div></td></tr>'
+            . '<tr><td align="center" style="padding:16px 4px 0;color:#98a2b3;font-size:11px;line-height:1.5;">© ' . date('Y') . ' ' . appMailHtml($siteName) . '</td></tr>'
+            . '</table></td></tr></table></body></html>';
+    }
+}
+
 if (!function_exists('appBuildMailBody')) {
     function appBuildMailBody(string $body): string
     {
@@ -202,6 +353,38 @@ if (!function_exists('emailLogsTableExists')) {
                   AND TABLE_NAME = ?
             ');
             $stmt->execute(['email_logs']);
+
+            return (int) $stmt->fetchColumn() > 0;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('emailLogsRelatedTableExists')) {
+    function emailLogsRelatedTableExists(PDO $pdo, string $table): bool
+    {
+        $table = preg_replace('/[^a-zA-Z0-9_]/', '', $table) ?: '';
+        if ($table === '') {
+            return false;
+        }
+
+        try {
+            $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+            if ($driver === 'sqlite') {
+                $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1");
+                $stmt->execute([$table]);
+
+                return (bool) $stmt->fetchColumn();
+            }
+
+            $stmt = $pdo->prepare('
+                SELECT COUNT(*)
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+            ');
+            $stmt->execute([$table]);
 
             return (int) $stmt->fetchColumn() > 0;
         } catch (Throwable $e) {
@@ -492,12 +675,25 @@ if (!function_exists('emailLogsGetList')) {
 
         $filter = emailLogsBuildWhere($search, $status, $source, $driver, $dateFrom, $dateTo, 'e.');
         $offset = ($page - 1) * $perPage;
+        $joins = '';
+        $selectExtras = ', NULL AS notification_exists, NULL AS queue_exists';
+        if (function_exists('emailLogsRelatedTableExists') && emailLogsRelatedTableExists($pdo, 'notifications')) {
+            $joins .= ' LEFT JOIN notifications n ON n.id = e.notification_id';
+            $selectExtras = ', CASE WHEN e.notification_id IS NULL THEN NULL WHEN n.id IS NULL THEN 0 ELSE 1 END AS notification_exists, NULL AS queue_exists';
+        }
+        if (function_exists('emailLogsRelatedTableExists') && emailLogsRelatedTableExists($pdo, 'notification_email_queue')) {
+            $joins .= ' LEFT JOIN notification_email_queue q ON q.id = e.queue_id';
+            $notificationExistsSelect = str_contains($selectExtras, 'CASE WHEN e.notification_id')
+                ? 'CASE WHEN e.notification_id IS NULL THEN NULL WHEN n.id IS NULL THEN 0 ELSE 1 END'
+                : 'NULL';
+            $selectExtras = ', ' . $notificationExistsSelect . ' AS notification_exists, CASE WHEN e.queue_id IS NULL THEN NULL WHEN q.id IS NULL THEN 0 ELSE 1 END AS queue_exists';
+        }
 
         $countStmt = $pdo->prepare("SELECT COUNT(*) FROM email_logs e WHERE {$filter['where']}");
         $countStmt->execute($filter['params']);
         $total = (int) $countStmt->fetchColumn();
 
-        $stmt = $pdo->prepare("SELECT e.* FROM email_logs e WHERE {$filter['where']} ORDER BY e.created_at DESC, e.id DESC LIMIT :limit OFFSET :offset");
+        $stmt = $pdo->prepare("SELECT e.*{$selectExtras} FROM email_logs e{$joins} WHERE {$filter['where']} ORDER BY e.created_at DESC, e.id DESC LIMIT :limit OFFSET :offset");
         foreach ($filter['params'] as $key => $value) {
             $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
         }
@@ -1244,6 +1440,12 @@ function accountEmailService(?PDO $pdo = null): \App\Engine\Email\AccountEmailSe
 {
     $connection = $pdo ?? ($GLOBALS['pdo'] ?? null);
     return new \App\Engine\Email\AccountEmailService($connection instanceof PDO ? $connection : null);
+}
+
+function adminEmailService(?PDO $pdo = null): \App\Engine\Email\AdminEmailService
+{
+    $connection = $pdo ?? ($GLOBALS['pdo'] ?? null);
+    return new \App\Engine\Email\AdminEmailService($connection instanceof PDO ? $connection : null);
 }
 
 function sendPasswordResetEmail(string $to, string $userName, string $resetUrl, ?int $expiresMinutes = null): bool

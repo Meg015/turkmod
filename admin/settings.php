@@ -16,13 +16,11 @@ $sections = [
     'file_manager' => ['title' => 'Dosya Yöneticisi', 'icon' => 'bi-folder2-open'],
     'user_uploads' => ['title' => 'Kullanıcı Gönderimleri', 'icon' => 'bi-cloud-plus'],
     'route_filters' => ['title' => 'Rota Filtreleri', 'icon' => 'bi-signpost-split'],
-    'notifications' => ['title' => 'Bildirim Sistemi', 'icon' => 'bi-bell'],
     'toast_notifications' => ['title' => 'Toast Bildirimleri', 'icon' => 'bi-chat-square-dots'],
     'email' => ['title' => 'E-posta', 'icon' => 'bi-envelope'],
     'rate_limit' => ['title' => 'İstek Sınırları', 'icon' => 'bi-speedometer2'],
     'performance' => ['title' => 'Performans', 'icon' => 'bi-lightning-charge'],
     'social_features' => ['title' => 'Sosyal Özellikler', 'icon' => 'bi-people'],
-    'content_moderation' => ['title' => 'İçerik Moderasyonu', 'icon' => 'bi-exclamation-triangle'],
     'popup_announcement' => ['title' => 'Açılır Duyuru', 'icon' => 'bi-megaphone'],
     'cron' => ['title' => 'Cron & Görevler', 'icon' => 'bi-clock-history'],
 ];
@@ -35,14 +33,12 @@ $sectionDescriptions = [
     'comments' => 'Yorum sistemi, uzunluk limitleri, reaksiyonlar, spam filtreleri ve şikayet davranışlarını tek merkezden yönetin.',
     'downloads' => 'İndirme kartları, dış bağlantı yönlendirme metinleri ve erişim kilidi davranışlarını yönetin.',
     'file_manager' => 'Dosya yükleme, izinli uzantılar, görsel optimizasyon, WebP, thumbnail ve filigran kurallarını yönetin.',
-    'user_uploads' => 'Kullanıcı mod gönderim formunun görünen alanlarını, medya kurallarını ve form davranışlarını düzenleyin.',
+    'user_uploads' => 'Kullanıcı mod gönderimi, düzenleme onayı, zorunlu alanlar, medya kuralları ve otomatik içerik kontrollerini tek yerden yönetin.',
     'route_filters' => 'Konu ve kategori URL ön eklerini yönetin. Örnek: /konu/slug-id yerine /topic/slug-id veya /kategori/slug yerine /category/slug kullanabilirsiniz.',
-    'notifications' => 'Bildirim merkezi, okunmamış sayaçlar, bildirim kuralları ve kuyruk davranışlarını tek alanda yönetin.',
     'rate_limit' => 'Her işlem için limit ve süre alanlarını birlikte okuyun. Limit, seçilen süre içinde kaç deneme, istek veya işlem yapılabileceğini; süre ise bu kuralın kaç dakika geçerli olduğunu belirler.',
-    'email' => 'SMTP, gönderici bilgileri, test gönderimi ve hesap e-posta şablonlarını yönetin.',
+    'email' => 'SMTP, gönderici bilgileri ve genel test gönderimini yönetin.',
     'performance' => 'Önbellekleme, GZIP sıkıştırma, CDN, lazy loading ve minifikasyon gibi performans optimizasyonlarını yönetin.',
     'social_features' => 'Sosyal medya bağlantıları ve kullanıcı etkileşimiyle ilgili sosyal özellikleri tek merkezden yönetin.',
-    'content_moderation' => 'İçerik kalitesi, otomatik etiketleme, intihal kontrolü ve yinelenen içerik tespiti gibi moderasyon ayarlarını yapılandırın.',
     'toast_notifications' => 'Anlık bildirim (toast) konumu, görünümü, animasyonu, zamanlayıcısı ve davranış ayarlarını tek merkezden yönetin.',
     'popup_announcement' => 'Ziyaretçilerinize veya üyelerinize ilk girişte gösterilmek üzere popup duyuruları ayarlayın, süre ve hedef kitle kuralları belirleyin.',
     'cron' => 'Arka plan görevleri ve zamanlanmış işlemleri (Cron Job) buradan yönetebilirsiniz.',
@@ -507,24 +503,23 @@ $downloadGroups = [
     ],
 ];
 
-$contentModerationGroups = [
-    'content-moderation-tab-workflow' => [
+$userUploadGroups = [
+    'user-upload-tab-workflow' => [
         'title' => 'Akış',
         'icon' => 'bi-shield-check',
-        'description' => 'Yeni gönderi, kullanıcı düzenlemesi ve otomatik moderasyon ana davranışları.',
+        'description' => 'Mod gönderim sayfası, yeni gönderi onayı ve kullanıcı düzenleme onayı.',
         'keys' => [
-            'content_moderation_enabled',
+            'user_upload_enabled',
             'user_upload_require_approval',
             'user_upload_default_status',
             'topic_user_edit_requires_approval',
         ],
     ],
-    'content-moderation-tab-quality' => [
+    'user-upload-tab-quality' => [
         'title' => 'Kalite',
         'icon' => 'bi-card-checklist',
         'description' => 'Başlık, açıklama ve yinelenen içerik kontrolleri.',
         'keys' => [
-            'topic_min_title_length',
             'topic_require_excerpt',
             'user_upload_min_title_length',
             'user_upload_max_title_length',
@@ -532,7 +527,7 @@ $contentModerationGroups = [
             'user_upload_block_duplicate_titles',
         ],
     ],
-    'content-moderation-tab-required' => [
+    'user-upload-tab-required' => [
         'title' => 'Zorunlu Alanlar',
         'icon' => 'bi-ui-checks-grid',
         'description' => 'Kullanıcı gönderilerinde zorunlu tutulacak medya ve meta alanları.',
@@ -544,11 +539,51 @@ $contentModerationGroups = [
             'user_upload_require_download_link',
         ],
     ],
-    'content-moderation-tab-words' => [
+    'user-upload-tab-media' => [
+        'title' => 'Görsel Kuralları',
+        'icon' => 'bi-images',
+        'description' => 'Kapak ve galeri görsellerinin boyut, uzantı ve adet sınırları.',
+        'keys' => [
+            'user_upload_max_images',
+            'user_upload_cover_max_size_mb',
+            'user_upload_gallery_max_size_mb',
+            'user_upload_allowed_image_ext',
+            'user_upload_image_min_width',
+            'user_upload_image_min_height',
+            'user_upload_image_max_width',
+            'user_upload_image_max_height',
+        ],
+    ],
+    'user-upload-tab-video' => [
+        'title' => 'Video ve Linkler',
+        'icon' => 'bi-play-btn',
+        'description' => 'Tanıtım videosu ve izin verilen video sağlayıcıları.',
+        'keys' => [
+            'user_upload_allow_video_url',
+            'user_upload_allowed_video_hosts',
+            'user_upload_max_size_mb',
+        ],
+    ],
+    'user-upload-tab-form' => [
+        'title' => 'Form Davranışı',
+        'icon' => 'bi-layout-text-sidebar',
+        'description' => 'Wizard arayüzü, gönderim sonrası kilitleme ve kullanıcı takip kutusu davranışları.',
+        'keys' => [
+            'user_upload_default_content_align',
+            'user_upload_submission_notice',
+            'user_upload_lock_after_submit',
+            'user_upload_wizard_enabled',
+            'user_upload_allow_step_skip',
+            'user_upload_show_profile_followup',
+            'user_upload_show_profile_button',
+        ],
+    ],
+    'user-upload-tab-words' => [
         'title' => 'Kelime Filtresi',
         'icon' => 'bi-filter-circle',
         'description' => 'Başlık ve açıklamada otomatik yasak kelime kontrolü.',
         'keys' => [
+            'content_moderation_enabled',
             'content_moderation_blocked_words',
             'content_moderation_blocked_words_action',
             'content_moderation_blocked_words_message',
@@ -750,12 +785,6 @@ $emailGroups = [
         'title' => 'Test Gönderimi',
         'icon' => 'bi-send-check',
         'description' => 'Mevcut ayarlarla seçtiğiniz adrese test e-postası gönderin.',
-        'keys' => [],
-    ],
-    'email-tab-account' => [
-        'title' => 'Hesap E-Posta Şablonları',
-        'icon' => 'bi-person-check',
-        'description' => 'Kayıt, doğrulama, şifre ve hesap güvenliği e-postalarını tek merkezden yönetin.',
         'keys' => [],
     ],
 ];
@@ -1053,68 +1082,6 @@ $simpleSettingsGroups = [
             'keys' => ['auto_hide_reported', 'report_threshold'],
         ],
     ],
-    'notifications' => [
-        [
-            'title' => 'Çekirdek Davranış',
-            'icon' => 'bi-bell',
-            'description' => 'Bildirim merkezinin aktifliği, yayın türleri ve kullanıcı tercihleri.',
-            'keys' => [
-                'notif_center_enabled',
-                'notif_allow_global_broadcasts',
-                'notif_allow_direct_messages',
-                'notif_respect_user_preferences',
-                'notif_require_https_links',
-                'notif_show_header_badge',
-                'notif_auto_mark_link_click',
-                'notif_enable_read_more',
-                'notif_empty_state_tips',
-            ],
-        ],
-        [
-            'title' => 'Kullanıcı Görünümü',
-            'icon' => 'bi-layout-text-window',
-            'description' => 'Üst menü ve bildirim sayfasında kaç kayıt/satır gösterileceğini belirleyin.',
-            'keys' => ['notif_dropdown_limit', 'notif_user_page_per_page', 'notif_user_message_lines'],
-        ],
-        [
-            'title' => 'Manuel Bildirim Varsayılanları',
-            'icon' => 'bi-send',
-            'description' => 'Manuel bildirim oluştururken kullanılacak varsayılan tip, link ve metin limitleri.',
-            'keys' => ['notif_default_type', 'notif_default_link', 'notif_max_title_length', 'notif_max_message_length'],
-        ],
-        [
-            'title' => 'Geçmiş ve Saklama',
-            'icon' => 'bi-archive',
-            'description' => 'Admin geçmiş ekranı ve eski bildirim temizliği ayarları.',
-            'keys' => ['notif_history_per_page', 'notif_history_message_preview', 'notif_retention_days'],
-        ],
-        [
-            'title' => 'Olay Bildirimleri',
-            'icon' => 'bi-lightning-charge',
-            'description' => 'Yorum, bahsetme, moderasyon ve favori olaylarından bildirim üretimini yönetin.',
-            'keys' => [
-                'notif_events_enabled',
-                'notif_event_comments_enabled',
-                'notif_event_mentions_enabled',
-                'notif_event_topic_moderation_enabled',
-                'notif_event_favorites_enabled',
-                'notif_event_skip_actor',
-                'notif_event_dedupe_enabled',
-            ],
-        ],
-        [
-            'title' => 'E-posta ve Karşılama',
-            'icon' => 'bi-envelope-paper',
-            'description' => 'Bildirim e-posta kuyruğu ve yeni kullanıcı karşılama bildirimi.',
-            'keys' => [
-                'notif_email_channel_ready',
-                'notif_email_queue_max_attempts',
-                'notif_system_sender',
-                'notif_welcome_enabled',
-                'notif_welcome_msg',
-            ],
-        ],
-    ],
     'toast_notifications' => [
         [
             'title' => 'Görünüm ve Konum',
@@ -1240,6 +1207,28 @@ if (!function_exists('settingsBuildEmailTestHtml')) {
                 'Alici' => $recipient,
             ];
 
+            if (function_exists('appRenderMailLayout')) {
+                return appRenderMailLayout([
+                    'site_name' => $siteName,
+                    'eyebrow' => 'E-posta testi',
+                    'title' => $siteName . ' e-posta testi',
+                    'content_html' => function_exists('appMailPlainTextHtml')
+                        ? appMailPlainTextHtml($message)
+                        : nl2br(htmlspecialchars($message, ENT_QUOTES, 'UTF-8')),
+                    'detail_rows' => [
+                        'Sistem' => $siteName,
+                        'Surucu' => $driver,
+                        'Gonderici' => $fromName,
+                        'Gonderici Adresi' => $fromAddress,
+                        'SMTP Sunucu' => $smtpHost !== '' ? $smtpHost : '-',
+                        'SMTP Port' => $smtpPort !== '' ? $smtpPort : '-',
+                        'Sifreleme' => $smtpEncryption !== '' ? $smtpEncryption : '-',
+                        'Alici' => $recipient,
+                    ],
+                    'footer_note' => 'Bu ileti, paneldeki mevcut ayarlar kullanilarak test amacli olusturuldu.',
+                ]);
+            }
+
             $metaHtml = '';
             foreach ($metaRows as $label => $value) {
                 $metaHtml .= '<tr>'
@@ -1249,7 +1238,7 @@ if (!function_exists('settingsBuildEmailTestHtml')) {
             }
 
             return '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"></head>'
-                . '<body style="margin:0;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">'
+                . '<body style="margin:0;background:#f3f5f8;font-family:Segoe UI,Roboto,sans-serif;color:#111827;">'
                 . '<div style="max-width:640px;margin:0 auto;padding:32px 18px;">'
                 . '<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:28px;">'
                 . '<p style="margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">E-posta Testi</p>'
@@ -1401,6 +1390,35 @@ if (!function_exists('settingsEmailTestDiagnostic')) {
         }
 
         return substr($diagnostic, 0, 700);
+    }
+}
+
+if (!function_exists('settingsPreserveMovedAccountEmailSettings')) {
+    /**
+     * Account email templates are edited in Notification Center now. Preserve their
+     * values when the legacy all-settings form is submitted without those fields.
+     *
+     * @param array<string,mixed> $input
+     * @param array<string,mixed> $currentSettings
+     * @return array<string,mixed>
+     */
+    function settingsPreserveMovedAccountEmailSettings(array $input, array $currentSettings): array
+    {
+        $defaults = ['account_email_system_enabled' => '1'];
+        foreach (\App\Engine\Email\AccountEmailService::catalog() as $templateKey => $template) {
+            foreach (['enabled', 'subject', 'body'] as $field) {
+                $defaults[\App\Engine\Email\AccountEmailService::settingKey((string) $templateKey, $field)] = (string) ($template[$field] ?? '');
+            }
+        }
+
+        foreach ($defaults as $key => $defaultValue) {
+            if (!array_key_exists($key, $input)) {
+                $currentValue = (string) ($currentSettings[$key] ?? '');
+                $input[$key] = $currentValue !== '' ? $currentValue : $defaultValue;
+            }
+        }
+
+        return $input;
     }
 }
 
@@ -1736,50 +1754,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     $postAction = trim((string) ($_POST['action'] ?? 'save_settings'));
-    if ($postAction === 'send_account_email_test') {
-        $templateKey = trim((string) ($_POST['account_email_template_key'] ?? ''));
-        $recipient = trim((string) ($_POST['account_email_test_recipient'] ?? ''));
-        $catalog = \App\Engine\Email\AccountEmailService::catalog();
-        if (!isset($catalog[$templateKey])) {
-            sendError('account_email_template_invalid', 'Geçersiz hesap e-posta şablonu.', 422);
-        }
-        if (filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
-            sendError('account_email_recipient_invalid', 'Geçerli bir test e-posta adresi girin.', 422);
-        }
-
-        $currentSettings = getAdminSettings($pdo);
-        $smtpOverrides = $currentSettings;
-        foreach (['mail_driver', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption', 'mail_from_name', 'mail_from_address'] as $settingKey) {
-            if (array_key_exists($settingKey, $_POST)) {
-                $smtpOverrides[$settingKey] = trim((string) $_POST[$settingKey]);
-            }
-        }
-        $subjectKey = \App\Engine\Email\AccountEmailService::settingKey($templateKey, 'subject');
-        $bodyKey = \App\Engine\Email\AccountEmailService::settingKey($templateKey, 'body');
-        $publicBase = function_exists('appPublicBaseUrl') ? rtrim((string) appPublicBaseUrl(true), '/') : '';
-        $ok = accountEmailService($pdo)->send($templateKey, $recipient, [
-            'username' => 'Test Kullanıcısı',
-            'action_url' => $publicBase . '/test-action',
-            'login_url' => function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : $publicBase . '/giris',
-            'profile_url' => $publicBase . '/profil/test-kullanici',
-            'expires_minutes' => '60',
-            'old_email' => 'eski@example.com',
-            'new_email' => $recipient,
-            'actor_context' => 'Yönetim paneli test gönderimi',
-        ], [
-            'force' => true,
-            'enabled' => '1',
-            'subject' => (string) ($_POST[$subjectKey] ?? $catalog[$templateKey]['subject']),
-            'body' => (string) ($_POST[$bodyKey] ?? $catalog[$templateKey]['body']),
-            'settings' => $smtpOverrides,
-        ]);
-        $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
-        if ($ok) {
-            sendSuccess('Hesap e-posta testi gönderildi: ' . $recipient, ['template' => $templateKey]);
-        }
-        $detail = settingsEmailTestDiagnostic($mailResult, [(string) ($smtpOverrides['smtp_password'] ?? '')]);
-        sendError('account_email_test_failed', 'Hesap e-posta testi gönderilemedi.' . ($detail !== '' ? ' ' . $detail : ''), 500);
-    }
     if ($postAction === 'send_email_test') {
         $currentSettings = getAdminSettings($pdo);
         $recipient = trim((string) ($_POST['email_test_recipient'] ?? ''));
@@ -1971,7 +1945,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     try {
-        saveAdminSettings($pdo, $_POST);
+        $settingsPost = settingsPreserveMovedAccountEmailSettings($_POST, getAdminSettings($pdo));
+        saveAdminSettings($pdo, $settingsPost);
         $activeTab = $_POST['_active_tab'] ?? 'general';
         logActivity($pdo, 'settings_updated', 'settings', null, ['active_tab' => $activeTab]);
         adminAuditLogger()->logAction($pdo, 'settings_updated', 'settings', 0, 'Ayarlar güncellendi', [], ['active_tab' => $activeTab], false);
@@ -2887,66 +2862,6 @@ require_once __DIR__ . '/header.php';
                                                     <i class="bi bi-send-check"></i> Test Gönder
                                                 </button>
                                             </div>
-                                        <?php else: ?>
-                                            <?php $accountEmailCatalog = \App\Engine\Email\AccountEmailService::catalog(); ?>
-                                            <?= adminRenderAlert('', 'info', [
-                                                'icon' => 'bi-info-circle',
-                                                'class' => 'ui-admin-alert-spaced',
-                                                'html' => '<div><strong>Tek kaynak, duplicate ayar yok</strong><br>SMTP ve gönderen bilgileri E-posta Ayarları sekmesinden kullanılır. Yorum, mesaj ve moderasyon e-postaları <a href="notifications.php?tab=templates">Bildirim Şablonları</a> ekranında kalır.</div>',
-                                            ]) ?>
-                                            <section class="account-email-behavior admin-section-block ui-section">
-                                                <div class="admin-inline-head ui-panel__head"><i class="bi bi-shield-check"></i><span class="admin-inline-title">Hesap E-posta Davranışı</span></div>
-                                                <?= adminRenderAlert('Kayıt onayı ve şifre sıfırlama davranışı artık Kullanıcı Sistemi alt sekmelerinde yönetiliyor.', 'info', [
-                                                    'icon' => '',
-                                                    'class' => 'ui-alert-spaced',
-                                                ]) ?>
-                                            </section>
-                                            <div class="account-email-template-list">
-                                                <?php foreach ($accountEmailCatalog as $accountTemplateKey => $accountTemplate): ?>
-                                                    <?php
-                                                        $enabledKey = \App\Engine\Email\AccountEmailService::settingKey($accountTemplateKey, 'enabled');
-                                                        $subjectKey = \App\Engine\Email\AccountEmailService::settingKey($accountTemplateKey, 'subject');
-                                                        $bodyKey = \App\Engine\Email\AccountEmailService::settingKey($accountTemplateKey, 'body');
-                                                        $enabledValue = (string) ($settings[$enabledKey] ?? $accountTemplate['enabled']);
-                                                        $subjectValue = (string) ($settings[$subjectKey] ?? $accountTemplate['subject']);
-                                                        $bodyValue = (string) ($settings[$bodyKey] ?? $accountTemplate['body']);
-                                                    ?>
-                                                    <?= adminRenderPanelShellOpen([
-                                                        'tag' => 'section',
-                                                        'class' => 'account-email-template-card settings-rule',
-                                                        'attrs' => ['data-account-email-card' => (string) $accountTemplateKey],
-                                                    ]) ?>
-                                                        <?= adminRenderPanelHeader([
-                                                            'html' => '<div><strong>' . htmlspecialchars((string) $accountTemplate['label'], ENT_QUOTES, 'UTF-8') . '</strong><small class="d-block">' . htmlspecialchars((string) $accountTemplate['description'], ENT_QUOTES, 'UTF-8') . '</small></div>'
-                                                                . '<label class="ui-admin-switch"><input type="checkbox" name="' . htmlspecialchars($enabledKey, ENT_QUOTES, 'UTF-8') . '" value="1"' . ($enabledValue === '1' ? ' checked' : '') . '><span class="ui-admin-switch-label">Aktif</span></label>',
-                                                        ]) ?>
-                                                        <?= adminRenderPanelBodyOpen() ?>
-                                                            <label class="ui-admin-form-label" for="<?= htmlspecialchars($subjectKey) ?>">E-posta Konusu</label>
-                                                            <input id="<?= htmlspecialchars($subjectKey) ?>" name="<?= htmlspecialchars($subjectKey) ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($subjectValue) ?>" required>
-                                                            <label class="ui-admin-form-label mt-3" for="<?= htmlspecialchars($bodyKey) ?>">HTML E-posta İçeriği</label>
-                                                            <textarea id="<?= htmlspecialchars($bodyKey) ?>" name="<?= htmlspecialchars($bodyKey) ?>" class="ui-admin-form-control account-email-body" rows="10" required><?= htmlspecialchars($bodyValue) ?></textarea>
-                                                            <div class="notification-template-token-list mt-2">
-                                                                <?php foreach (\App\Engine\Email\AccountEmailService::allowedVariables() as $variable): ?>
-                                                                    <button type="button" class="notification-template-token account-email-token" data-token="{{<?= htmlspecialchars($variable) ?>}}">{{<?= htmlspecialchars($variable) ?>}}</button>
-                                                                <?php endforeach; ?>
-                                                            </div>
-                                                            <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm mt-2 account-email-preview-button"><i class="bi bi-eye"></i> Önizlemeyi Aç</button>
-                                                            <div class="account-email-preview mt-3" data-account-email-preview></div>
-                                                            <div class="admin-settings-grid ui-grid mt-3">
-                                                                <div class="admin-field-wide">
-                                                                    <label class="ui-admin-form-label" for="account_email_test_recipient_<?= htmlspecialchars($accountTemplateKey) ?>">Test Alıcısı</label>
-                                                                    <input id="account_email_test_recipient_<?= htmlspecialchars($accountTemplateKey) ?>" class="ui-admin-form-control" type="email" value="<?= htmlspecialchars((string) ($_SESSION['_auth_user_email'] ?? '')) ?>">
-                                                                </div>
-                                                            </div>
-                                                            <textarea class="ui-admin-hidden account-email-default-body"><?= htmlspecialchars((string) $accountTemplate['body']) ?></textarea>
-                                                            <div class="d-flex justify-content-between mt-3">
-                                                                <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm account-email-reset" data-default-subject="<?= htmlspecialchars((string) $accountTemplate['subject']) ?>"><i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön</button>
-                                                                <button type="submit" name="action" value="send_account_email_test" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm" data-account-email-template="<?= htmlspecialchars($accountTemplateKey) ?>"><i class="bi bi-send-check"></i> Test Gönder</button>
-                                                            </div>
-                                                        <?= adminRenderPanelBodyClose() ?>
-                                                    <?= adminRenderPanelShellClose() ?>
-                                                <?php endforeach; ?>
-                                            </div>
                                         <?php endif; ?>
                                 <?= adminRenderSubtabPanelClose() ?>
                             <?php $emailFirst = false; endforeach; ?>
@@ -3143,35 +3058,34 @@ require_once __DIR__ . '/header.php';
 
                             <script src="<?= asset_url('admin/assets/settings-page-rate-limit.js', $baseUri) ?>" defer></script>
                         <?php elseif ($id === 'user_uploads'): ?>
-                            <?php
-                                $userUploadGroups = adminBuildSettingGroupsFromDefinitions($definitions, 'user_uploads', [
-                                    'Genel' => [
-                                        'icon' => 'bi-cloud-plus',
-                                        'description' => 'Kullanıcı tarafındaki mod gönderim sayfasının genel aktiflik durumu.',
+                            <div class="route-filter-subtabs settings-subtabs" data-settings-subtabs>
+                                <?php $userUploadFirst = true; foreach ($userUploadGroups as $userUploadTabId => $userUploadGroup): ?>
+                                    <button type="button" class="route-filter-subtab-btn settings-subtab-btn<?= $userUploadFirst ? ' active' : '' ?>" data-settings-subtab="<?= htmlspecialchars($userUploadTabId) ?>" data-settings-subtab-scope="user-uploads">
+                                        <i class="bi <?= htmlspecialchars((string) ($userUploadGroup['icon'] ?? 'bi-cloud-plus')) ?>"></i><?= htmlspecialchars((string) ($userUploadGroup['title'] ?? $userUploadTabId)) ?>
+                                    </button>
+                                <?php $userUploadFirst = false; endforeach; ?>
+                            </div>
+
+                            <?php $userUploadFirst = true; foreach ($userUploadGroups as $userUploadTabId => $userUploadGroup): ?>
+                                <?= adminRenderSubtabPanelOpen([
+                                    'class' => 'route-filter-subtab-panel' . ($userUploadFirst ? ' is-active' : ''),
+                                    'attrs' => [
+                                        'id' => (string) $userUploadTabId,
+                                        'data-settings-subtab-panel' => (string) $userUploadTabId,
+                                        'data-settings-subtab-scope' => 'user-uploads',
                                     ],
-                                    'Zorunlu Alanlar' => [
-                                        'icon' => 'bi-ui-checks-grid',
-                                        'description' => 'Gönderim formunda zorunlu tutulacak temel alanlar.',
-                                    ],
-                                    'Görsel Kuralları' => [
-                                        'icon' => 'bi-images',
-                                        'description' => 'Kapak ve galeri görsellerinin boyut, uzantı ve adet sınırları.',
-                                    ],
-                                    'Video ve Linkler' => [
-                                        'icon' => 'bi-play-btn',
-                                        'description' => 'Tanıtım videosu ve izin verilen video sağlayıcıları.',
-                                    ],
-                                    'Limitler' => [
-                                        'icon' => 'bi-speedometer2',
-                                        'description' => 'Dosya boyutu gibi gönderim limitleri. Sıklık limitleri İstek Sınırları sekmesinde yönetilir.',
-                                    ],
-                                    'Form Davranışı' => [
-                                        'icon' => 'bi-layout-text-sidebar',
-                                        'description' => 'Wizard arayüzü, gönderim sonrası kilitleme ve kullanıcı takip kutusu davranışları.',
-                                    ],
-                                ]);
-                            ?>
-                            <?= adminRenderSettingsRuleSections($definitions, $settings, 'user_uploads', $userUploadGroups) ?>
+                                ]) ?>
+                                        <?php if (!empty($userUploadGroup['description'])): ?>
+                                            <div class="admin-section-desc"><?= htmlspecialchars((string) ($userUploadGroup['description'])) ?></div>
+                                        <?php endif; ?>
+                                        <?= adminRenderSettingsRuleSections($definitions, $settings, 'user_uploads', [[
+                                            'title' => (string) ($userUploadGroup['title'] ?? 'Kullanıcı Gönderimleri'),
+                                            'icon' => (string) ($userUploadGroup['icon'] ?? 'bi-cloud-plus'),
+                                            'description' => (string) ($userUploadGroup['description'] ?? ''),
+                                            'keys' => (array) ($userUploadGroup['keys'] ?? []),
+                                        ]]) ?>
+                                <?= adminRenderSubtabPanelClose() ?>
+                            <?php $userUploadFirst = false; endforeach; ?>
                         <?php elseif ($id === 'downloads'): ?>
                             <div class="route-filter-subtabs settings-subtabs" data-settings-subtabs>
                                 <?php $downloadFirst = true; foreach ($downloadGroups as $downloadTabId => $downloadGroup): ?>
@@ -3205,35 +3119,6 @@ require_once __DIR__ . '/header.php';
                                         <?php endif; ?>
                                 <?= adminRenderSubtabPanelClose() ?>
                             <?php $downloadFirst = false; endforeach; ?>
-                        <?php elseif ($id === 'content_moderation'): ?>
-                            <div class="route-filter-subtabs settings-subtabs" data-settings-subtabs>
-                                <?php $contentModerationFirst = true; foreach ($contentModerationGroups as $moderationTabId => $moderationGroup): ?>
-                                    <button type="button" class="route-filter-subtab-btn settings-subtab-btn<?= $contentModerationFirst ? ' active' : '' ?>" data-settings-subtab="<?= htmlspecialchars($moderationTabId) ?>" data-settings-subtab-scope="content-moderation">
-                                        <i class="bi <?= htmlspecialchars((string) ($moderationGroup['icon'] ?? 'bi-shield-check')) ?>"></i><?= htmlspecialchars((string) ($moderationGroup['title'] ?? $moderationTabId)) ?>
-                                    </button>
-                                <?php $contentModerationFirst = false; endforeach; ?>
-                            </div>
-
-                            <?php $contentModerationFirst = true; foreach ($contentModerationGroups as $moderationTabId => $moderationGroup): ?>
-                                <?= adminRenderSubtabPanelOpen([
-                                    'class' => 'route-filter-subtab-panel' . ($contentModerationFirst ? ' is-active' : ''),
-                                    'attrs' => [
-                                        'id' => (string) $moderationTabId,
-                                        'data-settings-subtab-panel' => (string) $moderationTabId,
-                                        'data-settings-subtab-scope' => 'content-moderation',
-                                    ],
-                                ]) ?>
-                                        <?php if (!empty($moderationGroup['description'])): ?>
-                                            <div class="admin-section-desc"><?= htmlspecialchars((string) ($moderationGroup['description'])) ?></div>
-                                        <?php endif; ?>
-                                        <?= adminRenderSettingsRuleSections($definitions, $settings, 'content_moderation', [[
-                                            'title' => (string) ($moderationGroup['title'] ?? 'Moderasyon Ayarları'),
-                                            'icon' => (string) ($moderationGroup['icon'] ?? 'bi-shield-check'),
-                                            'description' => (string) ($moderationGroup['description'] ?? ''),
-                                            'keys' => (array) ($moderationGroup['keys'] ?? []),
-                                        ]]) ?>
-                                <?= adminRenderSubtabPanelClose() ?>
-                            <?php $contentModerationFirst = false; endforeach; ?>
                         <?php elseif (isset($simpleSettingsGroups[$id])): ?>
                             <?= adminRenderSettingsRuleSections($definitions, $settings, $id, $simpleSettingsGroups[$id]) ?>
                         <?php endif; ?>

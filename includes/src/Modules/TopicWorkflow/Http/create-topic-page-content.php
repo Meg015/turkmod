@@ -224,7 +224,7 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
     $coverMaxSizeMb = uploadTopicInt($settings, "user_upload_cover_max_size_mb", 10, 1);
     $galleryMaxSizeMb = uploadTopicInt($settings, "user_upload_gallery_max_size_mb", 10, 1);
     $attachmentMaxSizeMb = uploadTopicInt($settings, "user_upload_max_size_mb", 50, 1);
-    $minTitleLength = uploadTopicInt($settings, "topic_min_title_length", uploadTopicInt($settings, "user_upload_min_title_length", 3, 0), 0);
+    $minTitleLength = uploadTopicInt($settings, "user_upload_min_title_length", 3, 0);
     $maxTitleLength = uploadTopicInt($settings, "user_upload_max_title_length", 150, 1);
         $minContentLength = uploadTopicInt($settings, "user_upload_min_content_length", 10, 0);
     $requireExcerpt = uploadTopicBool($settings, "topic_require_excerpt", "1");
@@ -405,7 +405,7 @@ $imageMinWidth = uploadTopicInt($settings, "user_upload_image_min_width", 0);
 $imageMinHeight = uploadTopicInt($settings, "user_upload_image_min_height", 0);
 $imageMaxWidth = uploadTopicInt($settings, "user_upload_image_max_width", 0);
 $imageMaxHeight = uploadTopicInt($settings, "user_upload_image_max_height", 0);
-$minTitleLength = uploadTopicInt($settings, "topic_min_title_length", uploadTopicInt($settings, "user_upload_min_title_length", 3, 0), 0);
+$minTitleLength = uploadTopicInt($settings, "user_upload_min_title_length", 3, 0);
 $maxTitleLength = uploadTopicInt($settings, "user_upload_max_title_length", 150, 1);
     $minContentLength = uploadTopicInt($settings, "user_upload_min_content_length", 10, 0);
     $requireExcerpt = uploadTopicBool($settings, "topic_require_excerpt", "1");

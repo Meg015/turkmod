@@ -22,14 +22,15 @@ final class NotificationTemplateService
     public function allowedVariables(): array
     {
         return [
-            'actor_name' => 'Islemi yapan kullanici adi',
-            'recipient_name' => 'Bildirim alicisinin adi',
-            'topic_title' => 'Ilgili konu basligi',
-            'comment_excerpt' => 'Yorumdan kisa alinti',
+            'actor_name' => 'İşlemi yapan kullanıcı adı',
+            'recipient_name' => 'Bildirim alıcısının adı',
+            'topic_title' => 'İlgili konu başlığı',
+            'comment_excerpt' => 'Yorumdan kısa alıntı',
             'moderation_note' => 'Moderasyon notu',
-            'moderation_note_line' => 'Moderasyon notunun cumle icinde kullanimi',
-            'site_name' => 'Site adi',
-            'link' => 'Bildirim baglantisi',
+            'moderation_note_line' => 'Moderasyon notunun cümle içinde kullanımı',
+            'report_status' => 'Raporun güncel durum etiketi',
+            'site_name' => 'Site adı',
+            'link' => 'Bildirim bağlantısı',
         ];
     }
 
@@ -40,13 +41,29 @@ final class NotificationTemplateService
 
         return [
             'actor_name' => 'Mehmet',
-            'recipient_name' => 'Kullanici',
-            'topic_title' => 'Ornek Mod Konusu',
-            'comment_excerpt' => 'Bu konu icin yeni bir yorum ornegi.',
-            'moderation_note' => 'Eksik gorseli tamamlayip tekrar gonderebilirsiniz.',
-            'moderation_note_line' => ' Not: Eksik gorseli tamamlayip tekrar gonderebilirsiniz.',
+            'recipient_name' => 'Kullanıcı',
+            'topic_title' => 'Örnek Mod Konusu',
+            'comment_excerpt' => 'Bu konu için yeni bir yorum örneği.',
+            'moderation_note' => 'Eksik görseli tamamlayıp tekrar gönderebilirsiniz.',
+            'moderation_note_line' => ' Not: Eksik görseli tamamlayıp tekrar gönderebilirsiniz.',
+            'report_status' => 'incelendi',
             'site_name' => 'Mod Portal',
             'link' => $base . '/konu/ornek-topic-subject',
+        ];
+    }
+
+    /** @param array<string,mixed> $source */
+    private function emailDefaultsFrom(array $source): array
+    {
+        $title = trim((string) ($source['title_template'] ?? $source['title'] ?? 'Bildirim'));
+        $message = trim((string) ($source['message_template'] ?? $source['message'] ?? ''));
+        $link = trim((string) ($source['link_template'] ?? '{{link}}'));
+
+        return [
+            'email_subject_template' => $title,
+            'email_body_template' => "Merhaba {{recipient_name}},\n\n" . $message . "\n\nDetayları görüntülemek için bağlantıyı kullanabilirsiniz.\n\n{{site_name}}",
+            'email_link_template' => $link,
+            'email_preview_template' => $message !== '' ? mb_substr($message, 0, 255) : $title,
         ];
     }
 
@@ -58,7 +75,7 @@ final class NotificationTemplateService
         $defaults = [];
 
         foreach ($this->preferences->eventDefinitions() as $eventKey => $definition) {
-            $defaults[$eventKey] = [
+            $template = [
                 'template_key' => $eventKey,
                 'name' => (string) ($definition['preference_title'] ?? $definition['title']),
                 'description' => (string) ($definition['preference_description'] ?? ''),
@@ -72,12 +89,13 @@ final class NotificationTemplateService
                 'variables' => $variables,
                 'sample_payload' => $samplePayload,
             ];
+            $defaults[$eventKey] = array_merge($template, $this->emailDefaultsFrom($template));
         }
 
-        $defaults['manual_announcement'] = [
+        $manualAnnouncement = [
             'template_key' => 'manual_announcement',
             'name' => 'Genel Duyuru',
-            'description' => 'Tum kullanicilara veya belirli bir kullaniciya gonderilecek standart duyuru sablonu.',
+            'description' => 'Tüm kullanıcılara veya belirli bir kullanıcıya gönderilecek standart duyuru metni.',
             'type' => 'info',
             'title_template' => 'Duyuru: {{topic_title}}',
             'message_template' => '{{site_name}} duyurusu: {{comment_excerpt}}',
@@ -88,14 +106,15 @@ final class NotificationTemplateService
             'variables' => $variables,
             'sample_payload' => $samplePayload,
         ];
+        $defaults['manual_announcement'] = array_merge($manualAnnouncement, $this->emailDefaultsFrom($manualAnnouncement));
 
-        $defaults['manual_maintenance'] = [
+        $manualMaintenance = [
             'template_key' => 'manual_maintenance',
-            'name' => 'Bakim Bilgilendirmesi',
-            'description' => 'Planli bakim, kisa kesinti ve sistem duyurulari icin uyari sablonu.',
+            'name' => 'Bakım Bilgilendirmesi',
+            'description' => 'Planlı bakım, kısa kesinti ve sistem duyuruları için uyarı metni.',
             'type' => 'warning',
-            'title_template' => 'Planli bakim duyurusu',
-            'message_template' => '{{site_name}} uzerinde planli bakim yapilacaktir. {{comment_excerpt}}',
+            'title_template' => 'Planlı bakım duyurusu',
+            'message_template' => '{{site_name}} üzerinde planlı bakım yapılacaktır. {{comment_excerpt}}',
             'link_template' => '{{link}}',
             'in_app_enabled' => 1,
             'email_enabled' => 0,
@@ -103,13 +122,14 @@ final class NotificationTemplateService
             'variables' => $variables,
             'sample_payload' => $samplePayload,
         ];
+        $defaults['manual_maintenance'] = array_merge($manualMaintenance, $this->emailDefaultsFrom($manualMaintenance));
 
-        $defaults['manual_success_update'] = [
+        $manualSuccessUpdate = [
             'template_key' => 'manual_success_update',
-            'name' => 'Basarili Islem Bildirimi',
-            'description' => 'Tamamlanan islem, onay veya olumlu sonuc duyurulari icin sablon.',
+            'name' => 'Başarılı İşlem Bildirimi',
+            'description' => 'Tamamlanan işlem, onay veya olumlu sonuç duyuruları için bildirim metni.',
             'type' => 'success',
-            'title_template' => 'Isleminiz tamamlandi',
+            'title_template' => 'İşleminiz tamamlandı',
             'message_template' => '{{recipient_name}}, {{comment_excerpt}}',
             'link_template' => '{{link}}',
             'in_app_enabled' => 1,
@@ -118,6 +138,7 @@ final class NotificationTemplateService
             'variables' => $variables,
             'sample_payload' => $samplePayload,
         ];
+        $defaults['manual_success_update'] = array_merge($manualSuccessUpdate, $this->emailDefaultsFrom($manualSuccessUpdate));
 
         return $defaults;
     }
@@ -127,31 +148,66 @@ final class NotificationTemplateService
         $this->schema->ensureTemplateSchema($pdo, $this);
     }
 
+    /** @return list<string> */
+    public function missingEmailColumns(PDO $pdo): array
+    {
+        return $this->schema->missingEmailTemplateColumns($pdo, true);
+    }
+
+    public function emailColumnsReady(PDO $pdo): bool
+    {
+        return $this->missingEmailColumns($pdo) === [];
+    }
+
     public function seedDefaultTemplates(PDO $pdo): void
     {
-        $stmt = $pdo->prepare("
-            INSERT INTO notification_templates
-                (template_key, name, description, type, title_template, message_template, link_template, in_app_enabled, email_enabled, is_active, variables_json, sample_payload, created_at, updated_at)
-            VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE template_key = VALUES(template_key)
-        ");
+        $availableColumns = $this->schema->templateTableColumns($pdo, true);
+        $columns = [
+            'template_key',
+            'name',
+            'description',
+            'type',
+            'title_template',
+            'message_template',
+            'link_template',
+            'in_app_enabled',
+            'email_enabled',
+        ];
+        foreach (['email_subject_template', 'email_body_template', 'email_link_template', 'email_preview_template'] as $column) {
+            if (isset($availableColumns[$column])) {
+                $columns[] = $column;
+            }
+        }
+        array_push($columns, 'is_active', 'variables_json', 'sample_payload');
+
+        $quotedColumns = array_map(static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`', $columns);
+        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+        $stmt = $pdo->prepare(
+            'INSERT INTO notification_templates (' . implode(', ', $quotedColumns) . ', `created_at`, `updated_at`) '
+            . 'VALUES (' . $placeholders . ', NOW(), NOW()) '
+            . 'ON DUPLICATE KEY UPDATE template_key = VALUES(template_key)'
+        );
 
         foreach ($this->defaults() as $template) {
-            $stmt->execute([
-                $template['template_key'],
-                $template['name'],
-                $template['description'],
-                $template['type'],
-                $template['title_template'],
-                $template['message_template'],
-                $template['link_template'],
-                (int) $template['in_app_enabled'],
-                (int) $template['email_enabled'],
-                (int) $template['is_active'],
-                json_encode($template['variables'], JSON_UNESCAPED_UNICODE),
-                json_encode($template['sample_payload'], JSON_UNESCAPED_UNICODE),
-            ]);
+            $values = [
+                'template_key' => $template['template_key'],
+                'name' => $template['name'],
+                'description' => $template['description'],
+                'type' => $template['type'],
+                'title_template' => $template['title_template'],
+                'message_template' => $template['message_template'],
+                'link_template' => $template['link_template'],
+                'in_app_enabled' => (int) $template['in_app_enabled'],
+                'email_enabled' => (int) $template['email_enabled'],
+                'email_subject_template' => $template['email_subject_template'],
+                'email_body_template' => $template['email_body_template'],
+                'email_link_template' => $template['email_link_template'],
+                'email_preview_template' => $template['email_preview_template'],
+                'is_active' => (int) $template['is_active'],
+                'variables_json' => json_encode($template['variables'], JSON_UNESCAPED_UNICODE),
+                'sample_payload' => json_encode($template['sample_payload'], JSON_UNESCAPED_UNICODE),
+            ];
+            $stmt->execute(array_map(static fn (string $column): mixed => $values[$column], $columns));
         }
     }
 
@@ -183,6 +239,11 @@ final class NotificationTemplateService
             $default['sample_payload'] ?? $this->samplePayload()
         );
         $row['is_default'] = isset($defaults[$key]);
+        foreach (['email_subject_template', 'email_body_template', 'email_link_template', 'email_preview_template'] as $emailField) {
+            if (!array_key_exists($emailField, $row) || trim((string) $row[$emailField]) === '') {
+                $row[$emailField] = (string) ($default[$emailField] ?? '');
+            }
+        }
 
         return $row;
     }
@@ -230,33 +291,55 @@ final class NotificationTemplateService
         $validTypes = ['info', 'success', 'warning', 'error', 'system'];
 
         if (trim((string) ($input['name'] ?? '')) === '') {
-            $errors[] = 'Sablon adi zorunludur.';
+            $errors[] = 'Bildirim adı zorunludur.';
         }
         if (trim((string) ($input['title_template'] ?? '')) === '') {
-            $errors[] = 'Baslik sablonu zorunludur.';
+            $errors[] = 'Başlık metni zorunludur.';
         }
         if (trim((string) ($input['message_template'] ?? '')) === '') {
-            $errors[] = 'Mesaj sablonu zorunludur.';
+            $errors[] = 'Mesaj metni zorunludur.';
         }
         if (mb_strlen((string) ($input['title_template'] ?? '')) > 255) {
-            $errors[] = 'Baslik sablonu en fazla 255 karakter olabilir.';
+            $errors[] = 'Başlık metni en fazla 255 karakter olabilir.';
         }
         if (mb_strlen((string) ($input['link_template'] ?? '')) > 1024) {
-            $errors[] = 'Link sablonu en fazla 1024 karakter olabilir.';
+            $errors[] = 'Link metni en fazla 1024 karakter olabilir.';
+        }
+        if (mb_strlen((string) ($input['email_subject_template'] ?? '')) > 255) {
+            $errors[] = 'E-posta konusu en fazla 255 karakter olabilir.';
+        }
+        if (mb_strlen((string) ($input['email_body_template'] ?? '')) > 10000) {
+            $errors[] = 'E-posta gövdesi en fazla 10000 karakter olabilir.';
+        }
+        if (mb_strlen((string) ($input['email_link_template'] ?? '')) > 1024) {
+            $errors[] = 'E-posta link metni en fazla 1024 karakter olabilir.';
+        }
+        if (mb_strlen((string) ($input['email_preview_template'] ?? '')) > 255) {
+            $errors[] = 'E-posta önizleme metni en fazla 255 karakter olabilir.';
+        }
+        if (!empty($input['email_enabled']) && trim((string) ($input['email_subject_template'] ?? '')) === '') {
+            $errors[] = 'E-posta açıkken konu metni zorunludur.';
+        }
+        if (!empty($input['email_enabled']) && trim((string) ($input['email_body_template'] ?? '')) === '') {
+            $errors[] = 'E-posta açıkken gövde metni zorunludur.';
         }
         if (!in_array((string) ($input['type'] ?? 'info'), $validTypes, true)) {
-            $errors[] = 'Gecersiz bildirim tipi.';
+            $errors[] = 'Geçersiz bildirim tipi.';
         }
 
         $allowedVariables = array_keys($this->allowedVariables());
         $usedVariables = array_unique(array_merge(
             $this->extractVariables((string) ($input['title_template'] ?? '')),
             $this->extractVariables((string) ($input['message_template'] ?? '')),
-            $this->extractVariables((string) ($input['link_template'] ?? ''))
+            $this->extractVariables((string) ($input['link_template'] ?? '')),
+            $this->extractVariables((string) ($input['email_subject_template'] ?? '')),
+            $this->extractVariables((string) ($input['email_body_template'] ?? '')),
+            $this->extractVariables((string) ($input['email_link_template'] ?? '')),
+            $this->extractVariables((string) ($input['email_preview_template'] ?? ''))
         ));
         $unknownVariables = array_values(array_diff($usedVariables, $allowedVariables));
         if ($unknownVariables !== []) {
-            $errors[] = 'Bilinmeyen degiskenler: ' . implode(', ', $unknownVariables);
+            $errors[] = 'Bilinmeyen değişkenler: ' . implode(', ', $unknownVariables);
         }
 
         return $errors;
@@ -267,7 +350,12 @@ final class NotificationTemplateService
         $this->ensureSchema($pdo);
 
         if (!preg_match('/^[a-z0-9_]{3,100}$/', $templateKey)) {
-            throw new RuntimeException('Sablon anahtari kucuk harf, rakam ve alt cizgiden olusmalidir.');
+            throw new RuntimeException('Bildirim anahtarı küçük harf, rakam ve alt çizgiden oluşmalıdır.');
+        }
+
+        $missingEmailColumns = $this->missingEmailColumns($pdo);
+        if (($input['channel'] ?? '') === 'email' && $missingEmailColumns !== []) {
+            throw new RuntimeException('E-posta metin alanları henüz hazır değil. Admin Panel > Veritabanı Senkronizasyonu çalıştırılmalı.');
         }
 
         $existing = $this->get($pdo, $templateKey);
@@ -289,40 +377,44 @@ final class NotificationTemplateService
             return isset($input[$key]) && (string) $input[$key] !== '0' ? 1 : 0;
         };
 
-        $stmt = $pdo->prepare("
-            INSERT INTO notification_templates
-                (template_key, name, description, type, title_template, message_template, link_template, in_app_enabled, email_enabled, is_active, variables_json, sample_payload, created_at, updated_at)
-            VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE
-                name = VALUES(name),
-                description = VALUES(description),
-                type = VALUES(type),
-                title_template = VALUES(title_template),
-                message_template = VALUES(message_template),
-                link_template = VALUES(link_template),
-                in_app_enabled = VALUES(in_app_enabled),
-                email_enabled = VALUES(email_enabled),
-                is_active = VALUES(is_active),
-                variables_json = VALUES(variables_json),
-                sample_payload = VALUES(sample_payload),
-                updated_at = NOW()
-        ");
+        $data = [
+            'template_key' => $templateKey,
+            'name' => trim((string) $input['name']),
+            'description' => trim((string) ($input['description'] ?? '')),
+            'type' => (string) ($input['type'] ?? 'info'),
+            'title_template' => trim((string) $input['title_template']),
+            'message_template' => trim((string) $input['message_template']),
+            'link_template' => trim((string) ($input['link_template'] ?? '')),
+            'in_app_enabled' => $boolInput('in_app_enabled'),
+            'email_enabled' => $boolInput('email_enabled'),
+            'is_active' => $boolInput('is_active'),
+            'variables_json' => json_encode($variables, JSON_UNESCAPED_UNICODE),
+            'sample_payload' => json_encode($samplePayload, JSON_UNESCAPED_UNICODE),
+        ];
 
-        return $stmt->execute([
-            $templateKey,
-            trim((string) $input['name']),
-            trim((string) ($input['description'] ?? '')),
-            (string) ($input['type'] ?? 'info'),
-            trim((string) $input['title_template']),
-            trim((string) $input['message_template']),
-            trim((string) ($input['link_template'] ?? '')),
-            $boolInput('in_app_enabled'),
-            $boolInput('email_enabled'),
-            $boolInput('is_active'),
-            json_encode($variables, JSON_UNESCAPED_UNICODE),
-            json_encode($samplePayload, JSON_UNESCAPED_UNICODE),
-        ]);
+        $availableColumns = $this->schema->templateTableColumns($pdo, true);
+        foreach (['email_subject_template', 'email_body_template', 'email_link_template', 'email_preview_template'] as $column) {
+            if (isset($availableColumns[$column])) {
+                $data[$column] = trim((string) ($input[$column] ?? ''));
+            }
+        }
+
+        $columns = array_keys($data);
+        $quotedColumns = array_map(static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`', $columns);
+        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+        $updateColumns = array_values(array_filter($columns, static fn (string $column): bool => $column !== 'template_key'));
+        $updateSql = implode(', ', array_map(
+            static fn (string $column): string => '`' . str_replace('`', '``', $column) . '` = VALUES(`' . str_replace('`', '``', $column) . '`)',
+            $updateColumns
+        ));
+
+        $stmt = $pdo->prepare(
+            'INSERT INTO notification_templates (' . implode(', ', $quotedColumns) . ', `created_at`, `updated_at`) '
+            . 'VALUES (' . $placeholders . ', NOW(), NOW()) '
+            . 'ON DUPLICATE KEY UPDATE ' . $updateSql . ', updated_at = NOW()'
+        );
+
+        return $stmt->execute(array_values($data));
     }
 
     public function delete(PDO $pdo, string $templateKey): bool
@@ -354,6 +446,10 @@ final class NotificationTemplateService
             'link_template' => $defaults[$templateKey]['link_template'],
             'in_app_enabled' => (string) $defaults[$templateKey]['in_app_enabled'],
             'email_enabled' => (string) $defaults[$templateKey]['email_enabled'],
+            'email_subject_template' => $defaults[$templateKey]['email_subject_template'],
+            'email_body_template' => $defaults[$templateKey]['email_body_template'],
+            'email_link_template' => $defaults[$templateKey]['email_link_template'],
+            'email_preview_template' => $defaults[$templateKey]['email_preview_template'],
             'is_active' => (string) $defaults[$templateKey]['is_active'],
         ]);
     }
@@ -369,6 +465,34 @@ final class NotificationTemplateService
             'link' => $this->render((string) ($template['link_template'] ?? ''), $payload),
             'type' => (string) ($template['type'] ?? 'info'),
         ];
+    }
+
+    /** @return array{subject:string,body:string,link:string,preview:string,type:string} */
+    public function emailPreview(array $template, ?array $payload = null): array
+    {
+        $payload = $payload ?: ($template['sample_payload_array'] ?? $this->samplePayload());
+
+        return [
+            'subject' => $this->render((string) ($template['email_subject_template'] ?? ''), $payload),
+            'body' => $this->render((string) ($template['email_body_template'] ?? ''), $payload),
+            'link' => $this->render((string) ($template['email_link_template'] ?? ''), $payload),
+            'preview' => $this->render((string) ($template['email_preview_template'] ?? ''), $payload),
+            'type' => (string) ($template['type'] ?? 'info'),
+        ];
+    }
+
+    /** @return list<string> */
+    public function emailCopyErrors(array $template): array
+    {
+        $errors = [];
+        if (trim((string) ($template['email_subject_template'] ?? '')) === '') {
+            $errors[] = 'E-posta konusu eksik.';
+        }
+        if (trim((string) ($template['email_body_template'] ?? '')) === '') {
+            $errors[] = 'E-posta gövdesi eksik.';
+        }
+
+        return $errors;
     }
 
     /** @return array<string,mixed>|null */

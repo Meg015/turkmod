@@ -62,6 +62,82 @@ function usersColumnExists(PDO $pdo, string $table, string $column): bool
     }
 }
 
+function usersNotificationBoolSetting(array $settings, string $key, string $default = '1', ?string $legacyKey = null): bool
+{
+    if (array_key_exists($key, $settings)) {
+        return (string) $settings[$key] === '1';
+    }
+    if ($legacyKey !== null && array_key_exists($legacyKey, $settings)) {
+        return (string) $settings[$legacyKey] === '1';
+    }
+
+    return $default === '1';
+}
+
+function usersUpdateNotificationDeliveryChannels(PDO $pdo, int $notificationId, array $channels): void
+{
+    if ($notificationId <= 0 || !usersColumnExists($pdo, 'notifications', 'delivery_channels')) {
+        return;
+    }
+
+    $channels = array_values(array_unique(array_filter(array_map(
+        static fn (mixed $channel): string => trim((string) $channel),
+        $channels
+    ))));
+
+    try {
+        $stmt = $pdo->prepare('UPDATE notifications SET delivery_channels = ? WHERE id = ?');
+        $stmt->execute([json_encode($channels, JSON_UNESCAPED_UNICODE), $notificationId]);
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['source' => 'usersUpdateNotificationDeliveryChannels', 'notification_id' => $notificationId]);
+        }
+    }
+}
+
+function usersCreateWelcomeNotification(PDO $pdo, int $newUserId, array $settings, string $notificationsUrl): bool
+{
+    if ($newUserId <= 0) {
+        return false;
+    }
+    if ((string) ($settings['notif_center_enabled'] ?? '1') !== '1' || (string) ($settings['notif_welcome_enabled'] ?? '0') !== '1') {
+        return false;
+    }
+
+    try {
+        $senderName = trim((string) ($settings['notif_system_sender'] ?? 'Sistem'));
+        $senderName = $senderName !== '' ? $senderName : 'Sistem';
+        $welcomeMessage = trim((string) ($settings['notif_welcome_msg'] ?? 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.'));
+        $welcomeMessage = $welcomeMessage !== '' ? $welcomeMessage : 'Aramıza hoş geldiniz! Kuralları okumayı unutmayın.';
+        $welcomeTitle = mb_substr($senderName . ' hoş geldin dedi', 0, 255);
+        $notificationColumns = function_exists('notificationEventTableColumns') ? notificationEventTableColumns($pdo) : [];
+        $insertColumns = ['user_id', 'title', 'message', 'type', 'link'];
+        $insertValues = [$newUserId, $welcomeTitle, $welcomeMessage, 'system', $notificationsUrl];
+        if (isset($notificationColumns['delivery_channels'])) {
+            $insertColumns[] = 'delivery_channels';
+            $insertValues[] = json_encode(['in_app'], JSON_UNESCAPED_UNICODE);
+        }
+        if (isset($notificationColumns['is_admin_loggable'])) {
+            $insertColumns[] = 'is_admin_loggable';
+            $insertValues[] = 1;
+        }
+
+        $quotedColumns = array_map(static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`', $insertColumns);
+        $placeholders = implode(', ', array_fill(0, count($insertColumns), '?'));
+        $notificationStmt = $pdo->prepare('INSERT INTO notifications (' . implode(', ', $quotedColumns) . ") VALUES ({$placeholders})");
+
+        return $notificationStmt->execute($insertValues);
+    } catch (Throwable $e) {
+        if (function_exists('appLogException')) {
+            appLogException($e, ['source' => 'usersCreateWelcomeNotification', 'user_id' => $newUserId]);
+        } else {
+            error_log('Welcome notification failed: ' . $e->getMessage());
+        }
+    }
+
+    return false;
+}
+
 function usersIndexExists(PDO $pdo, string $table, string $index): bool
 {
     try {
@@ -646,7 +722,6 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
     $hasColumn = static function (array $columns, string $column): bool {
         return isset($columns[$column]);
     };
-
     $startedTx = false;
     if (!$pdo->inTransaction()) {
         $pdo->beginTransaction();
@@ -741,23 +816,35 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
         return 0;
     }
 
-    if (function_exists('notificationQueueEmail')) {
+    if (function_exists('notificationQueueEmail') && (string) ($settings['notif_email_channel_ready'] ?? '0') === '1') {
+        $adminEmailService = function_exists('adminEmailService') ? adminEmailService($pdo) : null;
+        $adminEmailTemplate = $adminEmailService
+            ? $adminEmailService->template('registration_suspicious_alert', $settings)
+            : [];
+        $adminEmailEnabled = $adminEmailTemplate === [] || (string) ($adminEmailTemplate['enabled'] ?? '1') === '1';
+
         foreach ($insertedRows as $row) {
             $adminId = (int) ($row['user_id'] ?? 0);
             $notificationId = (int) ($row['notification_id'] ?? 0);
-            if ($adminId <= 0 || $notificationId <= 0) {
+            if ($adminId <= 0 || $notificationId <= 0 || !$adminEmailEnabled) {
                 continue;
             }
 
-            $safeSite = htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8');
-            $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
-            $safeMessage = nl2br(htmlspecialchars($message, ENT_QUOTES, 'UTF-8'));
-            $safeLink = htmlspecialchars($adminLink, ENT_QUOTES, 'UTF-8');
-            $subject = $siteName . ' - ' . $title;
-            $body = '<!doctype html><html lang="tr"><head><meta charset="UTF-8"></head><body style="margin:0;background:#f6f8fb;font-family:Arial,sans-serif;color:#172033"><div style="max-width:620px;margin:0 auto;padding:30px 16px"><div style="background:#fff;border:1px solid #e4e8ef;border-radius:12px;padding:28px"><div style="font-size:13px;color:#8791a5;margin-bottom:8px">' . $safeSite . '</div><h1 style="font-size:22px;margin:0 0 18px">' . $safeTitle . '</h1><p style="margin:0 0 12px">' . $safeMessage . '</p><p style="margin:24px 0;text-align:center"><a href="' . $safeLink . '" style="display:inline-block;background:#8b1538;color:#fff;padding:12px 22px;border-radius:7px;text-decoration:none;font-weight:700">Kayıtları İncele</a></p></div></div></body></html>';
+            if ($adminEmailService && $adminEmailTemplate !== []) {
+                $variables = $adminEmailService->suspiciousRegistrationVariables($summary, $windowMinutes, $threshold, $adminLink, $settings);
+                $subject = $adminEmailService->render((string) ($adminEmailTemplate['subject'] ?? ''), $variables);
+                $body = $adminEmailService->render((string) ($adminEmailTemplate['body'] ?? ''), $variables);
+                $actionLabel = $adminEmailService->render((string) ($adminEmailTemplate['action_label'] ?? 'Kayıtları İncele'), $variables);
+            } else {
+                $subject = $siteName . ' - ' . $title;
+                $body = function_exists('appMailPlainTextHtml')
+                    ? appMailPlainTextHtml($message)
+                    : nl2br(htmlspecialchars($message, ENT_QUOTES, 'UTF-8'));
+                $actionLabel = 'Kayıtları İncele';
+            }
 
             try {
-                notificationQueueEmail(
+                $queued = notificationQueueEmail(
                     $pdo,
                     $notificationId,
                     $adminId,
@@ -767,12 +854,23 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
                     $adminLink,
                     [
                         'source' => 'registration_suspicious_alert',
+                        'eyebrow' => 'Yönetim bildirimi',
+                        'mail_title' => $title,
+                        'action_label' => $actionLabel,
+                        'footer_note' => 'Bu e-posta güvenlik izleme sistemi tarafından otomatik gönderilmiştir.',
                         'window_minutes' => $windowMinutes,
                         'threshold' => $threshold,
                         'summary' => $summary,
-                    ]
+                    ],
+                    max(1, min(10, (int) ($settings['notif_email_queue_max_attempts'] ?? 3)))
+                );
+                usersUpdateNotificationDeliveryChannels(
+                    $pdo,
+                    $notificationId,
+                    ['in_app', $queued ? 'email_queue' : 'email_queue_failed']
                 );
             } catch (Throwable $emailQueueError) {
+                usersUpdateNotificationDeliveryChannels($pdo, $notificationId, ['in_app', 'email_queue_failed']);
                 if (function_exists('appLogException')) {
                     appLogException($emailQueueError, ['source' => 'usersNotifyAdminsOnSuspiciousRegistrations.email_queue', 'admin_user_id' => $adminId]);
                 }
@@ -886,6 +984,23 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
         return 0;
     }
 
+    $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
+    $siteNotificationEnabled = usersNotificationBoolSetting($settings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled');
+    $emailNotificationEnabled = usersNotificationBoolSetting($settings, 'notif_admin_registration_email_enabled', '1', 'notif_admin_registration_enabled')
+        && (string) ($settings['notif_email_channel_ready'] ?? '0') === '1'
+        && function_exists('notificationQueueEmail');
+
+    $adminEmailService = $emailNotificationEnabled && function_exists('adminEmailService') ? adminEmailService($pdo) : null;
+    $adminEmailTemplate = $adminEmailService
+        ? $adminEmailService->template('registration_admin_notice', $settings)
+        : [];
+    $emailNotificationEnabled = $emailNotificationEnabled
+        && ($adminEmailTemplate === [] || (string) ($adminEmailTemplate['enabled'] ?? '1') === '1');
+
+    if (!$siteNotificationEnabled && !$emailNotificationEnabled) {
+        return 0;
+    }
+
     $adminIds = usersGetAdminRecipientIds($pdo);
     if ($adminIds === []) {
         return 0;
@@ -893,7 +1008,6 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
 
     $baseUri = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
     $adminLink = $baseUri !== '' ? $baseUri . '/admin/user-edit.php?id=' . $newUserId : '/admin/user-edit.php?id=' . $newUserId;
-    $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
     $siteName = trim((string) ($settings['site_name'] ?? ''));
     if ($siteName === '') {
         $siteName = 'Sistem';
@@ -911,6 +1025,16 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
     $hasColumn = static function (array $columns, string $column): bool {
         return isset($columns[$column]);
     };
+    if (!$siteNotificationEnabled && $emailNotificationEnabled && !$hasColumn($columns, 'delivery_channels')) {
+        if (function_exists('appLogException')) {
+            appLogException(new RuntimeException('Email-only admin registration notification requires notifications.delivery_channels.'), [
+                'source' => 'usersNotifyAdminsOnRegistration',
+                'user_id' => $newUserId,
+            ]);
+        }
+
+        return 0;
+    }
 
     $startedTx = false;
     if (!$pdo->inTransaction()) {
@@ -973,7 +1097,14 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
                 $params[] = 'user_registered_admin:' . $adminId . ':' . $newUserId;
             }
             if ($hasColumn($columns, 'delivery_channels')) {
-                $params[] = json_encode(['in_app'], JSON_UNESCAPED_UNICODE);
+                $deliveryChannels = [];
+                if ($siteNotificationEnabled) {
+                    $deliveryChannels[] = 'in_app';
+                }
+                if ($emailNotificationEnabled) {
+                    $deliveryChannels[] = 'email_queue_pending';
+                }
+                $params[] = json_encode($deliveryChannels, JSON_UNESCAPED_UNICODE);
             }
             if ($hasColumn($columns, 'is_admin_loggable')) {
                 $params[] = 1;
@@ -1000,7 +1131,7 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
         return 0;
     }
 
-    if (function_exists('notificationQueueEmail')) {
+    if ($emailNotificationEnabled) {
         foreach ($insertedRows as $row) {
             $adminId = (int) ($row['user_id'] ?? 0);
             $notificationId = (int) ($row['notification_id'] ?? 0);
@@ -1008,16 +1139,26 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
                 continue;
             }
 
-            $safeSite = htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8');
-            $safeUsername = htmlspecialchars(trim($username) !== '' ? trim($username) : 'Bir kullanıcı', ENT_QUOTES, 'UTF-8');
-            $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
-            $safeMessage = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
-            $safeLink = htmlspecialchars($adminLink, ENT_QUOTES, 'UTF-8');
-            $subject = $siteName . ' - Yeni kullanıcı kaydı';
-            $body = '<!doctype html><html lang="tr"><head><meta charset="UTF-8"></head><body style="margin:0;background:#f6f8fb;font-family:Arial,sans-serif;color:#172033"><div style="max-width:620px;margin:0 auto;padding:30px 16px"><div style="background:#fff;border:1px solid #e4e8ef;border-radius:12px;padding:28px"><div style="font-size:13px;color:#8791a5;margin-bottom:8px">' . $safeSite . '</div><h1 style="font-size:22px;margin:0 0 18px">Yeni kullanıcı kaydı</h1><p style="margin:0 0 12px">' . $safeUsername . ' (' . $safeEmail . ') yeni hesap oluşturdu.</p><p style="margin:0 0 12px">' . $safeMessage . '</p><p style="margin:24px 0;text-align:center"><a href="' . $safeLink . '" style="display:inline-block;background:#8b1538;color:#fff;padding:12px 22px;border-radius:7px;text-decoration:none;font-weight:700">Kullanıcıyı İncele</a></p></div></div></body></html>';
+            if ($adminEmailService && $adminEmailTemplate !== []) {
+                $variables = $adminEmailService->registrationVariables($newUserId, $username, $email, $requiresApproval, $adminLink, $settings);
+                $subject = $adminEmailService->render((string) ($adminEmailTemplate['subject'] ?? ''), $variables);
+                $body = $adminEmailService->render((string) ($adminEmailTemplate['body'] ?? ''), $variables);
+                $actionLabel = $adminEmailService->render((string) ($adminEmailTemplate['action_label'] ?? 'Kullanıcıyı İncele'), $variables);
+            } else {
+                $subject = $siteName . ' - Yeni kullanıcı kaydı';
+                $displayUsername = trim($username) !== '' ? trim($username) : 'Bir kullanıcı';
+                $body = (function_exists('appMailPlainTextHtml') ? appMailPlainTextHtml($displayUsername . ' yeni hesap oluşturdu.') : '<p>' . htmlspecialchars($displayUsername . ' yeni hesap oluşturdu.', ENT_QUOTES, 'UTF-8') . '</p>')
+                    . (function_exists('appMailDetailTableHtml') ? appMailDetailTableHtml([
+                        'Kullanıcı adı' => $displayUsername,
+                        'E-posta' => $email,
+                        'Kullanıcı ID' => $newUserId,
+                        'Durum' => $requiresApproval ? 'Yönetici onayı bekliyor' : 'Aktif',
+                    ]) : '');
+                $actionLabel = 'Kullanıcıyı İncele';
+            }
 
             try {
-                notificationQueueEmail(
+                $queued = notificationQueueEmail(
                     $pdo,
                     $notificationId,
                     $adminId,
@@ -1027,12 +1168,33 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
                     $adminLink,
                     [
                         'source' => 'user_registration',
+                        'eyebrow' => 'Yönetim bildirimi',
+                        'mail_title' => 'Yeni kullanıcı kaydı',
+                        'action_label' => $actionLabel,
+                        'footer_note' => 'Bu e-posta kullanıcı kayıt sistemi tarafından otomatik gönderilmiştir.',
                         'user_id' => $newUserId,
                         'username' => $username,
                         'email' => $email,
-                    ]
+                    ],
+                    max(1, min(10, (int) ($settings['notif_email_queue_max_attempts'] ?? 3)))
+                );
+                usersUpdateNotificationDeliveryChannels(
+                    $pdo,
+                    $notificationId,
+                    array_merge(
+                        $siteNotificationEnabled ? ['in_app'] : [],
+                        [$queued ? 'email_queue' : 'email_queue_failed']
+                    )
                 );
             } catch (Throwable $emailQueueError) {
+                usersUpdateNotificationDeliveryChannels(
+                    $pdo,
+                    $notificationId,
+                    array_merge(
+                        $siteNotificationEnabled ? ['in_app'] : [],
+                        ['email_queue_failed']
+                    )
+                );
                 if (function_exists('appLogException')) {
                     appLogException($emailQueueError, ['source' => 'usersNotifyAdminsOnRegistration.email_queue', 'user_id' => $newUserId, 'admin_user_id' => $adminId]);
                 }

@@ -287,12 +287,41 @@ try {
         if (function_exists('usersNotifyAdminsOnRegistration')) {
             usersNotifyAdminsOnRegistration($pdo, $newUserId, $username, $email, $registrationRequiresAdminApproval);
         }
+        if (function_exists('usersCreateWelcomeNotification')) {
+            $notificationsUrl = function_exists('routePublicStaticUrl') ? routePublicStaticUrl('notifications') : rtrim((string) $baseUri, '/') . '/notifications';
+            usersCreateWelcomeNotification($pdo, $newUserId, $settings, $notificationsUrl);
+        }
         try {
             $accountMailer = accountEmailService($pdo);
-            $accountMailer->send('welcome', $email, [
+            $welcomeEmailSent = $accountMailer->send('welcome', $email, [
                 'username' => $username,
                 'login_url' => function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : rtrim((string) $baseUri, '/') . '/giris',
             ]);
+            if (!$welcomeEmailSent) {
+                $welcomeEnabledKey = \App\Engine\Email\AccountEmailService::settingKey('welcome', 'enabled');
+                $welcomeTemplate = \App\Engine\Email\AccountEmailService::catalog()['welcome'] ?? ['enabled' => '1'];
+                if (
+                    (string) ($settings['account_email_system_enabled'] ?? '1') === '1'
+                    && (string) ($settings[$welcomeEnabledKey] ?? $welcomeTemplate['enabled'] ?? '1') === '1'
+                ) {
+                    $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
+                    $context = [
+                        'source' => 'auth_popup_welcome_email_failed',
+                        'user_id' => $newUserId,
+                        'template' => 'welcome',
+                        'recipient_email' => $email,
+                        'reason' => function_exists('appSendMail') ? 'send_returned_false' : 'mail_helper_missing',
+                        'mail_error' => (string) ($mailResult['error'] ?? ''),
+                        'smtp_code' => $mailResult['smtp_code'] ?? null,
+                        'smtp_response' => (string) ($mailResult['smtp_response'] ?? ''),
+                    ];
+                    if (function_exists('appFileLog')) {
+                        appFileLog('warning', 'Popup registration welcome email was not sent.', $context);
+                    } else {
+                        error_log('Popup registration welcome email was not sent: ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                    }
+                }
+            }
             $accountMailer->issueVerification($newUserId, $email, $username);
         } catch (Throwable $mailError) {
             if (function_exists('appLogException')) {

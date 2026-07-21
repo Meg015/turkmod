@@ -130,9 +130,9 @@ function notificationEnabledEmailEventKeysForUser(array $settings): array
     return notificationPreferenceService()->enabledEmailEventKeysForUser($settings);
 }
 
-function notificationPreferenceWhereSql(array $settings, string $alias = 'n', bool $filterEvents = true): array
+function notificationPreferenceWhereSql(array $settings, string $alias = 'n', bool $filterEvents = true, bool $respectUserPreferences = true): array
 {
-    return notificationPreferenceService()->whereSql($settings, $alias, $filterEvents);
+    return notificationPreferenceService()->whereSql($settings, $alias, $filterEvents, $respectUserPreferences);
 }
 
 function notificationEventTableColumns(PDO $pdo, bool $refresh = false): array
@@ -168,6 +168,16 @@ function notificationTemplateDefaults(): array
 function notificationEnsureTemplateSchema(PDO $pdo): void
 {
     notificationTemplateService()->ensureSchema($pdo);
+}
+
+function notificationTemplateEmailSchemaReady(PDO $pdo): bool
+{
+    return notificationTemplateService()->emailColumnsReady($pdo);
+}
+
+function notificationTemplateMissingEmailColumns(PDO $pdo): array
+{
+    return notificationTemplateService()->missingEmailColumns($pdo);
 }
 
 function notificationEnsureEmailQueueSchema(PDO $pdo): void
@@ -273,6 +283,16 @@ function notificationTemplateReset(PDO $pdo, string $templateKey): bool
 function notificationTemplatePreview(array $template, ?array $payload = null): array
 {
     return notificationTemplateService()->preview($template, $payload);
+}
+
+function notificationTemplateEmailPreview(array $template, ?array $payload = null): array
+{
+    return notificationTemplateService()->emailPreview($template, $payload);
+}
+
+function notificationTemplateEmailCopyErrors(array $template): array
+{
+    return notificationTemplateService()->emailCopyErrors($template);
 }
 
 function notificationTemplateForDispatch(PDO $pdo, string $eventKey, array $definition): ?array

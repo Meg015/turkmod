@@ -76,7 +76,7 @@ final class NotificationDispatchService
             'moderation_note' => '',
             'site_name' => 'Mod Portal',
             'link' => '',
-            'actor_name' => 'Bir kullanici',
+            'actor_name' => 'Bir kullanıcı',
             'topic_title' => 'Konu',
             'moderation_note_line' => '',
         ], $payload);
@@ -124,6 +124,35 @@ final class NotificationDispatchService
             && $emailChannelReady
             && $emailAllowedByUser
         );
+        $emailCopyMissing = false;
+        $emailCopyErrors = [];
+        $emailSubject = '';
+        $emailBody = '';
+        $emailLink = '';
+        $emailPreview = '';
+        if ($emailQueueRequested) {
+            $emailCopyErrors = $this->templates->emailCopyErrors($dispatchTemplate);
+            $emailSubject = $this->templates->payloadValue($payload, 'email_subject');
+            if ($emailSubject === '') {
+                $emailSubject = $this->templates->render((string) ($dispatchTemplate['email_subject_template'] ?? ''), $payload);
+            }
+            $emailBody = $this->templates->payloadValue($payload, 'email_body');
+            if ($emailBody === '') {
+                $emailBody = $this->templates->render((string) ($dispatchTemplate['email_body_template'] ?? ''), $payload);
+            }
+            $emailLink = $this->templates->payloadValue($payload, 'email_link');
+            if ($emailLink === '' && trim((string) ($dispatchTemplate['email_link_template'] ?? '')) !== '') {
+                $emailLink = $this->templates->render((string) $dispatchTemplate['email_link_template'], $payload);
+            }
+            $emailPreview = $this->templates->payloadValue($payload, 'email_preview');
+            if ($emailPreview === '') {
+                $emailPreview = $this->templates->render((string) ($dispatchTemplate['email_preview_template'] ?? ''), $payload);
+            }
+            if ($emailCopyErrors !== [] || trim($emailSubject) === '' || trim($emailBody) === '') {
+                $emailCopyMissing = true;
+                $emailQueueRequested = false;
+            }
+        }
 
         if (!$inAppRequested && !$emailQueueRequested) {
             $templateInAppEnabled = (int) ($dispatchTemplate['in_app_enabled'] ?? 1) === 1;
@@ -133,6 +162,8 @@ final class NotificationDispatchService
                 $reason = 'template_channels_disabled';
             } elseif (!$emailChannelReady && $templateEmailEnabled && $emailAllowedByUser && !$inAppRequested) {
                 $reason = 'email_channel_not_ready';
+            } elseif ($emailCopyMissing && $templateEmailEnabled && !$inAppRequested) {
+                $reason = 'email_copy_missing';
             }
 
             return $this->suppressed($pdo, $reason, $eventKey, $recipientId, $actorId, $entityType, $entityId, null, (string) ($dispatchTemplate['template_key'] ?? $eventKey), $type, [
@@ -141,6 +172,8 @@ final class NotificationDispatchService
                 'template_in_app_enabled' => $templateInAppEnabled ? 1 : 0,
                 'template_email_enabled' => $templateEmailEnabled ? 1 : 0,
                 'email_channel_ready' => $emailChannelReady ? 1 : 0,
+                'email_copy_missing' => $emailCopyMissing ? 1 : 0,
+                'email_copy_errors' => $emailCopyErrors,
             ]);
         }
 
@@ -211,15 +244,15 @@ final class NotificationDispatchService
                     $notificationId,
                     $recipientId,
                     $dispatchTemplate,
-                    (string) $insertData['title'],
-                    $message,
-                    $link !== '' ? $link : null,
+                    $emailSubject,
+                    $emailBody,
+                    $emailLink !== '' ? $emailLink : null,
                     $eventKey,
                     $entityType,
                     $entityId,
                     $actorId,
                     $dedupeKey,
-                    $payload,
+                    array_merge($payload, ['email_preview' => $emailPreview]),
                     $emailQueueMaxAttempts,
                     $columnsAvailable,
                     $deliveryChannels
@@ -322,6 +355,19 @@ final class NotificationDispatchService
                 $update->execute([json_encode($deliveryChannels, JSON_UNESCAPED_UNICODE), $notificationId]);
             }
         } catch (Throwable $e) {
+            if (isset($columnsAvailable['delivery_channels'])) {
+                $deliveryChannels = array_values(array_filter(
+                    $deliveryChannels,
+                    static fn (string $channel): bool => $channel !== 'email_queue_pending'
+                ));
+                $deliveryChannels[] = 'email_queue_failed';
+                try {
+                    $update = $pdo->prepare('UPDATE notifications SET delivery_channels = ? WHERE id = ?');
+                    $update->execute([json_encode(array_values(array_unique($deliveryChannels)), JSON_UNESCAPED_UNICODE), $notificationId]);
+                } catch (Throwable $inner) {
+                    error_log('Notification email fan-out status update failed: ' . $inner->getMessage());
+                }
+            }
             error_log('Notification email fan-out failed: ' . $e->getMessage());
         }
     }

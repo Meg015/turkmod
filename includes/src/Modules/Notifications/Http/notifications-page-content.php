@@ -270,7 +270,7 @@ if ($pdo) {
     if (!$notificationCenterEnabled) {
         $preferenceTypeSql = ' AND 1 = 0';
     } else {
-        $preferenceWhere = notificationPreferenceWhereSql($userSettings, 'n', $canFilterNotificationEvents);
+        $preferenceWhere = notificationPreferenceWhereSql($userSettings, 'n', $canFilterNotificationEvents, $respectUserPreferences);
         $preferenceTypeSql = (string) ($preferenceWhere['sql'] ?? '');
         $preferenceTypeParams = is_array($preferenceWhere['params'] ?? null) ? $preferenceWhere['params'] : [];
     }

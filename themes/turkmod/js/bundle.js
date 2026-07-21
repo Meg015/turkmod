@@ -5545,7 +5545,7 @@ e.init();
         if (url.pathname === window.location.pathname && url.search === window.location.search) return false;
         if (a.getAttribute('href').charAt(0) === '#') return false;
         // skip auth/logout/api/download endpoints (state-changing or heavy)
-        if (/\/(logout|login|download|api)\b/i.test(url.pathname)) return false;
+        if (/\/(logout|login|download|indir|api)\b/i.test(url.pathname)) return false;
         if (prefetched.has(url.href)) return false;
         return true;
     }

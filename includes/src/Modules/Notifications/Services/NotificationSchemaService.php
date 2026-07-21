@@ -10,8 +10,17 @@ use Throwable;
 
 final class NotificationSchemaService
 {
+    private const EMAIL_TEMPLATE_COLUMNS = [
+        'email_subject_template',
+        'email_body_template',
+        'email_link_template',
+        'email_preview_template',
+    ];
+
     /** @var array<string,bool>|null */
     private ?array $eventColumns = null;
+    /** @var array<string,bool>|null */
+    private ?array $templateColumns = null;
     private SchemaInspector $inspector;
     private bool $eventSchemaEnsured = false;
     private bool $templateSchemaEnsured = false;
@@ -64,6 +73,27 @@ final class NotificationSchemaService
         }
     }
 
+    /** @return array<string,bool> */
+    public function templateTableColumns(PDO $pdo, bool $refresh = false): array
+    {
+        if ($this->templateColumns !== null && !$refresh) {
+            return $this->templateColumns;
+        }
+
+        try {
+            $stmt = $pdo->query('SHOW COLUMNS FROM notification_templates');
+            $this->templateColumns = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                $this->templateColumns[(string) $row['Field']] = true;
+            }
+        } catch (Throwable $e) {
+            error_log('Notification template column lookup failed: ' . $e->getMessage());
+            $this->templateColumns = [];
+        }
+
+        return $this->templateColumns;
+    }
+
     public function tableExists(PDO $pdo, string $tableName): bool
     {
         $tableName = trim($tableName);
@@ -72,6 +102,26 @@ final class NotificationSchemaService
         }
 
         return $this->inspector->tableExists($pdo, $tableName);
+    }
+
+    /** @return list<string> */
+    public function missingEmailTemplateColumns(PDO $pdo, bool $refresh = false): array
+    {
+        if (!$this->tableExists($pdo, 'notification_templates')) {
+            return self::EMAIL_TEMPLATE_COLUMNS;
+        }
+
+        $columns = $this->templateTableColumns($pdo, $refresh);
+
+        return array_values(array_filter(
+            self::EMAIL_TEMPLATE_COLUMNS,
+            static fn (string $column): bool => !isset($columns[$column])
+        ));
+    }
+
+    public function hasEmailTemplateColumns(PDO $pdo, bool $refresh = false): bool
+    {
+        return $this->missingEmailTemplateColumns($pdo, $refresh) === [];
     }
 
     public function ensureEventSchema(PDO $pdo): void

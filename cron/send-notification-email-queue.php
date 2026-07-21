@@ -52,10 +52,12 @@ register_shutdown_function(static function () use (&$cronRunLogged, &$cronRunSta
 if (!$pdo) {
     $cronRunStatus = 'error';
     $cronRunContext = ['reason' => 'database_connection_unavailable'];
-    if (!$isCli) {
+    if ($isCli) {
+        fwrite(STDERR, "Database connection is not available.\n");
+    } else {
         http_response_code(500);
+        echo "Database connection is not available.\n";
     }
-    fwrite(STDERR, "Database connection is not available.\n");
     exit(1);
 }
 

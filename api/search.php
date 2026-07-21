@@ -26,12 +26,13 @@ $results = [];
 
 try {
     $buildFullTextQuery = static function (string $value): string {
+        $value = preg_replace('/[+\-><()~*"@]+/u', ' ', trim($value)) ?? $value;
+        $value = preg_replace('/[^\p{L}\p{N}_]+/u', ' ', $value) ?? $value;
         $tokens = preg_split('/\s+/u', trim($value)) ?: [];
         $terms = [];
 
         foreach ($tokens as $token) {
-            $token = preg_replace('/[+\-><()~*"@]+/u', '', $token) ?? '';
-            $token = trim($token);
+            $token = trim((string) $token, '_');
             if (mb_strlen($token, 'UTF-8') < 2) {
                 continue;
             }

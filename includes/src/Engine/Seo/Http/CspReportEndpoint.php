@@ -36,6 +36,9 @@ final class CspReportEndpoint implements Handler
         }
 
         $report = $this->parseReportBody($body, $contentType);
+        if (!$this->shouldLogReport($report)) {
+            return new Response('', 204);
+        }
 
         $this->logReport($report);
 
@@ -59,6 +62,76 @@ final class CspReportEndpoint implements Handler
         }
 
         return ['raw' => substr($body, 0, 8192)];
+    }
+
+    private function shouldLogReport(array $report): bool
+    {
+        $items = $this->reportItems($report);
+        if ($items === []) {
+            return true;
+        }
+
+        foreach ($items as $item) {
+            if (!$this->isIgnorableReportItem($item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function reportItems(array $report): array
+    {
+        if (array_is_list($report)) {
+            return array_values(array_filter($report, 'is_array'));
+        }
+
+        if (isset($report['csp-report']) && is_array($report['csp-report'])) {
+            return [$report['csp-report']];
+        }
+
+        if (isset($report['report']) && is_array($report['report'])) {
+            return array_is_list($report['report'])
+                ? array_values(array_filter($report['report'], 'is_array'))
+                : [$report['report']];
+        }
+
+        return [$report];
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     */
+    private function isIgnorableReportItem(array $item): bool
+    {
+        $body = isset($item['body']) && is_array($item['body']) ? $item['body'] : $item;
+        $directive = strtolower((string) ($body['effectiveDirective'] ?? $body['effective-directive'] ?? ''));
+        $blocked = strtolower((string) ($body['blockedURL'] ?? $body['blocked-uri'] ?? ''));
+        $disposition = strtolower((string) ($body['disposition'] ?? ''));
+        $source = strtolower((string) ($body['sourceFile'] ?? $body['source-file'] ?? ''));
+        $document = strtolower((string) ($body['documentURL'] ?? $body['document-uri'] ?? ($item['url'] ?? '')));
+        $userAgent = strtolower((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        $combined = $blocked . ' ' . $source . ' ' . $document . ' ' . $userAgent;
+
+        foreach ([
+            'chrome-extension',
+            'edge-extension',
+            'extension://',
+            'moz-extension',
+            'safari-extension',
+            'kaspersky-labs.com',
+        ] as $needle) {
+            if (str_contains($combined, $needle)) {
+                return true;
+            }
+        }
+
+        return $disposition === 'report'
+            && $directive === 'style-src-attr'
+            && $blocked === 'inline';
     }
 
     private function logReport(array $report): void

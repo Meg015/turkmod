@@ -154,6 +154,8 @@ $attachmentMaxSizeMb = editTopicInt($settings, 'user_upload_max_size_mb', 50, 1)
 $minTitleLength = editTopicInt($settings, 'user_upload_min_title_length', 3, 0);
 $maxTitleLength = editTopicInt($settings, 'user_upload_max_title_length', 150, 1);
 $minContentLength = editTopicInt($settings, 'user_upload_min_content_length', 10, 0);
+$requireCover = editTopicBool($settings, 'user_upload_require_cover', '1');
+$requireGallery = editTopicBool($settings, 'user_upload_require_gallery', '1');
 $requireAuthor = editTopicBool($settings, 'user_upload_require_author');
 $requireVersion = editTopicBool($settings, 'user_upload_require_version');
 $requireDownloadLink = editTopicBool($settings, 'user_upload_require_download_link');
@@ -178,6 +180,27 @@ if ($imageMinWidth > 0 || $imageMinHeight > 0 || $imageMaxWidth > 0 || $imageMax
     );
 }
 
+$mediaRecords = getTopicMediaRecords($pdo, $topicId, true);
+$primaryMediaId = (int)($topic['primary_media_file_id'] ?? 0);
+$primaryMediaPath = (string)(getTopicPrimaryMediaPath($topic) ?? '');
+$galleryImages = [];
+foreach ($mediaRecords as $record) {
+    $mediaId = (int)($record['id'] ?? 0);
+    $path = trim((string)($record['path'] ?? ''));
+    $type = (string)($record['type'] ?? '');
+    $mime = (string)($record['mime_type'] ?? '');
+    if ($path !== '' && ($mediaId === $primaryMediaId || ((int)($record['is_primary'] ?? 0) === 1 && $primaryMediaPath === ''))) {
+        $primaryMediaId = $mediaId;
+        $primaryMediaPath = $path;
+    }
+    if ($path === '' || $mediaId === $primaryMediaId || $type === 'video') {
+        continue;
+    }
+    if ($type === 'image' || str_starts_with($mime, 'image/')) {
+        $galleryImages[] = ['id' => $mediaId, 'path' => $path];
+    }
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
         editTopicRespond(false, 'Güvenlik hatası. Sayfayı yenileyip tekrar deneyin.', 403);
@@ -191,6 +214,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $videoUrl = $allowVideoUrl ? trim((string)($_POST['topic_video_url'] ?? '')) : '';
     $downloadLines = editTopicBuildDownloadLines((array)($_POST['dl_name'] ?? []), (array)($_POST['dl_url'] ?? []));
     $keepMediaIds = array_values(array_filter(array_map('intval', (array)($_POST['keep_media'] ?? [])), static fn(int $id): bool => $id > 0));
+    $coverUploaded = !empty($_FILES['topic_first_image_file']['name']);
+    $galleryFileNames = $_FILES['topic_images_files']['name'] ?? [];
+    $uploadedGalleryCount = is_array($galleryFileNames)
+        ? count(array_filter($galleryFileNames, static fn($name): bool => trim((string)$name) !== ''))
+        : 0;
+    $keptPrimary = $primaryMediaId > 0 && in_array($primaryMediaId, $keepMediaIds, true);
+    $keptGalleryCount = 0;
+    foreach ($galleryImages as $galleryImage) {
+        if (in_array((int)($galleryImage['id'] ?? 0), $keepMediaIds, true)) {
+            $keptGalleryCount++;
+        }
+    }
 
     if ($categoryId <= 0 && !empty($categoryOptions)) {
         $categoryId = (int)$categoryOptions[0]['id'];
@@ -216,6 +251,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
     if ($requireDownloadLink && trim($downloadLines) === '') {
         editTopicRespond(false, 'En az bir geçerli indirme bağlantısı eklemelisiniz.', 422);
+    }
+    if ($requireCover && !$coverUploaded && !$keptPrimary) {
+        editTopicRespond(false, 'Kapak gorseli zorunludur. Mevcut kapagi koruyun veya yeni kapak yukleyin.', 422);
+    }
+    if ($requireGallery && $uploadedGalleryCount <= 0 && $keptGalleryCount <= 0) {
+        editTopicRespond(false, 'En az 1 adet galeri resmi zorunludur. Mevcut galeriyi koruyun veya yeni gorsel yukleyin.', 422);
+    }
+    if ($keptGalleryCount + $uploadedGalleryCount > $maxImages) {
+        editTopicRespond(false, 'Galeri en fazla ' . $maxImages . ' gorsel icerebilir.', 422);
     }
     if ($videoUrl !== '' && !filter_var($videoUrl, FILTER_VALIDATE_URL)) {
         editTopicRespond(false, 'Video URL geçerli değil.', 422);
@@ -280,26 +324,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 }
 
-$mediaRecords = getTopicMediaRecords($pdo, $topicId, true);
-$primaryMediaId = (int)($topic['primary_media_file_id'] ?? 0);
-$primaryMediaPath = (string)(getTopicPrimaryMediaPath($topic) ?? '');
-$galleryImages = [];
-foreach ($mediaRecords as $record) {
-    $mediaId = (int)($record['id'] ?? 0);
-    $path = trim((string)($record['path'] ?? ''));
-    $type = (string)($record['type'] ?? '');
-    $mime = (string)($record['mime_type'] ?? '');
-    if ($path !== '' && ($mediaId === $primaryMediaId || ((int)($record['is_primary'] ?? 0) === 1 && $primaryMediaPath === ''))) {
-        $primaryMediaId = $mediaId;
-        $primaryMediaPath = $path;
-    }
-    if ($path === '' || $mediaId === $primaryMediaId || $type === 'video') {
-        continue;
-    }
-    if ($type === 'image' || str_starts_with($mime, 'image/')) {
-        $galleryImages[] = ['id' => $mediaId, 'path' => $path];
-    }
-}
 $videoUrl = editTopicExistingVideo($mediaRecords);
 $downloadLinks = getTopicDownloadLinks($pdo, $topicId);
 $moderationFlags = !empty($topic['moderation_flags']) ? json_decode((string)$topic['moderation_flags'], true) : [];
@@ -418,7 +442,7 @@ require_once $projectRoot . '/includes/public-header.php';
             </div>
 
             <div class="public-upload-body ui-panel__body">
-                <form id="uploadForm" method="post" action="<?= htmlspecialchars($upload_form_action, ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-upload-topic-standalone="1" data-topic-edit-wizard data-lock-after-submit="0" data-max-images="<?= (int)$maxImages ?>" data-cover-max-size-mb="<?= (int)$coverMaxSizeMb ?>" data-gallery-max-size-mb="<?= (int)$galleryMaxSizeMb ?>" data-attachment-max-size-mb="<?= (int)$attachmentMaxSizeMb ?>" data-allowed-image-ext="<?= htmlspecialchars(implode(',', $allowedImageExt), ENT_QUOTES, 'UTF-8') ?>" data-image-min-width="<?= (int)$imageMinWidth ?>" data-image-min-height="<?= (int)$imageMinHeight ?>" data-image-max-width="<?= (int)$imageMaxWidth ?>" data-image-max-height="<?= (int)$imageMaxHeight ?>" data-min-title-length="<?= (int)$minTitleLength ?>" data-max-title-length="<?= (int)$maxTitleLength ?>" data-min-content-length="<?= (int)$minContentLength ?>" data-require-cover="0" data-require-gallery="0" data-require-author="<?= $requireAuthor ? '1' : '0' ?>" data-require-version="<?= $requireVersion ? '1' : '0' ?>" data-require-download-link="<?= $requireDownloadLink ? '1' : '0' ?>" data-allow-video-url="<?= $allowVideoUrl ? '1' : '0' ?>" data-allowed-video-hosts="<?= htmlspecialchars(implode(',', $allowedVideoHosts), ENT_QUOTES, 'UTF-8') ?>" data-wizard-enabled="1" data-allow-step-skip="1">
+                <form id="uploadForm" method="post" action="<?= htmlspecialchars($upload_form_action, ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-upload-topic-standalone="1" data-topic-edit-wizard data-lock-after-submit="0" data-max-images="<?= (int)$maxImages ?>" data-cover-max-size-mb="<?= (int)$coverMaxSizeMb ?>" data-gallery-max-size-mb="<?= (int)$galleryMaxSizeMb ?>" data-attachment-max-size-mb="<?= (int)$attachmentMaxSizeMb ?>" data-allowed-image-ext="<?= htmlspecialchars(implode(',', $allowedImageExt), ENT_QUOTES, 'UTF-8') ?>" data-image-min-width="<?= (int)$imageMinWidth ?>" data-image-min-height="<?= (int)$imageMinHeight ?>" data-image-max-width="<?= (int)$imageMaxWidth ?>" data-image-max-height="<?= (int)$imageMaxHeight ?>" data-min-title-length="<?= (int)$minTitleLength ?>" data-max-title-length="<?= (int)$maxTitleLength ?>" data-min-content-length="<?= (int)$minContentLength ?>" data-require-cover="<?= $requireCover ? '1' : '0' ?>" data-require-gallery="<?= $requireGallery ? '1' : '0' ?>" data-require-author="<?= $requireAuthor ? '1' : '0' ?>" data-require-version="<?= $requireVersion ? '1' : '0' ?>" data-require-download-link="<?= $requireDownloadLink ? '1' : '0' ?>" data-allow-video-url="<?= $allowVideoUrl ? '1' : '0' ?>" data-allowed-video-hosts="<?= htmlspecialchars(implode(',', $allowedVideoHosts), ENT_QUOTES, 'UTF-8') ?>" data-wizard-enabled="1" data-allow-step-skip="1">
                     <?= csrf_field() ?>
 
                     <div class="upload-composer-layout upload-composer-layout--single ui-section">

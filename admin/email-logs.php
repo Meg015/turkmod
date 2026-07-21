@@ -363,6 +363,14 @@ require_once __DIR__ . '/header.php';
                                 }
                                 $contextSummary = function_exists('emailLogsFormatContext') ? emailLogsFormatContext($contextJson) : 'Ek detay yok';
                                 $contextPretty = $emailLogPrettyJson($contextJson);
+                                $notificationIdLabel = $emailLogText($emailLog['notification_id'] ?? null);
+                                if (($emailLog['notification_id'] ?? null) !== null && (string) ($emailLog['notification_exists'] ?? '') === '0') {
+                                    $notificationIdLabel .= ' (silinmiş)';
+                                }
+                                $queueIdLabel = $emailLogText($emailLog['queue_id'] ?? null);
+                                if (($emailLog['queue_id'] ?? null) !== null && (string) ($emailLog['queue_exists'] ?? '') === '0') {
+                                    $queueIdLabel .= ' (silinmiş)';
+                                }
                                 $detailRows = [
                                     'Kaynak anahtarı' => $emailLogText($contextData['source_key'] ?? $sourceKey),
                                     'Sürücü' => $emailLogText($contextData['driver'] ?? ($driver !== '' ? $driver : null)),
@@ -375,8 +383,8 @@ require_once __DIR__ . '/header.php';
                                     'SMTP şifreleme' => $emailLogText($contextData['smtp_encryption'] ?? null),
                                     'Sağlayıcı ID' => $emailLogText($providerMessageId !== '' ? $providerMessageId : ($contextData['provider_message_id'] ?? null)),
                                     'SMTP kodu' => $emailLogText($smtpCode !== null ? (string) $smtpCode : ($contextData['smtp_code'] ?? null)),
-                                    'Bildirim ID' => $emailLogText($emailLog['notification_id'] ?? null),
-                                    'Kuyruk ID' => $emailLogText($emailLog['queue_id'] ?? null),
+                                    'Bildirim ID' => $notificationIdLabel,
+                                    'Kuyruk ID' => $queueIdLabel,
                                     'Kullanıcı ID' => $emailLogText($emailLog['user_id'] ?? null),
                                     'Deneme' => ($emailLog['attempt_no'] ?? null) !== null
                                         ? ((string) ($emailLog['attempt_no'] ?? '') . (($emailLog['max_attempts'] ?? null) !== null && $emailLog['max_attempts'] !== '' ? ' / ' . (string) $emailLog['max_attempts'] : ''))
