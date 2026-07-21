@@ -41,3 +41,9 @@ html[data-public-theme="turkmod"] body.public-page-download .download-confirm-wr
   justify-self: center;
   align-self: center;
 }
+
+/* Match Quill's paragraph spacing in saved topic descriptions. */
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-detail-content p,
+html[data-public-theme="turkmod"] .ui-theme-topic-detail .topic-content p {
+  margin-block: 0 !important;
+}
