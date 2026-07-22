@@ -145,6 +145,30 @@ final class AdminEmailService
         return $default;
     }
 
+    private function enabledValue(mixed $value, string $default = '1'): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = strtolower(trim((string) ($value ?? $default)));
+        return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * @param array<string,mixed> $overrides
+     * @return array<string,mixed>
+     */
+    private function effectiveSettings(array $overrides = []): array
+    {
+        $settings = $this->settings();
+        $overrideSettings = isset($overrides['settings']) && is_array($overrides['settings'])
+            ? $overrides['settings']
+            : [];
+
+        return $overrideSettings !== [] ? array_replace($settings, $overrideSettings) : $settings;
+    }
+
     public function render(string $value, array $variables, bool $escape = false): string
     {
         $safe = [];
@@ -263,11 +287,18 @@ final class AdminEmailService
 
     public function sendTest(string $templateKey, string $to, array $variables = [], array $overrides = []): bool
     {
-        $settings = isset($overrides['settings']) && is_array($overrides['settings'])
-            ? $overrides['settings']
-            : $this->settings();
+        $settings = $this->effectiveSettings($overrides);
         $template = $this->template($templateKey, $settings);
         if ($template === []) {
+            $this->logNotificationDelivery('notification_delivery_skipped', [
+                'source' => 'admin_email_test',
+                'status' => 'skipped',
+                'reason' => 'admin_email_template_missing',
+                'template_key' => $templateKey,
+                'recipient_type' => 'admin',
+                'recipient_email' => $to,
+                'delivery_channels' => ['email'],
+            ], 'notice');
             return false;
         }
 
@@ -277,7 +308,16 @@ final class AdminEmailService
             }
         }
 
-        if (($template['enabled'] ?? '1') !== '1' && empty($overrides['force'])) {
+        if (!$this->enabledValue($template['enabled'] ?? null, '1') && empty($overrides['force'])) {
+            $this->logNotificationDelivery('notification_delivery_skipped', [
+                'source' => 'admin_email_test',
+                'status' => 'skipped',
+                'reason' => 'admin_email_template_disabled',
+                'template_key' => $templateKey,
+                'recipient_type' => 'admin',
+                'recipient_email' => $to,
+                'delivery_channels' => ['email'],
+            ], 'notice');
             return false;
         }
 
@@ -287,7 +327,7 @@ final class AdminEmailService
         $actionLabel = $this->render((string) ($template['action_label'] ?? ''), $variables);
         $html = $this->htmlBody($subject, $body, $actionLabel, (string) ($variables['admin_link'] ?? ''), $variables);
 
-        return function_exists('appSendMail') && appSendMail($to, strip_tags($subject), $html, [
+        $sent = function_exists('appSendMail') && appSendMail($to, strip_tags($subject), $html, [
             'settings' => $settings,
             'email_log' => [
                 'source' => 'admin_notification',
@@ -295,5 +335,48 @@ final class AdminEmailService
                 'recipient_name' => $to,
             ],
         ]);
+
+        $this->logNotificationDelivery($sent ? 'notification_email_sent' : 'notification_delivery_failed', [
+            'source' => 'admin_email_test',
+            'status' => $sent ? 'sent' : 'failed',
+            'reason' => $sent ? '' : (function_exists('appSendMail') ? 'send_returned_false' : 'mail_helper_missing'),
+            'error' => $sent ? '' : $this->mailFailureMessage(),
+            'template_key' => $templateKey,
+            'recipient_type' => 'admin',
+            'recipient_email' => $to,
+            'title' => strip_tags($subject),
+            'message' => $html,
+            'link' => (string) ($variables['admin_link'] ?? ''),
+            'delivery_channels' => ['email'],
+        ], $sent ? 'info' : 'error');
+
+        return $sent;
+    }
+
+    /**
+     * @param array<string,mixed> $context
+     */
+    private function logNotificationDelivery(string $message, array $context, string $level = 'info'): void
+    {
+        if ($this->pdo && \function_exists('notificationDeliveryLog')) {
+            \notificationDeliveryLog($this->pdo, $message, $context, $level);
+        }
+    }
+
+    private function mailFailureMessage(): string
+    {
+        if (!function_exists('appLastMailResult')) {
+            return '';
+        }
+
+        $mailResult = appLastMailResult();
+        foreach (['error', 'smtp_response', 'response'] as $key) {
+            $message = trim((string) ($mailResult[$key] ?? ''));
+            if ($message !== '') {
+                return $message;
+            }
+        }
+
+        return '';
     }
 }

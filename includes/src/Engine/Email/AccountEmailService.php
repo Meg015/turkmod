@@ -142,6 +142,75 @@ final class AccountEmailService
         return $default;
     }
 
+    private function enabledValue(mixed $value, string $default = '1'): bool
+    {
+        $normalized = strtolower(trim((string) ($value ?? $default)));
+        return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * @param array<string,mixed> $overrides
+     * @return array<string,mixed>
+     */
+    private function effectiveSettings(array $overrides = []): array
+    {
+        $settings = $this->settings();
+        $overrideSettings = isset($overrides['settings']) && is_array($overrides['settings'])
+            ? $overrides['settings']
+            : [];
+
+        return $overrideSettings !== [] ? array_replace($settings, $overrideSettings) : $settings;
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     * @param array<string,string> $variables
+     */
+    private function logSkippedEmail(string $templateKey, string $to, array $settings, array $variables, string $subject, string $reason): void
+    {
+        if (!$this->pdo || !function_exists('appEmailLog')) {
+            $this->logNotificationDelivery('notification_delivery_skipped', [
+                'source' => 'account_email',
+                'status' => 'skipped',
+                'reason' => $reason,
+                'template_key' => $templateKey,
+                'recipient_type' => 'user',
+                'recipient_user_id' => $variables['user_id'] ?? null,
+                'recipient_email' => $to,
+                'title' => strip_tags($subject !== '' ? $subject : 'Hesap e-postasi'),
+                'delivery_channels' => ['email'],
+            ], 'notice');
+            return;
+        }
+
+        try {
+            appEmailLog($this->pdo, [
+                'status' => 'skipped',
+                'source' => 'account',
+                'source_key' => $templateKey,
+                'recipient_email' => $to,
+                'recipient_name' => (string) ($variables['username'] ?? ''),
+                'subject' => strip_tags($subject !== '' ? $subject : 'Hesap e-postasi'),
+                'driver' => (string) ($settings['mail_driver'] ?? ''),
+                'transport' => 'none',
+                'error_message' => $reason,
+                'skip_reason' => $reason,
+            ]);
+        } catch (Throwable) {
+        }
+        $this->logNotificationDelivery('notification_delivery_skipped', [
+            'source' => 'account_email',
+            'status' => 'skipped',
+            'reason' => $reason,
+            'template_key' => $templateKey,
+            'recipient_type' => 'user',
+            'recipient_user_id' => $variables['user_id'] ?? null,
+            'recipient_email' => $to,
+            'title' => strip_tags($subject !== '' ? $subject : 'Hesap e-postasi'),
+            'delivery_channels' => ['email'],
+        ], 'notice');
+    }
+
     public function render(string $value, array $variables): string
     {
         $safe = [];
@@ -218,12 +287,18 @@ final class AccountEmailService
 
     public function send(string $templateKey, string $to, array $variables = [], array $overrides = []): bool
     {
-        $settings = $this->settings();
-        if (($settings['account_email_system_enabled'] ?? '1') !== '1' && empty($overrides['force'])) {
-            return false;
-        }
+        $settings = $this->effectiveSettings($overrides);
         $template = $this->template($templateKey, $settings);
-        if ($template === [] || (($overrides['enabled'] ?? $template['enabled']) !== '1')) {
+        if ($template === []) {
+            $this->logNotificationDelivery('notification_delivery_skipped', [
+                'source' => 'account_email',
+                'status' => 'skipped',
+                'reason' => 'account_email_template_missing',
+                'template_key' => $templateKey,
+                'recipient_type' => 'user',
+                'recipient_email' => $to,
+                'delivery_channels' => ['email'],
+            ], 'notice');
             return false;
         }
         $variables = array_merge($this->baseVariables($to, $settings), $variables);
@@ -233,16 +308,67 @@ final class AccountEmailService
             $variables[$urlVariable] = $this->absoluteUrl($candidate, $publicBase);
         }
         $subject = $this->render((string) ($overrides['subject'] ?? $template['subject']), $variables);
+        if (!$this->enabledValue($settings['account_email_system_enabled'] ?? null, '1') && empty($overrides['force'])) {
+            $this->logSkippedEmail($templateKey, $to, $settings, $variables, $subject, 'account_email_system_disabled');
+            return false;
+        }
+        if (!$this->enabledValue($overrides['enabled'] ?? $template['enabled'], '1')) {
+            $this->logSkippedEmail($templateKey, $to, $settings, $variables, $subject, 'account_email_template_disabled');
+            return false;
+        }
         $body = $this->render((string) ($overrides['body'] ?? $template['body']), $variables);
         $body = $this->normalizeBody($templateKey, $subject, $body, $variables);
-        return function_exists('appSendMail') && appSendMail($to, strip_tags($subject), $body, [
-            'settings' => isset($overrides['settings']) && is_array($overrides['settings']) ? $overrides['settings'] : [],
+        $sent = function_exists('appSendMail') && appSendMail($to, strip_tags($subject), $body, [
+            'settings' => $settings,
             'email_log' => [
                 'source' => 'account',
                 'source_key' => $templateKey,
                 'recipient_name' => (string) ($variables['username'] ?? ''),
             ],
         ]);
+        $this->logNotificationDelivery($sent ? 'notification_email_sent' : 'notification_delivery_failed', [
+            'source' => 'account_email',
+            'status' => $sent ? 'sent' : 'failed',
+            'reason' => $sent ? '' : (function_exists('appSendMail') ? 'send_returned_false' : 'mail_helper_missing'),
+            'error' => $sent ? '' : $this->mailFailureMessage(),
+            'template_key' => $templateKey,
+            'recipient_type' => 'user',
+            'recipient_user_id' => $variables['user_id'] ?? null,
+            'recipient_email' => $to,
+            'title' => strip_tags($subject),
+            'message' => $body,
+            'link' => (string) ($variables['action_url'] ?? $variables['login_url'] ?? $variables['profile_url'] ?? ''),
+            'delivery_channels' => ['email'],
+        ], $sent ? 'info' : 'error');
+
+        return $sent;
+    }
+
+    /**
+     * @param array<string,mixed> $context
+     */
+    private function logNotificationDelivery(string $message, array $context, string $level = 'info'): void
+    {
+        if ($this->pdo && \function_exists('notificationDeliveryLog')) {
+            \notificationDeliveryLog($this->pdo, $message, $context, $level);
+        }
+    }
+
+    private function mailFailureMessage(): string
+    {
+        if (!function_exists('appLastMailResult')) {
+            return '';
+        }
+
+        $mailResult = appLastMailResult();
+        foreach (['error', 'smtp_response', 'response'] as $key) {
+            $message = trim((string) ($mailResult[$key] ?? ''));
+            if ($message !== '') {
+                return $message;
+            }
+        }
+
+        return '';
     }
 
     public function baseVariables(string $to, ?array $settings = null): array
@@ -268,7 +394,7 @@ final class AccountEmailService
             return false;
         }
         $settings = $this->settings();
-        if (($settings['account_email_verification_enabled'] ?? '0') !== '1') {
+        if (!$this->enabledValue($settings['account_email_verification_enabled'] ?? null, '0')) {
             return false;
         }
         $minutes = max(15, min(10080, (int) ($settings['account_email_verification_ttl_minutes'] ?? 1440)));
@@ -279,7 +405,7 @@ final class AccountEmailService
         $stmt->execute([$hash, $expires, $userId]);
         $base = function_exists('appPublicBaseUrl') ? rtrim((string) appPublicBaseUrl(true), '/') : '';
         $url = $base . '/verify-email.php?token=' . urlencode($token) . '&email=' . urlencode($email);
-        return $this->send('verification_request', $email, ['username' => $username, 'action_url' => $url, 'expires_minutes' => (string) $minutes]);
+        return $this->send('verification_request', $email, ['username' => $username, 'user_id' => (string) $userId, 'action_url' => $url, 'expires_minutes' => (string) $minutes]);
     }
 
     public function verify(string $email, string $rawToken): ?array

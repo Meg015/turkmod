@@ -62,7 +62,10 @@ if (!$pdo) {
 }
 
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
-if (($settings['notif_email_channel_ready'] ?? '0') !== '1') {
+$emailQueueEnabled = function_exists('notificationPreferenceBool')
+    ? notificationPreferenceBool($settings, 'notif_email_channel_ready', '0')
+    : in_array(strtolower(trim((string) ($settings['notif_email_channel_ready'] ?? '0'))), ['1', 'true', 'yes', 'on'], true);
+if (!$emailQueueEnabled) {
     $cronRunStatus = 'skipped';
     $cronRunContext = ['reason' => 'email_queue_disabled'];
     echo "Notification email queue is disabled.\n";

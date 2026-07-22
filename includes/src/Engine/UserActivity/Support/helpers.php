@@ -174,11 +174,258 @@ if (!function_exists('userActivityAllKnownEvents')) {
     }
 }
 
+if (!function_exists('userActivityAdditionalEventLabels')) {
+    function userActivityAdditionalEventLabels(): array
+    {
+        return [
+            'user_registered' => 'Kayıt Olundu',
+            'user_login' => 'Giriş Yapıldı',
+            'user_remember_login' => 'Beni Hatırla ile Giriş Yapıldı',
+            'user_login_failed' => 'Giriş Başarısız',
+            'failed_login' => 'Giriş Başarısız',
+            'successful_login' => 'Başarılı Giriş',
+            'user_logout' => 'Çıkış Yapıldı',
+            'password_reset_requested' => 'Şifre Sıfırlama İstendi',
+            'password_reset_completed' => 'Şifre Sıfırlandı',
+            'password_reset' => 'Şifre Sıfırlandı',
+            'password_changed' => 'Şifre Değiştirildi',
+            'email_verified' => 'E-posta Doğrulandı',
+            'email_verification_reminder_sent' => 'E-posta Doğrulama Hatırlatması Gönderildi',
+            'sessions_revoked' => 'Oturumlar Sonlandırıldı',
+
+            'profile_updated' => 'Profil Güncellendi',
+            'avatar_updated' => 'Avatar Güncellendi',
+
+            'topic_created' => 'Konu Oluşturuldu',
+            'topic_updated' => 'Konu Güncellendi',
+            'topic_user_edited' => 'Konu Kullanıcı Tarafından Düzenlendi',
+            'topic_deleted' => 'Konu Silindi',
+            'topic_deleted_permanently' => 'Konu Kalıcı Olarak Silindi',
+            'topic_restored' => 'Konu Geri Yüklendi',
+            'topic_uploaded' => 'Konu/Mod Yüklendi',
+            'topic_resubmitted' => 'Konu Tekrar Gönderildi',
+            'topic_viewed' => 'Konu Görüntülendi',
+            'topic_favorite_added' => 'Konu Favoriye Eklendi',
+            'topic_favorite_removed' => 'Konu Favoriden Çıkarıldı',
+            'topic_downloaded' => 'Dosya İndirildi',
+            'download_link_checked' => 'İndirme Bağlantısı Kontrol Edildi',
+            'download_link_clicked' => 'İndirme Bağlantısına Tıklandı',
+            'topic_liked' => 'Konu Beğenildi',
+            'topic_reported' => 'Konu Şikayet Edildi',
+            'topic_report_updated' => 'Konu Şikayeti Güncellendi',
+            'topic_reports_cleared' => 'Konu Şikayetleri Temizlendi',
+            'topic_moderated' => 'Konu Modere Edildi',
+            'topic_revision_restored' => 'Konu Revizyonu Geri Yüklendi',
+            'topic_health_scan_completed' => 'Konu Sağlık Taraması Tamamlandı',
+            'topic_health_scan_completed_cron' => 'Konu Sağlık Taraması Cron ile Tamamlandı',
+            'topic_health_cleared' => 'Konu Sağlık Uyarıları Temizlendi',
+            'topic_settings_updated' => 'Konu Ayarları Güncellendi',
+            'topic_bulk_restore' => 'Toplu Konu Geri Yükleme',
+            'topic_bulk_delete' => 'Toplu Konu Silme',
+            'topic_bulk_purge' => 'Toplu Konu Kalıcı Silme',
+
+            'comment_created' => 'Yorum Yapıldı',
+            'comment_pending' => 'Yorum Onaya Alındı',
+            'comment_spam_pending' => 'Spam Yorum Onaya Alındı',
+            'comment_spam_blocked' => 'Spam Yorum Engellendi',
+            'comment_updated' => 'Yorum Düzenlendi',
+            'comment_deleted' => 'Yorum Silindi',
+            'comment_restored' => 'Yorum Geri Yüklendi',
+            'comment_approved' => 'Yorum Onaylandı',
+            'comment_rejected' => 'Yorum Reddedildi',
+            'comment_reported' => 'Yorum Şikayet Edildi',
+            'comment_liked' => 'Yorum Beğenildi',
+            'comment_reaction_added' => 'Yorum Tepkisi Eklendi',
+
+            'user_reported' => 'Kullanıcı Şikayet Edildi',
+            'user_report_updated' => 'Kullanıcı Şikayeti Güncellendi',
+            'user_followed' => 'Kullanıcı Takip Edildi',
+            'user_unfollowed' => 'Kullanıcı Takipten Çıkarıldı',
+            'user_banned' => 'Kullanıcı Banlandı',
+            'user_unbanned' => 'Ban Kaldırıldı',
+            'user_restricted' => 'Kısıtlama Eklendi',
+            'user_restriction_removed' => 'Kısıtlama Kaldırıldı',
+            'user_restrictions_cleared' => 'Tüm Kısıtlamalar Kaldırıldı',
+            'user_restriction_expired' => 'Kısıtlama Süresi Doldu',
+            'user_group_changed' => 'Kullanıcı Grubu Değişti',
+            'user_status_changed' => 'Kullanıcı Durumu Değişti',
+            'user_admin_note_added' => 'Admin Notu Eklendi',
+            'admin_user_updated' => 'Admin Kullanıcıyı Düzenledi',
+            'admin_action_reverted' => 'Yönetici İşlemi Geri Alındı',
+
+            'ban_appeal_created' => 'Ban İtirazı Oluşturuldu',
+            'ban_appeal_updated' => 'Ban İtirazı Güncellendi',
+            'ban_appeal_message_added' => 'İtiraz Mesajı Eklendi',
+            'ban_appeal_admin_reply_added' => 'Ban İtirazına Yönetici Yanıtı Eklendi',
+
+            'rate_limit_exceeded' => 'Rate Limit Aşıldı',
+            'csrf_failure' => 'CSRF Doğrulaması Başarısız',
+            'unauthorized_access' => 'Yetkisiz Erişim Denemesi',
+            'suspicious_activity' => 'Şüpheli Aktivite',
+
+            'settings_updated' => 'Ayarlar Güncellendi',
+            'category_created' => 'Kategori Oluşturuldu',
+            'category_updated' => 'Kategori Güncellendi',
+            'category_deleted' => 'Kategori Silindi',
+            'media_uploaded' => 'Medya Yüklendi',
+            'media_deleted' => 'Medya Silindi',
+            'leaderboard_recalculated' => 'Liderlik Tablosu Yeniden Hesaplandı',
+            'leaderboard_cache_cleared' => 'Liderlik Önbelleği Temizlendi',
+            'leaderboard_settings_updated' => 'Liderlik Ayarları Güncellendi',
+            'bot_import_published' => 'Bot İçeriği Yayınlandı',
+            'daily_login' => 'Günlük Giriş Yapıldı',
+            'wheel_spin' => 'Çark Çevrildi',
+
+            'activity_logs_cleared' => 'Aktivite Logları Temizlendi',
+            'user_activity_events_cleared' => 'Kullanıcı İşlem Kayıtları Temizlendi',
+            'admin_action_log_cleared' => 'Yönetici İşlem Günlüğü Temizlendi',
+            'application_logs_cleared' => 'Uygulama Logları Temizlendi',
+            'email_logs_cleared' => 'E-posta Logları Temizlendi',
+            'cron_logs_cleared' => 'Cron Logları Temizlendi',
+            'rate_limit_records_deleted' => 'Rate Limit Kayıtları Silindi',
+            'notification_records_deleted' => 'Bildirim Kayıtları Silindi',
+            'events_audit_logs_cleared' => 'Etkinlik Denetim Logları Temizlendi',
+            'cron_manual_triggered' => 'Cron Elle Çalıştırıldı',
+            'system_notifications_deleted' => 'Sistem Bildirimleri Silindi',
+            'system_notifications_cleared' => 'Sistem Bildirimleri Temizlendi',
+            'group_save' => 'Grup Kaydedildi',
+            'group_deactivate' => 'Grup Devre Dışı Bırakıldı',
+        ];
+    }
+}
+
+if (!function_exists('userActivityNormalizeEventType')) {
+    function userActivityNormalizeEventType(string $eventType): string
+    {
+        $eventType = strtolower(trim($eventType));
+        $eventType = preg_replace('/[^a-z0-9]+/u', '_', $eventType) ?? $eventType;
+
+        return trim($eventType, '_');
+    }
+}
+
+if (!function_exists('userActivityFallbackEventLabel')) {
+    function userActivityFallbackEventLabel(string $eventType): string
+    {
+        $key = userActivityNormalizeEventType($eventType);
+        if ($key === '') {
+            return 'Olay';
+        }
+
+        static $wordLabels = [
+            'activity' => 'Aktivite',
+            'admin' => 'Admin',
+            'appeal' => 'İtiraz',
+            'approved' => 'Onaylandı',
+            'avatar' => 'Avatar',
+            'ban' => 'Ban',
+            'banned' => 'Banlandı',
+            'blocked' => 'Engellendi',
+            'bot' => 'Bot',
+            'bulk' => 'Toplu',
+            'cache' => 'Önbellek',
+            'category' => 'Kategori',
+            'changed' => 'Değiştirildi',
+            'checked' => 'Kontrol Edildi',
+            'cleared' => 'Temizlendi',
+            'clicked' => 'Tıklandı',
+            'comment' => 'Yorum',
+            'completed' => 'Tamamlandı',
+            'created' => 'Oluşturuldu',
+            'cron' => 'Cron',
+            'csrf' => 'CSRF',
+            'deactivate' => 'Devre Dışı Bırakıldı',
+            'deleted' => 'Silindi',
+            'download' => 'İndirme',
+            'downloaded' => 'İndirildi',
+            'email' => 'E-posta',
+            'exceeded' => 'Aşıldı',
+            'expired' => 'Süresi Doldu',
+            'failed' => 'Başarısız',
+            'favorite' => 'Favori',
+            'group' => 'Grup',
+            'health' => 'Sağlık',
+            'import' => 'İçe Aktarım',
+            'leaderboard' => 'Liderlik Tablosu',
+            'link' => 'Bağlantısı',
+            'login' => 'Giriş',
+            'logout' => 'Çıkış',
+            'media' => 'Medya',
+            'moderated' => 'Modere Edildi',
+            'notification' => 'Bildirim',
+            'notifications' => 'Bildirimleri',
+            'password' => 'Şifre',
+            'pending' => 'Onaya Alındı',
+            'permanently' => 'Kalıcı Olarak',
+            'profile' => 'Profil',
+            'rate' => 'Rate',
+            'records' => 'Kayıtları',
+            'registered' => 'Kayıt Olundu',
+            'rejected' => 'Reddedildi',
+            'reminder' => 'Hatırlatması',
+            'removed' => 'Kaldırıldı',
+            'report' => 'Şikayet',
+            'reported' => 'Şikayet Edildi',
+            'reports' => 'Şikayetleri',
+            'requested' => 'İstendi',
+            'reset' => 'Sıfırlama',
+            'restored' => 'Geri Yüklendi',
+            'restricted' => 'Kısıtlandı',
+            'restriction' => 'Kısıtlama',
+            'restrictions' => 'Kısıtlamalar',
+            'revoked' => 'Sonlandırıldı',
+            'revision' => 'Revizyon',
+            'scan' => 'Taraması',
+            'security' => 'Güvenlik',
+            'sent' => 'Gönderildi',
+            'sessions' => 'Oturumlar',
+            'settings' => 'Ayarları',
+            'spam' => 'Spam',
+            'status' => 'Durum',
+            'successful' => 'Başarılı',
+            'suspicious' => 'Şüpheli',
+            'system' => 'Sistem',
+            'topic' => 'Konu',
+            'unbanned' => 'Ban Kaldırıldı',
+            'unauthorized' => 'Yetkisiz',
+            'updated' => 'Güncellendi',
+            'uploaded' => 'Yüklendi',
+            'user' => 'Kullanıcı',
+            'verified' => 'Doğrulandı',
+            'verification' => 'Doğrulama',
+            'viewed' => 'Görüntülendi',
+            'wheel' => 'Çark',
+        ];
+
+        $parts = [];
+        $hasUnknownWord = false;
+        foreach (explode('_', $key) as $word) {
+            if ($word === '') {
+                continue;
+            }
+
+            if (!isset($wordLabels[$word])) {
+                $hasUnknownWord = true;
+            }
+
+            $parts[] = $wordLabels[$word] ?? $word;
+        }
+
+        if ($hasUnknownWord) {
+            return 'Özel Olay (' . $key . ')';
+        }
+
+        return $parts !== [] ? implode(' ', $parts) : $eventType;
+    }
+}
+
 if (!function_exists('userActivityEventLabel')) {
     function userActivityEventLabel(string $eventType): string
     {
-        $labels = userActivityAllKnownEvents();
-        return $labels[$eventType] ?? ucwords(str_replace('_', ' ', $eventType));
+        $labels = array_replace(userActivityAllKnownEvents(), userActivityAdditionalEventLabels());
+        $key = userActivityNormalizeEventType($eventType);
+
+        return $labels[$eventType] ?? $labels[$key] ?? userActivityFallbackEventLabel($eventType);
     }
 }
 
@@ -187,12 +434,12 @@ if (!function_exists('userActivityGroupLabels')) {
     {
         return [
             'activity' => 'Aktivite',
-            'auth' => 'Giris',
-            'security' => 'Guvenlik',
-            'content' => 'Icerik',
+            'auth' => 'Giriş',
+            'security' => 'Güvenlik',
+            'content' => 'İçerik',
             'moderation' => 'Moderasyon',
             'admin' => 'Admin',
-            'appeal' => 'Itiraz',
+            'appeal' => 'İtiraz',
             'note' => 'Not',
         ];
     }
@@ -218,6 +465,7 @@ if (!function_exists('userActivityHiddenEventTypes')) {
             'topic_moderated',
             'topic_revision_restored',
             'topic_health_scan_completed',
+            'topic_health_scan_completed_cron',
             'topic_health_cleared',
             'download_link_checked',
             'category_created',
@@ -294,7 +542,16 @@ if (!function_exists('userActivityClear')) {
 
             if ($scope === 'all') {
                 $count = (int) $pdo->query('SELECT COUNT(*) FROM user_activity_events')->fetchColumn();
-                $pdo->exec('TRUNCATE TABLE user_activity_events');
+                $pdo->exec('DELETE FROM user_activity_events');
+                try {
+                    $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+                    if ($driver === 'sqlite') {
+                        $pdo->exec("DELETE FROM sqlite_sequence WHERE name = 'user_activity_events'");
+                    } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+                        $pdo->exec('ALTER TABLE user_activity_events AUTO_INCREMENT = 1');
+                    }
+                } catch (Throwable $ignored) {
+                }
                 return $count;
             }
 

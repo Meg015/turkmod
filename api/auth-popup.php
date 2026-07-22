@@ -154,6 +154,9 @@ try {
         if (function_exists('logSuccessfulLogin')) {
             logSuccessfulLogin($pdo, (int) ($user['id'] ?? 0), (string) ($user['email'] ?? $identifier));
         }
+        if (function_exists('logActivity')) {
+            logActivity($pdo, 'user_login', 'user', (int) ($user['id'] ?? 0));
+        }
         if (function_exists('eventsRecordActivity')) {
             eventsRecordActivity($pdo, (int) ($user['id'] ?? 0), 'daily_login', 'user', (int) ($user['id'] ?? 0), [
                 'dedupe_key' => 'daily_login:user:' . (int) ($user['id'] ?? 0) . ':' . date('Y-m-d'),
@@ -296,14 +299,18 @@ try {
             $welcomeEmailSent = $accountMailer->send('welcome', $email, [
                 'username' => $username,
                 'login_url' => function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : rtrim((string) $baseUri, '/') . '/giris',
+                'user_id' => (string) $newUserId,
             ]);
             if (!$welcomeEmailSent) {
                 $welcomeEnabledKey = \App\Engine\Email\AccountEmailService::settingKey('welcome', 'enabled');
                 $welcomeTemplate = \App\Engine\Email\AccountEmailService::catalog()['welcome'] ?? ['enabled' => '1'];
-                if (
-                    (string) ($settings['account_email_system_enabled'] ?? '1') === '1'
-                    && (string) ($settings[$welcomeEnabledKey] ?? $welcomeTemplate['enabled'] ?? '1') === '1'
-                ) {
+                $accountEmailSystemActive = function_exists('authSettingEnabled')
+                    ? authSettingEnabled($settings, 'account_email_system_enabled', '1')
+                    : in_array(strtolower(trim((string) ($settings['account_email_system_enabled'] ?? '1'))), ['1', 'true', 'yes', 'on'], true);
+                $welcomeTemplateActive = function_exists('authSettingEnabled')
+                    ? authSettingEnabled($settings, $welcomeEnabledKey, (string) ($welcomeTemplate['enabled'] ?? '1'))
+                    : in_array(strtolower(trim((string) ($settings[$welcomeEnabledKey] ?? $welcomeTemplate['enabled'] ?? '1'))), ['1', 'true', 'yes', 'on'], true);
+                if ($accountEmailSystemActive && $welcomeTemplateActive) {
                     $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
                     $context = [
                         'source' => 'auth_popup_welcome_email_failed',
@@ -367,6 +374,9 @@ try {
 
         if (function_exists('logSuccessfulLogin')) {
             logSuccessfulLogin($pdo, $newUserId, $email);
+        }
+        if (function_exists('logActivity')) {
+            logActivity($pdo, 'user_login', 'user', $newUserId);
         }
         if (function_exists('eventsRecordActivity')) {
             eventsRecordActivity($pdo, $newUserId, 'daily_login', 'user', $newUserId, [

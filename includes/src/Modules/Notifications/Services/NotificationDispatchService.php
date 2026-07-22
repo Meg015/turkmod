@@ -238,6 +238,24 @@ final class NotificationDispatchService
             }
 
             $notificationId = (int) $pdo->lastInsertId();
+            $templateKey = (string) ($dispatchTemplate['template_key'] ?? $eventKey);
+            $this->logDelivery($pdo, 'notification_delivery_created', [
+                'source' => 'notification_dispatch',
+                'status' => 'created',
+                'event_key' => $eventKey,
+                'template_key' => $templateKey,
+                'recipient_user_id' => $recipientId,
+                'recipient_type' => (string) ($payload['recipient_type'] ?? 'user'),
+                'actor_user_id' => $actorId,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'notification_id' => $notificationId,
+                'type' => $type,
+                'delivery_channels' => $deliveryChannels,
+                'title' => $insertData['title'],
+                'message' => $message,
+                'link' => $link,
+            ]);
             if ($emailQueueRequested && $notificationId > 0) {
                 $this->queueEmailForNotification(
                     $pdo,
@@ -298,6 +316,20 @@ final class NotificationDispatchService
             $type,
             $context
         );
+        $this->logDelivery($pdo, 'notification_delivery_skipped', array_merge($context, [
+            'source' => 'notification_dispatch',
+            'status' => 'skipped',
+            'reason' => $reasonKey,
+            'event_key' => $eventKey,
+            'template_key' => $templateKey ?? $eventKey,
+            'recipient_user_id' => $recipientId,
+            'recipient_type' => (string) ($context['recipient_type'] ?? 'user'),
+            'actor_user_id' => $actorId,
+            'entity_type' => $entityType,
+            'entity_id' => $entityId,
+            'dedupe_key' => $dedupeKey,
+            'type' => $type,
+        ]), in_array($reasonKey, ['insert_failed'], true) ? 'error' : 'notice');
 
         return false;
     }
@@ -345,6 +377,23 @@ final class NotificationDispatchService
                 ],
                 $emailQueueMaxAttempts
             );
+            $this->logDelivery($pdo, $emailQueued ? 'notification_email_queued' : 'notification_delivery_failed', [
+                'source' => 'notification_dispatch.email_queue',
+                'status' => $emailQueued ? 'queued' : 'failed',
+                'reason' => $emailQueued ? '' : 'email_queue_insert_failed',
+                'event_key' => $eventKey,
+                'template_key' => (string) ($dispatchTemplate['template_key'] ?? $eventKey),
+                'recipient_user_id' => $recipientId,
+                'recipient_type' => (string) ($payload['recipient_type'] ?? 'user'),
+                'actor_user_id' => $actorId,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'notification_id' => $notificationId,
+                'delivery_channels' => [$emailQueued ? 'email_queue' : 'email_queue_failed'],
+                'title' => $title,
+                'message' => $message,
+                'link' => $link,
+            ], $emailQueued ? 'info' : 'error');
             if (isset($columnsAvailable['delivery_channels'])) {
                 $deliveryChannels = array_values(array_filter(
                     $deliveryChannels,
@@ -369,6 +418,34 @@ final class NotificationDispatchService
                 }
             }
             error_log('Notification email fan-out failed: ' . $e->getMessage());
+            $this->logDelivery($pdo, 'notification_delivery_failed', [
+                'source' => 'notification_dispatch.email_queue',
+                'status' => 'failed',
+                'reason' => 'email_queue_exception',
+                'error' => $e->getMessage(),
+                'event_key' => $eventKey,
+                'template_key' => (string) ($dispatchTemplate['template_key'] ?? $eventKey),
+                'recipient_user_id' => $recipientId,
+                'recipient_type' => (string) ($payload['recipient_type'] ?? 'user'),
+                'actor_user_id' => $actorId,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'notification_id' => $notificationId,
+                'delivery_channels' => ['email_queue_failed'],
+                'title' => $title,
+                'message' => $message,
+                'link' => $link,
+            ], 'error');
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $context
+     */
+    private function logDelivery(PDO $pdo, string $message, array $context, string $level = 'info'): void
+    {
+        if (\function_exists('notificationDeliveryLog')) {
+            \notificationDeliveryLog($pdo, $message, $context, $level);
         }
     }
 

@@ -349,23 +349,30 @@ final class NotificationEmailQueueService
                     WHERE id = ?");
                 $update->execute([$nextAttempts, $queueId]);
                 $result['sent']++;
+                $this->logDelivery($pdo, 'notification_email_sent', $this->queueLogContext($row, [
+                    'status' => 'sent',
+                    'queue_id' => $queueId,
+                    'attempts' => $nextAttempts,
+                    'delivery_channels' => ['email'],
+                ]));
 
                 return;
             }
 
-            $this->markAttemptResult($pdo, $queueId, $nextAttempts, $maxAttempts, $this->buildMailFailureMessage(), $result);
+            $this->markAttemptResult($pdo, $row, $queueId, $nextAttempts, $maxAttempts, $this->buildMailFailureMessage(), $result);
         } catch (Throwable $e) {
             $nextAttempts = (int) ($row['attempts'] ?? 0) + 1;
             $maxAttempts = max(1, (int) ($row['max_attempts'] ?? 3));
-            $this->markAttemptResult($pdo, $queueId, $nextAttempts, $maxAttempts, $e->getMessage(), $result);
+            $this->markAttemptResult($pdo, $row, $queueId, $nextAttempts, $maxAttempts, $e->getMessage(), $result);
             $result['errors'][] = $e->getMessage();
         }
     }
 
     /**
+     * @param array<string,mixed> $row
      * @param array{selected:int,sent:int,failed:int,requeued:int,dry_run:int,errors:list<string>} $result
      */
-    private function markAttemptResult(PDO $pdo, int $queueId, int $nextAttempts, int $maxAttempts, string $error, array &$result): void
+    private function markAttemptResult(PDO $pdo, array $row, int $queueId, int $nextAttempts, int $maxAttempts, string $error, array &$result): void
     {
         $status = $nextAttempts >= $maxAttempts ? 'failed' : 'queued';
         $delayMinutes = $status === 'queued' ? min(60, 5 * $nextAttempts) : 0;
@@ -384,6 +391,58 @@ final class NotificationEmailQueueService
             $result['failed']++;
         } else {
             $result['requeued']++;
+        }
+
+        $this->logDelivery($pdo, 'notification_delivery_failed', $this->queueLogContext($row, [
+            'status' => $status === 'failed' ? 'failed' : 'requeued',
+            'reason' => $status === 'failed' ? 'email_send_failed' : 'email_send_retry_scheduled',
+            'error' => $error,
+            'queue_id' => $queueId,
+            'attempts' => $nextAttempts,
+            'available_at' => $availableAt,
+            'delivery_channels' => [$status === 'failed' ? 'email_failed' : 'email_retry'],
+        ]), $status === 'failed' ? 'error' : 'warning');
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     * @param array<string,mixed> $extra
+     * @return array<string,mixed>
+     */
+    private function queueLogContext(array $row, array $extra = []): array
+    {
+        $metadata = [];
+        if (!empty($row['metadata_json']) && is_string($row['metadata_json'])) {
+            $decoded = json_decode($row['metadata_json'], true);
+            $metadata = is_array($decoded) ? $decoded : [];
+        }
+        $payload = is_array($metadata['payload'] ?? null) ? $metadata['payload'] : [];
+
+        return array_merge([
+            'source' => 'notification_email_queue',
+            'event_key' => (string) ($metadata['event_key'] ?? ''),
+            'template_key' => (string) ($row['template_key'] ?? ''),
+            'recipient_user_id' => (int) ($row['user_id'] ?? 0),
+            'recipient_type' => (string) ($metadata['recipient_type'] ?? ($payload['recipient_type'] ?? 'user')),
+            'recipient_email' => (string) ($row['recipient_email'] ?? ''),
+            'actor_user_id' => $metadata['actor_user_id'] ?? null,
+            'entity_type' => (string) ($metadata['entity_type'] ?? ''),
+            'entity_id' => $metadata['entity_id'] ?? null,
+            'notification_id' => (int) ($row['notification_id'] ?? 0),
+            'title' => (string) ($row['subject'] ?? ''),
+            'message' => (string) ($row['body'] ?? ''),
+            'link' => (string) ($row['link'] ?? ''),
+            'max_attempts' => (int) ($row['max_attempts'] ?? 0),
+        ], $extra);
+    }
+
+    /**
+     * @param array<string,mixed> $context
+     */
+    private function logDelivery(PDO $pdo, string $message, array $context, string $level = 'info'): void
+    {
+        if (\function_exists('notificationDeliveryLog')) {
+            \notificationDeliveryLog($pdo, $message, $context, $level);
         }
     }
 

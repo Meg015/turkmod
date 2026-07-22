@@ -1596,12 +1596,14 @@ function adminRenderLogsSubtabs(string $active): void
                     ? adminSystemNotificationWhereSql($pdo, 'n')
                     : "n.type = 'system'";
                 $systemNotificationCountSql = "SELECT COUNT(*) FROM notifications n WHERE {$systemNotificationWhere}";
-                if (adminTableExists($pdo, 'notification_reads')) {
-                    $systemNotificationCountSql .= ' AND NOT EXISTS (
-                        SELECT 1 FROM notification_reads nr
-                        WHERE nr.notification_id = n.id
-                    )';
-                }
+                $systemNotificationCountSql .= ' AND ' . (
+                    function_exists('adminSystemNotificationUnreadWhereSql')
+                        ? adminSystemNotificationUnreadWhereSql($pdo, 'n')
+                        : 'NOT EXISTS (
+                            SELECT 1 FROM notification_reads nr
+                            WHERE nr.notification_id = n.id
+                        )'
+                );
                 $systemNotificationCount = (int) $pdo->query($systemNotificationCountSql)->fetchColumn();
                 if ($systemNotificationCount > 0) {
                     $systemNotificationBadge = $systemNotificationCount > 99 ? '99+' : (string) $systemNotificationCount;
@@ -1719,6 +1721,69 @@ function adminSystemNotificationWhereSql(PDO $pdo, string $alias = 'n'): string
     }
 
     return '(' . implode(' OR ', $clauses) . ')';
+}
+
+function adminNotificationSqlPrefix(string $alias = 'n'): string
+{
+    $alias = trim($alias);
+    if ($alias === '') {
+        return '';
+    }
+
+    return preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $alias) === 1 ? $alias . '.' : 'n.';
+}
+
+function adminNotificationInAppDeliveryWhereSql(PDO $pdo, string $alias = 'n'): string
+{
+    $prefix = adminNotificationSqlPrefix($alias);
+
+    try {
+        if (!function_exists('adminColumnExists') || !adminColumnExists($pdo, 'notifications', 'delivery_channels')) {
+            return '1=1';
+        }
+    } catch (Throwable $e) {
+        return '1=1';
+    }
+
+    return '('
+        . $prefix . 'delivery_channels IS NULL'
+        . ' OR ' . $prefix . "delivery_channels = ''"
+        . ' OR ' . $prefix . "delivery_channels LIKE '%\"in_app\"%'"
+        . ')';
+}
+
+function adminNotificationTargetUnreadWhereSql(PDO $pdo, string $alias = 'n'): string
+{
+    $prefix = adminNotificationSqlPrefix($alias);
+    $outerPrefix = $prefix !== '' ? $prefix : 'notifications.';
+    $clauses = [adminNotificationInAppDeliveryWhereSql($pdo, $alias)];
+
+    try {
+        if (function_exists('adminTableExists') && adminTableExists($pdo, 'notification_reads')) {
+            $clauses[] = 'NOT EXISTS (
+                SELECT 1 FROM notification_reads nr
+                WHERE nr.notification_id = ' . $outerPrefix . 'id
+                  AND (' . $outerPrefix . 'user_id IS NULL OR nr.user_id = ' . $outerPrefix . 'user_id)
+            )';
+        }
+
+        if (function_exists('adminTableExists') && adminTableExists($pdo, 'notification_dismissals')) {
+            $clauses[] = 'NOT EXISTS (
+                SELECT 1 FROM notification_dismissals nd
+                WHERE nd.notification_id = ' . $outerPrefix . 'id
+                  AND (' . $outerPrefix . 'user_id IS NULL OR nd.user_id = ' . $outerPrefix . 'user_id)
+            )';
+        }
+    } catch (Throwable $e) {
+        return '(' . $clauses[0] . ')';
+    }
+
+    return '(' . implode(' AND ', $clauses) . ')';
+}
+
+function adminSystemNotificationUnreadWhereSql(PDO $pdo, string $alias = 'n'): string
+{
+    return adminNotificationTargetUnreadWhereSql($pdo, $alias);
 }
 
 function adminSettingDefinitions(): array

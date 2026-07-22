@@ -78,11 +78,6 @@ function scraperPreviewBotSettings(array $botSettings): array
         'bot_require_cover_image' => '0',
         'bot_min_title_length' => '0',
         'bot_min_content_length' => '0',
-        'bot_translate_enabled' => '0',
-        'bot_translate_title' => '0',
-        'bot_translate_content' => '0',
-        'bot_translate_download_names' => '0',
-        'bot_deepl_api_key' => '',
     ]);
 }
 
@@ -109,7 +104,6 @@ function scraperDiscoverBotSettings(array $botSettings): array
 function scraperPreviewSiteConfig(array $siteConfig): array
 {
     $siteConfig['settings'] = is_array($siteConfig['settings'] ?? null) ? $siteConfig['settings'] : [];
-    $siteConfig['settings']['translate'] = false;
     return $siteConfig;
 }
 
@@ -238,7 +232,7 @@ $allowedActions = [
     'save_mapping', 'get_mapping', 'delete_mapping',
     'discover_urls', 'scrape_single', 'preview_url', 'scrape_batch',
     'publish_import', 'save_and_publish_import', 'delete_import', 'get_import',
-    'save_bot_settings', 'get_stats', 'test_connection',
+    'save_bot_settings', 'get_stats', 'test_connection', 'test_translation',
 ];
 
 if (!in_array($action, $allowedActions, true)) {
@@ -270,7 +264,7 @@ $postOnlyActions = [
     'save_mapping', 'delete_mapping',
     'discover_urls', 'scrape_single', 'preview_url', 'scrape_batch',
     'publish_import', 'save_and_publish_import', 'delete_import',
-    'save_bot_settings', 'test_connection',
+    'save_bot_settings', 'test_connection', 'test_translation',
 ];
 
 if (in_array($action, $postOnlyActions, true) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -279,7 +273,7 @@ if (in_array($action, $postOnlyActions, true) && ($_SERVER['REQUEST_METHOD'] ?? 
     exit;
 }
 
-$schemaSkipActions = ['discover_urls', 'test_connection'];
+$schemaSkipActions = ['discover_urls', 'test_connection', 'test_translation'];
 
 function scraperImportDataFromResult(int $siteId, string $url, array $result, ?int $jobId = null, string $status = 'preview'): array
 {
@@ -565,7 +559,7 @@ try {
                     $importId = createScraperImport($pdo, $importData);
                 }
                 $topicUrl = null;
-                if (($botSettings['bot_auto_publish'] ?? '0') === '1') {
+                if (scraperBoolSetting($botSettings, 'bot_auto_publish', '0')) {
                     $publishDefaults = scraperResolvePublishDefaults($pdo, $site, $mappingId > 0 ? $mappingId : null, $botSettings);
                     if ($publishDefaults['category_id'] > 0) {
                         $publishedSlug = publishScraperImport($pdo, $importId, (int)$publishDefaults['category_id'], (string)$publishDefaults['status']);
@@ -686,8 +680,8 @@ try {
             ];
             $engine = new ScraperEngine($botSettings);
             $processed = 0; $failed = 0; $imported = 0; $skipped = 0; $warnings = [];
-            $continueOnError = ($botSettings['bot_bulk_continue_on_error'] ?? '1') === '1';
-            $autoPublish = ($botSettings['bot_auto_publish'] ?? '0') === '1';
+            $continueOnError = scraperBoolSetting($botSettings, 'bot_bulk_continue_on_error', '1');
+            $autoPublish = scraperBoolSetting($botSettings, 'bot_auto_publish', '0');
             $publishDefaults = scraperResolvePublishDefaults($pdo, $site, $mappingId, $botSettings);
 
             // Batch load existing and duplicate imports to avoid N+1 queries
@@ -925,6 +919,61 @@ try {
                 'success' => (bool)$html,
                 'length' => $html ? strlen($html) : 0,
                 'message' => $html ? 'Bağlantı başarılı (' . strlen($html) . ' byte)' : 'Bağlantı kurulamadı.',
+            ]);
+            break;
+
+        // -- Test Translation ---------------------------------
+        case 'test_translation':
+            $text = trim((string)($_POST['text'] ?? ''));
+            if ($text === '') {
+                scraperApiRespond(['success' => false, 'error' => 'Çevrilecek metin gerekli.']);
+                break;
+            }
+
+            if (!function_exists('curl_init')) {
+                scraperApiRespond(['success' => false, 'error' => 'Sunucuda cURL eklentisi aktif değil.']);
+                break;
+            }
+
+            if (mb_strlen($text) > 5000) {
+                $text = mb_substr($text, 0, 5000);
+            }
+
+            $botSettings = getScraperBotSettings($pdo);
+            foreach (['bot_deepl_api_key', 'bot_source_lang', 'bot_target_lang', 'bot_ssl_verify'] as $settingKey) {
+                if (array_key_exists($settingKey, $_POST)) {
+                    $botSettings[$settingKey] = trim((string)$_POST[$settingKey]);
+                }
+            }
+
+            $apiKey = trim((string)($botSettings['bot_deepl_api_key'] ?? ''));
+            if ($apiKey === '') {
+                scraperApiRespond(['success' => false, 'error' => 'DeepL API anahtarı gerekli.']);
+                break;
+            }
+
+            $sourceLang = strtoupper(trim((string)($botSettings['bot_source_lang'] ?? 'EN'))) ?: 'EN';
+            $targetLang = strtoupper(trim((string)($botSettings['bot_target_lang'] ?? 'TR'))) ?: 'TR';
+            $engine = new ScraperEngine($botSettings);
+            $translatedText = $engine->translateText($text, $sourceLang, $targetLang);
+            $translationErrors = $engine->getTranslationErrors();
+
+            if ($translatedText === null || $translatedText === '') {
+                scraperApiRespond([
+                    'success' => false,
+                    'error' => $translationErrors[0] ?? 'DeepL çeviri yanıtı alınamadı.',
+                    'translation_errors' => $translationErrors,
+                ]);
+                break;
+            }
+
+            scraperApiRespond([
+                'success' => true,
+                'message' => 'Çeviri başarılı.',
+                'translated_text' => $translatedText,
+                'source_lang' => $sourceLang,
+                'target_lang' => $targetLang,
+                'translation_errors' => $translationErrors,
             ]);
             break;
 

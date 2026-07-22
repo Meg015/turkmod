@@ -318,7 +318,13 @@ final class NotificationPreferenceService
 
     public function bool(array $settings, string $key, string $default = '1'): bool
     {
-        return (($settings[$key] ?? $default) === '1');
+        $value = $settings[$key] ?? $default;
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
     }
 
     /** @param array<string,mixed>|null $definition */

@@ -306,7 +306,16 @@ function logsFormatProperties(?string $propertiesJson): string
 function logsClearAll(PDO $pdo): int
 {
     $count = (int)$pdo->query("SELECT COUNT(*) FROM activity_logs")->fetchColumn();
-    $pdo->exec("TRUNCATE TABLE activity_logs");
+    $pdo->exec("DELETE FROM activity_logs");
+    try {
+        $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+        if ($driver === 'sqlite') {
+            $pdo->exec("DELETE FROM sqlite_sequence WHERE name = 'activity_logs'");
+        } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $pdo->exec("ALTER TABLE activity_logs AUTO_INCREMENT = 1");
+        }
+    } catch (Throwable $ignored) {
+    }
     return $count;
 }
 
@@ -341,10 +350,11 @@ function appLogsCronWhereClause(string $prefix = ''): string
     $contextSql = "LOWER(COALESCE(CAST({$contextCol} AS CHAR), ''))";
 
     return "({$channelSql} = 'cron'"
-        . " OR {$messageSql} LIKE 'cron_run:%'"
+        . " OR ({$messageSql} LIKE 'cron_run:%' AND ({$channelSql} = '' OR {$channelSql} = 'cron'))"
         . " OR {$contextSql} LIKE '%\"action\":\"cron_cleanup\"%'"
+        . " OR {$contextSql} LIKE '%\"source\":\"cron\"%'"
         . " OR {$contextSql} LIKE '%\"source\":\"cron/%'"
-        . " OR {$contextSql} LIKE '%\"source\":\"cron_%')";
+        . " OR {$contextSql} LIKE '%\"source\":\"cron_logs\"%')";
 }
 
 /**
@@ -650,6 +660,9 @@ if (!function_exists('appLogsContextLabel')) {
             'actor_user_id' => 'İşlemi yapan',
             'user_id' => 'Kullanıcı',
             'target_user_id' => 'Hedef kullanıcı',
+            'recipient_user_id' => 'Alıcı kullanıcı',
+            'recipient_type' => 'Alıcı tipi',
+            'recipient_email' => 'Alıcı e-posta',
             'subject_type' => 'Hedef tür',
             'subject_id' => 'Hedef',
             'method' => 'Yöntem',
@@ -668,6 +681,17 @@ if (!function_exists('appLogsContextLabel')) {
             'failed' => 'Başarısız',
             'total_operations' => 'Toplam işlem',
             'template_key' => 'Şablon',
+            'event_key' => 'Olay',
+            'notification_id' => 'Bildirim',
+            'delivery_channels' => 'Teslimat kanalı',
+            'message_excerpt' => 'Mesaj özeti',
+            'dedupe_key' => 'Tekil anahtar',
+            'queue_id' => 'Kuyruk',
+            'attempts' => 'Deneme',
+            'max_attempts' => 'Azami deneme',
+            'available_at' => 'Yeniden deneme zamanı',
+            'type' => 'Tip',
+            'link' => 'Bağlantı',
             'theme_id' => 'Tema',
             'asset' => 'Varlık',
             'sapi' => 'Çalıştırma',
@@ -747,7 +771,7 @@ if (!function_exists('appLogsContextUserIds')) {
     {
         $ids = [];
 
-        foreach (['actor_id', 'actor_user_id', 'user_id', 'target_user_id', 'subject_user_id'] as $key) {
+        foreach (['actor_id', 'actor_user_id', 'user_id', 'target_user_id', 'subject_user_id', 'recipient_user_id'] as $key) {
             if (!array_key_exists($key, $context)) {
                 continue;
             }
@@ -913,6 +937,11 @@ if (!function_exists('appLogsHumanizeMessage')) {
             'route_dispatch' => 'Rota işlendi',
             'route_dispatch_failed' => 'Rota yönlendirme hatası',
             'activity_log_failed' => 'Aktivite kaydı yazılamadı',
+            'notification_delivery_created' => 'Bildirim oluşturuldu',
+            'notification_email_queued' => 'Bildirim e-postası kuyruğa eklendi',
+            'notification_email_sent' => 'Bildirim e-postası gönderildi',
+            'notification_delivery_skipped' => 'Bildirim gönderimi atlandı',
+            'notification_delivery_failed' => 'Bildirim gönderimi başarısız',
         ];
 
         if (isset($map[$message])) {
@@ -1014,6 +1043,89 @@ if (!function_exists('appLogsContextSummary')) {
             }
 
             return $parts !== [] ? implode(' · ', $parts) : 'Ek detay yok';
+        }
+
+        if ($channel === 'notification') {
+            $parts = [];
+            $recipientType = strtolower(trim((string) ($context['recipient_type'] ?? '')));
+            $recipientId = is_numeric($context['recipient_user_id'] ?? null) ? (int) $context['recipient_user_id'] : 0;
+            if ($recipientType === 'broadcast') {
+                $parts[] = 'Alıcı: Genel yayın';
+            } elseif ($recipientId > 0) {
+                $recipientLabel = appLogsUserLabel($recipientId, $userLabels);
+                $parts[] = ($recipientType === 'admin' ? 'Admin alıcı: ' : 'Alıcı: ') . $recipientLabel;
+            } else {
+                $recipientEmail = appLogsValueText($context['recipient_email'] ?? null, true);
+                if ($recipientEmail !== '') {
+                    $parts[] = ($recipientType === 'admin' ? 'Admin e-posta: ' : 'Alıcı e-posta: ') . $recipientEmail;
+                }
+            }
+
+            $status = strtolower(trim((string) ($context['status'] ?? '')));
+            if ($status !== '') {
+                $statusLabel = [
+                    'created' => 'Oluşturuldu',
+                    'queued' => 'Kuyrukta',
+                    'sent' => 'Gönderildi',
+                    'skipped' => 'Atlandı',
+                    'failed' => 'Başarısız',
+                    'requeued' => 'Tekrar denenecek',
+                ][$status] ?? appLogsPrettyLabel($status);
+                $parts[] = 'Durum: ' . $statusLabel;
+            }
+
+            $channels = $context['delivery_channels'] ?? [];
+            if (is_string($channels)) {
+                $decodedChannels = json_decode($channels, true);
+                $channels = is_array($decodedChannels) ? $decodedChannels : preg_split('/\s*,\s*/', $channels);
+            }
+            if (is_array($channels) && $channels !== []) {
+                $channelLabels = [
+                    'in_app' => 'Site içi',
+                    'email' => 'E-posta',
+                    'email_queue' => 'E-posta kuyruğu',
+                    'email_queue_pending' => 'E-posta bekliyor',
+                    'email_queue_failed' => 'E-posta kuyruk hatası',
+                    'email_failed' => 'E-posta hatası',
+                    'email_retry' => 'E-posta tekrar denenecek',
+                ];
+                $normalized = [];
+                foreach ($channels as $item) {
+                    $item = trim((string) $item);
+                    if ($item !== '') {
+                        $normalized[] = $channelLabels[$item] ?? appLogsPrettyLabel($item);
+                    }
+                }
+                if ($normalized !== []) {
+                    $parts[] = 'Kanal: ' . implode(', ', array_values(array_unique($normalized)));
+                }
+            }
+
+            $templateKey = appLogsValueText($context['template_key'] ?? ($context['event_key'] ?? null), true);
+            if ($templateKey !== '') {
+                $parts[] = 'Şablon: ' . $templateKey;
+            }
+
+            $reason = appLogsValueText($context['reason'] ?? null, true);
+            if ($reason !== '') {
+                $parts[] = 'Sebep: ' . $reason;
+            }
+
+            if (count($parts) < 5) {
+                $title = appLogsValueText($context['title'] ?? null, true);
+                if ($title !== '') {
+                    $parts[] = 'Başlık: ' . $title;
+                }
+            }
+
+            if (count($parts) < 5) {
+                $error = appLogsValueText($context['error'] ?? null, true);
+                if ($error !== '') {
+                    $parts[] = 'Hata: ' . $error;
+                }
+            }
+
+            return $parts !== [] ? implode(' · ', array_slice($parts, 0, 5)) : 'Ek detay yok';
         }
 
         if ($channel === 'activity') {

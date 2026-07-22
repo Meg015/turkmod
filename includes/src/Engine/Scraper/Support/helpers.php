@@ -59,7 +59,31 @@ function scraperShouldRateLimitAction(string $action, bool $isPrivileged = false
         'scrape_single',
         'scrape_batch',
         'test_connection',
+        'test_translation',
     ], true);
+}
+
+function scraperBoolValue(mixed $value, mixed $default = false): bool
+{
+    if ($value === null || (is_string($value) && trim($value) === '')) {
+        $value = $default;
+    }
+
+    if (is_bool($value)) {
+        return $value;
+    }
+
+    $normalized = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if ($normalized !== null) {
+        return $normalized;
+    }
+
+    return (bool) filter_var($default, FILTER_VALIDATE_BOOLEAN);
+}
+
+function scraperBoolSetting(array $settings, string $key, mixed $default = false): bool
+{
+    return scraperBoolValue($settings[$key] ?? $default, $default);
 }
 
 function scraperJsArg($value): string
@@ -430,16 +454,32 @@ function getScraperMappings(?PDO $pdo, ?int $siteId = null): array
 {
     if (!$pdo) return [];
     try {
-        $sql = "SELECT m.*, s.name AS site_name, c.name AS local_category_name
+        $sql = "SELECT m.*, s.name AS site_name,
+                       c.name AS local_category_name,
+                       c.slug AS local_category_slug,
+                       c.parent_id AS local_category_parent_id,
+                       c.display_order AS local_category_display_order,
+                       p.id AS local_parent_category_id,
+                       p.name AS local_parent_category_name,
+                       p.slug AS local_parent_category_slug,
+                       p.display_order AS local_parent_category_display_order
                 FROM bot_category_mappings m
                 LEFT JOIN bot_sites s ON m.bot_site_id = s.id
-                LEFT JOIN categories c ON m.local_category_id = c.id";
+                LEFT JOIN categories c ON m.local_category_id = c.id
+                LEFT JOIN categories p ON c.parent_id = p.id";
+        $orderSql = " ORDER BY s.name,
+                              COALESCE(p.display_order, c.display_order, 999999),
+                              COALESCE(p.name, c.name, 'ZZZ'),
+                              CASE WHEN p.id IS NULL THEN 0 ELSE 1 END,
+                              COALESCE(c.display_order, 999999),
+                              COALESCE(c.name, 'ZZZ'),
+                              m.remote_category_name";
         if ($siteId) {
             $sql .= " WHERE m.bot_site_id = ?";
-            $stmt = $pdo->prepare($sql . " ORDER BY m.remote_category_name");
+            $stmt = $pdo->prepare($sql . $orderSql);
             $stmt->execute([$siteId]);
         } else {
-            $stmt = $pdo->query($sql . " ORDER BY s.name, m.remote_category_name");
+            $stmt = $pdo->query($sql . $orderSql);
         }
         return $stmt->fetchAll();
     } catch (Throwable $e) { return []; }
@@ -1040,7 +1080,7 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
         $siteSlug = 'site-' . (int)$import['bot_site_id'];
     }
     $siteSlug = preg_replace('/[^a-z0-9_-]+/i', '-', strtolower($siteSlug)) ?: ('site-' . (int)$import['bot_site_id']);
-    $downloadImages = ((string)($botSettings['bot_download_images'] ?? '1') === '1');
+    $downloadImages = scraperBoolSetting($botSettings, 'bot_download_images', '1');
     $sourceScheme = (string)(parse_url((string)($import['source_url'] ?? ''), PHP_URL_SCHEME) ?: 'https');
 
     $images = $import['downloaded_images'] ?: $import['source_images'] ?: '';

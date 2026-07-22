@@ -66,12 +66,12 @@ class ScraperEngine
         $this->delay = (int)($botSettings['bot_request_delay'] ?? 1000);
         $this->retryCount = max(0, (int)($botSettings['bot_retry_count'] ?? 1));
         $this->retryDelay = max(0, (int)($botSettings['bot_retry_delay'] ?? 750));
-        $this->followRedirects = ($botSettings['bot_follow_redirects'] ?? '1') === '1';
-        $this->sslVerify = ($botSettings['bot_ssl_verify'] ?? '1') === '1';
+        $this->followRedirects = $this->settingEnabled($botSettings, 'bot_follow_redirects', '1');
+        $this->sslVerify = $this->settingEnabled($botSettings, 'bot_ssl_verify', '1');
         $proxyUrl = trim((string)($botSettings['bot_proxy_url'] ?? ''));
         $this->proxyUrl = $this->isValidProxyUrl($proxyUrl) ? $proxyUrl : '';
         $this->customHeaders = trim((string)($botSettings['bot_custom_headers'] ?? ''));
-        $this->deeplApiKey = $botSettings['bot_deepl_api_key'] ?? '';
+        $this->deeplApiKey = trim((string)($botSettings['bot_deepl_api_key'] ?? ''));
         $rawImageSavePath = trim((string)($botSettings['bot_image_save_path'] ?? 'uploads/konu/'));
         if ($rawImageSavePath === '' || $rawImageSavePath === 'uploads' || $rawImageSavePath === 'uploads/') {
             $rawImageSavePath = 'uploads/konu';
@@ -92,10 +92,37 @@ class ScraperEngine
             : 'slug';
         $extensions = array_filter(array_map('trim', explode(',', strtolower((string)($botSettings['bot_allowed_image_extensions'] ?? 'jpg,jpeg,png,webp,gif')))));
         $this->allowedImageExtensions = $extensions ?: ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-        $this->cleanHtmlEnabled = ($botSettings['bot_clean_html'] ?? '1') === '1';
-        $this->stripScripts = ($botSettings['bot_strip_scripts'] ?? '1') === '1';
-        $this->stripIframes = ($botSettings['bot_strip_iframes'] ?? '1') === '1';
+        $this->cleanHtmlEnabled = $this->settingEnabled($botSettings, 'bot_clean_html', '1');
+        $this->stripScripts = $this->settingEnabled($botSettings, 'bot_strip_scripts', '1');
+        $this->stripIframes = $this->settingEnabled($botSettings, 'bot_strip_iframes', '1');
         $this->maxImageBytes = max(1, (int)($botSettings['bot_max_image_bytes'] ?? 8 * 1024 * 1024));
+    }
+
+    private function settingEnabled(array $settings, string $key, mixed $default = false): bool
+    {
+        return $this->boolValue($settings[$key] ?? $default, $default);
+    }
+
+    private function boolValue(mixed $value, mixed $default = false): bool
+    {
+        if (function_exists('scraperBoolValue')) {
+            return \scraperBoolValue($value, $default);
+        }
+
+        if ($value === null || (is_string($value) && trim($value) === '')) {
+            $value = $default;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($normalized !== null) {
+            return $normalized;
+        }
+
+        return (bool) filter_var($default, FILTER_VALIDATE_BOOLEAN);
     }
 
     private function isSafeFetchUrl(string $url): bool
@@ -732,9 +759,15 @@ class ScraperEngine
     /**
      * Translate text via DeepL API.
      */
-    public function translateText(string $text, string $sourceLang = 'EN', string $targetLang = 'TR'): ?string
+    public function translateText(string $text, string $sourceLang = 'EN', string $targetLang = 'TR', array $options = []): ?string
     {
-        if (empty($this->deeplApiKey) || trim($text) === '') {
+        $apiKey = trim((string)$this->deeplApiKey);
+        if ($apiKey === '' || trim($text) === '') {
+            return null;
+        }
+
+        if (!function_exists('curl_init')) {
+            $this->translationErrors[] = 'DeepL çeviri hatası: Sunucuda cURL eklentisi aktif değil.';
             return null;
         }
 
@@ -742,7 +775,14 @@ class ScraperEngine
         $lastError = null;
 
         for ($attempt = 0; $attempt < $maxRetries; $attempt++) {
-            $isFree = str_ends_with($this->deeplApiKey, ':fx');
+            $deeplOptions = array_intersect_key($options, array_flip([
+                'tag_handling',
+                'preserve_formatting',
+                'split_sentences',
+                'outline_detection',
+                'formality',
+            ]));
+            $isFree = str_ends_with($apiKey, ':fx');
             $apiUrl = $isFree
                 ? 'https://api-free.deepl.com/v2/translate'
                 : 'https://api.deepl.com/v2/translate';
@@ -754,14 +794,14 @@ class ScraperEngine
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT        => 30,
                 CURLOPT_HTTPHEADER     => [
-                    'Authorization: DeepL-Auth-Key ' . $this->deeplApiKey,
+                    'Authorization: DeepL-Auth-Key ' . $apiKey,
                     'Content-Type: application/json',
                 ],
-                CURLOPT_POSTFIELDS     => json_encode([
+                CURLOPT_POSTFIELDS     => json_encode(array_merge([
                     'text'        => [$text],
                     'source_lang' => strtoupper($sourceLang),
                     'target_lang' => strtoupper($targetLang),
-                ]),
+                ], $deeplOptions)),
                 CURLOPT_SSL_VERIFYPEER => $this->isSslVerifyEnabled(),
                 CURLOPT_SSL_VERIFYHOST => $this->isSslVerifyEnabled() ? 2 : 0,
             ]);
@@ -808,20 +848,21 @@ class ScraperEngine
         $baseUrl = $siteConfig['base_url'] ?? '';
         $siteSlug = $siteConfig['slug'] ?? 'unknown';
         $maxImages = (int)($settings['max_images'] ?? $botSettings['bot_default_max_images'] ?? 5);
-        $doTranslate = ($settings['translate'] ?? false) || ($botSettings['bot_translate_enabled'] ?? '0') === '1';
+        $doTranslate = $this->boolValue($settings['translate'] ?? false, false)
+            || $this->settingEnabled($botSettings, 'bot_translate_enabled', '0');
         $srcLang = $settings['source_lang'] ?? $botSettings['bot_source_lang'] ?? 'EN';
         $tgtLang = $settings['target_lang'] ?? $botSettings['bot_target_lang'] ?? 'TR';
         $contentAlign = (string)($settings['content_align'] ?? $botSettings['bot_content_align'] ?? 'center');
-        $downloadImages = ($botSettings['bot_download_images'] ?? '1') === '1';
-        $useHotlinkImages = ($botSettings['bot_use_hotlink_images'] ?? '0') === '1';
-        $extractDownloadLinks = ($botSettings['bot_extract_download_links'] ?? '1') === '1';
-        $appendSourceLink = ($botSettings['bot_append_source_link'] ?? '0') === '1';
+        $downloadImages = $this->settingEnabled($botSettings, 'bot_download_images', '1');
+        $useHotlinkImages = $this->settingEnabled($botSettings, 'bot_use_hotlink_images', '0');
+        $extractDownloadLinks = $this->settingEnabled($botSettings, 'bot_extract_download_links', '1');
+        $appendSourceLink = $this->settingEnabled($botSettings, 'bot_append_source_link', '0');
         $minTitleLength = max(0, (int)($botSettings['bot_min_title_length'] ?? 0));
         $minContentLength = max(0, (int)($botSettings['bot_min_content_length'] ?? 0));
-        $requireCoverImage = ($botSettings['bot_require_cover_image'] ?? '0') === '1';
-        $translateTitle = ($botSettings['bot_translate_title'] ?? '1') === '1';
-        $translateContent = ($botSettings['bot_translate_content'] ?? '1') === '1';
-        $translateDownloadNames = ($botSettings['bot_translate_download_names'] ?? '0') === '1';
+        $requireCoverImage = $this->settingEnabled($botSettings, 'bot_require_cover_image', '0');
+        $translateTitle = $this->settingEnabled($botSettings, 'bot_translate_title', '1');
+        $translateContent = $this->settingEnabled($botSettings, 'bot_translate_content', '1');
+        $translateDownloadNames = $this->settingEnabled($botSettings, 'bot_translate_download_names', '0');
         $replacementRules = is_array($settings['replacements'] ?? null) ? $settings['replacements'] : [];
         $this->translationErrors = [];
 
@@ -927,25 +968,17 @@ class ScraperEngine
         $result['images_count'] = count($result['downloaded_images']);
 
         // Translate
-        if ($doTranslate && $this->deeplApiKey) {
+        if ($doTranslate && trim((string)$this->deeplApiKey) === '') {
+            $this->translationErrors[] = 'DeepL çeviri hatası: API anahtarı tanımlı değil.';
+        }
+
+        if ($doTranslate && trim((string)$this->deeplApiKey) !== '') {
             if ($translateTitle && $result['title']) {
                 $result['translated_title'] = $this->translateText($result['title'], $srcLang, $tgtLang) ?? '';
             }
             if ($translateContent && $result['content']) {
-                // Translate in chunks for long content
-                $contentText = strip_tags($result['content']);
-                if (mb_strlen($contentText) > 4500) {
-                    $chunks = $this->splitTextForTranslation($contentText, 4500);
-                    $translated = '';
-                    foreach ($chunks as $chunk) {
-                        $t = $this->translateText($chunk, $srcLang, $tgtLang);
-                        $translated .= ($t ?? '');
-                    }
-                    $result['translated_content'] = $this->applyContentAlignment($translated, $contentAlign);
-                } else {
-                    $translatedContent = $this->translateText($contentText, $srcLang, $tgtLang);
-                    $result['translated_content'] = $this->applyContentAlignment($translatedContent ?? '', $contentAlign);
-                }
+                $translatedContent = $this->translateContentPreservingSpacing($result['content'], $srcLang, $tgtLang);
+                $result['translated_content'] = $this->applyContentAlignment($translatedContent ?? '', $contentAlign);
             }
             if ($translateDownloadNames && $result['download_links']) {
                 $result['download_links'] = $this->translateDownloadLinkNames($result['download_links'], $srcLang, $tgtLang);
@@ -1526,6 +1559,147 @@ class ScraperEngine
         if ($urlWithoutWww === $baseWithoutWww) return true;
         
         return false;
+    }
+
+    private function translateContentPreservingSpacing(string $html, string $sourceLang, string $targetLang): ?string
+    {
+        $preparedHtml = $this->prepareContentHtmlForTranslation($html);
+        if ($preparedHtml === '') {
+            return null;
+        }
+
+        $plainText = $this->htmlFragmentToText($preparedHtml);
+        if (mb_strlen($plainText, 'UTF-8') <= 4500) {
+            $translated = $this->translateText($preparedHtml, $sourceLang, $targetLang, [
+                'tag_handling' => 'html',
+                'preserve_formatting' => true,
+            ]);
+
+            return $translated !== null ? $this->cleanTranslatedContentHtml($translated) : null;
+        }
+
+        return $this->translateLongContentPreservingParagraphs($preparedHtml, $sourceLang, $targetLang);
+    }
+
+    private function prepareContentHtmlForTranslation(string $html): string
+    {
+        $html = trim($html);
+        if ($html === '') {
+            return '';
+        }
+
+        $html = $this->unwrapContentAlignmentWrapper($html);
+        $hasBlockMarkup = preg_match('~</?(?:p|div|h[1-6]|ul|ol|li|blockquote|table|tr|td|figure|section|article)\b~i', $html) === 1;
+        if ($hasBlockMarkup) {
+            return $html;
+        }
+
+        return $this->plainTextToParagraphHtml($html);
+    }
+
+    private function unwrapContentAlignmentWrapper(string $html): string
+    {
+        $trimmed = trim($html);
+        if (preg_match('~^<div\b([^>]*)>(.*)</div>\s*$~is', $trimmed, $matches) !== 1) {
+            return $html;
+        }
+
+        $attributes = (string)($matches[1] ?? '');
+        $isAlignmentWrapper = preg_match('/\b(?:scraper-content-centered|content-align|ql-align)-[a-z]+\b/i', $attributes) === 1
+            || preg_match('/text-align\s*:\s*(?:left|center|right|justify)\b/i', $attributes) === 1;
+
+        return $isAlignmentWrapper ? trim((string)$matches[2]) : $html;
+    }
+
+    private function plainTextToParagraphHtml(string $content): string
+    {
+        $text = preg_replace('~<br\s*/?>~i', "\n", $content) ?? $content;
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace("/\r\n|\r/u", "\n", $text) ?? $text;
+        $text = preg_replace('/\x{00a0}/u', ' ', $text) ?? $text;
+        $text = trim($text);
+        if ($text === '') {
+            return '';
+        }
+
+        $paragraphs = preg_split("/\n[ \t]*\n+/u", $text) ?: [$text];
+        $html = [];
+        foreach ($paragraphs as $paragraph) {
+            $lines = preg_split("/\n/u", trim($paragraph)) ?: [];
+            $lines = array_values(array_filter(array_map(
+                static fn(string $line): string => trim($line),
+                $lines
+            ), static fn(string $line): bool => $line !== ''));
+            if ($lines === []) {
+                continue;
+            }
+
+            $escapedLines = array_map(
+                static fn(string $line): string => htmlspecialchars($line, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                $lines
+            );
+            $html[] = '<p>' . implode('<br>', $escapedLines) . '</p>';
+        }
+
+        return implode('', $html);
+    }
+
+    private function htmlFragmentToText(string $html): string
+    {
+        $text = preg_replace('~<br\s*/?>~i', "\n", $html) ?? $html;
+        $text = preg_replace('~</\s*(?:p|div|h[1-6]|li|blockquote|tr|table|ul|ol|figure|section|article)\s*>~i', "\n\n", $text) ?? $text;
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace("/\r\n|\r/u", "\n", $text) ?? $text;
+        $text = preg_replace('/\x{00a0}/u', ' ', $text) ?? $text;
+        $text = preg_replace("/[ \t]+\n/u", "\n", $text) ?? $text;
+        $text = preg_replace("/\n[ \t]+/u", "\n", $text) ?? $text;
+        $text = preg_replace("/\n{3,}/u", "\n\n", $text) ?? $text;
+
+        return trim($text);
+    }
+
+    private function translateLongContentPreservingParagraphs(string $html, string $sourceLang, string $targetLang): ?string
+    {
+        $paragraphs = preg_split("/\n[ \t]*\n+/u", $this->htmlFragmentToText($html)) ?: [];
+        $paragraphs = array_values(array_filter(array_map(
+            static fn(string $paragraph): string => trim($paragraph),
+            $paragraphs
+        ), static fn(string $paragraph): bool => $paragraph !== ''));
+        if ($paragraphs === []) {
+            return null;
+        }
+
+        $translatedHtml = [];
+        foreach ($paragraphs as $paragraph) {
+            $translatedChunks = [];
+            foreach ($this->splitTextForTranslation($paragraph, 4500) as $chunk) {
+                $translatedChunk = $this->translateText($chunk, $sourceLang, $targetLang);
+                if ($translatedChunk === null || $translatedChunk === '') {
+                    return null;
+                }
+                $translatedChunks[] = trim($translatedChunk);
+            }
+
+            $translatedParagraph = trim(implode(' ', $translatedChunks));
+            if ($translatedParagraph !== '') {
+                $translatedHtml[] = '<p>' . nl2br(
+                    htmlspecialchars($translatedParagraph, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    false
+                ) . '</p>';
+            }
+        }
+
+        return $translatedHtml !== [] ? implode('', $translatedHtml) : null;
+    }
+
+    private function cleanTranslatedContentHtml(string $html): string
+    {
+        $html = trim($html);
+        $html = preg_replace('/^<\?xml[^>]*>\s*/i', '', $html) ?? $html;
+
+        return trim($html);
     }
 
     private function splitTextForTranslation(string $text, int $maxLength): array

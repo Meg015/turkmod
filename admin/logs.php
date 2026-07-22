@@ -151,6 +151,91 @@ function adminSystemNotificationsDeleteSelected(PDO $pdo, array $notificationIds
     return $deleted;
 }
 
+function adminSystemNotificationDeliveryChannels($deliveryChannels): array
+{
+    if ($deliveryChannels === null || $deliveryChannels === '') {
+        return [];
+    }
+
+    if (is_array($deliveryChannels)) {
+        $rawChannels = $deliveryChannels;
+    } else {
+        $raw = trim((string) $deliveryChannels);
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        $rawChannels = is_array($decoded) ? $decoded : preg_split('/[,\|]/', $raw);
+    }
+
+    $channels = [];
+    foreach ((array) $rawChannels as $channel) {
+        if (!is_scalar($channel)) {
+            continue;
+        }
+
+        $key = strtolower(trim((string) $channel));
+        if ($key !== '') {
+            $channels[$key] = true;
+        }
+    }
+
+    return array_keys($channels);
+}
+
+function adminSystemNotificationHasInAppDelivery(array $notification): bool
+{
+    if (!array_key_exists('delivery_channels', $notification)) {
+        return true;
+    }
+
+    $deliveryChannels = $notification['delivery_channels'] ?? null;
+    if ($deliveryChannels === null || $deliveryChannels === [] || (!is_array($deliveryChannels) && trim((string) $deliveryChannels) === '')) {
+        return true;
+    }
+
+    $channels = adminSystemNotificationDeliveryChannels($deliveryChannels);
+    if ($channels === []) {
+        return true;
+    }
+
+    return in_array('in_app', $channels, true);
+}
+
+function adminSystemNotificationReadState(array $notification): array
+{
+    $targetUserId = (int) ($notification['user_id'] ?? 0);
+    $readCount = (int) ($notification['read_count'] ?? 0);
+    $dismissedCount = (int) ($notification['dismissed_count'] ?? 0);
+
+    if ($dismissedCount > 0) {
+        return [
+            'label' => $targetUserId > 0 ? 'Hedef gizledi' : 'Gizlenmiş',
+            'badge_class' => 'ui-admin-badge-muted',
+        ];
+    }
+
+    if (!adminSystemNotificationHasInAppDelivery($notification)) {
+        return [
+            'label' => 'Site içi değil',
+            'badge_class' => 'ui-admin-badge-muted',
+        ];
+    }
+
+    if ($readCount > 0) {
+        return [
+            'label' => $targetUserId > 0 ? 'Okundu' : number_format($readCount, 0, ',', '.') . ' okuma',
+            'badge_class' => 'ui-admin-badge-success',
+        ];
+    }
+
+    return [
+        'label' => $targetUserId > 0 ? 'Hedef okumadı' : 'Henüz okunmadı',
+        'badge_class' => 'ui-admin-badge-danger',
+    ];
+}
+
 $activityDefaultActionTypes = [
     'group_change',
     'status_change',
@@ -602,10 +687,15 @@ if ($pdo && $view === 'system_notifications') {
         flash('error', 'Bildirim tablosu hazır olmadığı için sistem bildirimleri yüklenemedi.');
     } else {
         try {
-            $readJoin = function_exists('adminTableExists') && adminTableExists($pdo, 'notification_reads')
-                ? 'LEFT JOIN notification_reads nr ON nr.notification_id = n.id'
-                : '';
-            $readCountSelect = $readJoin !== '' ? 'COUNT(nr.id) AS read_count' : '0 AS read_count';
+            $readCountSelect = function_exists('adminTableExists') && adminTableExists($pdo, 'notification_reads')
+                ? '(SELECT COUNT(*) FROM notification_reads nr WHERE nr.notification_id = n.id AND (n.user_id IS NULL OR nr.user_id = n.user_id)) AS read_count'
+                : '0 AS read_count';
+            $dismissedCountSelect = function_exists('adminTableExists') && adminTableExists($pdo, 'notification_dismissals')
+                ? '(SELECT COUNT(*) FROM notification_dismissals nd WHERE nd.notification_id = n.id AND (n.user_id IS NULL OR nd.user_id = n.user_id)) AS dismissed_count'
+                : '0 AS dismissed_count';
+            $deliveryChannelsSelect = function_exists('adminColumnExists') && adminColumnExists($pdo, 'notifications', 'delivery_channels')
+                ? 'n.delivery_channels'
+                : 'NULL AS delivery_channels';
             $usersJoin = function_exists('adminTableExists') && adminTableExists($pdo, 'users')
                 ? 'LEFT JOIN users u ON u.id = n.user_id'
                 : '';
@@ -630,20 +720,19 @@ if ($pdo && $view === 'system_notifications') {
             $systemNotificationStats['global'] = (int) ($statsRow['global_count'] ?? 0);
             $systemNotificationStats['direct'] = (int) ($statsRow['direct_count'] ?? 0);
 
-            if ($readJoin !== '') {
-                $unreadStmt = $pdo->query("
-                    SELECT COUNT(*)
-                    FROM notifications n
-                    WHERE {$systemNotificationWhere}
-                    AND NOT EXISTS (
-                        SELECT 1 FROM notification_reads nr
-                        WHERE nr.notification_id = n.id
-                    )
-                ");
-                $systemNotificationStats['unread'] = $unreadStmt ? (int) $unreadStmt->fetchColumn() : 0;
-            } else {
-                $systemNotificationStats['unread'] = $systemNotificationStats['total'];
-            }
+            $systemNotificationUnreadWhere = function_exists('adminSystemNotificationUnreadWhereSql')
+                ? adminSystemNotificationUnreadWhereSql($pdo, 'n')
+                : 'NOT EXISTS (
+                    SELECT 1 FROM notification_reads nr
+                    WHERE nr.notification_id = n.id
+                )';
+            $unreadStmt = $pdo->query("
+                SELECT COUNT(*)
+                FROM notifications n
+                WHERE {$systemNotificationWhere}
+                AND {$systemNotificationUnreadWhere}
+            ");
+            $systemNotificationStats['unread'] = $unreadStmt ? (int) $unreadStmt->fetchColumn() : 0;
 
             $where = [$systemNotificationWhere];
             $params = [];
@@ -683,14 +772,14 @@ if ($pdo && $view === 'system_notifications') {
                     n.message,
                     n.link,
                     n.event_key,
+                    {$deliveryChannelsSelect},
                     n.created_at,
                     {$targetSelect},
+                    {$dismissedCountSelect},
                     {$readCountSelect}
                 FROM notifications n
                 {$usersJoin}
-                {$readJoin}
                 WHERE {$whereSql}
-                GROUP BY n.id, n.user_id, n.title, n.message, n.link, n.event_key, n.created_at" . ($usersJoin !== '' ? ', u.username, u.email' : '') . "
                 ORDER BY n.created_at DESC, n.id DESC
                 LIMIT :limit OFFSET :offset
             ");
@@ -1326,7 +1415,7 @@ require_once __DIR__ . '/header.php';
         ['tone' => 'info', 'icon' => 'bi-cpu', 'label' => 'Toplam Sistem Bildirimi', 'value' => number_format((int) $systemNotificationStats['total'], 0, ',', '.')],
         ['tone' => 'success', 'icon' => 'bi-broadcast', 'label' => 'Genel Yayın', 'value' => number_format((int) $systemNotificationStats['global'], 0, ',', '.')],
         ['tone' => 'warning', 'icon' => 'bi-person-badge', 'label' => 'Özel Hedef', 'value' => number_format((int) $systemNotificationStats['direct'], 0, ',', '.')],
-        ['tone' => 'danger', 'icon' => 'bi-circle-fill', 'label' => 'Hiç Okunmamış', 'value' => number_format((int) $systemNotificationStats['unread'], 0, ',', '.')],
+        ['tone' => 'danger', 'icon' => 'bi-circle-fill', 'label' => 'Site İçi Okunmamış', 'value' => number_format((int) $systemNotificationStats['unread'], 0, ',', '.')],
     ], ['aria_label' => 'Sistem bildirimleri özeti']) ?>
 
     <?= adminRenderLogToolbarOpen() ?>
@@ -1439,10 +1528,11 @@ require_once __DIR__ . '/header.php';
                                     $messagePreview = substr($messagePreview, 0, 177) . '...';
                                 }
                                 $eventKey = trim((string) ($systemNotification['event_key'] ?? ''));
-                                $readCount = (int) ($systemNotification['read_count'] ?? 0);
                                 $link = trim((string) ($systemNotification['link'] ?? ''));
                                 $targetLabel = $targetUserId > 0 ? ($targetName !== '' ? $targetName : ('Kullanıcı #' . $targetUserId)) : 'Genel Yayın';
-                                $readLabel = $readCount > 0 ? number_format($readCount, 0, ',', '.') . ' okuma' : 'Okunmamış';
+                                $readState = adminSystemNotificationReadState($systemNotification);
+                                $readLabel = (string) ($readState['label'] ?? 'Okunmamış');
+                                $readBadgeClass = (string) ($readState['badge_class'] ?? 'ui-admin-badge-danger');
                                 ?>
                                 <tr data-system-notification-row>
                                     <td class="ui-admin-table-cell-desc ui-admin-log-message-cell system-notifications-message-cell" data-label="Bildirim">
@@ -1456,7 +1546,7 @@ require_once __DIR__ . '/header.php';
                                             <?php else: ?>
                                                 <span class="ui-admin-badge ui-admin-badge-info">Genel Yayın</span>
                                             <?php endif; ?>
-                                            <span class="ui-admin-badge <?= $readCount > 0 ? 'ui-admin-badge-success' : 'ui-admin-badge-danger' ?>"><?= htmlspecialchars($readLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                            <span class="ui-admin-badge <?= htmlspecialchars($readBadgeClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($readLabel, ENT_QUOTES, 'UTF-8') ?></span>
                                         </div>
                                     </td>
                                     <td class="system-notifications-meta-cell" data-label="Bilgi">

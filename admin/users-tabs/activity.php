@@ -76,7 +76,11 @@ try {
     $securityRows = userActivitySecuritySummary($pdo, $filters, 10);
     $adminRows = userActivityAdminActions($pdo, $filters, 10);
     $dbEventTypes = $pdo->query("SELECT DISTINCT event_type FROM user_activity_events ORDER BY event_type ASC LIMIT 100")->fetchAll(PDO::FETCH_COLUMN) ?: [];
-    $eventTypes = array_unique(array_merge(array_keys(function_exists('userActivityAllKnownEvents') ? userActivityAllKnownEvents() : []), $dbEventTypes));
+    $knownEventTypes = function_exists('userActivityAllKnownEvents') ? userActivityAllKnownEvents() : [];
+    if (function_exists('userActivityAdditionalEventLabels')) {
+        $knownEventTypes = array_replace($knownEventTypes, userActivityAdditionalEventLabels());
+    }
+    $eventTypes = array_unique(array_merge(array_keys($knownEventTypes), $dbEventTypes));
     $hiddenEventTypes = function_exists('userActivityHiddenEventTypes') ? userActivityHiddenEventTypes() : [];
     $normalizeEventType = static function (string $value): string {
         $value = strtolower(trim($value));
@@ -167,12 +171,21 @@ $activitySubjectDescriptor = static function (array $event, array $subjectNames 
         'user' => 'Kullanıcı',
         'restriction' => 'Kısıtlama',
         'report' => 'Şikayet',
+        'user_report' => 'Kullanıcı Şikayeti',
+        'topic_report' => 'Konu Şikayeti',
         'appeal' => 'İtiraz',
+        'ban_appeal' => 'Ban İtirazı',
         'note' => 'Not',
         'category' => 'Kategori',
         'security_event' => 'Güvenlik',
+        'logs' => 'Günlük',
+        'settings' => 'Ayar',
+        'system' => 'Sistem',
+        'leaderboard' => 'Liderlik',
+        'media' => 'Medya',
+        'wheel' => 'Çark',
     ];
-    $subjectLabel = $subjectTypes[$subjectTypeKey] ?? ($subjectTypeKey !== '' ? ucwords(str_replace('_', ' ', $subjectTypeKey)) : '');
+    $subjectLabel = $subjectTypes[$subjectTypeKey] ?? ($subjectTypeKey !== '' ? 'Özel Nesne (' . $subjectTypeKey . ')' : '');
 
     $subjectId = (int) ($event['subject_id'] ?? 0);
     $subjectName = '';
@@ -378,10 +391,10 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                             $group = (string) ($event['event_group'] ?? 'activity');
                             $tone = $eventTone($group);
                             $personLabel = $activityPersonLabel($event);
-                            $actionLabel = trim((string) ($event['title'] ?? '')) !== '' ? (string) $event['title'] : userActivityEventLabel((string) $event['event_type']);
+                            $eventLabel = userActivityEventLabel((string) $event['event_type']);
+                            $actionLabel = $eventLabel;
                             $subjectInfo = $activitySubjectDescriptor($event, $subjectNames, $meta);
                             $summaryLabel = (string) ($subjectInfo['summary'] ?? '');
-                            $eventLabel = userActivityEventLabel((string) $event['event_type']);
                             $requestMethod = trim((string) ($event['request_method'] ?? ''));
                             $requestPath = trim((string) ($event['request_path'] ?? ''));
                             $requestSummary = trim(implode(' ', array_values(array_filter([$requestMethod, $requestPath], static fn (string $value): bool => $value !== ''))));
@@ -473,7 +486,7 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                         <ul class="user-activity-mini-list">
                             <?php foreach ($securityRows as $row): ?>
                                 <li>
-                                    <strong><?= htmlspecialchars((string) $row['event_type']) ?></strong>
+                                    <strong><?= htmlspecialchars(userActivityEventLabel((string) $row['event_type'])) ?></strong>
                                     <span><code><?= htmlspecialchars((string) $row['ip_address']) ?></code> · <?= htmlspecialchars($fmtDate((string) $row['created_at'])) ?></span>
                                 </li>
                             <?php endforeach; ?>

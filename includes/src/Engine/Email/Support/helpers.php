@@ -346,6 +346,14 @@ if (!function_exists('emailLogsTableExists')) {
     function emailLogsTableExists(PDO $pdo): bool
     {
         try {
+            $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+            if ($driver === 'sqlite') {
+                $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1");
+                $stmt->execute(['email_logs']);
+
+                return (bool) $stmt->fetchColumn();
+            }
+
             $stmt = $pdo->prepare('
                 SELECT COUNT(*)
                 FROM INFORMATION_SCHEMA.TABLES
@@ -728,26 +736,14 @@ if (!function_exists('emailLogsClearAll')) {
             $driver = '';
         }
 
+        $pdo->exec("DELETE FROM email_logs");
         try {
             if ($driver === 'sqlite') {
-                $pdo->exec("DELETE FROM email_logs");
                 $pdo->exec("DELETE FROM sqlite_sequence WHERE name = 'email_logs'");
-            } else {
-                $pdo->exec("TRUNCATE TABLE email_logs");
-            }
-        } catch (Throwable $e) {
-            $pdo->exec("DELETE FROM email_logs");
-            if ($driver === 'sqlite') {
-                try {
-                    $pdo->exec("DELETE FROM sqlite_sequence WHERE name = 'email_logs'");
-                } catch (Throwable $ignored) {
-                }
             } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
-                try {
-                    $pdo->exec("ALTER TABLE email_logs AUTO_INCREMENT = 1");
-                } catch (Throwable $ignored) {
-                }
+                $pdo->exec("ALTER TABLE email_logs AUTO_INCREMENT = 1");
             }
+        } catch (Throwable $ignored) {
         }
 
         return $count;
@@ -757,12 +753,21 @@ if (!function_exists('emailLogsClearAll')) {
 if (!function_exists('emailLogsGetStats')) {
     function emailLogsGetStats(PDO $pdo): array
     {
+        try {
+            $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+        } catch (Throwable $e) {
+            $driver = '';
+        }
+
+        $dayAgoSql = $driver === 'sqlite' ? "datetime('now', '-1 day')" : 'DATE_SUB(NOW(), INTERVAL 1 DAY)';
+        $weekAgoSql = $driver === 'sqlite' ? "datetime('now', '-7 days')" : 'DATE_SUB(NOW(), INTERVAL 7 DAY)';
+
         return [
             'total' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs")->fetchColumn(),
-            'total_24h' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(),
-            'total_7d' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn(),
-            'sent_24h' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs WHERE status = 'sent' AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(),
-            'failed_24h' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs WHERE status = 'failed' AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(),
+            'total_24h' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs WHERE created_at >= {$dayAgoSql}")->fetchColumn(),
+            'total_7d' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs WHERE created_at >= {$weekAgoSql}")->fetchColumn(),
+            'sent_24h' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs WHERE status = 'sent' AND created_at >= {$dayAgoSql}")->fetchColumn(),
+            'failed_24h' => (int) $pdo->query("SELECT COUNT(*) FROM email_logs WHERE status = 'failed' AND created_at >= {$dayAgoSql}")->fetchColumn(),
             'sources' => (int) $pdo->query("SELECT COUNT(DISTINCT source) FROM email_logs WHERE source IS NOT NULL AND source <> ''")->fetchColumn(),
         ];
     }
@@ -857,10 +862,14 @@ if (!function_exists('appEmailLog')) {
             return null;
         }
 
-        if (function_exists('emailLogsEnsureSchema')) {
-            emailLogsEnsureSchema($pdo);
-        }
-        if (function_exists('emailLogsTableExists') && !emailLogsTableExists($pdo)) {
+        try {
+            if (function_exists('emailLogsEnsureSchema')) {
+                emailLogsEnsureSchema($pdo);
+            } elseif (function_exists('emailLogsTableExists') && !emailLogsTableExists($pdo)) {
+                return null;
+            }
+        } catch (Throwable $e) {
+            error_log('Email log unavailable: ' . $e->getMessage());
             return null;
         }
 

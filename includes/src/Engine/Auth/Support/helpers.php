@@ -69,13 +69,26 @@ if (!function_exists('authPopulateSessionUser')) {
     }
 }
 
+if (!function_exists('authSettingEnabled')) {
+    function authSettingEnabled(array $settings, string $key, string $default = '1'): bool
+    {
+        $value = $settings[$key] ?? $default;
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+    }
+}
+
 if (!function_exists('authEmailVerificationRequiredForLogin')) {
     function authEmailVerificationRequiredForLogin(?array $settings = null): bool
     {
         $settings = is_array($settings) ? $settings : [];
 
-        return (string) ($settings['account_email_verification_enabled'] ?? '0') === '1'
-            && (string) ($settings['account_email_verification_required'] ?? '0') === '1';
+        return authSettingEnabled($settings, 'account_email_verification_enabled', '0')
+            && authSettingEnabled($settings, 'account_email_verification_required', '0');
     }
 }
 
@@ -84,7 +97,7 @@ if (!function_exists('authEmailVerificationEnabled')) {
     {
         $settings = is_array($settings) ? $settings : [];
 
-        return (string) ($settings['account_email_verification_enabled'] ?? '0') === '1';
+        return authSettingEnabled($settings, 'account_email_verification_enabled', '0');
     }
 }
 

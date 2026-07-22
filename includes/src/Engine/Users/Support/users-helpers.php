@@ -65,13 +65,121 @@ function usersColumnExists(PDO $pdo, string $table, string $column): bool
 function usersNotificationBoolSetting(array $settings, string $key, string $default = '1', ?string $legacyKey = null): bool
 {
     if (array_key_exists($key, $settings)) {
-        return (string) $settings[$key] === '1';
+        $value = $settings[$key];
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
     }
     if ($legacyKey !== null && array_key_exists($legacyKey, $settings)) {
-        return (string) $settings[$legacyKey] === '1';
+        $value = $settings[$legacyKey];
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
     }
 
-    return $default === '1';
+    return in_array(strtolower(trim($default)), ['1', 'true', 'yes', 'on'], true);
+}
+
+function usersAdminRegistrationSiteTemplateKey(): string
+{
+    return 'registration_admin_notice';
+}
+
+function usersAdminRegistrationSiteAllowedVariables(): array
+{
+    return [
+        'site_name' => 'Site adı',
+        'username' => 'Yeni kullanıcının adı',
+        'email' => 'Yeni kullanıcının e-posta adresi',
+        'user_id' => 'Yeni kullanıcı ID değeri',
+        'user_status' => 'Kullanıcının kayıt sonrası durumu',
+        'approval_status' => 'Yönetici onayı bilgisi',
+        'admin_link' => 'Admin panelindeki kullanıcı düzenleme bağlantısı',
+        'link' => 'Admin bağlantısı kısayolu',
+    ];
+}
+
+function usersAdminRegistrationSiteTemplateDefaults(): array
+{
+    return [
+        'template_key' => usersAdminRegistrationSiteTemplateKey(),
+        'name' => 'Yeni Kullanıcı Kaydı Admin Bildirimi',
+        'description' => 'Yeni üyelik oluştuğunda admin ve yetkili hesapların bildirim merkezine düşer.',
+        'type' => 'system',
+        'title_template' => 'Yeni kullanıcı kaydı',
+        'message_template' => '{{username}} ({{email}}) yeni hesap oluşturdu. Durum: {{user_status}}',
+        'link_template' => '{{admin_link}}',
+    ];
+}
+
+function usersAdminRegistrationSiteTemplate(array $settings): array
+{
+    $defaults = usersAdminRegistrationSiteTemplateDefaults();
+    $fields = [
+        'name' => 'notif_admin_registration_site_name',
+        'description' => 'notif_admin_registration_site_description',
+        'type' => 'notif_admin_registration_site_type',
+        'title_template' => 'notif_admin_registration_site_title_template',
+        'message_template' => 'notif_admin_registration_site_message_template',
+        'link_template' => 'notif_admin_registration_site_link_template',
+    ];
+
+    foreach ($fields as $field => $settingKey) {
+        if (!array_key_exists($settingKey, $settings)) {
+            continue;
+        }
+
+        $value = trim((string) $settings[$settingKey]);
+        if ($value !== '' || in_array($field, ['description', 'link_template'], true)) {
+            $defaults[$field] = $value;
+        }
+    }
+
+    if (!in_array((string) $defaults['type'], ['info', 'success', 'warning', 'error', 'system'], true)) {
+        $defaults['type'] = 'system';
+    }
+
+    return $defaults;
+}
+
+function usersAdminRegistrationSiteVariables(
+    int $newUserId,
+    string $username,
+    string $email,
+    bool $requiresApproval,
+    string $adminLink,
+    array $settings
+): array {
+    $siteName = trim((string) ($settings['site_name'] ?? ''));
+    $displayUsername = trim($username) !== '' ? trim($username) : 'Bir kullanıcı';
+
+    return [
+        'site_name' => $siteName !== '' ? $siteName : 'Sistem',
+        'username' => $displayUsername,
+        'email' => $email,
+        'user_id' => (string) $newUserId,
+        'user_status' => $requiresApproval ? 'Yönetici onayı bekliyor' : 'Aktif',
+        'approval_status' => $requiresApproval ? 'Yönetici onayı bekliyor' : 'Onay gerekmiyor',
+        'admin_link' => $adminLink,
+        'link' => $adminLink,
+    ];
+}
+
+function usersRenderAdminRegistrationSiteTemplate(string $template, array $variables): string
+{
+    return trim((string) preg_replace_callback('/{{\s*([a-zA-Z0-9_]+)\s*}}/', static function (array $matches) use ($variables): string {
+        if (!array_key_exists($matches[1], usersAdminRegistrationSiteAllowedVariables())) {
+            return '';
+        }
+
+        $value = $variables[$matches[1]] ?? '';
+
+        return is_scalar($value) || $value === null ? (string) $value : '';
+    }, $template));
 }
 
 function usersUpdateNotificationDeliveryChannels(PDO $pdo, int $notificationId, array $channels): void
@@ -100,7 +208,10 @@ function usersCreateWelcomeNotification(PDO $pdo, int $newUserId, array $setting
     if ($newUserId <= 0) {
         return false;
     }
-    if ((string) ($settings['notif_center_enabled'] ?? '1') !== '1' || (string) ($settings['notif_welcome_enabled'] ?? '0') !== '1') {
+    if (
+        !usersNotificationBoolSetting($settings, 'notif_center_enabled', '1')
+        || !usersNotificationBoolSetting($settings, 'notif_welcome_enabled', '0')
+    ) {
         return false;
     }
 
@@ -126,7 +237,26 @@ function usersCreateWelcomeNotification(PDO $pdo, int $newUserId, array $setting
         $placeholders = implode(', ', array_fill(0, count($insertColumns), '?'));
         $notificationStmt = $pdo->prepare('INSERT INTO notifications (' . implode(', ', $quotedColumns) . ") VALUES ({$placeholders})");
 
-        return $notificationStmt->execute($insertValues);
+        $created = $notificationStmt->execute($insertValues);
+        if (function_exists('notificationDeliveryLog')) {
+            notificationDeliveryLog($pdo, $created ? 'notification_delivery_created' : 'notification_delivery_failed', [
+                'source' => 'user_welcome_notification',
+                'status' => $created ? 'created' : 'failed',
+                'reason' => $created ? '' : 'insert_failed',
+                'event_key' => 'welcome_notification',
+                'template_key' => 'welcome_notification',
+                'recipient_user_id' => $newUserId,
+                'recipient_type' => 'user',
+                'notification_id' => $created ? (int) $pdo->lastInsertId() : null,
+                'type' => 'system',
+                'title' => $welcomeTitle,
+                'message' => $welcomeMessage,
+                'link' => $notificationsUrl,
+                'delivery_channels' => ['in_app'],
+            ], $created ? 'info' : 'error');
+        }
+
+        return $created;
     } catch (Throwable $e) {
         if (function_exists('appLogException')) {
             appLogException($e, ['source' => 'usersCreateWelcomeNotification', 'user_id' => $newUserId]);
@@ -665,7 +795,7 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
     }
 
     $settings ??= function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
-    if (($settings['registration_suspicious_alert_enabled'] ?? '1') !== '1') {
+    if (!usersNotificationBoolSetting($settings, 'registration_suspicious_alert_enabled', '1')) {
         return 0;
     }
 
@@ -796,10 +926,29 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
             }
 
             $stmt->execute($params);
+            $notificationId = (int) $pdo->lastInsertId();
             $insertedRows[] = [
-                'notification_id' => (int) $pdo->lastInsertId(),
+                'notification_id' => $notificationId,
                 'user_id' => $adminId,
             ];
+            if (function_exists('notificationDeliveryLog')) {
+                notificationDeliveryLog($pdo, 'notification_delivery_created', [
+                    'source' => 'registration_suspicious_alert',
+                    'status' => 'created',
+                    'event_key' => 'registration_suspicious_alert',
+                    'template_key' => 'registration_suspicious_alert',
+                    'recipient_user_id' => $adminId,
+                    'recipient_type' => 'admin',
+                    'entity_type' => 'security',
+                    'dedupe_key' => $dedupeKey,
+                    'notification_id' => $notificationId,
+                    'type' => 'system',
+                    'delivery_channels' => ['in_app'],
+                    'title' => $title,
+                    'message' => $message,
+                    'link' => $adminLink,
+                ]);
+            }
             $inserted++;
         }
 
@@ -816,12 +965,13 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
         return 0;
     }
 
-    if (function_exists('notificationQueueEmail') && (string) ($settings['notif_email_channel_ready'] ?? '0') === '1') {
+    if (function_exists('notificationQueueEmail') && usersNotificationBoolSetting($settings, 'notif_email_channel_ready', '0')) {
         $adminEmailService = function_exists('adminEmailService') ? adminEmailService($pdo) : null;
         $adminEmailTemplate = $adminEmailService
             ? $adminEmailService->template('registration_suspicious_alert', $settings)
             : [];
-        $adminEmailEnabled = $adminEmailTemplate === [] || (string) ($adminEmailTemplate['enabled'] ?? '1') === '1';
+        $adminEmailEnabled = $adminEmailTemplate === []
+            || usersNotificationBoolSetting(['enabled' => $adminEmailTemplate['enabled'] ?? '1'], 'enabled', '1');
 
         foreach ($insertedRows as $row) {
             $adminId = (int) ($row['user_id'] ?? 0);
@@ -854,6 +1004,8 @@ function usersNotifyAdminsOnSuspiciousRegistrations(PDO $pdo, ?array $settings =
                     $adminLink,
                     [
                         'source' => 'registration_suspicious_alert',
+                        'event_key' => 'registration_suspicious_alert',
+                        'recipient_type' => 'admin',
                         'eyebrow' => 'Yönetim bildirimi',
                         'mail_title' => $title,
                         'action_label' => $actionLabel,
@@ -896,10 +1048,10 @@ function usersVerificationReminderCandidates(PDO $pdo, ?array $settings = null, 
     $limit = max(1, min(500, $limit));
     $settings ??= function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
 
-    if (($settings['account_email_verification_enabled'] ?? '0') !== '1') {
+    if (!usersNotificationBoolSetting($settings, 'account_email_verification_enabled', '0')) {
         return [];
     }
-    if (($settings['account_email_verification_required'] ?? '0') !== '1') {
+    if (!usersNotificationBoolSetting($settings, 'account_email_verification_required', '0')) {
         return [];
     }
     if (!usersTableExists($pdo, 'users')) {
@@ -987,7 +1139,7 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
     $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
     $siteNotificationEnabled = usersNotificationBoolSetting($settings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled');
     $emailNotificationEnabled = usersNotificationBoolSetting($settings, 'notif_admin_registration_email_enabled', '1', 'notif_admin_registration_enabled')
-        && (string) ($settings['notif_email_channel_ready'] ?? '0') === '1'
+        && usersNotificationBoolSetting($settings, 'notif_email_channel_ready', '0')
         && function_exists('notificationQueueEmail');
 
     $adminEmailService = $emailNotificationEnabled && function_exists('adminEmailService') ? adminEmailService($pdo) : null;
@@ -995,7 +1147,10 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
         ? $adminEmailService->template('registration_admin_notice', $settings)
         : [];
     $emailNotificationEnabled = $emailNotificationEnabled
-        && ($adminEmailTemplate === [] || (string) ($adminEmailTemplate['enabled'] ?? '1') === '1');
+        && (
+            $adminEmailTemplate === []
+            || usersNotificationBoolSetting(['enabled' => $adminEmailTemplate['enabled'] ?? '1'], 'enabled', '1')
+        );
 
     if (!$siteNotificationEnabled && !$emailNotificationEnabled) {
         return 0;
@@ -1012,11 +1167,21 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
     if ($siteName === '') {
         $siteName = 'Sistem';
     }
-    $title = 'Yeni kullanıcı kaydı';
-    $message = trim($username) !== '' ? trim($username) : 'Bir kullanıcı';
-    $message .= ' (' . $email . ') yeni hesap oluşturdu.';
-    if ($requiresApproval) {
-        $message .= ' Hesap yönetici onayı bekliyor.';
+    $siteTemplate = usersAdminRegistrationSiteTemplate($settings);
+    $siteVariables = usersAdminRegistrationSiteVariables($newUserId, $username, $email, $requiresApproval, $adminLink, $settings);
+    $siteDefaults = usersAdminRegistrationSiteTemplateDefaults();
+    $title = usersRenderAdminRegistrationSiteTemplate((string) ($siteTemplate['title_template'] ?? ''), $siteVariables);
+    if ($title === '') {
+        $title = (string) $siteDefaults['title_template'];
+    }
+    $message = usersRenderAdminRegistrationSiteTemplate((string) ($siteTemplate['message_template'] ?? ''), $siteVariables);
+    if ($message === '') {
+        $message = usersRenderAdminRegistrationSiteTemplate((string) $siteDefaults['message_template'], $siteVariables);
+    }
+    $link = usersRenderAdminRegistrationSiteTemplate((string) ($siteTemplate['link_template'] ?? ''), $siteVariables);
+    $type = (string) ($siteTemplate['type'] ?? 'system');
+    if (!in_array($type, ['info', 'success', 'warning', 'error', 'system'], true)) {
+        $type = 'system';
     }
 
     $columns = function_exists('notificationEventTableColumns')
@@ -1074,12 +1239,20 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
         $stmt = $pdo->prepare($sql);
 
         foreach ($adminIds as $adminId) {
+            $dedupeKey = 'user_registered_admin:' . $adminId . ':' . $newUserId;
+            $deliveryChannels = [];
+            if ($siteNotificationEnabled) {
+                $deliveryChannels[] = 'in_app';
+            }
+            if ($emailNotificationEnabled) {
+                $deliveryChannels[] = 'email_queue_pending';
+            }
             $params = [
                 $adminId,
                 mb_substr($title, 0, 255),
                 $message,
-                'system',
-                $adminLink,
+                $type,
+                $link !== '' ? $link : null,
             ];
             if ($hasColumn($columns, 'event_key')) {
                 $params[] = null;
@@ -1094,16 +1267,9 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
                 $params[] = $newUserId;
             }
             if ($hasColumn($columns, 'dedupe_key')) {
-                $params[] = 'user_registered_admin:' . $adminId . ':' . $newUserId;
+                $params[] = $dedupeKey;
             }
             if ($hasColumn($columns, 'delivery_channels')) {
-                $deliveryChannels = [];
-                if ($siteNotificationEnabled) {
-                    $deliveryChannels[] = 'in_app';
-                }
-                if ($emailNotificationEnabled) {
-                    $deliveryChannels[] = 'email_queue_pending';
-                }
                 $params[] = json_encode($deliveryChannels, JSON_UNESCAPED_UNICODE);
             }
             if ($hasColumn($columns, 'is_admin_loggable')) {
@@ -1115,6 +1281,26 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
                 'notification_id' => (int) $pdo->lastInsertId(),
                 'user_id' => $adminId,
             ];
+            if (function_exists('notificationDeliveryLog')) {
+                notificationDeliveryLog($pdo, 'notification_delivery_created', [
+                    'source' => 'user_registration_admin_notice',
+                    'status' => 'created',
+                    'event_key' => 'registration_admin_notice',
+                    'template_key' => 'registration_admin_notice',
+                    'recipient_user_id' => $adminId,
+                    'recipient_type' => 'admin',
+                    'actor_user_id' => $newUserId,
+                    'entity_type' => 'user',
+                    'entity_id' => $newUserId,
+                    'dedupe_key' => $dedupeKey,
+                    'notification_id' => (int) $pdo->lastInsertId(),
+                    'type' => $type,
+                    'delivery_channels' => $deliveryChannels,
+                    'title' => $title,
+                    'message' => $message,
+                    'link' => $link,
+                ]);
+            }
             $inserted++;
         }
 
@@ -1168,6 +1354,9 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
                     $adminLink,
                     [
                         'source' => 'user_registration',
+                        'event_key' => 'registration_admin_notice',
+                        'recipient_type' => 'admin',
+                        'actor_user_id' => $newUserId,
                         'eyebrow' => 'Yönetim bildirimi',
                         'mail_title' => 'Yeni kullanıcı kaydı',
                         'action_label' => $actionLabel,

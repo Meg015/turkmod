@@ -12,20 +12,249 @@ $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo)
 
 adminRequirePermission('system.view', 'Sistem sağlığını görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 
+$root = dirname(__DIR__);
+
+function healthDatabaseReadableBytes(int|float $bytes): string
+{
+    $bytes = max(0, (float) $bytes);
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $index = 0;
+    while ($bytes >= 1024 && $index < count($units) - 1) {
+        $bytes /= 1024;
+        $index++;
+    }
+
+    return number_format($bytes, $index === 0 ? 0 : 1, ',', '.') . ' ' . $units[$index];
+}
+
+function healthDatabaseOptimizeThresholds(): array
+{
+    return [
+        'min_overhead_bytes' => 5 * 1024 * 1024,
+        'min_percent_overhead_bytes' => 1024 * 1024,
+        'min_overhead_percent' => 10.0,
+        'large_table_bytes' => 256 * 1024 * 1024,
+    ];
+}
+
+function healthDatabaseSupportsOptimize(?PDO $pdo): bool
+{
+    if (!$pdo instanceof PDO) {
+        return false;
+    }
+
+    try {
+        return (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+function healthDatabaseQuoteIdentifier(string $identifier): string
+{
+    return '`' . str_replace('`', '``', $identifier) . '`';
+}
+
+function healthDatabaseTableStats(?PDO $pdo): array
+{
+    if (!healthDatabaseSupportsOptimize($pdo)) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->query("
+            SELECT TABLE_NAME, ENGINE, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH, DATA_FREE
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE()
+              AND TABLE_TYPE = 'BASE TABLE'
+            ORDER BY DATA_FREE DESC, TABLE_NAME ASC
+        ");
+    } catch (Throwable) {
+        return [];
+    }
+
+    $thresholds = healthDatabaseOptimizeThresholds();
+    $rows = [];
+    foreach (($stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : []) ?: [] as $row) {
+        $sizeBytes = (int) ($row['DATA_LENGTH'] ?? 0) + (int) ($row['INDEX_LENGTH'] ?? 0);
+        $overheadBytes = (int) ($row['DATA_FREE'] ?? 0);
+        $overheadPercent = $sizeBytes > 0 ? ($overheadBytes / $sizeBytes) * 100 : 0.0;
+        $recommended = $overheadBytes >= $thresholds['min_overhead_bytes']
+            || ($overheadBytes >= $thresholds['min_percent_overhead_bytes'] && $overheadPercent >= $thresholds['min_overhead_percent']);
+
+        $rows[] = [
+            'name' => (string) ($row['TABLE_NAME'] ?? ''),
+            'engine' => (string) ($row['ENGINE'] ?? '-'),
+            'rows' => (int) ($row['TABLE_ROWS'] ?? 0),
+            'size_bytes' => $sizeBytes,
+            'overhead_bytes' => $overheadBytes,
+            'overhead_percent' => $overheadPercent,
+            'recommended' => $recommended,
+            'large' => $sizeBytes >= $thresholds['large_table_bytes'],
+        ];
+    }
+
+    return $rows;
+}
+
+function healthDatabaseStatsSummary(array $tableStats): array
+{
+    $summary = ['tables' => count($tableStats), 'size_bytes' => 0, 'overhead_bytes' => 0, 'large_tables' => 0];
+    foreach ($tableStats as $row) {
+        $summary['size_bytes'] += (int) ($row['size_bytes'] ?? 0);
+        $summary['overhead_bytes'] += (int) ($row['overhead_bytes'] ?? 0);
+        if (!empty($row['large'])) {
+            $summary['large_tables']++;
+        }
+    }
+
+    return $summary;
+}
+
+function healthDatabaseOptimizationCandidates(array $tableStats): array
+{
+    $candidates = array_values(array_filter($tableStats, static function (array $row): bool {
+        return !empty($row['recommended']) && (int) ($row['overhead_bytes'] ?? 0) > 0 && (string) ($row['name'] ?? '') !== '';
+    }));
+
+    usort($candidates, static fn (array $a, array $b): int => ((int) ($b['overhead_bytes'] ?? 0)) <=> ((int) ($a['overhead_bytes'] ?? 0)));
+
+    return $candidates;
+}
+
+function healthDatabaseStatsByName(array $tableStats): array
+{
+    $map = [];
+    foreach ($tableStats as $row) {
+        $name = (string) ($row['name'] ?? '');
+        if ($name !== '') {
+            $map[$name] = $row;
+        }
+    }
+
+    return $map;
+}
+
+function healthDatabaseSelectedTables(mixed $rawTables, array $allowedTables): array
+{
+    $allowed = array_fill_keys($allowedTables, true);
+    $selected = [];
+    foreach ((array) $rawTables as $table) {
+        $table = trim((string) $table);
+        if ($table !== '' && isset($allowed[$table])) {
+            $selected[$table] = $table;
+        }
+    }
+
+    return array_values($selected);
+}
+
+function healthDatabaseOptimizeTables(PDO $pdo, array $tableNames, array $statsByName): array
+{
+    $result = [
+        'optimized' => 0,
+        'failed' => 0,
+        'before_overhead_bytes' => 0,
+        'after_overhead_bytes' => 0,
+        'saved_bytes' => 0,
+        'items' => [],
+    ];
+
+    foreach ($tableNames as $tableName) {
+        $before = (int) ($statsByName[$tableName]['overhead_bytes'] ?? 0);
+        $result['before_overhead_bytes'] += $before;
+        $messages = [];
+        $ok = true;
+
+        try {
+            $stmt = $pdo->query('OPTIMIZE TABLE ' . healthDatabaseQuoteIdentifier($tableName));
+            foreach (($stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : []) ?: [] as $messageRow) {
+                $type = strtolower((string) ($messageRow['Msg_type'] ?? 'status'));
+                $text = (string) ($messageRow['Msg_text'] ?? '');
+                $messages[] = trim(($type !== '' ? $type . ': ' : '') . $text);
+                if ($type === 'error') {
+                    $ok = false;
+                }
+            }
+        } catch (Throwable $e) {
+            $ok = false;
+            $messages[] = safeErrorMessage($e);
+        }
+
+        $result[$ok ? 'optimized' : 'failed']++;
+        $result['items'][] = [
+            'table' => $tableName,
+            'ok' => $ok,
+            'before_overhead_bytes' => $before,
+            'messages' => array_slice(array_values(array_filter($messages)), 0, 4),
+        ];
+    }
+
+    $afterStats = healthDatabaseStatsByName(healthDatabaseTableStats($pdo));
+    foreach ($result['items'] as &$item) {
+        $after = (int) ($afterStats[(string) $item['table']]['overhead_bytes'] ?? 0);
+        $item['after_overhead_bytes'] = $after;
+        $item['saved_bytes'] = max(0, (int) $item['before_overhead_bytes'] - $after);
+        $result['after_overhead_bytes'] += $after;
+        $result['saved_bytes'] += (int) $item['saved_bytes'];
+    }
+    unset($item);
+
+    return $result;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'optimize_db') {
     adminRequirePermission('system.manage', 'Veritabanı optimizasyonu için gerekli izin hesabınıza tanımlanmamış.');
     if (!verify_csrf_token($_POST['_token'] ?? '')) {
         flash('error', 'Güvenlik doğrulaması başarısız.');
     } else {
         try {
-            $stmt = $pdo->query("SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE()");
-            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            if ($tables) {
-                $tableList = array_map(fn($t) => '`' . $t . '`', $tables);
-                $pdo->exec("OPTIMIZE TABLE " . implode(', ', $tableList));
-                flash('success', 'Veritabanındaki ' . count($tables) . ' tablo başarıyla optimize edildi.');
+            if (!healthDatabaseSupportsOptimize($pdo)) {
+                throw new RuntimeException('Bu optimizasyon aracı yalnızca MySQL/MariaDB bağlantılarında desteklenir.');
+            }
+
+            $tableStats = healthDatabaseTableStats($pdo);
+            $candidates = healthDatabaseOptimizationCandidates($tableStats);
+            $candidateNames = array_map(static fn (array $row): string => (string) $row['name'], $candidates);
+            $explicitSelection = isset($_POST['table_selection_present']);
+            $selectedTables = healthDatabaseSelectedTables($_POST['tables'] ?? [], $candidateNames);
+            if (!$explicitSelection && $selectedTables === []) {
+                $selectedTables = $candidateNames;
+            }
+
+            if ($candidateNames === []) {
+                flash('info', 'Optimizasyon eşiğini aşan tablo bulunamadı. İşlem çalıştırılmadı.');
+            } elseif ($selectedTables === []) {
+                flash('error', 'Optimize etmek için en az bir önerilen tablo seçmelisiniz.');
             } else {
-                flash('error', 'Optimize edilecek tablo bulunamadı.');
+                $optimizeResult = healthDatabaseOptimizeTables($pdo, $selectedTables, healthDatabaseStatsByName($tableStats));
+                $message = $optimizeResult['optimized'] . ' tablo optimize edildi';
+                if ((int) $optimizeResult['failed'] > 0) {
+                    $message .= ', ' . $optimizeResult['failed'] . ' tabloda hata oluştu';
+                }
+                $message .= '. Tahmini kazanım: ' . healthDatabaseReadableBytes((int) $optimizeResult['saved_bytes']) . '.';
+
+                if (function_exists('appLog')) {
+                    appLog($pdo, (int) $optimizeResult['failed'] > 0 ? 'warning' : 'info', 'system', 'database_optimize', [
+                        'tables' => $selectedTables,
+                        'optimized' => (int) $optimizeResult['optimized'],
+                        'failed' => (int) $optimizeResult['failed'],
+                        'before_overhead_bytes' => (int) $optimizeResult['before_overhead_bytes'],
+                        'after_overhead_bytes' => (int) $optimizeResult['after_overhead_bytes'],
+                        'saved_bytes' => (int) $optimizeResult['saved_bytes'],
+                        'items' => $optimizeResult['items'],
+                    ]);
+                }
+                if (function_exists('adminAuditLogger')) {
+                    adminAuditLogger()->logAction($pdo, 'database_optimized', 'database', 0, 'Veritabanı tabloları optimize edildi', [], [
+                        'tables' => $selectedTables,
+                        'optimized' => (int) $optimizeResult['optimized'],
+                        'failed' => (int) $optimizeResult['failed'],
+                        'saved_bytes' => (int) $optimizeResult['saved_bytes'],
+                    ], false);
+                }
+
+                flash((int) $optimizeResult['failed'] > 0 ? 'error' : 'success', $message);
             }
         } catch (Throwable $e) {
             flash('error', 'Optimizasyon sırasında bir hata oluştu: ' . safeErrorMessage($e));
@@ -35,7 +264,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'optim
     exit;
 }
 
-$root = dirname(__DIR__);
+function healthSettingEnabled(array $settings, string $key, string $default = '1'): bool
+{
+    $value = $settings[$key] ?? $default;
+    if (is_bool($value)) {
+        return $value;
+    }
+
+    $normalized = strtolower(trim((string) $value));
+    return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+}
 
 function healthBoolLabel(bool $ok, string $level = 'required'): string
 {
@@ -835,7 +1073,7 @@ if ($loadQueueSection && function_exists('getAdminSettings') && $pdo instanceof 
         $healthAdminSettings = [];
     }
 }
-$notificationEmailEnabled = (($healthAdminSettings['notif_email_channel_ready'] ?? '0') === '1');
+$notificationEmailEnabled = healthSettingEnabled($healthAdminSettings, 'notif_email_channel_ready', '0');
 $eventsReady = false;
 $eventsConfig = [];
 $eventsSystemEnabled = false;
@@ -969,9 +1207,9 @@ $rateLimitHelperReady = function_exists('checkRateLimit')
     && function_exists('incrementRateLimit')
     && function_exists('resetRateLimit')
     && function_exists('getRateLimitRemainingSeconds');
-$verificationReminderEnabled = (($settings['account_email_verification_enabled'] ?? '0') === '1')
-    && (($settings['account_email_verification_required'] ?? '0') === '1')
-    && (($settings['account_email_verification_reminder_enabled'] ?? '1') === '1');
+$verificationReminderEnabled = healthSettingEnabled($settings, 'account_email_verification_enabled', '0')
+    && healthSettingEnabled($settings, 'account_email_verification_required', '0')
+    && healthSettingEnabled($settings, 'account_email_verification_reminder_enabled', '1');
 $verificationReminderAfterMinutes = max(60, min(10080, (int) ($settings['account_email_verification_reminder_after_minutes'] ?? 1440)));
 $verificationReminderEligibleUsers = $loadDatabaseSection && $verificationReminderEnabled && healthTableExists($pdo, 'users')
     ? healthScalar(
@@ -1026,6 +1264,29 @@ $backupPaths = [
 ];
 $backupResidues = array_values(array_filter($backupPaths, static fn (string $path): bool => file_exists($path)));
 
+$dbOptimizationThresholds = healthDatabaseOptimizeThresholds();
+$dbTableStats = [];
+$dbOptimizationCandidates = [];
+$dbSummary = ['tables' => 0, 'size_bytes' => 0, 'overhead_bytes' => 0, 'large_tables' => 0];
+$dbLargeOptimizationCandidates = 0;
+$dbDefaultSelectedOptimizationCandidates = 0;
+if ($loadDatabaseSection && healthDatabaseSupportsOptimize($pdo)) {
+    $dbTableStats = healthDatabaseTableStats($pdo);
+    $dbOptimizationCandidates = healthDatabaseOptimizationCandidates($dbTableStats);
+    $dbSummary = healthDatabaseStatsSummary($dbTableStats);
+    $dbLargeOptimizationCandidates = count(array_filter($dbOptimizationCandidates, static fn (array $row): bool => !empty($row['large'])));
+    $dbDefaultSelectedOptimizationCandidates = count($dbOptimizationCandidates) - $dbLargeOptimizationCandidates;
+}
+$dbSizeMb = round(((int) ($dbSummary['size_bytes'] ?? 0)) / 1024 / 1024, 2);
+$dbOverheadMb = round(((int) ($dbSummary['overhead_bytes'] ?? 0)) / 1024 / 1024, 2);
+$dbOptimizationDetail = !$loadDatabaseSection
+    ? 'canlı hızlı görünümde tablo analizi atlandı'
+    : (!healthDatabaseSupportsOptimize($pdo)
+        ? 'MySQL/MariaDB dışı sürücü; optimize analizi desteklenmiyor'
+        : (count($dbOptimizationCandidates) === 0
+        ? 'optimizasyon eşiğini aşan tablo yok'
+        : count($dbOptimizationCandidates) . ' önerilen tablo, toplam overhead ' . healthDatabaseReadableBytes((int) ($dbSummary['overhead_bytes'] ?? 0))));
+
 $checks = [
     healthRow('security', 'PHP sürümü', version_compare(PHP_VERSION, '8.1.0', '>='), PHP_VERSION),
     healthRow('security', 'PDO MySQL', extension_loaded('pdo_mysql'), extension_loaded('pdo_mysql') ? 'aktif' : 'eksik'),
@@ -1048,6 +1309,7 @@ $checks = [
     healthRow('database', 'Veritabanı sürücüsü', $pdo instanceof PDO, $pdo instanceof PDO ? (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) : 'yok'),
     healthRow('database', 'Çekirdek tablolar', count($missingCoreTables) === 0, count($missingCoreTables) === 0 ? count($coreTables) . ' tablo mevcut' : 'Eksik: ' . implode(', ', $missingCoreTables)),
     healthRow('database', 'Şema dosyası (database/schema.sql)', is_file($root . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'schema.sql'), 'kurulum ve referans şema için gerekli'),
+    healthRow('database', 'Veritabanı optimizasyon önerisi', !$loadDatabaseSection || count($dbOptimizationCandidates) === 0, $dbOptimizationDetail, $loadDatabaseSection ? 'warning' : 'info'),
     healthRow('database', 'PHP dosyaları', $loadDatabaseSection ? $phpFileCount > 0 : true, $loadDatabaseSection ? $phpFileCount . ' adet PHP dosyası' : 'canlı hızlı görünümde atlandı', $loadDatabaseSection ? 'required' : 'info'),
     healthRow('database', 'storage/cache yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), healthPath($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cache'), 'warning'),
     healthRow('database', 'uploads yazılabilir', is_writable($root . DIRECTORY_SEPARATOR . 'uploads'), healthPath($root . DIRECTORY_SEPARATOR . 'uploads')),
@@ -1101,17 +1363,6 @@ $rowsForTab = $activeTab === 'overview'
     : array_values(array_filter($checks, static fn (array $check): bool => $check['section'] === $activeTab));
 $priorityActions = array_slice($overviewProblemChecks, 0, 4);
 
-$dbSizeMb = 0;
-$dbOverheadMb = 0;
-if ($loadDatabaseSection && $pdo) {
-    try {
-        $stmt = $pdo->query("SELECT SUM(data_length + index_length) AS size, SUM(data_free) AS overhead FROM information_schema.tables WHERE table_schema = DATABASE()");
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $dbSizeMb = round(($row['size'] ?? 0) / 1024 / 1024, 2);
-        $dbOverheadMb = round(($row['overhead'] ?? 0) / 1024 / 1024, 2);
-    } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
-}
-
 require_once __DIR__ . '/header.php';
 ?>
 <div class="health-page">
@@ -1127,25 +1378,91 @@ require_once __DIR__ . '/header.php';
     ], ['class' => 'health-summary', 'aria_label' => 'Sistem sağlığı özeti']) ?>
 
     <?php if ($activeTab === 'database'): ?>
-    <?= adminRenderPanelShellOpen(['class' => 'ui-admin-db-status-panel']) ?>
-        <div>
-            <span class="health-kicker"><i class="bi bi-database-check"></i> Veritabanı Durumu</span>
-            <h3 class="ui-admin-db-status-title">Veritabanı Optimizasyonu</h3>
-            <p class="ui-admin-db-status-copy">
-                Toplam Boyut: <strong><?= number_format($dbSizeMb, 2, ',', '.') ?> MB</strong> 
-                <?php if ($dbOverheadMb > 10): ?>
-                    <span class="ui-admin-db-status-note is-danger"><i class="bi bi-exclamation-circle"></i> <?= number_format($dbOverheadMb, 2, ',', '.') ?> MB birikmiş alan (optimizasyon önerilir).</span>
-                <?php else: ?>
-                    <span class="ui-admin-db-status-note is-success"><i class="bi bi-check-circle"></i> Tamamen optimize durumda. (<?= number_format($dbOverheadMb, 2, ',', '.') ?> MB standart disk rezervi)</span>
-                <?php endif; ?>
-            </p>
-        </div>
-        <form method="post" action="system-health.php?tab=database" class="ui-admin-m-0"<?= adminConfirmAttrs(['message' => 'Veritabanını optimize etmek istiyor musunuz? Bu işlem tablo sayısına göre biraz zaman alabilir.', 'title' => 'Veritabanı optimize edilsin mi?', 'ok' => 'Optimize Et', 'tone' => 'warning']) ?>>
+    <?= adminRenderPanelShellOpen(['class' => 'ui-admin-db-status-panel health-db-optimize-panel']) ?>
+        <form method="post" action="system-health.php?tab=database" class="health-db-optimize-form"<?= adminConfirmAttrs(['message' => 'Seçili tablolar sırayla optimize edilecek. Büyük tablolarda kısa süreli kilitlenme yaşanabilir. Devam edilsin mi?', 'title' => 'Veritabanı optimize edilsin mi?', 'ok' => 'Seçili Tabloları Optimize Et', 'tone' => 'warning']) ?>>
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="optimize_db">
-            <button type="submit" class="btn-primary <?= $dbOverheadMb <= 10 ? 'ui-admin-disabled-soft' : '' ?>" <?= $dbOverheadMb <= 10 ? 'disabled' : '' ?>>
-                <i class="bi bi-magic"></i> Şimdi Optimize Et
-            </button>
+            <input type="hidden" name="table_selection_present" value="1">
+            <div class="health-db-optimize-head">
+                <div>
+                    <span class="health-kicker"><i class="bi bi-database-check"></i> Veritabanı Durumu</span>
+                    <h3 class="ui-admin-db-status-title">Güvenli Veritabanı Optimizasyonu</h3>
+                    <p class="ui-admin-db-status-copy">
+                        Toplam Boyut: <strong><?= number_format($dbSizeMb, 2, ',', '.') ?> MB</strong>
+                        <span class="ui-admin-db-status-note <?= count($dbOptimizationCandidates) > 0 ? 'is-danger' : 'is-success' ?>">
+                            <i class="bi <?= count($dbOptimizationCandidates) > 0 ? 'bi-exclamation-circle' : 'bi-check-circle' ?>"></i>
+                            <?= htmlspecialchars(healthDatabaseReadableBytes((int) ($dbSummary['overhead_bytes'] ?? 0)), ENT_QUOTES, 'UTF-8') ?> overhead
+                        </span>
+                    </p>
+                    <p class="health-db-optimize-copy">
+                        Yalnızca overhead eşiğini aşan tablolar önerilir; işlem tablo tablo çalışır ve sonuç uygulama loguna yazılır.
+                    </p>
+                </div>
+                <button type="submit" class="btn-primary <?= count($dbOptimizationCandidates) === 0 ? 'ui-admin-disabled-soft' : '' ?>" <?= count($dbOptimizationCandidates) === 0 ? 'disabled' : '' ?>>
+                    <i class="bi bi-magic"></i> Seçili Tabloları Optimize Et
+                </button>
+            </div>
+
+            <?php if (!healthDatabaseSupportsOptimize($pdo)): ?>
+                <div class="ui-admin-alert ui-admin-alert-info health-db-optimize-alert">
+                    Bu bağlantı MySQL/MariaDB değil; tablo optimizasyonu bu sürücüde çalıştırılmadı.
+                </div>
+            <?php elseif (count($dbOptimizationCandidates) === 0): ?>
+                <div class="ui-admin-alert ui-admin-alert-success health-db-optimize-alert">
+                    Optimizasyon eşiğini aşan tablo yok. Toplam <?= number_format((int) ($dbSummary['tables'] ?? 0), 0, ',', '.') ?> tablo sağlıklı görünüyor.
+                </div>
+            <?php else: ?>
+                <?php if ($dbLargeOptimizationCandidates > 0): ?>
+                    <div class="ui-admin-alert ui-admin-alert-warning health-db-optimize-alert">
+                        <?= (int) $dbLargeOptimizationCandidates ?> büyük tablo öneri listesinde. Büyük tablolar kısa süreli kilitlenme riski nedeniyle varsayılan seçilmedi.
+                    </div>
+                <?php endif; ?>
+
+                <?= adminRenderTableOpen([
+                    ['html' => '<span class="ui-admin-sr-only">Seç</span>'],
+                    'Tablo',
+                    'Motor',
+                    'Satır',
+                    'Boyut',
+                    'Overhead',
+                    'Risk',
+                ], [
+                    'class' => 'health-db-optimize-table',
+                    'wrap_class' => 'health-db-optimize-table-wrap',
+                    'label' => 'Optimizasyon önerilen veritabanı tabloları',
+                ]) ?>
+                    <?php foreach ($dbOptimizationCandidates as $dbTable): ?>
+                        <?php
+                        $isLargeTable = !empty($dbTable['large']);
+                        $tableName = (string) ($dbTable['name'] ?? '');
+                        ?>
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="scraper-check" name="tables[]" value="<?= htmlspecialchars($tableName, ENT_QUOTES, 'UTF-8') ?>" <?= !$isLargeTable ? 'checked' : '' ?>>
+                            </td>
+                            <td><strong><?= htmlspecialchars($tableName, ENT_QUOTES, 'UTF-8') ?></strong></td>
+                            <td><?= htmlspecialchars((string) ($dbTable['engine'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= number_format((int) ($dbTable['rows'] ?? 0), 0, ',', '.') ?></td>
+                            <td><?= htmlspecialchars(healthDatabaseReadableBytes((int) ($dbTable['size_bytes'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td>
+                                <span class="health-db-overhead-value"><?= htmlspecialchars(healthDatabaseReadableBytes((int) ($dbTable['overhead_bytes'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="health-db-overhead-percent">%<?= number_format((float) ($dbTable['overhead_percent'] ?? 0), 1, ',', '.') ?></span>
+                            </td>
+                            <td>
+                                <span class="ui-admin-badge <?= $isLargeTable ? 'ui-admin-badge-warning' : 'ui-admin-badge-info' ?>">
+                                    <i class="bi <?= $isLargeTable ? 'bi-exclamation-triangle' : 'bi-check2-circle' ?>"></i>
+                                    <?= $isLargeTable ? 'Büyük tablo' : 'Standart' ?>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?= adminRenderTableClose() ?>
+                <p class="health-db-optimize-footnote">
+                    Varsayılan seçili tablo: <?= (int) $dbDefaultSelectedOptimizationCandidates ?>.
+                    Eşik: <?= htmlspecialchars(healthDatabaseReadableBytes((int) $dbOptimizationThresholds['min_overhead_bytes']), ENT_QUOTES, 'UTF-8') ?> overhead veya
+                    <?= htmlspecialchars(healthDatabaseReadableBytes((int) $dbOptimizationThresholds['min_percent_overhead_bytes']), ENT_QUOTES, 'UTF-8') ?> üzeri ve %<?= number_format((float) $dbOptimizationThresholds['min_overhead_percent'], 1, ',', '.') ?>+ overhead.
+                </p>
+            <?php endif; ?>
         </form>
     <?= adminRenderPanelShellClose() ?>
     <?php endif; ?>

@@ -45,6 +45,142 @@ function notificationSuppressionLogService(): NotificationSuppressionLogService
     return $service ??= new NotificationSuppressionLogService(notificationSchemaService());
 }
 
+function notificationDeliveryLogExcerpt(mixed $value, int $limit = 220): string
+{
+    if ($value === null || $value === '') {
+        return '';
+    }
+
+    if (is_array($value) || is_object($value)) {
+        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $value = is_string($encoded) ? $encoded : '';
+    }
+
+    $text = (string) $value;
+    $text = preg_replace('~<\s*br\s*/?\s*>~i', ' ', $text) ?? $text;
+    $text = preg_replace('~</\s*(p|div|li|tr|td|th|h[1-6]|section|article)\s*>~i', ' ', $text) ?? $text;
+    $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace('/\s+/u', ' ', trim($text)) ?? trim($text);
+    if ($text === '') {
+        return '';
+    }
+
+    $limit = max(20, $limit);
+    if (mb_strlen($text, 'UTF-8') <= $limit) {
+        return $text;
+    }
+
+    return rtrim(mb_substr($text, 0, max(0, $limit - 3), 'UTF-8')) . '...';
+}
+
+function notificationDeliveryLogNormalizeList(mixed $value): array
+{
+    if (is_string($value)) {
+        $decoded = json_decode($value, true);
+        if (is_array($decoded)) {
+            $value = $decoded;
+        } else {
+            $value = preg_split('/\s*,\s*/', $value) ?: [];
+        }
+    }
+    if (!is_array($value)) {
+        return [];
+    }
+
+    return array_values(array_unique(array_filter(array_map(
+        static fn (mixed $item): string => trim((string) $item),
+        $value
+    ), static fn (string $item): bool => $item !== '')));
+}
+
+function notificationDeliveryLogContext(array $context): array
+{
+    if (isset($context['recipient_id']) && !isset($context['recipient_user_id'])) {
+        $context['recipient_user_id'] = $context['recipient_id'];
+    }
+    if (isset($context['user_id']) && !isset($context['recipient_user_id'])) {
+        $context['recipient_user_id'] = $context['user_id'];
+    }
+    if (isset($context['template']) && !isset($context['template_key'])) {
+        $context['template_key'] = $context['template'];
+    }
+    if (isset($context['subject']) && !isset($context['title'])) {
+        $context['title'] = $context['subject'];
+    }
+    if (isset($context['message']) && !isset($context['message_excerpt'])) {
+        $context['message_excerpt'] = notificationDeliveryLogExcerpt($context['message']);
+    }
+    if (isset($context['body']) && !isset($context['message_excerpt'])) {
+        $context['message_excerpt'] = notificationDeliveryLogExcerpt($context['body']);
+    }
+    if (isset($context['channels']) && !isset($context['delivery_channels'])) {
+        $context['delivery_channels'] = $context['channels'];
+    }
+    if (isset($context['delivery_channels'])) {
+        $context['delivery_channels'] = notificationDeliveryLogNormalizeList($context['delivery_channels']);
+    }
+
+    foreach (['payload', 'settings', 'message', 'body', 'channels', 'template', 'recipient_id'] as $key) {
+        unset($context[$key]);
+    }
+
+    $clean = [];
+    foreach ($context as $key => $value) {
+        $key = trim((string) $key);
+        if ($key === '' || $value === null || $value === '') {
+            continue;
+        }
+
+        if (is_array($value)) {
+            $items = [];
+            foreach ($value as $item) {
+                if (is_scalar($item) || $item === null) {
+                    $itemText = notificationDeliveryLogExcerpt($item, 120);
+                    if ($itemText !== '') {
+                        $items[] = $itemText;
+                    }
+                }
+            }
+            if ($items !== []) {
+                $clean[$key] = $items;
+            }
+            continue;
+        }
+
+        if (is_object($value)) {
+            continue;
+        }
+
+        $limit = in_array($key, ['error', 'reason', 'title', 'link', 'recipient_email'], true) ? 255 : 160;
+        $text = notificationDeliveryLogExcerpt($value, $limit);
+        if ($text !== '') {
+            $clean[$key] = $text;
+        }
+    }
+
+    return $clean;
+}
+
+function notificationDeliveryLog(?PDO $pdo, string $message, array $context = [], string $level = 'info'): void
+{
+    if (!$pdo || !function_exists('appLog')) {
+        return;
+    }
+
+    $level = strtolower(trim($level));
+    if (!in_array($level, ['debug', 'info', 'notice', 'warning', 'error', 'critical'], true)) {
+        $level = 'info';
+    }
+
+    appLog(
+        $pdo,
+        $level,
+        'notification',
+        trim($message) !== '' ? trim($message) : 'notification_delivery_event',
+        notificationDeliveryLogContext($context)
+    );
+}
+
 function notificationDispatchService(): NotificationDispatchService
 {
     static $service = null;
@@ -321,7 +457,7 @@ function notificationQueueEmail(
     array $metadata,
     int $maxAttempts = 3
 ): bool {
-    return notificationEmailQueueService()->queue(
+    $queued = notificationEmailQueueService()->queue(
         $pdo,
         $notificationId,
         $recipientId,
@@ -332,6 +468,22 @@ function notificationQueueEmail(
         $metadata,
         $maxAttempts
     );
+    notificationDeliveryLog($pdo, $queued ? 'notification_email_queued' : 'notification_delivery_failed', [
+        'source' => (string) ($metadata['source'] ?? 'notification_queue'),
+        'status' => $queued ? 'queued' : 'failed',
+        'reason' => $queued ? '' : 'email_queue_insert_failed',
+        'event_key' => (string) ($metadata['event_key'] ?? ''),
+        'template_key' => $templateKey,
+        'recipient_user_id' => $recipientId,
+        'recipient_type' => (string) ($metadata['recipient_type'] ?? 'user'),
+        'notification_id' => $notificationId,
+        'title' => $subject,
+        'message' => $body,
+        'link' => $link,
+        'delivery_channels' => [$queued ? 'email_queue' : 'email_queue_failed'],
+    ], $queued ? 'info' : 'error');
+
+    return $queued;
 }
 
 function notificationEmailQueueAbsoluteLink(?string $link): ?string

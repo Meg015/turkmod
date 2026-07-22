@@ -53,7 +53,7 @@ final class NotificationCenterService
             && $this->preferences->bool($userSettings, 'notif_browser_push', '1');
         $showBadge = $this->preferences->bool($adminSettings, 'notif_show_header_badge', '1');
         $autoMarkOnOpen = $this->preferences->bool($adminSettings, 'notif_auto_mark_link_click', '1')
-            && (($userSettings['notif_auto_mark_on_open'] ?? '1') === '1');
+            && $this->preferences->bool($userSettings, 'notif_auto_mark_on_open', '1');
 
         if (!$browserNotificationsEnabled) {
             return $this->emptyDropdown(false, true, false, $autoMarkOnOpen);

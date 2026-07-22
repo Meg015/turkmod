@@ -133,14 +133,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $verificationEmailSent = false;
                         try {
                             $accountMailer = accountEmailService($pdo);
-                            $welcomeEmailSent = $accountMailer->send('welcome', $email, ['username' => $username, 'login_url' => $loginUrl]);
+                            $welcomeEmailSent = $accountMailer->send('welcome', $email, ['username' => $username, 'login_url' => $loginUrl, 'user_id' => (string) $newUserId]);
                             if (!$welcomeEmailSent) {
                                 $welcomeEnabledKey = \App\Engine\Email\AccountEmailService::settingKey('welcome', 'enabled');
                                 $welcomeTemplate = \App\Engine\Email\AccountEmailService::catalog()['welcome'] ?? ['enabled' => '1'];
-                                if (
-                                    (string) ($settings['account_email_system_enabled'] ?? '1') === '1'
-                                    && (string) ($settings[$welcomeEnabledKey] ?? $welcomeTemplate['enabled'] ?? '1') === '1'
-                                ) {
+                                $accountEmailSystemActive = function_exists('authSettingEnabled')
+                                    ? authSettingEnabled($settings, 'account_email_system_enabled', '1')
+                                    : in_array(strtolower(trim((string) ($settings['account_email_system_enabled'] ?? '1'))), ['1', 'true', 'yes', 'on'], true);
+                                $welcomeTemplateActive = function_exists('authSettingEnabled')
+                                    ? authSettingEnabled($settings, $welcomeEnabledKey, (string) ($welcomeTemplate['enabled'] ?? '1'))
+                                    : in_array(strtolower(trim((string) ($settings[$welcomeEnabledKey] ?? $welcomeTemplate['enabled'] ?? '1'))), ['1', 'true', 'yes', 'on'], true);
+                                if ($accountEmailSystemActive && $welcomeTemplateActive) {
                                     $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
                                     $context = [
                                         'source' => 'registration_welcome_email_failed',

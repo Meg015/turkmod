@@ -498,6 +498,46 @@ if (!function_exists('commentSpamLooksLikeLowVarietyNoise')) {
     }
 }
 
+if (!function_exists('commentSpamLooksLikeLongRandomLetterRun')) {
+    function commentSpamLooksLikeLongRandomLetterRun(string $letters, int $maxConsonantRun = 0): bool
+    {
+        $letterCount = mb_strlen($letters, 'UTF-8');
+        if ($letterCount < 17) {
+            return false;
+        }
+
+        $characters = commentSpamTokenCharacters($letters);
+        if ($characters === []) {
+            return false;
+        }
+
+        $vowelCount = preg_match_all('/[aeiou\x{0131}\x{00F6}\x{00FC}\x{00E2}\x{00EE}\x{00FB}]/u', $letters, $vowels);
+        $vowelCount = $vowelCount === false ? 0 : $vowelCount;
+        $vowelRatio = $vowelCount / $letterCount;
+        if ($vowelRatio > 0.28) {
+            return false;
+        }
+
+        $maxConsonantRun = $maxConsonantRun > 0 ? $maxConsonantRun : commentSpamMaxConsonantRun($letters);
+        if ($maxConsonantRun < 5) {
+            return false;
+        }
+
+        $rareConsonantCount = preg_match_all('/[jqwx]/u', $letters, $rareConsonants);
+        $rareConsonantCount = $rareConsonantCount === false ? 0 : $rareConsonantCount;
+        if ($maxConsonantRun >= 7 && ($rareConsonantCount >= 1 || $vowelRatio <= 0.18)) {
+            return true;
+        }
+
+        $uniqueCount = count(array_unique($characters));
+
+        return $letterCount >= 20
+            && $uniqueCount >= 9
+            && $rareConsonantCount >= 2
+            && $maxConsonantRun >= 6;
+    }
+}
+
 if (!function_exists('commentSpamLooksLikeNumericNoise')) {
     function commentSpamLooksLikeNumericNoise(string $token): bool
     {
@@ -561,6 +601,50 @@ if (!function_exists('commentSpamIsCommonShortCommentToken')) {
         ];
 
         return isset($tokens[commentSpamNormalizeTerm($token)]);
+    }
+}
+
+if (!function_exists('commentSpamFindShortOnlyNonsenseFragments')) {
+    function commentSpamFindShortOnlyNonsenseFragments(string $body): ?string
+    {
+        $normalizedBody = commentSpamNormalizeComparableBody($body);
+        if ($normalizedBody === '' || commentSpamLooksLikeVersionReference($normalizedBody)) {
+            return null;
+        }
+
+        $meaningfulCharacters = commentSpamMeaningfulCharacterCount($normalizedBody);
+        if ($meaningfulCharacters < 2 || $meaningfulCharacters > 10) {
+            return null;
+        }
+
+        if (preg_match_all('/[\p{L}\p{N}]+/u', $normalizedBody, $matches) < 2) {
+            return null;
+        }
+
+        $tokens = [];
+        foreach (($matches[0] ?? []) as $rawToken) {
+            $token = commentSpamNormalizeTerm((string) $rawToken);
+            if ($token !== '') {
+                $tokens[] = $token;
+            }
+        }
+
+        $tokenCount = count($tokens);
+        if ($tokenCount < 2 || $tokenCount > 5) {
+            return null;
+        }
+
+        foreach ($tokens as $token) {
+            if (preg_match('/^\p{L}{1,2}$/u', $token) !== 1) {
+                return null;
+            }
+
+            if (commentSpamIsCommonShortCommentToken($token) || commentSpamIsNonsenseSafeToken($token)) {
+                return null;
+            }
+        }
+
+        return mb_substr($normalizedBody, 0, 80, 'UTF-8');
     }
 }
 
@@ -788,6 +872,10 @@ if (!function_exists('commentSpamLooksLikeNonsenseToken')) {
             return true;
         }
 
+        if (commentSpamLooksLikeLongRandomLetterRun($letters, $maxConsonantRun)) {
+            return true;
+        }
+
         if ($maxConsonantRun >= 4 && $letterCount <= 8) {
             return true;
         }
@@ -812,6 +900,11 @@ if (!function_exists('commentSpamLooksLikeNonsenseToken')) {
 if (!function_exists('commentSpamFindNonsenseToken')) {
     function commentSpamFindNonsenseToken(string $body): ?string
     {
+        $shortOnlyFragmentMatch = commentSpamFindShortOnlyNonsenseFragments($body);
+        if ($shortOnlyFragmentMatch !== null) {
+            return $shortOnlyFragmentMatch;
+        }
+
         $fragmentNoiseMatch = commentSpamFindShortFragmentNoise($body);
         if ($fragmentNoiseMatch !== null) {
             return $fragmentNoiseMatch;

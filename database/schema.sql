@@ -61,6 +61,42 @@ CREATE TABLE `application_logs` (
   KEY `application_logs_channel_created_index` (`channel`,`created_at`)
 ) ENGINE=InnoDB AUTO_INCREMENT=58611 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `email_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `status` varchar(20) NOT NULL DEFAULT 'sent',
+  `source` varchar(50) NOT NULL DEFAULT 'system',
+  `source_key` varchar(100) DEFAULT NULL,
+  `recipient_email` varchar(255) NOT NULL,
+  `recipient_name` varchar(255) DEFAULT NULL,
+  `subject` varchar(255) NOT NULL,
+  `driver` varchar(20) DEFAULT NULL,
+  `transport` varchar(20) DEFAULT NULL,
+  `notification_id` bigint(20) unsigned DEFAULT NULL,
+  `queue_id` bigint(20) unsigned DEFAULT NULL,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `attempt_no` tinyint(3) unsigned DEFAULT NULL,
+  `max_attempts` tinyint(3) unsigned DEFAULT NULL,
+  `provider_message_id` varchar(255) DEFAULT NULL,
+  `provider_response` longtext DEFAULT NULL,
+  `smtp_code` int(11) DEFAULT NULL,
+  `smtp_response` text DEFAULT NULL,
+  `error_message` longtext DEFAULT NULL,
+  `exception_class` varchar(255) DEFAULT NULL,
+  `exception_file` varchar(500) DEFAULT NULL,
+  `exception_line` int(11) DEFAULT NULL,
+  `context_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`context_json`)),
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `email_logs_status_created_index` (`status`,`created_at`),
+  KEY `email_logs_source_created_index` (`source`,`source_key`,`created_at`),
+  KEY `email_logs_recipient_created_index` (`recipient_email`,`created_at`),
+  KEY `email_logs_driver_created_index` (`driver`,`created_at`),
+  KEY `email_logs_queue_created_index` (`queue_id`,`created_at`),
+  KEY `email_logs_notification_created_index` (`notification_id`,`created_at`),
+  KEY `email_logs_user_created_index` (`user_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `ban_appeal_messages` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `appeal_id` bigint(20) unsigned NOT NULL,

@@ -12,6 +12,12 @@ if ($userId <= 0) {
     sendUnauthorized('Oturum açmanız gerekiyor.');
 }
 
+$submittedToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_GET['_token'] ?? ($_POST['_token'] ?? ''));
+$submittedToken = is_scalar($submittedToken) ? (string) $submittedToken : '';
+if (!verify_csrf_token($submittedToken)) {
+    sendCsrfError();
+}
+
 session_write_close();
 
 $pdo = requireDatabaseConnection($pdo ?? null);

@@ -2736,9 +2736,17 @@ require_once __DIR__ . '/header.php';
                                         <?php endif; ?>
                                         <?php if ($userSystemTabId === 'user-system-tab-approvals'): ?>
                                             <?php
-                                                $registrationApprovalEnabled = ($settings['registration_requires_admin_approval'] ?? '0') === '1';
-                                                $emailVerificationEnabled = ($settings['account_email_verification_enabled'] ?? '0') === '1';
-                                                $emailVerificationRequired = ($settings['account_email_verification_required'] ?? '0') === '1';
+                                                $settingsBool = static function (string $key, string $default = '1') use ($settings): bool {
+                                                    $value = $settings[$key] ?? $default;
+                                                    if (is_bool($value)) {
+                                                        return $value;
+                                                    }
+
+                                                    return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
+                                                };
+                                                $registrationApprovalEnabled = $settingsBool('registration_requires_admin_approval', '0');
+                                                $emailVerificationEnabled = $settingsBool('account_email_verification_enabled', '0');
+                                                $emailVerificationRequired = $settingsBool('account_email_verification_required', '0');
                                                 $emailVerificationTtlMinutes = max(15, min(10080, (int) ($settings['account_email_verification_ttl_minutes'] ?? 1440)));
                                                 $emailVerificationCooldownMinutes = max(1, min(1440, (int) ($settings['account_email_verification_resend_cooldown_minutes'] ?? 10)));
                                             ?>

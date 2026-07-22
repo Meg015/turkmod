@@ -29,12 +29,18 @@ function notification_type_meta(string $type): array
 
 function notification_setting_checked(array $settings, string $key, string $default = '1'): string
 {
-    return (($settings[$key] ?? $default) === '1') ? 'checked' : '';
+    return notification_bool_setting($settings, $key, $default) ? 'checked' : '';
 }
 
 function notification_bool_setting(array $settings, string $key, string $default = '1'): bool
 {
-    return (($settings[$key] ?? $default) === '1');
+    $value = $settings[$key] ?? $default;
+    if (is_bool($value)) {
+        return $value;
+    }
+
+    $normalized = strtolower(trim((string) $value));
+    return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
 }
 
 function notification_int_setting(array $settings, string $key, int $default, int $min, int $max): int

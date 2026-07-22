@@ -83,15 +83,53 @@ function initNotificationTemplatePreviews(adminNotificationsPageData) {
         return '';
     };
 
+    const parseFieldNames = function (value) {
+        return String(value || '')
+            .split(',')
+            .map(function (name) { return name.trim(); })
+            .filter(Boolean);
+    };
+
+    const uniqueFieldNames = function (names) {
+        return names.filter(function (name, index, list) {
+            return name && list.indexOf(name) === index;
+        });
+    };
+
+    const previewFieldNames = function (form, datasetKey, defaults) {
+        return uniqueFieldNames(parseFieldNames(form.dataset[datasetKey] || '').concat(defaults || []));
+    };
+
+    const previewWatchFieldNames = function (form) {
+        return uniqueFieldNames([
+            'title_template',
+            'message_template',
+            'link_template',
+            'title',
+            'message',
+            'link',
+            'email_subject_template',
+            'email_body_template',
+            'email_link_template',
+            'email_preview_template',
+            'type'
+        ].concat(
+            previewFieldNames(form, 'previewTypeFields', []),
+            previewFieldNames(form, 'previewTitleFields', []),
+            previewFieldNames(form, 'previewMessageFields', []),
+            previewFieldNames(form, 'previewLinkFields', [])
+        ));
+    };
+
     const buildPreview = function (form) {
         const payload = payloads[form.dataset.templateKey || '__new'] || payloads.__new || {};
-        const type = form.querySelector('[name="type"]')?.value || 'info';
+        const type = fieldValue(form, previewFieldNames(form, 'previewTypeFields', ['type'])) || 'info';
         const meta = typeMeta[type] || typeMeta.info || { icon: 'bi-info-circle', class: 'info' };
         const channel = form.dataset.channelPreview || 'site';
         const emailWarning = form.querySelector('.notification-email-warning')?.textContent?.trim() || '';
-        const titleTemplate = fieldValue(form, ['title_template', 'title']);
-        const messageTemplate = fieldValue(form, ['message_template', 'message']);
-        const linkTemplate = fieldValue(form, ['link_template', 'link']);
+        const titleTemplate = fieldValue(form, previewFieldNames(form, 'previewTitleFields', ['title_template', 'title']));
+        const messageTemplate = fieldValue(form, previewFieldNames(form, 'previewMessageFields', ['message_template', 'message']));
+        const linkTemplate = fieldValue(form, previewFieldNames(form, 'previewLinkFields', ['link_template', 'link']));
 
         return {
             channel,
@@ -293,7 +331,7 @@ function initNotificationTemplatePreviews(adminNotificationsPageData) {
     }
 
     document.querySelectorAll('form[data-live-template-preview="1"]').forEach(function (form) {
-        ['title_template', 'message_template', 'link_template', 'title', 'message', 'link', 'email_subject_template', 'email_body_template', 'email_link_template', 'email_preview_template', 'type'].forEach(function (name) {
+        previewWatchFieldNames(form).forEach(function (name) {
             const field = form.querySelector('[name="' + name + '"]');
             if (field) {
                 if (field.dataset.notificationPreviewFieldBound === '1') {
@@ -771,7 +809,7 @@ function initNotificationVariableControls() {
         form.addEventListener('submit', function (event) {
             const submitter = event.submitter || null;
             const action = submitter && submitter.name === 'action' ? String(submitter.value || '') : '';
-            if (action === 'reset_template' || action === 'delete_template') {
+            if (['reset_template', 'delete_template', 'reset_admin_registration_site_template'].includes(action)) {
                 return;
             }
 

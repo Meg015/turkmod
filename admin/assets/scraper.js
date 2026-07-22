@@ -804,12 +804,93 @@ async function deleteMapping(id) {
 }
 
 /* ── Scrape Operations ── */
+function toggleMappingGroup(button) {
+    const groupId = button?.getAttribute('data-scraper-group') || '';
+    if (!groupId) return;
+
+    const willOpen = button.getAttribute('aria-expanded') !== 'true';
+    button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    button.classList.toggle('is-open', willOpen);
+    button.closest('.scraper-mapping-group-row')?.classList.toggle('is-collapsed', !willOpen);
+
+    document.querySelectorAll(`[data-scraper-group="${groupId}"]`).forEach(row => {
+        if (row.classList.contains('scraper-mapping-item-row')) {
+            row.classList.toggle('is-group-collapsed', !willOpen);
+            row.hidden = !willOpen;
+            return;
+        }
+
+        if (row.classList.contains('scraper-subrow')) {
+            row.classList.toggle('is-group-collapsed', !willOpen);
+            if (!willOpen) {
+                scraperHide(row);
+            }
+        }
+    });
+}
+
 function testConnection() {
     const url = document.getElementById('site_base_url')?.value;
     if (!url) return scraperToast('URL girin', 'error');
     const btn = document.getElementById('btnTestConn');
     runScraperAsync(btn, '<i class="bi bi-hourglass-split"></i> Test...', () => apiPost('test_connection', { url })).then(r => {
         scraperToast(r.message, r.success ? 'success' : 'error');
+    });
+}
+
+function setTranslationTestResult(message, type = '') {
+    const result = document.getElementById('botTranslationTestResult');
+    if (!result) return;
+
+    result.textContent = message || '';
+    result.hidden = !message;
+    result.classList.toggle('is-success', type === 'success');
+    result.classList.toggle('is-error', type === 'error');
+}
+
+function getBotSettingFormValue(form, name, fallback = '') {
+    const field = form?.querySelector(`[name="${name}"]`);
+    if (!field) return fallback;
+    if (field.type === 'checkbox') {
+        return field.checked ? '1' : '0';
+    }
+    return field.value || fallback;
+}
+
+function testTranslation() {
+    const form = document.getElementById('botSettingsForm');
+    const input = document.getElementById('botTranslationTestText');
+    const text = (input?.value || '').trim();
+
+    if (!text) {
+        setTranslationTestResult('Çevrilecek metin girin.', 'error');
+        return scraperToast('Çevrilecek metin girin', 'error');
+    }
+
+    const apiKey = getBotSettingFormValue(form, 'bot_deepl_api_key', '').trim();
+    if (!apiKey) {
+        setTranslationTestResult('DeepL API anahtarı gerekli.', 'error');
+        return scraperToast('DeepL API anahtarı gerekli', 'error');
+    }
+
+    const btn = document.getElementById('btnTestTranslation');
+    setTranslationTestResult('', '');
+    runScraperAsync(btn, '<i class="bi bi-hourglass-split"></i> Çevriliyor...', () => apiPost('test_translation', {
+        text,
+        bot_deepl_api_key: apiKey,
+        bot_source_lang: getBotSettingFormValue(form, 'bot_source_lang', 'EN'),
+        bot_target_lang: getBotSettingFormValue(form, 'bot_target_lang', 'TR'),
+        bot_ssl_verify: getBotSettingFormValue(form, 'bot_ssl_verify', '1'),
+    })).then(r => {
+        if (r.success) {
+            setTranslationTestResult(r.translated_text || '', 'success');
+            scraperToast(r.message || 'Çeviri başarılı.', 'success');
+            return;
+        }
+
+        const message = r.error || r.message || 'Çeviri yapılamadı.';
+        setTranslationTestResult(message, 'error');
+        scraperToast(message, 'error');
     });
 }
 
@@ -2029,12 +2110,16 @@ document.addEventListener('click', function(event) {
         resetSiteForm();
     } else if (actionName === 'test-connection') {
         testConnection();
+    } else if (actionName === 'test-translation') {
+        testTranslation();
     } else if (actionName === 'edit-site') {
         editSite(action.getAttribute('data-site-id'));
     } else if (actionName === 'delete-site') {
         deleteSite(action.getAttribute('data-site-id'));
     } else if (actionName === 'reset-mapping-form') {
         resetMappingForm();
+    } else if (actionName === 'toggle-mapping-group') {
+        toggleMappingGroup(action);
     } else if (actionName === 'list-mapping-topics') {
         listMappingTopics(
             action.getAttribute('data-mapping-id'),

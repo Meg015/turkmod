@@ -12,7 +12,203 @@ $jobs = getScraperJobs($pdo, null, 10);
 $imports = getScraperImports($pdo, null, null, 50);
 $stats = getScraperStats($pdo);
 $botSettings = getScraperBotSettings($pdo);
-$categories = $pdo->query("SELECT id, name FROM categories ORDER BY name ASC")->fetchAll();
+$botSettingEnabled = static fn(string $key, mixed $default = '0'): bool => scraperBoolSetting($botSettings, $key, $default);
+$categories = getAdminCategoryOptions($pdo);
+$categoryHasChildren = [];
+foreach ($categories as $category) {
+    $parentId = $category['parent_id'] === null ? 0 : (int) $category['parent_id'];
+    if ($parentId > 0) {
+        $categoryHasChildren[$parentId] = true;
+    }
+}
+$categoryOptionsHtml = static function (string $placeholder, int $selectedId = 0) use ($categories, $categoryHasChildren): string {
+    $html = '<option value="">' . htmlspecialchars($placeholder, ENT_QUOTES, 'UTF-8') . '</option>';
+    $optgroupOpen = false;
+
+    foreach ($categories as $category) {
+        $id = (int) ($category['id'] ?? 0);
+        $depth = max(0, (int) ($category['depth'] ?? 0));
+        $name = trim((string) ($category['name'] ?? ''));
+        if ($id <= 0 || $name === '') {
+            continue;
+        }
+
+        if ($depth === 0 && !empty($categoryHasChildren[$id])) {
+            if ($optgroupOpen) {
+                $html .= '</optgroup>';
+            }
+            $html .= '<optgroup label="' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '">';
+            $optgroupOpen = true;
+            continue;
+        }
+
+        if ($depth === 0 && $optgroupOpen) {
+            $html .= '</optgroup>';
+            $optgroupOpen = false;
+        }
+
+        $label = $depth > 1 ? str_repeat('  ', $depth - 1) . '- ' . $name : $name;
+        $html .= '<option value="' . $id . '"' . ($id === $selectedId ? ' selected' : '') . '>'
+            . htmlspecialchars($label, ENT_QUOTES, 'UTF-8')
+            . '</option>';
+    }
+
+    if ($optgroupOpen) {
+        $html .= '</optgroup>';
+    }
+
+    return $html;
+};
+$scraperMappingGameMeta = static function (string $categoryName): array {
+    $normalized = strtolower(strtr($categoryName, [
+        'Ç' => 'c', 'ç' => 'c',
+        'Ğ' => 'g', 'ğ' => 'g',
+        'İ' => 'i', 'ı' => 'i',
+        'Ö' => 'o', 'ö' => 'o',
+        'Ş' => 's', 'ş' => 's',
+        'Ü' => 'u', 'ü' => 'u',
+    ]));
+    $normalized = trim((string) preg_replace('/[^a-z0-9]+/', ' ', $normalized));
+
+    if (str_contains($normalized, 'euro truck simulator 2') || preg_match('/\bets\s*2\b/', $normalized)) {
+        return ['code' => 'ETS2', 'tone' => 'ets2', 'icon' => 'bi-truck-front-fill'];
+    }
+    if (str_contains($normalized, 'american truck simulator') || preg_match('/\bats\b/', $normalized)) {
+        return ['code' => 'ATS', 'tone' => 'ats', 'icon' => 'bi-truck-front-fill'];
+    }
+    if (str_contains($normalized, 'fs 25') || str_contains($normalized, 'fs25') || str_contains($normalized, 'farming simulator 25')) {
+        return ['code' => 'FS25', 'tone' => 'fs25', 'icon' => 'bi-gear-wide-connected'];
+    }
+    if (str_contains($normalized, 'beamng')) {
+        return ['code' => 'BEAMNG', 'tone' => 'beamng', 'icon' => 'bi-car-front-fill'];
+    }
+    if (str_contains($normalized, 'city car driving')) {
+        return ['code' => 'CCD', 'tone' => 'ccd', 'icon' => 'bi-car-front-fill'];
+    }
+    if (str_contains($normalized, 'snowrunner')) {
+        return ['code' => 'SNOW', 'tone' => 'snowrunner', 'icon' => 'bi-truck'];
+    }
+    if (str_contains($normalized, 'mudrunner')) {
+        return ['code' => 'MUD', 'tone' => 'mudrunner', 'icon' => 'bi-truck'];
+    }
+    if (str_contains($normalized, 'spintires')) {
+        return ['code' => 'SPIN', 'tone' => 'spintires', 'icon' => 'bi-truck'];
+    }
+
+    $words = array_values(array_filter(explode(' ', $normalized), static fn (string $word): bool => strlen($word) > 1));
+    $code = strtoupper(substr(implode('', array_map(static fn (string $word): string => $word[0], array_slice($words, 0, 3))), 0, 5));
+
+    return ['code' => $code !== '' ? $code : 'GAME', 'tone' => 'generic', 'icon' => 'bi-controller'];
+};
+$scraperMappingGroupInfo = static function (array $mapping) use ($scraperMappingGameMeta): array {
+    $siteId = (int) ($mapping['bot_site_id'] ?? 0);
+    $siteName = trim((string) ($mapping['site_name'] ?? ''));
+    $parentId = (int) ($mapping['local_parent_category_id'] ?? 0);
+    $localId = (int) ($mapping['local_category_id'] ?? 0);
+    $parentName = trim((string) ($mapping['local_parent_category_name'] ?? ''));
+    $localName = trim((string) ($mapping['local_category_name'] ?? ''));
+    $groupId = $parentId > 0 ? $parentId : $localId;
+    $groupName = $parentName !== '' ? $parentName : ($localName !== '' ? $localName : 'Yerel kategori yok');
+    $game = $scraperMappingGameMeta($groupName);
+
+    return [
+        'key' => $siteId . ':' . $groupId . ':' . $groupName,
+        'site' => $siteName !== '' ? $siteName : 'Bilinmeyen site',
+        'category' => $groupName,
+        'game_code' => $game['code'],
+        'game_tone' => $game['tone'],
+        'game_icon' => $game['icon'],
+    ];
+};
+$scraperMappingRemoteHtml = static function (array $mapping): string {
+    $url = trim((string) ($mapping['remote_category_url'] ?? ''));
+    $host = (string) (parse_url($url, PHP_URL_HOST) ?: '');
+    $path = trim((string) (parse_url($url, PHP_URL_PATH) ?: ''), '/');
+    $parts = $path === '' ? [] : array_values(array_filter(explode('/', $path)));
+    $slug = $parts === [] ? $url : (string) end($parts);
+    $label = ($host !== '' ? $host . ' / ' : '') . $slug;
+    $prefix = trim((string) ($mapping['title_prefix'] ?? ''));
+
+    $html = '<div class="scraper-url-cell">'
+        . '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" target="_blank" class="scraper-url-title">'
+        . '<i class="bi bi-box-arrow-up-right"></i> '
+        . htmlspecialchars($label, ENT_QUOTES, 'UTF-8')
+        . '</a>'
+        . '<span class="scraper-url-full">' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '</span>';
+    if ($prefix !== '') {
+        $html .= '<span class="admin-badge admin-badge-secondary scraper-prefix-badge"><i class="bi bi-type"></i> '
+            . htmlspecialchars($prefix, ENT_QUOTES, 'UTF-8')
+            . '</span>';
+    }
+    $html .= '</div>';
+
+    return $html;
+};
+$scraperMappingLocalHtml = static function (array $mapping): string {
+    $parentName = trim((string) ($mapping['local_parent_category_name'] ?? ''));
+    $localName = trim((string) ($mapping['local_category_name'] ?? 'Bilinmiyor'));
+
+    $html = '<div class="scraper-local-category">';
+    if ($parentName !== '') {
+        $html .= '<span class="scraper-local-parent">' . htmlspecialchars($parentName, ENT_QUOTES, 'UTF-8') . '</span>';
+    }
+    $html .= '<span class="admin-badge admin-badge-info scraper-local-child">'
+        . htmlspecialchars($localName !== '' ? $localName : 'Bilinmiyor', ENT_QUOTES, 'UTF-8')
+        . '</span></div>';
+
+    return $html;
+};
+$scraperMappingGroupCounts = [];
+foreach ($mappings as $mapping) {
+    $group = $scraperMappingGroupInfo($mapping);
+    $scraperMappingGroupCounts[$group['key']] = ($scraperMappingGroupCounts[$group['key']] ?? 0) + 1;
+}
+$scraperDateInfo = static function (mixed $value): array {
+    $raw = trim((string) $value);
+    if ($raw === '' || $raw === '0000-00-00 00:00:00') {
+        return ['date' => '-', 'time' => '', 'full' => '-', 'iso' => '', 'label' => 'Tarih yok'];
+    }
+
+    try {
+        $date = new DateTimeImmutable($raw);
+    } catch (Throwable) {
+        return ['date' => $raw, 'time' => '', 'full' => $raw, 'iso' => '', 'label' => $raw];
+    }
+
+    $today = new DateTimeImmutable('today');
+    $dateOnly = $date->format('Y-m-d');
+    $label = match ($dateOnly) {
+        $today->format('Y-m-d') => 'Bugün',
+        $today->modify('-1 day')->format('Y-m-d') => 'Dün',
+        default => $date->format('d.m.Y'),
+    };
+
+    return [
+        'date' => $date->format('d.m.Y'),
+        'time' => $date->format('H:i'),
+        'full' => $date->format('d.m.Y H:i'),
+        'iso' => $date->format(DateTimeInterface::ATOM),
+        'label' => $label,
+    ];
+};
+$scraperUrlLabel = static function (string $url): string {
+    $host = (string) (parse_url($url, PHP_URL_HOST) ?: '');
+    $path = trim((string) (parse_url($url, PHP_URL_PATH) ?: ''), '/');
+    $parts = $path === '' ? [] : array_values(array_filter(explode('/', $path)));
+    $slug = $parts === [] ? $url : (string) end($parts);
+
+    return ($host !== '' ? $host . ' / ' : '') . $slug;
+};
+$scraperImportStatusMeta = static function (string $status): array {
+    return match ($status) {
+        'imported' => ['class' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Yayınlandı'],
+        'failed' => ['class' => 'danger', 'icon' => 'bi-x-circle-fill', 'label' => 'Hatalı'],
+        'preview' => ['class' => 'warning', 'icon' => 'bi-eye-fill', 'label' => 'Önizleme'],
+        'pending' => ['class' => 'warning', 'icon' => 'bi-hourglass-split', 'label' => 'Bekliyor'],
+        'skipped' => ['class' => 'secondary', 'icon' => 'bi-skip-forward-fill', 'label' => 'Atlandı'],
+        default => ['class' => 'secondary', 'icon' => 'bi-clock-history', 'label' => ucfirst($status !== '' ? $status : 'Bilinmiyor')],
+    };
+};
 $botAuthors = usersGetList($pdo, '', '', 'active');
 $botAuthorLabel = static function (array $author): string {
     $label = trim((string) ($author['username'] ?? $author['name'] ?? $author['email'] ?? ''));
@@ -164,7 +360,7 @@ require_once __DIR__ . '/header.php';
                             <div class="col-md-6"><label class="ui-admin-form-label">İçerik Sonuna Ekle</label><textarea id="content_append" name="content_append" class="ui-admin-form-control" rows="3"></textarea></div>
                             <div class="col-md-6"><label class="ui-admin-form-label">Bu Metinden Öncesini Sil</label><input type="text" id="trim_before_text" name="trim_before_text" class="ui-admin-form-control"></div>
                             <div class="col-md-6"><label class="ui-admin-form-label">Bu Metinden Sonrasını Sil</label><input type="text" id="trim_after_text" name="trim_after_text" class="ui-admin-form-control"></div>
-                            <div class="col-md-4"><label class="ui-admin-form-label">Varsayılan Kategori</label><select id="site_default_category_id" name="site_default_category_id" class="ui-admin-form-select"><option value="">Seçilmedi</option><?php foreach ($categories as $c): ?><option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option><?php endforeach; ?></select></div>
+                            <div class="col-md-4"><label class="ui-admin-form-label">Varsayılan Kategori</label><select id="site_default_category_id" name="site_default_category_id" class="ui-admin-form-select"><?= $categoryOptionsHtml('Seçilmedi') ?></select></div>
                             <div class="col-md-4"><label class="ui-admin-form-label">Önizleme Aktarım Durumu</label><select id="site_default_status" name="site_default_status" class="ui-admin-form-select"><option value="">Genel yayın ayarını kullan</option><option value="draft">Taslak</option><option value="published">Yayında</option></select></div>
                             <div class="col-md-4"><label class="ui-admin-form-label">Varsayılan Yazar</label><select id="site_default_author_id" name="site_default_author_id" class="ui-admin-form-select"><option value="">Genel ayarı kullan</option><?php foreach ($botAuthors as $author): ?><option value="<?= (int)$author['id'] ?>"><?= htmlspecialchars($botAuthorLabel($author), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
                             <div class="col-md-4"><label class="ui-admin-form-label">Görsel URL İçeriyorsa Atla</label><input type="text" id="skip_image_contains" name="skip_image_contains" class="ui-admin-form-control" placeholder="logo, avatar"></div>
@@ -260,8 +456,7 @@ require_once __DIR__ . '/header.php';
                 <div class="scraper-map-col">
                     <label class="ui-admin-form-label">Yerel Kategori</label>
                     <select name="local_category_id" class="ui-admin-form-select" required>
-                        <option value="">-- Hedef Kategori --</option>
-                        <?php foreach ($categories as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option><?php endforeach; ?>
+                        <?= $categoryOptionsHtml('-- Hedef Kategori --') ?>
                     </select>
                 </div>
                 <div class="scraper-map-col">
@@ -286,22 +481,38 @@ require_once __DIR__ . '/header.php';
                 'wrap_class' => 'table-wrapper ui-table-wrap ui-surface',
                 'label' => 'Mevcut eşlemeler',
             ]) ?>
-                        <?php foreach ($mappings as $m): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($m['site_name']) ?></td>
-                            <td>
-                                <strong><?= htmlspecialchars($m['remote_category_name']) ?></strong><br>
-                                <a href="<?= htmlspecialchars($m['remote_category_url']) ?>" target="_blank" class="text-muted scraper-link-sm"><?= htmlspecialchars($m['remote_category_url']) ?></a>
-                                <?php if (trim((string)($m['title_prefix'] ?? '')) !== ''): ?><br><span class="admin-badge admin-badge-secondary"><i class="bi bi-type"></i> <?= htmlspecialchars((string)$m['title_prefix']) ?></span><?php endif; ?>
+                        <?php $lastMappingGroupKey = null; $mappingGroupIndex = 0; $mappingGroupId = ''; foreach ($mappings as $m):
+                            $mappingGroup = $scraperMappingGroupInfo($m);
+                            if ($lastMappingGroupKey !== $mappingGroup['key']):
+                                $lastMappingGroupKey = $mappingGroup['key'];
+                                $mappingGroupIndex++;
+                                $mappingGroupId = 'scraper-mapping-group-' . $mappingGroupIndex;
+                        ?>
+                        <tr class="scraper-mapping-group-row scraper-game-row-<?= htmlspecialchars((string) $mappingGroup['game_tone'], ENT_QUOTES, 'UTF-8') ?> is-collapsed">
+                            <td colspan="4">
+                                <button type="button" class="scraper-mapping-group-toggle" data-scraper-action="toggle-mapping-group" data-scraper-group="<?= htmlspecialchars($mappingGroupId, ENT_QUOTES, 'UTF-8') ?>" aria-expanded="false">
+                                    <span class="scraper-mapping-group">
+                                        <i class="bi bi-chevron-right scraper-mapping-group-chevron"></i>
+                                        <span class="scraper-game-badge scraper-game-badge-<?= htmlspecialchars((string) $mappingGroup['game_tone'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $mappingGroup['game_icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $mappingGroup['game_code'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="scraper-mapping-group-site"><i class="bi bi-globe2"></i> <?= htmlspecialchars($mappingGroup['site'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="scraper-mapping-group-category"><i class="bi bi-diagram-3"></i> <?= htmlspecialchars($mappingGroup['category'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="admin-badge admin-badge-secondary"><?= (int) ($scraperMappingGroupCounts[$mappingGroup['key']] ?? 0) ?> eşleme</span>
+                                    </span>
+                                </button>
                             </td>
-                            <td><span class="admin-badge admin-badge-info"><?= htmlspecialchars($m['local_category_name'] ?? 'Bilinmiyor') ?></span></td>
+                        </tr>
+                        <?php endif; ?>
+                        <tr class="scraper-mapping-item-row is-group-collapsed" data-scraper-group="<?= htmlspecialchars($mappingGroupId, ENT_QUOTES, 'UTF-8') ?>" hidden>
+                            <td><?= htmlspecialchars($m['site_name']) ?></td>
+                            <td><?= $scraperMappingRemoteHtml($m) ?></td>
+                            <td><?= $scraperMappingLocalHtml($m) ?></td>
                             <td class="text-end">
                                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary" data-scraper-action="list-mapping-topics" data-mapping-id="<?= (int) $m['id'] ?>" data-site-id="<?= (int) $m['bot_site_id'] ?>" data-category-url="<?= htmlspecialchars((string) $m['remote_category_url'], ENT_QUOTES, 'UTF-8') ?>" data-local-cat-id="<?= (int) ($m['local_category_id'] ?? 0) ?>"><i class="bi bi-list-ul"></i> Listele</button>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" data-scraper-action="edit-mapping" data-mapping-id="<?= (int) $m['id'] ?>"><i class="bi bi-pencil"></i> Düzenle</button>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger-outline" data-scraper-action="delete-mapping" data-mapping-id="<?= (int) $m['id'] ?>"><i class="bi bi-trash"></i></button>
                             </td>
                         </tr>
-                        <tr id="mapping-list-row-<?= $m['id'] ?>" class="scraper-subrow">
+                        <tr id="mapping-list-row-<?= $m['id'] ?>" class="scraper-subrow is-group-collapsed" data-scraper-group="<?= htmlspecialchars($mappingGroupId, ENT_QUOTES, 'UTF-8') ?>" hidden>
                             <td colspan="4" class="scraper-subrow-cell">
                                 <div class="scraper-subrow-head">
                                     <h5 class="scraper-subrow-title"><i class="bi bi-collection"></i> Bulunan Konular</h5>
@@ -332,15 +543,31 @@ require_once __DIR__ . '/header.php';
                 'wrap_class' => 'table-wrapper ui-table-wrap ui-surface',
                 'label' => 'Toplu içerik çekilecek eşlemeler',
             ]) ?>
-                        <?php foreach ($mappings as $m): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($m['site_name']) ?></td>
-                            <td>
-                                <strong><?= htmlspecialchars($m['remote_category_name']) ?></strong><br>
-                                <a href="<?= htmlspecialchars($m['remote_category_url']) ?>" target="_blank" class="text-muted scraper-link-sm"><?= htmlspecialchars($m['remote_category_url']) ?></a>
-                                <?php if (trim((string)($m['title_prefix'] ?? '')) !== ''): ?><br><span class="admin-badge admin-badge-secondary"><i class="bi bi-type"></i> <?= htmlspecialchars((string)$m['title_prefix']) ?></span><?php endif; ?>
+                        <?php $lastBulkMappingGroupKey = null; $bulkMappingGroupIndex = 0; $bulkMappingGroupId = ''; foreach ($mappings as $m):
+                            $mappingGroup = $scraperMappingGroupInfo($m);
+                            if ($lastBulkMappingGroupKey !== $mappingGroup['key']):
+                                $lastBulkMappingGroupKey = $mappingGroup['key'];
+                                $bulkMappingGroupIndex++;
+                                $bulkMappingGroupId = 'scraper-bulk-mapping-group-' . $bulkMappingGroupIndex;
+                        ?>
+                        <tr class="scraper-mapping-group-row scraper-game-row-<?= htmlspecialchars((string) $mappingGroup['game_tone'], ENT_QUOTES, 'UTF-8') ?> is-collapsed">
+                            <td colspan="5">
+                                <button type="button" class="scraper-mapping-group-toggle" data-scraper-action="toggle-mapping-group" data-scraper-group="<?= htmlspecialchars($bulkMappingGroupId, ENT_QUOTES, 'UTF-8') ?>" aria-expanded="false">
+                                    <span class="scraper-mapping-group">
+                                        <i class="bi bi-chevron-right scraper-mapping-group-chevron"></i>
+                                        <span class="scraper-game-badge scraper-game-badge-<?= htmlspecialchars((string) $mappingGroup['game_tone'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $mappingGroup['game_icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $mappingGroup['game_code'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="scraper-mapping-group-site"><i class="bi bi-globe2"></i> <?= htmlspecialchars($mappingGroup['site'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="scraper-mapping-group-category"><i class="bi bi-diagram-3"></i> <?= htmlspecialchars($mappingGroup['category'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="admin-badge admin-badge-secondary"><?= (int) ($scraperMappingGroupCounts[$mappingGroup['key']] ?? 0) ?> eşleme</span>
+                                    </span>
+                                </button>
                             </td>
-                            <td><span class="admin-badge admin-badge-info"><?= htmlspecialchars($m['local_category_name'] ?? 'Bilinmiyor') ?></span></td>
+                        </tr>
+                        <?php endif; ?>
+                        <tr class="scraper-mapping-item-row is-group-collapsed" data-scraper-group="<?= htmlspecialchars($bulkMappingGroupId, ENT_QUOTES, 'UTF-8') ?>" hidden>
+                            <td><?= htmlspecialchars($m['site_name']) ?></td>
+                            <td><?= $scraperMappingRemoteHtml($m) ?></td>
+                            <td><?= $scraperMappingLocalHtml($m) ?></td>
                             <td>
                                 <div class="bulk-page-range">
                                     <label>
@@ -357,7 +584,7 @@ require_once __DIR__ . '/header.php';
                                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary" data-scraper-action="list-bulk-mapping-topics" data-mapping-id="<?= (int) $m['id'] ?>" data-site-id="<?= (int) $m['bot_site_id'] ?>" data-category-url="<?= htmlspecialchars((string) $m['remote_category_url'], ENT_QUOTES, 'UTF-8') ?>" data-local-cat-id="<?= (int) ($m['local_category_id'] ?? 0) ?>"><i class="bi bi-list-ul"></i> Listele</button>
                             </td>
                         </tr>
-                        <tr id="bulk-list-row-<?= $m['id'] ?>" class="scraper-subrow">
+                        <tr id="bulk-list-row-<?= $m['id'] ?>" class="scraper-subrow is-group-collapsed" data-scraper-group="<?= htmlspecialchars($bulkMappingGroupId, ENT_QUOTES, 'UTF-8') ?>" hidden>
                             <td colspan="5" class="scraper-subrow-cell">
                                 <div class="scraper-subrow-head">
                                     <h5 class="scraper-subrow-title"><i class="bi bi-collection"></i> Toplu Çekilecek Konular</h5>
@@ -401,29 +628,30 @@ require_once __DIR__ . '/header.php';
             <!-- İstatistik Kartları -->
             <div class="scraper-stats-grid" id="logStatsCards">
                 <?php
-                $successCount = 0;
-                $failedCount = 0;
-                $pendingCount = 0;
+                $importStatusCounts = ['imported' => 0, 'failed' => 0, 'preview' => 0, 'other' => 0];
                 foreach ($imports as $imp) {
-                    if ($imp['status'] === 'imported') $successCount++;
-                    elseif ($imp['status'] === 'failed') $failedCount++;
-                    else $pendingCount++;
+                    $status = (string) ($imp['status'] ?? '');
+                    if (isset($importStatusCounts[$status])) {
+                        $importStatusCounts[$status]++;
+                    } else {
+                        $importStatusCounts['other']++;
+                    }
                 }
                 ?>
                 <div class="admin-surface-card scraper-stat-card ui-surface ui-table-wrap">
                     <i class="bi bi-check-circle scraper-stat-icon scraper-stat-success"></i>
-                    <strong class="scraper-stat-value"><?= $successCount ?></strong>
-                    <span class="scraper-stat-label">Başarılı</span>
+                    <strong class="scraper-stat-value"><?= (int) $importStatusCounts['imported'] ?></strong>
+                    <span class="scraper-stat-label">Yayınlanan</span>
                 </div>
                 <div class="admin-surface-card scraper-stat-card ui-surface ui-table-wrap">
                     <i class="bi bi-exclamation-circle scraper-stat-icon scraper-stat-danger"></i>
-                    <strong class="scraper-stat-value"><?= $failedCount ?></strong>
+                    <strong class="scraper-stat-value"><?= (int) $importStatusCounts['failed'] ?></strong>
                     <span class="scraper-stat-label">Hatalı</span>
                 </div>
                 <div class="admin-surface-card scraper-stat-card ui-surface ui-table-wrap">
-                    <i class="bi bi-clock-history scraper-stat-icon scraper-stat-warning"></i>
-                    <strong class="scraper-stat-value"><?= $pendingCount ?></strong>
-                    <span class="scraper-stat-label">Bekleyen</span>
+                    <i class="bi bi-eye scraper-stat-icon scraper-stat-warning"></i>
+                    <strong class="scraper-stat-value"><?= (int) $importStatusCounts['preview'] ?></strong>
+                    <span class="scraper-stat-label">Önizleme</span>
                 </div>
                 <div class="admin-surface-card scraper-stat-card ui-surface ui-table-wrap">
                     <i class="bi bi-collection scraper-stat-icon scraper-stat-accent"></i>
@@ -444,10 +672,7 @@ require_once __DIR__ . '/header.php';
                         <span>Tümünü Seç</span>
                     </label>
                     <select id="bulkImportCategory" class="ui-admin-form-select scraper-select-narrow">
-                        <option value="">-- Kategori Seç --</option>
-                        <?php foreach ($categories as $c): ?>
-                        <option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
-                        <?php endforeach; ?>
+                        <?= $categoryOptionsHtml('-- Kategori Seç --') ?>
                     </select>
                     <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary" data-scraper-action="bulk-publish" id="btnBulkPublish" disabled>
                         <i class="bi bi-send-check"></i> Toplu Yayınla
@@ -463,59 +688,77 @@ require_once __DIR__ . '/header.php';
                     'html' => '<input type="checkbox" id="selectAllImportsHeader" data-import-select-all class="scraper-check">',
                     'attrs' => ['aria-label' => 'Tüm içerikleri seç'],
                 ],
-                'ID',
-                'Site',
-                'Başlık (Çeviri / Kaynak)',
+                'İçerik',
+                'Kaynak',
                 'Görsel',
-                'Tarih',
+                'Zaman',
                 'Durum',
-                ['label' => 'İşlem', 'class' => 'text-end'],
+                ['label' => 'İşlemler', 'class' => 'text-end'],
             ], [
                 'class' => 'admin-table',
                 'wrap_class' => 'table-wrapper ui-table-wrap ui-surface',
                 'label' => 'Bot logları ve içerik havuzu',
             ]) ?>
                         <?php foreach ($imports as $imp):
-                            $title = $imp['translated_title'] ?: $imp['source_title'] ?: '(Başlıksız)';
-                            $images = array_filter(explode("\n", $imp['downloaded_images'] ?: $imp['source_images'] ?: ''));
+                            $sourceTitle = trim((string) ($imp['source_title'] ?? ''));
+                            $translatedTitle = trim((string) ($imp['translated_title'] ?? ''));
+                            $title = $translatedTitle !== '' ? $translatedTitle : ($sourceTitle !== '' ? $sourceTitle : '(Başlıksız)');
+                            $hasTranslation = $translatedTitle !== '' && $sourceTitle !== '' && $translatedTitle !== $sourceTitle;
+                            $sourceUrl = trim((string) ($imp['source_url'] ?? ''));
+                            $sourceLabel = $sourceUrl !== '' ? $scraperUrlLabel($sourceUrl) : 'Kaynak URL yok';
+                            $images = array_values(array_filter(array_map('trim', explode("\n", (string) ($imp['downloaded_images'] ?: $imp['source_images'] ?: '')))));
                             $thumb = !empty($images) ? adminSafeImageUrl((string) $images[0], $baseUri) : '';
-                            
-                            // Durum badge renkleri
-                            $statusClass = 'secondary';
-                            $statusIcon = 'bi-clock-history';
-                            if ($imp['status'] === 'imported') {
-                                $statusClass = 'success';
-                                $statusIcon = 'bi-check-circle-fill';
-                            } elseif ($imp['status'] === 'failed') {
-                                $statusClass = 'danger';
-                                $statusIcon = 'bi-x-circle-fill';
-                            } elseif ($imp['status'] === 'preview') {
-                                $statusClass = 'warning';
-                                $statusIcon = 'bi-eye-fill';
-                            }
+                            $imageCount = max((int) ($imp['images_count'] ?? 0), count($images));
+                            $createdAt = $scraperDateInfo($imp['created_at'] ?? '');
+                            $updatedAt = $scraperDateInfo($imp['updated_at'] ?? '');
+                            $status = (string) ($imp['status'] ?? '');
+                            $statusMeta = $scraperImportStatusMeta($status);
+                            $siteName = trim((string) ($imp['site_name'] ?? 'Bilinmeyen'));
+                            $topicId = (int) ($imp['topic_id'] ?? 0);
                         ?>
-                        <tr class="<?= $imp['status'] === 'failed' ? 'scraper-import-row-failed' : '' ?>">
+                        <tr class="scraper-import-row <?= $status === 'failed' ? 'scraper-import-row-failed' : '' ?>" data-log-status="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>">
                             <td>
-                                <input type="checkbox" class="import-checkbox scraper-check" value="<?= $imp['id'] ?>" data-import-checkbox>
+                                <input type="checkbox" class="import-checkbox scraper-check" value="<?= (int) $imp['id'] ?>" data-import-checkbox>
                             </td>
-                            <td>#<?= $imp['id'] ?></td>
-                            <td><?= htmlspecialchars($imp['site_name'] ?? 'Bilinmeyen') ?></td>
                             <td>
-                                <strong class="scraper-title-cell" title="<?= htmlspecialchars($title) ?>">
-                                    <?= htmlspecialchars($title) ?>
-                                </strong>
-                                <a href="<?= htmlspecialchars($imp['source_url']) ?>" target="_blank" class="text-muted scraper-source-link"><i class="bi bi-box-arrow-up-right"></i> Kaynağa Git</a>
-                                <?php if ($imp['status'] === 'failed' && !empty($imp['error_message'])): ?>
+                                <div class="scraper-import-title-stack">
+                                    <strong class="scraper-title-cell" title="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>">
+                                        <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>
+                                    </strong>
+                                    <span class="scraper-import-meta">
+                                        <span>#<?= (int) $imp['id'] ?></span>
+                                        <span><?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></span>
+                                        <?php if ($topicId > 0): ?><span>Konu #<?= $topicId ?></span><?php endif; ?>
+                                    </span>
+                                    <?php if ($hasTranslation): ?>
+                                    <span class="scraper-import-source-title" title="<?= htmlspecialchars($sourceTitle, ENT_QUOTES, 'UTF-8') ?>">
+                                        <?= htmlspecialchars($sourceTitle, ENT_QUOTES, 'UTF-8') ?>
+                                    </span>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if ($status === 'failed' && !empty($imp['error_message'])): ?>
                                 <div class="scraper-error-note">
-                                    <i class="bi bi-exclamation-triangle-fill"></i> <?= htmlspecialchars($imp['error_message']) ?>
+                                    <i class="bi bi-exclamation-triangle-fill"></i> <?= htmlspecialchars((string) $imp['error_message'], ENT_QUOTES, 'UTF-8') ?>
                                 </div>
                                 <?php endif; ?>
                             </td>
                             <td>
+                                <div class="scraper-import-source">
+                                    <?php if ($sourceUrl !== ''): ?>
+                                    <a href="<?= htmlspecialchars($sourceUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="scraper-source-link" title="<?= htmlspecialchars($sourceUrl, ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-box-arrow-up-right"></i> <?= htmlspecialchars($sourceLabel, ENT_QUOTES, 'UTF-8') ?>
+                                    </a>
+                                    <?php else: ?>
+                                    <span class="text-muted">Kaynak URL yok</span>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                            <td>
                                 <?php if($thumb): ?>
+                                <div class="scraper-thumb-wrap">
                                     <img
                                         src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-                                        data-scraper-thumb-src="<?= htmlspecialchars($thumb) ?>"
+                                        data-scraper-thumb-src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
                                         class="scraper-thumb"
                                         alt="Thumbnail"
                                         data-scraper-thumb
@@ -525,31 +768,55 @@ require_once __DIR__ . '/header.php';
                                         decoding="async"
                                         fetchpriority="low"
                                     >
+                                    <?php if ($imageCount > 1): ?><span class="scraper-thumb-count"><?= $imageCount ?></span><?php endif; ?>
+                                </div>
                                 <?php else: ?>
                                     <?= adminRenderImagePlaceholder('scraper-thumb scraper-thumb-empty') ?>
                                 <?php endif; ?>
                             </td>
-                            <td><?= date('d.m H:i', strtotime($imp['created_at'])) ?></td>
                             <td>
-                                <span class="admin-badge admin-badge-<?= $statusClass ?> scraper-status-badge">
-                                    <i class="bi <?= $statusIcon ?>"></i>
-                                    <?= $imp['status'] === 'imported' ? 'Başarılı' : ($imp['status'] === 'failed' ? 'Hatalı' : ($imp['status'] === 'preview' ? 'Önizleme' : ucfirst($imp['status']))) ?>
+                                <time class="scraper-log-time" datetime="<?= htmlspecialchars($createdAt['iso'], ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($createdAt['full'], ENT_QUOTES, 'UTF-8') ?>">
+                                    <span class="scraper-log-time-label"><?= htmlspecialchars($createdAt['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                    <strong><?= htmlspecialchars($createdAt['date'], ENT_QUOTES, 'UTF-8') ?></strong>
+                                    <?php if ($createdAt['time'] !== ''): ?><span><?= htmlspecialchars($createdAt['time'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
+                                </time>
+                                <?php if ($updatedAt['full'] !== '-' && $updatedAt['full'] !== $createdAt['full']): ?>
+                                <span class="scraper-log-updated">Güncellendi: <?= htmlspecialchars($updatedAt['full'], ENT_QUOTES, 'UTF-8') ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="admin-badge admin-badge-<?= htmlspecialchars((string) $statusMeta['class'], ENT_QUOTES, 'UTF-8') ?> scraper-status-badge">
+                                    <i class="bi <?= htmlspecialchars((string) $statusMeta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
+                                    <?= htmlspecialchars((string) $statusMeta['label'], ENT_QUOTES, 'UTF-8') ?>
                                 </span>
                             </td>
                             <td class="text-end">
-                                <?php if($imp['status'] !== 'imported'): ?>
+                                <div class="scraper-import-actions">
+                                <?php if($status !== 'imported'): ?>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary" data-scraper-action="preview-import" data-import-id="<?= (int) $imp['id'] ?>">
-                                    <i class="bi bi-eye"></i> İncele / Yayınla
+                                    <i class="bi bi-eye"></i> İncele
                                 </button>
                                 <?php endif; ?>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger-outline" data-scraper-action="delete-import" data-import-id="<?= (int) $imp['id'] ?>">
                                     <i class="bi bi-trash"></i>
                                 </button>
+                                </div>
                             </td>
                         </tr>
                         <?php endforeach; ?>
+                        <?php if(!empty($imports)): ?>
+                        <tr class="scraper-filter-empty-row" data-log-empty="filter" hidden>
+                            <td colspan="7">
+                                <div class="scraper-empty-table">
+                                    <i class="bi bi-filter-circle"></i>
+                                    <strong>Filtreye uygun log bulunamadı</strong>
+                                    <span data-log-empty-label>Bu durumda içerik yok</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endif; ?>
                         <?php if(empty($imports)): ?>
-                        <?= adminRenderTableEmptyRow(8, [
+                        <?= adminRenderTableEmptyRow(7, [
                             'icon' => 'bi-inbox',
                             'tone' => 'info',
                             'title' => 'Henüz log kaydı yok',
@@ -626,14 +893,14 @@ require_once __DIR__ . '/header.php';
                     <div class="row g-3 scraper-settings-row">
                         <div class="col-md-6">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_follow_redirects" value="1" <?= $botSettings['bot_follow_redirects'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_follow_redirects" value="1" <?= $botSettingEnabled('bot_follow_redirects', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">Yönlendirmeleri takip et</span>
                             </label>
                             <small class="text-muted ui-admin-help-block">301/302 yönlendirmelerini otomatik takip eder</small>
                         </div>
                         <div class="col-md-6">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_ssl_verify" value="1" <?= $botSettings['bot_ssl_verify'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_ssl_verify" value="1" <?= $botSettingEnabled('bot_ssl_verify', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">SSL sertifikasını doğrula</span>
                             </label>
                             <small class="text-muted ui-admin-help-block">HTTPS bağlantılarında sertifika kontrolü</small>
@@ -696,19 +963,19 @@ require_once __DIR__ . '/header.php';
                     <div class="row g-3 scraper-settings-row">
                         <div class="col-md-4">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_clean_html" value="1" <?= $botSettings['bot_clean_html'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_clean_html" value="1" <?= $botSettingEnabled('bot_clean_html', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">HTML temizle</span>
                             </label>
                         </div>
                         <div class="col-md-4">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_strip_scripts" value="1" <?= $botSettings['bot_strip_scripts'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_strip_scripts" value="1" <?= $botSettingEnabled('bot_strip_scripts', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">Scriptleri temizle</span>
                             </label>
                         </div>
                         <div class="col-md-4">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_strip_iframes" value="1" <?= $botSettings['bot_strip_iframes'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_strip_iframes" value="1" <?= $botSettingEnabled('bot_strip_iframes', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">Iframe temizle</span>
                             </label>
                         </div>
@@ -720,19 +987,19 @@ require_once __DIR__ . '/header.php';
                     <div class="row g-3 scraper-settings-row">
                         <div class="col-md-4">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_append_source_link" value="1" <?= $botSettings['bot_append_source_link'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_append_source_link" value="1" <?= $botSettingEnabled('bot_append_source_link', '0') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">Kaynak link ekle</span>
                             </label>
                         </div>
                         <div class="col-md-4">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_skip_duplicate_urls" value="1" <?= $botSettings['bot_skip_duplicate_urls'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_skip_duplicate_urls" value="1" <?= $botSettingEnabled('bot_skip_duplicate_urls', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">Aynı URL'yi atla</span>
                             </label>
                         </div>
                         <div class="col-md-4">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_extract_download_links" value="1" <?= $botSettings['bot_extract_download_links'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_extract_download_links" value="1" <?= $botSettingEnabled('bot_extract_download_links', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">İndirme linklerini çek</span>
                             </label>
                         </div>
@@ -744,7 +1011,7 @@ require_once __DIR__ . '/header.php';
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_detect_author_enabled" value="1" <?= $botSettings['bot_detect_author_enabled'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_detect_author_enabled" value="1" <?= $botSettingEnabled('bot_detect_author_enabled', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">Mod yapımcısı otomatik tespiti</span>
                             </label>
                         </div>
@@ -754,7 +1021,7 @@ require_once __DIR__ . '/header.php';
                         </div>
                         <div class="col-md-6">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="bot_detect_version_enabled" value="1" <?= $botSettings['bot_detect_version_enabled'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="bot_detect_version_enabled" value="1" <?= $botSettingEnabled('bot_detect_version_enabled', '1') ? 'checked' : '' ?>>
                                 <span class="ui-admin-switch-label">Oyun sürümü otomatik tespiti</span>
                             </label>
                         </div>
@@ -768,7 +1035,7 @@ require_once __DIR__ . '/header.php';
                 <div class="row g-4">
                     <div class="col-md-6">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_auto_publish" value="1" <?= $botSettings['bot_auto_publish'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_auto_publish" value="1" <?= $botSettingEnabled('bot_auto_publish', '0') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">Bot içerikleri otomatik yayına alsın</span>
                         </label>
                     </div>
@@ -814,19 +1081,19 @@ require_once __DIR__ . '/header.php';
                 <div class="row g-4">
                     <div class="col-md-4">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_require_cover_image" value="1" <?= $botSettings['bot_require_cover_image'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_require_cover_image" value="1" <?= $botSettingEnabled('bot_require_cover_image', '0') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">Kapak görseli zorunlu</span>
                         </label>
                     </div>
                     <div class="col-md-4">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_download_images" value="1" <?= $botSettings['bot_download_images'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_download_images" value="1" <?= $botSettingEnabled('bot_download_images', '1') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">Görselleri indir</span>
                         </label>
                     </div>
                     <div class="col-md-4">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_use_hotlink_images" value="1" <?= $botSettings['bot_use_hotlink_images'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_use_hotlink_images" value="1" <?= $botSettingEnabled('bot_use_hotlink_images', '0') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">Hotlink görsel kullan</span>
                         </label>
                     </div>
@@ -852,7 +1119,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div class="col-md-12">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_translate_enabled" value="1" <?= $botSettings['bot_translate_enabled'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_translate_enabled" value="1" <?= $botSettingEnabled('bot_translate_enabled', '0') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">DeepL API Çevirisini Aktifleştir</span>
                         </label>
                     </div>
@@ -870,21 +1137,33 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div class="col-md-3">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_translate_title" value="1" <?= $botSettings['bot_translate_title'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_translate_title" value="1" <?= $botSettingEnabled('bot_translate_title', '1') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">Başlığı çevir</span>
                         </label>
                     </div>
                     <div class="col-md-3">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_translate_content" value="1" <?= $botSettings['bot_translate_content'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_translate_content" value="1" <?= $botSettingEnabled('bot_translate_content', '1') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">İçeriği çevir</span>
                         </label>
                     </div>
                     <div class="col-md-3">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_translate_download_names" value="1" <?= $botSettings['bot_translate_download_names'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_translate_download_names" value="1" <?= $botSettingEnabled('bot_translate_download_names', '0') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">Link adlarını çevir</span>
                         </label>
+                    </div>
+                    <div class="col-12">
+                        <div class="scraper-translation-test">
+                            <div class="scraper-translation-test-head">
+                                <label class="ui-admin-form-label" for="botTranslationTestText">DeepL API Testi</label>
+                                <button type="button" id="btnTestTranslation" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm" data-scraper-action="test-translation">
+                                    <i class="bi bi-translate"></i> Çevir
+                                </button>
+                            </div>
+                            <textarea id="botTranslationTestText" class="ui-admin-form-control" rows="3" maxlength="5000" placeholder="Hello world"></textarea>
+                            <div id="botTranslationTestResult" class="scraper-translation-test-result" hidden></div>
+                        </div>
                     </div>
                 </div>
                 </div>
@@ -909,13 +1188,13 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div class="col-md-3">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_bulk_continue_on_error" value="1" <?= $botSettings['bot_bulk_continue_on_error'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_bulk_continue_on_error" value="1" <?= $botSettingEnabled('bot_bulk_continue_on_error', '1') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">Hata olunca devam et</span>
                         </label>
                     </div>
                     <div class="col-md-3">
                         <label class="ui-admin-switch">
-                            <input type="checkbox" name="bot_bulk_default_selected" value="1" <?= $botSettings['bot_bulk_default_selected'] === '1' ? 'checked' : '' ?>>
+                            <input type="checkbox" name="bot_bulk_default_selected" value="1" <?= $botSettingEnabled('bot_bulk_default_selected', '1') ? 'checked' : '' ?>>
                             <span class="ui-admin-switch-label">Toplu listede varsayılan seçili gelsin</span>
                         </label>
                     </div>

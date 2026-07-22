@@ -30,6 +30,10 @@ final class AuditMiddleware implements Middleware
 
     private function writeLog(Request $request, int $statusCode, float $startedAt, ?Throwable $exception = null): void
     {
+        if (!$exception instanceof Throwable) {
+            return;
+        }
+
         if (!function_exists('appLog')) {
             return;
         }
@@ -48,13 +52,7 @@ final class AuditMiddleware implements Middleware
             'route_group' => (string) $request->getAttribute('route_group', ''),
         ];
 
-        if ($exception instanceof Throwable) {
-            $context['exception'] = $exception->getMessage();
-            appLog($pdo, 'error', 'routing', 'route_dispatch_failed', $context);
-
-            return;
-        }
-
-        appLog($pdo, 'info', 'routing', 'route_dispatch', $context);
+        $context['exception'] = $exception->getMessage();
+        appLog($pdo, 'error', 'routing', 'route_dispatch_failed', $context);
     }
 }

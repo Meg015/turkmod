@@ -17,6 +17,19 @@ require_once __DIR__ . '/../includes/src/Engine/Users/Support/users-helpers.php'
 require_once __DIR__ . '/../includes/src/Engine/Email/Support/helpers.php';
 require_once __DIR__ . '/../admin/helpers.php';
 
+if (!function_exists('verificationReminderCronSettingEnabled')) {
+    function verificationReminderCronSettingEnabled(array $settings, string $key, string $default = '1'): bool
+    {
+        $value = $settings[$key] ?? $default;
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+    }
+}
+
 $isCli = PHP_SAPI === 'cli';
 if (!$isCli) {
     $secretKey = function_exists('adminSettingValue') ? adminSettingValue($pdo, 'cron_secret_key', '') : '';
@@ -60,9 +73,9 @@ if (!$pdo instanceof PDO) {
 }
 
 $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
-$verificationEnabled = (($settings['account_email_verification_enabled'] ?? '0') === '1')
-    && (($settings['account_email_verification_required'] ?? '0') === '1')
-    && (($settings['account_email_verification_reminder_enabled'] ?? '1') === '1');
+$verificationEnabled = verificationReminderCronSettingEnabled($settings, 'account_email_verification_enabled', '0')
+    && verificationReminderCronSettingEnabled($settings, 'account_email_verification_required', '0')
+    && verificationReminderCronSettingEnabled($settings, 'account_email_verification_reminder_enabled', '1');
 
 if (!$verificationEnabled) {
     $cronRunStatus = 'skipped';
@@ -71,7 +84,7 @@ if (!$verificationEnabled) {
     exit(0);
 }
 
-if (($settings['account_email_system_enabled'] ?? '1') !== '1') {
+if (!verificationReminderCronSettingEnabled($settings, 'account_email_system_enabled', '1')) {
     $cronRunStatus = 'skipped';
     $cronRunContext = ['reason' => 'email_system_disabled'];
     echo "Email system is disabled.\n";

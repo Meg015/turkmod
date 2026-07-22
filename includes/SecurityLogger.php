@@ -32,14 +32,15 @@ function logSecurityEvent(PDO $pdo, string $eventType, array $context = []): voi
 
         if ($eventType !== 'successful_login' && function_exists('userActivityLog')) {
             $eventUserId = isset($context['user_id']) && is_numeric($context['user_id']) ? (int) $context['user_id'] : ($userId ? (int) $userId : null);
+            $activityEventType = $eventType === 'failed_login' ? 'user_login_failed' : $eventType;
             userActivityLog(
                 $pdo,
                 $eventUserId,
-                $eventType === 'failed_login' ? 'user_login_failed' : $eventType,
+                $activityEventType,
                 $eventType === 'failed_login' ? 'auth' : 'security',
                 'security_event',
                 null,
-                $eventType === 'failed_login' ? 'Giris basarisiz' : $eventType,
+                function_exists('userActivityEventLabel') ? userActivityEventLabel($activityEventType) : $activityEventType,
                 $context,
                 $eventUserId
             );

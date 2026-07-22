@@ -413,6 +413,7 @@ if (!function_exists('adminActionLabel')) {
             'leaderboard_recalculated'    => 'Liderlik Yeniden Hesaplandı',
             'leaderboard_cache_cleared'   => 'Liderlik Önbelleği Temizlendi',
             'leaderboard_settings_updated'=> 'Liderlik Ayarları Güncellendi',
+            'database_optimized'          => 'Veritabanı Optimize Edildi',
             'cron_manual_triggered'       => 'Cron Manuel Çalıştırıldı',
             'cron_logs_cleared'           => 'Cron Logları Temizlendi',
             'system_notifications_deleted'=> 'Sistem Bildirimleri Silindi',
@@ -441,7 +442,16 @@ if (!function_exists('adminClearActionLog')) {
         try {
             if ($scope === 'all') {
                 $count = (int) $pdo->query('SELECT COUNT(*) FROM admin_action_log')->fetchColumn();
-                $pdo->exec('TRUNCATE TABLE admin_action_log');
+                $pdo->exec('DELETE FROM admin_action_log');
+                try {
+                    $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+                    if ($driver === 'sqlite') {
+                        $pdo->exec("DELETE FROM sqlite_sequence WHERE name = 'admin_action_log'");
+                    } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+                        $pdo->exec('ALTER TABLE admin_action_log AUTO_INCREMENT = 1');
+                    }
+                } catch (Throwable $ignored) {
+                }
                 return $count;
             }
 
