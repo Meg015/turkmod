@@ -575,14 +575,39 @@ function admin_notification_account_email_sample_payload(array $settings, string
 {
     $recipient = trim($recipient) !== '' ? trim($recipient) : 'test@example.com';
     $publicBase = function_exists('appPublicBaseUrl') ? rtrim((string) appPublicBaseUrl(true), '/') : '';
+    $absolutePublicUrl = static function (string $candidate) use ($publicBase): string {
+        $candidate = trim($candidate);
+        if ($candidate === '' || $candidate === '#') {
+            return $candidate !== '' ? $candidate : '#';
+        }
+        if (preg_match('~^https?://~i', $candidate) === 1 || $publicBase === '') {
+            return $candidate;
+        }
+        if (str_starts_with($candidate, '/')) {
+            $parts = parse_url($publicBase);
+            if (is_array($parts) && !empty($parts['scheme']) && !empty($parts['host'])) {
+                $origin = $parts['scheme'] . '://' . $parts['host'];
+                if (!empty($parts['port'])) {
+                    $origin .= ':' . (int) $parts['port'];
+                }
+
+                return rtrim($origin, '/') . $candidate;
+            }
+        }
+
+        return rtrim($publicBase, '/') . '/' . ltrim($candidate, '/');
+    };
+    $loginUrl = function_exists('routePublicStaticUrl')
+        ? routePublicStaticUrl('login')
+        : ($publicBase !== '' ? $publicBase . '/giris' : '#');
 
     return [
         'site_name' => (string) ($settings['site_name'] ?? 'Türk Mod'),
         'username' => 'Test Kullanıcısı',
         'recipient_email' => $recipient,
-        'action_url' => $publicBase !== '' ? $publicBase . '/test-action' : '#',
-        'login_url' => function_exists('routePublicStaticUrl') ? routePublicStaticUrl('login') : ($publicBase !== '' ? $publicBase . '/giris' : '#'),
-        'profile_url' => $publicBase !== '' ? $publicBase . '/profil/test-kullanici' : '#',
+        'action_url' => $absolutePublicUrl('test-action'),
+        'login_url' => $absolutePublicUrl($loginUrl),
+        'profile_url' => $absolutePublicUrl('profil/test-kullanici'),
         'expires_minutes' => '60',
         'old_email' => 'eski@example.com',
         'new_email' => $recipient,

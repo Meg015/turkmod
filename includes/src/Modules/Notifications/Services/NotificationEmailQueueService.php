@@ -203,8 +203,11 @@ final class NotificationEmailQueueService
         $preheader = trim((string) ($metadata['email_preview'] ?? ''));
         $link = $this->absoluteLink(isset($row['link']) ? (string) $row['link'] : null);
         if (function_exists('appMailIsHtmlDocument') && appMailIsHtmlDocument($rawBody)) {
+            $bodyText = function_exists('appMailTextFromHtml')
+                ? appMailTextFromHtml($rawBody)
+                : trim(html_entity_decode(strip_tags($rawBody), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             $contentHtml = function_exists('appMailPlainTextHtml')
-                ? appMailPlainTextHtml(trim(html_entity_decode(strip_tags($rawBody), ENT_QUOTES | ENT_HTML5, 'UTF-8')))
+                ? appMailPlainTextHtml($bodyText)
                 : nl2br(htmlspecialchars(strip_tags($rawBody), ENT_QUOTES, 'UTF-8'));
         } elseif (function_exists('appMailLooksLikeHtml') && appMailLooksLikeHtml($rawBody)) {
             $contentHtml = $rawBody;

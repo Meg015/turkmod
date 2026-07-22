@@ -156,9 +156,18 @@ echo "\n--- 4. Send Email Queue (E-posta Kuyruğu) ---\n";
                     function_exists('appRenderMailLayout')
                     && !(function_exists('appMailIsStandardLayout') && appMailIsStandardLayout($emailBody))
                 ) {
-                    $bodyContent = function_exists('appMailLooksLikeHtml') && appMailLooksLikeHtml($emailBody)
-                        ? $emailBody
-                        : (function_exists('appMailPlainTextHtml') ? appMailPlainTextHtml($emailBody) : nl2br(htmlspecialchars($emailBody, ENT_QUOTES, 'UTF-8')));
+                    if (function_exists('appMailIsHtmlDocument') && appMailIsHtmlDocument($emailBody)) {
+                        $bodyText = function_exists('appMailTextFromHtml')
+                            ? appMailTextFromHtml($emailBody)
+                            : trim(html_entity_decode(strip_tags($emailBody), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                        $bodyContent = function_exists('appMailPlainTextHtml')
+                            ? appMailPlainTextHtml($bodyText)
+                            : nl2br(htmlspecialchars($bodyText, ENT_QUOTES, 'UTF-8'));
+                    } else {
+                        $bodyContent = function_exists('appMailLooksLikeHtml') && appMailLooksLikeHtml($emailBody)
+                            ? $emailBody
+                            : (function_exists('appMailPlainTextHtml') ? appMailPlainTextHtml($emailBody) : nl2br(htmlspecialchars($emailBody, ENT_QUOTES, 'UTF-8')));
+                    }
                     $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
                     $emailBody = appRenderMailLayout([
                         'site_name' => (string) ($settings['site_name'] ?? 'Türk Mod'),

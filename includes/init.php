@@ -293,13 +293,33 @@ if (!function_exists('appPublicBaseUrl')) {
         ?string $baseUri = null,
         ?array $envConfig = null,
     ): string {
-        $envConfig = $envConfig ?? [];
+        $envConfig = $envConfig ?? (is_array($GLOBALS['envConfig'] ?? null) ? $GLOBALS['envConfig'] : []);
         $configuredUrl = appConfiguredUrl($envConfig);
         if ($baseUri === null || $baseUri === '') {
             $baseUri = function_exists('base_uri') ? base_uri() : (string) ($GLOBALS['baseUri'] ?? '');
         }
         $path = rtrim((string) $baseUri, '/');
         if ($configuredUrl !== '') {
+            $configuredHost = (string) parse_url($configuredUrl, PHP_URL_HOST);
+            $configuredIsLocal = $configuredHost !== '' && appIsLocalHost($configuredHost);
+            $settings = is_array($GLOBALS['adminSettingsGlobal'] ?? null) ? $GLOBALS['adminSettingsGlobal'] : [];
+            $canonicalBase = trim((string) ($settings['canonical_base_url'] ?? ''));
+            $canonicalParts = $canonicalBase !== '' ? parse_url($canonicalBase) : false;
+            $canonicalScheme = is_array($canonicalParts) ? strtolower((string) ($canonicalParts['scheme'] ?? '')) : '';
+            $canonicalHost = is_array($canonicalParts) ? strtolower((string) ($canonicalParts['host'] ?? '')) : '';
+            if (
+                $allowRequestHostFallback
+                && $configuredIsLocal
+                && in_array($canonicalScheme, ['http', 'https'], true)
+                && $canonicalHost !== ''
+                && !appIsLocalHost($canonicalHost)
+            ) {
+                $canonicalBase = rtrim($canonicalBase, '/');
+                $canonicalPath = rtrim((string) ($canonicalParts['path'] ?? ''), '/');
+
+                return rtrim($canonicalBase . ($canonicalPath === '' ? $path : ''), '/');
+            }
+
             return rtrim($configuredUrl . $path, '/');
         }
 

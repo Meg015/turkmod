@@ -2614,6 +2614,10 @@
                 return;
             }
 
+            if (event.defaultPrevented) {
+                return;
+            }
+
             if (form.dataset.adminNoLock === '1') {
                 return;
             }

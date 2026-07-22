@@ -246,8 +246,11 @@ final class AccountEmailService
         }
 
         if (function_exists('appMailIsHtmlDocument') && appMailIsHtmlDocument($body)) {
+            $bodyText = function_exists('appMailTextFromHtml')
+                ? appMailTextFromHtml($body)
+                : trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             $contentHtml = function_exists('appMailPlainTextHtml')
-                ? appMailPlainTextHtml(trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8')))
+                ? appMailPlainTextHtml($bodyText)
                 : nl2br(htmlspecialchars(strip_tags($body), ENT_QUOTES, 'UTF-8'));
         } elseif (function_exists('appMailLooksLikeHtml') && appMailLooksLikeHtml($body)) {
             $contentHtml = $body;

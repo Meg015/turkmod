@@ -332,13 +332,133 @@ if (!function_exists('appRenderMailLayout')) {
 if (!function_exists('appBuildMailBody')) {
     function appBuildMailBody(string $body): string
     {
-        $body = preg_replace('/\r\n|\r|\n/', "\r\n", $body) ?? $body;
+        return appMailDotStuffBody(appMailEncodeTransferBody($body));
+    }
+}
+
+if (!function_exists('appMailNormalizeLineEndings')) {
+    function appMailNormalizeLineEndings(string $body): string
+    {
+        return preg_replace('/\r\n|\r|\n/', "\r\n", $body) ?? $body;
+    }
+}
+
+if (!function_exists('appMailEncodeTransferBody')) {
+    function appMailEncodeTransferBody(string $body): string
+    {
+        $body = appMailNormalizeLineEndings($body);
 
         if (function_exists('quoted_printable_encode')) {
             $body = quoted_printable_encode($body);
         }
 
+        return appMailNormalizeLineEndings($body);
+    }
+}
+
+if (!function_exists('appMailDotStuffBody')) {
+    function appMailDotStuffBody(string $body): string
+    {
         return preg_replace('/(?m)^\./', '..', $body) ?? $body;
+    }
+}
+
+if (!function_exists('appMailTextFromHtml')) {
+    function appMailTextFromHtml(string $html): string
+    {
+        $value = trim($html);
+        if ($value === '') {
+            return '';
+        }
+
+        if (!appMailLooksLikeHtml($value)) {
+            $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $value = preg_replace("/[ \t]+\n/u", "\n", str_replace(["\r\n", "\r"], "\n", $value)) ?? $value;
+            return trim(preg_replace("/\n{3,}/u", "\n\n", $value) ?? $value);
+        }
+
+        $value = preg_replace('~<(script|style)\b[^>]*>.*?</\1>~is', '', $value) ?? $value;
+        $value = preg_replace('~<span\b[^>]*(?:display\s*:\s*none|visibility\s*:\s*hidden)[^>]*>.*?</span>~is', '', $value) ?? $value;
+        $value = preg_replace_callback('~<a\b[^>]*\bhref=(["\'])(.*?)\1[^>]*>(.*?)</a>~is', static function (array $matches): string {
+            $href = trim(html_entity_decode(strip_tags((string) $matches[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $label = trim(html_entity_decode(strip_tags((string) $matches[3]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            if ($label === '') {
+                return $href;
+            }
+            if ($href === '' || $href === $label) {
+                return $label;
+            }
+
+            return $label . "\n" . $href;
+        }, $value) ?? $value;
+
+        $replacements = [
+            '~<br\s*/?>~i' => "\n",
+            '~</h[1-6]>~i' => "\n\n",
+            '~</p>~i' => "\n\n",
+            '~</li>~i' => "\n",
+            '~</tr>~i' => "\n",
+            '~</th>\s*<td\b[^>]*>~i' => ': ',
+            '~</td>\s*<td\b[^>]*>~i' => ' ',
+            '~</table>~i' => "\n\n",
+            '~</(?:div|section|article|header|footer)>~i' => "\n",
+        ];
+        foreach ($replacements as $pattern => $replacement) {
+            $value = preg_replace($pattern, $replacement, $value) ?? $value;
+        }
+
+        $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $value = str_replace("\xc2\xa0", ' ', $value);
+        $lines = preg_split('/\R/u', $value) ?: [$value];
+        $lines = array_map(static fn (string $line): string => trim(preg_replace('/[ \t]+/u', ' ', $line) ?? $line), $lines);
+        $value = implode("\n", $lines);
+        $value = preg_replace("/\n{3,}/u", "\n\n", $value) ?? $value;
+
+        return trim($value);
+    }
+}
+
+if (!function_exists('appBuildMailMimePayload')) {
+    /**
+     * @return array{headers:list<string>,body:string,plain:string}
+     */
+    function appBuildMailMimePayload(string $htmlBody, string $plainText = ''): array
+    {
+        $plainText = trim($plainText) !== '' ? trim($plainText) : appMailTextFromHtml($htmlBody);
+        if ($plainText === '') {
+            return [
+                'headers' => [
+                    'Content-Type: text/html; charset=UTF-8',
+                    'Content-Transfer-Encoding: quoted-printable',
+                ],
+                'body' => appBuildMailBody($htmlBody),
+                'plain' => '',
+            ];
+        }
+
+        $htmlPart = appMailLooksLikeHtml($htmlBody) ? $htmlBody : appMailPlainTextHtml($htmlBody);
+        try {
+            $boundary = '=_turkmod_' . bin2hex(random_bytes(12));
+        } catch (Throwable) {
+            $boundary = '=_turkmod_' . str_replace('.', '', uniqid('', true));
+        }
+
+        $body = "This message contains both plain text and HTML versions.\r\n\r\n"
+            . "--{$boundary}\r\n"
+            . "Content-Type: text/plain; charset=UTF-8\r\n"
+            . "Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+            . appMailEncodeTransferBody($plainText) . "\r\n\r\n"
+            . "--{$boundary}\r\n"
+            . "Content-Type: text/html; charset=UTF-8\r\n"
+            . "Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+            . appMailEncodeTransferBody($htmlPart) . "\r\n\r\n"
+            . "--{$boundary}--\r\n";
+
+        return [
+            'headers' => ['Content-Type: multipart/alternative; boundary="' . $boundary . '"'],
+            'body' => appMailDotStuffBody($body),
+            'plain' => $plainText,
+        ];
     }
 }
 
@@ -1058,11 +1178,12 @@ function appSendMail(string $to, string $subject, string $body, array $options =
         return false;
     }
 
+    $mimePayload = appBuildMailMimePayload($body, (string) ($options['plain_text'] ?? ''));
+
     // Build headers
     $headers = [
         'MIME-Version: 1.0',
-        'Content-Type: text/html; charset=UTF-8',
-        'Content-Transfer-Encoding: quoted-printable',
+        ...$mimePayload['headers'],
         'Date: ' . date(DATE_RFC2822),
         'Message-ID: ' . appGenerateMailMessageId($fromAddress, $smtpHost),
         'From: ' . ($encodedFromName !== '' ? $encodedFromName . ' ' : '') . '<' . $fromAddress . '>',
@@ -1122,7 +1243,7 @@ function appSendMail(string $to, string $subject, string $body, array $options =
 
     // Sendmail and mail share the PHP mail() fallback; keep the transport label distinct for diagnostics.
     $transport = $driver === 'sendmail' ? 'sendmail' : 'mail';
-    $mailBody = appBuildMailBody($body);
+    $mailBody = $mimePayload['body'];
 
     // Fallback: PHP mail()
     try {
@@ -1292,7 +1413,8 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
             ]);
         }
         stream_set_timeout($socket, 15);
-        $mailBody = appBuildMailBody($body);
+        $mimePayload = appBuildMailMimePayload($body);
+        $mailBody = $mimePayload['body'];
 
         if (!$expectResponse($socket, [220], 'SMTP greeting')) {
             fclose($socket);
@@ -1388,11 +1510,11 @@ function appSendMailSmtp(string $to, string $subject, string $body, array $confi
         $message .= 'Message-ID: ' . appGenerateMailMessageId($fromAddr, $host) . "\r\n";
         $message .= "Subject: {$encodedSubject}\r\n";
         $message .= "MIME-Version: 1.0\r\n";
-        $message .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $message .= "Content-Transfer-Encoding: quoted-printable\r\n";
+        foreach ($mimePayload['headers'] as $headerLine) {
+            $message .= $headerLine . "\r\n";
+        }
         $message .= "\r\n";
-        $smtpBody = preg_replace('/(?m)^\./', '..', $mailBody) ?? $mailBody;
-        $message .= $smtpBody . "\r\n.\r\n";
+        $message .= $mailBody . "\r\n.\r\n";
 
         fwrite($socket, $message);
         $dataResponse = $readResponse($socket);
