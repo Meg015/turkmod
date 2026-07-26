@@ -14,6 +14,8 @@ Iki ban modalinda da `Kullanicinin yorumlarini da sil` etiketli bir onay kutusu 
 - Kutu yalnizca hem kullaniciyi banlama hem de `comments.delete` yetkisine sahip yoneticilere gosterilecek.
 - Modal acilirken kutu etiketi genel metinle gosterilecek; mevcut kullanici detay istegi tamamlandiginda `Kullanicinin 12 yorumunu da sil` biciminde aktif yorum sayisini gosterecek.
 - Sayac, mevcut `api/user-details.php` yanitindaki `stats.total_comments` degerini kullanacak. Bu deger `deleted_at IS NULL` olan tum yorum durumlarini kapsayacak ve yeni bir ag istegi eklenmeyecek.
+- Aktif yorum sayisi sifirsa kutunun varsa isareti kaldirilacak, kutu pasiflestirilecek ve etiket `Silinecek aktif yorum yok` olacak.
+- Pozitif yorum sayisinda kutu etkin kalacak. Her modal acilisinda kutu etkin ve genel etiketle sifirlanacak; onceki kullanicinin sifir yorum durumu sonraki kullaniciya tasinmayacak.
 - Kullanici detay istegi basarisiz olursa kutu genel etiketiyle kullanilabilir kalacak. Arayuzdeki sayi yalnizca bilgilendirme amacli olacak; gercek sonuc sunucunun tasidigi yorum sayisina dayanacak.
 - Kutu isaretliyken son onay metni, banla birlikte yorumlarin da `Silinenler`e tasinacagini acikca belirtecek.
 - Basarili sonuc mesaji `Silinenler`e tasinan yorum sayisini gosterecek.
@@ -79,4 +81,5 @@ Otomatik testler su davranislari kapsayacak:
 - Yorum silme sirasinda hata olursa ban ve yorum degisikliklerinin tamami geri alinir.
 - Her iki modal da ayni alan adini gonderir, varsayilan olarak isaretsizdir ve yetkiye gore gosterilir.
 - Her iki modal mevcut kullanici detay yanitindan aktif yorum sayisini etikete yansitir; sifir, pozitif ve yukleme hatasi durumlari dogru gosterilir.
+- Sifir yorumda checkbox isaretsiz ve disabled olur; modal yeniden acildiginda veya pozitif sayili kullaniciya gecildiginde yeniden etkinlesir.
 - Basari mesaji tasinan yorum sayisini dogru bildirir.
