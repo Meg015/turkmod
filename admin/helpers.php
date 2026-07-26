@@ -3207,6 +3207,10 @@ function adminSettingDefinitions(): array
         $definitions[$prefix . 'body'] = ['label' => 'HTML E-posta İçeriği', 'type' => 'text', 'default' => $template['body'], 'section' => 'email'];
     }
 
+    foreach (\App\Engine\Email\AdminEmailService::settingDefinitions() as $key => $definition) {
+        $definitions[$key] = $definition;
+    }
+
     return $cache = adminNormalizeSettingDefinitions($definitions);
 }
 

@@ -13,7 +13,7 @@ final class AppSettings
 
     private bool $loaded = false;
 
-    private const APCU_KEY = 'admin_settings_v1';
+    private const APCU_KEY = 'admin_settings_v2';
 
     private const CACHE_TTL = 300;
 
@@ -167,7 +167,7 @@ final class AppSettings
         if (function_exists('apcu_fetch')) {
             $cached = apcu_fetch(self::APCU_KEY, $success);
             if ($success && is_array($cached)) {
-                $this->settings = $cached;
+                $this->settings = $this->completeSettings($settings, $cached, $definitions);
                 $this->loaded = true;
                 return;
             }
@@ -185,15 +185,16 @@ final class AppSettings
                 $cached = null;
             }
             if (is_array($cached) && $cached !== []) {
-                $this->settings = $cached;
+                $this->settings = $this->completeSettings($settings, $cached, $definitions);
                 $this->loaded = true;
                 if (function_exists('apcu_store')) {
-                    apcu_store(self::APCU_KEY, $cached, self::CACHE_TTL);
+                    apcu_store(self::APCU_KEY, $this->settings, self::CACHE_TTL);
                 }
                 return;
             }
         }
 
+        $persistedKeys = [];
         try {
             $statement = $this->pdo->query('SELECT setting_key, setting_value FROM admin_settings');
             while ($row = $statement->fetch(\PDO::FETCH_ASSOC)) {
@@ -203,6 +204,7 @@ final class AppSettings
                     continue;
                 }
                 if (array_key_exists($key, $definitions)) {
+                    $persistedKeys[$key] = true;
                     $settings[$key] = function_exists('adminNormalizeSettingValue')
                         ? adminNormalizeSettingValue($key, $value, $definitions[$key])
                         : $value;
@@ -212,7 +214,7 @@ final class AppSettings
             error_log('admin_settings read failed: ' . $exception->getMessage());
         }
 
-        $this->settings = $settings;
+        $this->settings = $this->applyLegacyFallbacks($settings, $definitions, $persistedKeys);
         $this->loaded = true;
 
         $cacheDir = dirname($cacheFile);
@@ -234,8 +236,53 @@ final class AppSettings
         }
     }
 
+    /**
+     * @param array<string,string> $defaults
+     * @param array<string,mixed> $cached
+     * @param array<string,array<string,mixed>> $definitions
+     * @return array<string,string>
+     */
+    private function completeSettings(array $defaults, array $cached, array $definitions): array
+    {
+        $knownCached = [];
+        foreach ($cached as $key => $value) {
+            if (is_string($key) && array_key_exists($key, $definitions)) {
+                $knownCached[$key] = (string) $value;
+            }
+        }
+
+        return $this->applyLegacyFallbacks(
+            array_replace($defaults, $knownCached),
+            $definitions,
+            array_fill_keys(array_keys($knownCached), true)
+        );
+    }
+
+    /**
+     * @param array<string,string> $settings
+     * @param array<string,array<string,mixed>> $definitions
+     * @param array<string,bool> $persistedKeys
+     * @return array<string,string>
+     */
+    private function applyLegacyFallbacks(array $settings, array $definitions, array $persistedKeys): array
+    {
+        foreach ($definitions as $key => $definition) {
+            $legacyKey = trim((string) ($definition['legacy_key'] ?? ''));
+            if ($legacyKey === '' || isset($persistedKeys[$key]) || !array_key_exists($legacyKey, $settings)) {
+                continue;
+            }
+
+            $legacyValue = (string) $settings[$legacyKey];
+            $settings[$key] = function_exists('adminNormalizeSettingValue')
+                ? adminNormalizeSettingValue($key, $legacyValue, $definition)
+                : $legacyValue;
+        }
+
+        return $settings;
+    }
+
     private function cacheFile(): string
     {
-        return dirname(__DIR__, 3) . '/storage/cache/admin_settings_compiled.php';
+        return dirname(__DIR__, 3) . '/storage/cache/admin_settings_compiled_v2.php';
     }
 }

@@ -1138,8 +1138,7 @@ function usersNotifyAdminsOnRegistration(PDO $pdo, int $newUserId, string $usern
 
     $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($pdo) : [];
     $siteNotificationEnabled = usersNotificationBoolSetting($settings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled');
-    $emailNotificationEnabled = usersNotificationBoolSetting($settings, 'notif_admin_registration_email_enabled', '1', 'notif_admin_registration_enabled')
-        && usersNotificationBoolSetting($settings, 'notif_email_channel_ready', '0')
+    $emailNotificationEnabled = usersNotificationBoolSetting($settings, 'notif_email_channel_ready', '0')
         && function_exists('notificationQueueEmail');
 
     $adminEmailService = $emailNotificationEnabled && function_exists('adminEmailService') ? adminEmailService($pdo) : null;

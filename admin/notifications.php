@@ -192,7 +192,6 @@ function admin_notification_email_settings_schema(): array
 {
     return [
         ['key' => 'notif_email_channel_ready', 'type' => 'bool', 'label' => 'E-posta Kuyruğu Aktif', 'help' => 'E-posta açık kayıtlardan notification_email_queue kaydı oluşturur; cron worker bu kayıtları gönderir.', 'default' => '0'],
-        ['key' => 'notif_admin_registration_email_enabled', 'type' => 'bool', 'label' => 'Yeni Kullanıcı Kaydı Admin E-postası', 'help' => 'Yeni kullanıcı kayıt olduğunda admin/yetkili hesaplara e-posta kuyruğu üzerinden bildirim gönderir.', 'default' => '1'],
         ['key' => 'notif_email_queue_max_attempts', 'type' => 'number', 'label' => 'E-posta Deneme Hakkı', 'help' => 'Worker başarısız gönderimleri en fazla bu kadar tekrar dener.', 'default' => '3', 'min' => 1, 'max' => 10],
     ];
 }

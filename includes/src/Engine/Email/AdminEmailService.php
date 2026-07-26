@@ -71,6 +71,46 @@ final class AdminEmailService
         return 'admin_email_' . $templateKey . '_' . $field;
     }
 
+    /** @return array<string,array<string,mixed>> */
+    public static function settingDefinitions(): array
+    {
+        $definitions = [];
+        foreach (self::catalog() as $templateKey => $template) {
+            $prefix = 'admin_email_' . $templateKey . '_';
+            $definitions[$prefix . 'enabled'] = [
+                'label' => $template['label'] . ' Aktif',
+                'type' => 'bool',
+                'default' => $template['enabled'],
+                'section' => 'email',
+            ];
+            $definitions[$prefix . 'subject'] = [
+                'label' => $template['label'] . ' E-posta Konusu',
+                'type' => 'string',
+                'default' => $template['subject'],
+                'section' => 'email',
+            ];
+            $definitions[$prefix . 'body'] = [
+                'label' => $template['label'] . ' E-posta İçeriği',
+                'type' => 'text',
+                'default' => $template['body'],
+                'section' => 'email',
+            ];
+            $definitions[$prefix . 'action_label'] = [
+                'label' => $template['label'] . ' Buton Metni',
+                'type' => 'string',
+                'default' => $template['action_label'],
+                'section' => 'email',
+            ];
+        }
+
+        $registrationEnabledKey = self::settingKey('registration_admin_notice', 'enabled');
+        if (isset($definitions[$registrationEnabledKey])) {
+            $definitions[$registrationEnabledKey]['legacy_key'] = 'notif_admin_registration_email_enabled';
+        }
+
+        return $definitions;
+    }
+
     public static function bodyForEditor(string $templateKey, string $body): string
     {
         $body = trim($body);
