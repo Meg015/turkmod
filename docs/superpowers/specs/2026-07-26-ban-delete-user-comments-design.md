@@ -12,6 +12,9 @@ Iki ban modalinda da `Kullanicinin yorumlarini da sil` etiketli bir onay kutusu 
 
 - Kutu her modal acilisinda isaretsiz baslayacak.
 - Kutu yalnizca hem kullaniciyi banlama hem de `comments.delete` yetkisine sahip yoneticilere gosterilecek.
+- Modal acilirken kutu etiketi genel metinle gosterilecek; mevcut kullanici detay istegi tamamlandiginda `Kullanicinin 12 yorumunu da sil` biciminde aktif yorum sayisini gosterecek.
+- Sayac, mevcut `api/user-details.php` yanitindaki `stats.total_comments` degerini kullanacak. Bu deger `deleted_at IS NULL` olan tum yorum durumlarini kapsayacak ve yeni bir ag istegi eklenmeyecek.
+- Kullanici detay istegi basarisiz olursa kutu genel etiketiyle kullanilabilir kalacak. Arayuzdeki sayi yalnizca bilgilendirme amacli olacak; gercek sonuc sunucunun tasidigi yorum sayisina dayanacak.
 - Kutu isaretliyken son onay metni, banla birlikte yorumlarin da `Silinenler`e tasinacagini acikca belirtecek.
 - Basarili sonuc mesaji `Silinenler`e tasinan yorum sayisini gosterecek.
 
@@ -75,4 +78,5 @@ Otomatik testler su davranislari kapsayacak:
 - `comments.delete` yetkisi olmayan yoneticinin yorum silmeli ban istegi reddedilir.
 - Yorum silme sirasinda hata olursa ban ve yorum degisikliklerinin tamami geri alinir.
 - Her iki modal da ayni alan adini gonderir, varsayilan olarak isaretsizdir ve yetkiye gore gosterilir.
+- Her iki modal mevcut kullanici detay yanitindan aktif yorum sayisini etikete yansitir; sifir, pozitif ve yukleme hatasi durumlari dogru gosterilir.
 - Basari mesaji tasinan yorum sayisini dogru bildirir.
