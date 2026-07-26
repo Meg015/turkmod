@@ -1017,6 +1017,160 @@ function initAdminEmailTemplates(adminNotificationsPageData) {
     }
 }
 
+function notificationStatusCards(group) {
+    return Array.from(document.querySelectorAll('[data-notification-status-card]')).filter(function (card) {
+        return String(card.dataset.notificationStatusGroup || '') === group;
+    });
+}
+
+function notificationStatusCountTargets(group, state) {
+    return Array.from(document.querySelectorAll('[data-notification-status-count]')).filter(function (target) {
+        return String(target.dataset.notificationStatusGroup || '') === group
+            && String(target.dataset.notificationStatusCount || '') === state;
+    });
+}
+
+function setNotificationStatusBadge(badge, enabled) {
+    if (!badge) {
+        return;
+    }
+
+    const label = badge.querySelector('[data-notification-status-label]');
+    const icon = badge.querySelector('i');
+    const labelText = enabled ? badge.dataset.activeLabel : badge.dataset.inactiveLabel;
+    const iconClass = enabled ? badge.dataset.activeIcon : badge.dataset.inactiveIcon;
+
+    badge.classList.toggle('notif-badge-global', enabled);
+    badge.classList.toggle('notif-badge-user', !enabled);
+    badge.setAttribute('aria-label', String(labelText || (enabled ? 'Aktif' : 'Kapalı')));
+    if (label) {
+        label.textContent = String(labelText || (enabled ? 'Aktif' : 'Kapalı'));
+    }
+    if (icon && iconClass) {
+        icon.className = 'bi ' + String(iconClass);
+    }
+}
+
+function syncNotificationStatusGroup(group) {
+    const cards = notificationStatusCards(group);
+    if (!group || cards.length === 0) {
+        return;
+    }
+
+    let active = 0;
+    cards.forEach(function (card) {
+        const toggle = card.querySelector('[data-notification-status-toggle]');
+        if (!toggle) {
+            return;
+        }
+        const enabled = Boolean(toggle.checked);
+        if (enabled) {
+            active += 1;
+        }
+        card.classList.toggle('is-notification-disabled', !enabled);
+        setNotificationStatusBadge(card.querySelector('[data-notification-status-badge]'), enabled);
+    });
+
+    const counts = {
+        active,
+        inactive: Math.max(0, cards.length - active)
+    };
+    Object.keys(counts).forEach(function (state) {
+        notificationStatusCountTargets(group, state).forEach(function (target) {
+            const valueTarget = target.querySelector('.stat-value') || target;
+            valueTarget.textContent = String(counts[state]) + String(target.dataset.notificationStatusCountSuffix || '');
+        });
+    });
+}
+
+function syncNotificationStatusMirrors() {
+    document.querySelectorAll('[data-notification-status-mirror-toggle]').forEach(function (toggle) {
+        const key = String(toggle.dataset.notificationStatusMirrorToggle || '');
+        if (!key) {
+            return;
+        }
+        document.querySelectorAll('[data-notification-status-mirror-target]').forEach(function (target) {
+            if (String(target.dataset.notificationStatusMirrorTarget || '') !== key) {
+                return;
+            }
+            setNotificationStatusBadge(target, Boolean(toggle.checked));
+        });
+    });
+}
+
+function syncNotificationStatusUi() {
+    const groups = new Set();
+    document.querySelectorAll('[data-notification-status-card]').forEach(function (card) {
+        const group = String(card.dataset.notificationStatusGroup || '');
+        if (group) {
+            groups.add(group);
+        }
+    });
+    groups.forEach(syncNotificationStatusGroup);
+    syncNotificationStatusMirrors();
+}
+
+function initNotificationStatusUi() {
+    if (document.documentElement.dataset.notificationStatusUiBound === '1') {
+        syncNotificationStatusUi();
+        return;
+    }
+    document.documentElement.dataset.notificationStatusUiBound = '1';
+
+    document.addEventListener('change', function (event) {
+        const toggle = event.target.closest('[data-notification-status-toggle]');
+        if (toggle) {
+            const card = toggle.closest('[data-notification-status-card]');
+            syncNotificationStatusGroup(String(card?.dataset.notificationStatusGroup || ''));
+        }
+        if (event.target.closest('[data-notification-status-mirror-toggle]')) {
+            syncNotificationStatusMirrors();
+        }
+    });
+    window.addEventListener('pageshow', syncNotificationStatusUi);
+    syncNotificationStatusUi();
+}
+
+function notificationSubmissionAction(form, submitter) {
+    if (submitter && submitter.name === 'action') {
+        return String(submitter.value || '');
+    }
+    const actionField = Array.from(form.elements || []).find(function (field) {
+        return field && field.name === 'action';
+    });
+    return actionField ? String(actionField.value || '') : '';
+}
+
+function initNotificationSubmissionState() {
+    document.querySelectorAll('form').forEach(function (form) {
+        if (!form.closest('.notification-template-page') || form.dataset.notificationSubmitStateBound === '1') {
+            return;
+        }
+        form.dataset.notificationSubmitStateBound = '1';
+        form.addEventListener('submit', function (event) {
+            if (event.defaultPrevented) {
+                return;
+            }
+            const submitter = event.submitter || null;
+            const action = notificationSubmissionAction(form, submitter);
+            if (!/^(?:save_|send_.*(?:test|email)|send_site_test)/.test(action)) {
+                return;
+            }
+
+            const buttons = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"]'));
+            buttons.forEach(function (button) {
+                button.disabled = true;
+            });
+            if (submitter && submitter.tagName === 'BUTTON') {
+                submitter.dataset.originalHtml = submitter.innerHTML;
+                const sending = action.includes('send_');
+                submitter.innerHTML = '<i class="bi bi-arrow-repeat"></i> ' + (sending ? 'Gönderiliyor...' : 'Kaydediliyor...');
+                submitter.setAttribute('aria-busy', 'true');
+            }
+        });
+    });
+}
+
 function initNotificationsPage() {
     const adminNotificationsPageData = getAdminNotificationsPageData();
     initNotificationComposerTemplates(adminNotificationsPageData);
@@ -1024,6 +1178,8 @@ function initNotificationsPage() {
     initAccountEmailTemplates(adminNotificationsPageData);
     initAdminEmailTemplates(adminNotificationsPageData);
     initNotificationVariableControls();
+    initNotificationStatusUi();
+    initNotificationSubmissionState();
 }
 
 window.adminPage.register('notifications', initNotificationsPage, {

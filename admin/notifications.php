@@ -2,6 +2,12 @@
 declare(strict_types=1);
 require_once __DIR__ . '/init.php';
 
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+}
+
 adminRequirePermission('notifications.view', 'Bildirim merkezini görüntülemek için gerekli izin hesabınıza tanımlanmamış.');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -121,6 +127,12 @@ function admin_notification_bool(array $settings, string $key, string $default =
 
     $normalized = strtolower(trim((string) $value));
     return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+}
+
+function admin_notification_redirect(string $location, int $status = 303): never
+{
+    header('Location: ' . $location, true, $status);
+    exit;
 }
 
 function admin_notification_bool_with_legacy(array $settings, string $key, string $default = '1', ?string $legacyKey = null): bool
@@ -560,13 +572,19 @@ function admin_notification_save_setting_values(PDO $pdo, array $values): void
 
     invalidateAdminSettingsCache();
     try {
-        getAdminSettings($pdo);
+        $freshSettings = getAdminSettings($pdo);
+        foreach ($values as $key => $value) {
+            if (!array_key_exists((string) $key, $freshSettings) || (string) $freshSettings[(string) $key] !== (string) $value) {
+                throw new RuntimeException('Kaydedilen bildirim ayarı doğrulanamadı: ' . (string) $key);
+            }
+        }
     } catch (Throwable $e) {
         if (function_exists('appLogException')) {
-            appLogException($e, ['source' => 'notifications.account_email.cache_warm']);
+            appLogException($e, ['source' => 'notifications.settings.readback']);
         } else {
-            error_log('Account email settings cache warm failed: ' . $e->getMessage());
+            error_log('Notification settings readback failed: ' . $e->getMessage());
         }
+        throw new RuntimeException('Kaydedilen bildirim ayarları yeniden okunamadı.', 0, $e);
     }
 }
 
@@ -900,8 +918,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         }
 
         flash('error', 'Güvenlik hatası.');
-        header('Location: notifications.php?tab=' . $tab);
-        exit;
+        admin_notification_redirect('notifications.php?tab=' . $tab);
     }
 
     try {
@@ -925,8 +942,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 }
 
                 flash('success', 'Yeni kullanıcı kayıt admin bildirimi varsayılana döndürüldü.');
-                header('Location: notifications.php?tab=site#admin-registration-site');
-                exit;
+                admin_notification_redirect('notifications.php?tab=site#admin-registration-site');
             }
 
             $adminRegistrationEnabled = isset($_POST['notif_admin_registration_site_enabled']) ? '1' : '0';
@@ -958,8 +974,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 );
 
                 flash('success', 'Admin kayıt bildirimi testi kendi hesabınıza gönderildi.');
-                header('Location: notifications.php?tab=site#admin-registration-site');
-                exit;
+                admin_notification_redirect('notifications.php?tab=site#admin-registration-site');
             }
 
             $siteSettings = admin_notification_admin_registration_site_setting_values($adminRegistrationSiteInput, $adminRegistrationEnabled);
@@ -970,8 +985,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             }
 
             flash('success', 'Yeni kullanıcı kayıt admin bildirimi kaydedildi.');
-            header('Location: notifications.php?tab=site#admin-registration-site');
-            exit;
+            admin_notification_redirect('notifications.php?tab=site#admin-registration-site');
         }
 
         if ($action === 'create') {
@@ -1031,8 +1045,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             ]);
 
             flash('success', 'Bildirim başarıyla gönderildi.');
-            header('Location: notifications.php?tab=history');
-            exit;
+            admin_notification_redirect('notifications.php?tab=history');
         }
 
         if ($action === 'delete') {
@@ -1105,8 +1118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                     throw new RuntimeException('Bildirim metni varsayılana döndürülemedi.');
                 }
                 flash('success', 'Bildirim metni varsayılana döndürüldü.');
-                header('Location: ' . $channelRedirect . '#' . admin_notification_template_anchor($templateKey));
-                exit;
+                admin_notification_redirect($channelRedirect . '#' . admin_notification_template_anchor($templateKey));
             }
 
             if ($action === 'delete_template') {
@@ -1114,8 +1126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                     throw new RuntimeException('Varsayılan bildirim metinleri silinemez.');
                 }
                 flash('success', 'Bildirim metni silindi.');
-                header('Location: ' . $channelRedirect);
-                exit;
+                admin_notification_redirect($channelRedirect);
             }
 
             $templateInput = admin_notification_template_input($_POST);
@@ -1163,8 +1174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 );
 
                 flash('success', 'Test bildirimi kendi hesabınıza gönderildi.');
-                header('Location: notifications.php?tab=site#' . admin_notification_template_anchor($templateKey));
-                exit;
+                admin_notification_redirect('notifications.php?tab=site#' . admin_notification_template_anchor($templateKey));
             }
 
             if ($action === 'send_email_test') {
@@ -1261,8 +1271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 }
 
                 flash('success', 'Test e-postası kuyruğa eklendi.');
-                header('Location: notifications.php?tab=email&email_group=events#' . admin_notification_template_anchor($templateKey));
-                exit;
+                admin_notification_redirect('notifications.php?tab=email&email_group=events#' . admin_notification_template_anchor($templateKey));
             }
 
             $saved = notificationTemplateSave($pdo, $templateKey, $templateInput);
@@ -1271,22 +1280,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             }
 
             flash('success', 'Bildirim metni kaydedildi.');
-            header('Location: ' . $channelRedirect . '#' . admin_notification_template_anchor($templateKey));
-            exit;
+            admin_notification_redirect($channelRedirect . '#' . admin_notification_template_anchor($templateKey));
         }
 
         if ($action === 'save_settings') {
-            $stmt = $pdo->prepare("INSERT INTO admin_settings (setting_key, setting_value, created_at, updated_at)
-                VALUES (?, ?, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
-
+            $settingValues = [];
             foreach ($flatSettingsSchema as $settingItem) {
                 $value = admin_notification_save_value($settingItem, $_POST);
-                $stmt->execute([$settingItem['key'], $value]);
+                $settingValues[$settingItem['key']] = $value;
                 $adminSettings[$settingItem['key']] = $value;
             }
-
-            invalidateAdminSettingsCache();
+            admin_notification_save_setting_values($pdo, $settingValues);
 
             $retentionDays = admin_notification_int($adminSettings, 'notif_retention_days', 30, 0, 3650);
             if ($retentionDays > 0) {
@@ -1294,8 +1298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             }
 
             flash('success', 'Bildirim ayarları kaydedildi.');
-            header('Location: notifications.php?tab=settings');
-            exit;
+            admin_notification_redirect('notifications.php?tab=settings');
         }
 
         if ($action === 'save_email_settings') {
@@ -1307,21 +1310,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 throw new RuntimeException('E-posta kanalı açılmadan önce Admin Panel > Veritabanı Senkronizasyonu çalıştırılmalı.');
             }
 
-            $stmt = $pdo->prepare("INSERT INTO admin_settings (setting_key, setting_value, created_at, updated_at)
-                VALUES (?, ?, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
-
+            $emailSettingValues = [];
             foreach (admin_notification_email_settings_schema() as $settingItem) {
                 $value = admin_notification_save_value($settingItem, $_POST);
-                $stmt->execute([$settingItem['key'], $value]);
+                $emailSettingValues[$settingItem['key']] = $value;
                 $adminSettings[$settingItem['key']] = $value;
             }
-
-            invalidateAdminSettingsCache();
+            admin_notification_save_setting_values($pdo, $emailSettingValues);
 
             flash('success', 'E-posta bildirim ayarları kaydedildi.');
-            header('Location: notifications.php?tab=email&email_group=settings');
-            exit;
+            admin_notification_redirect('notifications.php?tab=email&email_group=settings');
         }
 
         if ($action === 'save_account_email_settings') {
@@ -1330,8 +1328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             $adminSettings['account_email_system_enabled'] = $value;
 
             flash('success', 'Hesap e-posta genel ayarı kaydedildi.');
-            header('Location: notifications.php?tab=email&email_group=account#account-email-settings');
-            exit;
+            admin_notification_redirect('notifications.php?tab=email&email_group=account#account-email-settings');
         }
 
         if (in_array($action, ['save_account_email_template', 'send_account_email_test'], true)) {
@@ -1357,8 +1354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 ]);
 
                 flash('success', 'Hesap e-posta şablonu kaydedildi.');
-                header('Location: notifications.php?tab=email&email_group=account#' . admin_notification_account_email_anchor($accountTemplateKey));
-                exit;
+                admin_notification_redirect('notifications.php?tab=email&email_group=account#' . admin_notification_account_email_anchor($accountTemplateKey));
             }
 
             $recipient = trim((string) ($_POST['account_email_test_recipient'] ?? ''));
@@ -1384,8 +1380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             }
 
             flash('success', 'Hesap e-posta testi gönderildi: ' . $recipient);
-            header('Location: notifications.php?tab=email&email_group=account#' . admin_notification_account_email_anchor($accountTemplateKey));
-            exit;
+            admin_notification_redirect('notifications.php?tab=email&email_group=account#' . admin_notification_account_email_anchor($accountTemplateKey));
         }
 
         if (in_array($action, ['save_admin_email_template', 'send_admin_email_test'], true)) {
@@ -1417,8 +1412,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 ]);
 
                 flash('success', 'Yönetici e-posta şablonu kaydedildi.');
-                header('Location: notifications.php?tab=email&email_group=admin#admin-email-' . rawurlencode($adminTemplateKey));
-                exit;
+                admin_notification_redirect('notifications.php?tab=email&email_group=admin#admin-email-' . rawurlencode($adminTemplateKey));
             }
 
             $recipient = trim((string) ($_POST['admin_email_test_recipient'] ?? ''));
@@ -1446,8 +1440,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             }
 
             flash('success', 'Yönetici e-posta testi gönderildi: ' . $recipient);
-            header('Location: notifications.php?tab=email&email_group=admin#admin-email-' . rawurlencode($adminTemplateKey));
-            exit;
+            admin_notification_redirect('notifications.php?tab=email&email_group=admin#admin-email-' . rawurlencode($adminTemplateKey));
         }
     } catch (Throwable $e) {
         flash('error', 'İşlem başarısız: ' . safeErrorMessage($e));
@@ -1470,8 +1463,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         $failureTarget = $tab === 'email'
             ? 'notifications.php?tab=email&email_group=' . rawurlencode($emailGroup)
             : 'notifications.php?tab=' . $tab;
-        header('Location: ' . $failureTarget . $failureFragment);
-        exit;
+        admin_notification_redirect($failureTarget . $failureFragment);
     }
 }
 
@@ -1918,8 +1910,8 @@ $csrfToken = csrf_token();
 
             <?= adminRenderStatCards([
                 ['tone' => 'info', 'icon' => 'bi-check2-circle', 'label' => 'Aktif Kayıt', 'value' => number_format((int) $siteTemplateStats['active'], 0, ',', '.')],
-                ['tone' => 'success', 'icon' => 'bi-bell', 'label' => 'Site İçi Açık', 'value' => number_format((int) $siteTemplateStats['enabled'], 0, ',', '.')],
-                ['tone' => 'warning', 'icon' => 'bi-bell-slash', 'label' => 'Site İçi Kapalı', 'value' => number_format((int) $siteTemplateStats['disabled'], 0, ',', '.')],
+                ['tone' => 'success', 'icon' => 'bi-bell', 'label' => 'Site İçi Açık', 'value' => number_format((int) $siteTemplateStats['enabled'], 0, ',', '.'), 'attrs' => ['data-notification-status-group' => 'site-templates', 'data-notification-status-count' => 'active']],
+                ['tone' => 'warning', 'icon' => 'bi-bell-slash', 'label' => 'Site İçi Kapalı', 'value' => number_format((int) $siteTemplateStats['disabled'], 0, ',', '.'), 'attrs' => ['data-notification-status-group' => 'site-templates', 'data-notification-status-count' => 'inactive']],
             ], ['class' => 'notification-channel-summary', 'aria_label' => 'Site içi bildirim özeti']) ?>
 
             <?php if ($templateLoadError): ?>
@@ -1940,6 +1932,8 @@ $csrfToken = csrf_token();
                       data-live-template-preview="1"
                       data-channel-preview="site"
                       data-template-key="admin_registration_site"
+                      data-notification-status-card
+                      data-notification-status-group="admin-registration-site"
                       data-preview-type-fields="notif_admin_registration_site_type"
                       data-preview-title-fields="notif_admin_registration_site_title_template"
                       data-preview-message-fields="notif_admin_registration_site_message_template"
@@ -1957,12 +1951,21 @@ $csrfToken = csrf_token();
                             <p><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['description'] ?? 'Yeni üyelik oluştuğunda admin ve yetkili hesapların bildirim merkezine düşer.')) ?></p>
                             <div class="notification-template-meta">
                                 <span class="notif-badge notif-badge-global"><i class="bi bi-person-plus"></i> Otomatik olay</span>
+                                <span class="notif-badge <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                                      data-notification-status-badge
+                                      data-active-label="Bildirim aktif"
+                                      data-inactive-label="Bildirim kapalı"
+                                      data-active-icon="bi-bell"
+                                      data-inactive-icon="bi-bell-slash">
+                                    <i class="bi <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'bi-bell' : 'bi-bell-slash' ?>"></i>
+                                    <span data-notification-status-label><?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'Bildirim aktif' : 'Bildirim kapalı' ?></span>
+                                </span>
                                 <?= admin_notification_route_badges('site', 'admin') ?>
                             </div>
                         </div>
                         <div class="notification-channel-switches">
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="notif_admin_registration_site_enabled" value="1" <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'checked' : '' ?>>
+                                <input type="checkbox" name="notif_admin_registration_site_enabled" value="1" <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'checked' : '' ?> data-notification-status-toggle>
                                 <span class="ui-admin-switch-label">Aktif</span>
                             </label>
                         </div>
@@ -2118,7 +2121,7 @@ $csrfToken = csrf_token();
                         $anchor = admin_notification_template_anchor($templateKey);
                         $variables = array_values((array) ($template['variables'] ?? []));
                     ?>
-                    <form id="<?= htmlspecialchars($anchor) ?>" method="POST" action="notifications.php?tab=site#<?= htmlspecialchars($anchor) ?>" class="notification-template-card notification-channel-card ui-card" data-live-template-preview="1" data-channel-preview="site" data-template-key="<?= htmlspecialchars($templateKey) ?>">
+                    <form id="<?= htmlspecialchars($anchor) ?>" method="POST" action="notifications.php?tab=site#<?= htmlspecialchars($anchor) ?>" class="notification-template-card notification-channel-card ui-card" data-live-template-preview="1" data-channel-preview="site" data-template-key="<?= htmlspecialchars($templateKey) ?>" data-notification-status-card data-notification-status-group="site-templates">
                         <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                         <input type="hidden" name="channel" value="site">
                         <input type="hidden" name="template_key" value="<?= htmlspecialchars($templateKey) ?>">
@@ -2137,6 +2140,15 @@ $csrfToken = csrf_token();
                                         <i class="bi <?= !empty($template['is_default']) ? 'bi-diagram-3' : 'bi-pencil-square' ?>"></i>
                                         <?= !empty($template['is_default']) ? 'Varsayılan metin' : 'Özel metin' ?>
                                     </span>
+                                    <span class="notif-badge <?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                                          data-notification-status-badge
+                                          data-active-label="Site içi açık"
+                                          data-inactive-label="Site içi kapalı"
+                                          data-active-icon="bi-bell"
+                                          data-inactive-icon="bi-bell-slash">
+                                        <i class="bi <?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'bi-bell' : 'bi-bell-slash' ?>"></i>
+                                        <span data-notification-status-label><?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'Site içi açık' : 'Site içi kapalı' ?></span>
+                                    </span>
                                     <?= admin_notification_route_badges('site', 'user') ?>
                                 </div>
                             </div>
@@ -2148,7 +2160,7 @@ $csrfToken = csrf_token();
                                 </label>
                                 <input type="hidden" name="in_app_enabled" value="0">
                                 <label class="ui-admin-switch">
-                                    <input type="checkbox" name="in_app_enabled" value="1" <?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'checked' : '' ?>>
+                                    <input type="checkbox" name="in_app_enabled" value="1" <?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'checked' : '' ?> data-notification-status-toggle>
                                     <span class="ui-admin-switch-label">Site içi açık</span>
                                 </label>
                             </div>
@@ -2230,8 +2242,11 @@ $csrfToken = csrf_token();
                     <h3><i class="bi bi-envelope-paper"></i> E-Posta Bildirimleri</h3>
                     <p>E-posta konu satırı, gövde metni, önizleme ve kuyruk davranışını site içi metinden bağımsız yönetin.</p>
                 </div>
-                <span class="notif-badge <?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'notif-badge-global' : 'notif-badge-user' ?>">
-                    <?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'Kanal aktif' : 'Kanal kapalı' ?>
+                <span class="notif-badge <?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                      data-notification-status-mirror-target="email-channel"
+                      data-active-label="Kanal aktif"
+                      data-inactive-label="Kanal kapalı">
+                    <span data-notification-status-label><?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'Kanal aktif' : 'Kanal kapalı' ?></span>
                 </span>
             </div>
 
@@ -2247,15 +2262,15 @@ $csrfToken = csrf_token();
             <div class="notification-email-subtabs" role="tablist" aria-label="E-posta bildirim grupları">
                 <a role="tab" aria-selected="<?= $emailGroup === 'account' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=account" class="notification-email-subtab <?= $emailGroup === 'account' ? 'is-active' : '' ?>">
                     <i class="bi bi-person-check"></i>
-                    <span><strong>Hesap</strong><small><?= (int) $accountEmailStats['enabled'] ?>/<?= (int) $accountEmailStats['total'] ?> aktif</small></span>
+                    <span><strong>Hesap</strong><small data-notification-status-group="account-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) $accountEmailStats['total'] ?> aktif"><?= (int) $accountEmailStats['enabled'] ?>/<?= (int) $accountEmailStats['total'] ?> aktif</small></span>
                 </a>
                 <a role="tab" aria-selected="<?= $emailGroup === 'admin' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=admin" class="notification-email-subtab <?= $emailGroup === 'admin' ? 'is-active' : '' ?>">
                     <i class="bi bi-shield-check"></i>
-                    <span><strong>Yönetici</strong><small><?= (int) $adminEmailStats['enabled'] ?>/<?= (int) $adminEmailStats['total'] ?> aktif</small></span>
+                    <span><strong>Yönetici</strong><small data-notification-status-group="admin-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) $adminEmailStats['total'] ?> aktif"><?= (int) $adminEmailStats['enabled'] ?>/<?= (int) $adminEmailStats['total'] ?> aktif</small></span>
                 </a>
                 <a role="tab" aria-selected="<?= $emailGroup === 'events' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=events" class="notification-email-subtab <?= $emailGroup === 'events' ? 'is-active' : '' ?>">
                     <i class="bi bi-envelope-check"></i>
-                    <span><strong>Olay</strong><small><?= (int) $emailTemplateStats['enabled'] ?>/<?= (int) count($notificationTemplates) ?> açık</small></span>
+                    <span><strong>Olay</strong><small data-notification-status-group="event-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) count($notificationTemplates) ?> açık"><?= (int) $emailTemplateStats['enabled'] ?>/<?= (int) count($notificationTemplates) ?> açık</small></span>
                 </a>
                 <a role="tab" aria-selected="<?= $emailGroup === 'settings' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=settings" class="notification-email-subtab <?= $emailGroup === 'settings' ? 'is-active' : '' ?>">
                     <i class="bi bi-sliders"></i>
@@ -2286,7 +2301,7 @@ $csrfToken = csrf_token();
                                         </span>
                                     </span>
                                     <label class="ui-admin-switch">
-                                        <input type="checkbox" name="<?= htmlspecialchars($item['key']) ?>" value="1" <?= admin_notification_bool($adminSettings, (string) $item['key'], (string) ($item['default'] ?? '0')) ? 'checked' : '' ?> <?= (!$emailTemplateSchemaReady && $item['key'] === 'notif_email_channel_ready') ? 'disabled' : '' ?>>
+                                        <input type="checkbox" name="<?= htmlspecialchars($item['key']) ?>" value="1" <?= admin_notification_bool($adminSettings, (string) $item['key'], (string) ($item['default'] ?? '0')) ? 'checked' : '' ?> <?= (!$emailTemplateSchemaReady && $item['key'] === 'notif_email_channel_ready') ? 'disabled' : '' ?><?= $item['key'] === 'notif_email_channel_ready' ? ' data-notification-status-mirror-toggle="email-channel"' : '' ?>>
                                         <span class="ui-admin-switch-label">Aktif</span>
                                     </label>
                                 </div>
@@ -2316,8 +2331,11 @@ $csrfToken = csrf_token();
                     <p>Kayıt sonrası hoş geldin, doğrulama, şifre ve hesap güvenliği e-postalarını ayrı ayrı yönetin. SMTP sunucusu ve gönderen bilgileri Gelişmiş Ayarlar > E-posta Ayarları bölümünden kullanılır.</p>
                 </div>
                 <div class="notif-toolbar-badges">
-                    <span class="notif-badge <?= $accountEmailSystemEnabled ? 'notif-badge-global' : 'notif-badge-user' ?>">
-                        <?= $accountEmailSystemEnabled ? 'Hesap e-postaları aktif' : 'Hesap e-postaları kapalı' ?>
+                    <span class="notif-badge <?= $accountEmailSystemEnabled ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                          data-notification-status-mirror-target="account-email-system"
+                          data-active-label="Hesap e-postaları aktif"
+                          data-inactive-label="Hesap e-postaları kapalı">
+                        <span data-notification-status-label><?= $accountEmailSystemEnabled ? 'Hesap e-postaları aktif' : 'Hesap e-postaları kapalı' ?></span>
                     </span>
                     <?= admin_notification_route_badges('email', 'user') ?>
                 </div>
@@ -2325,8 +2343,8 @@ $csrfToken = csrf_token();
 
             <?= adminRenderStatCards([
                 ['tone' => 'info', 'icon' => 'bi-envelope-paper', 'label' => 'Hesap Şablonu', 'value' => number_format((int) $accountEmailStats['total'], 0, ',', '.')],
-                ['tone' => 'success', 'icon' => 'bi-envelope-check', 'label' => 'Aktif', 'value' => number_format((int) $accountEmailStats['enabled'], 0, ',', '.')],
-                ['tone' => 'warning', 'icon' => 'bi-envelope-slash', 'label' => 'Kapalı', 'value' => number_format((int) $accountEmailStats['disabled'], 0, ',', '.')],
+                ['tone' => 'success', 'icon' => 'bi-envelope-check', 'label' => 'Aktif', 'value' => number_format((int) $accountEmailStats['enabled'], 0, ',', '.'), 'attrs' => ['data-notification-status-group' => 'account-email', 'data-notification-status-count' => 'active']],
+                ['tone' => 'warning', 'icon' => 'bi-envelope-slash', 'label' => 'Kapalı', 'value' => number_format((int) $accountEmailStats['disabled'], 0, ',', '.'), 'attrs' => ['data-notification-status-group' => 'account-email', 'data-notification-status-count' => 'inactive']],
             ], ['class' => 'notification-channel-summary notification-account-email-summary', 'aria_label' => 'Hesap e-posta şablon özeti']) ?>
 
             <?php if (!$accountEmailSystemEnabled): ?>
@@ -2346,7 +2364,7 @@ $csrfToken = csrf_token();
                                 </span>
                             </span>
                             <label class="ui-admin-switch">
-                                <input type="checkbox" name="account_email_system_enabled" value="1" <?= $accountEmailSystemEnabled ? 'checked' : '' ?>>
+                                <input type="checkbox" name="account_email_system_enabled" value="1" <?= $accountEmailSystemEnabled ? 'checked' : '' ?> data-notification-status-mirror-toggle="account-email-system">
                                 <span class="ui-admin-switch-label">Aktif</span>
                             </label>
                         </div>
@@ -2376,6 +2394,8 @@ $csrfToken = csrf_token();
                           action="notifications.php?tab=email&amp;email_group=account#<?= htmlspecialchars($accountAnchor) ?>"
                           class="notification-template-card notification-channel-card account-email-template-card ui-card"
                           data-account-email-card="<?= htmlspecialchars($accountTemplateKey) ?>"
+                          data-notification-status-card
+                          data-notification-status-group="account-email"
                           data-variable-control="1"
                           data-variable-fields="<?= htmlspecialchars($subjectKey . ',' . $bodyKey) ?>"
                           data-variable-allowed="<?= admin_notification_json_attr($accountEmailAllowedVariables) ?>"
@@ -2389,16 +2409,21 @@ $csrfToken = csrf_token();
                                 <h4><?= htmlspecialchars((string) $accountTemplate['label']) ?></h4>
                                 <p><?= htmlspecialchars((string) $accountTemplate['description']) ?></p>
                                 <div class="notification-template-meta">
-                                    <span class="notif-badge <?= $enabledActive ? 'notif-badge-global' : 'notif-badge-user' ?>">
+                                    <span class="notif-badge <?= $enabledActive ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                                          data-notification-status-badge
+                                          data-active-label="Şablon aktif"
+                                          data-inactive-label="Şablon kapalı"
+                                          data-active-icon="bi-envelope-check"
+                                          data-inactive-icon="bi-envelope-slash">
                                         <i class="bi <?= $enabledActive ? 'bi-envelope-check' : 'bi-envelope-slash' ?>"></i>
-                                        <?= $enabledActive ? 'Şablon aktif' : 'Şablon kapalı' ?>
+                                        <span data-notification-status-label><?= $enabledActive ? 'Şablon aktif' : 'Şablon kapalı' ?></span>
                                     </span>
                                     <?= admin_notification_route_badges('email', 'user') ?>
                                 </div>
                             </div>
                             <div class="notification-channel-switches">
                                 <label class="ui-admin-switch">
-                                    <input type="checkbox" name="<?= htmlspecialchars($enabledKey) ?>" value="1" <?= $enabledActive ? 'checked' : '' ?>>
+                                    <input type="checkbox" name="<?= htmlspecialchars($enabledKey) ?>" value="1" <?= $enabledActive ? 'checked' : '' ?> data-notification-status-toggle>
                                     <span class="ui-admin-switch-label">Aktif</span>
                                 </label>
                             </div>
@@ -2458,15 +2483,15 @@ $csrfToken = csrf_token();
                     <p>Yeni üye kaydı ve güvenlik yoğunluğu gibi yönetici hesaplarına giden e-postaları ayrı ayrı düzenleyin.</p>
                 </div>
                 <div class="notif-toolbar-badges">
-                    <span class="notif-badge notif-badge-global"><?= (int) $adminEmailStats['enabled'] ?> aktif</span>
+                    <span class="notif-badge notif-badge-global" data-notification-status-group="admin-email" data-notification-status-count="active" data-notification-status-count-suffix=" aktif"><?= (int) $adminEmailStats['enabled'] ?> aktif</span>
                     <?= admin_notification_route_badges('email', 'admin') ?>
                 </div>
             </div>
 
             <?= adminRenderStatCards([
                 ['tone' => 'info', 'icon' => 'bi-envelope-paper', 'label' => 'Yönetici Şablonu', 'value' => number_format((int) $adminEmailStats['total'], 0, ',', '.')],
-                ['tone' => 'success', 'icon' => 'bi-envelope-check', 'label' => 'Aktif', 'value' => number_format((int) $adminEmailStats['enabled'], 0, ',', '.')],
-                ['tone' => 'warning', 'icon' => 'bi-envelope-slash', 'label' => 'Kapalı', 'value' => number_format((int) $adminEmailStats['disabled'], 0, ',', '.')],
+                ['tone' => 'success', 'icon' => 'bi-envelope-check', 'label' => 'Aktif', 'value' => number_format((int) $adminEmailStats['enabled'], 0, ',', '.'), 'attrs' => ['data-notification-status-group' => 'admin-email', 'data-notification-status-count' => 'active']],
+                ['tone' => 'warning', 'icon' => 'bi-envelope-slash', 'label' => 'Kapalı', 'value' => number_format((int) $adminEmailStats['disabled'], 0, ',', '.'), 'attrs' => ['data-notification-status-group' => 'admin-email', 'data-notification-status-count' => 'inactive']],
             ], ['class' => 'notification-channel-summary notification-admin-email-summary', 'aria_label' => 'Yönetici e-posta şablon özeti']) ?>
 
             <div class="notification-template-grid notification-channel-grid admin-email-template-list ui-grid">
@@ -2489,6 +2514,8 @@ $csrfToken = csrf_token();
                           action="notifications.php?tab=email&amp;email_group=admin#<?= htmlspecialchars($adminAnchor) ?>"
                           class="notification-template-card notification-channel-card admin-email-template-card ui-card"
                           data-admin-email-card="<?= htmlspecialchars($adminTemplateKey) ?>"
+                          data-notification-status-card
+                          data-notification-status-group="admin-email"
                           data-variable-control="1"
                           data-variable-fields="<?= htmlspecialchars($subjectKey . ',' . $bodyKey . ',' . $actionLabelKey) ?>"
                           data-variable-allowed="<?= admin_notification_json_attr(array_keys($adminEmailAllowedVariables)) ?>"
@@ -2502,16 +2529,21 @@ $csrfToken = csrf_token();
                                 <h4><?= htmlspecialchars((string) $adminTemplate['label']) ?></h4>
                                 <p><?= htmlspecialchars((string) $adminTemplate['description']) ?></p>
                                 <div class="notification-template-meta">
-                                    <span class="notif-badge <?= $enabledActive ? 'notif-badge-global' : 'notif-badge-user' ?>">
+                                    <span class="notif-badge <?= $enabledActive ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                                          data-notification-status-badge
+                                          data-active-label="Şablon aktif"
+                                          data-inactive-label="Şablon kapalı"
+                                          data-active-icon="bi-envelope-check"
+                                          data-inactive-icon="bi-envelope-slash">
                                         <i class="bi <?= $enabledActive ? 'bi-envelope-check' : 'bi-envelope-slash' ?>"></i>
-                                        <?= $enabledActive ? 'Şablon aktif' : 'Şablon kapalı' ?>
+                                        <span data-notification-status-label><?= $enabledActive ? 'Şablon aktif' : 'Şablon kapalı' ?></span>
                                     </span>
                                     <?= admin_notification_route_badges('email', 'admin') ?>
                                 </div>
                             </div>
                             <div class="notification-channel-switches">
                                 <label class="ui-admin-switch">
-                                    <input type="checkbox" name="<?= htmlspecialchars($enabledKey) ?>" value="1" <?= $enabledActive ? 'checked' : '' ?>>
+                                    <input type="checkbox" name="<?= htmlspecialchars($enabledKey) ?>" value="1" <?= $enabledActive ? 'checked' : '' ?> data-notification-status-toggle>
                                     <span class="ui-admin-switch-label">Aktif</span>
                                 </label>
                             </div>
@@ -2582,7 +2614,7 @@ $csrfToken = csrf_token();
 
             <?= adminRenderStatCards([
                 ['tone' => 'info', 'icon' => 'bi-check2-circle', 'label' => 'Aktif Kayıt', 'value' => number_format((int) $emailTemplateStats['active'], 0, ',', '.')],
-                ['tone' => 'success', 'icon' => 'bi-envelope-check', 'label' => 'E-Posta Açık', 'value' => number_format((int) $emailTemplateStats['enabled'], 0, ',', '.')],
+                ['tone' => 'success', 'icon' => 'bi-envelope-check', 'label' => 'E-Posta Açık', 'value' => number_format((int) $emailTemplateStats['enabled'], 0, ',', '.'), 'attrs' => ['data-notification-status-group' => 'event-email', 'data-notification-status-count' => 'active']],
                 ['tone' => 'warning', 'icon' => 'bi-envelope-exclamation', 'label' => 'Metni Eksik', 'value' => number_format((int) $emailTemplateStats['missing'], 0, ',', '.')],
             ], ['class' => 'notification-channel-summary', 'aria_label' => 'E-posta bildirim özeti']) ?>
 
@@ -2605,6 +2637,8 @@ $csrfToken = csrf_token();
                           data-live-template-preview="1"
                           data-channel-preview="email"
                           data-template-key="<?= htmlspecialchars($templateKey) ?>"
+                          data-notification-status-card
+                          data-notification-status-group="event-email"
                           data-variable-control="1"
                           data-variable-fields="email_subject_template,email_body_template,email_link_template,email_preview_template"
                           data-variable-allowed="<?= admin_notification_json_attr(array_keys($allowedTemplateVariables)) ?>"
@@ -2628,6 +2662,15 @@ $csrfToken = csrf_token();
                                         <i class="bi <?= $emailReady ? 'bi-envelope-check' : 'bi-envelope-exclamation' ?>"></i>
                                         <?= $emailReady ? 'E-posta metni hazır' : 'E-posta metni eksik' ?>
                                     </span>
+                                    <span class="notif-badge <?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                                          data-notification-status-badge
+                                          data-active-label="E-posta açık"
+                                          data-inactive-label="E-posta kapalı"
+                                          data-active-icon="bi-envelope-check"
+                                          data-inactive-icon="bi-envelope-slash">
+                                        <i class="bi <?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'bi-envelope-check' : 'bi-envelope-slash' ?>"></i>
+                                        <span data-notification-status-label><?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'E-posta açık' : 'E-posta kapalı' ?></span>
+                                    </span>
                                     <?= admin_notification_route_badges('email', 'user') ?>
                                 </div>
                             </div>
@@ -2639,7 +2682,7 @@ $csrfToken = csrf_token();
                                 </label>
                                 <input type="hidden" name="email_enabled" value="0">
                                 <label class="ui-admin-switch">
-                                    <input type="checkbox" name="email_enabled" value="1" <?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'checked' : '' ?> <?= $emailControlsDisabled ? 'disabled' : '' ?>>
+                                    <input type="checkbox" name="email_enabled" value="1" <?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'checked' : '' ?> <?= $emailControlsDisabled ? 'disabled' : '' ?> data-notification-status-toggle>
                                     <span class="ui-admin-switch-label">E-posta açık</span>
                                 </label>
                             </div>
