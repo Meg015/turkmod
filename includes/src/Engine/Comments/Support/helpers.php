@@ -38,11 +38,88 @@ if (!function_exists('commentApplyTopicCountDelta')) {
         if ($delta > 0) {
             $stmt = $pdo->prepare("UPDATE topics SET comment_count = comment_count + 1 WHERE id = ?");
         } else {
-            $stmt = $pdo->prepare("UPDATE topics SET comment_count = GREATEST(comment_count - 1, 0) WHERE id = ?");
+            $stmt = $pdo->prepare("UPDATE topics SET comment_count = CASE WHEN comment_count > 0 THEN comment_count - 1 ELSE 0 END WHERE id = ?");
         }
         $stmt->execute([$topicId]);
 
         return $delta;
+    }
+}
+
+if (!function_exists('commentSoftDeleteByUser')) {
+    /**
+     * Move every non-deleted comment owned by a user to the deleted-comments view.
+     *
+     * The caller owns the transaction so this can be composed atomically with
+     * account moderation actions such as banning the user.
+     */
+    function commentSoftDeleteByUser(PDO $pdo, int $userId, array $settings = []): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $select = $pdo->prepare(
+            'SELECT id, topic_id, user_id, status, deleted_at
+             FROM comments
+             WHERE user_id = ? AND deleted_at IS NULL
+             ORDER BY id ASC'
+        );
+        $select->execute([$userId]);
+        $comments = $select->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($comments === []) {
+            return 0;
+        }
+
+        $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+        $nowSql = $driver === 'sqlite' ? "datetime('now')" : 'NOW()';
+        $softDelete = $pdo->prepare("UPDATE comments SET deleted_at = {$nowSql} WHERE id = ? AND deleted_at IS NULL");
+        $relockDownloads = (string) ($settings['download_access_relock_on_comment_delete'] ?? '1') === '1';
+        $deleted = 0;
+
+        foreach ($comments as $comment) {
+            $commentId = (int) ($comment['id'] ?? 0);
+            if ($commentId <= 0) {
+                continue;
+            }
+
+            $softDelete->execute([$commentId]);
+            if ($softDelete->rowCount() !== 1) {
+                continue;
+            }
+
+            commentApplyTopicCountDelta($pdo, $comment, (string) ($comment['status'] ?? ''), true);
+
+            if ($relockDownloads && function_exists('topicDownloadRevokeAccessGrant')) {
+                topicDownloadRevokeAccessGrant($pdo, $commentId, 'comment_deleted');
+            }
+
+            if (
+                function_exists('eventsReverseActivityPoints')
+                && (int) ($comment['user_id'] ?? 0) > 0
+                && (string) ($comment['status'] ?? '') === 'approved'
+            ) {
+                $reversal = eventsReverseActivityPoints(
+                    $pdo,
+                    (int) $comment['user_id'],
+                    'comment_created',
+                    'comment',
+                    $commentId,
+                    'comment_deleted'
+                );
+                if (($reversal['skipped'] ?? '') === 'error') {
+                    throw new RuntimeException('Yorum etkinlik puanı geri alınamadı.');
+                }
+            }
+
+            $deleted++;
+        }
+
+        if ($deleted > 0 && function_exists('invalidatePublicContentCache')) {
+            invalidatePublicContentCache();
+        }
+
+        return $deleted;
     }
 }
 
@@ -966,41 +1043,92 @@ if (!function_exists('commentSpamResolveDuplicateWindowMinutes')) {
     }
 }
 
+if (!function_exists('commentSpamDefaultDuplicateScope')) {
+    function commentSpamDefaultDuplicateScope(): string
+    {
+        return 'all_topics';
+    }
+}
+
+if (!function_exists('commentSpamNormalizeDuplicateScope')) {
+    function commentSpamNormalizeDuplicateScope(mixed $scope): string
+    {
+        return (string) $scope === 'same_topic' ? 'same_topic' : commentSpamDefaultDuplicateScope();
+    }
+}
+
+if (!function_exists('commentSpamResolveDuplicateScope')) {
+    function commentSpamResolveDuplicateScope(array $settings): string
+    {
+        return commentSpamNormalizeDuplicateScope(
+            $settings['comment_spam_duplicate_scope'] ?? commentSpamDefaultDuplicateScope()
+        );
+    }
+}
+
 if (!function_exists('commentSpamDuplicateRateKey')) {
-    function commentSpamDuplicateRateKey(string $body, int $topicId, ?string $ipAddress = null): string
+    function commentSpamDuplicateRateKey(
+        string $body,
+        int $topicId,
+        ?string $ipAddress = null,
+        string $scope = 'all_topics'
+    ): string
     {
         $ipAddress = trim((string) ($ipAddress ?? (function_exists('getRealIp') ? getRealIp() : ($_SERVER['REMOTE_ADDR'] ?? ''))));
         $normalizedBody = commentSpamNormalizeComparableBody($body);
+        $scope = commentSpamNormalizeDuplicateScope($scope);
+        $scopeKey = $scope === 'same_topic' ? 'topic:' . max(0, $topicId) : 'all_topics';
 
-        return 'comment_spam_duplicate:' . hash('sha256', $topicId . '|' . $ipAddress . '|' . $normalizedBody);
+        return 'comment_spam_duplicate:' . hash('sha256', $scopeKey . '|' . $ipAddress . '|' . $normalizedBody);
     }
 }
 
 if (!function_exists('commentSpamFindRecentDuplicateComment')) {
-    function commentSpamFindRecentDuplicateComment(PDO $pdo, string $body, int $topicId, int $userId, int $windowMinutes = 5): ?string
+    function commentSpamFindRecentDuplicateComment(
+        PDO $pdo,
+        string $body,
+        int $topicId,
+        int $userId,
+        int $windowMinutes = 5,
+        string $scope = 'all_topics'
+    ): ?string
     {
         $topicId = max(0, $topicId);
         $userId = max(0, $userId);
         $windowMinutes = max(1, $windowMinutes);
+        $scope = commentSpamNormalizeDuplicateScope($scope);
         $normalizedBody = commentSpamNormalizeComparableBody($body);
-        if ($topicId <= 0 || $userId <= 0 || $normalizedBody === '') {
+        if ($userId <= 0 || $normalizedBody === '' || ($scope === 'same_topic' && $topicId <= 0)) {
             return null;
         }
 
         $since = date('Y-m-d H:i:s', time() - ($windowMinutes * 60));
 
         try {
-            $stmt = $pdo->prepare(
-                'SELECT body
-                 FROM comments
-                 WHERE topic_id = ?
-                   AND user_id = ?
-                   AND deleted_at IS NULL
-                   AND created_at >= ?
-                 ORDER BY created_at DESC
-                 LIMIT 50'
-            );
-            $stmt->execute([$topicId, $userId, $since]);
+            if ($scope === 'same_topic') {
+                $stmt = $pdo->prepare(
+                    'SELECT body
+                     FROM comments
+                     WHERE topic_id = ?
+                       AND user_id = ?
+                       AND deleted_at IS NULL
+                       AND created_at >= ?
+                     ORDER BY created_at DESC
+                     LIMIT 50'
+                );
+                $stmt->execute([$topicId, $userId, $since]);
+            } else {
+                $stmt = $pdo->prepare(
+                    'SELECT body
+                     FROM comments
+                     WHERE user_id = ?
+                       AND deleted_at IS NULL
+                       AND created_at >= ?
+                     ORDER BY created_at DESC
+                     LIMIT 50'
+                );
+                $stmt->execute([$userId, $since]);
+            }
 
             foreach (($stmt->fetchAll(PDO::FETCH_COLUMN) ?: []) as $existingBody) {
                 if (commentSpamNormalizeComparableBody((string) $existingBody) === $normalizedBody) {

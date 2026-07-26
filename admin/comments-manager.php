@@ -9,6 +9,7 @@ $pageTitle = 'Yorum Yönetimi';
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 $currentUserId = (int)($_SESSION['_auth_user_id'] ?? 0);
 $canManageCommentUsers = $currentUserId > 0 && userHasPermission($pdo, $currentUserId, 'users.edit');
+$canDeleteComments = $currentUserId > 0 && userHasPermission($pdo, $currentUserId, 'comments.delete');
 $canViewCommentUserDetails = $currentUserId > 0 && ($canManageCommentUsers || userHasPermission($pdo, $currentUserId, 'admin.access'));
 
 // Filters
@@ -701,9 +702,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             flash('error', 'Yasaklama icin gerekce zorunludur.');
                             break;
                         }
-                        usersBan($pdo, $targetUserId, $reason);
-                        adminAuditLogger()->logAction($pdo, 'ban', 'user', $targetUserId, $reason, ['is_banned' => 0], ['is_banned' => 1], true);
-                        flash('success', 'Kullanici banlandi.');
+                        $deleteComments = (string)($_POST['delete_comments'] ?? '') === '1';
+                        if ($deleteComments && !$canDeleteComments) {
+                            flash('error', 'Kullanicinin yorumlarini silmek icin yorum silme yetkisi gereklidir.');
+                            break;
+                        }
+
+                        $deletedComments = 0;
+                        $startedTransaction = !$pdo->inTransaction();
+                        if ($startedTransaction) {
+                            $pdo->beginTransaction();
+                        }
+                        try {
+                            usersBan($pdo, $targetUserId, $reason);
+                            if ($deleteComments) {
+                                $deletedComments = commentSoftDeleteByUser($pdo, $targetUserId, $settings);
+                            }
+                            adminAuditLogger()->logAction($pdo, 'ban', 'user', $targetUserId, $reason, ['is_banned' => 0], [
+                                'is_banned' => 1,
+                                'delete_comments' => $deleteComments,
+                                'comments_deleted' => $deletedComments,
+                            ], true);
+                            if ($startedTransaction) {
+                                $pdo->commit();
+                            }
+                        } catch (Throwable $e) {
+                            if ($startedTransaction && $pdo->inTransaction()) {
+                                $pdo->rollBack();
+                            }
+                            throw $e;
+                        }
+
+                        flash('success', $deleteComments
+                            ? 'Kullanici banlandi ve ' . $deletedComments . ' yorumu Silinenler\'e tasindi.'
+                            : 'Kullanici banlandi.');
                         break;
 
                     case 'unban':
@@ -1372,6 +1404,15 @@ require_once __DIR__ . '/header.php';
                 <div class="ui-admin-mb-md">
                     <label class="ui-admin-form-label">Sebep</label>
                     <textarea name="ban_reason" id="commentBanReason" class="ui-admin-form-control" rows="3" required placeholder="Ban gerekçesi..."></textarea>
+                    <?php if ($canDeleteComments): ?>
+                        <div class="ui-admin-mt-md">
+                            <label class="ui-admin-switch">
+                                <input type="checkbox" name="delete_comments" value="1" data-comment-ban-delete-comments>
+                                <span class="ui-admin-switch-label" data-comment-ban-delete-comments-label>Kullanıcının yorumlarını da sil</span>
+                            </label>
+                            <div class="ui-admin-muted-sm">Yorumlar kalıcı olarak silinmez; Silinenler’e taşınır.</div>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-ban-close>İptal</button>

@@ -111,6 +111,26 @@ function commentBanContextElements(prefix) {
     };
 }
 
+function updateCommentBanDeleteCommentsLabel(data) {
+    var label = document.querySelector('[data-comment-ban-delete-comments-label]');
+    var checkbox = document.querySelector('[data-comment-ban-delete-comments]');
+    if (!label || !checkbox) return;
+
+    var stats = data && data.stats;
+    var hasCount = stats && Object.prototype.hasOwnProperty.call(stats, 'total_comments');
+    var count = hasCount ? Number(stats.total_comments) : NaN;
+    var normalizedCount = Number.isFinite(count) && count >= 0 ? Math.trunc(count) : null;
+    var isEmpty = normalizedCount === 0;
+
+    checkbox.disabled = isEmpty;
+    if (isEmpty) checkbox.checked = false;
+    label.textContent = isEmpty
+        ? 'Silinecek aktif yorum yok'
+        : normalizedCount !== null
+        ? 'Kullanıcının ' + normalizedCount.toLocaleString('tr-TR') + ' yorumunu da sil'
+        : 'Kullanıcının yorumlarını da sil';
+}
+
 function renderCommentBanContext(data, prefix) {
     var elements = commentBanContextElements(prefix);
     var current = elements.current;
@@ -519,7 +539,11 @@ function openCommentBanModal(userId, userName) {
     if (reasonField) reasonField.value = '';
     if (current) current.innerHTML = cmModerationLoading('Ban bilgisi yükleniyor...');
     if (history) history.innerHTML = cmModerationLoading('Geçmiş yükleniyor...');
-    fetchCommentUserDetails(userId).then(renderCommentBanContext).catch(function () {
+    updateCommentBanDeleteCommentsLabel();
+    fetchCommentUserDetails(userId).then(function (data) {
+        renderCommentBanContext(data);
+        updateCommentBanDeleteCommentsLabel(data);
+    }).catch(function () {
         if (current) current.innerHTML = cmModerationEmpty('Ban bilgisi yüklenemedi.');
         if (history) history.innerHTML = cmModerationEmpty('Ban geçmişi yüklenemedi.');
     });
@@ -689,7 +713,11 @@ function initCommentsManagerPage() {
             }
             return;
         }
-        cmConfirm('Bu kullanıcı banlanacak. İşlemi onaylıyor musunuz?', {
+        var deleteComments = form.querySelector('[name="delete_comments"]')?.checked === true;
+        var confirmMessage = deleteComments
+            ? 'Bu kullanıcı banlanacak ve yorumları Silinenler’e taşınacak. İşlemi onaylıyor musunuz?'
+            : 'Bu kullanıcı banlanacak. İşlemi onaylıyor musunuz?';
+        cmConfirm(confirmMessage, {
             title: 'Kullanıcıyı banla',
             ok: 'Banla',
             cancel: 'İptal',

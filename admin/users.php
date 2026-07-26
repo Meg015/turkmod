@@ -48,6 +48,7 @@ if (!in_array($activeTab, $tabs, true)) {
 $canViewUsers = userHasPermission($pdo, $currentUserId, 'users.view');
 $canViewGroups = userHasPermission($pdo, $currentUserId, 'groups.view');
 $canManageLogs = userHasPermission($pdo, $currentUserId, 'logs.manage');
+$canDeleteComments = userHasPermission($pdo, $currentUserId, 'comments.delete');
 
 if ($activeTab === 'users' && !$canViewUsers) {
     if ($canViewGroups) {
@@ -251,6 +252,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'ban':
+                if ($userId <= 0) {
+                    $respond(false, 'Geçersiz kullanıcı.');
+                }
                 if ($userId === $currentUserId) {
                     $respond(false, 'Kendi hesabınızı banlayamazsınız.');
                 }
@@ -258,10 +262,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($reason === '') {
                     $respond(false, 'Yasaklama için gerekçe zorunludur.');
                 }
-                usersBan($pdo, $userId, $reason);
-                adminAuditLogger()->logAction($pdo, 'ban', 'user', $userId, $reason,
-                    ['is_banned' => 0], ['is_banned' => 1], true);
-                $respond(true, 'Kullanıcı banlandı.');
+                $deleteComments = (string)($_POST['delete_comments'] ?? '') === '1';
+                if ($deleteComments && !$canDeleteComments) {
+                    $respond(false, 'Kullanıcının yorumlarını silmek için yorum silme yetkisi gereklidir.');
+                }
+
+                $deletedComments = 0;
+                $startedTransaction = !$pdo->inTransaction();
+                if ($startedTransaction) {
+                    $pdo->beginTransaction();
+                }
+                try {
+                    usersBan($pdo, $userId, $reason);
+                    if ($deleteComments) {
+                        $commentSettings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
+                        $deletedComments = commentSoftDeleteByUser($pdo, $userId, $commentSettings);
+                    }
+                    adminAuditLogger()->logAction($pdo, 'ban', 'user', $userId, $reason,
+                        ['is_banned' => 0], [
+                            'is_banned' => 1,
+                            'delete_comments' => $deleteComments,
+                            'comments_deleted' => $deletedComments,
+                        ], true);
+                    if ($startedTransaction) {
+                        $pdo->commit();
+                    }
+                } catch (Throwable $e) {
+                    if ($startedTransaction && $pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    throw $e;
+                }
+
+                $message = $deleteComments
+                    ? 'Kullanıcı banlandı ve ' . $deletedComments . ' yorumu Silinenler’e taşındı.'
+                    : 'Kullanıcı banlandı.';
+                $respond(true, $message, ['deleted_comments' => $deletedComments]);
                 break;
 
             case 'unban':
@@ -726,8 +762,19 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div class="ui-admin-mb-md">
                         <label class="ui-admin-form-label">Kullanıcıya Görünecek Mesaj</label>
-                        <textarea name="ban_message" class="ui-admin-form-control" rows="2" placeholder="Boş kalırsa sebep metni gösterilir."></textarea>
-                    </div>
+                        <textarea name="ban_message" class="ui-admin-form-control" rows="2" placeholder="Boş kalırsa sebep metni gösterilir."></textarea>
+
+                    </div>
+
+                    <?php if ($canDeleteComments): ?>
+                        <div class="ui-admin-mb-md">
+                            <label class="ui-admin-switch">
+                                <input type="checkbox" name="delete_comments" value="1" data-ban-delete-comments>
+                                <span class="ui-admin-switch-label" data-ban-delete-comments-label>Kullanıcının yorumlarını da sil</span>
+                            </label>
+                            <div class="ui-admin-muted-sm">Yorumlar kalıcı olarak silinmez; Silinenler’e taşınır.</div>
+                        </div>
+                    <?php endif; ?>
                     <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
                         <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-ban-close>İptal</button>
                         <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-slash-circle"></i> Banla</button>

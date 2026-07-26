@@ -342,9 +342,9 @@ $commentGroups = [
             [
                 'title' => 'Tekrarlı Yorum Kontrolü',
                 'icon' => 'bi-copy',
-                'description' => 'Aynı kullanıcının belirlenen dakika içinde aynı yorumu tekrar göndermesini spam sebebi olarak yakalayın.',
+                'description' => 'Aynı kullanıcının belirlenen dakika içinde aynı yorumu aynı konuya veya farklı konulara göndermesini seçtiğiniz kapsamda yakalayın.',
                 'class' => 'comments-spam-section comments-spam-section--duplicate',
-                'keys' => ['comment_spam_duplicate_enabled', 'comment_spam_duplicate_minutes'],
+                'keys' => ['comment_spam_duplicate_enabled', 'comment_spam_duplicate_scope', 'comment_spam_duplicate_minutes'],
             ],
             [
                 'title' => 'Spam Muafiyetleri',

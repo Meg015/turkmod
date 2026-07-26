@@ -647,6 +647,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $duplicateWindowMinutes = function_exists('commentSpamResolveDuplicateWindowMinutes')
             ? commentSpamResolveDuplicateWindowMinutes($settings)
             : max(0, min(1440, (int) ($settings['comment_spam_duplicate_minutes'] ?? 5)));
+        $duplicateScope = function_exists('commentSpamResolveDuplicateScope')
+            ? commentSpamResolveDuplicateScope($settings)
+            : ((string) ($settings['comment_spam_duplicate_scope'] ?? 'all_topics') === 'same_topic' ? 'same_topic' : 'all_topics');
         $duplicateCheckEnabled = (string) ($settings['comment_spam_detection'] ?? '1') === '1'
             && (string) ($settings['comment_spam_duplicate_enabled'] ?? '1') === '1'
             && $duplicateWindowMinutes > 0;
@@ -657,10 +660,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $duplicateMatch = null;
                 if ($isLoggedIn) {
                     $duplicateMatch = function_exists('commentSpamFindRecentDuplicateComment')
-                        ? commentSpamFindRecentDuplicateComment($pdo, $body, $topicId, $userId, $duplicateWindowMinutes)
+                        ? commentSpamFindRecentDuplicateComment($pdo, $body, $topicId, $userId, $duplicateWindowMinutes, $duplicateScope)
                         : null;
                 } elseif (function_exists('commentSpamDuplicateRateKey') && function_exists('checkRateLimit')) {
-                    $guestSpamDuplicateKey = commentSpamDuplicateRateKey($body, $topicId);
+                    $guestSpamDuplicateKey = commentSpamDuplicateRateKey($body, $topicId, null, $duplicateScope);
                     if ($guestSpamDuplicateKey !== '' && !checkRateLimit($guestSpamDuplicateKey, 1, $duplicateWindowMinutes)) {
                         $duplicateMatch = mb_substr(commentSpamNormalizeComparableBody($body), 0, 80, 'UTF-8');
                     }
@@ -671,6 +674,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'code' => 'duplicate_comment',
                         'matched_term' => $duplicateMatch,
                         'window_minutes' => $duplicateWindowMinutes,
+                        'scope' => $duplicateScope,
                     ]);
                 }
             }
@@ -695,6 +699,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'spam_action' => $spamAction,
                     'topic_id' => $topicId,
                     'user_id' => $userId,
+                    'duplicate_scope' => $duplicateScope,
                 ];
 
                 if ($spamAction === 'reject') {

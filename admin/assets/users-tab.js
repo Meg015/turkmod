@@ -100,6 +100,26 @@ function resetBanContext(prefix) {
     if (history) history.innerHTML = moderationContextLoading('Geçmiş yükleniyor...');
 }
 
+function updateBanDeleteCommentsLabel(data) {
+    var label = document.querySelector('[data-ban-delete-comments-label]');
+    var checkbox = document.querySelector('[data-ban-delete-comments]');
+    if (!label || !checkbox) return;
+
+    var stats = data && data.stats;
+    var hasCount = stats && Object.prototype.hasOwnProperty.call(stats, 'total_comments');
+    var count = hasCount ? Number(stats.total_comments) : NaN;
+    var normalizedCount = Number.isFinite(count) && count >= 0 ? Math.trunc(count) : null;
+    var isEmpty = normalizedCount === 0;
+
+    checkbox.disabled = isEmpty;
+    if (isEmpty) checkbox.checked = false;
+    label.textContent = isEmpty
+        ? 'Silinecek aktif yorum yok'
+        : normalizedCount !== null
+        ? 'Kullanıcının ' + normalizedCount.toLocaleString('tr-TR') + ' yorumunu da sil'
+        : 'Kullanıcının yorumlarını da sil';
+}
+
 function resetRestrictionContext() {
     var current = document.querySelector('[data-restriction-current]');
     var history = document.querySelector('[data-restriction-history]');
@@ -229,9 +249,11 @@ function closeRestrictionModal() {
 }
 
 function openBanModal(userId, userName) {
+    document.getElementById('banForm')?.reset();
     document.getElementById('banUserId').value = userId;
     document.getElementById('banUserName').value = userName;
-    loadBanContext(userId);
+    updateBanDeleteCommentsLabel();
+    loadBanContext(userId).then(updateBanDeleteCommentsLabel);
     const modal = document.getElementById('banModal');
     openUsersManagedModal(modal, {
         initialFocus: '#banReason',
@@ -288,7 +310,11 @@ function submitBan(e) {
         adminAlert('Ban sebebi gereklidir.', { title: 'Uyarı', tone: 'warning' });
         return false;
     }
-    adminConfirm('Bu kullanıcı banlanacak. İşlemi onaylıyor musunuz?', {
+    const deleteComments = String(formData.get('delete_comments') || '') === '1';
+    const confirmMessage = deleteComments
+        ? 'Bu kullanıcı banlanacak ve yorumları Silinenler’e taşınacak. İşlemi onaylıyor musunuz?'
+        : 'Bu kullanıcı banlanacak. İşlemi onaylıyor musunuz?';
+    adminConfirm(confirmMessage, {
         title: 'Kullanıcıyı banla',
         ok: 'Banla',
         cancel: 'İptal',
