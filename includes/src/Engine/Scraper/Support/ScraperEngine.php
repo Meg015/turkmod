@@ -159,31 +159,47 @@ class ScraperEngine
         // 1. Replace commas in version-like numbers with dots (e.g. (1,60) -> (1.60), v1,60 -> v1.60)
         $title = preg_replace('/(?<=\d),(?=\d)/u', '.', $title) ?? $title;
 
-        // 2. Remove parenthesized/bracketed 3+ part mod versions like (1.1.1), (3.4.1), v1.1.1, v3.4.1, [1.1.1]
-        $title = preg_replace('/\s*[\(\[\{]?\s*v?\s*\d+\.\d+\.\d+(?:\.\d+)?\s*[\)\]\}]?/iu', '', $title) ?? $title;
+        // Game version pattern matches ETS2/ATS game versions: 1.30 to 1.99, 1.100+, or ranges like 1.50 - 1.53
+        $gameVerPattern = '1\.(?:[3-9]\d|[1-9]\d{2,})(?:\s*[-–—\/]\s*1\.(?:[3-9]\d|[1-9]\d{2,}))?';
 
-        // 3. Remove parenthesized/bracketed 2-part mod versions where major version != 1 (e.g. (3.0), (2.0), [4.0]) or standalone vX.Y where X != 1
-        $title = preg_replace('/\s*[\(\[\{]?\s*v?\s*(?:[02-9]|[1-9]\d+)\.\d+\s*[\)\]\}]?/iu', '', $title) ?? $title;
+        // 2. Remove parenthesized or bracketed mod versions like (1.1.1), (3.0), (3.4.1), [1.1.1]
+        // But do NOT remove if it's a valid game version like (1.60) or (1.50 - 1.53)
+        $title = preg_replace_callback('/\s*[\(\[\{]\s*(v?\s*[^\)\]\}]+)\s*[\)\]\}]/iu', static function (array $match) use ($gameVerPattern): string {
+            $inner = trim($match[1] ?? '');
+            if (preg_match('/^v?\s*' . $gameVerPattern . '$/iu', $inner)) {
+                return $match[0]; // Keep game version inside parens
+            }
+            return ''; // Strip parenthesized mod version
+        }, $title) ?? $title;
+
+        // 3. Remove mod versions prefixed by 'v' or 'v.' like v1.7, v4.0, v1.1.1, v3.4.1 (unless it's game version v1.60)
+        $title = preg_replace_callback('/\s+v\.?\s*(\d+(?:\.\d+)+)\b/iu', static function (array $match) use ($gameVerPattern): string {
+            $num = trim($match[1] ?? '');
+            if (preg_match('/^' . $gameVerPattern . '$/iu', $num)) {
+                return $match[0]; // Keep game version like v1.60
+            }
+            return ''; // Strip mod version like v1.7 or v4.0
+        }, $title) ?? $title;
 
         // Clean up double spaces or trailing punctuation
         $title = preg_replace('/\s{2,}/u', ' ', $title) ?? $title;
         $title = trim($title, " \t\n\r\0\x0B-");
 
-        // 4. Normalize game version (like v1.60, v 1.60, 1.60, (1.60), (1.50 - 1.53)) at the end of title to (1.60)
+        // 4. Normalize game version (like v1.60, 1.60, (1.60), (1.50 - 1.53)) at the end of title to (1.60)
         $hasGameVersion = false;
-        if (preg_match('/\s+v?\s*(1\.\d{1,3}(?:\s*[-–—\/]\s*1\.\d{1,3})?)\s*$/iu', $title, $m)) {
+        if (preg_match('/\s+v?\s*(' . $gameVerPattern . ')\s*$/iu', $title, $m)) {
             $ver = preg_replace('/\s*[-–—\/]\s*/u', ' - ', $m[1]) ?? $m[1];
-            $title = preg_replace('/\s+v?\s*1\.\d{1,3}(?:\s*[-–—\/]\s*1\.\d{1,3})?\s*$/iu', '', $title) ?? $title;
+            $title = preg_replace('/\s+v?\s*' . $gameVerPattern . '\s*$/iu', '', $title) ?? $title;
             $title = trim($title, " \t\n\r\0\x0B-") . ' (' . $ver . ')';
             $hasGameVersion = true;
-        } elseif (preg_match('/\s*\((1\.\d{1,3}(?:\s*[-–—\/]\s*1\.\d{1,3})?)\)\s*$/iu', $title, $m)) {
+        } elseif (preg_match('/\s*\((' . $gameVerPattern . ')\)\s*$/iu', $title, $m)) {
             $ver = preg_replace('/\s*[-–—\/]\s*/u', ' - ', $m[1]) ?? $m[1];
-            $title = preg_replace('/\s*\((1\.\d{1,3}(?:\s*[-–—\/]\s*1\.\d{1,3})?)\)\s*$/iu', '', $title) ?? $title;
+            $title = preg_replace('/\s*\((' . $gameVerPattern . ')\)\s*$/iu', '', $title) ?? $title;
             $title = trim($title, " \t\n\r\0\x0B-") . ' (' . $ver . ')';
             $hasGameVersion = true;
         }
 
-        // 5. If title didn't contain a game version, but a detected game version was found from content, append it as (X.YY)
+        // 5. If title didn't contain a valid game version, but a detected game version was found from content, append it as (X.YY)
         $detectedVersion = trim($detectedVersion);
         if (!$hasGameVersion && $detectedVersion !== '') {
             $detectedVersion = str_replace(',', '.', $detectedVersion);
