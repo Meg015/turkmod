@@ -126,25 +126,38 @@ function normalizeDiscoveredTopic(item, index) {
             title: 'Link ' + (index + 1),
             image: '',
             alreadyImported: false,
+            already_imported: false,
             importedStatus: '',
+            imported_status: '',
             importedTopicId: 0,
+            imported_topic_id: 0,
         };
     }
+
+    const alreadyImp = !!(item?.already_imported || item?.alreadyImported);
+    const impStatus = item?.imported_status || item?.importedStatus || '';
+    const impTopicId = parseInt(item?.imported_topic_id || item?.importedTopicId || '0', 10) || 0;
 
     return {
         url: item?.url || '',
         title: item?.title || ('Link ' + (index + 1)),
         image: item?.image || '',
-        alreadyImported: !!item?.already_imported,
-        importedStatus: item?.imported_status || '',
-        importedTopicId: parseInt(item?.imported_topic_id || '0', 10) || 0,
+        alreadyImported: alreadyImp,
+        already_imported: alreadyImp,
+        importedStatus: impStatus,
+        imported_status: impStatus,
+        importedTopicId: impTopicId,
+        imported_topic_id: impTopicId,
     };
 }
 
 function renderImportedWarning(topic) {
     if (!topic.alreadyImported) return '';
-    const status = topic.importedStatus ? ` (${escapeHtml(topic.importedStatus)})` : '';
-    return `<div class="bulk-imported-info" data-imported="1"><i class="bi bi-info-circle"></i> Daha önce çekildi${status}</div>`;
+    const rawStatus = (topic.importedStatus || '').toLowerCase();
+    const statusText = rawStatus === 'published'
+        ? ' (Yayında)'
+        : (rawStatus === 'draft' ? ' (Taslak)' : (topic.importedStatus ? ` (${escapeHtml(topic.importedStatus)})` : ''));
+    return `<div class="bulk-imported-info" data-imported="1"><i class="bi bi-exclamation-triangle-fill"></i> Daha önce çekildi${statusText}</div>`;
 }
 
 function getScraperImageUrl(src = '') {
@@ -421,9 +434,7 @@ function renderBulkTopicCard(item, index, siteId, localCatId, mappingId) {
     const jsUrl = escapeJsSingle(topic.url);
     const safeMappingId = parseInt(mappingId, 10) || 0;
     const importedClass = topic.alreadyImported ? ' is-imported' : '';
-    const importedInfo = topic.alreadyImported
-        ? `<div class="bulk-imported-info"><i class="bi bi-info-circle"></i> Daha önce çekildi${topic.importedStatus ? ` (${escapeHtml(topic.importedStatus)})` : ''}</div>`
-        : '';
+    const importedInfo = renderImportedWarning(topic);
     const badge = item && typeof item === 'object' && item.page
         ? `Sayfa ${parseInt(item.page, 10) || item.page}`
         : `#${index + 1}`;
@@ -432,7 +443,8 @@ function renderBulkTopicCard(item, index, siteId, localCatId, mappingId) {
     const thumbHtml = safeImage
         ? `<img src="${safeImage}" alt="${safeTitle}" width="300" height="150" loading="${imageLoading}" decoding="async"${imagePriority} referrerpolicy="no-referrer" data-remove-on-error>`
         : '<div class="mapping-topic-thumb-placeholder"><i class="bi bi-image"></i></div>';
-    const checked = typeof botBulkDefaultSelected === 'undefined' || botBulkDefaultSelected === '1' ? 'checked' : '';
+    const isChecked = typeof botBulkDefaultSelected === 'undefined' || botBulkDefaultSelected === '1';
+    const checked = isChecked ? 'checked' : '';
 
     return `
         <article class="mapping-topic-card${importedClass}">
@@ -917,13 +929,15 @@ function discoverUrls() {
                     : `<div class="scraper-url-thumb"><i class="bi bi-image"></i></div>`;
                 const safeUrl = escapeHtml(topic.url);
                 const importedInfo = renderImportedWarning(topic);
+                const isChecked = typeof botBulkDefaultSelected === 'undefined' || botBulkDefaultSelected === '1';
+                const checkedAttr = isChecked ? 'checked' : '';
                 return `
                 <label class="scraper-url-item${topic.alreadyImported ? ' is-imported' : ''}">
                     ${bgHtml}
                     <div class="scraper-url-body">
                         ${importedInfo}
                         <div class="scraper-url-checkrow">
-                            <input type="checkbox" name="urls[]" value="${safeUrl}" data-imported="${topic.alreadyImported ? '1' : '0'}" checked>
+                            <input type="checkbox" name="urls[]" value="${safeUrl}" data-imported="${topic.alreadyImported ? '1' : '0'}" ${checkedAttr}>
                             <div class="scraper-url-copy">
                                 <strong class="scraper-url-title" title="${safeTitle}">${safeTitle}</strong>
                                 <span class="scraper-url-link" title="${safeUrl}">${escapeHtml(getDisplayUrl(topic.url))}</span>

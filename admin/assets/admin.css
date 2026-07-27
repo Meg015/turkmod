@@ -721,6 +721,9 @@ body.is-admin-sidebar-open { overflow: hidden; }
 .scraper-url-copy { flex: 1; min-width: 0; }
 .scraper-url-title { display: -webkit-box; margin-bottom: .25rem; color: var(--ui-admin-text); font-size: .9rem; line-height: 1.3; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .scraper-url-link { display: block; color: var(--ui-admin-text-secondary); font-size: .75rem; word-break: break-all; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scraper-url-item.is-imported { border: 2px solid var(--ui-admin-danger, #dc2626) !important; background: rgba(220, 38, 38, 0.04) !important; box-shadow: 0 4px 16px rgba(220, 38, 38, 0.12) !important; }
+.scraper-url-item.is-imported .scraper-url-title { color: var(--ui-admin-danger, #dc2626) !important; }
+.bulk-imported-info { display: inline-flex; align-items: center; gap: .35rem; margin-bottom: .5rem; padding: .3rem .6rem; color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; border-radius: .35rem; font-size: .78rem; font-weight: 700; }
 .scraper-preview-modal { position: fixed; inset: 0; padding: 16px; background: rgba(15,23,42,.66); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 13000; display: none; align-items: center; justify-content: center; overflow-y: auto; animation: crmFadeIn .25s ease; }
 .scraper-preview-modal.is-open,
 .scraper-preview-modal.ui-admin-modal-open { display: flex !important; opacity: 1 !important; }

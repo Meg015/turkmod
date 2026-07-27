@@ -262,38 +262,49 @@ function markScraperImportedTopics(?PDO $pdo, int $siteId, array $topics): array
 {
     if (!$pdo || empty($topics)) return $topics;
 
-    $urls = [];
+    $queryUrls = [];
     foreach ($topics as $topic) {
         $url = is_array($topic) ? (string)($topic['url'] ?? '') : (string)$topic;
-        if ($url !== '') $urls[] = $url;
+        if ($url !== '') {
+            $queryUrls[] = $url;
+            $trimmed = rtrim($url, '/');
+            $queryUrls[] = $trimmed;
+            $queryUrls[] = $trimmed . '/';
+        }
     }
-    $urls = array_values(array_unique($urls));
-    if (empty($urls)) return $topics;
+    $queryUrls = array_values(array_unique($queryUrls));
+    if (empty($queryUrls)) return $topics;
 
     try {
-        $placeholders = implode(',', array_fill(0, count($urls), '?'));
-        // INNER JOIN topics kaldırıldı - sadece bot_imports tablosu yeterli
+        $placeholders = implode(',', array_fill(0, count($queryUrls), '?'));
         $stmt = $pdo->prepare("SELECT i.source_url, i.status, i.topic_id
                                FROM bot_imports i
                                WHERE i.bot_site_id = ? AND i.source_url IN ({$placeholders})");
-        $stmt->execute(array_merge([$siteId], $urls));
+        $stmt->execute(array_merge([$siteId], $queryUrls));
         $seen = [];
         foreach ($stmt->fetchAll() as $row) {
-            $seen[(string)$row['source_url']] = [
+            $sourceUrl = (string)($row['source_url'] ?? '');
+            $info = [
                 'status' => (string)($row['status'] ?? ''),
                 'topic_id' => (int)($row['topic_id'] ?? 0),
             ];
+            $seen[$sourceUrl] = $info;
+            $seen[rtrim($sourceUrl, '/')] = $info;
+            $seen[rtrim($sourceUrl, '/') . '/'] = $info;
         }
 
         foreach ($topics as $index => $topic) {
             $url = is_array($topic) ? (string)($topic['url'] ?? '') : (string)$topic;
-            if ($url === '' || !isset($seen[$url])) continue;
+            if ($url === '') continue;
+            $matched = $seen[$url] ?? $seen[rtrim($url, '/')] ?? $seen[rtrim($url, '/') . '/'] ?? null;
+            if (!$matched) continue;
+
             if (!is_array($topics[$index])) {
                 $topics[$index] = ['url' => $url, 'title' => 'Link ' . ($index + 1), 'image' => ''];
             }
             $topics[$index]['already_imported'] = true;
-            $topics[$index]['imported_status'] = $seen[$url]['status'];
-            $topics[$index]['imported_topic_id'] = $seen[$url]['topic_id'];
+            $topics[$index]['imported_status'] = $matched['status'];
+            $topics[$index]['imported_topic_id'] = $matched['topic_id'];
         }
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
 
