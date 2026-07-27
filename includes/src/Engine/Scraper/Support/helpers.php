@@ -744,14 +744,20 @@ function getScraperImportSiteDefaults(?PDO $pdo, array $import): array
 function createScraperImport(?PDO $pdo, array $data): int
 {
     if (!$pdo) return 0;
+
+    $sourceTitle = isset($data['source_title']) && is_string($data['source_title']) ? (preg_replace('/(?<=\d),(?=\d)/u', '.', $data['source_title']) ?? $data['source_title']) : ($data['source_title'] ?? null);
+    $translatedTitle = isset($data['translated_title']) && is_string($data['translated_title']) ? (preg_replace('/(?<=\d),(?=\d)/u', '.', $data['translated_title']) ?? $data['translated_title']) : ($data['translated_title'] ?? null);
+
+    $authorTopic = isset($data['author_topic']) && is_string($data['author_topic']) ? mb_substr(trim($data['author_topic']), 0, 1000) : ($data['author_topic'] ?? null);
+
     $stmt = $pdo->prepare("INSERT INTO bot_imports (bot_job_id, bot_site_id, source_url, source_title, translated_title, author_topic, topic_version, source_content, translated_content, source_images, downloaded_images, source_download_links, status, images_count, error_message, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())");
     $stmt->execute([
         $data['bot_job_id'] ?? null,
         $data['bot_site_id'] ?? 0,
         $data['source_url'] ?? '',
-        $data['source_title'] ?? null,
-        $data['translated_title'] ?? null,
-        $data['author_topic'] ?? null,
+        $sourceTitle,
+        $translatedTitle,
+        $authorTopic,
         $data['topic_version'] ?? null,
         $data['source_content'] ?? null,
         $data['translated_content'] ?? null,
@@ -773,8 +779,14 @@ function updateScraperImport(?PDO $pdo, int $id, array $data): bool
     $allowed = ['bot_job_id', 'source_title', 'translated_title', 'author_topic', 'topic_version', 'source_content', 'translated_content', 'source_images', 'downloaded_images', 'source_download_links', 'status', 'images_count', 'error_message'];
     foreach ($allowed as $key) {
         if (array_key_exists($key, $data)) {
+            $val = $data[$key];
+            if (($key === 'source_title' || $key === 'translated_title') && is_string($val)) {
+                $val = preg_replace('/(?<=\d),(?=\d)/u', '.', $val) ?? $val;
+            } elseif ($key === 'author_topic' && is_string($val)) {
+                $val = mb_substr(trim($val), 0, 1000);
+            }
             $sets[] = "{$key} = ?";
-            $params[] = $data[$key];
+            $params[] = $val;
         }
     }
     if (empty($sets)) return true;
@@ -1066,6 +1078,7 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
     }
 
     $title = $import['translated_title'] ?: $import['source_title'] ?: ('İçerik #' . $importId);
+    $title = preg_replace('/(?<=\d),(?=\d)/u', '.', $title) ?? $title;
     $slug = generateUniqueSlug($pdo, $title, 'topics');
     $downloadLinks = $import['source_download_links'] ?? '';
     $botSettings = getScraperBotSettings($pdo);

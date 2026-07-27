@@ -148,8 +148,8 @@ function notification_preference_effect_text(array $item, string $channel, bool 
     }
 
     return $enabled
-        ? 'Acik: ' . $normalizedTitle . ' bildirim merkezinde gorunur.'
-        : 'Kapali: ' . $normalizedTitle . ' bildirim merkezinde gorunmez.';
+        ? 'Acik: ' . $normalizedTitle . ' icin yeni bildirim alirsiniz.'
+        : 'Kapali: ' . $normalizedTitle . ' icin yeni bildirim almazsiniz.';
 }
 
 function notification_enabled_types(array $settings): array

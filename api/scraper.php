@@ -175,8 +175,25 @@ function scraperApplyTitlePrefix(string $title, string $prefix): string
     return trim($prefix . ' ' . $title);
 }
 
+function scraperNormalizeTitleVersions(string $title): string
+{
+    $title = trim($title);
+    if ($title === '') {
+        return $title;
+    }
+
+    return preg_replace('/(?<=\d),(?=\d)/u', '.', $title) ?? $title;
+}
+
 function scraperApplyTitlePrefixToResult(array $result, string $prefix): array
 {
+    if (isset($result['title']) && is_string($result['title'])) {
+        $result['title'] = scraperNormalizeTitleVersions($result['title']);
+    }
+    if (isset($result['translated_title']) && is_string($result['translated_title'])) {
+        $result['translated_title'] = scraperNormalizeTitleVersions($result['translated_title']);
+    }
+
     $prefix = trim($prefix);
     if ($prefix === '') {
         return $result;
@@ -889,6 +906,10 @@ try {
             $import = getScraperImport($pdo, $id);
             if ($import) {
                 $import['site_defaults'] = getScraperImportSiteDefaults($pdo, $import);
+                $import['detection_meta'] = [
+                    'author_topic' => !empty($import['author_topic']),
+                    'topic_version' => !empty($import['topic_version']),
+                ];
             }
             scraperApiRespond(['success' => (bool)$import, 'import' => $import]);
             break;

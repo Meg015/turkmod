@@ -536,8 +536,8 @@ require_once __DIR__ . '/header.php';
                                 'class' => 'minimal-badge badge-' . $statusKey,
                             ]) ?>
                         </td>
-                        <td class="ui-admin-table-cell-muted">
-                            <?= $displayDate ? htmlspecialchars(date('d.m.Y', strtotime((string) $displayDate))) : '-' ?>
+                        <td class="ui-admin-table-cell-muted text-nowrap" style="white-space: nowrap;">
+                            <?= $displayDate ? htmlspecialchars(date('d.m.Y H:i', strtotime((string) $displayDate))) : '-' ?>
                         </td>
                         <td class="ui-admin-table-cell-actions">
                             <div class="action-btns">

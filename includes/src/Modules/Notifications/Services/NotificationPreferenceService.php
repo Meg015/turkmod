@@ -461,32 +461,8 @@ final class NotificationPreferenceService
         $params = [];
         $clauses = [];
 
-        if ($respectUserPreferences) {
-            $enabledTypes = $this->enabledTypesForUser($settings);
-            if ($enabledTypes === []) {
-                $clauses[] = '1 = 0';
-            } else {
-                $clauses[] = "{$alias}.type IN (" . implode(',', array_fill(0, count($enabledTypes), '?')) . ')';
-                $params = array_merge($params, $enabledTypes);
-            }
-        }
-
         if ($filterEvents) {
             $clauses[] = "({$alias}.delivery_channels IS NULL OR {$alias}.delivery_channels = '' OR {$alias}.delivery_channels LIKE '%\"in_app\"%')";
-
-            if ($respectUserPreferences) {
-                if (!$this->groupEnabled($settings, 'notif_group_events')) {
-                    $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '')";
-                } else {
-                    $enabledEvents = $this->enabledEventKeysForUser($settings);
-                    if ($enabledEvents === []) {
-                        $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '')";
-                    } else {
-                        $clauses[] = "({$alias}.event_key IS NULL OR {$alias}.event_key = '' OR {$alias}.event_key IN (" . implode(',', array_fill(0, count($enabledEvents), '?')) . '))';
-                        $params = array_merge($params, $enabledEvents);
-                    }
-                }
-            }
         }
 
         return [

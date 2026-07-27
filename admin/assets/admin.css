@@ -10080,12 +10080,14 @@ input[type="checkbox"]:checked ~ .cover-action-bar-content .state-restore { disp
 .topics-table th,
 .topics-table td { box-sizing: border-box; text-align: left; vertical-align: middle; }
 .topics-table .topics-col-check { width: 52px; }
-.topics-table .topics-col-topic { width: 34%; }
-.topics-table .topics-col-category { width: 16%; }
-.topics-table .topics-col-author { width: 18%; }
+.topics-table .topics-col-topic { width: 32%; }
+.topics-table .topics-col-category { width: 15%; }
+.topics-table .topics-col-author { width: 17%; }
 .topics-table .topics-col-status { width: 112px; }
-.topics-table .topics-col-date { width: 112px; }
+.topics-table .topics-col-date { width: 150px; white-space: nowrap; }
 .topics-table .topics-col-actions { width: 248px; }
+.topics-table th:nth-child(6),
+.topics-table td:nth-child(6) { white-space: nowrap; }
 .topics-table th:nth-child(1),
 .topics-table td:nth-child(1) { text-align: center; }
 .topics-table th:nth-child(7),

@@ -69,7 +69,7 @@ return [
             'type' => 'bool',
             'default' => '1',
             'section' => 'notifications',
-            'tooltip' => 'Kullanıcıların kapattığı bildirim tipleri kullanıcı sayfası ve üst menü bildirim API çıktısında gizlenir.',
+            'tooltip' => 'Kullanıcıların kapattığı bildirim tipleri için yeni bildirim gönderilmez; geçmiş bildirimler bildirim merkezinde görünmeye devam eder.',
         ],
         'notif_require_https_links' => [
             'label' => 'Harici Linklerde HTTPS Zorunlu',

@@ -57,7 +57,7 @@ function admin_notification_settings_schema(): array
                 ['key' => 'notif_center_enabled', 'type' => 'bool', 'label' => 'Bildirim Merkezi Aktif', 'help' => 'Kapatılırsa yeni bildirim gönderimi engellenir ve kullanıcı üst menü bildirimleri sessize alınır.', 'default' => '1'],
                 ['key' => 'notif_allow_global_broadcasts', 'type' => 'bool', 'label' => 'Genel Yayınlara İzin Ver', 'help' => 'Hedef kullanıcı boş bırakılarak herkese bildirim gönderilmesine izin verir.', 'default' => '1'],
                 ['key' => 'notif_allow_direct_messages', 'type' => 'bool', 'label' => 'Kullanıcıya Özel Bildirimlere İzin Ver', 'help' => 'Belirli kullanıcı ID hedefli bildirim gönderimini açar veya kapatır.', 'default' => '1'],
-                ['key' => 'notif_respect_user_preferences', 'type' => 'bool', 'label' => 'Kullanıcı Tercihlerini Uygula', 'help' => 'Kullanıcının kapattığı bildirim tipleri üst menü ve kullanıcı bildirim sayfasında gizlenir.', 'default' => '1'],
+                ['key' => 'notif_respect_user_preferences', 'type' => 'bool', 'label' => 'Kullanıcı Tercihlerini Uygula', 'help' => 'Kullanıcının kapattığı bildirim tipleri için yeni bildirim gönderilmez; geçmiş bildirimler gösterilmeye devam eder.', 'default' => '1'],
                 ['key' => 'notif_require_https_links', 'type' => 'bool', 'label' => 'Harici Linklerde HTTPS Zorunlu', 'help' => 'http:// ile başlayan harici bağlantıların gönderilmesini engeller. Site içi /link formatı serbesttir.', 'default' => '0'],
             ],
         ],

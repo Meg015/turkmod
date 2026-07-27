@@ -54,8 +54,8 @@ try {
     // $deletedComments = $stmt->rowCount();
     // echo "Deleted comments: {$deletedComments}\n";
 
-    // 2. Silineli 30 günü geçmiş bildirimleri temizle (isteğe bağlı optimizasyon)
-    $stmt = $pdo->prepare("DELETE FROM notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY) AND is_read = 1");
+    // 2. Silineli 30 günü geçmiş okunmuş bildirimleri temizle
+    $stmt = $pdo->prepare("DELETE FROM notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY) AND EXISTS (SELECT 1 FROM notification_reads nr WHERE nr.notification_id = notifications.id)");
     $stmt->execute();
     $deletedReadNotifications = $stmt->rowCount();
     echo "Deleted old read notifications: {$deletedReadNotifications}\n";

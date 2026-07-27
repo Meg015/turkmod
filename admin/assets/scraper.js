@@ -1175,13 +1175,20 @@ function getPreviewContentValue(imp = {}) {
 function populatePreviewModal(imp) {
     const modal = document.getElementById('previewModal');
 
+    const authorVal = imp.author_topic || imp.author || imp.detected_author || imp.author_name || '';
+    const versionVal = imp.topic_version || imp.version || imp.detected_version || '';
+
     // Set editable fields
     document.getElementById('prevTitleEdit').value = imp.translated_title || imp.source_title || imp.title || '';
-    document.getElementById('prevAuthorTopicEdit').value = imp.author_topic || '';
-    document.getElementById('prevTopicVersionEdit').value = imp.topic_version || '';
+    document.getElementById('prevAuthorTopicEdit').value = authorVal;
+    document.getElementById('prevTopicVersionEdit').value = versionVal;
+
     const detectionMeta = imp.detection_meta || {};
-    const authorDetectedHtml = renderDetectionBadge(!!detectionMeta.author_topic, 'Mod yapımcısı');
-    const versionDetectedHtml = renderDetectionBadge(!!detectionMeta.topic_version, 'Oyun sürümü');
+    const isAuthorDetected = typeof detectionMeta.author_topic !== 'undefined' ? !!detectionMeta.author_topic : !!authorVal;
+    const isVersionDetected = typeof detectionMeta.topic_version !== 'undefined' ? !!detectionMeta.topic_version : !!versionVal;
+
+    const authorDetectedHtml = renderDetectionBadge(isAuthorDetected, 'Mod yapımcısı');
+    const versionDetectedHtml = renderDetectionBadge(isVersionDetected, 'Oyun sürümü');
     const authorInput = document.getElementById('prevAuthorTopicEdit');
     const versionInput = document.getElementById('prevTopicVersionEdit');
     if (authorInput && !document.getElementById('prevAuthorTopicDetected')) {

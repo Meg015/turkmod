@@ -149,14 +149,51 @@ class ScraperEngine
         return false;
     }
 
-    private function normalizeModsClubTitleVersion(string $title): string
+    private function normalizeModsClubTitleVersion(string $title, string $detectedVersion = ''): string
     {
         $title = trim($title);
         if ($title === '') {
             return $title;
         }
 
-        return trim(preg_replace('/\s+v\s*(\d+(?:\.\d+){1,3})\s*$/iu', ' ($1)', $title) ?? $title);
+        // 1. Replace commas in version-like numbers with dots (e.g. (1,60) -> (1.60), v1,60 -> v1.60)
+        $title = preg_replace('/(?<=\d),(?=\d)/u', '.', $title) ?? $title;
+
+        // 2. Remove parenthesized/bracketed 3+ part mod versions like (1.1.1), (3.4.1), v1.1.1, v3.4.1, [1.1.1]
+        $title = preg_replace('/\s*[\(\[\{]?\s*v?\s*\d+\.\d+\.\d+(?:\.\d+)?\s*[\)\]\}]?/iu', '', $title) ?? $title;
+
+        // 3. Remove parenthesized/bracketed 2-part mod versions where major version != 1 (e.g. (3.0), (2.0), [4.0]) or standalone vX.Y where X != 1
+        $title = preg_replace('/\s*[\(\[\{]?\s*v?\s*(?:[02-9]|[1-9]\d+)\.\d+\s*[\)\]\}]?/iu', '', $title) ?? $title;
+
+        // Clean up double spaces or trailing punctuation
+        $title = preg_replace('/\s{2,}/u', ' ', $title) ?? $title;
+        $title = trim($title, " \t\n\r\0\x0B-");
+
+        // 4. Normalize game version (like v1.60, v 1.60, 1.60, (1.60), (1.50 - 1.53)) at the end of title to (1.60)
+        $hasGameVersion = false;
+        if (preg_match('/\s+v?\s*(1\.\d{1,3}(?:\s*[-–—\/]\s*1\.\d{1,3})?)\s*$/iu', $title, $m)) {
+            $ver = preg_replace('/\s*[-–—\/]\s*/u', ' - ', $m[1]) ?? $m[1];
+            $title = preg_replace('/\s+v?\s*1\.\d{1,3}(?:\s*[-–—\/]\s*1\.\d{1,3})?\s*$/iu', '', $title) ?? $title;
+            $title = trim($title, " \t\n\r\0\x0B-") . ' (' . $ver . ')';
+            $hasGameVersion = true;
+        } elseif (preg_match('/\s*\((1\.\d{1,3}(?:\s*[-–—\/]\s*1\.\d{1,3})?)\)\s*$/iu', $title, $m)) {
+            $ver = preg_replace('/\s*[-–—\/]\s*/u', ' - ', $m[1]) ?? $m[1];
+            $title = preg_replace('/\s*\((1\.\d{1,3}(?:\s*[-–—\/]\s*1\.\d{1,3})?)\)\s*$/iu', '', $title) ?? $title;
+            $title = trim($title, " \t\n\r\0\x0B-") . ' (' . $ver . ')';
+            $hasGameVersion = true;
+        }
+
+        // 5. If title didn't contain a game version, but a detected game version was found from content, append it as (X.YY)
+        $detectedVersion = trim($detectedVersion);
+        if (!$hasGameVersion && $detectedVersion !== '') {
+            $detectedVersion = str_replace(',', '.', $detectedVersion);
+            if (!str_starts_with($detectedVersion, '(')) {
+                $detectedVersion = '(' . $detectedVersion . ')';
+            }
+            $title .= ' ' . $detectedVersion;
+        }
+
+        return trim($title);
     }
 
     private function steamCommunityHeaders(string $url): array
@@ -909,7 +946,7 @@ class ScraperEngine
         $versionDetection = $this->detectVersionFromContent($parsed['content'] ?? '', $settings, $botSettings);
         $result['title'] = $this->applySiteTextReplacements($parsed['title'], $replacementRules, 'title');
         if ($this->isModsClubSource($url, $baseUrl)) {
-            $result['title'] = $this->normalizeModsClubTitleVersion($result['title']);
+            $result['title'] = $this->normalizeModsClubTitleVersion($result['title'], $versionDetection);
         }
         $content = $this->applySiteTextReplacements($parsed['content'], $replacementRules, 'content');
         $result['content'] = $this->applyContentAlignment($content, $contentAlign);
@@ -975,6 +1012,12 @@ class ScraperEngine
         if ($doTranslate && trim((string)$this->deeplApiKey) !== '') {
             if ($translateTitle && $result['title']) {
                 $result['translated_title'] = $this->translateText($result['title'], $srcLang, $tgtLang) ?? '';
+                if ($result['translated_title'] !== '') {
+                    if ($this->isModsClubSource($url, $baseUrl)) {
+                        $result['translated_title'] = $this->normalizeModsClubTitleVersion($result['translated_title'], $versionDetection);
+                    }
+                    $result['translated_title'] = preg_replace('/(?<=\d),(?=\d)/u', '.', $result['translated_title']) ?? $result['translated_title'];
+                }
             }
             if ($translateContent && $result['content']) {
                 $translatedContent = $this->translateContentPreservingSpacing($result['content'], $srcLang, $tgtLang);
@@ -983,6 +1026,13 @@ class ScraperEngine
             if ($translateDownloadNames && $result['download_links']) {
                 $result['download_links'] = $this->translateDownloadLinkNames($result['download_links'], $srcLang, $tgtLang);
             }
+        }
+
+        if ($result['title'] !== '') {
+            $result['title'] = preg_replace('/(?<=\d),(?=\d)/u', '.', (string)$result['title']) ?? $result['title'];
+        }
+        if (!empty($result['translated_title'])) {
+            $result['translated_title'] = preg_replace('/(?<=\d),(?=\d)/u', '.', (string)$result['translated_title']) ?? $result['translated_title'];
         }
 
         $result['translation_errors'] = $this->getTranslationErrors();
@@ -1822,7 +1872,10 @@ class ScraperEngine
 
     private function getAuthorDetectionLabels(array $settings, array $botSettings): array
     {
-        $labelsRaw = (string)($settings['detect_author_labels'] ?? ($botSettings['bot_detect_author_labels'] ?? 'author,authors,credit,credits'));
+        $defaultLabels = 'author,authors,yazar,yazarlar,credit,credits,emeği geçenler,by,created by,mod by,modder,modders,developer,developers,geliştirici,geliştiriciler,yapımcı,yapımcılar,proje,proje sahibi,yayınlayan,yayımcı,model,re-model,convert,skin,sound,sounds';
+        $labelsRaw = (string)($settings['detect_author_labels'] ?? ($botSettings['bot_detect_author_labels'] ?? ''));
+        $combinedRaw = $defaultLabels . ',' . $labelsRaw;
+
         $labels = array_values(array_filter(array_map(static function ($label): string {
             $normalized = trim((string)$label);
             if ($normalized === '') {
@@ -1834,7 +1887,7 @@ class ScraperEngine
             }
 
             return strtolower($normalized);
-        }, preg_split('/[,\n]+/', $labelsRaw) ?: []), static fn(string $label): bool => $label !== ''));
+        }, preg_split('/[,\n]+/', $combinedRaw) ?: []), static fn(string $label): bool => $label !== ''));
 
         return array_values(array_unique($labels));
     }
@@ -1857,7 +1910,7 @@ class ScraperEngine
         }
 
         $escapedLabels = array_map(static fn(string $label): string => preg_quote($label, '/'), $labels);
-        $linePattern = '/^\s*(?:[-*]+\s*)?(?:' . implode('|', $escapedLabels) . ')\s*[:\-–—]\s*(.{1,180})\s*$/imu';
+        $linePattern = '/^(?:[^\w\s]+\s*)?(?:' . implode('|', $escapedLabels) . ')\s*[:\-–—=]?\s*(.{0,180})\s*$/imu';
         $cleaned = preg_replace('/\x{00a0}/u', ' ', $content) ?? $content;
 
         if (class_exists('DOMDocument')) {
@@ -1906,7 +1959,7 @@ class ScraperEngine
         $tagPattern = '(?:p|div|li|span|strong|b)';
         $labelPattern = '(?:' . implode('|', $escapedLabels) . ')';
         $cleaned = preg_replace(
-            '~<(' . $tagPattern . ')(?:\s[^>]*)?>\s*(?:[-*]+\s*)?' . $labelPattern . '\s*[:\-–—]\s*[^<]{1,180}\s*</\1>~iu',
+            '~<(' . $tagPattern . ')(?:\s[^>]*)?>\s*(?:[^\w\s]+\s*)?' . $labelPattern . '\s*[:\-–—=]?\s*[^<]{0,180}\s*</\1>~iu',
             '',
             $cleaned
         ) ?? $cleaned;
@@ -1932,14 +1985,120 @@ class ScraperEngine
             return '';
         }
 
-        $escapedLabels = array_map(static fn(string $label): string => preg_quote($label, '/'), $labels);
-        $pattern = '/^\s*(?:[-*]+\s*)?(?:' . implode('|', $escapedLabels) . ')\s*[:\-–—]\s*(.{2,160})\s*$/imu';
-        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                $candidate = $this->sanitizeDetectedAuthor($match[1] ?? '');
-                if ($candidate !== '') {
-                    return $candidate;
+        $lines = array_values(array_filter(array_map('trim', explode("\n", $text)), static fn(string $l): bool => $l !== ''));
+        $totalLines = count($lines);
+
+        $headerRegex = '/^(?:[^\w\s]+\s*)?(?:authors?|credits?|yapımcılar?|emeği geçenler|geliştiriciler?|modders?)\s*[:\-–—=]?\s*$/iu';
+        $subCreditRoleRegex = '/^(?:[^\w\s]+\s*)?(?:project owner|proje sahibi|proje|model|3d models?|other 3d models?|edit|convert|edit,?\s*convert|textures?|skins?|logos?|skin,?\s*logo|sounds?|fmod|ao|yapımcı|yazar|geliştirici|yayınlayan)\s*[:\-–—=]\s*(.+)$/iu';
+        $sectionHeaderRegex = '/^(?:download|downloads|download links|indir|download link|installation|install|kurulum|features|özellikler|compatibility|uyumluluk|version|sürüm|changelog|screenshots|görseller|description|açıklama)$/iu';
+
+        // 1. Multi-line credit block under "Authors:" / "Credits:" / "Yapımcılar:"
+        for ($i = 0; $i < $totalLines; $i++) {
+            $line = $lines[$i];
+
+            if (preg_match($headerRegex, $line)) {
+                $collectedLines = [];
+                for ($j = $i + 1; $j < $totalLines; $j++) {
+                    $subLine = $lines[$j];
+                    if (preg_match($sectionHeaderRegex, $subLine) || preg_match($headerRegex, $subLine)) {
+                        break;
+                    }
+
+                    if (preg_match('/[:\-–—=]/u', $subLine) || mb_strlen($subLine) < 120) {
+                        $cleanedSub = preg_replace('/^(?:[^\w\s]+\s*)?/u', '', $subLine);
+                        if ($cleanedSub !== '') {
+                            $collectedLines[] = $cleanedSub;
+                        }
+                    } else {
+                        break;
+                    }
+
+                    if (count($collectedLines) >= 8) {
+                        break;
+                    }
                 }
+
+                if (!empty($collectedLines)) {
+                    $joined = implode(', ', $collectedLines);
+                    $sanitized = $this->sanitizeDetectedAuthor($joined);
+                    if ($sanitized !== '') {
+                        return $sanitized;
+                    }
+                }
+            }
+        }
+
+        // 2. Individual sub-credit role lines or single line "Credits: ..."
+        $escapedLabels = array_map(static fn(string $label): string => preg_quote($label, '/'), $labels);
+        $labelRegexPart = implode('|', $escapedLabels);
+        $linePatternSame = '/^(?:[^\w\s]+\s*)?(?:' . $labelRegexPart . ')\s*[:\-–—=]\s*(.{2,1000})\s*$/imu';
+        $linePatternHeaderOnly = '/^(?:[^\w\s]+\s*)?(?:' . $labelRegexPart . ')\s*[:\-–—=]?\s*$/imu';
+
+        $primaryLabels = ['credits', 'credit', 'yapımcı', 'yapımcılar', 'proje sahibi', 'proje', 'emeği geçenler', 'authors', 'author', 'created by', 'by', 'modder', 'modders', 'developer', 'developers', 'geliştirici'];
+        $foundPrimary = '';
+        $foundSecondary = '';
+        $collectedSubRoles = [];
+
+        for ($i = 0; $i < $totalLines; $i++) {
+            $line = $lines[$i];
+
+            if (preg_match('/^(?:[^\w\s]+\s*)?(' . $labelRegexPart . ')\s*[:\-–—=]?/iu', $line, $labelMatch)) {
+                $matchedLabel = strtolower(trim($labelMatch[1] ?? ''));
+                $isPrimary = in_array($matchedLabel, $primaryLabels, true);
+
+                if (preg_match($linePatternSame, $line, $match)) {
+                    $candidate = $this->sanitizeDetectedAuthor($match[1] ?? '');
+                    if ($candidate !== '') {
+                        if ($isPrimary) {
+                            return $candidate;
+                        }
+                        if ($foundSecondary === '') {
+                            $foundSecondary = $candidate;
+                        }
+                    }
+                }
+
+                if (preg_match($linePatternHeaderOnly, $line) && ($i + 1) < $totalLines) {
+                    $nextLine = $lines[$i + 1];
+                    if (!preg_match($sectionHeaderRegex, $nextLine) && !preg_match($linePatternHeaderOnly, $nextLine)) {
+                        $candidate = $this->sanitizeDetectedAuthor($nextLine);
+                        if ($candidate !== '') {
+                            if ($isPrimary) {
+                                return $candidate;
+                            }
+                            if ($foundSecondary === '') {
+                                $foundSecondary = $candidate;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (preg_match($subCreditRoleRegex, $line)) {
+                $cleanedSub = preg_replace('/^(?:[^\w\s]+\s*)?/u', '', $line);
+                if ($cleanedSub !== '') {
+                    $collectedSubRoles[] = $cleanedSub;
+                }
+            }
+        }
+
+        if (!empty($collectedSubRoles)) {
+            $joined = implode(', ', array_unique($collectedSubRoles));
+            $sanitized = $this->sanitizeDetectedAuthor($joined);
+            if ($sanitized !== '') {
+                return $sanitized;
+            }
+        }
+
+        if ($foundSecondary !== '') {
+            return $foundSecondary;
+        }
+
+        // 3. Fallback inline pattern: "Mod by OyuncuyusBis" or "(by OyuncuyusBis)"
+        if (preg_match('/\b(?:created by|mod by|by|modder|yapımcı|proje sahibi)\s*[:\-–—=]?\s*([A-Za-z0-9_\-\.\s,]{2,80})/iu', $text, $match)) {
+            $candidate = $this->sanitizeDetectedAuthor($match[1] ?? '');
+            if ($candidate !== '') {
+                return $candidate;
             }
         }
 
@@ -1963,6 +2122,15 @@ class ScraperEngine
             return '';
         }
 
+        // Normalize commas in version numbers to dots in text before matching (e.g. 1,53 -> 1.53)
+        $text = preg_replace('/(?<=\d),(?=\d)/u', '.', $text) ?? $text;
+
+        // Check if explicit range like 1.50 - 1.53 or 1.50-1.53 is present in text
+        if (preg_match_all('/1\.\d{1,3}\s*[-–—\/]\s*1\.\d{1,3}/u', $text, $rangeMatches) && !empty($rangeMatches[0])) {
+            $rangeCandidate = trim($rangeMatches[0][0]);
+            return preg_replace('/\s*[-–—\/]\s*/u', ' - ', $rangeCandidate) ?? $rangeCandidate;
+        }
+
         $regex = '/' . str_replace('/', '\\/', $pattern) . '/u';
         if (preg_match_all($regex, $text, $matches) === false || empty($matches[0])) {
             return '';
@@ -1972,11 +2140,20 @@ class ScraperEngine
         foreach ($matches[0] as $match) {
             $candidate = trim((string)$match, " \t\n\r\0\x0B.,;:!?)(']\"");
             if ($candidate !== '') {
+                $candidate = str_replace(',', '.', $candidate);
                 $versions[] = $candidate;
             }
         }
 
         $versions = array_values(array_unique($versions));
+        if (empty($versions)) {
+            return '';
+        }
+
+        if (count($versions) === 2) {
+            return $versions[0] . ' - ' . $versions[1];
+        }
+
         return implode(', ', $versions);
     }
 
@@ -2006,7 +2183,7 @@ class ScraperEngine
         if (preg_match('/^(?:n\/a|none|unknown)$/iu', $value)) {
             return '';
         }
-        return mb_substr($value, 0, 150);
+        return mb_substr($value, 0, 1000);
     }
 
     private function resolveBooleanSetting(mixed $value, string $default): bool

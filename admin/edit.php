@@ -149,11 +149,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             seoInvalidateSitemapCaches();
             logActivity($pdo, 'topic_updated', 'topic', $id, ['title' => $title]);
             adminAuditLogger()->logAction($pdo, 'topic_updated', 'topic', $id, 'Konu güncellendi', [], ['title' => $title], false);
-            flash('success', 'Konu başarıyla güncellendi.');
-            $redirectUrl = $status === 'published'
-                ? topicUrl($slug, $id)
-                : 'topics.php';
-            header('Location: ' . $redirectUrl);
+            flash('success', 'Konu düzenlendi');
+            header('Location: edit.php?id=' . $id);
             exit;
         } catch (Throwable $e) {
             if ($pdo && $pdo->inTransaction()) {
@@ -170,14 +167,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 
 $pageTitle = 'Konu Düzenle';
+$successMsg = get_flash('success');
 $errorMsg = get_flash('error');
 require_once __DIR__ . '/header.php';
+
+$viewTopicUrl = (!empty($topic['slug']) && !empty($topic['id'])) ? topicUrl((string)$topic['slug'], (int)$topic['id']) : '';
+$actionsHtml = '<a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="topic-revisions.php?topic_id=' . (int) $id . '"><i class="bi bi-clock-history"></i> Versiyonlar</a>';
+if ($viewTopicUrl !== '') {
+    $actionsHtml .= ' <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="' . htmlspecialchars($viewTopicUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Sitede Gör</a>';
+}
 ?>
 <?= adminRenderPanelOpen([
     'tag' => 'div',
     'icon' => 'bi-pencil',
     'title' => 'Konu Düzenle — #' . $id,
-    'actions_html' => '<a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="topic-revisions.php?topic_id=' . (int) $id . '"><i class="bi bi-clock-history"></i> Versiyonlar</a>',
+    'actions_html' => $actionsHtml,
 ]) ?>
         <form id="topicForm" method="post" action="edit.php?id=<?= $id ?>" enctype="multipart/form-data">
             <?= csrf_field() ?>
