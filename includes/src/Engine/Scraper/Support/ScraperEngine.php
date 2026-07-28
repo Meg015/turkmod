@@ -529,12 +529,19 @@ class ScraperEngine
             }
         }
 
-        // Fallback: If no download links were found via CSS selector, search all <a> links inside DOM for file hosts or download keywords
+        // Fallback: If no download links were found via CSS selector, search <a> links inside content container with strict matching
         if (empty($result['download_links'])) {
-            $allLinks = $xpath->query('//a[@href]');
+            $contentXp = !empty($selectors['content']) ? $this->cssToXPath($selectors['content']) . '//a[@href]' : '//a[@href]';
+            $allLinks = $xpath->query($contentXp);
+            if (!$allLinks || $allLinks->length === 0) {
+                $allLinks = $xpath->query('//a[@href]');
+            }
+
             if ($allLinks) {
                 $seenDlUrls = [];
-                $knownHostPatterns = '/(?:sharemods|modsbase|modsfire|mediafire|uploadfiles|filemods|modshost|workupload|pixeldrain|mega\.nz|mods\.to|steamcommunity|modland|kingmods|fs25|farmingsimulator|drive\.google|dropbox|curseforge|nexusmods)/i';
+                $knownHostPatterns = '/(?:sharemods|modsbase|modsfire|mediafire|uploadfiles|filemods|modshost|workupload|pixeldrain|mega\.nz|mods\.to|steamcommunity|modland|kingmods|drive\.google|dropbox|curseforge|nexusmods|modhoster)/i';
+                $baseHost = strtolower((string) (parse_url($baseUrl, PHP_URL_HOST) ?: ''));
+                $baseHost = preg_replace('/^www\./i', '', $baseHost) ?? $baseHost;
 
                 foreach ($allLinks as $node) {
                     if (!$node instanceof DOMElement) {
@@ -542,24 +549,46 @@ class ScraperEngine
                     }
                     $href = trim($node->getAttribute('href'));
                     $text = trim($node->textContent) ?: 'Link';
+                    $class = (string) $node->getAttribute('class');
+                    $onclick = (string) $node->getAttribute('onclick');
+
                     if ($href === '' || $href === '#' || str_starts_with($href, 'javascript:') || str_starts_with($href, 'mailto:')) {
                         continue;
                     }
 
                     $resolvedUrl = $this->resolveUrl($href, $baseUrl);
+                    $urlHost = strtolower((string) (parse_url($resolvedUrl, PHP_URL_HOST) ?: ''));
+                    $urlHost = preg_replace('/^www\./i', '', $urlHost) ?? $urlHost;
 
-                    // Check if URL matches known host or link text/title contains download keywords
-                    $isMatch = preg_match($knownHostPatterns, $resolvedUrl)
-                        || preg_match('/(?:download|indir|mod|file|link|yükle)/i', $text)
-                        || preg_match('/(?:download|indir|mod|file|link|yükle)/i', $node->getAttribute('title'))
-                        || preg_match('/(?:download|indir|btn)/i', $node->getAttribute('class'));
+                    // Skip social media & sharing links
+                    if (preg_match('/(?:facebook|twitter|x\.com|youtube|instagram|pinterest|telegram|discord|t\.me|vk\.com|reddit)\.com/i', $resolvedUrl)) {
+                        continue;
+                    }
 
-                    if ($isMatch && !in_array($resolvedUrl, $seenDlUrls, true)) {
-                        // Exclude site internal navigation/category/tag/wp links
-                        if (preg_match('/\/category\/|\/tag\/|\/page\/|\/author\/|wp-admin|wp-content|wp-includes/i', $resolvedUrl)) {
+                    // Skip internal navigation / WordPress / category / author / tag / post links
+                    if (preg_match('/\/category\/|\/tag\/|\/page\/|\/author\/|wp-admin|wp-content|wp-includes|\/comment/i', $resolvedUrl)) {
+                        continue;
+                    }
+
+                    $isExternalFileHost = preg_match($knownHostPatterns, $resolvedUrl) === 1;
+                    $hasOnClickDownload = preg_match('/download/i', $onclick) === 1;
+                    $isExplicitDownloadBtn = (str_contains($class, 'btn') || str_contains($class, 'download'))
+                        && preg_match('/^\s*(?:download|download\s+mod|download\s+now|file\s+download|mod\s+download|güncelleme\s+linki|indirme\s+linki|hemen\s+i̇ndir|i̇ndir)\s*$/iu', $text) === 1;
+
+                    // If link is on same host as source site, only match if it has download path/action or explicit download button
+                    if ($baseHost !== '' && ($urlHost === $baseHost || str_ends_with($urlHost, '.' . $baseHost))) {
+                        $isDownloadPath = preg_match('/\/download\/|\?download=|action=download/i', $resolvedUrl) === 1;
+                        if (!$hasOnClickDownload && !$isExplicitDownloadBtn && !$isDownloadPath) {
+                            continue; // Skip general internal post/category links
+                        }
+                    } else {
+                        // External link: Must be a known file host OR explicit download button
+                        if (!$isExternalFileHost && !$hasOnClickDownload && !$isExplicitDownloadBtn) {
                             continue;
                         }
+                    }
 
+                    if (!in_array($resolvedUrl, $seenDlUrls, true)) {
                         $seenDlUrls[] = $resolvedUrl;
                         $result['download_links'][] = [
                             'name' => $text !== '' ? $text : 'İndirme Linki',
