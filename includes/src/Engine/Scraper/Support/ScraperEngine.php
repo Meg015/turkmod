@@ -1035,11 +1035,19 @@ class ScraperEngine
         $parsed = $this->parseTopicPage($html, $selectors, $url);
         $authorDetection = $this->detectAuthorFromContent($parsed['content'] ?? '', $settings, $botSettings);
         $versionDetection = $this->detectVersionFromContent($parsed['content'] ?? '', $settings, $botSettings);
+
+        $rawContent = $parsed['content'] ?? '';
+        // Always strip author/credits lines from content so Mod Yapımcısı never stays in Description field
+        $rawContent = $this->stripDetectedAuthorLinesFromContent($rawContent, $settings, $botSettings);
+        if ($authorDetection !== '') {
+            $rawContent = $this->removeExactAuthorStringFromContent($rawContent, $authorDetection);
+        }
+
         $result['title'] = $this->applySiteTextReplacements($parsed['title'], $replacementRules, 'title');
         if ($this->isModsClubSource($url, $baseUrl)) {
             $result['title'] = $this->normalizeModsClubTitleVersion($result['title'], $versionDetection);
         }
-        $content = $this->applySiteTextReplacements($parsed['content'], $replacementRules, 'content');
+        $content = $this->applySiteTextReplacements($rawContent, $replacementRules, 'content');
         $result['content'] = $this->applyContentAlignment($content, $contentAlign);
         $result['images'] = array_slice($parsed['images'], 0, $maxImages);
 
@@ -1112,6 +1120,9 @@ class ScraperEngine
             }
             if ($translateContent && $result['content']) {
                 $translatedContent = $this->translateContentPreservingSpacing($result['content'], $srcLang, $tgtLang);
+                if ($authorDetection !== '') {
+                    $translatedContent = $this->removeExactAuthorStringFromContent($translatedContent ?? '', $authorDetection);
+                }
                 $result['translated_content'] = $this->applyContentAlignment($translatedContent ?? '', $contentAlign);
             }
             if ($translateDownloadNames && $result['download_links']) {
@@ -2057,6 +2068,40 @@ class ScraperEngine
         $cleaned = preg_replace('~(?:<br\s*/?>\s*){2,}~i', '<br>', $cleaned) ?? $cleaned;
 
         return trim($cleaned);
+    }
+
+    private function removeExactAuthorStringFromContent(string $content, string $author): string
+    {
+        $author = trim($author);
+        if ($author === '' || mb_strlen($author) < 2) {
+            return $content;
+        }
+
+        $authorParts = array_filter(array_map('trim', explode(',', $author)), static fn(string $p): bool => mb_strlen($p) >= 2);
+        if (empty($authorParts)) {
+            $authorParts = [$author];
+        }
+
+        foreach ($authorParts as $part) {
+            $escapedAuthor = preg_quote($part, '~');
+
+            // 1. Remove HTML tags containing author with optional labels
+            $pattern = '~<(p|div|li|span|strong|b)(?:\s[^>]*)?>\s*(?:[^\w\s]+\s*)?(?:credits?|authors?|yapımcılar?|yapımcı|modders?|by|geliştiriciler?|emeği geçenler|krediler)?\s*[:\-–—=]?\s*(?:[^\n<]{0,60})' . $escapedAuthor . '(?:[^\n<]{0,60})\s*</\1>~iu';
+            $content = preg_replace($pattern, '', $content) ?? $content;
+
+            // 2. Remove line-level plain matches
+            $linePattern = '~^(?:[^\w\s]+\s*)?(?:credits?|authors?|yapımcılar?|yapımcı|modders?|by|geliştiriciler?|emeği geçenler|krediler)?\s*[:\-–—=]?\s*(?:[^\n<]{0,60})' . $escapedAuthor . '(?:[^\n<]{0,60})$~imu';
+            $content = preg_replace($linePattern, '', $content) ?? $content;
+
+            // 3. Strip standalone paragraph with author
+            $content = preg_replace('~<p>\s*' . $escapedAuthor . '\s*</p>~iu', '', $content) ?? $content;
+        }
+
+        // Clean up empty tags and excessive breaks
+        $content = preg_replace('~<p>\s*(?:<br\s*/?>|\s)*\s*</p>~i', '', $content) ?? $content;
+        $content = preg_replace('~(?:<br\s*/?>\s*){2,}~i', '<br>', $content) ?? $content;
+
+        return trim($content);
     }
 
     private function detectAuthorFromContent(string $content, array $settings, array $botSettings): string
