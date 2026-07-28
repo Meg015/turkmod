@@ -521,9 +521,50 @@ class ScraperEngine
                             $seenDlUrls[] = $resolvedUrl;
                             $result['download_links'][] = [
                                 'name' => $text,
-                                'url'  => $resolvedUrl,
+                'url'  => $resolvedUrl,
                             ];
                         }
+                    }
+                }
+            }
+        }
+
+        // Fallback: If no download links were found via CSS selector, search all <a> links inside DOM for file hosts or download keywords
+        if (empty($result['download_links'])) {
+            $allLinks = $xpath->query('//a[@href]');
+            if ($allLinks) {
+                $seenDlUrls = [];
+                $knownHostPatterns = '/(?:sharemods|modsbase|modsfire|mediafire|uploadfiles|filemods|modshost|workupload|pixeldrain|mega\.nz|mods\.to|steamcommunity|modland|kingmods|fs25|farmingsimulator|drive\.google|dropbox|curseforge|nexusmods)/i';
+
+                foreach ($allLinks as $node) {
+                    if (!$node instanceof DOMElement) {
+                        continue;
+                    }
+                    $href = trim($node->getAttribute('href'));
+                    $text = trim($node->textContent) ?: 'Link';
+                    if ($href === '' || $href === '#' || str_starts_with($href, 'javascript:') || str_starts_with($href, 'mailto:')) {
+                        continue;
+                    }
+
+                    $resolvedUrl = $this->resolveUrl($href, $baseUrl);
+
+                    // Check if URL matches known host or link text/title contains download keywords
+                    $isMatch = preg_match($knownHostPatterns, $resolvedUrl)
+                        || preg_match('/(?:download|indir|mod|file|link|yükle)/i', $text)
+                        || preg_match('/(?:download|indir|mod|file|link|yükle)/i', $node->getAttribute('title'))
+                        || preg_match('/(?:download|indir|btn)/i', $node->getAttribute('class'));
+
+                    if ($isMatch && !in_array($resolvedUrl, $seenDlUrls, true)) {
+                        // Exclude site internal navigation/category/tag/wp links
+                        if (preg_match('/\/category\/|\/tag\/|\/page\/|\/author\/|wp-admin|wp-content|wp-includes/i', $resolvedUrl)) {
+                            continue;
+                        }
+
+                        $seenDlUrls[] = $resolvedUrl;
+                        $result['download_links'][] = [
+                            'name' => $text !== '' ? $text : 'İndirme Linki',
+                            'url'  => $resolvedUrl,
+                        ];
                     }
                 }
             }
