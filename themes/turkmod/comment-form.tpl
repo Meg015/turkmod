@@ -4,14 +4,14 @@
 <div class="ui-comment-form-body ui-panel__body">
 <textarea id="tcInput" class="ui-comment-textarea" placeholder="Düşüncelerini paylaş..." maxlength="{topic.comment_max_length}" rows="1"></textarea>
 <div class="ui-comment-form-footer">
-{if topic.comment_form_info_text}
-<span class="ui-comment-form-info" role="note"><i class="bi bi-info-circle" aria-hidden="true"></i><span>{topic.comment_form_info_text}</span></span>
-{/if}
 <div class="ui-comment-form-actions is-hidden" id="tcActions">
 <span class="ui-comment-char-count"><span id="tcCharCount">0</span>/{topic.comment_max_length}</span>
 <div class="ui-comment-form-btns"><button type="button" class="ui-comment-btn-cancel" id="tcCancel">İptal</button><button type="button" class="ui-comment-btn-submit" id="tcSubmit" disabled>Gönder</button></div>
 </div>
 </div>
+{if topic.comment_form_info_text}
+<div class="ui-comment-form-info" role="note"><i class="bi bi-info-circle" aria-hidden="true"></i><span>{topic.comment_form_info_text}</span></div>
+{/if}
 </div>
 </div>
 </div>

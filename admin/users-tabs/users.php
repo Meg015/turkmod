@@ -208,9 +208,9 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
                                     <?= htmlspecialchars($lastActivity, ENT_QUOTES, 'UTF-8') ?>
                                 </span>
                             </td>
-                            <td>
-                                <span class="ui-admin-muted-sm">
-                                    <?= date('d.m.Y', strtotime((string)$user['created_at'])) ?>
+                            <td class="ui-admin-nowrap" style="white-space: nowrap;">
+                                <span class="ui-admin-muted-sm ui-admin-nowrap" style="white-space: nowrap;">
+                                    <?= htmlspecialchars($usersFormatDateTime($user['created_at'] ?? null), ENT_QUOTES, 'UTF-8') ?>
                                 </span>
                             </td>
                             <td class="ui-admin-table-actions">

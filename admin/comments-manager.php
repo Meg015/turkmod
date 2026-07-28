@@ -1169,15 +1169,6 @@ require_once __DIR__ . '/header.php';
                     </div>
                 </form>
 
-                <div class="comments-manager-list-head">
-                    <span>Seç</span>
-                    <span>Konuşma</span>
-                    <span>Kullanıcı</span>
-                    <span>Durum</span>
-                    <span>Tarih</span>
-                    <span>İşlem</span>
-                </div>
-
                 <div class="ui-comment-manager-comments-list comments-manager-list">
                     <?php foreach ($commentRenderRows as $comment): ?>
                         <?php
@@ -1208,38 +1199,46 @@ require_once __DIR__ . '/header.php';
                                     <?= function_exists('avatarImageHtml') ? avatarImageHtml($commentAuthor, (string) ($comment['author_avatar'] ?? ''), ['alt' => '']) : '' ?>
                                 </div>
                                 <div class="ui-comment-manager-comment-meta comments-manager-card__meta">
-                                    <?php if ($commentUserId > 0 && $canViewCommentUserDetails): ?>
-                                        <details class="comments-manager-user-insight-menu" data-comment-user-insight-menu data-user-id="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>" data-can-moderate="<?= $canModerateAuthor ? '1' : '0' ?>" data-is-banned="<?= $isAuthorBanned ? '1' : '0' ?>">
-                                            <summary class="comments-manager-user-chip <?= htmlspecialchars($authorStateClass) ?>" data-comment-user-insight-toggle>
-                                                <span class="comments-manager-user-chip__name"><?= htmlspecialchars($commentAuthor) ?></span>
-                                                <span class="comments-manager-user-chip__status"><i class="bi <?= htmlspecialchars($authorStateIcon) ?>"></i> <?= htmlspecialchars($authorStateLabel) ?></span>
-                                                <i class="bi bi-chevron-down comments-manager-user-chip__chevron" aria-hidden="true"></i>
-                                            </summary>
-                                            <div class="comments-manager-user-insight-popover" data-comment-user-insight-popover>
-                                                <div class="comments-manager-user-insight-content" data-comment-user-insight-content>
-                                                    <span class="ui-admin-muted-sm">Kullanıcı bilgisi yükleniyor...</span>
+                                    <div class="comments-manager-author-row">
+                                        <?php if ($commentUserId > 0 && $canViewCommentUserDetails): ?>
+                                            <details class="comments-manager-user-insight-menu" data-comment-user-insight-menu data-user-id="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>" data-can-moderate="<?= $canModerateAuthor ? '1' : '0' ?>" data-is-banned="<?= $isAuthorBanned ? '1' : '0' ?>">
+                                                <summary class="comments-manager-user-chip <?= htmlspecialchars($authorStateClass) ?>" data-comment-user-insight-toggle>
+                                                    <span class="comments-manager-user-chip__name"><?= htmlspecialchars($commentAuthor) ?></span>
+                                                    <span class="comments-manager-user-chip__status"><i class="bi <?= htmlspecialchars($authorStateIcon) ?>"></i> <?= htmlspecialchars($authorStateLabel) ?></span>
+                                                    <i class="bi bi-chevron-down comments-manager-user-chip__chevron" aria-hidden="true"></i>
+                                                </summary>
+                                                <div class="comments-manager-user-insight-popover" data-comment-user-insight-popover>
+                                                    <div class="comments-manager-user-insight-content" data-comment-user-insight-content>
+                                                        <span class="ui-admin-muted-sm">Kullanıcı bilgisi yükleniyor...</span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </details>
-                                    <?php else: ?>
-                                        <div class="ui-comment-manager-comment-author"><?= htmlspecialchars($commentAuthor) ?></div>
-                                    <?php endif; ?>
+                                            </details>
+                                        <?php else: ?>
+                                            <div class="ui-comment-manager-comment-author"><?= htmlspecialchars($commentAuthor) ?></div>
+                                        <?php endif; ?>
+
+                                        <?php if ($commentDepth > 0): ?>
+                                            <span class="comments-manager-nest-pill">
+                                                <i class="bi bi-arrow-return-right"></i> Yanıt #<?= $commentDepth ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
                                     <div class="ui-comment-manager-comment-info">
                                         <span class="ui-comment-manager-comment-info-item">
-                                            <i class="bi bi-calendar"></i>
+                                            <i class="bi bi-calendar3"></i>
                                             <?= date('d.m.Y H:i', strtotime($comment['created_at'])) ?>
                                         </span>
                                         <span class="ui-comment-manager-comment-info-item">
-                                            <i class="bi bi-heart"></i>
-                                            <?= number_format((int) $comment['reaction_count']) ?> reaksiyon
+                                            <i class="bi bi-heart-fill" style="color: #e11d48;"></i>
+                                            <?= number_format((int) $comment['reaction_count']) ?>
                                         </span>
                                         <span class="ui-comment-manager-comment-status <?= htmlspecialchars($statusValue) ?>">
                                             <?php if ($statusValue === 'pending'): ?>
-                                                <i class="bi bi-clock"></i> Bekliyor
+                                                <i class="bi bi-clock-history"></i> Bekliyor
                                             <?php elseif ($statusValue === 'approved'): ?>
-                                                <i class="bi bi-check-circle"></i> Onaylı
+                                                <i class="bi bi-check-circle-fill"></i> Onaylı
                                             <?php else: ?>
-                                                <i class="bi bi-x-circle"></i> Reddedildi
+                                                <i class="bi bi-x-circle-fill"></i> Reddedildi
                                             <?php endif; ?>
                                         </span>
                                     </div>
@@ -1258,15 +1257,14 @@ require_once __DIR__ . '/header.php';
 
                             <?php if ($commentParentId > 0): ?>
                                 <div class="comments-manager-parent-context">
-                                    <i class="bi bi-reply"></i>
+                                    <i class="bi bi-reply-fill"></i>
                                     <?php if ($parentContext): ?>
                                         <span>
-                                            <strong><?= htmlspecialchars((string)($parentContext['author_name'] ?? 'Anonim')) ?></strong>
-                                            yorumuna yanıt:
-                                            <?= htmlspecialchars(mb_strimwidth(trim((string)($parentContext['body'] ?? '')), 0, 150, '...')) ?>
+                                            <strong>@<?= htmlspecialchars((string)($parentContext['author_name'] ?? 'Anonim')) ?></strong> kullanıcıya yanıt:
+                                            <em>"<?= htmlspecialchars(mb_strimwidth(trim((string)($parentContext['body'] ?? '')), 0, 140, '...')) ?>"</em>
                                         </span>
                                     <?php else: ?>
-                                        <span>Yanıtlanan yorum silinmiş veya bu filtrede görünmüyor.</span>
+                                        <span>Yanıtlanan yorum silinmiş veya görünmüyor.</span>
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
@@ -1277,64 +1275,64 @@ require_once __DIR__ . '/header.php';
 
                             <div class="ui-comment-manager-comment-footer ui-panel__foot comments-manager-card__foot">
                                 <div class="comments-manager-card__notes">
-                                    <span class="comments-manager-note"><i class="bi bi-chat-text"></i> Yorum #<?= $commentIdValue ?></span>
+                                    <span class="comments-manager-note"><i class="bi bi-hash"></i> Yorum #<?= $commentIdValue ?></span>
                                     <?php if ($commentParentId > 0): ?>
-                                        <span class="comments-manager-note"><i class="bi bi-reply"></i> Yanıt #<?= $commentParentId ?></span>
-                                    <?php endif; ?>
-                                    <span class="comments-manager-note"><i class="bi bi-person"></i> <?= htmlspecialchars($commentAuthor) ?></span>
-                                    <?php if ($topicTitle !== '' || $topicRowId > 0): ?>
-                                        <span class="comments-manager-note"><i class="bi bi-folder"></i> <?= htmlspecialchars($topicTitle !== '' ? mb_strimwidth($topicTitle, 0, 48, '...') : ('Konu #' . $topicRowId)) ?></span>
+                                        <span class="comments-manager-note"><i class="bi bi-reply-all-fill"></i> Üst Yorum #<?= $commentParentId ?></span>
                                     <?php endif; ?>
                                 </div>
 
                                 <div class="ui-comment-manager-comment-actions comments-manager-card__actions">
-                                    <details class="user-row-actions-menu comments-manager-actions-menu" data-comment-actions-menu>
-                                        <summary class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline comments-manager-actions-toggle" data-comment-actions-toggle title="İşlemler">
-                                            <i class="bi bi-three-dots"></i>
-                                        </summary>
-                                        <div class="user-row-actions-popover comments-manager-actions-popover" data-comment-actions-popover>
-                                            <?php if ($comment['deleted_at']): ?>
-                                                <form method="post" class="ui-admin-inline-form comments-manager-menu-form">
+                                    <div class="comments-manager-quick-actions">
+                                        <?php if ($comment['deleted_at']): ?>
+                                            <form method="post" class="ui-admin-inline-form">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="action" value="restore">
+                                                <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
+                                                <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-success">
+                                                    <i class="bi bi-arrow-counterclockwise"></i> Geri Yükle
+                                                </button>
+                                            </form>
+                                        <?php else: ?>
+                                            <?php if ($statusValue === 'pending'): ?>
+                                                <form method="post" class="ui-admin-inline-form">
                                                     <?= csrf_field() ?>
-                                                    <input type="hidden" name="action" value="restore">
+                                                    <input type="hidden" name="action" value="approve">
                                                     <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
-                                                    <button type="submit" class="user-row-action comments-manager-menu-item is-success">
-                                                        <i class="bi bi-arrow-counterclockwise"></i> Geri Yükle
+                                                    <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-success" title="Onayla">
+                                                        <i class="bi bi-check-lg"></i> Onayla
                                                     </button>
                                                 </form>
-                                            <?php else: ?>
-                                                <button type="button" class="user-row-action comments-manager-menu-item" data-comment-edit="<?= $commentIdValue ?>" data-comment-body="<?= htmlspecialchars((string) $comment['body'], ENT_QUOTES, 'UTF-8') ?>">
-                                                    <i class="bi bi-pencil"></i> Düzenle
-                                                </button>
-                                                <?php if ($statusValue === 'pending'): ?>
-                                                    <form method="post" class="ui-admin-inline-form comments-manager-menu-form">
-                                                        <?= csrf_field() ?>
-                                                        <input type="hidden" name="action" value="approve">
-                                                        <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
-                                                        <button type="submit" class="user-row-action comments-manager-menu-item is-success">
-                                                            <i class="bi bi-check-lg"></i> Onayla
-                                                        </button>
-                                                    </form>
-                                                    <form method="post" class="ui-admin-inline-form comments-manager-menu-form">
-                                                        <?= csrf_field() ?>
-                                                        <input type="hidden" name="action" value="reject">
-                                                        <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
-                                                        <button type="submit" class="user-row-action comments-manager-menu-item is-warning">
-                                                            <i class="bi bi-x-lg"></i> Reddet
-                                                        </button>
-                                                    </form>
-                                                <?php endif; ?>
-                                                <form method="post" class="ui-admin-inline-form comments-manager-menu-form"<?= adminConfirmAttrs(['message' => 'Bu yorumu silmek istediğinize emin misiniz?', 'title' => 'Yorum silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                                <form method="post" class="ui-admin-inline-form">
                                                     <?= csrf_field() ?>
-                                                    <input type="hidden" name="action" value="delete">
+                                                    <input type="hidden" name="action" value="reject">
                                                     <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
-                                                    <button type="submit" class="user-row-action comments-manager-menu-item is-danger">
-                                                        <i class="bi bi-trash"></i> Sil
+                                                    <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-warning" title="Reddet">
+                                                        <i class="bi bi-x-lg"></i> Reddet
                                                     </button>
                                                 </form>
                                             <?php endif; ?>
-                                            <?php if ($canModerateAuthor): ?>
-                                                <div class="comments-manager-menu-separator" aria-hidden="true"></div>
+
+                                            <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline" data-comment-edit="<?= $commentIdValue ?>" data-comment-body="<?= htmlspecialchars((string) $comment['body'], ENT_QUOTES, 'UTF-8') ?>" title="Düzenle">
+                                                <i class="bi bi-pencil"></i> Düzenle
+                                            </button>
+
+                                            <form method="post" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu yorumu silmek istediğinize emin misiniz?', 'title' => 'Yorum silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">
+                                                <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger-outline" title="Sil">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <?php if ($canModerateAuthor): ?>
+                                        <details class="user-row-actions-menu comments-manager-actions-menu" data-comment-actions-menu>
+                                            <summary class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-outline comments-manager-actions-toggle" data-comment-actions-toggle title="Kullanıcı İşlemleri">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </summary>
+                                            <div class="user-row-actions-popover comments-manager-actions-popover" data-comment-actions-popover>
                                                 <?php if ($isAuthorBanned): ?>
                                                     <button type="button" class="user-row-action comments-manager-menu-item is-success" data-comment-user-unban="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>">
                                                         <i class="bi bi-check-circle"></i> Ban Kaldır
@@ -1347,9 +1345,9 @@ require_once __DIR__ . '/header.php';
                                                 <button type="button" class="user-row-action comments-manager-menu-item is-warning" data-comment-user-restrict="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>">
                                                     <i class="bi bi-shield-exclamation"></i> Kısıtla
                                                 </button>
-                                            <?php endif; ?>
-                                        </div>
-                                    </details>
+                                            </div>
+                                        </details>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>

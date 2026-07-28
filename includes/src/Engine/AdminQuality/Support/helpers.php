@@ -145,6 +145,8 @@ function adminQualitySetTopicModeration(?PDO $pdo, int $topicId, string $decisio
         'approve' => 'published',
         'reject' => 'rejected',
         'revision' => 'revision',
+        'draft' => 'draft',
+        'unpublish' => 'draft',
     ];
     if (!isset($statusMap[$decision])) {
         return false;

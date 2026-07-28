@@ -188,6 +188,16 @@ function updateTopicReportStatus(
     return topicReportService()->updateStatus($pdo, $reportId, $status, $adminNote, $actorId);
 }
 
+function deleteTopicReport(?PDO $pdo, int $reportId, ?int $actorId = null): bool
+{
+    return topicReportService()->deleteReport($pdo, $reportId, $actorId);
+}
+
+function deleteUserReport(?PDO $pdo, int $reportId, ?int $actorId = null): bool
+{
+    return userReportService()->deleteReport($pdo, $reportId, $actorId);
+}
+
 /** @return array{reports:int,events:int,notifications:int,activities:int,user_activities:int} */
 function deleteAllTopicReports(?PDO $pdo, ?int $actorId = null): array
 {

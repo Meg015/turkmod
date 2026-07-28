@@ -347,6 +347,22 @@ final class TopicReportService
         return true;
     }
 
+    public function deleteReport(?PDO $pdo, int $reportId, ?int $actorId = null): bool
+    {
+        if (!$pdo || $reportId <= 0) {
+            return false;
+        }
+        $this->schema->ensureTopicReports($pdo);
+        $stmt = $pdo->prepare("DELETE FROM topic_reports WHERE id = :id");
+        $stmt->execute(['id' => $reportId]);
+        $stmtEv = $pdo->prepare("DELETE FROM topic_report_events WHERE report_id = :id");
+        $stmtEv->execute(['id' => $reportId]);
+        if (function_exists('logActivity')) {
+            logActivity($pdo, 'topic_report_deleted', 'topic_report', $reportId);
+        }
+        return true;
+    }
+
     /** @return array{reports:int,events:int,notifications:int,activities:int,user_activities:int} */
     public function deleteAll(?PDO $pdo, ?int $actorId = null): array
     {

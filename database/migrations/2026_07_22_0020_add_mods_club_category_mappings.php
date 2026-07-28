@@ -176,7 +176,7 @@ return new class implements Migration
             'title' => 'h1.post-title',
             'content' => 'div.post-body',
             'images' => 'div.post-body img, img[fetchpriority="high"]',
-            'download_links' => 'a.btn[href*="sharemods"], a.btn[href*="modsfire"], a.btn[href*="mediafire"], a.btn[href*="mega.nz"], a.btn[href*="mods.to"], a.btn[href*="steamcommunity"], a[href*="sharemods.com"], a[href*="modsfire.com"], a[href*="mediafire.com"], a[href*="steamcommunity.com"]',
+            'download_links' => 'a[onclick*="Download"], a.btn[href*="sharemods"], a.btn[href*="modsbase"], a.btn[href*="modsfire"], a.btn[href*="mediafire"], a.btn[href*="uploadfiles"], a.btn[href*="filemods"], a.btn[href*="modshost"], a.btn[href*="workupload"], a.btn[href*="pixeldrain"], a.btn[href*="mega.nz"], a.btn[href*="mods.to"], a.btn[href*="steamcommunity"], a.btn[href*="modland"], a[href*="sharemods.com"], a[href*="modsbase.com"], a[href*="modsfire.com"], a[href*="mediafire.com"], a[href*="uploadfiles.eu"], a[href*="filemods.com"], a[href*="modshost.52"], a[href*="workupload.com"], a[href*="pixeldrain.com"], a[href*="steamcommunity.com"], a[href*="modland.net"], a[href*="drive.google.com"], a[href*="dropbox.com"]',
             'pagination' => 'a.next, .pagination a[rel="next"]',
         ], JSON_UNESCAPED_SLASHES);
     }

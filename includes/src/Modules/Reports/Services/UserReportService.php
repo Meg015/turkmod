@@ -273,6 +273,22 @@ final class UserReportService
         return true;
     }
 
+    public function deleteReport(?PDO $pdo, int $reportId, ?int $actorId = null): bool
+    {
+        if (!$pdo || $reportId <= 0) {
+            return false;
+        }
+        $this->schema->ensureUserReports($pdo);
+        $stmt = $pdo->prepare("DELETE FROM user_reports WHERE id = :id");
+        $stmt->execute(['id' => $reportId]);
+        $stmtEv = $pdo->prepare("DELETE FROM user_report_events WHERE report_id = :id");
+        $stmtEv->execute(['id' => $reportId]);
+        if (function_exists('logActivity')) {
+            logActivity($pdo, 'user_report_deleted', 'user_report', $reportId);
+        }
+        return true;
+    }
+
     /** @param list<string> $where @param array<string,string> $params */
     private function appendDateFilters(array &$where, array &$params, array $filters): void
     {

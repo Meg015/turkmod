@@ -511,14 +511,19 @@ class ScraperEngine
             $xp = $this->cssToXPath($selectors['download_links']);
             $nodes = $xpath->query($xp);
             if ($nodes) {
+                $seenDlUrls = [];
                 foreach ($nodes as $node) {
                     $href = $node->getAttribute('href');
                     $text = trim($node->textContent) ?: 'Link';
                     if ($href && $href !== '#' && !str_starts_with($href, 'javascript:')) {
-                        $result['download_links'][] = [
-                            'name' => $text,
-                            'url'  => $this->resolveUrl($href, $baseUrl),
-                        ];
+                        $resolvedUrl = $this->resolveUrl($href, $baseUrl);
+                        if (!in_array($resolvedUrl, $seenDlUrls, true)) {
+                            $seenDlUrls[] = $resolvedUrl;
+                            $result['download_links'][] = [
+                                'name' => $text,
+                                'url'  => $resolvedUrl,
+                            ];
+                        }
                     }
                 }
             }

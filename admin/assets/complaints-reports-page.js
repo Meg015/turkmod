@@ -35,6 +35,21 @@ function initComplaintsModalDelegates() {
             openComplaintsModal(modal, openButton);
         }
 
+        var tabButton = event.target.closest('[data-complaints-modal-tab]');
+        if (tabButton) {
+            var modal = tabButton.closest('.complaints-modal');
+            if (modal) {
+                var targetTab = tabButton.getAttribute('data-complaints-modal-tab');
+                modal.querySelectorAll('[data-complaints-modal-tab]').forEach(function(btn) {
+                    btn.classList.toggle('is-active', btn === tabButton);
+                });
+                modal.querySelectorAll('[data-complaints-modal-panel]').forEach(function(panel) {
+                    var isTarget = panel.getAttribute('data-complaints-modal-panel') === targetTab;
+                    panel.hidden = !isTarget;
+                });
+            }
+        }
+
         if (event.target.closest('[data-complaints-modal-close]')) {
             var closeTarget = event.target.closest('.complaints-modal');
             if (!closeTarget) {

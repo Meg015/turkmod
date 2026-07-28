@@ -272,3 +272,417 @@
     overflow-wrap: anywhere !important;
   }
 }
+
+/* Comment Form Info Notice Mobile & Responsive Overrides */
+html[data-public-theme="turkmod"] .ui-comment-form-wrap {
+  display: flex !important;
+  gap: 12px !important;
+  position: relative !important;
+  width: 100% !important;
+}
+
+html[data-public-theme="turkmod"] .ui-comment-form-body {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: block !important;
+}
+
+html[data-public-theme="turkmod"] .ui-comment-form-footer {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  position: relative !important;
+  margin-top: 8px !important;
+  width: 100% !important;
+}
+
+html[data-public-theme="turkmod"] .ui-comment-form-footer .ui-comment-form-actions {
+  position: static !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-top: 0 !important;
+}
+
+html[data-public-theme="turkmod"] .ui-comment-form-info,
+html[data-public-theme="turkmod"] .topic-comments .ui-comment-form-info,
+.ui-comment-form-info {
+  display: block !important;
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-top: 10px !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  background: color-mix(in srgb, var(--primary, #8b1538) 8%, var(--bg-surface-alt, rgba(0, 0, 0, 0.03))) !important;
+  border: 1px solid color-mix(in srgb, var(--primary, #8b1538) 18%, var(--border, #e5e7eb)) !important;
+  color: var(--text-dim, #6b7280) !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  box-sizing: border-box !important;
+  clear: both !important;
+  float: none !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+html[data-public-theme="turkmod"] .ui-comment-form-info i,
+html[data-public-theme="turkmod"] .topic-comments .ui-comment-form-info i,
+.ui-comment-form-info i {
+  display: inline-block !important;
+  margin-right: 6px !important;
+  color: var(--primary, #8b1538) !important;
+  font-size: 0.9rem !important;
+  vertical-align: -1px !important;
+}
+
+html[data-public-theme="turkmod"] .ui-comment-form-info span,
+html[data-public-theme="turkmod"] .topic-comments .ui-comment-form-info span,
+.ui-comment-form-info span {
+  display: inline !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+/* ==========================================================================
+   PUBLIC NOTIFICATION PREFERENCES - MODERN & PROFESSIONAL REDESIGN
+   ========================================================================== */
+html[data-public-theme="turkmod"] .notification-settings {
+  border-radius: 16px !important;
+  padding: 1.5rem !important;
+  background: var(--theme-surface, #ffffff) !important;
+  border: 1px solid var(--theme-border, #e2e8f0) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 4px 12px -2px rgba(0, 0, 0, 0.02) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-intro {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 1.5rem !important;
+  padding: 1.25rem 1.5rem !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary, #8b1538) 8%, #ffffff) 0%, color-mix(in srgb, var(--primary, #8b1538) 3%, #ffffff) 100%) !important;
+  border: 1px solid color-mix(in srgb, var(--primary, #8b1538) 15%, #e2e8f0) !important;
+  margin-bottom: 1.5rem !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-intro h2 {
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 0.35rem !important;
+  color: var(--theme-text, #0f172a) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-intro p {
+  font-size: 0.9rem !important;
+  line-height: 1.5 !important;
+  color: var(--theme-text-muted, #64748b) !important;
+  margin: 0 !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-intro i.bi-shield-check {
+  font-size: 2.25rem !important;
+  color: var(--primary, #8b1538) !important;
+  opacity: 0.85 !important;
+  flex-shrink: 0 !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-tabs {
+  display: flex !important;
+  gap: 0.5rem !important;
+  padding: 0.35rem !important;
+  background: var(--theme-surface-muted, #f1f5f9) !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--theme-border, #e2e8f0) !important;
+  margin-bottom: 1.5rem !important;
+  overflow-x: auto !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-tab {
+  flex: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  padding: 0.65rem 1rem !important;
+  border-radius: 8px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  color: var(--theme-text-muted, #64748b) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  white-space: nowrap !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-tab:hover {
+  color: var(--theme-text, #0f172a) !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-tab.is-active {
+  color: var(--primary, #8b1538) !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-group-panel {
+  border: 1px solid var(--theme-border, #e2e8f0) !important;
+  border-radius: 14px !important;
+  background: var(--theme-surface, #ffffff) !important;
+  margin-bottom: 1.25rem !important;
+  overflow: hidden !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-group-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  padding: 1.1rem 1.35rem !important;
+  background: var(--theme-surface-muted, #f8fafc) !important;
+  border-bottom: 1px solid var(--theme-border, #e2e8f0) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-group-icon {
+  width: 38px !important;
+  height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 10px !important;
+  background: color-mix(in srgb, var(--primary, #8b1538) 12%, #ffffff) !important;
+  color: var(--primary, #8b1538) !important;
+  font-size: 1.15rem !important;
+  flex-shrink: 0 !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-group-copy h3 {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 0.2rem !important;
+  color: var(--theme-text, #0f172a) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-group-copy p {
+  font-size: 0.85rem !important;
+  color: var(--theme-text-muted, #64748b) !important;
+  margin: 0 !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 1.25rem !important;
+  padding: 1.1rem 1.35rem !important;
+  border-bottom: 1px solid var(--theme-border, #f1f5f9) !important;
+  transition: background-color 0.15s ease, transform 0.15s ease !important;
+  cursor: pointer !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-row:last-child {
+  border-bottom: none !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-row:hover {
+  background-color: color-mix(in srgb, var(--primary, #8b1538) 2%, #ffffff) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-row-icon {
+  width: 36px !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  background: var(--theme-surface-muted, #f1f5f9) !important;
+  color: var(--theme-text-muted, #64748b) !important;
+  font-size: 1rem !important;
+  flex-shrink: 0 !important;
+  transition: all 0.2s ease !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-row:hover .setting-row-icon {
+  background: color-mix(in srgb, var(--primary, #8b1538) 12%, #ffffff) !important;
+  color: var(--primary, #8b1538) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-row-copy {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.15rem !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-row-copy strong {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  color: var(--theme-text, #0f172a) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-row-copy span {
+  font-size: 0.85rem !important;
+  color: var(--theme-text-muted, #64748b) !important;
+  line-height: 1.4 !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-effect {
+  display: inline-flex !important;
+  align-items: center !important;
+  width: fit-content !important;
+  margin-top: 0.35rem !important;
+  padding: 0.2rem 0.55rem !important;
+  border-radius: 999px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  background: color-mix(in srgb, var(--primary, #8b1538) 10%, #ffffff) !important;
+  color: var(--primary, #8b1538) !important;
+  border: 1px solid color-mix(in srgb, var(--primary, #8b1538) 20%, transparent) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .setting-effect.is-disabled {
+  background: var(--theme-surface-muted, #f1f5f9) !important;
+  color: var(--theme-text-muted, #94a3b8) !important;
+  border-color: var(--theme-border, #e2e8f0) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .notification-switch {
+  position: relative !important;
+  display: inline-block !important;
+  width: 48px !important;
+  height: 26px !important;
+  flex-shrink: 0 !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .notification-switch input {
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .notification-slider {
+  position: absolute !important;
+  cursor: pointer !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: var(--theme-border, #cbd5e1) !important;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 999px !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .notification-slider:before {
+  position: absolute !important;
+  content: "" !important;
+  height: 20px !important;
+  width: 20px !important;
+  left: 3px !important;
+  bottom: 3px !important;
+  background-color: white !important;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .notification-switch input:checked + .notification-slider {
+  background-color: var(--primary, #8b1538) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .notification-switch input:checked + .notification-slider:before {
+  transform: translateX(22px) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.85rem !important;
+  margin-top: 1.75rem !important;
+  padding-top: 1.25rem !important;
+  border-top: 1px solid var(--theme-border, #e2e8f0) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-save-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.75rem 1.6rem !important;
+  border-radius: 10px !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, var(--primary, #8b1538) 0%, color-mix(in srgb, var(--primary, #8b1538) 85%, #000) 100%) !important;
+  border: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary, #8b1538) 35%, transparent) !important;
+  transition: all 0.2s ease !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-save-btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary, #8b1538) 45%, transparent) !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-reset-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.75rem 1.25rem !important;
+  border-radius: 10px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  color: var(--theme-text-muted, #64748b) !important;
+  background: var(--theme-surface-muted, #f8fafc) !important;
+  border: 1px solid var(--theme-border, #e2e8f0) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+html[data-public-theme="turkmod"] .notification-settings .settings-reset-btn:hover {
+  color: var(--theme-text, #0f172a) !important;
+  background: #ffffff !important;
+  border-color: var(--theme-border, #cbd5e1) !important;
+}
+
+@media (max-width: 768px) {
+  html[data-public-theme="turkmod"] .notification-settings {
+    padding: 1rem !important;
+  }
+
+  html[data-public-theme="turkmod"] .notification-settings .settings-intro {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  html[data-public-theme="turkmod"] .notification-settings .settings-actions {
+    flex-direction: column-reverse !important;
+    width: 100% !important;
+  }
+
+  html[data-public-theme="turkmod"] .notification-settings .settings-save-btn,
+  html[data-public-theme="turkmod"] .notification-settings .settings-reset-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}

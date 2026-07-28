@@ -541,32 +541,48 @@ require_once __DIR__ . '/header.php';
                         </td>
                         <td class="ui-admin-table-cell-actions">
                             <div class="action-btns">
-                                <a href="<?= $baseUri ?>/admin/edit.php?id=<?= (int) $t['id'] ?>" class="btn-icon-minimal edit" title="Düzenle"><i class="bi bi-pencil"></i></a>
-                                
                                 <?php if (!$isDeleted): ?>
-                                    <form action="topics.php" method="post" class="ui-admin-inline-form-block">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="action" value="moderation_action">
-                                        <input type="hidden" name="topic_id" value="<?= (int) $t['id'] ?>">
-                                        <input type="hidden" name="decision" value="approve">
-                                        <button type="submit" class="btn-icon-minimal success" title="Onayla"><i class="bi bi-check2"></i></button>
-                                    </form>
-                                    <form action="topics.php" method="post" class="ui-admin-inline-form-block" data-moderation-note-form data-moderation-note-title="Reddetme notu" data-moderation-note-required="1">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="action" value="moderation_action">
-                                        <input type="hidden" name="topic_id" value="<?= (int) $t['id'] ?>">
-                                        <input type="hidden" name="decision" value="reject">
-                                        <input type="hidden" name="moderation_note" value="">
-                                        <button type="submit" class="btn-icon-minimal danger" title="Reddet"><i class="bi bi-x-lg"></i></button>
-                                    </form>
-                                    <form action="topics.php" method="post" class="ui-admin-inline-form-block" data-moderation-note-form data-moderation-note-title="Revizyon notu" data-moderation-note-required="1">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="action" value="moderation_action">
-                                        <input type="hidden" name="topic_id" value="<?= (int) $t['id'] ?>">
-                                        <input type="hidden" name="decision" value="revision">
-                                        <input type="hidden" name="moderation_note" value="">
-                                        <button type="submit" class="btn-icon-minimal warning" title="Revizyon İste"><i class="bi bi-arrow-repeat"></i></button>
-                                    </form>
+                                    <a href="<?= $baseUri ?>/admin/edit.php?id=<?= (int) $t['id'] ?>" class="btn-icon-minimal edit" title="Düzenle"><i class="bi bi-pencil"></i></a>
+                                    
+                                    <?php if ($statusKey !== 'published'): ?>
+                                        <form action="topics.php" method="post" class="ui-admin-inline-form-block">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="action" value="moderation_action">
+                                            <input type="hidden" name="topic_id" value="<?= (int) $t['id'] ?>">
+                                            <input type="hidden" name="decision" value="approve">
+                                            <button type="submit" class="btn-icon-minimal success" title="Onayla & Yayına Al"><i class="bi bi-check2"></i></button>
+                                        </form>
+                                    <?php else: ?>
+                                        <form action="topics.php" method="post" class="ui-admin-inline-form-block">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="action" value="moderation_action">
+                                            <input type="hidden" name="topic_id" value="<?= (int) $t['id'] ?>">
+                                            <input type="hidden" name="decision" value="draft">
+                                            <button type="submit" class="btn-icon-minimal warning" title="Taslağa Al"><i class="bi bi-pause-circle"></i></button>
+                                        </form>
+                                    <?php endif; ?>
+
+                                    <?php if ($statusKey !== 'rejected' && $statusKey !== 'published'): ?>
+                                        <form action="topics.php" method="post" class="ui-admin-inline-form-block" data-moderation-note-form data-moderation-note-title="Reddetme notu" data-moderation-note-required="1">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="action" value="moderation_action">
+                                            <input type="hidden" name="topic_id" value="<?= (int) $t['id'] ?>">
+                                            <input type="hidden" name="decision" value="reject">
+                                            <input type="hidden" name="moderation_note" value="">
+                                            <button type="submit" class="btn-icon-minimal danger" title="Reddet"><i class="bi bi-x-lg"></i></button>
+                                        </form>
+                                    <?php endif; ?>
+
+                                    <?php if ($statusKey !== 'revision'): ?>
+                                        <form action="topics.php" method="post" class="ui-admin-inline-form-block" data-moderation-note-form data-moderation-note-title="Revizyon notu" data-moderation-note-required="1">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="action" value="moderation_action">
+                                            <input type="hidden" name="topic_id" value="<?= (int) $t['id'] ?>">
+                                            <input type="hidden" name="decision" value="revision">
+                                            <input type="hidden" name="moderation_note" value="">
+                                            <button type="submit" class="btn-icon-minimal warning" title="Revizyon İste"><i class="bi bi-arrow-repeat"></i></button>
+                                        </form>
+                                    <?php endif; ?>
                                     
                                     <form action="<?= $baseUri ?>/admin/delete.php" method="post" class="ui-admin-inline-form-block"<?= adminConfirmAttrs(['message' => 'Bu konuyu çöpe taşımak istediğinize emin misiniz?', 'title' => 'Konu çöpe taşınsın mı?', 'ok' => 'Çöpe Taşı', 'tone' => 'danger']) ?>>
                                         <?= csrf_field() ?>
@@ -574,6 +590,12 @@ require_once __DIR__ . '/header.php';
                                         <button type="submit" class="btn-icon-minimal danger" title="Çöpe Taşı"><i class="bi bi-trash"></i></button>
                                     </form>
                                 <?php else: ?>
+                                    <form action="topics.php" method="post" class="ui-admin-inline-form-block">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="bulk_action" value="restore">
+                                        <input type="hidden" name="topic_ids[]" value="<?= (int) $t['id'] ?>">
+                                        <button type="submit" class="btn-icon-minimal success" title="Geri Yükle"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                    </form>
                                     <form action="<?= $baseUri ?>/admin/delete.php" method="post" class="ui-admin-inline-form-block"<?= adminConfirmAttrs(['message' => 'Bu konu ve bağlı tüm dosyalar kalıcı olarak silinecek. Onaylıyor musunuz?', 'title' => 'Kalıcı silme', 'ok' => 'Kalıcı Sil', 'tone' => 'danger']) ?>>
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">

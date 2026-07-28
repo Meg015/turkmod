@@ -8,12 +8,12 @@ require_once __DIR__ . '/../includes/src/Engine/AdminAudit/Support/helpers.php';
 $pageTitle = 'Dashboard';
 adminRequirePermission('dashboard.view', 'Dashboard goruntulemek icin gerekli izin hesabiniza tanimlanmamis.');
 
-$stats = ['pending' => 0, 'published' => 0, 'categories' => 0, 'reports' => 0];
+$stats = ['pending' => 0, 'published' => 0, 'categories' => 0, 'reports' => 0, 'comments' => 0];
 $seoQuality = ['total_issues' => 0, 'missing_meta_description' => 0, 'missing_primary_media' => 0];
 $moderationQuality = ['pending' => 0, 'rejected' => 0, 'revision' => 0];
 $downloadQuality = ['unchecked' => 0, 'ok' => 0, 'broken' => 0, 'warning' => 0];
 $opsQuality = ['error_events' => 0, 'critical_admin_actions' => 0, 'today_activity' => 0];
-$recentActivity = [];
+$recentComments = [];
 
 // Kullanıcı özeti
 $userStats = ['total' => 0, 'active' => 0, 'banned' => 0, 'new_this_month' => 0];
@@ -23,6 +23,7 @@ if ($pdo) {
         $stats['pending'] = (int) $pdo->query("SELECT COUNT(*) FROM topics WHERE status = 'draft' AND deleted_at IS NULL")->fetchColumn();
         $stats['published'] = (int) $pdo->query("SELECT COUNT(*) FROM topics WHERE status IN ('published', 'approved') AND deleted_at IS NULL")->fetchColumn();
         $stats['categories'] = (int) $pdo->query("SELECT COUNT(*) FROM categories WHERE status = 'active'")->fetchColumn();
+        $stats['comments'] = (int) $pdo->query("SELECT COUNT(*) FROM comments WHERE deleted_at IS NULL")->fetchColumn();
         // Moderasyon kuyruğu sayıları (her biri ayrı — birleşik "Dikkat Bekleyenler" kutusu için)
         $attention = [
             'topic_reports' => 0,
@@ -53,19 +54,18 @@ if ($pdo) {
         $attention['pending_topics'] = (int) ($moderationQuality['pending'] ?? $stats['pending']);
         $attentionTotal = array_sum($attention);
 
-        if (function_exists('ensureAdminActionLogTable')) {
-            ensureAdminActionLogTable($pdo);
-        }
-        $activityStmt = $pdo->query(
-            "SELECT l.action_type AS action, l.target_type, l.target_id, l.reason, l.old_value, l.new_value, l.created_at,
-                    actor.username AS actor_name, target.username AS target_name
-             FROM admin_action_log l
-             LEFT JOIN users actor ON l.actor_id = actor.id
-             LEFT JOIN users target ON l.target_type = 'user' AND l.target_id = target.id
-             ORDER BY l.created_at DESC, l.id DESC
+        $recentCommentsStmt = $pdo->query(
+            "SELECT c.id, c.body, c.status, c.created_at, c.topic_id,
+                    u.username AS author_name, u.avatar AS author_avatar,
+                    t.title AS topic_title, t.slug AS topic_slug
+             FROM comments c
+             LEFT JOIN users u ON c.user_id = u.id
+             LEFT JOIN topics t ON c.topic_id = t.id
+             WHERE c.deleted_at IS NULL
+             ORDER BY c.created_at DESC, c.id DESC
              LIMIT 6"
         );
-        $recentActivity = $activityStmt ? ($activityStmt->fetchAll() ?: []) : [];
+        $recentComments = $recentCommentsStmt ? ($recentCommentsStmt->fetchAll() ?: []) : [];
 
 
 
@@ -120,7 +120,7 @@ $attentionTotal = $attentionTotal ?? 0;
     ['href' => $baseUri . '/admin/users.php', 'tone' => 'info', 'icon' => 'bi-people-fill', 'label' => 'Toplam Üye', 'value' => number_format($userStats['total'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Kayıtlı', 'change_icon' => 'bi-person', 'change_class' => 'neutral'],
     ['href' => $baseUri . '/admin/users.php', 'tone' => 'success', 'icon' => 'bi-person-check-fill', 'label' => 'Aktif Üye', 'value' => number_format($userStats['active'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Aktif', 'change_icon' => 'bi-check-circle', 'change_class' => 'positive'],
     ['href' => $baseUri . '/admin/users.php', 'tone' => 'danger', 'icon' => 'bi-person-slash', 'label' => 'Banlı Üye', 'value' => number_format($userStats['banned'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Banlı', 'change_icon' => 'bi-slash-circle', 'change_class' => $userStats['banned'] > 0 ? 'negative' : 'neutral'],
-    ['href' => $baseUri . '/admin/topics.php?status=draft', 'tone' => 'warning', 'icon' => 'bi-shield-check', 'label' => 'Taslak Konular', 'value' => number_format((int) ($moderationQuality['pending'] ?? 0), 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Moderasyon', 'change_icon' => 'bi-clock', 'change_class' => 'negative'],
+    ['href' => $baseUri . '/admin/comments-manager.php', 'tone' => 'warning', 'icon' => 'bi-chat-square-text-fill', 'label' => 'Toplam Yorum', 'value' => number_format($stats['comments'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Yorumlar', 'change_icon' => 'bi-chat-dots', 'change_class' => 'neutral'],
 ], [
     'base_class' => 'ui-admin-stat-grid ui-admin-stat-grid-compact ui-grid admin-ui-stat-grid',
     'class' => 'dashboard-user-summary',
@@ -222,42 +222,64 @@ $attentionTotal = $attentionTotal ?? 0;
 
     <?= adminRenderPanelOpen([
         'tag' => 'div',
-        'icon' => 'bi-clock-history',
-        'title' => 'Son Yönetim İşlemleri',
+        'icon' => 'bi-chat-left-text',
+        'title' => 'Son Yorumlar',
         'body_class' => 'ui-admin-card-flush',
+        'header_right_html' => '<a href="' . $baseUri . '/admin/comments-manager.php" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost">Tümünü Gör <i class="bi bi-arrow-right"></i></a>',
     ]) ?>
-            <?php if (empty($recentActivity)): ?>
+            <?php if (empty($recentComments)): ?>
                 <div class="activity-item">
-                    <div class="activity-icon info"><i class="bi bi-info-circle"></i></div>
+                    <div class="activity-icon info"><i class="bi bi-chat-dots"></i></div>
                     <div class="activity-content">
-                        <span class="activity-title">Henüz aktivite yok</span>
-                        <span class="activity-desc">Yeni yönetim işlemleri burada görünür.</span>
+                        <span class="activity-title">Henüz yorum yok</span>
+                        <span class="activity-desc">Kullanıcıların yaptığı son yorumlar burada görünür.</span>
                         <span class="activity-time">Şimdi</span>
                     </div>
                 </div>
             <?php else: ?>
-                <?php foreach ($recentActivity as $activity): ?>
+                <?php foreach ($recentComments as $comment): ?>
                     <?php
-                    [$activityClass, $activityIcon] = dashboardActivityIcon((string)($activity['action'] ?? ''));
-                    $activityTitle = function_exists('adminActionLabel') ? adminActionLabel((string) $activity['action']) : (string) $activity['action'];
-                    $targetLabel = function_exists('logsFormatSubject')
-                        ? logsFormatSubject((string) ($activity['target_type'] ?? ''), (int) ($activity['target_id'] ?? 0), (string) ($activity['target_name'] ?? null))
-                        : ((string) ($activity['target_type'] ?? '') . ' #' . (int) ($activity['target_id'] ?? 0));
-                    $activityDescParts = array_values(array_filter([
-                        (string) ($activity['actor_name'] ?? ''),
-                        $targetLabel,
-                        trim((string) ($activity['reason'] ?? '')),
-                    ], static fn ($value): bool => $value !== ''));
-                    $activityDesc = $activityDescParts !== [] ? implode(' · ', $activityDescParts) : '-';
+                    $cAuthor = $comment['author_name'] ?? 'Misafir';
+                    $rawTitle = (string)($comment['topic_title'] ?? ('Konu #' . (int)($comment['topic_id'] ?? 0)));
+                    $cTopicTitle = mb_substr($rawTitle, 0, 45, 'UTF-8');
+                    if (mb_strlen($rawTitle, 'UTF-8') > 45) {
+                        $cTopicTitle .= '...';
+                    }
+                    $rawBody = trim(strip_tags((string)($comment['body'] ?? '')));
+                    $cBody = mb_substr($rawBody, 0, 110, 'UTF-8');
+                    if (mb_strlen($rawBody, 'UTF-8') > 110) {
+                        $cBody .= '...';
+                    }
+                    $cStatus = (string)($comment['status'] ?? 'approved');
+                    $statusTone = match($cStatus) {
+                        'approved' => 'success',
+                        'pending' => 'warning',
+                        'rejected' => 'danger',
+                        default => 'info',
+                    };
+                    $statusIcon = match($cStatus) {
+                        'approved' => 'bi-check-circle',
+                        'pending' => 'bi-clock-history',
+                        'rejected' => 'bi-x-circle',
+                        default => 'bi-chat-left-text',
+                    };
                     ?>
-                    <div class="activity-item">
-                        <div class="activity-icon <?= htmlspecialchars($activityClass) ?>"><i class="bi <?= htmlspecialchars($activityIcon) ?>"></i></div>
-                        <div class="activity-content">
-                            <span class="activity-title"><?= htmlspecialchars($activityTitle) ?></span>
-                            <span class="activity-desc"><?= htmlspecialchars((string)$activityDesc) ?></span>
-                            <span class="activity-time"><?= htmlspecialchars(date('d.m.Y H:i', strtotime((string)$activity['created_at']))) ?></span>
+                    <a href="<?= $baseUri ?>/admin/comments-manager.php?id=<?= (int)$comment['id'] ?>" class="activity-item" style="text-decoration:none; color:inherit; display:flex; align-items:flex-start; gap:12px; min-width:0; max-width:100%; box-sizing:border-box; overflow:hidden; padding: 10px 12px;">
+                        <div class="activity-icon <?= $statusTone ?>" style="flex-shrink:0; margin-top:2px;"><i class="bi <?= $statusIcon ?>"></i></div>
+                        <div class="activity-content" style="flex:1 1 0%; min-width:0; overflow:hidden;">
+                            <div class="activity-title" style="display:flex; justify-content:space-between; align-items:center; gap:8px; min-width:0; margin-bottom:3px;">
+                                <strong style="font-weight:700; color:var(--ui-admin-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; font-size:0.88rem;"><?= htmlspecialchars($cAuthor) ?></strong>
+                                <span class="activity-time" style="margin:0; font-size:0.75rem; color:var(--ui-admin-text-secondary); flex-shrink:0; white-space:nowrap;"><?= htmlspecialchars(date('d.m.Y H:i', strtotime((string)$comment['created_at']))) ?></span>
+                            </div>
+                            <div class="activity-body-text" style="font-size:0.84rem; color:var(--ui-admin-text); line-height:1.4; word-break:break-word; overflow-wrap:anywhere; margin-bottom:4px; font-weight:500;">
+                                "<?= htmlspecialchars($cBody) ?>"
+                            </div>
+                            <div class="activity-topic-hint" style="font-size:0.75rem; color:var(--ui-admin-primary); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px;">
+                                <i class="bi bi-file-text" style="font-size:0.75rem;"></i>
+                                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?= htmlspecialchars($cTopicTitle) ?></span>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 <?php endforeach; ?>
             <?php endif; ?>
     <?= adminRenderPanelClose('div') ?>

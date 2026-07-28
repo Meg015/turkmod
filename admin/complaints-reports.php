@@ -120,6 +120,16 @@ function adminComplaintsUpdateReportStatus(?PDO $pdo, string $scope, int $report
     return (bool) $updated;
 }
 
+function adminComplaintsDeleteReport(?PDO $pdo, string $scope, int $reportId, ?int $actorId = null): bool
+{
+    $deleted = adminComplaintsReportHelperCall(
+        $scope === 'users' ? 'deleteUserReport' : 'deleteTopicReport',
+        [$pdo, $reportId, $actorId]
+    );
+
+    return (bool) $deleted;
+}
+
 /** @return array{reports:int,events:int,notifications:int,activities:int,user_activities:int} */
 function adminComplaintsDeleteAllTopicReports(?PDO $pdo, ?int $actorId = null): array
 {
@@ -235,7 +245,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
 
         if ($postScope === 'users') {
-            if ($action === 'bulk_update') {
+            if ($action === 'delete') {
+                $deleted = adminComplaintsDeleteReport($pdo, 'users', (int) ($_POST['report_id'] ?? 0), $actorId);
+                $deleted
+                    ? flash('success', 'Kullanıcı şikayeti silindi.')
+                    : flash('error', 'Şikayet silinemedi.');
+            } elseif ($action === 'bulk_update') {
                 $ids = array_values(array_filter(array_map('intval', (array) ($_POST['bulk_report_ids'] ?? [])), static fn (int $id): bool => $id > 0));
                 $bulkStatus = (string) ($_POST['bulk_status'] ?? '');
                 $bulkNote = (string) ($_POST['bulk_admin_note'] ?? '');
@@ -264,7 +279,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     : flash('error', 'Şikayet güncellenemedi.');
             }
         } else {
-            if ($action === 'bulk_update') {
+            if ($action === 'delete') {
+                $deleted = adminComplaintsDeleteReport($pdo, 'topics', (int) ($_POST['report_id'] ?? 0), $actorId);
+                $deleted
+                    ? flash('success', 'Konu raporu silindi.')
+                    : flash('error', 'Rapor silinemedi.');
+            } elseif ($action === 'bulk_update') {
                 $ids = array_values(array_filter(array_map('intval', (array) ($_POST['bulk_report_ids'] ?? [])), static fn (int $id): bool => $id > 0));
                 $bulkStatus = (string) ($_POST['bulk_status'] ?? '');
                 $bulkNote = (string) ($_POST['bulk_admin_note'] ?? '');
@@ -599,86 +619,108 @@ require_once __DIR__ . '/header.php';
                     $details = (string) ($report['details'] ?? '');
                     $adminNote = (string) ($report['admin_note'] ?? '');
                     ?>
-                    <article class="complaints-item">
-                        <div class="complaints-select">
-                            <input type="checkbox" name="bulk_report_ids[]" value="<?= $reportId ?>" class="complaints-row-checkbox" form="bulkReportsForm">
+                    <article class="complaints-item-card ui-card">
+                        <div class="complaints-item-header">
+                            <div class="complaints-item-header-left">
+                                <label class="complaints-select" title="Şikayeti seç">
+                                    <input type="checkbox" name="bulk_report_ids[]" value="<?= $reportId ?>" class="complaints-row-checkbox" form="bulkReportsForm">
+                                </label>
+                                <span class="complaints-id-badge"><i class="bi <?= $activeTab === 'users' ? 'bi-person-exclamation' : 'bi-flag-fill' ?>"></i> Rapor #<?= $reportId ?></span>
+                                <span class="complaints-reason-tag"><i class="bi bi-shield-exclamation"></i> <?= htmlspecialchars($reasonLabels[$report['reason']] ?? (string) $report['reason']) ?></span>
+                            </div>
+                            <div class="complaints-item-header-right">
+                                <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars($statusMeta[1]) ?>"><i class="bi <?= htmlspecialchars($statusMeta[2]) ?>"></i> <?= htmlspecialchars($statusMeta[0]) ?></span>
+                            </div>
                         </div>
-                        <div class="complaints-main">
-                            <div class="complaints-title-row">
-                                <div>
-                                    <?php if ($activeTab === 'users'): ?>
-                                        <span class="complaints-title"><?= htmlspecialchars((string) ($report['reported_user_name'] ?? 'Silinmiş kullanıcı')) ?></span>
-                                        <span class="complaints-subtitle"><?= htmlspecialchars((string) ($report['reported_user_email'] ?? '')) ?></span>
+
+                        <div class="complaints-item-body">
+                            <div class="complaints-entity-box">
+                                <?php if ($activeTab === 'users'): ?>
+                                    <div class="complaints-entity-target">
+                                        <span class="complaints-entity-label">ŞİKAYET EDİLEN KULLANICI</span>
+                                        <strong class="complaints-entity-title"><i class="bi bi-person-circle"></i> <?= htmlspecialchars((string) ($report['reported_user_name'] ?? 'Silinmiş kullanıcı')) ?></strong>
+                                        <?php if (!empty($report['reported_user_email'])): ?>
+                                            <span class="complaints-entity-sub"><?= htmlspecialchars((string) $report['reported_user_email']) ?></span>
+                                        <?php endif; ?>
                                         <?php if ((int) ($report['reported_user_id'] ?? 0) > 0): ?>
-                                            <a class="complaints-link" href="users.php?tab=users&amp;edit=<?= (int) $report['reported_user_id'] ?>"><i class="bi bi-person-lines-fill"></i> Kullanıcıyı aç</a>
+                                            <a class="complaints-link-btn" href="users.php?tab=users&amp;edit=<?= (int) $report['reported_user_id'] ?>"><i class="bi bi-person-gear"></i> Profili Aç</a>
                                         <?php endif; ?>
-                                    <?php else: ?>
-                                        <span class="complaints-title"><?= htmlspecialchars((string) ($report['topic_title'] ?? 'Silinmiş konu')) ?></span>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="complaints-entity-target">
+                                        <span class="complaints-entity-label">ŞİKAYET EDİLEN KONU</span>
+                                        <strong class="complaints-entity-title"><i class="bi bi-file-earmark-text"></i> <?= htmlspecialchars((string) ($report['topic_title'] ?? 'Silinmiş konu')) ?></strong>
                                         <?php if (!empty($report['topic_slug'])): ?>
-                                            <a class="complaints-link" href="<?= topicUrl((string) $report['topic_slug'], (int) ($report['topic_id'] ?? 0)) ?>" target="_blank" rel="noopener">Konuyu aç <i class="bi bi-box-arrow-up-right"></i></a>
+                                            <a class="complaints-link-btn" href="<?= topicUrl((string) $report['topic_slug'], (int) ($report['topic_id'] ?? 0)) ?>" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Konuyu Gör</a>
                                         <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="complaints-reporter-info">
+                                    <span class="complaints-reporter-meta"><i class="bi bi-person-fill"></i> <strong><?= htmlspecialchars((string) ($report['reporter_name'] ?? 'Anonim')) ?></strong> bildirimi</span>
+                                    <span class="complaints-reporter-meta"><i class="bi bi-calendar3"></i> <?= htmlspecialchars(adminComplaintsDate((string) ($report['created_at'] ?? 'now'))) ?></span>
+                                    <?php if ($events !== []): ?>
+                                        <span class="complaints-reporter-meta"><i class="bi bi-clock-history"></i> <?= count($events) ?> işlem kaydı</span>
                                     <?php endif; ?>
                                 </div>
-                                <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars($statusMeta[1]) ?>"><i class="bi <?= htmlspecialchars($statusMeta[2]) ?>"></i><?= htmlspecialchars($statusMeta[0]) ?></span>
-                            </div>
-
-                            <div class="complaints-meta-grid">
-                                <span class="complaints-meta-pill"><i class="bi <?= $activeTab === 'users' ? 'bi-person-exclamation' : 'bi-flag' ?>"></i><strong><?= htmlspecialchars($reasonLabels[$report['reason']] ?? (string) $report['reason']) ?></strong></span>
-                                <?php if ($activeTab === 'users'): ?>
-                                    <span class="complaints-meta-pill"><i class="bi bi-person"></i>Şikayet eden: <strong><?= htmlspecialchars((string) ($report['reporter_name'] ?? 'Anonim')) ?></strong></span>
-                                <?php else: ?>
-                                    <span class="complaints-meta-pill"><i class="bi bi-person"></i><?= htmlspecialchars((string) ($report['reporter_name'] ?? 'Anonim')) ?></span>
-                                <?php endif; ?>
-                                <span class="complaints-meta-pill"><i class="bi bi-clock"></i><?= htmlspecialchars(adminComplaintsDate((string) ($report['created_at'] ?? 'now'))) ?></span>
-                                <?php if ($events !== []): ?>
-                                    <span class="complaints-meta-pill"><i class="bi bi-clock-history"></i><?= count($events) ?> geçmiş</span>
-                                <?php endif; ?>
                             </div>
 
                             <?php if ($details !== ''): ?>
-                                <p class="complaints-detail is-preview"><?= nl2br(htmlspecialchars($details)) ?></p>
+                                <div class="complaints-reason-detail-box">
+                                    <span class="complaints-detail-label"><i class="bi bi-chat-square-quote-fill"></i> ŞİKAYET AÇIKLAMASI</span>
+                                    <p><?= nl2br(htmlspecialchars($details)) ?></p>
+                                </div>
                             <?php endif; ?>
 
-                            <div class="complaints-row-actions">
-                                <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-complaints-modal-open="<?= htmlspecialchars($modalId) ?>"><i class="bi bi-card-text"></i> Detay</button>
-                            </div>
+                            <?php if ($adminNote !== ''): ?>
+                                <div class="complaints-admin-note-box">
+                                    <span class="complaints-admin-note-label"><i class="bi bi-sticky-fill"></i> YÖNETİCİ NOTU</span>
+                                    <p><?= nl2br(htmlspecialchars($adminNote)) ?></p>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
-                        <aside class="complaints-actions" aria-label="Rapor işlemleri">
-                            <div class="complaints-actions-title">
-                                <span>İşlem paneli</span>
-                            </div>
-                            <div class="complaints-quick-actions" aria-label="Hızlı işlem">
-                                <?php foreach (['reviewing', 'resolved', 'rejected'] as $quickStatus): ?>
+                        <div class="complaints-item-footer">
+                            <div class="complaints-quick-status-bar">
+                                <span class="complaints-quick-label">Hızlı Durum:</span>
+                                <?php foreach (['open', 'reviewing', 'resolved', 'rejected'] as $quickStatus): ?>
                                     <?php if ($statusKey !== $quickStatus): ?>
-                                    <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
-                                        <input type="hidden" name="_return" value="<?= htmlspecialchars($returnQuery) ?>">
-                                        <input type="hidden" name="action" value="quick_update">
-                                        <input type="hidden" name="report_id" value="<?= $reportId ?>">
-                                        <input type="hidden" name="status" value="<?= htmlspecialchars($quickStatus) ?>">
-                                        <input type="hidden" name="admin_note" value="<?= htmlspecialchars($adminNote) ?>">
-                                        <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="<?= htmlspecialchars(adminComplaintsStatusLabel($statusLabels, $quickStatus)) ?>"><i class="bi <?= htmlspecialchars($statusLabels[$quickStatus][2]) ?>"></i></button>
-                                    </form>
+                                        <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="ui-admin-inline-form">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
+                                            <input type="hidden" name="_return" value="<?= htmlspecialchars($returnQuery) ?>">
+                                            <input type="hidden" name="action" value="quick_update">
+                                            <input type="hidden" name="report_id" value="<?= $reportId ?>">
+                                            <input type="hidden" name="status" value="<?= htmlspecialchars($quickStatus) ?>">
+                                            <input type="hidden" name="admin_note" value="<?= htmlspecialchars($adminNote) ?>">
+                                            <?php
+                                                $qMeta = adminComplaintsStatusMeta($statusLabels, $quickStatus);
+                                                $btnToneClass = $quickStatus === 'resolved' ? 'ui-admin-btn-success' : ($quickStatus === 'reviewing' ? 'ui-admin-btn-warning' : ($quickStatus === 'open' ? 'ui-admin-btn-danger-outline' : 'ui-admin-btn-outline'));
+                                            ?>
+                                            <button type="submit" class="ui-admin-btn ui-admin-btn-xs <?= $btnToneClass ?>" title="<?= htmlspecialchars($qMeta[0]) ?>">
+                                                <i class="bi <?= htmlspecialchars($qMeta[2]) ?>"></i> <?= htmlspecialchars($qMeta[0]) ?>
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
+                                <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu şikayet/rapor kaydını silmek istediğinize emin misiniz?', 'title' => 'Rapor silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
+                                    <input type="hidden" name="_return" value="<?= htmlspecialchars($returnQuery) ?>">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="report_id" value="<?= $reportId ?>">
+                                    <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger-outline" title="Raporu Sil">
+                                        <i class="bi bi-trash3"></i> Sil
+                                    </button>
+                                </form>
                             </div>
-                            <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-admin-form">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
-                                <input type="hidden" name="_return" value="<?= htmlspecialchars($returnQuery) ?>">
-                                <input type="hidden" name="action" value="update">
-                                <input type="hidden" name="report_id" value="<?= $reportId ?>">
-                                <select name="status" class="ui-admin-form-select" aria-label="Rapor durumu">
-                                    <?php foreach ($statusLabels as $key => $meta): ?>
-                                        <option value="<?= htmlspecialchars($key) ?>" <?= $statusKey === $key ? 'selected' : '' ?>><?= htmlspecialchars($meta[0]) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <textarea name="admin_note" class="ui-admin-form-control" placeholder="Admin notu"><?= htmlspecialchars($adminNote) ?></textarea>
-                                <button type="submit" class="ui-admin-btn ui-admin-btn-sm complaints-save-btn"><i class="bi bi-save"></i> Kaydet</button>
-                            </form>
-                        </aside>
+
+                            <div class="complaints-item-actions">
+                                <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-primary" data-complaints-modal-open="<?= htmlspecialchars($modalId) ?>">
+                                    <i class="bi bi-pencil-square"></i> İncele & Not Ekle
+                                </button>
+                            </div>
+                        </div>
                     </article>
 
                     <div class="complaints-modal ui-admin-modal-overlay" id="<?= htmlspecialchars($modalId) ?>" hidden aria-hidden="true">
@@ -688,44 +730,87 @@ require_once __DIR__ . '/header.php';
                                 <div>
                                     <h3 id="<?= htmlspecialchars($modalId) ?>-title">
                                         <?php if ($activeTab === 'users'): ?>
-                                            <?= htmlspecialchars((string) ($report['reported_user_name'] ?? 'Silinmiş kullanıcı')) ?>
+                                            <i class="bi bi-person-exclamation"></i> <?= htmlspecialchars((string) ($report['reported_user_name'] ?? 'Silinmiş kullanıcı')) ?>
                                         <?php else: ?>
-                                            <?= htmlspecialchars((string) ($report['topic_title'] ?? 'Silinmiş konu')) ?>
+                                            <i class="bi bi-flag-fill"></i> <?= htmlspecialchars((string) ($report['topic_title'] ?? 'Silinmiş konu')) ?>
                                         <?php endif; ?>
                                     </h3>
-                                    <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars($statusMeta[1]) ?>"><i class="bi <?= htmlspecialchars($statusMeta[2]) ?>"></i><?= htmlspecialchars($statusMeta[0]) ?></span>
+                                    <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars($statusMeta[1]) ?>"><i class="bi <?= htmlspecialchars($statusMeta[2]) ?>"></i> <?= htmlspecialchars($statusMeta[0]) ?></span>
                                 </div>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-complaints-modal-close><i class="bi bi-x-lg"></i></button>
                             </div>
+                            <div class="complaints-modal-nav">
+                                <button type="button" class="complaints-modal-tab-btn is-active" data-complaints-modal-tab="action">
+                                    <i class="bi bi-pencil-square"></i> Moderasyon & Not
+                                </button>
+                                <button type="button" class="complaints-modal-tab-btn" data-complaints-modal-tab="details">
+                                    <i class="bi bi-file-earmark-text"></i> Rapor Detayı
+                                </button>
+                                <button type="button" class="complaints-modal-tab-btn" data-complaints-modal-tab="history">
+                                    <i class="bi bi-clock-history"></i> İşlem Geçmişi (<?= count($events) ?>)
+                                </button>
+                            </div>
                             <div class="complaints-modal-body">
-                                <div class="complaints-meta-grid">
-                                    <span class="complaints-meta-pill"><i class="bi <?= $activeTab === 'users' ? 'bi-person-exclamation' : 'bi-flag' ?>"></i><strong><?= htmlspecialchars($reasonLabels[$report['reason']] ?? (string) $report['reason']) ?></strong></span>
-                                    <span class="complaints-meta-pill"><i class="bi bi-person"></i><?= htmlspecialchars((string) ($report['reporter_name'] ?? 'Anonim')) ?></span>
-                                    <span class="complaints-meta-pill"><i class="bi bi-clock"></i><?= htmlspecialchars(adminComplaintsDate((string) ($report['created_at'] ?? 'now'))) ?></span>
+                                <div class="complaints-modal-panel" data-complaints-modal-panel="action">
+                                    <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-modal-admin-form">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
+                                        <input type="hidden" name="_return" value="<?= htmlspecialchars($returnQuery) ?>">
+                                        <input type="hidden" name="action" value="update">
+                                        <input type="hidden" name="report_id" value="<?= $reportId ?>">
+                                        
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="ui-admin-form-label">Rapor Durumu</label>
+                                                <select name="status" class="ui-admin-form-select">
+                                                    <?php foreach ($statusLabels as $key => $meta): ?>
+                                                        <option value="<?= htmlspecialchars($key) ?>" <?= $statusKey === $key ? 'selected' : '' ?>><?= htmlspecialchars($meta[0]) ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="ui-admin-form-label">Rapor Nedeni</label>
+                                                <input type="text" class="ui-admin-form-control" value="<?= htmlspecialchars($reasonLabels[$report['reason']] ?? (string) $report['reason']) ?>" readonly>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="ui-admin-form-label">Yönetici Notu</label>
+                                                <textarea name="admin_note" class="ui-admin-form-control" rows="4" placeholder="Bu şikayet ile ilgili iç notunuzu buraya yazabilirsiniz..."><?= htmlspecialchars($adminNote) ?></textarea>
+                                            </div>
+                                            <div class="col-12 text-end">
+                                                <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-save"></i> Güncelle ve Kaydet</button>
+                                            </div>
+                                        </div>
+                                    </form>
                                 </div>
-                                <?php if ($activeTab === 'users'): ?>
-                                    <div>
-                                        <strong>Şikayet edilen kullanıcı</strong>
-                                        <p class="complaints-detail"><?= htmlspecialchars((string) ($report['reported_user_name'] ?? 'Silinmiş kullanıcı')) ?><br><?= htmlspecialchars((string) ($report['reported_user_email'] ?? '')) ?></p>
+
+                                <div class="complaints-modal-panel" data-complaints-modal-panel="details" hidden>
+                                    <div class="complaints-modal-info-grid">
+                                        <?php if ($activeTab === 'users'): ?>
+                                            <div class="complaints-modal-box">
+                                                <strong><i class="bi bi-person-x"></i> Şikayet Edilen Kullanıcı</strong>
+                                                <p><?= htmlspecialchars((string) ($report['reported_user_name'] ?? 'Silinmiş kullanıcı')) ?><br><?= htmlspecialchars((string) ($report['reported_user_email'] ?? '')) ?></p>
+                                            </div>
+                                            <div class="complaints-modal-box">
+                                                <strong><i class="bi bi-person-check"></i> Şikayet Eden (Bildiren)</strong>
+                                                <p><?= htmlspecialchars((string) ($report['reporter_name'] ?? 'Anonim')) ?><br><?= htmlspecialchars((string) ($report['reporter_email'] ?? '')) ?></p>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="complaints-modal-box col-12">
+                                                <strong><i class="bi bi-file-earmark-text"></i> Şikayet Edilen Konu</strong>
+                                                <p><?= htmlspecialchars((string) ($report['topic_title'] ?? 'Silinmiş konu')) ?></p>
+                                            </div>
+                                        <?php endif; ?>
+                                        <div class="complaints-modal-box col-12">
+                                            <strong><i class="bi bi-chat-left-quote"></i> Rapor Açıklaması</strong>
+                                            <p><?= nl2br(htmlspecialchars($details !== '' ? $details : 'Açıklama girilmemiş.')) ?></p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <strong>Şikayet eden</strong>
-                                        <p class="complaints-detail"><?= htmlspecialchars((string) ($report['reporter_name'] ?? 'Anonim')) ?><br><?= htmlspecialchars((string) ($report['reporter_email'] ?? '')) ?></p>
-                                    </div>
-                                <?php endif; ?>
-                                <div>
-                                    <strong>Rapor detayı</strong>
-                                    <p class="complaints-detail"><?= nl2br(htmlspecialchars($details !== '' ? $details : 'Detay girilmemiş.')) ?></p>
                                 </div>
-                                <div>
-                                    <strong>Admin notu</strong>
-                                    <p class="complaints-detail"><?= nl2br(htmlspecialchars($adminNote !== '' ? $adminNote : 'Not yok.')) ?></p>
-                                </div>
-                                <div>
-                                    <strong>Geçmiş</strong>
+
+                                <div class="complaints-modal-panel" data-complaints-modal-panel="history" hidden>
                                     <div class="complaints-history">
                                         <?php if ($events === []): ?>
-                                            <div class="complaints-history-item"><span>Henüz geçmiş kaydı yok.</span></div>
+                                            <div class="complaints-history-item"><span>Henüz bir geçmiş kaydı bulunmuyor.</span></div>
                                         <?php else: ?>
                                             <?php foreach ($events as $event): ?>
                                                 <div class="complaints-history-item">

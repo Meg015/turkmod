@@ -1125,7 +1125,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div class="col-md-12">
                         <label class="ui-admin-form-label">DeepL API Anahtarı (Auth Key)</label>
-                        <input type="password" name="bot_deepl_api_key" class="ui-admin-form-control" value="<?= htmlspecialchars($botSettings['bot_deepl_api_key']) ?>">
+                        <input type="text" name="bot_deepl_api_key" class="ui-admin-form-control" value="<?= htmlspecialchars($botSettings['bot_deepl_api_key']) ?>">
                     </div>
                     <div class="col-md-6">
                         <label class="ui-admin-form-label">Varsayılan Kaynak Dil</label>

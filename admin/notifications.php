@@ -26,7 +26,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && isset($legacyTabRedirects
     header('Location: notifications.php?tab=' . $legacyTabRedirects[(string) $tab]);
     exit;
 }
-$allowedTabs = ['history', 'new', 'site', 'email', 'settings'];
+$allowedTabs = ['history', 'new', 'site', 'email'];
 if (!in_array($tab, $allowedTabs, true)) {
     $tab = 'history';
 }
@@ -34,6 +34,11 @@ $emailGroup = (string) ($_GET['email_group'] ?? 'account');
 $allowedEmailGroups = ['account', 'admin', 'events', 'settings'];
 if (!in_array($emailGroup, $allowedEmailGroups, true)) {
     $emailGroup = 'account';
+}
+$siteGroup = (string) ($_GET['site_group'] ?? 'user');
+$allowedSiteGroups = ['user', 'admin', 'settings'];
+if (!in_array($siteGroup, $allowedSiteGroups, true)) {
+    $siteGroup = 'user';
 }
 
 function admin_notification_types(): array
@@ -796,6 +801,10 @@ function admin_notification_unique_template_key(PDO $pdo, string $name): string
 
 function admin_notification_template_input(array $source): array
 {
+    $isActive = isset($source['is_active']) ? (string) $source['is_active'] : '1';
+    $inAppEnabled = array_key_exists('in_app_enabled', $source) ? $source['in_app_enabled'] : $isActive;
+    $emailEnabled = array_key_exists('email_enabled', $source) ? $source['email_enabled'] : $isActive;
+
     return [
         'name' => $source['name'] ?? '',
         'description' => $source['description'] ?? '',
@@ -803,13 +812,13 @@ function admin_notification_template_input(array $source): array
         'title_template' => $source['title_template'] ?? '',
         'message_template' => $source['message_template'] ?? '',
         'link_template' => $source['link_template'] ?? '',
-        'in_app_enabled' => $source['in_app_enabled'] ?? null,
-        'email_enabled' => $source['email_enabled'] ?? null,
+        'in_app_enabled' => $inAppEnabled,
+        'email_enabled' => $emailEnabled,
         'email_subject_template' => $source['email_subject_template'] ?? '',
         'email_body_template' => $source['email_body_template'] ?? '',
         'email_link_template' => $source['email_link_template'] ?? '',
         'email_preview_template' => $source['email_preview_template'] ?? '',
-        'is_active' => $source['is_active'] ?? null,
+        'is_active' => $isActive,
         'allow_create' => $source['allow_create'] ?? null,
         'channel' => $source['channel'] ?? null,
     ];
@@ -1297,8 +1306,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 $pdo->exec("DELETE FROM notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL {$retentionDays} DAY)");
             }
 
-            flash('success', 'Bildirim ayarları kaydedildi.');
-            admin_notification_redirect('notifications.php?tab=settings');
+            flash('success', 'Site içi bildirim ayarları kaydedildi.');
+            admin_notification_redirect('notifications.php?tab=site&site_group=settings');
         }
 
         if ($action === 'save_email_settings') {
@@ -1706,9 +1715,6 @@ $csrfToken = csrf_token();
         <a href="notifications.php?tab=email" class="ui-admin-btn <?= $tab === 'email' ? 'ui-admin-btn-primary' : 'ui-admin-btn-outline' ?>">
             <i class="bi bi-envelope-paper"></i> E-Posta Bildirimleri
         </a>
-        <a href="notifications.php?tab=settings" class="ui-admin-btn <?= $tab === 'settings' ? 'ui-admin-btn-primary' : 'ui-admin-btn-outline' ?>">
-            <i class="bi bi-sliders"></i> Bildirim Ayarları
-        </a>
     </div>
 
     <?php if ($tab === 'new'): ?>
@@ -1908,6 +1914,21 @@ $csrfToken = csrf_token();
                 </div>
             </div>
 
+            <div class="notification-email-subtabs" role="tablist" aria-label="Site içi bildirim grupları" style="margin-bottom: 1rem;">
+                <a role="tab" aria-selected="<?= $siteGroup === 'user' ? 'true' : 'false' ?>" href="notifications.php?tab=site&amp;site_group=user" class="notification-email-subtab <?= $siteGroup === 'user' ? 'is-active' : '' ?>">
+                    <i class="bi bi-person"></i>
+                    <span><strong>Kullanıcı Bildirimleri</strong><small><?= (int) count($notificationTemplates) ?> şablon</small></span>
+                </a>
+                <a role="tab" aria-selected="<?= $siteGroup === 'admin' ? 'true' : 'false' ?>" href="notifications.php?tab=site&amp;site_group=admin" class="notification-email-subtab <?= $siteGroup === 'admin' ? 'is-active' : '' ?>">
+                    <i class="bi bi-shield-check"></i>
+                    <span><strong>Yönetici Bildirimleri</strong><small>1 yönetici kaydı</small></span>
+                </a>
+                <a role="tab" aria-selected="<?= $siteGroup === 'settings' ? 'true' : 'false' ?>" href="notifications.php?tab=site&amp;site_group=settings" class="notification-email-subtab <?= $siteGroup === 'settings' ? 'is-active' : '' ?>">
+                    <i class="bi bi-sliders"></i>
+                    <span><strong>Kanal Ayarları</strong><small>Sistem &amp; Görünüm</small></span>
+                </a>
+            </div>
+
             <?= adminRenderStatCards([
                 ['tone' => 'info', 'icon' => 'bi-check2-circle', 'label' => 'Aktif Kayıt', 'value' => number_format((int) $siteTemplateStats['active'], 0, ',', '.')],
                 ['tone' => 'success', 'icon' => 'bi-bell', 'label' => 'Site İçi Açık', 'value' => number_format((int) $siteTemplateStats['enabled'], 0, ',', '.'), 'attrs' => ['data-notification-status-group' => 'site-templates', 'data-notification-status-count' => 'active']],
@@ -1923,314 +1944,308 @@ $csrfToken = csrf_token();
                 ]) ?>
             <?php endif; ?>
 
-            <div class="notification-template-grid notification-channel-grid ui-grid">
-                <?php $adminRegistrationSiteType = (string) ($adminRegistrationSiteTemplate['type'] ?? 'system'); ?>
-                <form id="admin-registration-site"
-                      method="POST"
-                      action="notifications.php?tab=site#admin-registration-site"
-                      class="notification-template-card notification-channel-card notification-admin-registration-card ui-card"
-                      data-live-template-preview="1"
-                      data-channel-preview="site"
-                      data-template-key="admin_registration_site"
-                      data-notification-status-card
-                      data-notification-status-group="admin-registration-site"
-                      data-preview-type-fields="notif_admin_registration_site_type"
-                      data-preview-title-fields="notif_admin_registration_site_title_template"
-                      data-preview-message-fields="notif_admin_registration_site_message_template"
-                      data-preview-link-fields="notif_admin_registration_site_link_template"
-                      data-variable-control="1"
-                      data-variable-fields="notif_admin_registration_site_title_template,notif_admin_registration_site_message_template,notif_admin_registration_site_link_template"
-                      data-variable-allowed="<?= admin_notification_json_attr(array_keys($adminRegistrationSiteVariables)) ?>"
-                      data-variable-required="[]"
-                      data-variable-enforce-required="0">
-                    <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
-
-                    <div class="notification-template-head ui-panel__head">
-                        <div>
-                            <h4><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['name'] ?? 'Yeni Kullanıcı Kaydı Admin Bildirimi')) ?></h4>
-                            <p><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['description'] ?? 'Yeni üyelik oluştuğunda admin ve yetkili hesapların bildirim merkezine düşer.')) ?></p>
-                            <div class="notification-template-meta">
-                                <span class="notif-badge notif-badge-global"><i class="bi bi-person-plus"></i> Otomatik olay</span>
-                                <span class="notif-badge <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'notif-badge-global' : 'notif-badge-user' ?>"
-                                      data-notification-status-badge
-                                      data-active-label="Bildirim aktif"
-                                      data-inactive-label="Bildirim kapalı"
-                                      data-active-icon="bi-bell"
-                                      data-inactive-icon="bi-bell-slash">
-                                    <i class="bi <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'bi-bell' : 'bi-bell-slash' ?>"></i>
-                                    <span data-notification-status-label><?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'Bildirim aktif' : 'Bildirim kapalı' ?></span>
-                                </span>
-                                <?= admin_notification_route_badges('site', 'admin') ?>
-                            </div>
-                        </div>
-                        <div class="notification-channel-switches">
-                            <label class="ui-admin-switch">
-                                <input type="checkbox" name="notif_admin_registration_site_enabled" value="1" <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'checked' : '' ?> data-notification-status-toggle>
-                                <span class="ui-admin-switch-label">Aktif</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="notification-template-body ui-panel__body">
-                        <div>
-                            <label class="ui-admin-form-label">Bildirim Tipi</label>
-                            <select name="notif_admin_registration_site_type" class="ui-admin-form-control">
-                                <?php foreach (admin_notification_types() as $typeKey => $typeInfo): ?>
-                                    <option value="<?= htmlspecialchars($typeKey) ?>" <?= $adminRegistrationSiteType === $typeKey ? 'selected' : '' ?>><?= htmlspecialchars($typeInfo['label']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="ui-admin-form-label">Metin Adı</label>
-                            <input type="text" name="notif_admin_registration_site_name" class="ui-admin-form-control" required maxlength="160" value="<?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['name'] ?? '')) ?>">
-                        </div>
-                        <div>
-                            <label class="ui-admin-form-label">Site İçi Link</label>
-                            <input type="text" name="notif_admin_registration_site_link_template" class="ui-admin-form-control" maxlength="1024" value="<?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['link_template'] ?? '{{admin_link}}')) ?>">
-                        </div>
-                        <div class="is-wide">
-                            <label class="ui-admin-form-label">Açıklama</label>
-                            <textarea name="notif_admin_registration_site_description" class="ui-admin-form-control" rows="2"><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['description'] ?? '')) ?></textarea>
-                        </div>
-                        <div class="is-wide">
-                            <label class="ui-admin-form-label">Site İçi Başlık</label>
-                            <input type="text" name="notif_admin_registration_site_title_template" class="ui-admin-form-control" required maxlength="255" value="<?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['title_template'] ?? '')) ?>">
-                        </div>
-                        <div class="is-wide">
-                            <label class="ui-admin-form-label">Site İçi Mesaj</label>
-                            <textarea name="notif_admin_registration_site_message_template" class="ui-admin-form-control" rows="4" required><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['message_template'] ?? '')) ?></textarea>
-                        </div>
-                        <div class="is-wide">
-                            <label class="ui-admin-form-label">Değişkenler</label>
-                            <div class="notification-template-token-list">
-                                <?php foreach ($adminRegistrationSiteVariables as $variable => $description): ?>
-                                    <span class="notification-template-token" title="<?= htmlspecialchars((string) $description) ?>">{{<?= htmlspecialchars((string) $variable) ?>}}</span>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                        <div class="is-wide notification-variable-status" data-variable-status></div>
-                    </div>
-
-                    <div class="notification-template-actions">
-                        <span class="notif-help">Bu metin yeni üyelik oluştuğunda admin ve yetkili hesaplara gönderilir.</span>
-                        <div class="notification-template-actions-group">
-                            <button type="submit" name="action" value="reset_admin_registration_site_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate<?= adminConfirmAttrs(['message' => 'Yeni kullanıcı kayıt admin bildirimi varsayılan metinlere döndürülecek. Devam edilsin mi?', 'title' => 'Metin sıfırlansın mı?', 'ok' => 'Varsayılana Dön', 'tone' => 'warning']) ?>>
-                                <i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön
-                            </button>
-                            <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-notification-preview-open>
-                                <i class="bi bi-eye"></i> Önizle
-                            </button>
-                            <button type="submit" name="action" value="send_admin_registration_site_test" class="ui-admin-btn ui-admin-btn-outline" <?= $currentUserId > 0 ? '' : 'disabled' ?>>
-                                <i class="bi bi-send-check"></i> Test Gönder
-                            </button>
-                            <button type="submit" name="action" value="save_site_settings" class="ui-admin-btn ui-admin-btn-primary">
-                                <i class="bi bi-save"></i> Kaydet
-                            </button>
-                        </div>
-                    </div>
-                </form>
-
-                <form method="POST" action="notifications.php?tab=site" class="notification-template-card notification-channel-card is-create ui-card" data-live-template-preview="1" data-channel-preview="site" data-template-key="__new">
-                    <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
-                    <input type="hidden" name="allow_create" value="1">
-                    <input type="hidden" name="channel" value="site">
-                    <input type="hidden" name="email_enabled" value="0">
-                    <input type="hidden" name="email_subject_template" value="">
-                    <input type="hidden" name="email_body_template" value="">
-                    <input type="hidden" name="email_link_template" value="">
-                    <input type="hidden" name="email_preview_template" value="">
-
-                    <div class="notification-template-head ui-panel__head">
-                        <div>
-                            <h4>Yeni Özel Bildirim Metni</h4>
-                            <p>Manuel gönderim ekranında hızlı seçilecek özel bir site içi bildirim metni oluşturun.</p>
-                            <div class="notification-template-meta">
-                                <span class="notif-badge notif-badge-user"><i class="bi bi-plus-circle"></i> Özel kayıt</span>
-                                <?= admin_notification_route_badges('site', 'user') ?>
-                            </div>
-                        </div>
-                        <div class="notification-channel-switches">
-                            <input type="hidden" name="is_active" value="0">
-                            <label class="ui-admin-switch">
-                                <input type="checkbox" name="is_active" value="1" checked>
-                                <span class="ui-admin-switch-label">Aktif</span>
-                            </label>
-                            <input type="hidden" name="in_app_enabled" value="0">
-                            <label class="ui-admin-switch">
-                                <input type="checkbox" name="in_app_enabled" value="1" checked>
-                                <span class="ui-admin-switch-label">Site içi açık</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="notification-template-body ui-panel__body">
-                        <div>
-                            <label class="ui-admin-form-label">Bildirim Tipi</label>
-                            <select name="type" class="ui-admin-form-control">
-                                <?php foreach (admin_notification_types() as $typeKey => $typeInfo): ?>
-                                    <option value="<?= htmlspecialchars($typeKey) ?>"><?= htmlspecialchars($typeInfo['label']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="ui-admin-form-label">Metin Adı</label>
-                            <input type="text" name="name" class="ui-admin-form-control" required maxlength="160" placeholder="Haftalık duyuru">
-                        </div>
-                        <div>
-                            <label class="ui-admin-form-label">Site İçi Link</label>
-                            <input type="text" name="link_template" class="ui-admin-form-control" maxlength="1024" value="{{link}}" placeholder="{{link}}">
-                        </div>
-                        <div class="is-wide">
-                            <label class="ui-admin-form-label">Açıklama</label>
-                            <textarea name="description" class="ui-admin-form-control" rows="2" placeholder="Bu metin ne zaman kullanılacak?"></textarea>
-                        </div>
-                        <div class="is-wide">
-                            <label class="ui-admin-form-label">Site İçi Başlık</label>
-                            <input type="text" name="title_template" class="ui-admin-form-control" required maxlength="255" value="Duyuru: {{topic_title}}">
-                        </div>
-                        <div class="is-wide">
-                            <label class="ui-admin-form-label">Site İçi Mesaj</label>
-                            <textarea name="message_template" class="ui-admin-form-control" rows="4" required>{{site_name}} duyurusu: {{comment_excerpt}}</textarea>
-                        </div>
-                        <div>
-                            <label class="ui-admin-form-label">Değişkenler</label>
-                            <div class="notification-template-token-list">
-                                <?php foreach ($allowedTemplateVariables as $variable => $description): ?>
-                                    <span class="notification-template-token" title="<?= htmlspecialchars($description) ?>">{{<?= htmlspecialchars($variable) ?>}}</span>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="notification-template-actions">
-                        <span class="notif-help">Kaydedilince Yeni Bildirim Gönder alanındaki kayıtlı metin seçicisinde görünür.</span>
-                        <div class="notification-template-actions-group">
-                            <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-notification-preview-open>
-                                <i class="bi bi-eye"></i> Önizle
-                            </button>
-                            <button type="submit" name="action" value="save_template" class="ui-admin-btn ui-admin-btn-primary">
-                                <i class="bi bi-save"></i> Metin Oluştur
-                            </button>
-                        </div>
-                    </div>
-                </form>
-
-                <?php foreach ($notificationTemplates as $template): ?>
-                    <?php
-                        $templateKey = (string) $template['template_key'];
-                        $anchor = admin_notification_template_anchor($templateKey);
-                        $variables = array_values((array) ($template['variables'] ?? []));
-                    ?>
-                    <form id="<?= htmlspecialchars($anchor) ?>" method="POST" action="notifications.php?tab=site#<?= htmlspecialchars($anchor) ?>" class="notification-template-card notification-channel-card ui-card" data-live-template-preview="1" data-channel-preview="site" data-template-key="<?= htmlspecialchars($templateKey) ?>" data-notification-status-card data-notification-status-group="site-templates">
+            <?php if ($siteGroup === 'user' || $siteGroup === 'admin'): ?>
+                <div class="notification-template-grid notification-channel-grid ui-grid">
+            <?php endif; ?>
+                <?php if ($siteGroup === 'admin'): ?>
+                    <?php $adminRegistrationSiteType = (string) ($adminRegistrationSiteTemplate['type'] ?? 'system'); ?>
+                    <form id="admin-registration-site"
+                          method="POST"
+                          action="notifications.php?tab=site&amp;site_group=admin#admin-registration-site"
+                          class="notification-template-card notification-channel-card notification-admin-registration-card ui-card"
+                          data-live-template-preview="1"
+                          data-channel-preview="site"
+                          data-template-key="admin_registration_site"
+                          data-notification-status-card
+                          data-notification-status-group="admin-registration-site"
+                          data-preview-type-fields="notif_admin_registration_site_type"
+                          data-preview-title-fields="notif_admin_registration_site_title_template"
+                          data-preview-message-fields="notif_admin_registration_site_message_template"
+                          data-preview-link-fields="notif_admin_registration_site_link_template"
+                          data-variable-control="1"
+                          data-variable-fields="notif_admin_registration_site_title_template,notif_admin_registration_site_message_template,notif_admin_registration_site_link_template"
+                          data-variable-allowed="<?= admin_notification_json_attr(array_keys($adminRegistrationSiteVariables)) ?>"
+                          data-variable-required="[]"
+                          data-variable-enforce-required="0">
                         <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
-                        <input type="hidden" name="channel" value="site">
-                        <input type="hidden" name="template_key" value="<?= htmlspecialchars($templateKey) ?>">
-                        <input type="hidden" name="email_enabled" value="<?= (int) ($template['email_enabled'] ?? 0) ?>">
-                        <input type="hidden" name="email_subject_template" value="<?= htmlspecialchars((string) ($template['email_subject_template'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="email_body_template" value="<?= htmlspecialchars((string) ($template['email_body_template'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="email_link_template" value="<?= htmlspecialchars((string) ($template['email_link_template'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="email_preview_template" value="<?= htmlspecialchars((string) ($template['email_preview_template'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
                         <div class="notification-template-head ui-panel__head">
                             <div>
-                                <h4><?= htmlspecialchars((string) $template['name']) ?></h4>
-                                <p><?= htmlspecialchars((string) ($template['description'] ?? '')) ?></p>
+                                <h4><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['name'] ?? 'Yeni Kullanıcı Kaydı Admin Bildirimi')) ?></h4>
+                                <p><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['description'] ?? 'Yeni üyelik oluştuğunda admin ve yetkili hesapların bildirim merkezine düşer.')) ?></p>
                                 <div class="notification-template-meta">
-                                    <span class="notif-badge <?= !empty($template['is_default']) ? 'notif-badge-global' : 'notif-badge-user' ?>">
-                                        <i class="bi <?= !empty($template['is_default']) ? 'bi-diagram-3' : 'bi-pencil-square' ?>"></i>
-                                        <?= !empty($template['is_default']) ? 'Varsayılan metin' : 'Özel metin' ?>
-                                    </span>
-                                    <span class="notif-badge <?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                                    <span class="notif-badge notif-badge-global"><i class="bi bi-person-plus"></i> Otomatik olay</span>
+                                    <span class="notif-badge <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'notif-badge-global' : 'notif-badge-user' ?>"
                                           data-notification-status-badge
-                                          data-active-label="Site içi açık"
-                                          data-inactive-label="Site içi kapalı"
+                                          data-active-label="Bildirim aktif"
+                                          data-inactive-label="Bildirim kapalı"
                                           data-active-icon="bi-bell"
                                           data-inactive-icon="bi-bell-slash">
-                                        <i class="bi <?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'bi-bell' : 'bi-bell-slash' ?>"></i>
-                                        <span data-notification-status-label><?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'Site içi açık' : 'Site içi kapalı' ?></span>
+                                        <i class="bi <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'bi-bell' : 'bi-bell-slash' ?>"></i>
+                                        <span data-notification-status-label><?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'Bildirim aktif' : 'Bildirim kapalı' ?></span>
                                     </span>
-                                    <?= admin_notification_route_badges('site', 'user') ?>
+                                    <?= admin_notification_route_badges('site', 'admin') ?>
                                 </div>
                             </div>
                             <div class="notification-channel-switches">
-                                <input type="hidden" name="is_active" value="0">
                                 <label class="ui-admin-switch">
-                                    <input type="checkbox" name="is_active" value="1" <?= (int) ($template['is_active'] ?? 1) === 1 ? 'checked' : '' ?>>
+                                    <input type="checkbox" name="notif_admin_registration_site_enabled" value="1" <?= admin_notification_bool_with_legacy($adminSettings, 'notif_admin_registration_site_enabled', '1', 'notif_admin_registration_enabled') ? 'checked' : '' ?> data-notification-status-toggle>
                                     <span class="ui-admin-switch-label">Aktif</span>
-                                </label>
-                                <input type="hidden" name="in_app_enabled" value="0">
-                                <label class="ui-admin-switch">
-                                    <input type="checkbox" name="in_app_enabled" value="1" <?= (int) ($template['in_app_enabled'] ?? 1) === 1 ? 'checked' : '' ?> data-notification-status-toggle>
-                                    <span class="ui-admin-switch-label">Site içi açık</span>
                                 </label>
                             </div>
                         </div>
 
                         <div class="notification-template-body ui-panel__body">
                             <div>
-                                <label class="ui-admin-form-label">Metin Adı</label>
-                                <input type="text" name="name" class="ui-admin-form-control" required maxlength="160" value="<?= htmlspecialchars((string) $template['name']) ?>">
-                            </div>
-                            <div>
                                 <label class="ui-admin-form-label">Bildirim Tipi</label>
-                                <select name="type" class="ui-admin-form-control">
+                                <select name="notif_admin_registration_site_type" class="ui-admin-form-control">
                                     <?php foreach (admin_notification_types() as $typeKey => $typeInfo): ?>
-                                        <option value="<?= htmlspecialchars($typeKey) ?>" <?= (string) $template['type'] === $typeKey ? 'selected' : '' ?>><?= htmlspecialchars($typeInfo['label']) ?></option>
+                                        <option value="<?= htmlspecialchars($typeKey) ?>" <?= $adminRegistrationSiteType === $typeKey ? 'selected' : '' ?>><?= htmlspecialchars($typeInfo['label']) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+                            <div>
+                                <label class="ui-admin-form-label">Metin Adı</label>
+                                <input type="text" name="notif_admin_registration_site_name" class="ui-admin-form-control" required maxlength="160" value="<?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['name'] ?? '')) ?>">
+                            </div>
+                            <div>
+                                <label class="ui-admin-form-label">Site İçi Link</label>
+                                <input type="text" name="notif_admin_registration_site_link_template" class="ui-admin-form-control" maxlength="1024" value="<?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['link_template'] ?? '{{admin_link}}')) ?>">
+                            </div>
                             <div class="is-wide">
                                 <label class="ui-admin-form-label">Açıklama</label>
-                                <textarea name="description" class="ui-admin-form-control" rows="2"><?= htmlspecialchars((string) ($template['description'] ?? '')) ?></textarea>
+                                <textarea name="notif_admin_registration_site_description" class="ui-admin-form-control" rows="2"><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['description'] ?? '')) ?></textarea>
                             </div>
                             <div class="is-wide">
                                 <label class="ui-admin-form-label">Site İçi Başlık</label>
-                                <input type="text" name="title_template" class="ui-admin-form-control" required maxlength="255" value="<?= htmlspecialchars((string) $template['title_template']) ?>">
+                                <input type="text" name="notif_admin_registration_site_title_template" class="ui-admin-form-control" required maxlength="255" value="<?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['title_template'] ?? '')) ?>">
                             </div>
                             <div class="is-wide">
                                 <label class="ui-admin-form-label">Site İçi Mesaj</label>
-                                <textarea name="message_template" class="ui-admin-form-control" rows="4" required><?= htmlspecialchars((string) $template['message_template']) ?></textarea>
+                                <textarea name="notif_admin_registration_site_message_template" class="ui-admin-form-control" rows="4" required><?= htmlspecialchars((string) ($adminRegistrationSiteTemplate['message_template'] ?? '')) ?></textarea>
                             </div>
                             <div class="is-wide">
-                                <label class="ui-admin-form-label">Site İçi Link</label>
-                                <input type="text" name="link_template" class="ui-admin-form-control" maxlength="1024" value="<?= htmlspecialchars((string) ($template['link_template'] ?? '')) ?>">
-                            </div>
-                            <div>
                                 <label class="ui-admin-form-label">Değişkenler</label>
                                 <div class="notification-template-token-list">
-                                    <?php foreach ($variables as $variable): ?>
-                                        <span class="notification-template-token" title="<?= htmlspecialchars($allowedTemplateVariables[$variable] ?? '') ?>">{{<?= htmlspecialchars((string) $variable) ?>}}</span>
+                                    <?php foreach ($adminRegistrationSiteVariables as $variable => $description): ?>
+                                        <span class="notification-template-token" title="<?= htmlspecialchars((string) $description) ?>">{{<?= htmlspecialchars((string) $variable) ?>}}</span>
                                     <?php endforeach; ?>
                                 </div>
                             </div>
+                            <div class="is-wide notification-variable-status" data-variable-status></div>
                         </div>
 
                         <div class="notification-template-actions">
-                            <span class="notif-help"><?= !empty($template['is_default']) ? 'Varsayılan olay metni' : 'Özel manuel metin' ?></span>
+                            <span class="notif-help">Bu metin yeni üyelik oluştuğunda admin ve yetkili hesaplara gönderilir.</span>
                             <div class="notification-template-actions-group">
-                                <?php if (!empty($template['is_default'])): ?>
-                                    <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu kaydı varsayılan metinlere döndürmek istiyor musunuz?', 'title' => 'Metin sıfırlansın mı?', 'ok' => 'Sıfırla', 'tone' => 'warning']) ?>>
-                                        <i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön
-                                    </button>
-                                <?php else: ?>
-                                    <button type="submit" name="action" value="delete_template" class="ui-admin-btn ui-admin-btn-danger" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu özel metni silmek istiyor musunuz?', 'title' => 'Metin silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
-                                        <i class="bi bi-trash"></i> Sil
-                                    </button>
-                                <?php endif; ?>
+                                <button type="submit" name="action" value="reset_admin_registration_site_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate<?= adminConfirmAttrs(['message' => 'Yeni kullanıcı kayıt admin bildirimi varsayılan metinlere döndürülecek. Devam edilsin mi?', 'title' => 'Metin sıfırlansın mı?', 'ok' => 'Varsayılana Dön', 'tone' => 'warning']) ?>>
+                                    <i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön
+                                </button>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-notification-preview-open>
                                     <i class="bi bi-eye"></i> Önizle
                                 </button>
-                                <button type="submit" name="action" value="send_site_test" class="ui-admin-btn ui-admin-btn-outline" <?= $currentUserId > 0 ? '' : 'disabled' ?>>
+                                <button type="submit" name="action" value="send_admin_registration_site_test" class="ui-admin-btn ui-admin-btn-outline" <?= $currentUserId > 0 ? '' : 'disabled' ?>>
                                     <i class="bi bi-send-check"></i> Test Gönder
                                 </button>
-                                <button type="submit" name="action" value="save_template" class="ui-admin-btn ui-admin-btn-primary">
+                                <button type="submit" name="action" value="save_site_settings" class="ui-admin-btn ui-admin-btn-primary">
                                     <i class="bi bi-save"></i> Kaydet
                                 </button>
                             </div>
                         </div>
                     </form>
-                <?php endforeach; ?>
-            </div>
+                <?php endif; ?>
+
+                <?php if ($siteGroup === 'user'): ?>
+                    <?php foreach ($notificationTemplates as $template): ?>
+                        <?php
+                            $templateKey = (string) $template['template_key'];
+                            $anchor = admin_notification_template_anchor($templateKey);
+                            $variables = array_values((array) ($template['variables'] ?? []));
+                        ?>
+                        <form id="<?= htmlspecialchars($anchor) ?>" method="POST" action="notifications.php?tab=site&amp;site_group=user#<?= htmlspecialchars($anchor) ?>" class="notification-template-card notification-channel-card ui-card" data-live-template-preview="1" data-channel-preview="site" data-template-key="<?= htmlspecialchars($templateKey) ?>" data-notification-status-card data-notification-status-group="site-templates">
+                            <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                            <input type="hidden" name="channel" value="site">
+                            <input type="hidden" name="template_key" value="<?= htmlspecialchars($templateKey) ?>">
+                            <input type="hidden" name="email_enabled" value="<?= (int) ($template['email_enabled'] ?? 0) ?>">
+                            <input type="hidden" name="email_subject_template" value="<?= htmlspecialchars((string) ($template['email_subject_template'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="email_body_template" value="<?= htmlspecialchars((string) ($template['email_body_template'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="email_link_template" value="<?= htmlspecialchars((string) ($template['email_link_template'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="email_preview_template" value="<?= htmlspecialchars((string) ($template['email_preview_template'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+
+                            <div class="notification-template-head ui-panel__head">
+                                <div>
+                                    <h4><?= htmlspecialchars((string) $template['name']) ?></h4>
+                                    <p><?= htmlspecialchars((string) ($template['description'] ?? '')) ?></p>
+                                    <div class="notification-template-meta">
+                                        <span class="notif-badge <?= !empty($template['is_default']) ? 'notif-badge-global' : 'notif-badge-user' ?>">
+                                            <i class="bi <?= !empty($template['is_default']) ? 'bi-diagram-3' : 'bi-pencil-square' ?>"></i>
+                                            <?= !empty($template['is_default']) ? 'Varsayılan metin' : 'Özel metin' ?>
+                                        </span>
+                                        <span class="notif-badge <?= (int) ($template['is_active'] ?? 1) === 1 ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                                              data-notification-status-badge
+                                              data-active-label="Aktif"
+                                              data-inactive-label="Pasif"
+                                              data-active-icon="bi-bell"
+                                              data-inactive-icon="bi-bell-slash">
+                                            <i class="bi <?= (int) ($template['is_active'] ?? 1) === 1 ? 'bi-bell' : 'bi-bell-slash' ?>"></i>
+                                            <span data-notification-status-label><?= (int) ($template['is_active'] ?? 1) === 1 ? 'Aktif' : 'Pasif' ?></span>
+                                        </span>
+                                        <?= admin_notification_route_badges('site', 'user') ?>
+                                    </div>
+                                </div>
+                                <div class="notification-channel-switches">
+                                    <input type="hidden" name="is_active" value="0">
+                                    <label class="ui-admin-switch">
+                                        <input type="checkbox" name="is_active" value="1" <?= (int) ($template['is_active'] ?? 1) === 1 ? 'checked' : '' ?> data-notification-status-toggle>
+                                        <span class="ui-admin-switch-label">Aktif</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="notification-template-body ui-panel__body">
+                                <div>
+                                    <label class="ui-admin-form-label">Metin Adı</label>
+                                    <input type="text" name="name" class="ui-admin-form-control" required maxlength="160" value="<?= htmlspecialchars((string) $template['name']) ?>">
+                                </div>
+                                <div>
+                                    <label class="ui-admin-form-label">Bildirim Tipi</label>
+                                    <select name="type" class="ui-admin-form-control">
+                                        <?php foreach (admin_notification_types() as $typeKey => $typeInfo): ?>
+                                            <option value="<?= htmlspecialchars($typeKey) ?>" <?= (string) $template['type'] === $typeKey ? 'selected' : '' ?>><?= htmlspecialchars($typeInfo['label']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="is-wide">
+                                    <label class="ui-admin-form-label">Açıklama</label>
+                                    <textarea name="description" class="ui-admin-form-control" rows="2"><?= htmlspecialchars((string) ($template['description'] ?? '')) ?></textarea>
+                                </div>
+                                <div class="is-wide">
+                                    <label class="ui-admin-form-label">Site İçi Başlık</label>
+                                    <input type="text" name="title_template" class="ui-admin-form-control" required maxlength="255" value="<?= htmlspecialchars((string) $template['title_template']) ?>">
+                                </div>
+                                <div class="is-wide">
+                                    <label class="ui-admin-form-label">Site İçi Mesaj</label>
+                                    <textarea name="message_template" class="ui-admin-form-control" rows="4" required><?= htmlspecialchars((string) $template['message_template']) ?></textarea>
+                                </div>
+                                <div class="is-wide">
+                                    <label class="ui-admin-form-label">Site İçi Link</label>
+                                    <input type="text" name="link_template" class="ui-admin-form-control" maxlength="1024" value="<?= htmlspecialchars((string) ($template['link_template'] ?? '')) ?>">
+                                </div>
+                                <div>
+                                    <label class="ui-admin-form-label">Değişkenler</label>
+                                    <div class="notification-template-token-list">
+                                        <?php foreach ($variables as $variable): ?>
+                                            <span class="notification-template-token" title="<?= htmlspecialchars($allowedTemplateVariables[$variable] ?? '') ?>">{{<?= htmlspecialchars((string) $variable) ?>}}</span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="notification-template-actions">
+                                <span class="notif-help"><?= !empty($template['is_default']) ? 'Varsayılan olay metni' : 'Özel manuel metin' ?></span>
+                                <div class="notification-template-actions-group">
+                                    <?php if (!empty($template['is_default'])): ?>
+                                        <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu kaydı varsayılan metinlere döndürmek istiyor musunuz?', 'title' => 'Metin sıfırlansın mı?', 'ok' => 'Sıfırla', 'tone' => 'warning']) ?>>
+                                            <i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön
+                                        </button>
+                                    <?php else: ?>
+                                        <button type="submit" name="action" value="delete_template" class="ui-admin-btn ui-admin-btn-danger" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu özel metni silmek istiyor musunuz?', 'title' => 'Metin silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                            <i class="bi bi-trash"></i> Sil
+                                        </button>
+                                    <?php endif; ?>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-notification-preview-open>
+                                        <i class="bi bi-eye"></i> Önizle
+                                    </button>
+                                    <button type="submit" name="action" value="send_site_test" class="ui-admin-btn ui-admin-btn-outline" <?= $currentUserId > 0 ? '' : 'disabled' ?>>
+                                        <i class="bi bi-send-check"></i> Test Gönder
+                                    </button>
+                                    <button type="submit" name="action" value="save_template" class="ui-admin-btn ui-admin-btn-primary">
+                                        <i class="bi bi-save"></i> Kaydet
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            <?php if ($siteGroup === 'user' || $siteGroup === 'admin'): ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($siteGroup === 'settings'): ?>
+                <div class="notif-card" style="width: 100%; box-sizing: border-box;">
+                    <div class="notif-card-header">
+                        <div>
+                            <h3>Site İçi Bildirim Ayarları</h3>
+                            <p>Bu ayarlar kullanıcı sayfası, üst menü API çıktısı, gönderim formu ve otomatik hoş geldin bildirimi üzerinde doğrudan çalışır.</p>
+                        </div>
+                    </div>
+                    <form method="POST" action="notifications.php?tab=site&amp;site_group=settings" class="ui-admin-form">
+                        <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                        <input type="hidden" name="action" value="save_settings">
+
+                        <div class="notification-settings-layout ui-section">
+                            <?php foreach ($settingsSchema as $section): ?>
+                                <section class="notification-settings-section ui-section">
+                                    <div class="notification-settings-section-head ui-panel__head">
+                                        <h4><?= htmlspecialchars($section['title']) ?></h4>
+                                        <p><?= htmlspecialchars($section['description']) ?></p>
+                                    </div>
+                                    <div class="notification-settings-grid ui-grid">
+                                        <?php foreach ($section['items'] as $item): ?>
+                                            <?php
+                                                $value = admin_notification_setting_value($adminSettings, $item);
+                                                $isWide = in_array($item['type'], ['textarea'], true) || $item['key'] === 'notif_default_link';
+                                            ?>
+                                            <div class="notification-setting-item <?= $isWide ? 'is-wide' : '' ?>">
+                                                <?php if ($item['type'] === 'bool'): ?>
+                                                    <div class="notification-switch-row">
+                                                        <span class="notification-setting-label notif-setting-label-flat">
+                                                            <span>
+                                                                <strong><?= htmlspecialchars($item['label']) ?></strong>
+                                                                <span><?= htmlspecialchars($item['help']) ?></span>
+                                                            </span>
+                                                        </span>
+                                                        <label class="ui-admin-switch">
+                                                            <input type="checkbox" name="<?= htmlspecialchars($item['key']) ?>" value="1" <?= admin_notification_bool($adminSettings, (string) $item['key'], (string) ($item['default'] ?? '0')) ? 'checked' : '' ?>>
+                                                            <span class="ui-admin-switch-label">Aktif</span>
+                                                        </label>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <label class="notification-setting-label">
+                                                        <span>
+                                                            <strong><?= htmlspecialchars($item['label']) ?></strong>
+                                                            <span><?= htmlspecialchars($item['help']) ?></span>
+                                                        </span>
+                                                    </label>
+                                                    <?php if ($item['type'] === 'textarea'): ?>
+                                                        <textarea name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control" rows="3"><?= htmlspecialchars($value) ?></textarea>
+                                                    <?php elseif ($item['type'] === 'select'): ?>
+                                                        <select name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control">
+                                                            <?php foreach (($item['options'] ?? []) as $optionValue => $optionLabel): ?>
+                                                                <option value="<?= htmlspecialchars((string) $optionValue) ?>" <?= $value === (string) $optionValue ? 'selected' : '' ?>><?= htmlspecialchars((string) $optionLabel) ?></option>
+                                                            <?php endforeach; ?>
+                                                        </select>
+                                                    <?php elseif ($item['type'] === 'number'): ?>
+                                                        <input type="number" name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value) ?>" min="<?= (int) ($item['min'] ?? 0) ?>" max="<?= (int) ($item['max'] ?? 999999) ?>">
+                                                    <?php else: ?>
+                                                        <input type="text" name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value) ?>">
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </section>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <div class="notif-form-footer">
+                            <button type="submit" class="ui-admin-btn ui-admin-btn-primary">
+                                <i class="bi bi-save"></i> Ayarları Kaydet
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 
@@ -2262,19 +2277,19 @@ $csrfToken = csrf_token();
             <div class="notification-email-subtabs" role="tablist" aria-label="E-posta bildirim grupları">
                 <a role="tab" aria-selected="<?= $emailGroup === 'account' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=account" class="notification-email-subtab <?= $emailGroup === 'account' ? 'is-active' : '' ?>">
                     <i class="bi bi-person-check"></i>
-                    <span><strong>Hesap</strong><small data-notification-status-group="account-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) $accountEmailStats['total'] ?> aktif"><?= (int) $accountEmailStats['enabled'] ?>/<?= (int) $accountEmailStats['total'] ?> aktif</small></span>
+                    <span><strong>Kullanıcı E-Postaları</strong><small data-notification-status-group="account-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) $accountEmailStats['total'] ?> aktif"><?= (int) $accountEmailStats['enabled'] ?>/<?= (int) $accountEmailStats['total'] ?> aktif</small></span>
                 </a>
                 <a role="tab" aria-selected="<?= $emailGroup === 'admin' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=admin" class="notification-email-subtab <?= $emailGroup === 'admin' ? 'is-active' : '' ?>">
                     <i class="bi bi-shield-check"></i>
-                    <span><strong>Yönetici</strong><small data-notification-status-group="admin-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) $adminEmailStats['total'] ?> aktif"><?= (int) $adminEmailStats['enabled'] ?>/<?= (int) $adminEmailStats['total'] ?> aktif</small></span>
+                    <span><strong>Yönetici E-Postaları</strong><small data-notification-status-group="admin-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) $adminEmailStats['total'] ?> aktif"><?= (int) $adminEmailStats['enabled'] ?>/<?= (int) $adminEmailStats['total'] ?> aktif</small></span>
                 </a>
                 <a role="tab" aria-selected="<?= $emailGroup === 'events' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=events" class="notification-email-subtab <?= $emailGroup === 'events' ? 'is-active' : '' ?>">
                     <i class="bi bi-envelope-check"></i>
-                    <span><strong>Olay</strong><small data-notification-status-group="event-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) count($notificationTemplates) ?> açık"><?= (int) $emailTemplateStats['enabled'] ?>/<?= (int) count($notificationTemplates) ?> açık</small></span>
+                    <span><strong>Olay E-Postaları</strong><small data-notification-status-group="event-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) count($notificationTemplates) ?> açık"><?= (int) $emailTemplateStats['enabled'] ?>/<?= (int) count($notificationTemplates) ?> açık</small></span>
                 </a>
                 <a role="tab" aria-selected="<?= $emailGroup === 'settings' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=settings" class="notification-email-subtab <?= $emailGroup === 'settings' ? 'is-active' : '' ?>">
                     <i class="bi bi-sliders"></i>
-                    <span><strong>Kuyruk</strong><small><?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'aktif' : 'kapalı' ?></small></span>
+                    <span><strong>Kuyruk &amp; Ayarlar</strong><small><?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'aktif' : 'kapalı' ?></small></span>
                 </a>
             </div>
 
@@ -2662,14 +2677,14 @@ $csrfToken = csrf_token();
                                         <i class="bi <?= $emailReady ? 'bi-envelope-check' : 'bi-envelope-exclamation' ?>"></i>
                                         <?= $emailReady ? 'E-posta metni hazır' : 'E-posta metni eksik' ?>
                                     </span>
-                                    <span class="notif-badge <?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                                    <span class="notif-badge <?= (int) ($template['is_active'] ?? 1) === 1 ? 'notif-badge-global' : 'notif-badge-user' ?>"
                                           data-notification-status-badge
-                                          data-active-label="E-posta açık"
-                                          data-inactive-label="E-posta kapalı"
+                                          data-active-label="Aktif"
+                                          data-inactive-label="Pasif"
                                           data-active-icon="bi-envelope-check"
                                           data-inactive-icon="bi-envelope-slash">
-                                        <i class="bi <?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'bi-envelope-check' : 'bi-envelope-slash' ?>"></i>
-                                        <span data-notification-status-label><?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'E-posta açık' : 'E-posta kapalı' ?></span>
+                                        <i class="bi <?= (int) ($template['is_active'] ?? 1) === 1 ? 'bi-envelope-check' : 'bi-envelope-slash' ?>"></i>
+                                        <span data-notification-status-label><?= (int) ($template['is_active'] ?? 1) === 1 ? 'Aktif' : 'Pasif' ?></span>
                                     </span>
                                     <?= admin_notification_route_badges('email', 'user') ?>
                                 </div>
@@ -2677,13 +2692,8 @@ $csrfToken = csrf_token();
                             <div class="notification-channel-switches">
                                 <input type="hidden" name="is_active" value="0">
                                 <label class="ui-admin-switch">
-                                    <input type="checkbox" name="is_active" value="1" <?= (int) ($template['is_active'] ?? 1) === 1 ? 'checked' : '' ?>>
+                                    <input type="checkbox" name="is_active" value="1" <?= (int) ($template['is_active'] ?? 1) === 1 ? 'checked' : '' ?> data-notification-status-toggle>
                                     <span class="ui-admin-switch-label">Aktif</span>
-                                </label>
-                                <input type="hidden" name="email_enabled" value="0">
-                                <label class="ui-admin-switch">
-                                    <input type="checkbox" name="email_enabled" value="1" <?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'checked' : '' ?> <?= $emailControlsDisabled ? 'disabled' : '' ?> data-notification-status-toggle>
-                                    <span class="ui-admin-switch-label">E-posta açık</span>
                                 </label>
                             </div>
                         </div>
@@ -2766,82 +2776,6 @@ $csrfToken = csrf_token();
     <?php endif; ?>
 
 
-    <?php if ($tab === 'settings'): ?>
-        <div class="notif-card">
-            <div class="notif-card-header">
-                <div>
-                    <h3>Sistem Bildirim Ayarları</h3>
-                    <p>Bu ayarlar kullanıcı sayfası, üst menü API çıktısı, gönderim formu ve otomatik hoş geldin bildirimi üzerinde doğrudan çalışır.</p>
-                </div>
-            </div>
-            <form method="POST" action="notifications.php?tab=settings" class="ui-admin-form">
-                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
-                <input type="hidden" name="action" value="save_settings">
-
-
-                <div class="notification-settings-layout ui-section">
-                    <?php foreach ($settingsSchema as $section): ?>
-                        <section class="notification-settings-section ui-section">
-                            <div class="notification-settings-section-head ui-panel__head">
-                                <h4><?= htmlspecialchars($section['title']) ?></h4>
-                                <p><?= htmlspecialchars($section['description']) ?></p>
-                            </div>
-                            <div class="notification-settings-grid ui-grid">
-                                <?php foreach ($section['items'] as $item): ?>
-                                    <?php
-                                        $value = admin_notification_setting_value($adminSettings, $item);
-                                        $isWide = in_array($item['type'], ['textarea'], true) || $item['key'] === 'notif_default_link';
-                                    ?>
-                                    <div class="notification-setting-item <?= $isWide ? 'is-wide' : '' ?>">
-                                        <?php if ($item['type'] === 'bool'): ?>
-                                            <div class="notification-switch-row">
-                                                <span class="notification-setting-label notif-setting-label-flat">
-                                                    <span>
-                                                        <strong><?= htmlspecialchars($item['label']) ?></strong>
-                                                        <span><?= htmlspecialchars($item['help']) ?></span>
-                                                    </span>
-                                                </span>
-                                                <label class="ui-admin-switch">
-                                                    <input type="checkbox" name="<?= htmlspecialchars($item['key']) ?>" value="1" <?= admin_notification_bool($adminSettings, (string) $item['key'], (string) ($item['default'] ?? '0')) ? 'checked' : '' ?>>
-                                                    <span class="ui-admin-switch-label">Aktif</span>
-                                                </label>
-                                            </div>
-                                        <?php else: ?>
-                                            <label class="notification-setting-label">
-                                                <span>
-                                                    <strong><?= htmlspecialchars($item['label']) ?></strong>
-                                                    <span><?= htmlspecialchars($item['help']) ?></span>
-                                                </span>
-                                            </label>
-                                            <?php if ($item['type'] === 'textarea'): ?>
-                                                <textarea name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control" rows="3"><?= htmlspecialchars($value) ?></textarea>
-                                            <?php elseif ($item['type'] === 'select'): ?>
-                                                <select name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control">
-                                                    <?php foreach (($item['options'] ?? []) as $optionValue => $optionLabel): ?>
-                                                        <option value="<?= htmlspecialchars((string) $optionValue) ?>" <?= $value === (string) $optionValue ? 'selected' : '' ?>><?= htmlspecialchars((string) $optionLabel) ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                            <?php elseif ($item['type'] === 'number'): ?>
-                                                <input type="number" name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value) ?>" min="<?= (int) ($item['min'] ?? 0) ?>" max="<?= (int) ($item['max'] ?? 999999) ?>">
-                                            <?php else: ?>
-                                                <input type="text" name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value) ?>">
-                                            <?php endif; ?>
-                                        <?php endif; ?>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </section>
-                    <?php endforeach; ?>
-                </div>
-
-                <div class="notif-form-footer">
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-primary">
-                        <i class="bi bi-save"></i> Ayarları Kaydet
-                    </button>
-                </div>
-            </form>
-        </div>
-    <?php endif; ?>
 </div>
 
 <div class="notification-preview-modal" id="notificationPreviewModal" hidden aria-hidden="true">
