@@ -44,7 +44,6 @@ must live here. Public, admin, and API access must go through the module route c
 
 ## Validation Checklist
 
-- `php -l` for each touched PHP file.
-- `vendor/bin/phpunit`
-- `powershell -ExecutionPolicy Bypass -File scripts/ui-smoke-check.ps1`
-- Compatibility checks including `tests/Compatibility/LeaderboardCompatibilityTest.php`.
+- `php scripts/php-lint.php`
+- Manual smoke checks for the public, API, and admin leaderboard routes.
+- `git diff --check`

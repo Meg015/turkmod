@@ -40,21 +40,12 @@ desktop.ini
 
 # ---- Node / JS build ----
 node_modules/
-playwright-report/
-test-results/
 
 # ---- Local tooling / docs / tests ----
-.claude/
 .codex/
-.playwright-cli/
 .superpowers/
 .vato_index/
 .agents/
-.tmp-playwright-report.json
 tmp/
-docs/
-tests/
 output/
 scratch/
-phpunit.xml
-playwright.config.js

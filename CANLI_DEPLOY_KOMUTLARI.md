@@ -29,8 +29,9 @@ Deploy betigi:
 - `.env`, `uploads/`, `storage/`, `vendor/` ve `includes/storage/` yollarini korur.
 - Composer production bagimliliklarini yeniler ve tum PHP dosyalarini lint eder.
 
-Onemli: `git clean -x` veya `git clean -X` canlida kullanilmaz. Bu kipler upload,
-ortam ve runtime verilerini silebilir.
+Onemli: Kok dizinde kapsamsiz `git clean -x` veya `git clean -X` kullanilmaz.
+Deploy betigi `-x` kipini yalniz kaldirilan gelistirme yollarinin acik listesinde
+kullanir; upload, ortam ve runtime yollarini bu listeye dahil etmez.
 
 ## Veritabani Senkronizasyonu (Pull Sonrasi)
 
@@ -39,13 +40,3 @@ Admin panelden:
 1. `.../admin/database-sync/index.php` ekranini ac.
 2. Bekleyen migration varsa `Bekleyen Migrationlari Uygula` butonuna bas.
 3. Bekleyen sayisi `0` oldugunda veritabani guncel kabul edilir.
-
-## Bakim Standartlari
-
-Canliya almadan once bu dokumanlar kontrol edilmelidir:
-
-- `docs/admin-ui-components.md`
-- `docs/api-response-standard.md`
-- `docs/cron-job-matrix.md`
-
-Yeni admin ekran, AJAX endpoint veya cron gorevi eklendiyse ilgili dokuman ayni commit icinde guncellenmelidir.

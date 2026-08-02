@@ -49,6 +49,21 @@ clean_excludes=(
     -e 'storage/'
     -e 'vendor/'
     -e 'includes/storage/'
+    -e '.claude/'
+    -e 'docs/'
+    -e 'tests/'
+    -e 'tools/'
+    -e 'phpunit.xml'
+    -e 'playwright.config.js'
+)
+
+dev_residue_paths=(
+    '.claude/'
+    'docs/'
+    'tests/'
+    'tools/'
+    'phpunit.xml'
+    'playwright.config.js'
 )
 
 echo "[deploy] Incoming tracked changes:"
@@ -56,6 +71,9 @@ git diff --name-status HEAD.."$target_ref" || true
 
 echo "[deploy] Untracked, non-ignored residue selected for cleanup:"
 git clean -nd "${clean_excludes[@]}"
+
+echo "[deploy] Removed development paths selected for cleanup:"
+git clean -ndx -- "${dev_residue_paths[@]}"
 
 if [[ $dry_run -eq 1 ]]; then
     echo "[deploy] Dry run completed; no working-tree changes were made."
@@ -67,6 +85,7 @@ git merge --ff-only "$target_ref"
 # Deleted tracked files are removed by the merge. This removes only additional
 # untracked, non-ignored residue while preserving all production data paths.
 git clean -fd "${clean_excludes[@]}"
+git clean -fdx -- "${dev_residue_paths[@]}"
 
 if ! command -v composer >/dev/null 2>&1; then
     echo "[deploy] Composer is required but was not found in PATH." >&2
@@ -74,6 +93,6 @@ if ! command -v composer >/dev/null 2>&1; then
 fi
 
 composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
-php tools/lint.php
+php scripts/php-lint.php
 
 echo "[deploy] Production deployment completed at $(git rev-parse --short HEAD)."

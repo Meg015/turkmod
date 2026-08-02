@@ -24,8 +24,7 @@ declare(strict_types=1);
  * birlikte urun ortaminda guvenle calismaktadir.
  */
 
-// Load custom PSR-4 autoloader (replaces vendor/autoload.php).
-// vendor/ contains only dev dependencies (phpunit), no production packages.
+// Load the application's lightweight PSR-4 autoloader for App\\ classes.
 require_once __DIR__ . "/autoloader.php";
 
 // Asset versioning — single timestamp per request instead of per-file filemtime().

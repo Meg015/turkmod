@@ -55,9 +55,7 @@ translations, and future migrations for events must live here.
 
 ## Validation Checklist
 
-- `php -l` for each touched PHP file.
-- `vendor/bin/phpunit`
-- `powershell -ExecutionPolicy Bypass -File scripts/ui-smoke-check.ps1`
+- `php scripts/php-lint.php`
 - Live smoke for representative events routes:
   `/events`, `/events/api/tasks`, and one `/events/assets/*` CSS file.
-- Compatibility checks including the future `EventsCompatibilityTest`.
+- `git diff --check`

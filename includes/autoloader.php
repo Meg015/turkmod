@@ -3,13 +3,12 @@
 declare(strict_types=1);
 
 /**
- * Lightweight PSR-4 autoloader — replaces Composer's vendor/autoload.php.
+ * Lightweight PSR-4 autoloader for application-owned classes.
  *
  * Registered namespaces:
  *   App\  →  includes/src/
  *
- * No production dependencies exist in vendor/ (only phpunit dev packages),
- * so the entire 326MB vendor tree is eliminated.
+ * Dedicated Composer-backed scripts load vendor/autoload.php separately.
  */
 
 spl_autoload_register(static function (string $class): void {

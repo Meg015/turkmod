@@ -62,14 +62,6 @@ Root entrypoints stay as thin adapters only.
 
 ## Validation Checklist
 
-- `php -l` for each touched PHP file.
-- Targeted PHPUnit:
-  - `tests/Unit/Modules/TopicWorkflow/Http/*`
-  - `tests/Unit/Modules/TopicWorkflow/Listeners/*`
-  - `tests/Unit/Modules/TopicWorkflow/Jobs/*`
-  - `tests/Unit/Modules/TopicWorkflow/Services/TopicSubmissionServiceTest.php`
-  - `tests/Compatibility/TopicWorkflowCompatibilityTest.php`
-- Full `vendor/bin/phpunit`
+- `php scripts/php-lint.php`
 - Auth header checks for login/register/forgot/reset/upload/edit routes.
-- `powershell -ExecutionPolicy Bypass -File scripts/ui-smoke-check.ps1`
 - `git diff --check`
