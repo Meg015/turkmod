@@ -18,9 +18,19 @@ Not:
 
 ```bash
 cd /home/siteler/web/turkmod.net/public_html
-git pull origin master
-php -l includes/init.php
+bash scripts/deploy-production.sh --dry-run
+bash scripts/deploy-production.sh
 ```
+
+Deploy betigi:
+- `origin/master` dalini sadece fast-forward olarak uygular.
+- Commit ile silinen takipli dosyalari Git uzerinden canlidan da kaldirir.
+- Takipsiz ve ignore edilmeyen eski uygulama kalintilarini temizler.
+- `.env`, `uploads/`, `storage/`, `vendor/` ve `includes/storage/` yollarini korur.
+- Composer production bagimliliklarini yeniler ve tum PHP dosyalarini lint eder.
+
+Onemli: `git clean -x` veya `git clean -X` canlida kullanilmaz. Bu kipler upload,
+ortam ve runtime verilerini silebilir.
 
 ## Veritabani Senkronizasyonu (Pull Sonrasi)
 
