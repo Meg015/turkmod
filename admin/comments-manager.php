@@ -1046,8 +1046,8 @@ require_once __DIR__ . '/header.php';
                     <p>Konu ve yanıt bağlamıyla yorumları inceleyin.</p>
                 </div>
                 <div class="comments-manager-top__actions">
-                    <a href="?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['status' => 'pending', 'page' => null]))) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-hourglass-split"></i> Bekleyenler</a>
-                    <a href="?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['status' => 'deleted', 'page' => null]))) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-trash"></i> Silinenler</a>
+                    <a href="?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['status' => 'pending', 'page' => null]))) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" aria-label="Bekleyen yorumlar" title="Bekleyen yorumlar"><i class="bi bi-hourglass-split" aria-hidden="true"></i><span class="visually-hidden">Bekleyenler</span></a>
+                    <a href="?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['status' => 'deleted', 'page' => null]))) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" aria-label="Silinen yorumlar" title="Silinen yorumlar"><i class="bi bi-trash" aria-hidden="true"></i><span class="visually-hidden">Silinenler</span></a>
                 </div>
             </section>
 
@@ -1101,7 +1101,11 @@ require_once __DIR__ . '/header.php';
                     <input type="hidden" name="status" value="<?= htmlspecialchars($status) ?>">
                     <input type="hidden" name="topic_id" value="<?= (int) $topicId ?>">
                     <input type="hidden" name="user_id" value="<?= (int) $userId ?>">
-                    <div class="comments-manager-search-row">
+                    <button type="button" class="comments-manager-filter-toggle" data-comments-filter-toggle aria-expanded="false" aria-controls="commentsManagerFilters">
+                        <span><i class="bi bi-funnel"></i> Filtreler</span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <div id="commentsManagerFilters" class="comments-manager-search-row" data-comments-filter-panel>
                         <input type="text" name="search" class="ui-comment-manager-filter-input ui-input comments-manager-search" placeholder="Yorum, kullanıcı, konu ara..." value="<?= htmlspecialchars($search) ?>">
                         <select name="user_state" class="ui-admin-form-select comments-manager-filter-select" aria-label="Kullanıcı durumu">
                             <option value="all"<?= $userState === 'all' ? ' selected' : '' ?>>Tüm kullanıcılar</option>
@@ -1201,18 +1205,11 @@ require_once __DIR__ . '/header.php';
                                 <div class="ui-comment-manager-comment-meta comments-manager-card__meta">
                                     <div class="comments-manager-author-row">
                                         <?php if ($commentUserId > 0 && $canViewCommentUserDetails): ?>
-                                            <details class="comments-manager-user-insight-menu" data-comment-user-insight-menu data-user-id="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>" data-can-moderate="<?= $canModerateAuthor ? '1' : '0' ?>" data-is-banned="<?= $isAuthorBanned ? '1' : '0' ?>">
-                                                <summary class="comments-manager-user-chip <?= htmlspecialchars($authorStateClass) ?>" data-comment-user-insight-toggle>
-                                                    <span class="comments-manager-user-chip__name"><?= htmlspecialchars($commentAuthor) ?></span>
-                                                    <span class="comments-manager-user-chip__status"><i class="bi <?= htmlspecialchars($authorStateIcon) ?>"></i> <?= htmlspecialchars($authorStateLabel) ?></span>
-                                                    <i class="bi bi-chevron-down comments-manager-user-chip__chevron" aria-hidden="true"></i>
-                                                </summary>
-                                                <div class="comments-manager-user-insight-popover" data-comment-user-insight-popover>
-                                                    <div class="comments-manager-user-insight-content" data-comment-user-insight-content>
-                                                        <span class="ui-admin-muted-sm">Kullanıcı bilgisi yükleniyor...</span>
-                                                    </div>
-                                                </div>
-                                            </details>
+                                            <button type="button" class="comments-manager-user-chip <?= htmlspecialchars($authorStateClass) ?>" data-comment-user-detail="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>" data-can-moderate="<?= $canModerateAuthor ? '1' : '0' ?>" data-is-banned="<?= $isAuthorBanned ? '1' : '0' ?>" aria-haspopup="dialog" aria-controls="commentUserDetailModal">
+                                                <span class="comments-manager-user-chip__name"><?= htmlspecialchars($commentAuthor) ?></span>
+                                                <span class="comments-manager-user-chip__status"><i class="bi <?= htmlspecialchars($authorStateIcon) ?>"></i> <?= htmlspecialchars($authorStateLabel) ?></span>
+                                                <i class="bi bi-person-vcard comments-manager-user-chip__chevron" aria-hidden="true"></i>
+                                            </button>
                                         <?php else: ?>
                                             <div class="ui-comment-manager-comment-author"><?= htmlspecialchars($commentAuthor) ?></div>
                                         <?php endif; ?>
@@ -1227,10 +1224,6 @@ require_once __DIR__ . '/header.php';
                                         <span class="ui-comment-manager-comment-info-item">
                                             <i class="bi bi-calendar3"></i>
                                             <?= date('d.m.Y H:i', strtotime($comment['created_at'])) ?>
-                                        </span>
-                                        <span class="ui-comment-manager-comment-info-item">
-                                            <i class="bi bi-heart-fill" style="color: #e11d48;"></i>
-                                            <?= number_format((int) $comment['reaction_count']) ?>
                                         </span>
                                         <span class="ui-comment-manager-comment-status <?= htmlspecialchars($statusValue) ?>">
                                             <?php if ($statusValue === 'pending'): ?>
@@ -1370,6 +1363,50 @@ require_once __DIR__ . '/header.php';
                 <?php endif; ?>
             <?php endif; ?>
         </main>
+    </div>
+</div>
+
+<div id="commentUserDetailModal" class="media-modal-overlay comments-user-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="commentUserDetailTitle" hidden aria-hidden="true">
+    <div class="media-modal comments-user-detail-modal ui-panel">
+        <div class="media-modal-header ui-panel__head">
+            <div>
+                <span class="comments-user-detail-kicker">Yorum sahibi</span>
+                <h3 id="commentUserDetailTitle"><i class="bi bi-person-vcard"></i> Kullanıcı Detayı</h3>
+            </div>
+            <button type="button" class="media-modal-close" data-comment-user-detail-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="comments-user-detail-shell" data-comment-user-detail-shell>
+            <div class="comments-user-detail-loading" data-comment-user-detail-loading>
+                <i class="bi bi-arrow-repeat"></i>
+                <span>Kullanıcı geçmişi yükleniyor...</span>
+            </div>
+            <div class="comments-user-detail-content" data-comment-user-detail-content hidden>
+                <header class="comments-user-detail-profile" data-comment-user-detail-profile></header>
+                <div class="comments-user-detail-stats" data-comment-user-detail-stats></div>
+                <div class="comments-user-detail-tabs" role="tablist" aria-label="Kullanıcı geçmişi bölümleri">
+                    <button type="button" role="tab" class="comments-user-detail-tab-btn is-active" aria-selected="true" data-comment-user-tab="summary"><i class="bi bi-clock-history"></i> Özet</button>
+                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="comments"><i class="bi bi-chat-left-text"></i> Yorumlar</button>
+                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="topics"><i class="bi bi-folder2-open"></i> Konular</button>
+                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="reports"><i class="bi bi-flag"></i> Raporlar</button>
+                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="notes"><i class="bi bi-journal-text"></i> Admin Notları</button>
+                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="restrictions"><i class="bi bi-shield-exclamation"></i> Ceza Geçmişi</button>
+                </div>
+                <div class="comments-user-detail-panels">
+                    <section role="tabpanel" data-comment-user-panel="summary"></section>
+                    <section role="tabpanel" data-comment-user-panel="comments" hidden></section>
+                    <section role="tabpanel" data-comment-user-panel="topics" hidden></section>
+                    <section role="tabpanel" data-comment-user-panel="reports" hidden></section>
+                    <section role="tabpanel" data-comment-user-panel="notes" hidden></section>
+                    <section role="tabpanel" data-comment-user-panel="restrictions" hidden></section>
+                </div>
+            </div>
+            <div class="comments-user-detail-error" data-comment-user-detail-error hidden>
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Kullanıcı bilgileri yüklenemedi.</strong>
+                <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-user-detail-retry>Tekrar Dene</button>
+            </div>
+        </div>
+        <div class="media-modal-footer comments-user-detail-actions ui-panel__foot" data-comment-user-detail-actions></div>
     </div>
 </div>
 
