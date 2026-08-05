@@ -680,7 +680,7 @@ document.addEventListener('click', function(event) {
         event.preventDefault();
         closeUserRowActionMenu();
         if (editTrigger.closest('#userDetailModal')) {
-            closeUserDetail();
+            closeUserDetail({ restoreFocus: false });
         }
         openUserEditModal(editTrigger);
         return;
@@ -691,7 +691,7 @@ document.addEventListener('click', function(event) {
         event.preventDefault();
         closeUserRowActionMenu();
         if (noteTrigger.closest('#userDetailModal')) {
-            closeUserDetail();
+            closeUserDetail({ restoreFocus: false });
         }
         openAdminNoteModal(noteTrigger.getAttribute('data-user-id'), noteTrigger.getAttribute('data-user-name') || '');
         return;
@@ -702,7 +702,7 @@ document.addEventListener('click', function(event) {
         event.preventDefault();
         closeUserRowActionMenu();
         if (unbanTrigger.closest('#userDetailModal')) {
-            closeUserDetail();
+            closeUserDetail({ restoreFocus: false });
         }
         openUnbanModal(unbanTrigger.getAttribute('data-user-unban'), unbanTrigger.getAttribute('data-user-name') || '');
         return;
@@ -713,7 +713,7 @@ document.addEventListener('click', function(event) {
         event.preventDefault();
         closeUserRowActionMenu();
         if (banTrigger.closest('#userDetailModal')) {
-            closeUserDetail();
+            closeUserDetail({ restoreFocus: false });
         }
         openBanModal(banTrigger.getAttribute('data-user-ban'), banTrigger.getAttribute('data-user-name') || '');
         return;
@@ -724,7 +724,7 @@ document.addEventListener('click', function(event) {
         event.preventDefault();
         closeUserRowActionMenu();
         if (restrictionTrigger.closest('#userDetailModal')) {
-            closeUserDetail();
+            closeUserDetail({ restoreFocus: false });
         }
         openRestrictionModal(restrictionTrigger.getAttribute('data-user-restrict'), restrictionTrigger.getAttribute('data-user-name') || '');
         return;
@@ -760,14 +760,6 @@ document.addEventListener('click', function(event) {
         return;
     }
 
-    if (event.target.closest('[data-user-detail-close]')) {
-        closeUserDetail();
-        return;
-    }
-
-    if (event.target.hasAttribute('data-user-detail-backdrop')) {
-        closeUserDetail();
-    }
 });
 
 // Close alert messages
@@ -1013,157 +1005,6 @@ function escHtml(s) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
 }
-function openUserDetail(userId) {
-    var overlay = document.getElementById('userDetailModal');
-    var body = document.getElementById('userDetailBody');
-    if (!overlay || !body || !userId) {
-        return;
-    }
-    openUsersManagedModal(overlay, {
-        initialFocus: '.ui-admin-detail-close'
-    });
-    body.innerHTML = ''
-        + '<div class="ui-admin-detail-head ui-panel__head">'
-        +   '<div class="ui-admin-skeleton-flex"><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-60"></span><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-40"></span></div>'
-        +   '<span class="ui-admin-skeleton ui-admin-skeleton-btn"></span>'
-        + '</div>'
-        + '<div class="ui-admin-detail-stats">'
-        +   '<span class="ui-admin-skeleton ui-admin-skeleton-stat"></span>'
-        +   '<span class="ui-admin-skeleton ui-admin-skeleton-stat"></span>'
-        +   '<span class="ui-admin-skeleton ui-admin-skeleton-stat"></span>'
-        +   '<span class="ui-admin-skeleton ui-admin-skeleton-stat"></span>'
-        + '</div>'
-        + '<div class="ui-admin-detail-grid ui-grid">'
-        +   '<div><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-40"></span><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-80"></span><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-60"></span></div>'
-        +   '<div><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-40"></span><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-80"></span><span class="ui-admin-skeleton ui-admin-skeleton-text sk-w-60"></span></div>'
-        + '</div>';
-
-    window.adminFetchJson('api/user-details.php?id=' + encodeURIComponent(userId), { notifyError: false })
-        .then(function (res) {
-            if (!res || !res.success) {
-                body.innerHTML = '<div class="ui-admin-detail-loading">Detaylar yüklenemedi.</div>';
-                return;
-            }
-            var d = res.data || {};
-            var s = d.stats || {};
-            function listOrEmpty(arr, render) {
-                if (!arr || !arr.length) {
-                    return '<p class="ui-admin-muted ui-admin-detail-empty-text ui-empty">— Kayıt yok —</p>';
-                }
-                return '<ul class="ui-admin-detail-list">' + arr.map(render).join('') + '</ul>';
-            }
-            function editAttrs(user) {
-                return ' data-user-id="' + escHtml(user.id) + '"'
-                    + ' data-user-name="' + escHtml(user.name || user.username || '') + '"'
-                    + ' data-user-username="' + escHtml(user.username || user.name || '') + '"'
-                    + ' data-user-email="' + escHtml(user.email || '') + '"'
-                    + ' data-user-group="' + escHtml(user.group_id || '') + '"'
-                    + ' data-user-status="' + escHtml(user.status || 'active') + '"'
-                    + ' data-user-location="' + escHtml(user.location || '') + '"'
-                    + ' data-user-website="' + escHtml(user.website || '') + '"'
-                    + ' data-user-github="' + escHtml(user.social_github || '') + '"'
-                    + ' data-user-twitter="' + escHtml(user.social_twitter || '') + '"'
-                    + ' data-user-discord="' + escHtml(user.social_discord || '') + '"'
-                    + ' data-user-bio="' + escHtml(user.bio || '') + '"';
-            }
-            function quickActionHtml(user, userName) {
-                var actions = ''
-                    + '<a href="users.php?tab=activity&amp;user_id=' + encodeURIComponent(user.id || '') + '" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline"><i class="bi bi-activity"></i> Aktivite</a>'
-                    + '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" data-admin-note-open data-user-id="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-journal-plus"></i> Not Ekle</button>'
-                    + '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary" data-user-edit-open' + editAttrs(user) + '><i class="bi bi-pencil"></i> Düzenle</button>';
-
-                if (user.can_moderate) {
-                    actions += user.is_banned
-                        ? '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-success" data-user-unban="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-check-circle"></i> Ban Kaldır</button>'
-                        : '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger" data-user-ban="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-slash-circle"></i> Banla</button>';
-                    actions += '<button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-outline" data-user-restrict="' + escHtml(user.id) + '" data-user-name="' + escHtml(userName) + '"><i class="bi bi-shield-exclamation"></i> Kısıtla</button>';
-                }
-
-                return '<div class="ui-admin-detail-actions">' + actions + '</div>';
-            }
-
-            var userName = d.name || d.username || ('#' + d.id);
-            var activeRestrictionCount = (d.restrictions && d.restrictions.length) || 0;
-            var noteCount = (d.admin_notes && d.admin_notes.length) || 0;
-            var statusLabel = ({ active: 'Aktif', inactive: 'Pasif' })[String(d.status || '').toLowerCase()] || (d.status || 'Aktif');
-            var banBadge = d.is_banned
-                ? '<span class="ui-admin-badge ui-admin-badge-danger">Yasaklı</span>' + (d.ban_reason ? ' <span class="ui-admin-muted">(' + escHtml(d.ban_reason) + ')</span>' : '')
-                : '<span class="ui-admin-badge ui-admin-badge-success">' + escHtml(statusLabel) + '</span>';
-
-            var html = ''
-                + '<div class="ui-admin-detail-head ui-panel__head">'
-                +   '<div class="ui-admin-detail-identity"><strong>' + escHtml(userName) + '</strong><span>' + escHtml(d.email) + '</span><small>Son aktivite: ' + escHtml(d.last_activity_at || 'Kayıt yok') + '</small></div>'
-                +   '<div class="ui-admin-detail-badges">' + banBadge + ' <span class="ui-admin-badge">' + escHtml(d.group_name || 'Üye') + '</span></div>'
-                + '</div>'
-                + '<div class="ui-admin-detail-stats">'
-                +   '<span><b>' + (s.total_topics || 0) + '</b> konu</span>'
-                +   '<span><b>' + (s.total_comments || 0) + '</b> yorum</span>'
-                +   '<span><b>' + (s.total_downloads || 0) + '</b> indirme</span>'
-                +   '<span><b>' + (d.reports_about || 0) + '</b> şikayet</span>'
-                + '</div>'
-                + '<div class="ui-admin-detail-decision">'
-                +   '<div><span>Son giriş</span><strong>' + escHtml(d.last_login_at || 'Kayıt yok') + '</strong></div>'
-                +   '<div><span>Son IP</span><strong>' + escHtml(d.last_login_ip || 'Yok') + '</strong></div>'
-                +   '<div><span>Aktif kısıtlama</span><strong>' + activeRestrictionCount + '</strong></div>'
-                +   '<div><span>Admin notu</span><strong>' + noteCount + '</strong></div>'
-                + '</div>'
-                + quickActionHtml(d, userName)
-                + '<div class="ui-admin-detail-grid ui-grid">'
-                +   '<div class="ui-admin-detail-full"><h4>Son Aktivite</h4>' + listOrEmpty(d.recent_activity, function (a) {
-                        var detail = [a.group, a.device, a.ip_address].filter(Boolean).map(escHtml).join(' · ');
-                        return '<li><b>' + escHtml(a.event || a.title || 'Aktivite') + '</b> <span class="ui-admin-muted">' + escHtml(a.created_at || '') + '</span>' + (detail ? '<br><span class="ui-admin-muted">' + detail + '</span>' : '') + (a.title && a.title !== a.event ? '<br><span>' + escHtml(a.title) + '</span>' : '') + '</li>';
-                    }) + '</div>'
-                +   '<div><h4>Son Konular</h4>' + listOrEmpty(d.recent_topics, function (t) {
-                        var topicHref = t.url || '#';
-                        return '<li><a href="' + escHtml(topicHref) + '" target="_blank" rel="noopener">' + escHtml(t.title) + '</a> <span class="ui-admin-muted">' + escHtml(t.created_at) + '</span></li>';
-                    }) + '</div>'
-                +   '<div><h4>Son Yorumlar</h4>' + listOrEmpty(d.recent_comments, function (c) {
-                        return '<li>' + escHtml(c.excerpt) + ' <span class="ui-admin-muted">' + escHtml(c.created_at) + '</span></li>';
-                    }) + '</div>'
-                +   '<div><h4>IP Adresleri</h4>' + listOrEmpty(d.login_ips, function (ip) {
-                        return '<li><code>' + escHtml(ip) + '</code></li>';
-                    }) + '</div>'
-                +   '<div><h4>Aktif Kısıtlamalar</h4>' + listOrEmpty(d.restrictions, function (r) {
-                        return '<li>' + escHtml(r.type || r.restriction_type || 'kısıtlama') + ' <span class="ui-admin-muted">' + escHtml(r.reason || '') + '</span></li>';
-                    }) + '</div>'
-                +   '<div><h4>Admin Notları</h4>' + listOrEmpty(d.admin_notes, function (n) {
-                        return '<li><b>' + escHtml(n.admin || 'Admin') + '</b> <span class="ui-admin-muted">' + escHtml(n.created_at || '') + '</span><br><span>' + escHtml(n.note || '') + '</span>' + (n.tags ? '<br><span class="ui-admin-muted">' + escHtml(n.tags) + '</span>' : '') + '</li>';
-                    }) + '</div>'
-                +   '<div><h4>Kısıtlama Kayıtları</h4>' + listOrEmpty(d.restriction_history, function (r) {
-                        var meta = [r.action || '', r.created_at || ''];
-                        if (r.expires_at) meta.push('Bitiş: ' + r.expires_at);
-                        return '<li><b>' + escHtml(r.type || 'Kısıtlama') + '</b> ' + (r.active ? '<span class="ui-admin-badge ui-admin-badge-warning">aktif</span>' : '<span class="ui-admin-badge ui-admin-badge-muted">geçmiş</span>') + '<br><span class="ui-admin-muted">' + escHtml(meta.filter(Boolean).join(' - ')) + '</span>' + (r.reason ? '<br><span>' + escHtml(r.reason) + '</span>' : '') + '</li>';
-                    }) + '</div>'
-                +   '<div class="ui-admin-detail-full"><h4>Yönetici İşlem Geçmişi</h4>' + listOrEmpty(d.audit_history, function (a) {
-                        return '<li><b>' + escHtml(a.action) + '</b> - ' + escHtml(a.actor) + ' <span class="ui-admin-muted">' + escHtml(a.created_at) + '</span>' + (a.reverted ? ' <span class="ui-admin-badge ui-admin-badge-muted">geri alındı</span>' : '') + (a.reason ? '<br><span class="ui-admin-muted">' + escHtml(a.reason) + '</span>' : '') + '</li>';
-                    }) + '</div>'
-                + '</div>';
-
-            body.innerHTML = html;
-        })
-        .catch(function () {
-            body.innerHTML = '<div class="ui-admin-detail-loading">Bağlantı hatası.</div>';
-        });
-}
-function closeUserDetail() {
-    var overlay = document.getElementById('userDetailModal');
-    closeUsersManagedModal(overlay);
-}
-window.openUserDetail = openUserDetail;
-window.closeUserDetail = closeUserDetail;
-function initUsersTabDetailModal() {
-    document.querySelectorAll('[data-user-detail-open]').forEach(function(button) {
-        button.addEventListener('click', function() {
-            openUserDetail(this.getAttribute('data-user-id'));
-        });
-    });
-
-    document.addEventListener('keydown', function (e) {
-        if (window.adminDialog && typeof window.adminDialog.getOpen === 'function' && window.adminDialog.getOpen()) return;
-        if (e.key === 'Escape') { closeUserDetail(); }
-    });
-}
-
 function bindGroupPermissionTools() {
     const shell = document.querySelector('[data-group-permission-tools]');
     if (!shell) return;
@@ -1217,7 +1058,7 @@ function initUsersTabPage() {
     initUserRowActionMenus();
     bindUserBulkActions();
     initUsersTabRestrictionModal();
-    initUsersTabDetailModal();
+    window.adminUserDetailModal?.init();
     bindGroupPermissionTools();
 }
 

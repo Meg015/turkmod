@@ -89,6 +89,7 @@ urlset > url > image|image {
 }
 
 urlset > url > image|image > image|loc,
+urlset > url > image|image > image|title,
 urlset > url > image|image > image|caption {
     display: block;
     margin: 0 0 4px;
@@ -103,6 +104,17 @@ urlset > url > image|image > image|loc {
 
 urlset > url > image|image > image|loc::before {
     content: "Image\00a0";
+    display: inline-block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: top;
+}
+
+urlset > url > image|image > image|title::before {
+    content: "Title\00a0";
     display: inline-block;
     color: #64748b;
     font-size: 11px;

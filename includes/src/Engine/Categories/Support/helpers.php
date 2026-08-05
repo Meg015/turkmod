@@ -2,6 +2,18 @@
 
 declare(strict_types=1);
 
+function invalidatePublicCategoriesCache(): bool
+{
+    $cacheFile = dirname(__DIR__, 5) . '/storage/cache/categories_tree.php';
+
+    clearstatcache(true, $cacheFile);
+    if (!is_file($cacheFile)) {
+        return true;
+    }
+
+    return @unlink($cacheFile);
+}
+
 function getPublicCategories(?PDO $pdo): array
 {
     static $cache = null;
@@ -156,10 +168,21 @@ function getPublicCategoriesTree(?PDO $pdo): array
     }
     unset($node);
 
-    if (!is_dir(dirname($cacheFile))) {
-        mkdir(dirname($cacheFile), 0775, true);
+    $cacheDir = dirname($cacheFile);
+    if (!is_dir($cacheDir) && !mkdir($cacheDir, 0775, true) && !is_dir($cacheDir)) {
+        return $tree;
     }
-    file_put_contents($cacheFile, "<?php\nreturn " . var_export($tree, true) . ";\n", LOCK_EX);
+
+    $cachePayload = "<?php\nreturn " . var_export($tree, true) . ";\n";
+    $temporaryCacheFile = $cacheFile . '.' . getmypid() . '.' . bin2hex(random_bytes(4)) . '.tmp';
+    if (@file_put_contents($temporaryCacheFile, $cachePayload, LOCK_EX) !== false) {
+        if (!@rename($temporaryCacheFile, $cacheFile)) {
+            @unlink($cacheFile);
+            if (!@rename($temporaryCacheFile, $cacheFile)) {
+                @unlink($temporaryCacheFile);
+            }
+        }
+    }
 
     return $tree;
 }

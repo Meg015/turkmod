@@ -9,8 +9,9 @@ declare(strict_types=1);
 $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 $cacheEnabled = ($settings['cache_enabled'] ?? '1') === '1';
 if ($cacheEnabled && empty($_SESSION['_auth_user_id'])) {
-    $ttl = (int)($settings['cache_ttl'] ?? 3600);
-    header("Cache-Control: public, max-age={$ttl}, must-revalidate");
+    header('Cache-Control: no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
     header('Vary: Accept-Encoding, Cookie');
 } else {
     header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -88,6 +89,20 @@ if ($categorySlug !== '') {
 
 
 
+    if (!$categoryExists) {
+        require $projectRoot . '/includes/public-404.php';
+        exit;
+    }
+
+    if ($categoryParentSlug !== $categoryActualParentSlug) {
+        $redirect = categoryUrl($categorySlug, $categoryActualParentSlug);
+        if ($page > 1) {
+            $redirect .= '?page=' . $page;
+        }
+        header('Location: ' . $redirect, true, 301);
+        exit;
+    }
+
     $result = getTopicsByCategorySlug($pdo, $categorySlug, $page, $perPage);
 
     $items = $result['items'];
@@ -110,11 +125,24 @@ if ($categorySlug !== '') {
 
         try {
 
-            $stmt = $pdo->prepare("SELECT slug FROM categories WHERE name = :name AND status = 'active' AND deleted_at IS NULL");
+            $stmt = $pdo->prepare("SELECT cat.slug, parent.slug AS parent_slug
+                                   FROM categories cat
+                                   LEFT JOIN categories parent ON parent.id = cat.parent_id
+                                   WHERE cat.name = :name AND cat.status = 'active' AND cat.deleted_at IS NULL
+                                   LIMIT 1");
 
             $stmt->execute(['name' => $categoryName]);
 
-            $row = $stmt->fetch();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (is_array($row) && !empty($row['slug'])) {
+                $redirect = categoryUrl((string) $row['slug'], (string) ($row['parent_slug'] ?? ''));
+                if ($page > 1) {
+                    $redirect .= '?page=' . $page;
+                }
+                header('Location: ' . $redirect, true, 301);
+                exit;
+            }
 
             
 
@@ -130,9 +158,8 @@ if ($categorySlug !== '') {
 
     // Fallback yok: name ile eşleşen kategori DB'de bulunamadı.
 
-    $items = [];
-
-    $total = 0;
+    require $projectRoot . '/includes/public-404.php';
+    exit;
 
 }
 

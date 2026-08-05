@@ -1,0 +1,112 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - link "Mod Portal" [ref=e5] [cursor=pointer]:
+          - /url: /yenidosyalar/index.php
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Anasayfa" [ref=e11] [cursor=pointer]:
+              - /url: /yenidosyalar/index.php
+              - generic [ref=e12]: 
+              - text: Anasayfa
+          - listitem [ref=e13]:
+            - link "Kategoriler " [ref=e14] [cursor=pointer]:
+              - /url: /yenidosyalar/kategoriler
+              - generic [ref=e15]: 
+              - text: Kategoriler 
+        - generic [ref=e16]:
+          - search [ref=e17]:
+            - generic: 
+            - searchbox "Sitede ara" [ref=e18]
+          - button "Tema Degistir" [ref=e19] [cursor=pointer]:
+            - generic [ref=e20]: 
+          - group "Hesap işlemleri" [ref=e21]:
+            - link "Giriş" [ref=e22] [cursor=pointer]:
+              - /url: /yenidosyalar/giris
+              - generic [ref=e23]: 
+            - link "Kayıt" [ref=e25] [cursor=pointer]:
+              - /url: /yenidosyalar/kayit
+              - generic [ref=e26]: 
+  - main [ref=e28]:
+    - navigation "Sayfa yolu" [ref=e30]:
+      - link "Ana Sayfa" [ref=e31] [cursor=pointer]:
+        - /url: /yenidosyalar/index.php
+      - generic [ref=e32]: ">"
+      - generic [ref=e33]: Giriş Yap
+    - region [ref=e39]:
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Hesap erişimi
+            - heading "Tekrar hoş geldin" [level=1] [ref=e44]
+            - paragraph [ref=e45]: Hesabına giriş yap ve topluluğa kaldığın yerden devam et.
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - generic [ref=e48]: E-posta veya kullanıcı adı
+              - generic [ref=e49]:
+                - generic: 
+                - textbox "E-posta veya kullanıcı adı" [ref=e50]:
+                  - /placeholder: ornek@email.com veya kullanici_adi
+            - generic [ref=e51]:
+              - generic [ref=e52]: Şifre
+              - generic [ref=e53]:
+                - generic: 
+                - textbox "Şifre" [ref=e54]
+                - button "Şifreyi göster" [ref=e55] [cursor=pointer]:
+                  - generic: 
+            - generic [ref=e56]:
+              - generic [ref=e57]:
+                - checkbox "Giriş bilgimi bu cihazda hatırla" [ref=e58]
+                - generic [ref=e59]: Giriş bilgimi bu cihazda hatırla
+              - link "Şifremi unuttum" [ref=e60] [cursor=pointer]:
+                - /url: /yenidosyalar/sifremi-unuttum
+            - generic [ref=e61]:
+              - checkbox "Oturumumu açık tut Yalnızca kişisel cihazlarında kullan." [ref=e62]
+              - generic [ref=e63]:
+                - strong [ref=e64]: Oturumumu açık tut
+                - generic [ref=e65]: Yalnızca kişisel cihazlarında kullan.
+            - button "Giriş Yap" [ref=e66] [cursor=pointer]:
+              - generic [ref=e68]: 
+          - generic [ref=e69]:
+            - generic [ref=e70]: Henüz hesabın yok mu?
+            - link "Ücretsiz kayıt ol" [ref=e71] [cursor=pointer]:
+              - /url: /yenidosyalar/kayit?redirect=%2Fyenidosyalar%2Fadmin%2Fcomments-manager.php
+        - complementary "TurkMod hesap avantajları" [ref=e72]:
+          - generic [ref=e73]: TurkMod hesabı
+          - heading "Topluluk deneyimi tek yerde" [level=2] [ref=e74]
+          - list [ref=e75]:
+            - listitem [ref=e76]:
+              - generic [ref=e77]: 
+              - generic [ref=e79]:
+                - strong [ref=e80]: Mod paylaş ve yönet
+                - generic [ref=e81]: İçeriklerini kolayca yayına al.
+            - listitem [ref=e82]:
+              - generic [ref=e83]: 
+              - generic [ref=e85]:
+                - strong [ref=e86]: Favorilerini koru
+                - generic [ref=e87]: Beğendiğin içeriklere her cihazdan ulaş.
+            - listitem [ref=e88]:
+              - generic [ref=e89]: 
+              - generic [ref=e91]:
+                - strong [ref=e92]: Etkinlikleri takip et
+                - generic [ref=e93]: Görevlerini ve topluluk ödüllerini kaçırma.
+          - generic [ref=e94]:
+            - generic [ref=e95]: 
+            - generic [ref=e96]:
+              - strong [ref=e97]: Güvenli bağlantı
+              - text: Oturum ve parola verilerin korunur.
+  - contentinfo [ref=e98]:
+    - generic [ref=e100]:
+      - list [ref=e101]:
+        - listitem [ref=e102]:
+          - link "Ana sayfa" [ref=e103] [cursor=pointer]:
+            - /url: /yenidosyalar/index.php
+        - listitem [ref=e104]:
+          - link "Kategoriler" [ref=e105] [cursor=pointer]:
+            - /url: /yenidosyalar/kategoriler
+      - paragraph [ref=e106]:
+        - text: © 2026.
+        - link:
+          - /url: /yenidosyalar/index.php
+        - text: "- Tüm hakları saklıdır."

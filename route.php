@@ -26,7 +26,7 @@ if ($uri !== null && $uri !== '/') {
 $statelessSeoRoutePath = strtolower(rawurldecode((string) ($uri ?? '')));
 if (
     $statelessSeoRoutePath !== ''
-    && preg_match('~(?:^|/)(?:robots\.txt|sitemap\.xml|(?:topic|profile|image)-sitemap(?:-\d+)?\.xml|favicon\.ico|xmlrpc\.php)$~i', $statelessSeoRoutePath) === 1
+    && preg_match('~(?:^|/)(?:robots\.txt|sitemap\.xml|(?:category|topic|profile|image)-sitemap(?:-\d+)?\.xml|favicon\.ico|xmlrpc\.php)$~i', $statelessSeoRoutePath) === 1
 ) {
     $GLOBALS['_skip_session_bootstrap'] = true;
     $GLOBALS['_cache_control_set'] = true;
@@ -119,6 +119,7 @@ function routerHandleSitemapRoute(string $cleanRoute, array $settings): void
 
     $sitemapRoutes = [
         'sitemap.xml' => \App\Engine\Seo\Http\SitemapIndexPage::class,
+        'category-sitemap.xml' => \App\Engine\Seo\Http\CategorySitemapPage::class,
         'topic-sitemap.xml' => \App\Engine\Seo\Http\TopicSitemapPage::class,
         'profile-sitemap.xml' => \App\Engine\Seo\Http\ProfileSitemapPage::class,
         'image-sitemap.xml' => \App\Engine\Seo\Http\ImageSitemapPage::class,
@@ -130,6 +131,7 @@ function routerHandleSitemapRoute(string $cleanRoute, array $settings): void
     }
 
     $patternRoutes = [
+        '/^category-sitemap-(\d+)\.xml$/' => \App\Engine\Seo\Http\CategorySitemapPage::class,
         '/^topic-sitemap-(\d+)\.xml$/' => \App\Engine\Seo\Http\TopicSitemapPage::class,
         '/^profile-sitemap-(\d+)\.xml$/' => \App\Engine\Seo\Http\ProfileSitemapPage::class,
         '/^image-sitemap-(\d+)\.xml$/' => \App\Engine\Seo\Http\ImageSitemapPage::class,

@@ -107,7 +107,7 @@
             if (data.disabled || data.muted) {
                 list.appendChild(createState(
                     data.disabled ? "bi bi-bell-slash" : "bi bi-volume-mute",
-                    data.disabled ? "Bildirim merkezi kapal\\u0131" : "Bildirimler sessize al\\u0131nd\\u0131"
+                    data.disabled ? "Bildirim merkezi kapalı" : "Bildirimler sessize alındı"
                 ));
                 return;
             }
@@ -165,7 +165,7 @@
                         })
                         .then(function (data) {
                             if (!isApiSuccess(data)) {
-                                throw new Error(data && data.message ? data.message : "Bildirimler g\\u00fcncellenemedi.");
+                                throw new Error(data && data.message ? data.message : "Bildirimler güncellenemedi.");
                             }
                             return data;
                         })
@@ -173,7 +173,7 @@
                             window.location.href = item.href;
                         })
                         .catch(function (error) {
-                            notifyError(error, "Bildirimler guncellenemedi.");
+                            notifyError(error, "Bildirimler güncellenemedi.");
                             window.location.href = item.href;
                         });
                     });
@@ -199,15 +199,18 @@
                 .catch(function () {
                     if (list) {
                         list.innerHTML = "";
-                        list.appendChild(createState("bi bi-exclamation-triangle", "Bildirimler yuklenemedi"));
+                        list.appendChild(createState("bi bi-exclamation-triangle", "Bildirimler yüklenemedi"));
                     }
-                    updateNotificationBadge(0);
                 });
         }
 
         function markAllNotificationsAsRead(event) {
             if (event) {
                 event.preventDefault();
+                event.stopPropagation();
+                if (typeof event.stopImmediatePropagation === "function") {
+                    event.stopImmediatePropagation();
+                }
             }
 
             var previousBadge = badge ? badge.textContent || "0" : "0";
@@ -233,10 +236,10 @@
             })
                 .then(function (data) {
                     if (!isApiSuccess(data)) {
-                        throw new Error(data.message || "Bildirimler g\\u00fcncellenemedi.");
+                        throw new Error(data.message || "Bildirimler güncellenemedi.");
                     }
                     if (window.showToast) {
-                        window.showToast("Bildirimler okundu olarak i\\u015faretlendi.", "success");
+                        window.showToast("Bildirimler okundu olarak işaretlendi.", "success");
                     }
                     fetchNotifications();
                     if (notificationUrl) {
@@ -255,10 +258,20 @@
         }
 
         if (toggle) {
-            toggle.addEventListener("click", function () {
-                root.classList.toggle("show");
-                toggle.setAttribute("aria-expanded", root.classList.contains("show") ? "true" : "false");
-                if (root.classList.contains("show")) {
+            toggle.addEventListener("click", function (e) {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                var show = !root.classList.contains("show");
+                document.querySelectorAll(".notif-dropdown.show, [data-messages-dropdown].show").forEach(function (el) {
+                    if (el !== root) {
+                        el.classList.remove("show");
+                    }
+                });
+                root.classList.toggle("show", show);
+                toggle.setAttribute("aria-expanded", show ? "true" : "false");
+                if (show) {
                     fetchNotifications();
                 }
             });
@@ -280,9 +293,17 @@
         fetchNotifications();
         window.updateNotificationBadge = updateNotificationBadge;
         window.fetchNotifications = fetchNotifications;
+        window.publicTopbar = window.publicTopbar || {};
+        window.publicTopbar.refreshNotifications = fetchNotifications;
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
+    function initAll() {
         document.querySelectorAll("[data-notif-dropdown]").forEach(initNotificationMenu);
-    });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initAll);
+    } else {
+        initAll();
+    }
 })();

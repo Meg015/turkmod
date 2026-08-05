@@ -95,6 +95,8 @@ final class PublicThemeRenderer
                 ? sidebarBuilderNavigationItems($settings, $baseUri)
                 : [],
             'logged_in' => $isLoggedIn,
+            'current_user_id' => $currentUserId,
+            'public_realtime_url' => \App\Core\Realtime\WebSocketConfig::publicEndpoint(),
             'user_name' => $userName,
             'user_initial' => self::initial($userName),
             'user_avatar_url' => $headerAvatar,

@@ -27,6 +27,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !empty($_SERVER['HTTP_X_
             if (categoryHasTopics($pdo, $id)) throw new RuntimeException('Bu kategoriye bağlı konular olduğu için silinemez.');
             $pdo->prepare("UPDATE categories SET parent_id = NULL WHERE parent_id = ?")->execute([$id]);
             $pdo->prepare("UPDATE categories SET status = 'inactive', deleted_at = NOW() WHERE id = ?")->execute([$id]);
+            invalidatePublicCategoriesCache();
             logActivity($pdo, 'category_deleted', 'category', $id);
             adminAuditLogger()->logAction($pdo, 'category_deleted', 'category', $id, 'Kategori silindi', [], [], false);
             sendJsonResponse(200, true, 'Kategori silindi.', ['ok' => true]);
@@ -67,6 +68,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
             $pdo->prepare("UPDATE categories SET parent_id = NULL WHERE parent_id = ?")->execute([$id]);
             $pdo->prepare("UPDATE categories SET status = 'inactive', deleted_at = NOW() WHERE id = ?")->execute([$id]);
+            invalidatePublicCategoriesCache();
             logActivity($pdo, 'category_deleted', 'category', $id);
             adminAuditLogger()->logAction($pdo, 'category_deleted', 'category', $id, 'Kategori silindi', [], [], false);
             flash('success', 'Kategori silindi.');
@@ -93,10 +95,46 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             throw new RuntimeException('Bir kategori kendi üst kategorisi olamaz.');
         }
 
+        $availableCategories = getAdminCategories($pdo);
+        $categoriesById = [];
+        foreach ($availableCategories as $availableCategory) {
+            $categoriesById[(int) $availableCategory['id']] = $availableCategory;
+        }
+
+        if ($parentId !== null && !isset($categoriesById[$parentId])) {
+            throw new RuntimeException('Seçilen üst kategori bulunamadı.');
+        }
+
+        if ($parentId !== null && !empty($categoriesById[$parentId]['parent_id'])) {
+            throw new RuntimeException('Kategori hiyerarşisi en fazla iki seviye olabilir.');
+        }
+
+        if ($id > 0 && $parentId !== null && in_array($parentId, getAdminCategoryDescendantIds($availableCategories, $id), true)) {
+            throw new RuntimeException('Bir kategori kendi alt kategorilerinden birine taşınamaz.');
+        }
+
+        if ($status === 'active' && $parentId !== null && ($categoriesById[$parentId]['status'] ?? '') !== 'active') {
+            throw new RuntimeException('Aktif bir kategori pasif bir üst kategoriye bağlanamaz.');
+        }
+
+        if ($id > 0 && $status === 'inactive') {
+            foreach (getAdminCategoryDescendantIds($availableCategories, $id) as $descendantId) {
+                if (($categoriesById[$descendantId]['status'] ?? '') === 'active') {
+            throw new RuntimeException('Aktif alt kategorileri bulunan kategori pasife alınamaz.');
+                }
+            }
+        }
+
         $duplicate = $pdo->prepare("SELECT id FROM categories WHERE slug = ? AND id <> ?");
         $duplicate->execute([$slug, $id]);
         if ($duplicate->fetchColumn()) {
             throw new RuntimeException('Bu slug başka bir kategori tarafından kullanılıyor.');
+        }
+
+        $duplicateName = $pdo->prepare("SELECT id FROM categories WHERE name = ? AND deleted_at IS NULL AND id <> ?");
+        $duplicateName->execute([$name, $id]);
+        if ($duplicateName->fetchColumn()) {
+            throw new RuntimeException('Kategori adı başka bir kategori tarafından kullanılıyor.');
         }
 
         if ($id > 0) {
@@ -115,6 +153,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'seo_description' => $seoDescription,
                 'id' => $id,
             ]);
+            invalidatePublicCategoriesCache();
             logActivity($pdo, 'category_updated', 'category', $id, ['name' => $name]);
             adminAuditLogger()->logAction($pdo, 'category_updated', 'category', $id, 'Kategori güncellendi', [], ['name' => $name], false);
             flash('success', 'Kategori güncellendi.');
@@ -132,6 +171,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'seo_title' => $seoTitle,
                 'seo_description' => $seoDescription,
             ]);
+            invalidatePublicCategoriesCache();
             logActivity($pdo, 'category_created', 'category', (int)$pdo->lastInsertId(), ['name' => $name]);
             adminAuditLogger()->logAction($pdo, 'category_created', 'category', (int)$pdo->lastInsertId(), 'Kategori oluşturuldu', [], ['name' => $name], false);
             flash('success', 'Kategori eklendi.');
@@ -155,6 +195,9 @@ foreach ($categories as $category) {
         break;
     }
 }
+$editingDescendantIds = $editing !== null
+    ? getAdminCategoryDescendantIds($categories, (int) $editing['id'])
+    : [];
 
 $successMsg = get_flash('success');
 $errorMsg = get_flash('error');
@@ -272,7 +315,7 @@ $csrfToken = csrf_token();
                 <select class="ui-admin-input" name="parent_id">
                     <option value="0">--- Ana kategori ---</option>
                     <?php foreach ($categoryTree as $category): ?>
-                        <?php if ((int)$category['id'] === (int)($editing['id'] ?? 0)) { continue; } ?>
+                        <?php if ((int)$category['depth'] > 0 || (int)$category['id'] === (int)($editing['id'] ?? 0) || in_array((int) $category['id'], $editingDescendantIds, true)) { continue; } ?>
                         <option value="<?= (int)$category['id'] ?>" <?= (int)($editing['parent_id'] ?? 0) === (int)$category['id'] ? 'selected' : '' ?>>
                             <?= str_repeat('— ', (int)$category['depth']) . htmlspecialchars((string)$category['name']) ?>
                         </option>

@@ -13,13 +13,23 @@ if (file_exists(__DIR__ . "/../../includes/src/Engine/AdminAudit/Support/helpers
 header('Content-Type: application/json; charset=utf-8');
 
 $currentUserId = (int)($_SESSION["_auth_user_id"] ?? 0);
-if ($currentUserId <= 0 || !userHasPermission($pdo, $currentUserId, 'comments.view')) {
+$canViewCommentDetails = $currentUserId > 0
+    && userHasPermission($pdo, $currentUserId, 'comments.view')
+    && (
+        userHasPermission($pdo, $currentUserId, 'users.edit')
+        || userHasPermission($pdo, $currentUserId, 'admin.access')
+    );
+$canViewUserManagement = $currentUserId > 0 && (
+    userHasPermission($pdo, $currentUserId, 'users.view')
+);
+if (!$canViewCommentDetails && !$canViewUserManagement) {
     sendForbidden('Bu islemi yapma yetkiniz yok.');
 }
 
 $currentUserIsAdmin = userHasPermission($pdo, $currentUserId, 'admin.access');
 $canManageUsers = userHasPermission($pdo, $currentUserId, "users.edit");
 $canViewSensitiveUserDetails = $currentUserIsAdmin || $canManageUsers;
+$canViewModerationHistory = $currentUserIsAdmin || $canManageUsers;
 $canBanUsers = $canManageUsers;
 $canRestrictUsers = $canManageUsers;
 $canAddAdminNotes = $canManageUsers;
@@ -411,6 +421,16 @@ $publicProfileUrl = (function_exists('publicProfileUrl') && is_array($userInfo))
     : '';
 $userManagementUrl = 'users.php?' . http_build_query(['search' => (string)($userInfo['username'] ?? '')]);
 $activityUrl = 'users.php?' . http_build_query(['tab' => 'activity', 'user_id' => $userId]);
+$visibleAdminNotes = $canViewModerationHistory ? $adminNotes : [];
+$visibleRecentActivity = $canViewModerationHistory ? $recentActivity : [];
+$visibleReports = $canViewModerationHistory ? $reports : [];
+$visibleReportsAbout = $canViewModerationHistory ? $reportsAbout : 0;
+$visibleModerationHistory = $canViewModerationHistory ? $moderationHistory : [];
+$visibleBanHistory = $canViewModerationHistory ? $banHistory : [];
+$visibleRestrictionHistory = $canViewModerationHistory ? $restrictionHistory : [];
+$visibleRestrictions = $canViewModerationHistory && is_array($restrictions) ? $restrictions : [];
+$visibleAuditHistory = $canViewModerationHistory ? $auditHistory : [];
+$visibleLoginIps = $canViewSensitiveUserDetails ? $loginIps : [];
 
 $structuredData = [
     'user' => [
@@ -435,18 +455,19 @@ $structuredData = [
         'last_login_ip' => $canViewSensitiveUserDetails ? ($banInfo['last_login_ip'] ?? null) : null,
     ],
     'stats' => array_merge($stats, [
-        'reports_about' => $reportsAbout,
-        'active_restrictions' => is_array($restrictions) ? count($restrictions) : 0,
+        'reports_about' => $visibleReportsAbout,
+        'active_restrictions' => count($visibleRestrictions),
     ]),
-    'activity' => $recentActivity,
+    'activity' => $visibleRecentActivity,
     'comments' => $recentComments,
     'topics' => $recentTopics,
-    'reports' => $reports,
-    'notes' => $adminNotes,
-    'restrictions' => is_array($restrictions) ? $restrictions : [],
-    'moderation_history' => $moderationHistory,
+    'reports' => $visibleReports,
+    'notes' => $visibleAdminNotes,
+    'restrictions' => $visibleRestrictions,
+    'moderation_history' => $visibleModerationHistory,
     'permissions' => [
         'view_sensitive' => $canViewSensitiveUserDetails,
+        'view_activity' => $canViewUserManagement,
         'manage_users' => $canManageUsers,
         'ban' => $canBanUsers && $userId !== $currentUserId,
         'restrict' => $canRestrictUsers && $userId !== $currentUserId,
@@ -455,7 +476,7 @@ $structuredData = [
     'links' => [
         'public_profile' => $publicProfileUrl,
         'user_management' => $userManagementUrl,
-        'full_activity' => $activityUrl,
+        'full_activity' => $canViewUserManagement ? $activityUrl : '',
     ],
 ];
 
@@ -485,17 +506,18 @@ sendSuccess('Kullanici detaylari basariyla getirildi.', [
         'banned_at' => $banInfo['banned_at'] ?? null,
         'ban_reason' => $banInfo['ban_reason'] ?? null,
         'last_login_ip' => $canViewSensitiveUserDetails ? ($banInfo['last_login_ip'] ?? null) : null,
-        'reports_about' => $reportsAbout,
+        'reports_about' => $visibleReportsAbout,
         'recent_topics' => $recentTopics,
         'recent_comments' => $recentComments,
-        'recent_activity' => $recentActivity,
-        'admin_notes' => $adminNotes,
-        'moderation_history' => $moderationHistory,
-        'ban_history' => $banHistory,
-        'restriction_history' => $restrictionHistory,
-        'restrictions' => is_array($restrictions) ? $restrictions : [],
-        'login_ips' => $loginIps,
-        'audit_history' => $auditHistory,
+        'recent_activity' => $visibleRecentActivity,
+        'admin_notes' => $visibleAdminNotes,
+        'moderation_history' => $visibleModerationHistory,
+        'ban_history' => $visibleBanHistory,
+        'restriction_history' => $visibleRestrictionHistory,
+        'restrictions' => $visibleRestrictions,
+        'login_ips' => $visibleLoginIps,
+        'audit_history' => $visibleAuditHistory,
+        'can_view_user_activity' => $canViewUserManagement,
         'can_manage_users' => $canManageUsers,
         'can_moderate' => $canManageUsers && $userId !== $currentUserId,
     ], $structuredData),

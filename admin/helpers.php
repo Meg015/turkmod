@@ -1824,14 +1824,14 @@ function adminSettingDefinitions(): array
         'google_site_verification' => ['label' => 'Google Site Doğrulama Kodu',   'type' => 'string', 'default' => '',                                                   'section' => 'seo', 'tooltip' => 'Google Search Console site doğrulama meta tag içeriği'],
         'custom_head_code'         => ['label' => 'Özel Head Kodu (JS/CSS)',      'type' => 'text',   'default' => '',                                                   'section' => 'seo', 'tooltip' => '<head> bölümüne eklenecek özel HTML/JS/CSS kodu (tracking scriptleri, meta taglar vb.)'],
         'sitemap_enabled'          => ['label' => 'Sitemap Aktif',                'type' => 'bool',   'default' => '1',                                                  'section' => 'seo', 'tooltip' => 'XML sitemap oluşturma ve sunma özelliğini aktif eder'],
-        'sitemap_max_urls'         => ['label' => 'Sitemap Maks. URL Sayısı',   'type' => 'number', 'default' => '1000',                                                'section' => 'seo', 'tooltip' => 'Tek bir sitemap dosyasına dahil edilecek maksimum URL sayısı (Google limiti: 50.000). Bu sayı aşılırsa otomatik olarak topic-sitemap-2.xml, topic-sitemap-3.xml gibi yeni sitemaplar oluşturulur.'],
+        'sitemap_max_urls'         => ['label' => 'Sitemap Maks. URL Sayısı',   'type' => 'number', 'default' => '1000', 'min' => 1, 'max' => 50000,                     'section' => 'seo', 'tooltip' => 'Tek bir sitemap dosyasına dahil edilecek maksimum URL sayısı (Google limiti: 50.000). Bu sayı aşılırsa kategori, konu, profil veya görsel sitemap dosyaları otomatik sayfalanır.'],
         'sitemap_changefreq'       => ['label' => 'Sitemap Değişim Sıklığı',    'type' => 'select', 'default' => 'weekly', 'section' => 'seo', 'options' => ['always' => 'Her zaman', 'hourly' => 'Saatlik', 'daily' => 'Günlük', 'weekly' => 'Haftalık', 'monthly' => 'Aylık', 'yearly' => 'Yıllık', 'never' => 'Asla'], 'tooltip' => 'Arama motorlarına içeriğin ne sıklıkla değiştiğini bildirir (tavsiye niteliğinde)'],
         'sitemap_priority_home'    => ['label' => 'Sitemap Ana Sayfa Önceliği', 'type' => 'select', 'default' => '1.0', 'section' => 'seo', 'options' => ['1.0' => '1.0', '0.9' => '0.9', '0.8' => '0.8', '0.7' => '0.7', '0.5' => '0.5'], 'tooltip' => 'Anasayfanın sitedeki göreli önceliği (0.0-1.0 arası, 1.0 en yüksek)'],
         'sitemap_priority_topics'  => ['label' => 'Sitemap Konu Önceliği',      'type' => 'select', 'default' => '0.6', 'section' => 'seo', 'options' => ['0.9' => '0.9', '0.8' => '0.8', '0.7' => '0.7', '0.6' => '0.6', '0.5' => '0.5', '0.4' => '0.4'], 'tooltip' => 'Konu sayfalarının sitedeki göreli önceliği (0.0-1.0 arası)'],
         'sitemap_priority_categories' => ['label' => 'Sitemap Kategori Önceliği', 'type' => 'select', 'default' => '0.7', 'section' => 'seo', 'options' => ['0.9' => '0.9', '0.8' => '0.8', '0.7' => '0.7', '0.6' => '0.6', '0.5' => '0.5'], 'tooltip' => 'Kategori sayfalarının sitedeki göreli önceliği (0.0-1.0 arası)'],
         'sitemap_include_categories' => ['label' => 'Sitemap Kategorileri Dahil Et', 'type' => 'bool', 'default' => '1',                                                'section' => 'seo', 'tooltip' => 'Kategori sayfalarını XML sitemap\'e dahil eder'],
         'image_sitemap_enabled'    => ['label' => 'Image Sitemap Aktif',        'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Görseller için ayrı XML sitemap oluşturur (Google Images için önemli)'],
-        'image_sitemap_max_images' => ['label' => 'Konu Başına Maks. Görsel',   'type' => 'number', 'default' => '20',                                                   'section' => 'seo', 'tooltip' => 'Bir konu sayfasından image sitemap\'e dahil edilecek maksimum görsel sayısı'],
+        'image_sitemap_max_images' => ['label' => 'Konu Başına Maks. Görsel',   'type' => 'number', 'default' => '20', 'min' => 1, 'max' => 1000,                         'section' => 'seo', 'tooltip' => 'Bir konu sayfasından image sitemap\'e dahil edilecek maksimum görsel sayısı (Google limiti: 1.000).'],
         'image_sitemap_hero'       => ['label' => 'Üst Resmi Dahil Et',         'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Konu kapak görsellerini (hero image) image sitemap\'e dahil eder'],
         'image_sitemap_media'      => ['label' => 'Medya Dosyalarını Dahil Et', 'type' => 'bool',   'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'Medya galerisi görsellerini image sitemap\'e dahil eder'],
         'image_sitemap_inline'     => ['label' => 'İçerik Görsellerini Dahil Et', 'type' => 'bool', 'default' => '1',                                                    'section' => 'seo', 'tooltip' => 'İçerik metni içindeki görselleri image sitemap\'e dahil eder'],
@@ -1970,7 +1970,7 @@ function adminSettingDefinitions(): array
             'type' => 'bool',
             'default' => '1',
             'section' => 'seo',
-            'tooltip' => 'Sitemap dosyalarını route.php üzerinden dinamik olarak sunar (/sitemap.xml, /topic-sitemap.xml, /image-sitemap.xml)'
+            'tooltip' => 'Sitemap dosyalarını route.php üzerinden dinamik olarak sunar (/sitemap.xml, /category-sitemap.xml, /topic-sitemap.xml, /profile-sitemap.xml, /image-sitemap.xml)'
         ],
         'sitemap_cache_duration' => [
             'label' => 'Sitemap Cache Süresi (saniye)',
@@ -4432,6 +4432,43 @@ function buildAdminCategoryTree(array $categories, ?int $parentId = null, int $d
     }
 
     return $branch;
+}
+
+/**
+ * @return array<int,int>
+ */
+function getAdminCategoryDescendantIds(array $categories, int $categoryId): array
+{
+    if ($categoryId <= 0) {
+        return [];
+    }
+
+    $childrenByParent = [];
+    foreach ($categories as $category) {
+        $parentId = isset($category['parent_id']) && $category['parent_id'] !== null
+            ? (int) $category['parent_id']
+            : 0;
+        $childId = (int) ($category['id'] ?? 0);
+        if ($parentId > 0 && $childId > 0) {
+            $childrenByParent[$parentId][] = $childId;
+        }
+    }
+
+    $descendantIds = [];
+    $pendingIds = [$categoryId];
+    while ($pendingIds !== []) {
+        $parentId = array_pop($pendingIds);
+        foreach ($childrenByParent[$parentId] ?? [] as $childId) {
+            if (isset($descendantIds[$childId])) {
+                continue;
+            }
+
+            $descendantIds[$childId] = $childId;
+            $pendingIds[] = $childId;
+        }
+    }
+
+    return array_values($descendantIds);
 }
 
 function getAdminCategoryOptions(?PDO $pdo): array

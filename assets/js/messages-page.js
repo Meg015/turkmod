@@ -256,6 +256,49 @@
         }
 
         // ==========================================
+        // Typing Status Helper Functions
+        // ==========================================
+        var lastTypingSent = 0;
+        var stopTypingTimer = null;
+        var isTypingActive = false;
+
+        function sendStopTyping() {
+            if (!isTypingActive && lastTypingSent === 0) return;
+            if (stopTypingTimer) {
+                clearTimeout(stopTypingTimer);
+                stopTypingTimer = null;
+            }
+            isTypingActive = false;
+            lastTypingSent = 0;
+            if (activeThreadId > 0) {
+                var fdStop = new FormData();
+                fdStop.append("action", "stop_typing");
+                fdStop.append("_token", csrfToken);
+                fdStop.append("thread_id", activeThreadId);
+                postSilently(apiUrl, fdStop);
+            }
+        }
+
+        function sendStartTyping() {
+            var now = Date.now();
+            if (!isTypingActive || (now - lastTypingSent > 2000)) {
+                lastTypingSent = now;
+                isTypingActive = true;
+                if (activeThreadId > 0) {
+                    var fd = new FormData();
+                    fd.append("action", "typing");
+                    fd.append("_token", csrfToken);
+                    fd.append("thread_id", activeThreadId);
+                    postSilently(apiUrl, fd);
+                }
+            }
+            if (stopTypingTimer) {
+                clearTimeout(stopTypingTimer);
+            }
+            stopTypingTimer = setTimeout(sendStopTyping, 3500);
+        }
+
+        // ==========================================
         // Composer & AJAX Send
         // ==========================================
         if (composerTextarea) {
@@ -283,40 +326,11 @@
                 }
             });
 
-            var typingTimeout = null;
-            var lastTypingSent = 0;
-            var stopTypingTimer = null;
-
             composerTextarea.addEventListener("input", function() {
                 if (this.value.trim().length > 0) {
-                    var now = Date.now();
-                    // Send typing status if we haven't sent one in the last 3 seconds
-                    if (now - lastTypingSent > 3000) {
-                        lastTypingSent = now;
-                        var fd = new FormData();
-                        fd.append("action", "typing");
-                        fd.append("_token", csrfToken);
-                        fd.append("thread_id", activeThreadId);
-                        postSilently(apiUrl, fd);
-                    }
-
-                    clearTimeout(stopTypingTimer);
-                    stopTypingTimer = setTimeout(function() {
-                        var fdStop = new FormData();
-                        fdStop.append("action", "stop_typing");
-                        fdStop.append("_token", csrfToken);
-                        fdStop.append("thread_id", activeThreadId);
-                        postSilently(apiUrl, fdStop);
-                        lastTypingSent = 0;
-                    }, 1500);
+                    sendStartTyping();
                 } else {
-                    clearTimeout(stopTypingTimer);
-                    var fdStop = new FormData();
-                    fdStop.append("action", "stop_typing");
-                    fdStop.append("_token", csrfToken);
-                    fdStop.append("thread_id", activeThreadId);
-                    postSilently(apiUrl, fdStop);
-                    lastTypingSent = 0;
+                    sendStopTyping();
                 }
             });
         }
@@ -405,6 +419,7 @@
             var html = "";
             var prevDate = null;
             var prevSenderId = null;
+            var today = new Date();
 
             threadMessages.forEach(function(msg, i) {
                 var isMine = msg.is_mine;
@@ -489,10 +504,19 @@
             });
 
             if (activeThreadData.is_typing_now) {
-                html += '<div class="msg-typing-indicator" id="typingIndicator">';
-                html += '<span>' + escapeHtml(activeThreadData.with_user_name) + ' yazıyor</span>';
+                html += '<article class="msg is-theirs msg-group-last msg-typing-wrapper" id="typingIndicator">';
+                html += '<div class="msg-avatar">';
+                if (activeThreadData.with_user_avatar) {
+                    html += '<img src="' + escapeHtml(activeThreadData.with_user_avatar) + '" alt="' + escapeHtml(activeThreadData.with_user_name) + '" width="32" height="32" loading="lazy" data-ui-avatar-img>';
+                }
+                html += '</div>';
+                html += '<div class="msg-content">';
+                html += '<div class="msg-typing-indicator">';
+                html += '<span><strong>' + escapeHtml(activeThreadData.with_user_name) + '</strong> yazıyor</span>';
                 html += '<div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
                 html += '</div>';
+                html += '</div>';
+                html += '</article>';
             }
 
             stream.innerHTML = html;
@@ -539,7 +563,13 @@
                 if (!body) return;
 
                 var btn = sendForm.querySelector("button[type='submit']");
-                if (btn) btn.disabled = true;
+                var origBtnHtml = null;
+                if (btn) {
+                    origBtnHtml = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.classList.add('is-submitting');
+                    btn.setAttribute('aria-busy', 'true');
+                }
 
                 var fd = new FormData(sendForm);
                 fetchJson(apiUrl, {
@@ -555,12 +585,54 @@
                             composerTextarea.focus();
                         }
                         toast(data.message || "Mesaj gonderildi.", "success");
+
+                        // Sohbet ve thread_id güncellenmesi
+                        if (data.thread_id && Number(data.thread_id) > 0) {
+                            activeThreadId = Number(data.thread_id);
+                            var threadInput = sendForm.querySelector('input[name="thread_id"]');
+                            if (threadInput) threadInput.value = String(activeThreadId);
+                        }
+
                         // Mesaj gönderilince "yazıyor..." göstergesini hemen temizle
+                        sendStopTyping();
                         if (activeThreadData) {
                             activeThreadData.is_typing_now = false;
                         }
                         clearTimeout(window.typingTimer);
                         lastTypingSent = 0;
+
+                        // Anında görünmesi için anlık mesaj nesnesi ekle (Optimistic Rendering)
+                        var sentMsgId = Number(data.message_id || Date.now());
+                        var nowObj = new Date();
+                        var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+                        var nowStr = nowObj.getFullYear() + '-' + pad(nowObj.getMonth() + 1) + '-' + pad(nowObj.getDate()) + ' ' + pad(nowObj.getHours()) + ':' + pad(nowObj.getMinutes()) + ':' + pad(nowObj.getSeconds());
+                        var timeLabel = pad(nowObj.getHours()) + ':' + pad(nowObj.getMinutes());
+
+                        if (!activeThreadData) {
+                            activeThreadData = {
+                                with_user_name: 'Kullanıcı',
+                                with_user_avatar: '',
+                                is_typing_now: false
+                            };
+                        }
+
+                        var optMsg = {
+                            id: sentMsgId,
+                            thread_id: activeThreadId,
+                            sender_user_id: currentUserId,
+                            body: body,
+                            is_mine: true,
+                            is_deleted: false,
+                            created_at: nowStr,
+                            created_at_label: timeLabel,
+                            is_read_by_recipient: false,
+                            read_at_label: ""
+                        };
+                        mergeMessages([optMsg]);
+                        renderStream();
+                        if (stream) stream.scrollTop = stream.scrollHeight;
+
+                        // Sunucudan mesajları kesin güncelle
                         pollThread(true);
                     } else {
                         toast(data.message || "Mesaj gonderilemedi", "error");
@@ -570,21 +642,40 @@
                     toast(error && error.message ? error.message : "Baglanti hatasi", "error");
                 })
                 .finally(function() {
-                    if (btn) btn.disabled = false;
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('is-submitting');
+                        btn.setAttribute('aria-busy', 'false');
+                        if (origBtnHtml !== null) {
+                            btn.innerHTML = origBtnHtml;
+                        }
+                        if (btn.dataset.originalHtml) {
+                            btn.innerHTML = btn.dataset.originalHtml;
+                            delete btn.dataset.originalHtml;
+                        }
+                    }
                 });
             });
         }
 
         var isPolling = false;
+        var pollPending = false;
+        var pollPendingForceScroll = false;
+
         function pollThread(forceScroll) {
-            if (activeThreadId <= 0 || isPolling) return;
+            if (activeThreadId <= 0) return Promise.resolve();
+            if (isPolling) {
+                pollPending = true;
+                if (forceScroll) pollPendingForceScroll = true;
+                return Promise.resolve();
+            }
             isPolling = true;
 
             var url = new URL(apiUrl, window.location.origin);
             url.searchParams.set("action", "thread");
             url.searchParams.set("thread_id", activeThreadId);
 
-            fetchJson(url.toString(), {
+            return fetchJson(url.toString(), {
                 headers: { "X-Requested-With": "XMLHttpRequest" }
             })
             .then(function(data) {
@@ -618,8 +709,15 @@
                     }
                 }
             })
+            .catch(function() {})
             .finally(function() {
                 isPolling = false;
+                if (pollPending) {
+                    var nextForce = pollPendingForceScroll;
+                    pollPending = false;
+                    pollPendingForceScroll = false;
+                    pollThread(nextForce);
+                }
             });
         }
 
@@ -628,98 +726,54 @@
             pollThread(true);
         }
 
-        // ==========================================
-        // WebSocket Connection
-        // ==========================================
-        var ws = null;
-        var wsConnected = false;
-        var wsReconnectTimer = null;
-        var wsReconnectDelay = 5000;
-        var wsReconnectMaxDelay = 30000;
-
-        function scheduleWebSocketReconnect() {
-            if (activeThreadId <= 0 || currentUserId <= 0) {
+        function handleRealtimeEvent(data) {
+            if (!data || typeof data.type !== "string") {
                 return;
             }
 
-            if (wsReconnectTimer) {
-                clearTimeout(wsReconnectTimer);
-            }
-
-            wsReconnectTimer = setTimeout(function () {
-                wsReconnectTimer = null;
-                initWebSocket();
-            }, wsReconnectDelay);
-
-            wsReconnectDelay = Math.min(wsReconnectDelay * 2, wsReconnectMaxDelay);
-        }
-
-        function initWebSocket() {
-            if (activeThreadId <= 0 || currentUserId <= 0) return;
-            if (wsReconnectTimer) {
-                clearTimeout(wsReconnectTimer);
-                wsReconnectTimer = null;
-            }
-            var protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-            var wsUrl = protocol + window.location.hostname + ":8080/?user_id=" + currentUserId;
-
-            try {
-                ws = new WebSocket(wsUrl);
-                ws.onopen = function() {
-                    wsConnected = true;
-                    wsReconnectDelay = 5000;
-                };
-                ws.onmessage = function(event) {
-                    try {
-                        var data = JSON.parse(event.data);
-                        if (data.thread_id === activeThreadId) {
-                            if (data.type === 'typing') {
-                                if (data.user_id !== currentUserId && activeThreadData) {
-                                    activeThreadData.is_typing_now = true;
-                                    renderStream();
-                                    clearTimeout(window.typingTimer);
-                                    window.typingTimer = setTimeout(function() {
-                                        if (activeThreadData) {
-                                            activeThreadData.is_typing_now = false;
-                                            renderStream();
-                                        }
-                                    }, 4000);
-                                }
-                            } else if (data.type === 'stop_typing') {
-                                if (data.user_id !== currentUserId && activeThreadData) {
-                                    activeThreadData.is_typing_now = false;
-                                    clearTimeout(window.typingTimer);
-                                    renderStream();
-                                }
-                            } else if (data.type === 'new_message' || data.type === 'edit_message' || data.type === 'delete_message') {
-                                pollThread(false);
+            if (data.thread_id === activeThreadId) {
+                if (data.type === "typing") {
+                    if (data.user_id !== currentUserId && activeThreadData) {
+                        activeThreadData.is_typing_now = true;
+                        renderStream();
+                        clearTimeout(window.typingTimer);
+                        window.typingTimer = setTimeout(function () {
+                            if (activeThreadData) {
+                                activeThreadData.is_typing_now = false;
+                                renderStream();
                             }
-                        } else {
-                            if (data.type === 'new_message') {
-                                // Provide an indication in sidebar if it's another thread
-                                var thItem = root.querySelector('[data-thread-id="' + data.thread_id + '"]');
-                                if (thItem) {
-                                    var previewEl = thItem.querySelector('.messages-thread-preview');
-                                    if (previewEl) previewEl.innerHTML = "<strong>Yeni mesaj var</strong>";
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                };
-                ws.onclose = function() {
-                    wsConnected = false;
-                    scheduleWebSocketReconnect();
-                };
-                ws.onerror = function() {
-                    wsConnected = false;
-                };
-            } catch (e) {
-                wsConnected = false;
-                scheduleWebSocketReconnect();
+                        }, 4000);
+                    }
+                } else if (data.type === "stop_typing") {
+                    if (data.user_id !== currentUserId && activeThreadData) {
+                        activeThreadData.is_typing_now = false;
+                        clearTimeout(window.typingTimer);
+                        renderStream();
+                    }
+                } else if (data.type === "new_message" || data.type === "edit_message" || data.type === "delete_message") {
+                    pollThread(false);
+                }
+            } else if (data.type === "new_message") {
+                var threadItem = root.querySelector('[data-thread-id="' + data.thread_id + '"]');
+                if (threadItem) {
+                    var preview = threadItem.querySelector(".messages-thread-preview");
+                    if (preview) {
+                        preview.innerHTML = "<strong>Yeni mesaj var</strong>";
+                    }
+                }
             }
         }
 
-        initWebSocket();
+        if (window.publicTopbarRealtime && typeof window.publicTopbarRealtime.subscribe === "function") {
+            window.publicTopbarRealtime.subscribe(handleRealtimeEvent);
+        }
+
+        // Automatic 3.5s HTTP Polling interval for active thread (Real-time updates & typing indicator fallback)
+        var activeThreadPollInterval = setInterval(function () {
+            if (activeThreadId > 0 && !document.hidden) {
+                pollThread(false);
+            }
+        }, 3500);
 
     }
 

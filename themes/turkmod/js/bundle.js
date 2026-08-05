@@ -5237,7 +5237,6 @@ e.init();
           });
         }
         updateNotificationBadge(0);
-        if (window.showToast) window.showToast("Bildirimler okundu olarak isaretlendi.", "success");
         return fetchNotifications();
       })
       .catch(function (error) {

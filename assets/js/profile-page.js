@@ -35,7 +35,7 @@
                 preview.innerHTML = initialPreview;
             }
             if (selected) {
-                selected.textContent = "Hen\\u00fcz yeni dosya se\\u00e7ilmedi.";
+                selected.textContent = "Henüz yeni dosya seçilmedi.";
             }
             if (submit) {
                 submit.disabled = true;
@@ -44,7 +44,7 @@
                 reset.hidden = true;
             }
             if (actionText) {
-                actionText.textContent = "Dosya se\\u00e7";
+                actionText.textContent = "Dosya seç";
             }
             if (input) {
                 input.value = "";
@@ -60,14 +60,14 @@
                 }
                 if (!allowedTypes.includes(file.type)) {
                     if (window.showToast) {
-                        window.showToast("L\\u00fctfen JPG, PNG, WebP veya GIF se\\u00e7in.", "warning");
+                        window.showToast("Lütfen JPG, PNG, WebP veya GIF seçin.", "warning");
                     }
                     clearPreview();
                     return;
                 }
                 if (file.size > maxSize) {
                     if (window.showToast) {
-                        window.showToast("Profil foto\\u011fraf\\u0131 en fazla 2 MB olabilir.", "warning");
+                        window.showToast("Profil fotoğrafı en fazla 2 MB olabilir.", "warning");
                     }
                     clearPreview();
                     return;
@@ -98,7 +98,7 @@
                     reset.hidden = false;
                 }
                 if (actionText) {
-                    actionText.textContent = "Foto\\u011fraf\\u0131 de\\u011fi\\u015ftir";
+                    actionText.textContent = "Fotoğrafı değiştir";
                 }
             });
         }
@@ -111,7 +111,7 @@
             if (!input || !input.files || !input.files.length) {
                 event.preventDefault();
                 if (window.showToast) {
-                    window.showToast("\\u00d6nce bir profil foto\\u011fraf\\u0131 se\\u00e7in.", "warning");
+                    window.showToast("Önce bir profil fotoğrafı seçin.", "warning");
                 }
             }
         });
@@ -129,7 +129,7 @@
             if (newPassword && confirmPassword && newPassword.value !== confirmPassword.value) {
                 event.preventDefault();
                 if (window.showToast) {
-                    window.showToast("\\u015eifreler e\\u015fle\\u015fmiyor.", "warning");
+                    window.showToast("Şifreler eşleşmiyor.", "warning");
                 }
                 confirmPassword.focus();
             }

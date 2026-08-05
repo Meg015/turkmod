@@ -8,6 +8,7 @@ use App\Core\Cache\TaggableCache;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Routing\Handler;
+use App\Engine\Seo\Support\SitemapInventory;
 use Closure;
 use PDO;
 use Throwable;
@@ -34,8 +35,12 @@ final class TopicSitemapPage implements Handler
         $settings = $this->settings ?? $this->resolveSettings();
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
         $page = $this->resolvePage($request);
+        $inventory = new SitemapInventory($this->resolvePdo());
+        if (!$inventory->pageIsValid('topic', $page, $settings)) {
+            return seoSitemapNotFoundResponse();
+        }
         $cacheDuration = seoSitemapCacheTtl($settings);
-        $cacheKey = seoSitemapCacheKey('topic-sitemap', [
+        $cacheKey = seoSitemapCacheKey('topic-sitemap:v3', [
             'base' => $canonicalBase,
             'page' => $page,
             'settings' => $settings,
@@ -45,18 +50,7 @@ final class TopicSitemapPage implements Handler
             return $this->xmlResponse($request, $cached['body'], $cached['last_modified_timestamp'], $cacheDuration);
         }
 
-        if (function_exists('seoIndexToggleValue')) {
-            if (seoIndexToggleValue($settings, 'allow_indexing', '1') !== '1') {
-                $body = seoPrepareSitemapXml(
-                    '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
-                    . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>' . "\n",
-                );
-                $lastModifiedTimestamp = strtotime($this->now()) ?: time();
-                seoSitemapCacheSet($this->cache, $cacheKey, $body, $lastModifiedTimestamp, $cacheDuration, ['sitemap:topic']);
-
-                return $this->xmlResponse($request, $body, $lastModifiedTimestamp, $cacheDuration);
-            }
-        } elseif ((string) ($settings['allow_indexing'] ?? '1') !== '1') {
+        if (!$inventory->typeEnabled('topic', $settings)) {
             $body = seoPrepareSitemapXml(
                 '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
                 . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>' . "\n",
@@ -67,26 +61,22 @@ final class TopicSitemapPage implements Handler
             return $this->xmlResponse($request, $body, $lastModifiedTimestamp, $cacheDuration);
         }
 
-        $maxUrlsPerSitemap = max(1, min(50000, (int) ($settings['sitemap_max_urls'] ?? 1000)));
+        $maxUrlsPerSitemap = SitemapInventory::maxUrls($settings);
         $latestLastmod = null;
 
         $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
-        if ($page === 1) {
-            $body .= $this->renderStaticEntries($settings, $canonicalBase);
-        }
-
         foreach ($this->resolveTopics($settings, $page, $maxUrlsPerSitemap) as $topic) {
-            $lastmod = (string) ($topic['updated_at'] ?? $topic['published_at'] ?? $this->now());
-            $timestamp = strtotime($lastmod);
+            $lastmod = trim((string) ($topic['updated_at'] ?? $topic['published_at'] ?? ''));
+            $timestamp = $lastmod !== '' ? strtotime($lastmod) : false;
             if ($timestamp !== false && ($latestLastmod === null || $timestamp > $latestLastmod)) {
                 $latestLastmod = $timestamp;
             }
 
             $body .= $this->renderUrlEntry(
                 $this->topicUrl($topic, $settings, $canonicalBase),
-                date('Y-m-d\TH:i:sP', $timestamp !== false ? $timestamp : time()),
+                $timestamp !== false ? date('Y-m-d\TH:i:sP', $timestamp) : null,
                 (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
                 (string) ($settings['sitemap_priority_topics'] ?? '0.6'),
             );
@@ -150,110 +140,7 @@ final class TopicSitemapPage implements Handler
             preg_match('/topic-sitemap-(\d+)\.xml/', $uri, $matches);
         }
 
-        return isset($matches[1]) ? max(1, (int) $matches[1]) : 1;
-    }
-
-    /**
-     * @param array<string,mixed> $settings
-     */
-    private function renderStaticEntries(array $settings, string $canonicalBase): string
-    {
-        $staticLastmod = $this->now();
-        $body = '';
-
-        if (function_exists('seoPublicPageCatalog') && function_exists('seoPublicPageShouldAppearInSitemap') && function_exists('seoPublicPageSitemapPriority')) {
-            $catalog = seoPublicPageCatalog($settings);
-            $dynamicKeys = ['topic', 'category', 'profile', 'public_profile', 'search'];
-            
-            foreach ($catalog as $key => $meta) {
-                if (in_array($key, $dynamicKeys, true)) {
-                    continue;
-                }
-                
-                if (seoPublicPageShouldAppearInSitemap($key, $settings)) {
-                    // Get clean path for canonical
-                    $rawPath = (string) ($meta['path'] ?? '');
-                    if ($key === 'home' || str_contains($rawPath, 'index.php')) {
-                        $path = '/';
-                    } elseif ($key === 'category_list') {
-                        $path = $this->categoryListPath();
-                    } else {
-                        $path = (string) parse_url($rawPath, PHP_URL_PATH);
-                        $baseUri = (string) parse_url($canonicalBase, PHP_URL_PATH);
-                        if ($baseUri !== '' && $baseUri !== '/' && str_starts_with($path, $baseUri)) {
-                            $path = substr($path, strlen($baseUri));
-                        }
-                    }
-                    
-                    $priority = seoPublicPageSitemapPriority($key, $settings);
-                    $changefreq = (string) ($settings['sitemap_changefreq'] ?? 'weekly');
-                    if ($key === 'home') {
-                        $changefreq = 'daily';
-                    }
-                    
-                    $body .= $this->renderUrlEntry(
-                        $this->canonicalUrl($path, $settings, $canonicalBase),
-                        $staticLastmod,
-                        $changefreq,
-                        $priority
-                    );
-                }
-            }
-        }
-
-        foreach ($this->resolveCategoryTree() as $node) {
-            $body .= $this->renderCategoryNode($node, '', $settings, $canonicalBase, $staticLastmod);
-        }
-
-        return $body;
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function resolveCategoryTree(): array
-    {
-        if ($this->categoryTreeResolver instanceof Closure) {
-            $tree = ($this->categoryTreeResolver)($this->resolvePdo());
-
-            return is_array($tree) ? array_values(array_filter($tree, 'is_array')) : [];
-        }
-
-        $pdo = $this->resolvePdo();
-        if (function_exists('getPublicCategoriesTree') && $pdo instanceof PDO) {
-            $tree = getPublicCategoriesTree($pdo);
-
-            return is_array($tree) ? array_values(array_filter($tree, 'is_array')) : [];
-        }
-
-        return [];
-    }
-
-    /**
-     * @param array<string,mixed> $node
-     * @param array<string,mixed> $settings
-     */
-    private function renderCategoryNode(array $node, string $parentSlug, array $settings, string $canonicalBase, string $lastmod): string
-    {
-        $slug = (string) ($node['slug'] ?? '');
-        if ($slug === '' || (function_exists('seoCategoryShouldAppearInSitemap') && !seoCategoryShouldAppearInSitemap($node, $settings))) {
-            return '';
-        }
-
-        $body = $this->renderUrlEntry(
-            $this->canonicalUrl($this->categoryPath($slug, $parentSlug), $settings, $canonicalBase),
-            $lastmod,
-            (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
-            (string) ($settings['sitemap_priority_categories'] ?? '0.7'),
-        );
-
-        foreach (($node['children'] ?? []) as $child) {
-            if (is_array($child)) {
-                $body .= $this->renderCategoryNode($child, $slug, $settings, $canonicalBase, $lastmod);
-            }
-        }
-
-        return $body;
+        return isset($matches[1]) ? (int) $matches[1] : 1;
     }
 
     /**
@@ -297,7 +184,7 @@ final class TopicSitemapPage implements Handler
             $statement = $pdo->prepare(
                 'SELECT id, slug, updated_at, published_at FROM topics WHERE status IN ('
                 . $statusPlaceholders
-                . ') AND deleted_at IS NULL AND slug IS NOT NULL ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?',
+                . ") AND deleted_at IS NULL AND slug IS NOT NULL AND TRIM(slug) <> '' ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?",
             );
             $parameter = 1;
             foreach ($statuses as $status) {
@@ -328,16 +215,6 @@ final class TopicSitemapPage implements Handler
     private function topicUrl(array $topic, array $settings, string $canonicalBase): string
     {
         return $this->canonicalUrl(topicUrlForRow($topic), $settings, $canonicalBase);
-    }
-
-    private function categoryListPath(): string
-    {
-        return (string) categoryListUrl();
-    }
-
-    private function categoryPath(string $slug, string $parentSlug): string
-    {
-        return (string) categoryUrl($slug, $parentSlug);
     }
 
     /**

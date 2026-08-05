@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Services;
 
+use App\Core\Realtime\WebSocketBroadcaster;
 use PDO;
 use Throwable;
 
@@ -277,6 +278,8 @@ final class NotificationDispatchService
                 );
             }
 
+            $this->publishRealtimeEvent($recipientId, $notificationId);
+
             return true;
         } catch (Throwable $e) {
             error_log('Notification dispatch insert failed: ' . $e->getMessage());
@@ -447,6 +450,18 @@ final class NotificationDispatchService
         if (\function_exists('notificationDeliveryLog')) {
             \notificationDeliveryLog($pdo, $message, $context, $level);
         }
+    }
+
+    private function publishRealtimeEvent(int $recipientId, int $notificationId): void
+    {
+        if ($recipientId <= 0 || $notificationId <= 0) {
+            return;
+        }
+
+        WebSocketBroadcaster::publish($recipientId, [
+            'type' => 'notification',
+            'notification_id' => $notificationId,
+        ]);
     }
 
     private function recipientIsBanned(PDO $pdo, int $recipientId): bool

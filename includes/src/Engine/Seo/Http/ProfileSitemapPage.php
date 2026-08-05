@@ -8,6 +8,7 @@ use App\Core\Cache\TaggableCache;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Routing\Handler;
+use App\Engine\Seo\Support\SitemapInventory;
 use Closure;
 use PDO;
 use Throwable;
@@ -32,12 +33,17 @@ final class ProfileSitemapPage implements Handler
     {
         $settings = $this->settings ?? $this->resolveSettings();
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
-        $maxUrlsPerSitemap = max(1, min(50000, (int) ($settings['sitemap_max_urls'] ?? 1000)));
+        $page = $this->resolvePage($request);
+        $inventory = new SitemapInventory($this->resolvePdo());
+        if (!$inventory->pageIsValid('profile', $page, $settings)) {
+            return seoSitemapNotFoundResponse();
+        }
+        $maxUrlsPerSitemap = SitemapInventory::maxUrls($settings);
         $latestLastmod = null;
         $cacheDuration = seoSitemapCacheTtl($settings);
-        $cacheKey = seoSitemapCacheKey('profile-sitemap', [
+        $cacheKey = seoSitemapCacheKey('profile-sitemap:v2', [
             'base' => $canonicalBase,
-            'page' => $this->resolvePage($request),
+            'page' => $page,
             'settings' => $settings,
         ]);
         $cached = seoSitemapCacheGet($this->cache, $cacheKey);
@@ -48,7 +54,7 @@ final class ProfileSitemapPage implements Handler
         $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
-        if (function_exists('seoPublicPageShouldAppearInSitemap') && !seoPublicPageShouldAppearInSitemap('public_profile', $settings)) {
+        if (!$inventory->typeEnabled('profile', $settings)) {
             $body .= '</urlset>' . "\n";
             $preparedBody = seoPrepareSitemapXml($body);
             $lastModifiedTimestamp = strtotime($this->now()) ?: time();
@@ -57,22 +63,20 @@ final class ProfileSitemapPage implements Handler
             return $this->xmlResponse($request, $preparedBody, $lastModifiedTimestamp, $cacheDuration);
         }
 
-        if ((string) ($settings['sitemap_enabled'] ?? '1') === '1') {
-            $body .= "\n";
-            foreach ($this->resolveProfiles($this->resolvePage($request), $maxUrlsPerSitemap) as $profile) {
-                $lastmod = (string) ($profile['updated_at'] ?? $profile['created_at'] ?? $this->now());
-                $timestamp = strtotime($lastmod);
-                if ($timestamp !== false && ($latestLastmod === null || $timestamp > $latestLastmod)) {
-                    $latestLastmod = $timestamp;
-                }
-
-                $body .= $this->renderUrlEntry(
-                    $this->profileUrl($profile, $settings, $canonicalBase),
-                    date('Y-m-d\TH:i:sP', $timestamp !== false ? $timestamp : time()),
-                    (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
-                    '0.5',
-                );
+        $body .= "\n";
+        foreach ($this->resolveProfiles($page, $maxUrlsPerSitemap) as $profile) {
+            $lastmod = trim((string) ($profile['updated_at'] ?? $profile['created_at'] ?? ''));
+            $timestamp = $lastmod !== '' ? strtotime($lastmod) : false;
+            if ($timestamp !== false && ($latestLastmod === null || $timestamp > $latestLastmod)) {
+                $latestLastmod = $timestamp;
             }
+
+            $body .= $this->renderUrlEntry(
+                $this->profileUrl($profile, $settings, $canonicalBase),
+                $timestamp !== false ? date('Y-m-d\TH:i:sP', $timestamp) : null,
+                (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
+                '0.5',
+            );
         }
 
         $body .= '</urlset>' . "\n";
@@ -133,7 +137,7 @@ final class ProfileSitemapPage implements Handler
             preg_match('/profile-sitemap-(\d+)\.xml/', $uri, $matches);
         }
 
-        return isset($matches[1]) ? max(1, (int) $matches[1]) : 1;
+        return isset($matches[1]) ? (int) $matches[1] : 1;
     }
 
     /**
@@ -218,11 +222,13 @@ final class ProfileSitemapPage implements Handler
         return rtrim($canonicalBase, '/') . '/' . ltrim($path, '/');
     }
 
-    private function renderUrlEntry(string $loc, string $lastmod, string $changefreq, string $priority): string
+    private function renderUrlEntry(string $loc, ?string $lastmod, string $changefreq, string $priority): string
     {
         $body = '    <url>' . "\n";
         $body .= '        <loc>' . htmlspecialchars($loc, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</loc>' . "\n";
-        $body .= '        <lastmod>' . htmlspecialchars($lastmod, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</lastmod>' . "\n";
+        if ($lastmod !== null) {
+            $body .= '        <lastmod>' . htmlspecialchars($lastmod, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</lastmod>' . "\n";
+        }
         $body .= '        <changefreq>' . htmlspecialchars($changefreq, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</changefreq>' . "\n";
         $body .= '        <priority>' . htmlspecialchars($priority, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</priority>' . "\n";
         $body .= '    </url>' . "\n";

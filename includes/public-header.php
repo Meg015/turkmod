@@ -561,10 +561,14 @@ echo htmlspecialchars($_mLabel);
                     <button class="theme-toggle" title="Tema Değiştir" type="button"><i class="bi bi-moon-stars-fill" id="theme-icon" aria-hidden="true"></i></button>
 
                     <?php if ($isLoggedIn): ?>
+                        <?php $_headerRealtimeUserId = (int) ($_SESSION["_auth_user_id"] ?? 0); ?>
+                        <?php $_headerRealtimeEndpoint = \App\Core\Realtime\WebSocketConfig::publicEndpoint(); ?>
                         <div
                             class="notif-dropdown"
                             id="messagesDropdown"
                             data-messages-dropdown
+                            data-public-topbar-user-id="<?= $_headerRealtimeUserId ?>"
+                            data-public-realtime-url="<?= htmlspecialchars($_headerRealtimeEndpoint, ENT_QUOTES, 'UTF-8') ?>"
                             data-messages-api="<?= htmlspecialchars($baseUri . '/api/messages.php', ENT_QUOTES, 'UTF-8') ?>"
                         >
                             <button class="notif-toggle" type="button" aria-expanded="false" aria-label="Mesajlari ac" data-messages-toggle>
@@ -589,6 +593,8 @@ echo htmlspecialchars($_mLabel);
                             class="notif-dropdown"
                             id="notifDropdown"
                             data-notif-dropdown
+                            data-public-topbar-user-id="<?= $_headerRealtimeUserId ?>"
+                            data-public-realtime-url="<?= htmlspecialchars($_headerRealtimeEndpoint, ENT_QUOTES, 'UTF-8') ?>"
                             data-notif-api="<?= htmlspecialchars($baseUri . '/api/notifications.php', ENT_QUOTES, 'UTF-8') ?>"
                             data-notif-read-api="<?= htmlspecialchars($baseUri . '/api/notifications-read.php', ENT_QUOTES, 'UTF-8') ?>"
                             data-notif-url="<?= htmlspecialchars($_notificationsUrl, ENT_QUOTES, 'UTF-8') ?>"
@@ -612,6 +618,7 @@ echo htmlspecialchars($_mLabel);
                         </div>
                         <script src="<?= asset_url('assets/js/public-notifications-menu.js', $baseUri) ?>" defer></script>
                         <script src="<?= asset_url('assets/js/public-messages-menu.js', $baseUri) ?>" defer></script>
+                        <script src="<?= asset_url('assets/js/public-topbar-realtime.js', $baseUri) ?>" defer></script>
 
                         <?php
                         $_profileName = htmlspecialchars(

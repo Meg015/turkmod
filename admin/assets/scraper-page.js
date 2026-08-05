@@ -16,6 +16,7 @@ const botDefaultStatus = adminScraperConfig.botDefaultStatus || 'published';
 const botBulkDefaultSelected = adminScraperConfig.botBulkDefaultSelected || '1';
 const botBulkMaxTopicsPerPage = adminScraperConfig.botBulkMaxTopicsPerPage || '0';
 const botBulkContinueOnError = adminScraperConfig.botBulkContinueOnError || '1';
+const allMappings = adminScraperConfig.allMappings || [];
 
 function setScraperLogVisibility(element, visible) {
     if (!element) return;

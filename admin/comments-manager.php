@@ -11,6 +11,7 @@ $currentUserId = (int)($_SESSION['_auth_user_id'] ?? 0);
 $canManageCommentUsers = $currentUserId > 0 && userHasPermission($pdo, $currentUserId, 'users.edit');
 $canDeleteComments = $currentUserId > 0 && userHasPermission($pdo, $currentUserId, 'comments.delete');
 $canViewCommentUserDetails = $currentUserId > 0 && ($canManageCommentUsers || userHasPermission($pdo, $currentUserId, 'admin.access'));
+$userManagementModalGroups = $canManageCommentUsers && function_exists('usersGetGroups') ? usersGetGroups($pdo, false) : [];
 
 // Filters
 $status = $_GET['status'] ?? 'all';
@@ -1205,7 +1206,7 @@ require_once __DIR__ . '/header.php';
                                 <div class="ui-comment-manager-comment-meta comments-manager-card__meta">
                                     <div class="comments-manager-author-row">
                                         <?php if ($commentUserId > 0 && $canViewCommentUserDetails): ?>
-                                            <button type="button" class="comments-manager-user-chip <?= htmlspecialchars($authorStateClass) ?>" data-comment-user-detail="<?= $commentUserId ?>" data-user-name="<?= htmlspecialchars($commentAuthor, ENT_QUOTES, 'UTF-8') ?>" data-can-moderate="<?= $canModerateAuthor ? '1' : '0' ?>" data-is-banned="<?= $isAuthorBanned ? '1' : '0' ?>" aria-haspopup="dialog" aria-controls="commentUserDetailModal">
+                                            <button type="button" class="comments-manager-user-chip <?= htmlspecialchars($authorStateClass) ?>" data-user-detail-open data-user-id="<?= $commentUserId ?>" aria-haspopup="dialog" aria-controls="userDetailModal">
                                                 <span class="comments-manager-user-chip__name"><?= htmlspecialchars($commentAuthor) ?></span>
                                                 <span class="comments-manager-user-chip__status"><i class="bi <?= htmlspecialchars($authorStateIcon) ?>"></i> <?= htmlspecialchars($authorStateLabel) ?></span>
                                                 <i class="bi bi-person-vcard comments-manager-user-chip__chevron" aria-hidden="true"></i>
@@ -1366,49 +1367,10 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
-<div id="commentUserDetailModal" class="media-modal-overlay comments-user-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="commentUserDetailTitle" hidden aria-hidden="true">
-    <div class="media-modal comments-user-detail-modal ui-panel">
-        <div class="media-modal-header ui-panel__head">
-            <div>
-                <span class="comments-user-detail-kicker">Yorum sahibi</span>
-                <h3 id="commentUserDetailTitle"><i class="bi bi-person-vcard"></i> Kullanıcı Detayı</h3>
-            </div>
-            <button type="button" class="media-modal-close" data-comment-user-detail-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <div class="comments-user-detail-shell" data-comment-user-detail-shell>
-            <div class="comments-user-detail-loading" data-comment-user-detail-loading>
-                <i class="bi bi-arrow-repeat"></i>
-                <span>Kullanıcı geçmişi yükleniyor...</span>
-            </div>
-            <div class="comments-user-detail-content" data-comment-user-detail-content hidden>
-                <header class="comments-user-detail-profile" data-comment-user-detail-profile></header>
-                <div class="comments-user-detail-stats" data-comment-user-detail-stats></div>
-                <div class="comments-user-detail-tabs" role="tablist" aria-label="Kullanıcı geçmişi bölümleri">
-                    <button type="button" role="tab" class="comments-user-detail-tab-btn is-active" aria-selected="true" data-comment-user-tab="summary"><i class="bi bi-clock-history"></i> Özet</button>
-                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="comments"><i class="bi bi-chat-left-text"></i> Yorumlar</button>
-                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="topics"><i class="bi bi-folder2-open"></i> Konular</button>
-                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="reports"><i class="bi bi-flag"></i> Raporlar</button>
-                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="notes"><i class="bi bi-journal-text"></i> Admin Notları</button>
-                    <button type="button" role="tab" class="comments-user-detail-tab-btn" aria-selected="false" data-comment-user-tab="restrictions"><i class="bi bi-shield-exclamation"></i> Ceza Geçmişi</button>
-                </div>
-                <div class="comments-user-detail-panels">
-                    <section role="tabpanel" data-comment-user-panel="summary"></section>
-                    <section role="tabpanel" data-comment-user-panel="comments" hidden></section>
-                    <section role="tabpanel" data-comment-user-panel="topics" hidden></section>
-                    <section role="tabpanel" data-comment-user-panel="reports" hidden></section>
-                    <section role="tabpanel" data-comment-user-panel="notes" hidden></section>
-                    <section role="tabpanel" data-comment-user-panel="restrictions" hidden></section>
-                </div>
-            </div>
-            <div class="comments-user-detail-error" data-comment-user-detail-error hidden>
-                <i class="bi bi-exclamation-triangle"></i>
-                <strong>Kullanıcı bilgileri yüklenemedi.</strong>
-                <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-user-detail-retry>Tekrar Dene</button>
-            </div>
-        </div>
-        <div class="media-modal-footer comments-user-detail-actions ui-panel__foot" data-comment-user-detail-actions></div>
-    </div>
-</div>
+<?php require __DIR__ . '/partials/user-detail-modal.php'; ?>
+<?php if ($canManageCommentUsers): ?>
+    <?php require __DIR__ . '/partials/user-management-action-modals.php'; ?>
+<?php endif; ?>
 
 <div id="commentBanModal" class="media-modal-overlay" role="dialog" aria-modal="true" aria-label="Kullanıcı banla" hidden aria-hidden="true">
     <div class="media-modal ui-admin-modal-sm ui-panel">
@@ -1598,6 +1560,7 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
+<script src="<?= asset_url('admin/assets/user-detail-modal.js', $baseUri) ?>" defer></script>
 <script src="<?= asset_url('admin/assets/comments-manager-page.js', $baseUri) ?>" defer></script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

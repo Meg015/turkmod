@@ -1816,6 +1816,352 @@ async function scrapeBulkTopics(mappingId) {
     scraperToast(`Toplu çekim tamamlandı: ${success} içerik aktarıldı, ${failed} hatalı`, failed ? 'error' : 'success');
 }
 
+/* ── All Categories Scrape Operations ── */
+let allCategoriesTopicState = {
+    topics: [],
+    pageRange: null,
+    totalMappings: 0,
+};
+
+async function listAllCategoriesTopics() {
+    const list = document.getElementById('all-categories-list-content');
+    const loading = document.getElementById('all-categories-list-loading');
+    const startInput = document.getElementById('scrape-all-page-start');
+    const endInput = document.getElementById('scrape-all-page-end');
+    const siteFilterSelect = document.getElementById('scrape-all-site-filter');
+
+    if (!list || !loading) {
+        scraperToast('Tüm kategoriler listeleme alanı bulunamadı.', 'error');
+        return;
+    }
+
+    const startValue = parseInt(startInput?.value || '1', 10) || 1;
+    const endValue = parseInt(endInput?.value || startValue, 10) || startValue;
+    const start = Math.max(1, Math.min(startValue, endValue));
+    const end = Math.max(1, Math.max(startValue, endValue));
+    const pageRange = { start, end, total: end - start + 1 };
+    const filterSiteId = parseInt(siteFilterSelect?.value || '0', 10) || 0;
+
+    const availableMappings = typeof allMappings !== 'undefined' && Array.isArray(allMappings) ? allMappings : [];
+    const activeMappings = availableMappings.filter(m => {
+        if (filterSiteId > 0 && parseInt(m.bot_site_id, 10) !== filterSiteId) {
+            return false;
+        }
+        return !!m.remote_category_url;
+    });
+
+    if (activeMappings.length === 0) {
+        scraperToast('Taranacak aktif kategori eşleşmesi bulunamadı.', 'warning');
+        list.innerHTML = '<div class="ui-admin-alert ui-admin-alert-info">Taranacak aktif kategori bulunamadı. Lütfen önce "Eşlemeler" sekmesinden kategori eşlemesi ekleyin.</div>';
+        return;
+    }
+
+    scraperShow(loading);
+    list.innerHTML = '';
+
+    const allTopics = [];
+    const seenUrls = new Set();
+    let completedMappings = 0;
+
+    for (let mIndex = 0; mIndex < activeMappings.length; mIndex++) {
+        const mapping = activeMappings[mIndex];
+        let currentUrl = mapping.remote_category_url;
+
+        loading.innerHTML = `<i class="bi bi-hourglass-split"></i> <strong>Kategori taranıyor (${mIndex + 1} / ${activeMappings.length}):</strong> ${escapeHtml(mapping.site_name)} - ${escapeHtml(mapping.local_category_name || 'Kategori')} (Toplanan Konu: ${allTopics.length})...`;
+
+        for (let page = 1; page <= end; page++) {
+            const isInRange = page >= start;
+            if (!currentUrl) break;
+
+            let result;
+            try {
+                result = await apiPost('discover_urls', {
+                    site_id: mapping.bot_site_id,
+                    mapping_id: mapping.id,
+                    category_url: currentUrl,
+                    cover_lookup_limit: 0
+                });
+            } catch (e) {
+                console.error('Discover error for mapping', mapping.id, e);
+                break;
+            }
+
+            if (result && result.success && Array.isArray(result.urls)) {
+                if (isInRange) {
+                    result.urls.forEach(item => {
+                        const topic = normalizeDiscoveredTopic(item, allTopics.length);
+                        if (topic.alreadyImported) {
+                            return; // Daha önce çekilen içerikleri karma listede gösterme
+                        }
+                        if (topic.url && !seenUrls.has(topic.url)) {
+                            seenUrls.add(topic.url);
+                            allTopics.push({
+                                ...topic,
+                                page,
+                                mappingId: mapping.id,
+                                siteId: mapping.bot_site_id,
+                                siteName: mapping.site_name,
+                                localCatId: mapping.local_category_id,
+                                localCategoryName: mapping.local_category_name,
+                                localParentCategoryName: mapping.local_parent_category_name,
+                                gameCode: mapping.game_code,
+                                gameTone: mapping.game_tone,
+                                gameIcon: mapping.game_icon,
+                            });
+                        }
+                    });
+                }
+                if (!result.next_url) break;
+                currentUrl = result.next_url;
+            } else {
+                break;
+            }
+        }
+        completedMappings++;
+    }
+
+    scraperHide(loading);
+
+    allCategoriesTopicState = {
+        topics: allTopics,
+        pageRange,
+        totalMappings: activeMappings.length,
+    };
+
+    renderAllCategoriesTopicList();
+}
+
+function renderAllCategoriesTopicList() {
+    const list = document.getElementById('all-categories-list-content');
+    if (!list) return;
+
+    const topics = allCategoriesTopicState.topics || [];
+    const total = topics.length;
+
+    if (total === 0) {
+        list.innerHTML = `
+            <div class="ui-admin-alert ui-admin-alert-info mt-3">
+                <i class="bi bi-info-circle"></i> Seçilen sayfa aralığında veya kategorilerde hiç konu bulunamadı.
+            </div>
+        `;
+        return;
+    }
+
+    const defaultSelected = typeof botBulkDefaultSelected === 'undefined' || botBulkDefaultSelected === '1';
+    const selectAllChecked = defaultSelected ? 'checked' : '';
+    const clearAllChecked = defaultSelected ? '' : 'checked';
+
+    list.innerHTML = `
+        <div id="all-scrape-progress" class="mb-3">${renderBulkProgress({
+            total,
+            current: total,
+            message: 'Tüm kategorilerden yeni konular karma listelendi',
+            detail: `${allCategoriesTopicState.totalMappings} kategoriden henüz çekilmemiş toplam ${total} yeni konu harmanlandı (Daha önce çekilenler otomatik elendi).`
+        })}</div>
+
+        <div class="bulk-actions mb-3">
+            <div>
+                <strong>${total} Yeni Konu Listelendi</strong>
+                <span>Tüm ekli kategorilerden çekilmeye hazır yeni içerikler</span>
+            </div>
+            <div class="bulk-action-controls">
+                <label class="bulk-action-check">
+                    <input type="checkbox" id="scrape-all-select-all" data-scraper-action="toggle-all-topics-selection" data-select-state="true" ${selectAllChecked}>
+                    <span>Tümünü seç</span>
+                </label>
+                <label class="bulk-action-check">
+                    <input type="checkbox" id="scrape-all-clear-all" data-scraper-action="toggle-all-topics-selection" data-select-state="false" ${clearAllChecked}>
+                    <span>Tümünü kaldır</span>
+                </label>
+                <button type="button" class="ui-admin-btn ui-admin-btn-primary" data-scraper-action="scrape-all-selected-topics">
+                    <i class="bi bi-cloud-download"></i> Seçilen Tüm Konuları Çek
+                </button>
+            </div>
+        </div>
+
+        <div class="mapping-topic-grid">
+            ${topics.map((item, index) => renderAllCategoryTopicCard(item, index)).join('')}
+        </div>
+    `;
+    applyScraperPresentation(list);
+}
+
+function renderAllCategoryTopicCard(topic, index) {
+    const safeUrl = escapeHtml(topic.url);
+    const safeTitle = escapeHtml(topic.title);
+    const safeImage = escapeHtml(getScraperImageUrl(topic.image));
+    const displayUrl = escapeHtml(getDisplayUrl(topic.url));
+    const importedClass = topic.alreadyImported ? ' is-imported' : '';
+    const importedInfo = renderImportedWarning(topic);
+
+    const isChecked = typeof botBulkDefaultSelected === 'undefined' || botBulkDefaultSelected === '1';
+    const checked = isChecked ? 'checked' : '';
+
+    const gameTone = escapeHtml(topic.gameTone || 'generic');
+    const gameIcon = escapeHtml(topic.gameIcon || 'bi-controller');
+    const gameCode = escapeHtml(topic.gameCode || 'MOD');
+    const siteName = escapeHtml(topic.siteName || 'Site');
+    const localCatName = escapeHtml((topic.localParentCategoryName ? topic.localParentCategoryName + ' / ' : '') + (topic.localCategoryName || 'Kategori'));
+
+    const imageLoading = index < 6 ? 'eager' : 'lazy';
+    const imagePriority = index < 4 ? ' fetchpriority="high"' : '';
+    const thumbHtml = safeImage
+        ? `<img src="${safeImage}" alt="${safeTitle}" width="300" height="150" loading="${imageLoading}" decoding="async"${imagePriority} referrerpolicy="no-referrer" data-remove-on-error>`
+        : '<div class="mapping-topic-thumb-placeholder"><i class="bi bi-image"></i></div>';
+
+    return `
+        <article class="mapping-topic-card${importedClass}" id="all-topic-card-${index}">
+            <a class="mapping-topic-thumb" href="${safeUrl}" target="_blank" rel="noopener">
+                ${thumbHtml}
+                <span class="scraper-game-badge scraper-game-badge-${gameTone}">
+                    <i class="bi ${gameIcon}"></i> ${gameCode}
+                </span>
+            </a>
+            <div class="mapping-topic-body">
+                <div class="mb-1 d-flex flex-wrap gap-1 align-items-center" style="font-size:0.75rem;">
+                    <span class="admin-badge admin-badge-secondary"><i class="bi bi-globe2"></i> ${siteName}</span>
+                    <span class="admin-badge admin-badge-info"><i class="bi bi-folder2"></i> ${localCatName}</span>
+                </div>
+                ${importedInfo}
+                <label class="bulk-topic-select">
+                    <input type="checkbox" data-all-topic-checkbox="1" data-topic-index="${index}" data-imported="${topic.alreadyImported ? '1' : '0'}" value="${safeUrl}" ${checked}>
+                    <span>Seçili</span>
+                </label>
+                <h6 title="${safeTitle}">${safeTitle}</h6>
+                <a class="mapping-topic-url" href="${safeUrl}" target="_blank" rel="noopener">${displayUrl}</a>
+                <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-primary mapping-topic-action" data-scraper-action="preview-topic" data-url="${safeUrl}" data-site-id="${topic.siteId}" data-local-cat-id="${topic.localCatId}" data-mapping-id="${topic.mappingId}">
+                    <i class="bi bi-cloud-download"></i> Önizle & Çek
+                </button>
+            </div>
+        </article>
+    `;
+}
+
+function setAllTopicsSelection(selected) {
+    document.querySelectorAll('[data-all-topic-checkbox="1"]').forEach(item => {
+        item.checked = selected;
+    });
+    const selectAll = document.getElementById('scrape-all-select-all');
+    const clearAll = document.getElementById('scrape-all-clear-all');
+    if (selectAll) selectAll.checked = selected;
+    if (clearAll) clearAll.checked = !selected;
+}
+
+function updateAllTopicsSelectionControls() {
+    const checkboxes = Array.from(document.querySelectorAll('[data-all-topic-checkbox="1"]'));
+    const selectAll = document.getElementById('scrape-all-select-all');
+    const clearAll = document.getElementById('scrape-all-clear-all');
+    if (!checkboxes.length || !selectAll || !clearAll) return;
+
+    const checkedCount = checkboxes.filter(item => item.checked).length;
+    selectAll.checked = checkedCount === checkboxes.length;
+    clearAll.checked = checkedCount === 0;
+}
+
+async function scrapeAllSelectedTopics() {
+    const topics = allCategoriesTopicState.topics || [];
+    const checkedInputs = Array.from(document.querySelectorAll('[data-all-topic-checkbox="1"]:checked'));
+    if (!checkedInputs.length) {
+        scraperToast('Lütfen çekilecek konu seçin.', 'error');
+        return;
+    }
+
+    const selectedTopics = checkedInputs.map(cb => {
+        const idx = parseInt(cb.getAttribute('data-topic-index'), 10);
+        return { index: idx, topic: topics[idx] };
+    }).filter(item => item.topic);
+
+    if (!selectedTopics.length) return;
+
+    if (!await warnIfSelectedImportedTopics('[data-all-topic-checkbox="1"]')) {
+        return;
+    }
+
+    let success = 0;
+    let failed = 0;
+    let skipped = 0;
+    const total = selectedTopics.length;
+
+    const actionButton = document.querySelector('[data-scraper-action="scrape-all-selected-topics"]');
+    const actionButtonState = actionButton && window.adminAsync ? window.adminAsync.setButtonLoading(actionButton, {
+        loadingHtml: '<i class="bi bi-hourglass-split"></i> Çekiliyor...'
+    }) : null;
+
+    const progressEl = document.getElementById('all-scrape-progress');
+
+    for (let i = 0; i < selectedTopics.length; i++) {
+        const { index, topic } = selectedTopics[i];
+        const cardEl = document.getElementById(`all-topic-card-${index}`);
+
+        if (progressEl) {
+            progressEl.innerHTML = renderBulkProgress({
+                total,
+                current: i,
+                success,
+                failed,
+                message: `${i + 1}/${total}: ${topic.title || topic.url} çekiliyor...`,
+                detail: `Site: ${topic.siteName} | Kategori: ${topic.localCategoryName}`,
+            });
+        }
+
+        try {
+            const result = await apiPost('scrape_single', {
+                site_id: topic.siteId,
+                mapping_id: topic.mappingId,
+                url: topic.url
+            });
+
+            if (result.warning) scraperToast(result.warning, 'warning');
+            if (result.skipped) {
+                skipped++;
+                if (cardEl) cardEl.classList.add('is-imported');
+                continue;
+            }
+
+            if (result.success && result.import_id) {
+                const publishResult = await apiPost('publish_import', {
+                    import_id: result.import_id,
+                    category_id: topic.localCatId,
+                    publish_status: result.data?.site_defaults?.status || (typeof botDefaultStatus !== 'undefined' ? botDefaultStatus : 'published'),
+                });
+
+                if (publishResult.success) {
+                    success++;
+                    if (cardEl) {
+                        cardEl.classList.add('is-imported');
+                        const body = cardEl.querySelector('.mapping-topic-body');
+                        if (body && !cardEl.querySelector('.admin-badge-success')) {
+                            body.insertAdjacentHTML('afterbegin', '<span class="admin-badge admin-badge-success mb-1"><i class="bi bi-check-circle"></i> Çekildi</span>');
+                        }
+                    }
+                } else {
+                    failed++;
+                }
+            } else {
+                failed++;
+                if (typeof botBulkContinueOnError !== 'undefined' && botBulkContinueOnError !== '1') break;
+            }
+        } catch (e) {
+            failed++;
+            if (typeof botBulkContinueOnError !== 'undefined' && botBulkContinueOnError !== '1') break;
+        }
+
+        if (progressEl) {
+            progressEl.innerHTML = renderBulkProgress({
+                total,
+                current: i + 1,
+                success,
+                failed,
+                message: `Toplu Çekim: ${i + 1}/${total} konu tamamlandı`,
+                detail: `${success} içerik eklendi, ${skipped} atlandı, ${failed} hata`,
+            });
+        }
+    }
+
+    if (window.adminAsync) window.adminAsync.restoreButton(actionButtonState);
+    scraperToast(`Tüm kategorilerden çekim tamamlandı: ${success} başarılı, ${skipped} atlandı, ${failed} hatalı.`, failed ? 'warning' : 'success');
+}
+
 function previewAndScrapeTopic(btnEl, url, siteId, localCatId, mappingId = 0) {
     const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(btnEl, {
         loadingHtml: '<i class="bi bi-hourglass-split"></i> Çekiliyor...'
@@ -2178,6 +2524,12 @@ document.addEventListener('click', function(event) {
         addPrevDownloadRow();
     } else if (actionName === 'publish-import') {
         publishImport();
+    } else if (actionName === 'list-all-categories-topics') {
+        listAllCategoriesTopics();
+    } else if (actionName === 'scrape-all-selected-topics') {
+        scrapeAllSelectedTopics();
+    } else if (actionName === 'toggle-all-topics-selection') {
+        setAllTopicsSelection(action.getAttribute('data-select-state') === 'true');
     }
 });
 
@@ -2196,6 +2548,12 @@ document.addEventListener('change', function(event) {
     const bulkTopic = event.target.closest('[data-bulk-topic-checkbox]');
     if (bulkTopic) {
         updateBulkSelectionControls(bulkTopic.getAttribute('data-bulk-topic-checkbox'));
+        return;
+    }
+
+    const allTopic = event.target.closest('[data-all-topic-checkbox]');
+    if (allTopic) {
+        updateAllTopicsSelectionControls();
         return;
     }
 

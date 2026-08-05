@@ -3,11 +3,6 @@ var COMMENT_READ_MORE_LIMIT = 160;
 var commentActionsMenuController = null;
 var commentUserInsightController = null;
 var commentUserDetailCache = {};
-var activeCommentUserDetail = null;
-var activeCommentUserTrigger = null;
-var activeCommentUserRequest = 0;
-var COMMENT_USER_DETAIL_PAGE_SIZE = 10;
-var commentUserDetailPages = {};
 var COMMENT_RESTRICTION_LABELS = {
     all: 'Tüm İşlemler',
     comment: 'Yorum Yapma',
@@ -210,197 +205,6 @@ function initCommentActionsMenus() {
     var controller = ensureCommentActionsMenuController();
     if (controller) {
         controller.init();
-    }
-}
-
-function cmDetailPagination(panelKey, currentPage, totalPages) {
-    if (totalPages <= 1) return '';
-
-    var buttons = [];
-    buttons.push('<button type="button" class="comments-user-detail-page-btn" data-comment-user-page="' + (currentPage - 1) + '" data-comment-user-panel-key="' + cmEscHtml(panelKey) + '" aria-label="Önceki sayfa" title="Önceki sayfa"' + (currentPage === 1 ? ' disabled' : '') + '><i class="bi bi-chevron-left" aria-hidden="true"></i></button>');
-    for (var page = 1; page <= totalPages; page++) {
-        buttons.push('<button type="button" class="comments-user-detail-page-btn' + (page === currentPage ? ' is-active' : '') + '" data-comment-user-page="' + page + '" data-comment-user-panel-key="' + cmEscHtml(panelKey) + '" aria-label="Sayfa ' + page + '"' + (page === currentPage ? ' aria-current="page"' : '') + '>' + page + '</button>');
-    }
-    buttons.push('<button type="button" class="comments-user-detail-page-btn" data-comment-user-page="' + (currentPage + 1) + '" data-comment-user-panel-key="' + cmEscHtml(panelKey) + '" aria-label="Sonraki sayfa" title="Sonraki sayfa"' + (currentPage === totalPages ? ' disabled' : '') + '><i class="bi bi-chevron-right" aria-hidden="true"></i></button>');
-
-    return '<nav class="comments-user-detail-pagination" aria-label="Liste sayfaları">' + buttons.join('') + '</nav>';
-}
-
-function cmDetailRows(rows, renderer, emptyMessage, panelKey) {
-    rows = Array.isArray(rows) ? rows : [];
-    if (!rows.length) return commentInsightEmpty(emptyMessage);
-
-    var totalPages = Math.max(1, Math.ceil(rows.length / COMMENT_USER_DETAIL_PAGE_SIZE));
-    var currentPage = Math.min(Math.max(Number(commentUserDetailPages[panelKey]) || 1, 1), totalPages);
-    var offset = (currentPage - 1) * COMMENT_USER_DETAIL_PAGE_SIZE;
-    commentUserDetailPages[panelKey] = currentPage;
-
-    return '<div class="comments-user-detail-list">' + rows.slice(offset, offset + COMMENT_USER_DETAIL_PAGE_SIZE).map(renderer).join('') + '</div>'
-        + cmDetailPagination(panelKey, currentPage, totalPages);
-}
-
-function cmDetailRow(title, meta, body, url) {
-    var titleHtml = url ? '<a href="' + cmEscHtml(url) + '" target="_blank" rel="noopener">' + cmEscHtml(title) + '</a>' : '<strong>' + cmEscHtml(title) + '</strong>';
-    return '<article class="comments-user-detail-row">' + titleHtml + '<span>' + cmEscHtml(meta || '') + '</span>' + (body ? '<p>' + cmEscHtml(body) + '</p>' : '') + '</article>';
-}
-
-function renderCommentUserDetail(data) {
-    data = data || {};
-    var user = data.user || data.data || data;
-    var stats = data.stats || user.stats || {};
-    var permissions = data.permissions || {};
-    var links = data.links || {};
-    var profile = document.querySelector('[data-comment-user-detail-profile]');
-    var statsEl = document.querySelector('[data-comment-user-detail-stats]');
-    var actions = document.querySelector('[data-comment-user-detail-actions]');
-    var avatar = user.avatar ? '<img src="' + cmEscHtml(user.avatar) + '" alt="" width="72" height="72">' : '<span class="comments-user-detail-avatar-fallback"><i class="bi bi-person"></i></span>';
-    var isBanned = Number(user.is_banned) === 1 || Number(data.is_banned) === 1;
-    var activeRestrictions = Number(stats.active_restrictions) || (Array.isArray(data.restrictions) ? data.restrictions.length : 0);
-    var state = isBanned ? 'Banlı' : (activeRestrictions > 0 ? 'Kısıtlı' : 'Aktif');
-    var stateTone = isBanned ? 'is-danger' : (activeRestrictions > 0 ? 'is-warning' : 'is-success');
-    if (profile) profile.innerHTML = '<div class="comments-user-detail-avatar">' + avatar + '</div><div><div class="comments-user-detail-identity"><h4>' + cmEscHtml(user.username || user.name || data.username || data.name || '') + '</h4><span class="' + stateTone + '">' + cmEscHtml(state) + '</span></div><p>' + cmEscHtml(user.group_name || data.group_name || 'Grup yok') + ' · Kayıt: ' + cmEscHtml(user.created_at || data.created_at || '-') + ' · Son giriş: ' + cmEscHtml(user.last_login_at || data.last_login_at || '-') + '</p>' + (user.email || data.email ? '<small><i class="bi bi-envelope"></i> ' + cmEscHtml(user.email || data.email) + '</small>' : '') + '</div>';
-    if (statsEl) statsEl.innerHTML = [
-        ['bi-chat-square-text', 'Yorum', stats.total_comments || 0],
-        ['bi-file-earmark-text', 'Konu', stats.total_topics || 0],
-        ['bi-flag', 'Rapor', stats.reports_about || data.reports_about || 0],
-        ['bi-shield-exclamation', 'Aktif Kısıtlama', activeRestrictions]
-    ].map(function (item) { return '<div><i class="bi ' + item[0] + '"></i><strong>' + cmEscHtml(item[2]) + '</strong><span>' + item[1] + '</span></div>'; }).join('');
-
-    var activityRows = Array.isArray(data.activity) ? data.activity : (Array.isArray(data.recent_activity) ? data.recent_activity : []);
-    var commentRows = Array.isArray(data.comments) ? data.comments : (Array.isArray(data.recent_comments) ? data.recent_comments : []);
-    var topicRows = Array.isArray(data.topics) ? data.topics : (Array.isArray(data.recent_topics) ? data.recent_topics : []);
-    var reportRows = Array.isArray(data.reports) ? data.reports : [];
-    var noteRows = Array.isArray(data.notes) ? data.notes : (Array.isArray(data.admin_notes) ? data.admin_notes : []);
-    var restrictionRows = Array.isArray(data.restriction_history) && data.restriction_history.length
-        ? data.restriction_history
-        : (Array.isArray(data.restrictions) && data.restrictions.length
-            ? data.restrictions
-            : (Array.isArray(data.moderation_history) && data.moderation_history.length
-                ? data.moderation_history
-                : (Array.isArray(data.ban_history) ? data.ban_history : [])));
-
-    var panels = {
-        summary: cmDetailRows(activityRows, function (row) { return cmDetailRow(row.event || row.title || 'Hareket', [row.group, row.created_at, row.device].filter(Boolean).join(' · '), row.title || '', ''); }, 'Kullanıcı hareketi bulunamadı.', 'summary'),
-        comments: cmDetailRows(commentRows, function (row) { return cmDetailRow(row.topic_title || ('Yorum #' + row.id), [row.status, row.created_at].filter(Boolean).join(' · '), row.excerpt || '', row.url || ''); }, 'Yorum geçmişi bulunamadı.', 'comments'),
-        topics: cmDetailRows(topicRows, function (row) { return cmDetailRow(row.title || ('Konu #' + row.id), [row.status, row.created_at].filter(Boolean).join(' · '), '', row.url || ''); }, 'Konu geçmişi bulunamadı.', 'topics'),
-        reports: cmDetailRows(reportRows, function (row) { return cmDetailRow('Rapor #' + row.id, [row.status, row.reporter, row.created_at].filter(Boolean).join(' · '), row.reason || '', ''); }, 'Kullanıcı hakkında rapor bulunamadı.', 'reports'),
-        notes: cmDetailRows(noteRows, function (row) { return cmDetailRow(row.admin || 'Admin notu', [row.tone, row.created_at].filter(Boolean).join(' · '), row.note || '', ''); }, 'Admin notu bulunamadı.', 'notes'),
-        restrictions: cmDetailRows(restrictionRows, function (row) { return cmDetailRow(row.action || row.type || cmRestrictionLabel(row), [row.admin || row.admin_name, row.created_at, row.expires_at].filter(Boolean).join(' · '), row.reason || '', ''); }, 'Ceza veya kısıtlama geçmişi bulunamadı.', 'restrictions')
-    };
-    Object.keys(panels).forEach(function (key) {
-        var panel = document.querySelector('[data-comment-user-panel="' + key + '"]');
-        if (panel) panel.innerHTML = panels[key];
-    });
-
-    var userId = user.id || data.id;
-    var userName = user.username || user.name || data.username || '';
-    var canBan = permissions.ban !== undefined ? permissions.ban : (data.can_moderate !== false);
-    var canRestrict = permissions.restrict !== undefined ? permissions.restrict : (data.can_moderate !== false);
-    var actionHtml = '';
-    if (canBan) actionHtml += isBanned
-        ? '<button type="button" class="ui-admin-btn ui-admin-btn-success" data-comment-user-unban="' + cmEscHtml(userId) + '" data-user-name="' + cmEscHtml(userName) + '"><i class="bi bi-check-circle"></i> Banı Kaldır</button>'
-        : '<button type="button" class="ui-admin-btn ui-admin-btn-danger" data-comment-user-ban="' + cmEscHtml(userId) + '" data-user-name="' + cmEscHtml(userName) + '"><i class="bi bi-slash-circle"></i> Banla</button>';
-    if (canRestrict) actionHtml += '<button type="button" class="ui-admin-btn ui-admin-btn-warning" data-comment-user-restrict="' + cmEscHtml(userId) + '" data-user-name="' + cmEscHtml(userName) + '"><i class="bi bi-shield-exclamation"></i> Kısıtlama Ekle</button>';
-    if (links.user_management) actionHtml += '<a class="ui-admin-btn ui-admin-btn-outline" href="' + cmEscHtml(links.user_management) + '"><i class="bi bi-journal-plus"></i> Admin Notu Ekle</a>';
-    if (links.full_activity) actionHtml += '<a class="ui-admin-btn ui-admin-btn-outline" href="' + cmEscHtml(links.full_activity) + '"><i class="bi bi-clock-history"></i> Tam Geçmiş</a>';
-    if (actions) actions.innerHTML = actionHtml + '<button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-user-detail-close>Kapat</button>';
-}
-
-function activateCommentUserTab(tabName, focus) {
-    tabName = tabName || 'summary';
-    document.querySelectorAll('[data-comment-user-tab]').forEach(function (tab) {
-        var active = tab.getAttribute('data-comment-user-tab') === tabName;
-        tab.setAttribute('aria-selected', active ? 'true' : 'false');
-        tab.classList.toggle('is-active', active);
-        tab.tabIndex = active ? 0 : -1;
-        if (active && focus) tab.focus();
-    });
-    document.querySelectorAll('[data-comment-user-panel]').forEach(function (panel) {
-        var active = panel.getAttribute('data-comment-user-panel') === tabName;
-        panel.hidden = !active;
-        panel.style.display = active ? 'block' : 'none';
-    });
-}
-
-function loadCommentUserDetail(userId) {
-    var requestId = ++activeCommentUserRequest;
-    var loading = document.querySelector('[data-comment-user-detail-loading]');
-    var content = document.querySelector('[data-comment-user-detail-content]');
-    var error = document.querySelector('[data-comment-user-detail-error]');
-    if (loading) { loading.hidden = false; loading.style.display = 'flex'; }
-    if (content) { content.hidden = true; content.style.display = 'none'; }
-    if (error) { error.hidden = true; error.style.display = 'none'; }
-
-    delete commentUserDetailCache[userId];
-
-    return fetchCommentUserDetails(userId).then(function (data) {
-        var modal = document.getElementById('commentUserDetailModal');
-        if (requestId !== activeCommentUserRequest || !modal || modal.getAttribute('data-user-id') !== String(userId)) {
-            return data;
-        }
-        activeCommentUserDetail = data;
-        commentUserDetailPages = {};
-        commentUserDetailCache[userId] = data;
-        try {
-            renderCommentUserDetail(data);
-            activateCommentUserTab('summary', false);
-        } catch (err) {
-            console.error('Render user detail error:', err);
-        }
-        if (loading) { loading.hidden = true; loading.style.display = 'none'; }
-        if (content) { content.hidden = false; content.style.display = 'block'; }
-        return data;
-    }).catch(function (err) {
-        console.error('Fetch user detail error:', err);
-        var modal = document.getElementById('commentUserDetailModal');
-        if (requestId !== activeCommentUserRequest || !modal || modal.getAttribute('data-user-id') !== String(userId)) {
-            throw err;
-        }
-        if (loading) { loading.hidden = true; loading.style.display = 'none'; }
-        if (error) { error.hidden = false; error.style.display = 'flex'; }
-        throw err;
-    });
-}
-
-function openCommentUserDetail(trigger) {
-    var modal = document.getElementById('commentUserDetailModal');
-    var userId = trigger && trigger.getAttribute('data-comment-user-detail');
-    if (!modal || !userId) return;
-    activeCommentUserTrigger = trigger;
-    modal.setAttribute('data-user-id', userId);
-    openCommentManagedModal(modal, { initialFocus: '[data-comment-user-detail-close]' });
-    loadCommentUserDetail(userId).catch(function () {});
-}
-
-function closeCommentUserDetail() {
-    closeCommentManagedModal(document.getElementById('commentUserDetailModal'), function () {
-        activeCommentUserDetail = null;
-        if (activeCommentUserTrigger) activeCommentUserTrigger.focus();
-        activeCommentUserTrigger = null;
-    });
-}
-
-function initCommentUserDetailModal() {
-    document.querySelectorAll('[data-comment-user-tab]').forEach(function (tab) {
-        if (tab.getAttribute('data-comment-user-tab-ready') === '1') return;
-        tab.setAttribute('data-comment-user-tab-ready', '1');
-        tab.addEventListener('keydown', function (event) {
-            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-            var tabs = Array.from(document.querySelectorAll('[data-comment-user-tab]'));
-            var index = tabs.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : -1);
-            if (index < 0) index = tabs.length - 1;
-            if (index >= tabs.length) index = 0;
-            activateCommentUserTab(tabs[index].getAttribute('data-comment-user-tab'), true);
-        });
-    });
-    var retry = document.querySelector('[data-comment-user-detail-retry]');
-    if (retry && retry.getAttribute('data-comment-user-detail-retry-ready') !== '1') {
-        retry.setAttribute('data-comment-user-detail-retry-ready', '1');
-        retry.addEventListener('click', function () {
-            var modal = document.getElementById('commentUserDetailModal');
-            var userId = modal && modal.getAttribute('data-user-id');
-            if (userId) loadCommentUserDetail(userId).catch(function () {});
-        });
     }
 }
 
@@ -832,48 +636,90 @@ function closeCommentRestrictionModal() {
     });
 }
 
+function openCommentUserEditModal(trigger) {
+    var modal = document.getElementById('commentUserEditModal');
+    if (!modal || !trigger) return;
+
+    var fields = {
+        commentEditUserId: trigger.dataset.userId,
+        commentEditUsername: trigger.dataset.userUsername || trigger.dataset.userName,
+        commentEditUserEmail: trigger.dataset.userEmail,
+        commentEditUserGroup: trigger.dataset.userGroup,
+        commentEditUserStatus: trigger.dataset.userStatus || 'active',
+        commentEditUserLocation: trigger.dataset.userLocation,
+        commentEditUserWebsite: trigger.dataset.userWebsite,
+        commentEditUserGithub: trigger.dataset.userGithub,
+        commentEditUserTwitter: trigger.dataset.userTwitter,
+        commentEditUserDiscord: trigger.dataset.userDiscord,
+        commentEditUserBio: trigger.dataset.userBio,
+        commentEditUserPassword: ''
+    };
+    Object.keys(fields).forEach(function (id) {
+        var field = document.getElementById(id);
+        if (field) field.value = fields[id] || '';
+    });
+    var preview = document.getElementById('commentUserEditEmailPreview');
+    if (preview) preview.textContent = trigger.dataset.userEmail || '';
+    window.closeUserDetail?.({ restoreFocus: false });
+    openCommentManagedModal(modal, { initialFocus: '#commentEditUsername' });
+}
+
+function closeCommentUserEditModal() {
+    closeCommentManagedModal(document.getElementById('commentUserEditModal'), function () {
+        document.getElementById('commentUserEditForm')?.reset();
+    });
+}
+
+function openCommentUserAdminNoteModal(trigger) {
+    var modal = document.getElementById('commentUserAdminNoteModal');
+    if (!modal || !trigger) return;
+    document.getElementById('commentAdminNoteUserId').value = trigger.dataset.userId || '';
+    document.getElementById('commentAdminNoteUserName').value = trigger.dataset.userName || '';
+    document.getElementById('commentAdminNoteText').value = '';
+    window.closeUserDetail?.({ restoreFocus: false });
+    openCommentManagedModal(modal, { initialFocus: '#commentAdminNoteText' });
+}
+
+function closeCommentUserAdminNoteModal() {
+    closeCommentManagedModal(document.getElementById('commentUserAdminNoteModal'), function () {
+        document.getElementById('commentUserAdminNoteForm')?.reset();
+    });
+}
+
+function submitCommentUserManagementForm(form) {
+    var submitter = form.querySelector('button[type="submit"]');
+    if (submitter) submitter.disabled = true;
+    return window.adminFetchJson('users.php', {
+        method: 'POST',
+        body: new FormData(form),
+        notifyError: false
+    }).then(function (response) {
+        if (!response || (!response.success && !response.ok)) {
+            throw new Error((response && response.message) || 'Kullanıcı işlemi tamamlanamadı.');
+        }
+        if (window.adminToast) window.adminToast.success(response.message || 'Kullanıcı bilgileri güncellendi.');
+        return response;
+    }).catch(function (error) {
+        if (typeof adminAlert === 'function') {
+            adminAlert(error.message || 'Kullanıcı işlemi tamamlanamadı.', { title: 'Hata', tone: 'danger' });
+        }
+        throw error;
+    }).finally(function () {
+        if (submitter) submitter.disabled = false;
+    });
+}
+
 function initCommentsManagerPage() {
     initCommentReadMore();
     initCommentActionsMenus();
     initCommentUserInsights();
     initCommentBulkActions();
     initCommentsMobileFilters();
-    initCommentUserDetailModal();
 
     if (window.__commentsManagerPageActionsBound) return;
     window.__commentsManagerPageActionsBound = true;
 
     document.addEventListener('click', function(event) {
-        const pageTrigger = event.target.closest('[data-comment-user-page]');
-        if (pageTrigger) {
-            event.preventDefault();
-            var panelKey = pageTrigger.getAttribute('data-comment-user-panel-key');
-            var requestedPage = Number(pageTrigger.getAttribute('data-comment-user-page'));
-            if (!activeCommentUserDetail || !panelKey || !Number.isFinite(requestedPage)) return;
-            commentUserDetailPages[panelKey] = requestedPage;
-            renderCommentUserDetail(activeCommentUserDetail);
-            activateCommentUserTab(panelKey, false);
-            document.querySelector('[data-comment-user-panel="' + panelKey + '"] [data-comment-user-page="' + requestedPage + '"][aria-current="page"]')?.focus();
-            return;
-        }
-
-        const tabTrigger = event.target.closest('[data-comment-user-tab]');
-        if (tabTrigger) {
-            event.preventDefault();
-            var tabName = tabTrigger.getAttribute('data-comment-user-tab');
-            activateCommentUserTab(tabName, false);
-            return;
-        }
-
-        const userDetailTrigger = event.target.closest('[data-comment-user-detail]');
-        if (userDetailTrigger && !event.target.closest('#commentUserDetailModal')) {
-            event.preventDefault();
-            closeCommentActionsMenu();
-            closeCommentUserInsightMenu();
-            openCommentUserDetail(userDetailTrigger);
-            return;
-        }
-
         const editTrigger = event.target.closest('[data-comment-edit]');
         if (editTrigger) {
             closeCommentActionsMenu();
@@ -883,37 +729,67 @@ function initCommentsManagerPage() {
         }
 
         const banTrigger = event.target.closest('[data-comment-user-ban]');
-        if (banTrigger) {
+        if (banTrigger && !banTrigger.closest('#userDetailModal')) {
             event.preventDefault();
             closeCommentActionsMenu();
             closeCommentUserInsightMenu();
-            closeCommentUserDetail();
             openCommentBanModal(banTrigger.getAttribute('data-comment-user-ban'), banTrigger.getAttribute('data-user-name') || '');
             return;
         }
 
         const restrictTrigger = event.target.closest('[data-comment-user-restrict]');
-        if (restrictTrigger) {
+        if (restrictTrigger && !restrictTrigger.closest('#userDetailModal')) {
             event.preventDefault();
             closeCommentActionsMenu();
             closeCommentUserInsightMenu();
-            closeCommentUserDetail();
             openCommentRestrictionModal(restrictTrigger.getAttribute('data-comment-user-restrict'), restrictTrigger.getAttribute('data-user-name') || '');
             return;
         }
 
         const unbanTrigger = event.target.closest('[data-comment-user-unban]');
-        if (unbanTrigger) {
+        if (unbanTrigger && !unbanTrigger.closest('#userDetailModal')) {
             event.preventDefault();
             closeCommentActionsMenu();
             closeCommentUserInsightMenu();
-            closeCommentUserDetail();
             openCommentUnbanModal(unbanTrigger.getAttribute('data-comment-user-unban'), unbanTrigger.getAttribute('data-user-name') || '');
             return;
         }
 
-        if (event.target.closest('[data-comment-user-detail-close]')) {
-            closeCommentUserDetail();
+        const detailBanTrigger = event.target.closest('#userDetailModal [data-user-ban]');
+        if (detailBanTrigger) {
+            event.preventDefault();
+            window.closeUserDetail?.({ restoreFocus: false });
+            openCommentBanModal(detailBanTrigger.getAttribute('data-user-ban'), detailBanTrigger.getAttribute('data-user-name') || '');
+            return;
+        }
+
+        const detailRestrictionTrigger = event.target.closest('#userDetailModal [data-user-restrict]');
+        if (detailRestrictionTrigger) {
+            event.preventDefault();
+            window.closeUserDetail?.({ restoreFocus: false });
+            openCommentRestrictionModal(detailRestrictionTrigger.getAttribute('data-user-restrict'), detailRestrictionTrigger.getAttribute('data-user-name') || '');
+            return;
+        }
+
+        const detailUnbanTrigger = event.target.closest('#userDetailModal [data-user-unban]');
+        if (detailUnbanTrigger) {
+            event.preventDefault();
+            window.closeUserDetail?.({ restoreFocus: false });
+            openCommentUnbanModal(detailUnbanTrigger.getAttribute('data-user-unban'), detailUnbanTrigger.getAttribute('data-user-name') || '');
+            return;
+        }
+
+        const detailEditTrigger = event.target.closest('#userDetailModal [data-user-edit-open]');
+        if (detailEditTrigger) {
+            event.preventDefault();
+            openCommentUserEditModal(detailEditTrigger);
+            return;
+        }
+
+        const detailNoteTrigger = event.target.closest('#userDetailModal [data-admin-note-open]');
+        if (detailNoteTrigger) {
+            event.preventDefault();
+            openCommentUserAdminNoteModal(detailNoteTrigger);
             return;
         }
 
@@ -932,6 +808,16 @@ function initCommentsManagerPage() {
             return;
         }
 
+        if (event.target.closest('[data-comment-user-edit-close]')) {
+            closeCommentUserEditModal();
+            return;
+        }
+
+        if (event.target.closest('[data-comment-user-note-close]')) {
+            closeCommentUserAdminNoteModal();
+            return;
+        }
+
     });
 
     document.addEventListener('keydown', function(e) {
@@ -940,13 +826,10 @@ function initCommentsManagerPage() {
             closeCommentBanModal();
             closeCommentUnbanModal();
             closeCommentRestrictionModal();
-            closeCommentUserDetail();
+            closeCommentUserEditModal();
+            closeCommentUserAdminNoteModal();
             closeCommentUserInsightMenu();
         }
-    });
-
-    document.getElementById('commentUserDetailModal')?.addEventListener('click', function (event) {
-        if (event.target === this) closeCommentUserDetail();
     });
 
     document.getElementById('commentBanModal')?.addEventListener('click', function (event) {
@@ -959,6 +842,26 @@ function initCommentsManagerPage() {
 
     document.getElementById('commentRestrictionModal')?.addEventListener('click', function (event) {
         if (event.target === this) closeCommentRestrictionModal();
+    });
+
+    document.getElementById('commentUserEditModal')?.addEventListener('click', function (event) {
+        if (event.target === this) closeCommentUserEditModal();
+    });
+
+    document.getElementById('commentUserAdminNoteModal')?.addEventListener('click', function (event) {
+        if (event.target === this) closeCommentUserAdminNoteModal();
+    });
+
+    document.querySelectorAll('[data-comment-user-management-form]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            submitCommentUserManagementForm(form).then(function () {
+                var userId = form.querySelector('[name="user_id"]')?.value;
+                closeCommentUserEditModal();
+                closeCommentUserAdminNoteModal();
+                if (userId) window.openUserDetail?.(userId);
+            }).catch(function () {});
+        });
     });
 
     document.getElementById('commentBanForm')?.addEventListener('submit', function (event) {
@@ -1009,10 +912,7 @@ function initCommentsManagerPage() {
 
 window.openEditModal = openEditModal;
 window.closeEditModal = closeEditModal;
-window.openCommentUserDetail = openCommentUserDetail;
-window.closeCommentUserDetail = closeCommentUserDetail;
-
 window.adminPage.register('comments-manager', initCommentsManagerPage, {
     id: 'comments-manager-page',
-    selector: '[data-ui-comment-manager-body], [data-comment-edit], [data-comment-actions-toggle], [data-comments-bulk-form], [data-comment-user-detail], #editModal, #commentUserDetailModal, #commentBanModal, #commentUnbanModal, #commentRestrictionModal'
+    selector: '[data-ui-comment-manager-body], [data-comment-edit], [data-comment-actions-toggle], [data-comments-bulk-form], [data-user-detail-open], #editModal, #userDetailModal, #commentBanModal, #commentUnbanModal, #commentRestrictionModal'
 });

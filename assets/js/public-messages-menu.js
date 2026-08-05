@@ -182,10 +182,20 @@
         }
 
         if (toggle) {
-            toggle.addEventListener("click", function () {
-                root.classList.toggle("show");
-                toggle.setAttribute("aria-expanded", root.classList.contains("show") ? "true" : "false");
-                if (root.classList.contains("show")) {
+            toggle.addEventListener("click", function (e) {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                var show = !root.classList.contains("show");
+                document.querySelectorAll(".notif-dropdown.show, [data-messages-dropdown].show").forEach(function (el) {
+                    if (el !== root) {
+                        el.classList.remove("show");
+                    }
+                });
+                root.classList.toggle("show", show);
+                toggle.setAttribute("aria-expanded", show ? "true" : "false");
+                if (show) {
                     fetchDropdown();
                 }
             });
@@ -205,9 +215,17 @@
         });
 
         fetchDropdown();
+        window.publicTopbar = window.publicTopbar || {};
+        window.publicTopbar.refreshMessages = fetchDropdown;
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
+    function initAll() {
         document.querySelectorAll("[data-messages-dropdown]").forEach(initMessagesMenu);
-    });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initAll);
+    } else {
+        initAll();
+    }
 })();

@@ -228,6 +228,7 @@ require_once __DIR__ . '/header.php';
         <a class="bot-tab scraper-tab-link" data-tab="sites"><i class="bi bi-globe"></i>Siteler</a>
         <a class="bot-tab scraper-tab-link" data-tab="mappings"><i class="bi bi-diagram-2"></i>Eşlemeler</a>
         <a class="bot-tab scraper-tab-link" data-tab="scrape"><i class="bi bi-cloud-download"></i>Toplu İçerik Çek</a>
+        <a class="bot-tab scraper-tab-link" data-tab="scrape-all"><i class="bi bi-collection-play"></i>Tüm Kategorilerden Çek</a>
         <a class="bot-tab scraper-tab-link" data-tab="imports"><i class="bi bi-journal-text"></i>Bot Logları</a>
         <a class="bot-tab scraper-tab-link" data-tab="settings"><i class="bi bi-gear"></i>Bot Ayarları</a>
     </div>
@@ -599,6 +600,43 @@ require_once __DIR__ . '/header.php';
                         <?= adminRenderTableEmptyRow(5, ['icon' => 'bi-diagram-2', 'tone' => 'info', 'title' => 'Eşleme bulunamadı.', 'description' => 'Toplu içerik çekmek için önce bir eşleme oluşturun.']) ?>
                         <?php endif; ?>
             <?= adminRenderTableClose() ?>
+    <?= adminRenderPanelClose('div') ?>
+</div>
+
+<div class="scraper-tab-pane" id="tab-scrape-all">
+    <?= adminRenderPanelOpen(['tag' => 'div', 'title' => 'Tüm Kategorilerden İçerik Çek (Karma)', 'icon' => 'bi-collection-play']) ?>
+        <div class="scraper-tab-content-body">
+            <div class="row g-3 align-items-end mb-4">
+                <div class="col-md-3">
+                    <label class="ui-admin-form-label"><i class="bi bi-file-earmark-text"></i> Başlangıç Sayfası</label>
+                    <input type="number" id="scrape-all-page-start" class="ui-admin-form-control" value="1" min="1" max="999">
+                </div>
+                <div class="col-md-3">
+                    <label class="ui-admin-form-label"><i class="bi bi-file-earmark-text"></i> Bitiş Sayfası</label>
+                    <input type="number" id="scrape-all-page-end" class="ui-admin-form-control" value="1" min="1" max="999">
+                </div>
+                <div class="col-md-3">
+                    <label class="ui-admin-form-label"><i class="bi bi-globe"></i> Site Filtresi</label>
+                    <select id="scrape-all-site-filter" class="ui-admin-form-select">
+                        <option value="">Tüm Siteler (Aktif Eşlemeler)</option>
+                        <?php foreach ($sites as $s): ?>
+                        <option value="<?= (int)$s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="ui-admin-btn ui-admin-btn-primary w-100" data-scraper-action="list-all-categories-topics">
+                        <i class="bi bi-layer-forward"></i> Tüm Kategorileri Listele
+                    </button>
+                </div>
+            </div>
+
+            <div id="all-categories-list-loading" class="scraper-loading" hidden>
+                <i class="bi bi-hourglass-split"></i> Tüm kategoriler taranıyor, konular karma listeleniyor...
+            </div>
+
+            <div id="all-categories-list-content" class="mapping-list-panel"></div>
+        </div>
     <?= adminRenderPanelClose('div') ?>
 </div>
 
@@ -1308,6 +1346,24 @@ require_once __DIR__ . '/header.php';
     'botBulkDefaultSelected' => (string) ($botSettings['bot_bulk_default_selected'] ?? '1'),
     'botBulkMaxTopicsPerPage' => (string) ($botSettings['bot_bulk_max_topics_per_page'] ?? '0'),
     'botBulkContinueOnError' => (string) ($botSettings['bot_bulk_continue_on_error'] ?? '1'),
+    'allMappings' => array_map(static function(array $m) use ($scraperMappingGameMeta) {
+        $parentName = trim((string) ($m['local_parent_category_name'] ?? ''));
+        $localName = trim((string) ($m['local_category_name'] ?? 'Bilinmiyor'));
+        $groupName = $parentName !== '' ? $parentName : $localName;
+        $game = $scraperMappingGameMeta($groupName);
+        return [
+            'id' => (int) $m['id'],
+            'bot_site_id' => (int) $m['bot_site_id'],
+            'site_name' => (string) ($m['site_name'] ?? ''),
+            'remote_category_url' => (string) ($m['remote_category_url'] ?? ''),
+            'local_category_id' => (int) ($m['local_category_id'] ?? 0),
+            'local_category_name' => $localName,
+            'local_parent_category_name' => $parentName,
+            'game_code' => $game['code'],
+            'game_tone' => $game['tone'],
+            'game_icon' => $game['icon'],
+        ];
+    }, $mappings),
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?: '{}' ?></script>
 <script src="<?= asset_url('admin/assets/scraper-page.js', $baseUri) ?>" defer></script>
 <script src="<?= asset_url('admin/assets/scraper.js', $baseUri) ?>" defer></script>

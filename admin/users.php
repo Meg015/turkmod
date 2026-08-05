@@ -1054,17 +1054,10 @@ require_once __DIR__ . '/header.php';
     </div>
     <?php endif; ?>
 
-    <script src="<?= asset_url('admin/assets/users-tab.js', $baseUri) ?>" defer></script>
+    <script src="<?= asset_url('admin/assets/user-detail-modal.js', $baseUri) ?>" defer></script>
+    <script src="<?= asset_url('admin/assets/users-tab.js', $baseUri) ?>" defer></script>
 
-    <div id="userDetailModal" class="ui-admin-detail-overlay" role="dialog" aria-modal="true" aria-label="Kullanıcı detayı" hidden aria-hidden="true" data-user-detail-backdrop>
-        <div class="ui-admin-detail-modal">
-            <div class="ui-admin-detail-modal-head ui-panel__head">
-                <h3><i class="bi bi-person-vcard"></i> Kullanıcı Detayı</h3>
-                <button type="button" class="ui-admin-detail-close" data-ui-modal-close data-user-detail-close><i class="bi bi-x-lg"></i></button>
-            </div>
-            <div id="userDetailBody" class="ui-admin-detail-modal-body ui-panel__body"></div>
-        </div>
-    </div>
+    <?php require __DIR__ . '/partials/user-detail-modal.php'; ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

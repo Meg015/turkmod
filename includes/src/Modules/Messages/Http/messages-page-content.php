@@ -357,7 +357,7 @@ require_once $projectRoot . '/includes/public-header.php';
                     <?php endif; ?>
                 </div>
 
-                <form method="post" class="messages-composer" data-messages-send-form>
+                <form method="post" class="messages-composer" data-messages-send-form data-no-loading-state="true">
                     <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="send">
                     <input type="hidden" name="thread_id" value="<?= (int) $activeThreadId ?>" data-messages-thread-id>

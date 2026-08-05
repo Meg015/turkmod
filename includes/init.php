@@ -1071,6 +1071,7 @@ function routePublicStaticReservedSegments(): array
         "route",
         "index",
         "sitemap",
+        "category-sitemap",
         "topic-sitemap",
         "profile-sitemap",
         "image-sitemap",
@@ -1372,7 +1373,8 @@ function routePublicRouteCatalog(): array
         $routes[$canonicalPath] = $canonicalMeta;
     }
 
-    $routes["sitemap.xml"] = ["label" => "Site Haritası", "target" => \App\Engine\Seo\Http\SitemapIndexPage::class, "kind" => "Sistem", "dispatch" => "handler"];
+    $routes["sitemap.xml"] = ["label" => "Site Haritası İndeksi", "target" => \App\Engine\Seo\Http\SitemapIndexPage::class, "kind" => "Sistem", "dispatch" => "handler"];
+    $routes["category-sitemap.xml"] = ["label" => "Kategori Site Haritası", "target" => \App\Engine\Seo\Http\CategorySitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
     $routes["topic-sitemap.xml"] = ["label" => "Konu Site Haritası", "target" => \App\Engine\Seo\Http\TopicSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
     $routes["profile-sitemap.xml"] = ["label" => "Profil Site Haritası", "target" => \App\Engine\Seo\Http\ProfileSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
     $routes["image-sitemap.xml"] = ["label" => "Görsel Site Haritası", "target" => \App\Engine\Seo\Http\ImageSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
@@ -1743,6 +1745,7 @@ function routePrefixReservedSegments(): array
         "uploads",
         "index.php",
         "sitemap.xml",
+        "category-sitemap.xml",
         "topic-sitemap.xml",
         "profile-sitemap.xml",
         "image-sitemap.xml",
@@ -2851,6 +2854,25 @@ function seoRobotsMeta(?array $settings = null, ?string $requestUri = null, ?str
     return $indexDirective . ", " . $followDirective . ", max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 }
 
+/**
+ * @param array<string,mixed> $settings
+ * @return list<string>
+ */
+function seoSitemapIndexUrls(array $settings, string $canonicalBase, ?PDO $pdo = null): array
+{
+    if (
+        (string) ($settings['sitemap_enabled'] ?? '1') !== '1'
+        || (string) ($settings['sitemap_route_enabled'] ?? '1') !== '1'
+    ) {
+        return [];
+    }
+
+    $pdo ??= ($GLOBALS['pdo'] ?? null);
+    $inventory = new \App\Engine\Seo\Support\SitemapInventory($pdo instanceof PDO ? $pdo : null);
+
+    return $inventory->indexUrls($settings, $canonicalBase);
+}
+
 function buildRobotsTxt(?array $settings = null, ?string $canonicalBase = null): string
 {
     $settings = seoSettings($settings);
@@ -2905,8 +2927,13 @@ function buildRobotsTxt(?array $settings = null, ?string $canonicalBase = null):
         }
     }
 
-    $lines[] = "";
-    $lines[] = "Sitemap: " . $canonicalBase . "/sitemap.xml";
+    if (
+        (string) ($settings['sitemap_enabled'] ?? '1') === '1'
+        && (string) ($settings['sitemap_route_enabled'] ?? '1') === '1'
+    ) {
+        $lines[] = "";
+        $lines[] = "Sitemap: " . $canonicalBase . "/sitemap.xml";
+    }
 
     return implode("\n", $lines) . "\n";
 }

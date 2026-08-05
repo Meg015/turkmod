@@ -130,6 +130,7 @@ if (!function_exists('seoGenerateSitemapOutput')) {
         $normalizedType = strtolower(trim($type));
         $requestUri = match ($normalizedType) {
             'sitemap', 'sitemap.xml', 'index' => '/sitemap.xml',
+            'category', 'category-sitemap', 'category-sitemap.xml' => '/category-sitemap.xml',
             'topic', 'topic-sitemap', 'topic-sitemap.xml' => '/topic-sitemap.xml',
             'profile', 'profile-sitemap', 'profile-sitemap.xml' => '/profile-sitemap.xml',
             'image', 'image-sitemap', 'image-sitemap.xml' => '/image-sitemap.xml',
@@ -146,6 +147,7 @@ if (!function_exists('seoGenerateSitemapOutput')) {
         );
         $pdo = $GLOBALS['pdo'] ?? null;
         $handler = match (true) {
+            str_starts_with($normalizedType, 'category') => new \App\Engine\Seo\Http\CategorySitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
             str_starts_with($normalizedType, 'profile') => new \App\Engine\Seo\Http\ProfileSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
             str_starts_with($normalizedType, 'image') => new \App\Engine\Seo\Http\ImageSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
             str_starts_with($normalizedType, 'topic') => new \App\Engine\Seo\Http\TopicSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
@@ -382,5 +384,21 @@ if (!function_exists('seoSitemapResponse')) {
         }
 
         return new \App\Core\Http\Response($preparedBody, 200, $headers);
+    }
+}
+
+if (!function_exists('seoSitemapNotFoundResponse')) {
+    function seoSitemapNotFoundResponse(): \App\Core\Http\Response
+    {
+        $body = seoPrepareSitemapXml(
+            '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>' . "\n",
+        );
+
+        return new \App\Core\Http\Response($body, 404, [
+            'Content-Type' => 'application/xml; charset=utf-8',
+            'X-Robots-Tag' => 'noindex',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 }

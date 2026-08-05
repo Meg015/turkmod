@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Messages\Services;
 
+use App\Core\Realtime\WebSocketBroadcaster;
 use PDO;
 use Throwable;
 
@@ -1276,56 +1277,7 @@ final class MessageService
 
     public function broadcastToWebSocket(array|int $userIds, array $payload): void
     {
-        $userIds = array_values(array_unique(array_filter(array_map('intval', is_array($userIds) ? $userIds : [$userIds]))));
-        if (empty($userIds)) {
-            return;
-        }
-
-        try {
-            $body = json_encode([
-                'user_id' => $userIds,
-                'payload' => $payload
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if ($body === false) {
-                return;
-            }
-
-            $url = 'http://127.0.0.1:8081/broadcast';
-            if (function_exists('curl_init')) {
-                $ch = curl_init($url);
-                if ($ch !== false) {
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($ch, CURLOPT_POST, true);
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-                    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-                    if (defined('CURLOPT_CONNECTTIMEOUT_MS')) {
-                        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 250);
-                    }
-                    if (defined('CURLOPT_TIMEOUT_MS')) {
-                        curl_setopt($ch, CURLOPT_TIMEOUT_MS, 1000);
-                    } else {
-                        curl_setopt($ch, CURLOPT_TIMEOUT, 1);
-                    }
-                    curl_exec($ch);
-                    curl_close($ch);
-
-                    return;
-                }
-            }
-
-            $context = stream_context_create([
-                'http' => [
-                    'method' => 'POST',
-                    'header' => "Content-Type: application/json\r\n",
-                    'content' => $body,
-                    'timeout' => 1,
-                    'ignore_errors' => true,
-                ],
-            ]);
-            file_get_contents($url, false, $context);
-        } catch (\Throwable $e) {
-            // Ignore broadcast errors
-        }
+        WebSocketBroadcaster::publish($userIds, $payload);
     }
 
     private function participantTypingSelectSql(PDO $pdo, string $alias = 'other_p'): string

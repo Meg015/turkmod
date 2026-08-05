@@ -2629,6 +2629,13 @@ require_once __DIR__ . '/header.php';
                                                     </div>
                                                 </div>
                                                 <div>
+                                                    <label class="ui-admin-form-label">Kategori Site Haritası</label>
+                                                    <div class="admin-inline-control">
+                                                        <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/category-sitemap.xml" readonly>
+                                                        <a href="<?= $baseUri ?>/category-sitemap.xml" target="_blank" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Aç"><i class="bi bi-box-arrow-up-right"></i></a>
+                                                    </div>
+                                                </div>
+                                                <div>
                                                     <label class="ui-admin-form-label">Konu Site Haritası</label>
                                                     <div class="admin-inline-control">
                                                         <input type="text" class="ui-admin-form-control admin-muted-input" value="<?= htmlspecialchars($adminPublicBaseUrl) ?>/topic-sitemap.xml" readonly>

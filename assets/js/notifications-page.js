@@ -335,8 +335,8 @@
 
                 var expanded = message.classList.toggle("is-expanded");
                 toggle.innerHTML = expanded
-                    ? '<span>Daha k\\u0131sa g\\u00f6ster</span><i class="bi bi-chevron-up"></i>'
-                    : '<span>Daha fazla g\\u00f6ster</span><i class="bi bi-chevron-down"></i>';
+                    ? '<span>Daha kısa göster</span><i class="bi bi-chevron-up"></i>'
+                    : '<span>Daha fazla göster</span><i class="bi bi-chevron-down"></i>';
                 return;
             }
 
@@ -439,14 +439,14 @@
                 }
 
                 markAllButton.disabled = true;
-                markAllButton.innerHTML = '<i class="bi bi-arrow-repeat spin"></i><span>\\u0130\\u015fleniyor...</span>';
+                markAllButton.innerHTML = '<i class="bi bi-arrow-repeat spin"></i><span>İşleniyor...</span>';
                 if (feed) feed.classList.add("is-updating");
                 applyReadState();
 
                 postNotificationRead("all")
                     .then(function (data) {
                         if (!isApiSuccess(data)) {
-                            throw new Error(data && data.message ? data.message : "Bildirimler g\\u00fcncellenemedi.");
+                            throw new Error(data && data.message ? data.message : "Bildirimler güncellenemedi.");
                         }
 
                         if (sidebarUnread) {
@@ -456,7 +456,7 @@
                         markAllButton.innerHTML = '<i class="bi bi-check2"></i><span>Okundu</span>';
                         if (feed) feed.classList.remove("is-updating");
                         if (window.showToast) {
-                            window.showToast("T\\u00fcm bildirimler okundu olarak i\\u015faretlendi.", "success");
+                            window.showToast("Tüm bildirimler okundu olarak işaretlendi.", "success");
                         }
                         window.setTimeout(function () {
                             markAllButton.remove();
@@ -468,7 +468,7 @@
                         markAllButton.disabled = false;
                         markAllButton.innerHTML = originalHtml;
                         if (window.showToast) {
-                            window.showToast(error && error.message ? error.message : "Bildirimler g\\u00fcncellenemedi.", "error");
+                            window.showToast(error && error.message ? error.message : "Bildirimler güncellenemedi.", "error");
                         }
                     });
             });
