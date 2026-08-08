@@ -1184,7 +1184,7 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
     const subject = form.querySelector('[name="subject"]');
     const body = form.querySelector('[name="body_html"]');
     const campaignIdField = form.querySelector('[data-bulk-campaign-id]');
-    const testEmail = form.querySelector('[data-bulk-test-email]');
+    const testEmail = root.querySelector('[data-bulk-test-email]');
     const frame = form.querySelector('[data-bulk-preview-frame]');
     const stage = form.querySelector('[data-bulk-preview-stage]');
     const loading = form.querySelector('[data-bulk-preview-loading]');
@@ -1624,7 +1624,18 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
     form.querySelector('[data-bulk-save]')?.addEventListener('click', function (event) {
         submitContentAction('save', event.currentTarget);
     });
-    form.querySelector('[data-bulk-test]')?.addEventListener('click', function (event) {
+    root.querySelector('[data-bulk-test]')?.addEventListener('click', function (event) {
+        if (testEmail && !testEmail.checkValidity()) {
+            testEmail.reportValidity();
+            return;
+        }
+        const bodyText = syncBody().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!String(subject?.value || '').trim() || !bodyText) {
+            showError('Test göndermeden önce e-posta konusu ve içeriğini tamamlayın.');
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            subject?.focus({ preventScroll: true });
+            return;
+        }
         submitContentAction('test', event.currentTarget, { test_email: testEmail?.value || '' });
     });
     startButtons.forEach(function (startButton) {

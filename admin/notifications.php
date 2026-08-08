@@ -2417,6 +2417,11 @@ $csrfToken = csrf_token();
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-action="retry" disabled><i class="bi bi-arrow-clockwise"></i> Hatalıları Dene</button>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline" data-bulk-action="cancel" disabled><i class="bi bi-x-octagon"></i> İptal Et</button>
                             </div>
+                            <div class="bulk-email-controlbar-test">
+                                <label for="bulkEmailTestRecipient"><span>Test e-postası</span><small>Gerçek gönderim öncesi seçtiğiniz adrese deneyin</small></label>
+                                <input id="bulkEmailTestRecipient" type="email" class="ui-admin-form-control" value="<?= htmlspecialchars((string) ($_SESSION['_auth_user_email'] ?? '')) ?>" placeholder="test@domain.com" required data-bulk-test-email>
+                                <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-test><i class="bi bi-send-check"></i> Test Gönder</button>
+                            </div>
                         </div>
 
                         <?php if ($bulkEmailActiveCampaign): ?>
@@ -2488,13 +2493,6 @@ $csrfToken = csrf_token();
                                 <label class="ui-admin-form-label" for="bulkEmailBody">E-posta içeriği</label>
                                 <textarea id="bulkEmailBody" name="body_html" class="ui-admin-form-control bulk-email-body" rows="14" required><p>Merhaba {{username}},</p><p>Üyelerimizle paylaşmak istediğimiz güncellemeyi burada bulabilirsiniz.</p></textarea>
 
-                                <div class="bulk-email-test-strip">
-                                    <div>
-                                        <label class="ui-admin-form-label" for="bulkEmailTestRecipient">Test alıcısı</label>
-                                        <input id="bulkEmailTestRecipient" type="email" class="ui-admin-form-control" value="<?= htmlspecialchars((string) ($_SESSION['_auth_user_email'] ?? '')) ?>" placeholder="test@domain.com" data-bulk-test-email>
-                                    </div>
-                                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-test><i class="bi bi-send-check"></i> Test Gönder</button>
-                                </div>
                                 <div class="bulk-email-form-error" role="alert" data-bulk-error hidden></div>
                                 <div class="bulk-email-composer-actions">
                                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-save><i class="bi bi-save"></i> Taslağı Kaydet</button>
