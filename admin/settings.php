@@ -1309,6 +1309,18 @@ if (!function_exists('settingsBuildEmailTestHtml')) {
                 'http' => settingsCronHttpCommand($buildUrl('/cron/send-notification-email-queue.php', ['limit' => '25'])),
                 'url' => $buildUrl('/cron/send-notification-email-queue.php', ['limit' => '25']),
             ],
+            'bulk_email_campaigns' => [
+                'job_key' => 'bulk_email_campaigns',
+                'group' => 'Sistem ve Veri',
+                'title' => 'Toplu E-posta Kampanyaları',
+                'description' => 'Toplu e-posta kampanyalarını parçalı ve yeniden denemeli olarak gönderir.',
+                'icon' => 'bi-send-check',
+                'schedule' => '* * * * *',
+                'schedule_label' => 'Her 1 dakika',
+                'cli' => $phpBinaryCommand . ' ' . settingsCronShellArg($scriptPath('send-bulk-email-campaigns.php')) . ' --limit=100',
+                'http' => settingsCronHttpCommand($buildUrl('/cron/send-bulk-email-campaigns.php', ['limit' => '100'])),
+                'url' => $buildUrl('/cron/send-bulk-email-campaigns.php', ['limit' => '100']),
+            ],
             'verification_reminders' => [
                 'job_key' => 'verification_reminders',
                 'group' => 'Hesap Güvenliği',
