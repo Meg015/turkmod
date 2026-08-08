@@ -1,6 +1,7 @@
 html[data-public-theme="turkmod"] .static-page-view {
-    width: min(100%, 920px);
-    margin: 0 auto;
+    width: 100%;
+    max-width: none;
+    margin: 0;
 }
 
 html[data-public-theme="turkmod"] .static-page-header {
