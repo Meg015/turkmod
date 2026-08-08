@@ -2405,6 +2405,20 @@ $csrfToken = csrf_token();
                             </div>
                         </div>
 
+                        <div class="bulk-email-controlbar" aria-label="Toplu e-posta kampanya kontrolleri">
+                            <div>
+                                <small>Kampanya kontrolleri</small>
+                                <strong data-bulk-control-status><?= $bulkEmailActiveCampaign ? htmlspecialchars((string) $bulkEmailActiveCampaign['status']) : 'Yeni kampanya hazır' ?></strong>
+                            </div>
+                            <div class="bulk-email-controlbar-actions">
+                                <button type="button" class="ui-admin-btn ui-admin-btn-primary" data-bulk-start <?= ($bulkEmailCanDispatch && $bulkEmailWorkerEnabled) ? '' : 'disabled' ?>><i class="bi bi-send"></i> Gönderimi Başlat</button>
+                                <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-action="pause" disabled><i class="bi bi-pause-fill"></i> Duraklat</button>
+                                <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-action="resume" disabled><i class="bi bi-play-fill"></i> Devam Et</button>
+                                <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-action="retry" disabled><i class="bi bi-arrow-clockwise"></i> Hatalıları Dene</button>
+                                <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline" data-bulk-action="cancel" disabled><i class="bi bi-x-octagon"></i> İptal Et</button>
+                            </div>
+                        </div>
+
                         <?php if ($bulkEmailActiveCampaign): ?>
                             <?php
                                 $bulkTotal = max(0, (int) ($bulkEmailActiveCampaign['recipient_total'] ?? 0));

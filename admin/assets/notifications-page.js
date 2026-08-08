@@ -1192,7 +1192,8 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
     const errorBox = form.querySelector('[data-bulk-error]');
     const saveState = form.querySelector('[data-bulk-save-state]');
     const progressCard = root.querySelector('[data-bulk-progress-card]');
-    const startButton = form.querySelector('[data-bulk-start]');
+    const startButtons = Array.from(root.querySelectorAll('[data-bulk-start]'));
+    const controlStatus = root.querySelector('[data-bulk-control-status]');
     const operationalNodes = {
         worker: root.querySelector('[data-bulk-operational="worker-status"]'),
         cron: root.querySelector('[data-bulk-operational="cron-status"]'),
@@ -1207,6 +1208,7 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
     let pollTimer = 0;
     let operationalTimer = 0;
     let quill = null;
+    let currentCampaign = config.activeCampaign || null;
 
     const statusLabels = {
         draft: 'Taslak', preparing: 'Alıcılar hazırlanıyor', queued: 'Sırada', sending: 'Gönderiliyor',
@@ -1215,16 +1217,15 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
     const cronStatusLabels = { success: 'Başarılı', warning: 'Uyarı', error: 'Hatalı', missing: 'Henüz çalışmadı' };
 
     const syncStartAvailability = function () {
-        if (!startButton) {
-            return;
-        }
         const allowed = Boolean(config.canDispatch) && Boolean(config.workerEnabled);
-        if (!startButton.matches('[aria-busy="true"]')) {
-            startButton.disabled = !allowed;
-        }
-        startButton.title = !config.workerEnabled
-            ? 'Gönderimi başlatmak için worker ayarını açın.'
-            : (!config.canDispatch ? 'Gönderim yetkiniz bulunmuyor.' : '');
+        startButtons.forEach(function (button) {
+            if (!button.matches('[aria-busy="true"]')) {
+                button.disabled = !allowed;
+            }
+            button.title = !config.workerEnabled
+                ? 'Gönderimi başlatmak için worker ayarını açın.'
+                : (!config.canDispatch ? 'Gönderim yetkiniz bulunmuyor.' : '');
+        });
     };
 
     const updateOperational = function (data) {
@@ -1468,10 +1469,33 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
         });
     };
 
+    const updateLifecycleControls = function (campaign) {
+        const status = String(campaign?.status || '');
+        if (controlStatus) {
+            controlStatus.textContent = campaign
+                ? (statusLabels[status] || status)
+                : 'Yeni kampanya hazır';
+        }
+        root.querySelectorAll('[data-bulk-action]').forEach(function (button) {
+            const action = button.dataset.bulkAction;
+            const enabled = (action === 'pause' && ['preparing', 'queued', 'sending'].includes(status))
+                || (action === 'resume' && status === 'paused')
+                || (action === 'cancel' && ['preparing', 'queued', 'sending', 'paused'].includes(status))
+                || (action === 'retry' && status !== '' && status !== 'cancelled' && Number(campaign?.failed_count || 0) > 0);
+            button.hidden = false;
+            if (!button.matches('[aria-busy="true"]')) {
+                button.disabled = !enabled;
+            }
+        });
+    };
+
     const updateProgress = function (campaign) {
         if (!progressCard || !campaign) {
+            currentCampaign = null;
+            updateLifecycleControls(null);
             return;
         }
+        currentCampaign = campaign;
         progressCard.hidden = false;
         progressCard.classList.remove('bulk-email-progress-empty');
         progressCard.dataset.campaignId = String(campaign.id || '');
@@ -1499,14 +1523,7 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
         progressCard.querySelectorAll('[data-bulk-count]').forEach(function (node) {
             node.textContent = Number(campaign[node.dataset.bulkCount] || 0).toLocaleString('tr-TR');
         });
-        progressCard.querySelectorAll('[data-bulk-action]').forEach(function (button) {
-            const action = button.dataset.bulkAction;
-            const visible = (action === 'pause' && ['preparing', 'queued', 'sending'].includes(status))
-                || (action === 'resume' && status === 'paused')
-                || (action === 'cancel' && ['preparing', 'queued', 'sending', 'paused'].includes(status))
-                || (action === 'retry' && status !== 'cancelled' && Number(campaign.failed_count || 0) > 0);
-            button.hidden = !visible;
-        });
+        updateLifecycleControls(campaign);
         if (['completed', 'cancelled'].includes(status)) {
             window.clearTimeout(pollTimer);
         } else {
@@ -1610,15 +1627,26 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
     form.querySelector('[data-bulk-test]')?.addEventListener('click', function (event) {
         submitContentAction('test', event.currentTarget, { test_email: testEmail?.value || '' });
     });
-    form.querySelector('[data-bulk-start]')?.addEventListener('click', async function (event) {
-        const button = event.currentTarget;
-        const count = Number(config.eligibleCount || 0).toLocaleString('tr-TR');
-        const confirmed = typeof window.appConfirm === 'function'
-            ? await window.appConfirm(count + ' uygun üyeye gönderim kuyruğu oluşturulacak.', { title: 'Gönderim başlatılsın mı?', ok: 'Gönderimi Başlat', icon: 'bi-send' })
-            : window.confirm(count + ' uygun üyeye gönderim başlatılsın mı?');
-        if (confirmed) {
-            submitContentAction('start', button);
-        }
+    startButtons.forEach(function (startButton) {
+        startButton.addEventListener('click', async function (event) {
+            const button = event.currentTarget;
+            const subjectValue = String(subject?.value || '').trim();
+            const bodyValue = syncBody();
+            const bodyText = bodyValue.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!subjectValue || !bodyText) {
+                showError('Gönderimi başlatmadan önce e-posta konusu ve içeriğini tamamlayın.');
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                subject?.focus({ preventScroll: true });
+                return;
+            }
+            const count = Number(config.eligibleCount || 0).toLocaleString('tr-TR');
+            const confirmed = typeof window.appConfirm === 'function'
+                ? await window.appConfirm(count + ' uygun üyeye gönderim kuyruğu oluşturulacak.', { title: 'Gönderim başlatılsın mı?', ok: 'Gönderimi Başlat', icon: 'bi-send' })
+                : window.confirm(count + ' uygun üyeye gönderim başlatılsın mı?');
+            if (confirmed) {
+                submitContentAction('start', button);
+            }
+        });
     });
     root.addEventListener('click', async function (event) {
         const actionButton = event.target.closest('[data-bulk-action]');
@@ -1642,6 +1670,7 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
                 window.showToast?.(error.message, 'error');
             } finally {
                 setBusy(actionButton, false);
+                updateLifecycleControls(currentCampaign);
             }
             return;
         }
