@@ -20,7 +20,18 @@ Tek kategoriye ait `Toplu İçerik Çek` akışı, scraper API sözleşmesi, iç
 
 Scraper kaynak sitelerdeki sayfa URL şablonlarını varsaymayacak. Hedef sayfaya ulaşmak için ilk kategori URL'sinden başlayıp API'nin döndürdüğü `next_url` bağlantılarını izleyecek. Başlangıçtan önceki sayfalar yalnızca gezinmek için okunacak; bu sayfalardaki konular sonuca, sayaçlara veya duplicate değerlendirmesine dahil edilmeyecek.
 
-Kullanıcı başlangıç değerini bitişten büyük girerse mevcut güvenli davranış korunacak ve iki değer küçükten büyüğe normalize edilecek. Değerler en az `1` olacak.
+Kullanıcı başlangıç değerini bitişten büyük girerse mevcut güvenli davranış korunacak ve iki değer küçükten büyüğe normalize edilecek. Her iki değer istemci tarafında da `1..999` aralığına sıkıştırılacak; HTML `min` ve `max` nitelikleri tek başına güvenlik sınırı sayılmayacak.
+
+## Tarama Yaşam Döngüsü
+
+Aynı anda yalnızca son başlatılan karma kategori taraması geçerli olacak. Kullanıcı tarama sürerken yeniden `Tüm Kategorileri Listele` düğmesine bastığında:
+
+1. devam eden taramanın `AbortController` örneği iptal edilir;
+2. güncel sayfa aralığı ve site filtresi yeniden okunur;
+3. yeni bir tarama kimliği ve `AbortController` ile tarama hemen başlatılır;
+4. iptal edilmiş veya daha eski taramalardan dönen sonuçlar state, loading alanı ya da sonuç HTML'ini değiştiremez.
+
+`apiPost` mevcut çağrıları bozmadan isteğe bağlı fetch seçenekleri kabul edecek ve `signal` değerini `adminFetchJson` çağrısına iletecek. İptal, kullanıcıya ağ hatası olarak gösterilmeyecek. Ağ isteğinin iptal edilemediği bir ortamda tarama kimliği yine eski sonucun güncel sonucu ezmesini engelleyen ikinci güvenlik katmanı olacak.
 
 ## Sonuç Modeli
 
@@ -62,7 +73,11 @@ Her kategori için tek satırlık kompakt bir durum özeti gösterilir:
 - hiç konu bulunmadıysa: kategori adı ve içerik bulunamadı durumu;
 - tarama başarısızsa: kategori adı ve hata durumu.
 
+Bir kategori aralığın bir bölümünden yeni içerik topladıktan sonra hata verirse aynı satır hem `Tarama hatası` hem de karma listeye eklenen yeni içerik sayısını gösterir. Çekilmiş ve tekrar eden içerik sayaçları da mevcutsa korunur.
+
 En az bir yeni içerik varsa mevcut seçim kontrolleri ve karma konu kartları gösterilir. Boş kategoriler büyük kartlar üretmez; yalnızca kompakt özet satırında yer alır.
+
+Listeleme tamamlandıktan sonra kullanılan ilerleme bileşeni içerik aktarma işlemi yapılmadığı için `başarılı/hatalı` aktarım sayaçlarını göstermez. Bunun yerine listelenen konu sayısı ile yeni, daha önce çekilmiş ve hatalı kategori özeti gösterilir. İçerik çekme aşamasındaki gerçek aktarım ilerlemesi mevcut başarılı/hatalı sayaçlarını kullanmaya devam eder.
 
 Hiç yeni içerik yoksa standart admin empty-state görünümü kullanılır:
 
@@ -91,9 +106,13 @@ Aktif eşleme bulunmaması mevcut uyarı akışını korur fakat standart admin 
 
 - JavaScript sözdizimi ve değişen PHP dosyalarının lint kontrolleri çalıştırılır.
 - `1-1`, `2-3` ve başlangıcın bitişten büyük girildiği aralıklar doğrulanır.
+- `0`, negatif ve `999` üzerindeki değerlerin `1..999` aralığına sıkıştırıldığı doğrulanır.
 - Her eşlemenin aynı aralığı kendi hedef kategorisinde bağımsız kullandığı kontrol edilir.
 - Seçilen aralıkta yalnızca yeni içerik, yalnızca daha önce çekilmiş içerik, hiç içerik bulunmaması ve karışık sonuç senaryoları doğrulanır.
 - Bir kategorinin hata verdiği kısmi başarı senaryosunda diğer sonuçların korunduğu kontrol edilir.
+- Gecikmeli iki tarama başlatılarak ilk isteğin iptal edildiği ve geç kalan ilk yanıtın ikinci tarama state'ini veya HTML'ini değiştirmediği doğrulanır.
+- Kısmi hata öncesinde yeni içerik bulan kategori satırında hata ve yeni içerik rozetlerinin birlikte gösterildiği doğrulanır.
+- Listeleme sonucunda anlamsız `0 başarılı / 0 hatalı` aktarım sayaçlarının gösterilmediği doğrulanır.
 - Başlangıç sayfasından önceki konuların sayaçlara ve karma listeye girmediği doğrulanır.
 - Yeni içerik olmadığında seçim/çekim kontrollerinin bulunmadığı ve doğru empty-state metninin gösterildiği kontrol edilir.
 - Masaüstü ve mobil görünümde kategori özetlerinin, empty state'in ve konu kartlarının çakışmadan görüntülendiği tarayıcı üzerinden doğrulanır.
