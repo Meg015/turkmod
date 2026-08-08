@@ -1171,6 +1171,435 @@ function initNotificationSubmissionState() {
     });
 }
 
+function initBulkEmailCampaigns(adminNotificationsPageData) {
+    const root = document.querySelector('[data-bulk-email-root]');
+    const form = root?.querySelector('[data-bulk-composer]');
+    if (!root || !form || root.dataset.bulkEmailBound === '1') {
+        return;
+    }
+    root.dataset.bulkEmailBound = '1';
+
+    const config = adminNotificationsPageData.bulkEmail || {};
+    const api = String(config.api || '');
+    const subject = form.querySelector('[name="subject"]');
+    const body = form.querySelector('[name="body_html"]');
+    const campaignIdField = form.querySelector('[data-bulk-campaign-id]');
+    const testEmail = form.querySelector('[data-bulk-test-email]');
+    const frame = form.querySelector('[data-bulk-preview-frame]');
+    const stage = form.querySelector('[data-bulk-preview-stage]');
+    const loading = form.querySelector('[data-bulk-preview-loading]');
+    const previewSubject = form.querySelector('[data-bulk-preview-subject]');
+    const errorBox = form.querySelector('[data-bulk-error]');
+    const saveState = form.querySelector('[data-bulk-save-state]');
+    const progressCard = root.querySelector('[data-bulk-progress-card]');
+    let csrf = String(config.csrf || form.querySelector('[name="_token"]')?.value || '');
+    let previewTimer = 0;
+    let previewRequest = 0;
+    let pollTimer = 0;
+    let quill = null;
+
+    const statusLabels = {
+        draft: 'Taslak', preparing: 'Alıcılar hazırlanıyor', queued: 'Sırada', sending: 'Gönderiliyor',
+        paused: 'Duraklatıldı', completed: 'Tamamlandı', cancelled: 'İptal edildi'
+    };
+
+    const syncBody = function () {
+        if (quill && body) {
+            body.value = quill.root.innerHTML;
+        }
+        return String(body?.value || '');
+    };
+
+    const setBusy = function (button, busy, label) {
+        if (!button) {
+            return;
+        }
+        if (busy) {
+            button.dataset.originalHtml = button.innerHTML;
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.innerHTML = '<i class="bi bi-arrow-repeat"></i> ' + label;
+            return;
+        }
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        if (button.dataset.originalHtml) {
+            button.innerHTML = button.dataset.originalHtml;
+            delete button.dataset.originalHtml;
+        }
+    };
+
+    const showError = function (message) {
+        if (!errorBox) {
+            return;
+        }
+        errorBox.textContent = String(message || 'İşlem tamamlanamadı.');
+        errorBox.hidden = false;
+    };
+
+    const clearError = function () {
+        if (errorBox) {
+            errorBox.hidden = true;
+            errorBox.textContent = '';
+        }
+    };
+
+    const request = async function (action, values) {
+        const payload = new FormData();
+        payload.set('action', action);
+        payload.set('_token', csrf);
+        Object.entries(values || {}).forEach(function (entry) {
+            payload.set(entry[0], String(entry[1] ?? ''));
+        });
+        const response = await fetch(api, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+            body: payload
+        });
+        const data = await response.json().catch(function () { return {}; });
+        if (data.csrfToken) {
+            csrf = String(data.csrfToken);
+            const token = form.querySelector('[name="_token"]');
+            if (token) {
+                token.value = csrf;
+            }
+        }
+        if (!response.ok || data.success === false) {
+            throw new Error(String(data.message || 'İşlem tamamlanamadı.'));
+        }
+        return data;
+    };
+
+    const renderPreview = async function (subjectValue, bodyValue) {
+        const requestId = ++previewRequest;
+        const normalizedSubject = String(subjectValue || '').trim();
+        const normalizedBody = String(bodyValue || '').trim();
+        if (!normalizedSubject || !normalizedBody) {
+            if (frame) {
+                frame.srcdoc = '';
+            }
+            if (previewSubject) {
+                previewSubject.textContent = 'Önizleme için konu ve içerik girin';
+            }
+            clearError();
+            loading?.setAttribute('hidden', '');
+            return;
+        }
+        loading?.removeAttribute('hidden');
+        try {
+            const data = await request('preview', {
+                subject: subjectValue,
+                body_html: bodyValue
+            });
+            if (requestId !== previewRequest) {
+                return;
+            }
+            const preview = data.preview || {};
+            if (frame) {
+                frame.srcdoc = String(preview.html || '');
+            }
+            if (previewSubject) {
+                previewSubject.textContent = String(preview.subject || 'Önizleme');
+            }
+            clearError();
+        } catch (error) {
+            if (requestId === previewRequest) {
+                // Empty composer state is expected on first load; reserve errors for explicit actions.
+                clearError();
+                if (frame) {
+                    frame.srcdoc = '';
+                }
+                if (previewSubject) {
+                    previewSubject.textContent = 'Önizleme için konu ve içerik girin';
+                }
+            }
+        } finally {
+            if (requestId === previewRequest && loading) {
+                loading.setAttribute('hidden', '');
+            }
+        }
+    };
+
+    const schedulePreview = function () {
+        window.clearTimeout(previewTimer);
+        previewTimer = window.setTimeout(function () {
+            renderPreview(String(subject?.value || ''), syncBody());
+        }, 420);
+    };
+
+    const setEditorValue = function (value) {
+        if (!body) {
+            return;
+        }
+        body.value = String(value || '');
+        if (quill) {
+            quill.clipboard.dangerouslyPasteHTML(body.value, 'silent');
+        }
+        schedulePreview();
+    };
+
+    const initEditor = function () {
+        if (!body || typeof window.Quill === 'undefined') {
+            body?.addEventListener('input', schedulePreview);
+            return;
+        }
+        const host = document.createElement('div');
+        host.className = 'bulk-email-quill';
+        body.insertAdjacentElement('afterend', host);
+        body.hidden = true;
+        quill = new window.Quill(host, {
+            theme: 'snow',
+            modules: {
+                toolbar: {
+                    container: [
+                        [{ header: [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['blockquote', 'code-block'],
+                        [{ align: [] }],
+                        ['link', 'image'],
+                        ['clean']
+                    ],
+                    handlers: {
+                        image: function () {
+                            const prompt = typeof window.appPrompt === 'function'
+                                ? window.appPrompt('Görsel adresi', { placeholder: 'https://...', ok: 'Ekle', icon: 'bi-image' })
+                                : Promise.resolve(window.prompt('Görsel URL adresi'));
+                            prompt.then(function (url) {
+                                url = String(url || '').trim();
+                                if (!/^https?:\/\//i.test(url)) {
+                                    return;
+                                }
+                                const range = quill.getSelection(true);
+                                quill.insertEmbed(range ? range.index : quill.getLength() - 1, 'image', url, 'user');
+                            });
+                        }
+                    }
+                }
+            }
+        });
+        quill.clipboard.dangerouslyPasteHTML(body.value, 'silent');
+        quill.on('text-change', function () {
+            syncBody();
+            schedulePreview();
+        });
+    };
+
+    const updateProgress = function (campaign) {
+        if (!progressCard || !campaign) {
+            return;
+        }
+        progressCard.hidden = false;
+        progressCard.classList.remove('bulk-email-progress-empty');
+        progressCard.dataset.campaignId = String(campaign.id || '');
+        progressCard.dataset.status = String(campaign.status || '');
+        const percent = Math.max(0, Math.min(100, Number(campaign.progress_percent || 0)));
+        const status = String(campaign.status || 'draft');
+        const statusNode = progressCard.querySelector('[data-bulk-status]');
+        const percentNode = progressCard.querySelector('[data-bulk-percent]');
+        const bar = progressCard.querySelector('[data-bulk-progress-bar]');
+        const track = progressCard.querySelector('.bulk-email-progress-track');
+        const title = progressCard.querySelector('[data-bulk-progress-subject]');
+        if (statusNode) {
+            statusNode.textContent = statusLabels[status] || status;
+        }
+        if (percentNode) {
+            percentNode.textContent = percent + '%';
+        }
+        if (bar) {
+            bar.style.width = percent + '%';
+        }
+        track?.setAttribute('aria-valuenow', String(percent));
+        if (title) {
+            title.textContent = String(campaign.subject_template || 'Toplu e-posta kampanyası');
+        }
+        progressCard.querySelectorAll('[data-bulk-count]').forEach(function (node) {
+            node.textContent = Number(campaign[node.dataset.bulkCount] || 0).toLocaleString('tr-TR');
+        });
+        progressCard.querySelectorAll('[data-bulk-action]').forEach(function (button) {
+            const action = button.dataset.bulkAction;
+            const visible = (action === 'pause' && ['preparing', 'queued', 'sending'].includes(status))
+                || (action === 'resume' && status === 'paused')
+                || (action === 'cancel' && ['preparing', 'queued', 'sending', 'paused'].includes(status))
+                || (action === 'retry' && status !== 'cancelled' && Number(campaign.failed_count || 0) > 0);
+            button.hidden = !visible;
+        });
+        if (['completed', 'cancelled'].includes(status)) {
+            window.clearTimeout(pollTimer);
+        } else {
+            schedulePoll(Number(campaign.id || 0));
+        }
+    };
+
+    const poll = async function (campaignId) {
+        if (!campaignId || document.hidden) {
+            schedulePoll(campaignId);
+            return;
+        }
+        try {
+            const response = await fetch(api + '?campaign_id=' + encodeURIComponent(campaignId), {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await response.json();
+            if (response.ok && data.campaign) {
+                updateProgress(data.campaign);
+            }
+        } catch (error) {
+            schedulePoll(campaignId);
+        }
+    };
+
+    const schedulePoll = function (campaignId) {
+        window.clearTimeout(pollTimer);
+        if (campaignId > 0) {
+            pollTimer = window.setTimeout(function () { poll(campaignId); }, 4000);
+        }
+    };
+
+    const submitContentAction = async function (action, button, extra) {
+        clearError();
+        setBusy(button, true, action === 'test' ? 'Gönderiliyor...' : 'Kaydediliyor...');
+        try {
+            const data = await request(action, Object.assign({
+                campaign_id: campaignIdField?.value || '',
+                subject: subject?.value || '',
+                body_html: syncBody()
+            }, extra || {}));
+            if (data.campaign) {
+                if (action === 'save' && campaignIdField) {
+                    campaignIdField.value = String(data.campaign.id || '');
+                    if (saveState) {
+                        saveState.textContent = 'Taslak #' + data.campaign.id + ' kaydedildi';
+                    }
+                }
+                updateProgress(data.campaign);
+                if (action === 'start' && campaignIdField) {
+                    campaignIdField.value = '';
+                    if (saveState) {
+                        saveState.textContent = 'Yeni taslak';
+                    }
+                }
+            }
+            if (typeof window.showToast === 'function') {
+                window.showToast(String(data.message || 'İşlem tamamlandı.'), 'success');
+            }
+            return data;
+        } catch (error) {
+            showError(error.message);
+            if (typeof window.showToast === 'function') {
+                window.showToast(error.message, 'error');
+            }
+            return null;
+        } finally {
+            setBusy(button, false);
+        }
+    };
+
+    initEditor();
+    subject?.addEventListener('input', schedulePreview);
+    form.querySelectorAll('[data-bulk-token]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const token = String(button.dataset.bulkToken || '');
+            if (quill) {
+                const range = quill.getSelection(true);
+                const index = range ? range.index : Math.max(0, quill.getLength() - 1);
+                quill.insertText(index, token, 'user');
+                quill.setSelection(index + token.length, 0, 'silent');
+            } else if (body) {
+                const start = body.selectionStart || body.value.length;
+                body.value = body.value.slice(0, start) + token + body.value.slice(body.selectionEnd || start);
+                schedulePreview();
+            }
+        });
+    });
+    form.querySelectorAll('[data-bulk-device]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            form.querySelectorAll('[data-bulk-device]').forEach(function (item) { item.classList.toggle('is-active', item === button); });
+            stage?.classList.toggle('is-mobile', button.dataset.bulkDevice === 'mobile');
+        });
+    });
+    form.querySelector('[data-bulk-save]')?.addEventListener('click', function (event) {
+        submitContentAction('save', event.currentTarget);
+    });
+    form.querySelector('[data-bulk-test]')?.addEventListener('click', function (event) {
+        submitContentAction('test', event.currentTarget, { test_email: testEmail?.value || '' });
+    });
+    form.querySelector('[data-bulk-start]')?.addEventListener('click', async function (event) {
+        const button = event.currentTarget;
+        const count = Number(config.eligibleCount || 0).toLocaleString('tr-TR');
+        const confirmed = typeof window.appConfirm === 'function'
+            ? await window.appConfirm(count + ' uygun üyeye gönderim kuyruğu oluşturulacak.', { title: 'Gönderim başlatılsın mı?', ok: 'Gönderimi Başlat', icon: 'bi-send' })
+            : window.confirm(count + ' uygun üyeye gönderim başlatılsın mı?');
+        if (confirmed) {
+            submitContentAction('start', button);
+        }
+    });
+    root.addEventListener('click', async function (event) {
+        const actionButton = event.target.closest('[data-bulk-action]');
+        if (actionButton && progressCard) {
+            const action = String(actionButton.dataset.bulkAction || '');
+            if (action === 'cancel') {
+                const confirmed = typeof window.appConfirm === 'function'
+                    ? await window.appConfirm('Henüz gönderilmemiş alıcılar iptal edilecek.', { title: 'Kampanya iptal edilsin mi?', ok: 'İptal Et', icon: 'bi-x-octagon' })
+                    : window.confirm('Kampanya iptal edilsin mi?');
+                if (!confirmed) {
+                    return;
+                }
+            }
+            setBusy(actionButton, true, 'İşleniyor...');
+            try {
+                const data = await request(action, { campaign_id: progressCard.dataset.campaignId || '' });
+                updateProgress(data.campaign);
+                window.showToast?.(String(data.message || 'Kampanya güncellendi.'), 'success');
+            } catch (error) {
+                showError(error.message);
+                window.showToast?.(error.message, 'error');
+            } finally {
+                setBusy(actionButton, false);
+            }
+            return;
+        }
+
+        const loadButton = event.target.closest('[data-bulk-edit], [data-bulk-history-preview]');
+        if (!loadButton) {
+            return;
+        }
+        const id = Number(loadButton.dataset.bulkEdit || loadButton.dataset.bulkHistoryPreview || 0);
+        if (!id) {
+            return;
+        }
+        setBusy(loadButton, true, 'Yükleniyor...');
+        try {
+            const response = await fetch(api + '?campaign_id=' + encodeURIComponent(id), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+            const data = await response.json();
+            if (!response.ok || !data.campaign) {
+                throw new Error(String(data.message || 'Kampanya yüklenemedi.'));
+            }
+            if (loadButton.hasAttribute('data-bulk-edit')) {
+                subject.value = String(data.campaign.subject_template || '');
+                setEditorValue(data.campaign.body_html_template || '');
+                campaignIdField.value = String(data.campaign.id || '');
+                if (saveState) {
+                    saveState.textContent = 'Taslak #' + data.campaign.id;
+                }
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                await renderPreview(String(data.campaign.subject_template || ''), String(data.campaign.body_html_template || ''));
+                form.querySelector('.bulk-email-preview-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        } catch (error) {
+            showError(error.message);
+        } finally {
+            setBusy(loadButton, false);
+        }
+    });
+
+    updateProgress(config.activeCampaign || null);
+    schedulePreview();
+}
+
 function initNotificationsPage() {
     const adminNotificationsPageData = getAdminNotificationsPageData();
     initNotificationComposerTemplates(adminNotificationsPageData);
@@ -1180,6 +1609,7 @@ function initNotificationsPage() {
     initNotificationVariableControls();
     initNotificationStatusUi();
     initNotificationSubmissionState();
+    initBulkEmailCampaigns(adminNotificationsPageData);
 }
 
 window.adminPage.register('notifications', initNotificationsPage, {

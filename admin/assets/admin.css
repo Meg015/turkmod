@@ -813,6 +813,19 @@ body.is-admin-sidebar-open { overflow: hidden; }
 .bulk-action-check { display: inline-flex; align-items: center; gap: .35rem; margin: 0; color: var(--ui-admin-text); font-size: .82rem; font-weight: 750; white-space: nowrap; }
 .bulk-action-check input { width: 1rem; height: 1rem; accent-color: var(--ui-admin-accent); }
 .bulk-action-check span { color: var(--ui-admin-text); font-size: .82rem; }
+.scraper-category-results { margin-bottom: 1rem; overflow: hidden; border: 1px solid var(--ui-admin-border); border-radius: 8px; background: var(--ui-admin-surface); }
+.scraper-category-results-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem .9rem; border-bottom: 1px solid var(--ui-admin-border); background: var(--ui-admin-surface-alt); }
+.scraper-category-results-head > div { display: grid; min-width: 0; gap: .15rem; }
+.scraper-category-results-head strong { color: var(--ui-admin-text); font-size: .9rem; font-weight: 750; }
+.scraper-category-results-head span:not(.admin-badge) { color: var(--ui-admin-text-muted); font-size: .78rem; font-weight: 650; }
+.scraper-category-results-list { display: grid; }
+.scraper-category-result-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .75rem; min-height: 58px; padding: .65rem .9rem; border-bottom: 1px solid var(--ui-admin-border); }
+.scraper-category-result-row:last-child { border-bottom: 0; }
+.scraper-category-result-copy { display: grid; min-width: 0; gap: .12rem; }
+.scraper-category-result-copy strong { overflow: hidden; color: var(--ui-admin-text); font-size: .84rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.scraper-category-result-copy span { overflow-wrap: anywhere; color: var(--ui-admin-text-muted); font-size: .74rem; font-weight: 600; }
+.scraper-category-result-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }
+.scraper-category-result-badges .admin-badge { min-height: 26px; }
 .bulk-progress { display: grid; gap: .5rem; margin-bottom: .85rem; padding: .85rem; background: var(--ui-admin-surface-alt); border: 1px solid var(--ui-admin-border); border-radius: 8px; }
 .bulk-progress-head,
 .bulk-progress-meta { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
@@ -825,6 +838,21 @@ body.is-admin-sidebar-open { overflow: hidden; }
 .bulk-progress-meter::-webkit-progress-value { background: linear-gradient(90deg, var(--ui-admin-accent), #22c55e); border-radius: inherit; transition: width .22s ease; }
 .bulk-progress-meter::-moz-progress-bar { background: linear-gradient(90deg, var(--ui-admin-accent), #22c55e); border-radius: inherit; }
 .settings-subtabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--ui-admin-border); }
+@media (max-width: 640px) {
+    #all-categories-list-content { overflow-x: hidden; }
+    .scraper-category-results-head { align-items: flex-start; }
+    .scraper-category-result-row { grid-template-columns: minmax(0, 1fr); }
+    .scraper-category-result-copy strong { white-space: normal; }
+    .scraper-category-result-badges { justify-content: flex-start; }
+    #all-categories-list-content .bulk-progress-head,
+    #all-categories-list-content .bulk-progress-meta { align-items: flex-start; flex-wrap: wrap; }
+    #all-categories-list-content .bulk-progress-head strong,
+    #all-categories-list-content .bulk-progress-head span,
+    #all-categories-list-content .bulk-progress-meta span { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+    #all-categories-list-content .bulk-actions { align-items: stretch; flex-direction: column; }
+    #all-categories-list-content .bulk-action-controls { justify-content: flex-start; }
+    #all-categories-list-content .bulk-action-controls .ui-admin-btn { width: 100%; justify-content: center; }
+}
 .settings-subtab-link { display: inline-flex; align-items: center; gap: .4rem; padding: .65rem .9rem; color: var(--ui-admin-text-muted); background: transparent; border: 0; border-bottom: 2px solid transparent; font-weight: 700; cursor: pointer; }
 .settings-subtab-link.active { color: var(--ui-admin-accent); border-bottom-color: var(--ui-admin-accent); }
 .settings-subtab-pane { display: none; }
@@ -19755,4 +19783,315 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
         min-width: 0 !important;
         max-width: none !important;
     }
+}
+/* Bulk email campaign operations */
+.bulk-email-workspace {
+    --bulk-ink: var(--admin-text, #182230);
+    --bulk-muted: var(--admin-text-muted, #667085);
+    --bulk-line: var(--admin-border, #d9e0e8);
+    --bulk-surface: var(--admin-surface, #fff);
+    --bulk-soft: var(--admin-surface-soft, #f5f7f9);
+    --bulk-accent: #0f766e;
+    --bulk-danger: #b42318;
+    display: grid;
+    gap: 18px;
+    width: 100%;
+    min-width: 0;
+    color: var(--bulk-ink);
+}
+.bulk-email-workspace > * {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.bulk-email-commandbar,
+.bulk-email-section-head,
+.bulk-email-progress-head,
+.bulk-email-progress-actions,
+.bulk-email-composer-actions,
+.bulk-email-test-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.bulk-email-commandbar {
+    min-height: 72px;
+    padding: 16px 18px;
+    border: 1px solid var(--bulk-line);
+    border-left: 4px solid var(--bulk-accent);
+    border-radius: 6px;
+    background: var(--bulk-surface);
+}
+
+.bulk-email-commandbar h3,
+.bulk-email-section-head h4,
+.bulk-email-progress h4 {
+    margin: 0;
+    letter-spacing: 0;
+}
+
+.bulk-email-commandbar h3 { font-size: 1.15rem; }
+.bulk-email-kicker {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--bulk-accent);
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.bulk-email-audience {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid #a7d7d2;
+    border-radius: 6px;
+    background: #effaf8;
+    color: #115e59;
+    white-space: nowrap;
+}
+.bulk-email-audience i { font-size: 1.05rem; }
+
+.bulk-email-progress {
+    padding: 18px;
+    border: 1px solid var(--bulk-line);
+    border-radius: 8px;
+    background: var(--bulk-surface);
+    box-shadow: 0 10px 24px rgba(24, 34, 48, .06);
+}
+.bulk-email-progress-head { align-items: flex-start; }
+.bulk-email-progress h4 {
+    margin-top: 5px;
+    font-size: .98rem;
+    overflow-wrap: anywhere;
+}
+.bulk-email-status,
+.bulk-email-history-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 23px;
+    padding: 3px 8px;
+    border: 1px solid #a7d7d2;
+    border-radius: 4px;
+    background: #effaf8;
+    color: #115e59;
+    font-size: .7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.bulk-email-percent {
+    flex: 0 0 auto;
+    color: var(--bulk-accent);
+    font-size: 1.6rem;
+    line-height: 1;
+}
+.bulk-email-progress-track {
+    height: 9px;
+    margin: 16px 0;
+    overflow: hidden;
+    border-radius: 3px;
+    background: #e8edf1;
+}
+.bulk-email-progress-track > span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: var(--bulk-accent);
+    transition: width .35s ease;
+}
+.bulk-email-progress-stats {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    border: 1px solid var(--bulk-line);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.bulk-email-progress-stats > span {
+    min-width: 0;
+    padding: 10px 12px;
+    border-right: 1px solid var(--bulk-line);
+    background: var(--bulk-soft);
+}
+.bulk-email-progress-stats > span:last-child { border-right: 0; }
+.bulk-email-progress-stats small,
+.bulk-email-progress-stats strong { display: block; }
+.bulk-email-progress-stats small { color: var(--bulk-muted); font-size: .68rem; }
+.bulk-email-progress-stats strong { margin-top: 2px; font-size: .98rem; }
+.bulk-email-progress-actions { justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+
+.bulk-email-composer {
+    display: grid;
+    grid-template-columns: minmax(0, 1.02fr) minmax(430px, .98fr);
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--bulk-line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bulk-surface);
+}
+.bulk-email-editor-panel,
+.bulk-email-preview-panel { min-width: 0; padding: 18px; }
+.bulk-email-preview-panel {
+    border-left: 1px solid var(--bulk-line);
+    background: #eef2f4;
+}
+.bulk-email-section-head { min-height: 38px; margin-bottom: 16px; }
+.bulk-email-section-head > div:first-child { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bulk-email-section-head > div:first-child > span {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--bulk-line);
+    border-radius: 4px;
+    color: var(--bulk-accent);
+    font-size: .72rem;
+    font-weight: 900;
+}
+.bulk-email-section-head h4 { font-size: .92rem; }
+.bulk-email-section-head small,
+.bulk-email-save-state { color: var(--bulk-muted); font-size: .7rem; }
+.bulk-email-save-state { text-align: right; }
+.bulk-email-subject { margin-bottom: 12px; }
+.bulk-email-token-row { display: flex; gap: 6px; margin: 0 0 14px; flex-wrap: wrap; }
+.bulk-email-body { min-height: 280px; }
+.bulk-email-quill { min-height: 300px; background: var(--bulk-surface); }
+.bulk-email-editor-panel .ql-toolbar.ql-snow {
+    border-color: var(--bulk-line);
+    border-radius: 6px 6px 0 0;
+    background: var(--bulk-soft);
+}
+.bulk-email-editor-panel .ql-container.ql-snow {
+    min-height: 300px;
+    border-color: var(--bulk-line);
+    border-radius: 0 0 6px 6px;
+    font-size: 15px;
+}
+.bulk-email-editor-panel .ql-editor { min-height: 300px; line-height: 1.65; }
+.bulk-email-editor-panel .ql-editor img { max-width: 100%; height: auto; }
+.bulk-email-test-strip {
+    align-items: end;
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid var(--bulk-line);
+    border-radius: 6px;
+    background: var(--bulk-soft);
+}
+.bulk-email-test-strip > div { flex: 1 1 auto; min-width: 0; }
+.bulk-email-test-strip .ui-admin-btn { flex: 0 0 auto; }
+.bulk-email-form-error {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-left: 3px solid var(--bulk-danger);
+    background: #fff1f0;
+    color: #8f1d18;
+    font-size: .8rem;
+}
+.bulk-email-composer-actions { justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+
+.bulk-email-device-switch {
+    display: inline-grid;
+    grid-template-columns: 36px 36px;
+    height: 34px;
+    padding: 2px;
+    border: 1px solid #ccd5dc;
+    border-radius: 5px;
+    background: #dfe6ea;
+}
+.bulk-email-device-switch button {
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: #667085;
+}
+.bulk-email-device-switch button.is-active { background: #fff; color: #0f766e; box-shadow: 0 1px 4px rgba(24, 34, 48, .12); }
+.bulk-email-preview-stage {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    min-height: 610px;
+    padding: 12px;
+    overflow: auto;
+    border: 1px solid #cfd8df;
+    border-radius: 6px;
+    background: #dfe5e9;
+}
+.bulk-email-preview-stage iframe {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 584px;
+    border: 0;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(24, 34, 48, .12);
+    transition: width .2s ease;
+}
+.bulk-email-preview-stage.is-mobile iframe { width: 390px; }
+.bulk-email-preview-loading {
+    position: absolute;
+    inset: 12px;
+    display: grid;
+    place-content: center;
+    gap: 8px;
+    background: rgba(238, 242, 244, .88);
+    color: var(--bulk-muted);
+    text-align: center;
+    font-size: .8rem;
+}
+.bulk-email-preview-loading[hidden] { display: none; }
+.bulk-email-preview-loading i { animation: bulk-email-spin .9s linear infinite; font-size: 1.25rem; }
+@keyframes bulk-email-spin { to { transform: rotate(360deg); } }
+
+.bulk-email-history {
+    padding: 18px;
+    border: 1px solid var(--bulk-line);
+    border-radius: 8px;
+    background: var(--bulk-surface);
+}
+.bulk-email-history .ui-admin-table td strong,
+.bulk-email-history .ui-admin-table td small { display: block; }
+.bulk-email-history .ui-admin-table td small { margin-top: 3px; color: var(--bulk-muted); }
+.bulk-email-history-status[data-status="failed"],
+.bulk-email-history-status[data-status="cancelled"] { border-color: #f0b4ae; background: #fff1f0; color: #9b271f; }
+.bulk-email-history-status[data-status="paused"] { border-color: #efd393; background: #fff8e6; color: #8a5a08; }
+.bulk-email-history-status[data-status="completed"] { border-color: #a7d7d2; background: #effaf8; color: #115e59; }
+
+@media (max-width: 1180px) {
+    .bulk-email-composer { grid-template-columns: 1fr; }
+    .bulk-email-preview-panel { border-top: 1px solid var(--bulk-line); border-left: 0; }
+    .bulk-email-progress-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .bulk-email-progress-stats > span:nth-child(3) { border-right: 0; }
+    .bulk-email-progress-stats > span:nth-child(-n+3) { border-bottom: 1px solid var(--bulk-line); }
+}
+
+@media (max-width: 680px) {
+    .bulk-email-commandbar,
+    .bulk-email-progress-head,
+    .bulk-email-test-strip { align-items: stretch; flex-direction: column; }
+    .bulk-email-audience { width: 100%; justify-content: center; white-space: normal; }
+    .bulk-email-progress-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .bulk-email-progress-stats > span { border-bottom: 1px solid var(--bulk-line); }
+    .bulk-email-progress-stats > span:nth-child(2n) { border-right: 0; }
+    .bulk-email-progress-stats > span:nth-last-child(-n+2) { border-bottom: 0; }
+    .bulk-email-progress-actions,
+    .bulk-email-composer-actions { display: grid; grid-template-columns: 1fr; }
+    .bulk-email-progress-actions .ui-admin-btn,
+    .bulk-email-composer-actions .ui-admin-btn,
+    .bulk-email-test-strip .ui-admin-btn { width: 100%; }
+    .bulk-email-editor-panel,
+    .bulk-email-preview-panel,
+    .bulk-email-history { padding: 13px; }
+    .bulk-email-preview-stage { min-height: 520px; padding: 6px; }
+    .bulk-email-preview-stage iframe { min-width: 0; width: 100%; height: 500px; }
+    .bulk-email-preview-stage.is-mobile iframe { width: 100%; }
+    .bulk-email-save-state { max-width: 110px; overflow-wrap: anywhere; }
 }

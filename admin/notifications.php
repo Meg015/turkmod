@@ -31,7 +31,7 @@ if (!in_array($tab, $allowedTabs, true)) {
     $tab = 'history';
 }
 $emailGroup = (string) ($_GET['email_group'] ?? 'account');
-$allowedEmailGroups = ['account', 'admin', 'events', 'settings'];
+$allowedEmailGroups = ['bulk', 'account', 'admin', 'events', 'settings'];
 if (!in_array($emailGroup, $allowedEmailGroups, true)) {
     $emailGroup = 'account';
 }
@@ -210,6 +210,9 @@ function admin_notification_email_settings_schema(): array
     return [
         ['key' => 'notif_email_channel_ready', 'type' => 'bool', 'label' => 'E-posta Kuyruğu Aktif', 'help' => 'E-posta açık kayıtlardan notification_email_queue kaydı oluşturur; cron worker bu kayıtları gönderir.', 'default' => '0'],
         ['key' => 'notif_email_queue_max_attempts', 'type' => 'number', 'label' => 'E-posta Deneme Hakkı', 'help' => 'Worker başarısız gönderimleri en fazla bu kadar tekrar dener.', 'default' => '3', 'min' => 1, 'max' => 10],
+        ['key' => 'notif_bulk_email_enabled', 'type' => 'bool', 'label' => 'Toplu E-posta Worker Aktif', 'help' => 'Kampanya alıcılarını kalıcı kuyruktan arka planda işler.', 'default' => '1'],
+        ['key' => 'notif_bulk_email_batch_size', 'type' => 'number', 'label' => 'Toplu E-posta Parti Boyutu', 'help' => 'Cron her çalıştığında en fazla bu kadar kampanya alıcısını işler.', 'default' => '100', 'min' => 1, 'max' => 200],
+        ['key' => 'notif_bulk_email_max_attempts', 'type' => 'number', 'label' => 'Toplu E-posta Deneme Hakkı', 'help' => 'Başarısız bir kampanya alıcısının otomatik deneme sınırı.', 'default' => '3', 'min' => 1, 'max' => 10],
     ];
 }
 
@@ -895,6 +898,25 @@ foreach ($adminEmailCatalog as $adminTemplateKey => $adminTemplate) {
 }
 $accountEmailPreviewPayload = admin_notification_account_email_sample_payload($adminSettings, (string) ($_SESSION['_auth_user_email'] ?? ''));
 $adminEmailPreviewPayload = \App\Engine\Email\AdminEmailService::samplePayload($adminSettings);
+$bulkEmailContentService = new \App\Modules\Notifications\Services\BulkEmailContentService();
+$bulkEmailCampaignService = new \App\Modules\Notifications\Services\BulkEmailCampaignService($bulkEmailContentService);
+$bulkEmailSchemaReady = $pdo instanceof PDO && $bulkEmailCampaignService->schemaReady($pdo);
+$bulkEmailEligibleCount = 0;
+$bulkEmailActiveCampaign = null;
+$bulkEmailHistory = [];
+if ($bulkEmailSchemaReady) {
+    try {
+        $bulkEmailEligibleCount = $bulkEmailCampaignService->eligibleRecipientCount($pdo);
+        $bulkEmailActiveCampaign = $bulkEmailCampaignService->activeCampaign($pdo);
+        $bulkEmailHistory = $bulkEmailCampaignService->history($pdo, 20);
+    } catch (Throwable $e) {
+        $bulkEmailSchemaReady = false;
+    }
+}
+$bulkEmailCanDispatch = function_exists('userHasPermission') && $pdo instanceof PDO
+    ? userHasPermission($pdo, $currentUserId, 'notifications.dispatch')
+    : false;
+$bulkEmailApiEndpoint = rtrim((string) ($baseUri ?? ''), '/') . '/admin/api/bulk-email-campaigns.php';
 $adminRegistrationSiteTemplate = function_exists('usersAdminRegistrationSiteTemplate')
     ? usersAdminRegistrationSiteTemplate($adminSettings)
     : [
@@ -2251,17 +2273,18 @@ $csrfToken = csrf_token();
 
     <?php if ($tab === 'email'): ?>
         <?php $allowedTemplateVariables = notificationTemplateAllowedVariables(); ?>
+        <?php $isBulkEmailGroup = $emailGroup === 'bulk'; ?>
         <div class="notification-template-page notification-channel-page">
             <div class="notification-template-toolbar notification-channel-toolbar">
                 <div>
                     <h3><i class="bi bi-envelope-paper"></i> E-Posta Bildirimleri</h3>
                     <p>E-posta konu satırı, gövde metni, önizleme ve kuyruk davranışını site içi metinden bağımsız yönetin.</p>
                 </div>
-                <span class="notif-badge <?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'notif-badge-global' : 'notif-badge-user' ?>"
+                <span class="notif-badge <?= $isBulkEmailGroup ? (admin_notification_bool($adminSettings, 'notif_bulk_email_enabled', '1') ? 'notif-badge-global' : 'notif-badge-user') : (admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'notif-badge-global' : 'notif-badge-user') ?>"
                       data-notification-status-mirror-target="email-channel"
-                      data-active-label="Kanal aktif"
-                      data-inactive-label="Kanal kapalı">
-                    <span data-notification-status-label><?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'Kanal aktif' : 'Kanal kapalı' ?></span>
+                      data-active-label="<?= $isBulkEmailGroup ? 'Toplu worker aktif' : 'Kanal aktif' ?>"
+                      data-inactive-label="<?= $isBulkEmailGroup ? 'Toplu worker kapalı' : 'Kanal kapalı' ?>">
+                    <span data-notification-status-label><?= $isBulkEmailGroup ? (admin_notification_bool($adminSettings, 'notif_bulk_email_enabled', '1') ? 'Toplu worker aktif' : 'Toplu worker kapalı') : (admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'Kanal aktif' : 'Kanal kapalı') ?></span>
                 </span>
             </div>
 
@@ -2275,6 +2298,10 @@ $csrfToken = csrf_token();
             <?php endif; ?>
 
             <div class="notification-email-subtabs" role="tablist" aria-label="E-posta bildirim grupları">
+                <a role="tab" aria-selected="<?= $emailGroup === 'bulk' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=bulk" class="notification-email-subtab <?= $emailGroup === 'bulk' ? 'is-active' : '' ?>">
+                    <i class="bi bi-send"></i>
+                    <span><strong>Toplu E-posta</strong><small><?= $bulkEmailActiveCampaign ? htmlspecialchars((string) $bulkEmailActiveCampaign['status']) : number_format($bulkEmailEligibleCount, 0, ',', '.') . ' uygun üye' ?></small></span>
+                </a>
                 <a role="tab" aria-selected="<?= $emailGroup === 'account' ? 'true' : 'false' ?>" href="notifications.php?tab=email&amp;email_group=account" class="notification-email-subtab <?= $emailGroup === 'account' ? 'is-active' : '' ?>">
                     <i class="bi bi-person-check"></i>
                     <span><strong>Kullanıcı E-Postaları</strong><small data-notification-status-group="account-email" data-notification-status-count="active" data-notification-status-count-suffix="/<?= (int) $accountEmailStats['total'] ?> aktif"><?= (int) $accountEmailStats['enabled'] ?>/<?= (int) $accountEmailStats['total'] ?> aktif</small></span>
@@ -2292,6 +2319,159 @@ $csrfToken = csrf_token();
                     <span><strong>Kuyruk &amp; Ayarlar</strong><small><?= admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') ? 'aktif' : 'kapalı' ?></small></span>
                 </a>
             </div>
+
+            <?php if ($emailGroup === 'bulk'): ?>
+                <?php if (!$bulkEmailSchemaReady): ?>
+                    <?= adminRenderAlert('', 'warning', [
+                        'icon' => '',
+                        'class' => 'notification-flash notification-flash-warning',
+                        'role' => 'status',
+                        'html' => '<span class="notification-flash-icon"><i class="bi bi-database-exclamation"></i></span><span class="notification-flash-copy"><strong>Toplu e-posta tabloları bekliyor</strong><span>Veritabanı Senkronizasyonunu çalıştırdıktan sonra kampanya oluşturabilirsiniz.</span></span>',
+                    ]) ?>
+                <?php else: ?>
+                    <section class="bulk-email-workspace" data-bulk-email-root>
+                        <div class="bulk-email-commandbar">
+                            <div>
+                                <span class="bulk-email-kicker">Kampanya Stüdyosu</span>
+                                <h3>Üyelere toplu e-posta</h3>
+                            </div>
+                            <div class="bulk-email-audience" title="Aktif, yasaklı olmayan ve geçerli e-posta adresi bulunan üyeler">
+                                <i class="bi bi-people"></i>
+                                <span><strong><?= number_format($bulkEmailEligibleCount, 0, ',', '.') ?></strong> uygun alıcı</span>
+                            </div>
+                        </div>
+
+                        <?php if ($bulkEmailActiveCampaign): ?>
+                            <?php
+                                $bulkTotal = max(0, (int) ($bulkEmailActiveCampaign['recipient_total'] ?? 0));
+                                $bulkPercent = max(0, min(100, (int) ($bulkEmailActiveCampaign['progress_percent'] ?? 0)));
+                            ?>
+                            <article class="bulk-email-progress" data-bulk-progress-card data-campaign-id="<?= (int) $bulkEmailActiveCampaign['id'] ?>" data-status="<?= htmlspecialchars((string) $bulkEmailActiveCampaign['status']) ?>">
+                                <div class="bulk-email-progress-head">
+                                    <div>
+                                        <span class="bulk-email-status" data-bulk-status><?= htmlspecialchars((string) $bulkEmailActiveCampaign['status']) ?></span>
+                                        <h4 data-bulk-progress-subject><?= htmlspecialchars((string) $bulkEmailActiveCampaign['subject_template']) ?></h4>
+                                    </div>
+                                    <strong class="bulk-email-percent" data-bulk-percent><?= $bulkPercent ?>%</strong>
+                                </div>
+                                <div class="bulk-email-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $bulkPercent ?>">
+                                    <span style="width: <?= $bulkPercent ?>%" data-bulk-progress-bar></span>
+                                </div>
+                                <div class="bulk-email-progress-stats">
+                                    <span><small>Toplam</small><strong data-bulk-count="recipient_total"><?= number_format($bulkTotal, 0, ',', '.') ?></strong></span>
+                                    <span><small>Gönderildi</small><strong data-bulk-count="sent_count"><?= number_format((int) $bulkEmailActiveCampaign['sent_count'], 0, ',', '.') ?></strong></span>
+                                    <span><small>Bekliyor</small><strong data-bulk-count="pending_count"><?= number_format((int) $bulkEmailActiveCampaign['pending_count'], 0, ',', '.') ?></strong></span>
+                                    <span><small>İşleniyor</small><strong data-bulk-count="processing_count"><?= number_format((int) $bulkEmailActiveCampaign['processing_count'], 0, ',', '.') ?></strong></span>
+                                    <span><small>Hatalı</small><strong data-bulk-count="failed_count"><?= number_format((int) $bulkEmailActiveCampaign['failed_count'], 0, ',', '.') ?></strong></span>
+                                    <span><small>İptal</small><strong data-bulk-count="cancelled_count"><?= number_format((int) $bulkEmailActiveCampaign['cancelled_count'], 0, ',', '.') ?></strong></span>
+                                </div>
+                                <div class="bulk-email-progress-actions">
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-action="pause"><i class="bi bi-pause-fill"></i> Duraklat</button>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-primary" data-bulk-action="resume"><i class="bi bi-play-fill"></i> Devam Et</button>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-action="retry"><i class="bi bi-arrow-clockwise"></i> Hatalıları Dene</button>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline" data-bulk-action="cancel"><i class="bi bi-x-octagon"></i> İptal Et</button>
+                                </div>
+                            </article>
+                        <?php else: ?>
+                            <div class="bulk-email-progress bulk-email-progress-empty" data-bulk-progress-card hidden>
+                                <div class="bulk-email-progress-head"><div><span class="bulk-email-status" data-bulk-status>taslak</span><h4 data-bulk-progress-subject>Yeni kampanya</h4></div><strong class="bulk-email-percent" data-bulk-percent>0%</strong></div>
+                                <div class="bulk-email-progress-track"><span data-bulk-progress-bar></span></div>
+                                <div class="bulk-email-progress-stats">
+                                    <?php foreach (['recipient_total' => 'Toplam', 'sent_count' => 'Gönderildi', 'pending_count' => 'Bekliyor', 'processing_count' => 'İşleniyor', 'failed_count' => 'Hatalı', 'cancelled_count' => 'İptal'] as $countKey => $countLabel): ?>
+                                        <span><small><?= $countLabel ?></small><strong data-bulk-count="<?= $countKey ?>">0</strong></span>
+                                    <?php endforeach; ?>
+                                </div>
+                                <div class="bulk-email-progress-actions">
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-action="pause"><i class="bi bi-pause-fill"></i> Duraklat</button>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-primary" data-bulk-action="resume"><i class="bi bi-play-fill"></i> Devam Et</button>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-action="retry"><i class="bi bi-arrow-clockwise"></i> Hatalıları Dene</button>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-danger-outline" data-bulk-action="cancel"><i class="bi bi-x-octagon"></i> İptal Et</button>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <form class="bulk-email-composer" data-bulk-composer novalidate>
+                            <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                            <input type="hidden" name="campaign_id" value="" data-bulk-campaign-id>
+                            <div class="bulk-email-editor-panel">
+                                <div class="bulk-email-section-head">
+                                    <div><span>01</span><div><h4>İçerik</h4><small>Konu ve üye mesajı</small></div></div>
+                                    <span class="bulk-email-save-state" data-bulk-save-state>Yeni taslak</span>
+                                </div>
+                                <label class="ui-admin-form-label" for="bulkEmailSubject">E-posta konusu</label>
+                                <input id="bulkEmailSubject" name="subject" class="ui-admin-form-control bulk-email-subject" maxlength="255" required placeholder="Üyelere gösterilecek konu satırı">
+
+                                <div class="bulk-email-token-row" aria-label="Kişiselleştirme değişkenleri">
+                                    <?php foreach ($bulkEmailContentService->allowedTokens() as $token): ?>
+                                        <button type="button" class="notification-template-token" data-bulk-token="{{<?= htmlspecialchars($token) ?>}}">{{<?= htmlspecialchars($token) ?>}}</button>
+                                    <?php endforeach; ?>
+                                </div>
+
+                                <label class="ui-admin-form-label" for="bulkEmailBody">E-posta içeriği</label>
+                                <textarea id="bulkEmailBody" name="body_html" class="ui-admin-form-control bulk-email-body" rows="14" required><p>Merhaba {{username}},</p><p>Üyelerimizle paylaşmak istediğimiz güncellemeyi burada bulabilirsiniz.</p></textarea>
+
+                                <div class="bulk-email-test-strip">
+                                    <div>
+                                        <label class="ui-admin-form-label" for="bulkEmailTestRecipient">Test alıcısı</label>
+                                        <input id="bulkEmailTestRecipient" type="email" class="ui-admin-form-control" value="<?= htmlspecialchars((string) ($_SESSION['_auth_user_email'] ?? '')) ?>" placeholder="test@domain.com" data-bulk-test-email>
+                                    </div>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-test><i class="bi bi-send-check"></i> Test Gönder</button>
+                                </div>
+                                <div class="bulk-email-form-error" role="alert" data-bulk-error hidden></div>
+                                <div class="bulk-email-composer-actions">
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-bulk-save><i class="bi bi-save"></i> Taslağı Kaydet</button>
+                                    <button type="button" class="ui-admin-btn ui-admin-btn-primary" data-bulk-start <?= $bulkEmailCanDispatch ? '' : 'disabled' ?>><i class="bi bi-send"></i> Gönderimi Başlat</button>
+                                </div>
+                            </div>
+
+                            <div class="bulk-email-preview-panel">
+                                <div class="bulk-email-section-head">
+                                    <div><span>02</span><div><h4>Birebir Önizleme</h4><small data-bulk-preview-subject>Konu bekleniyor</small></div></div>
+                                    <div class="bulk-email-device-switch" role="group" aria-label="Önizleme genişliği">
+                                        <button type="button" class="is-active" data-bulk-device="desktop" title="Masaüstü"><i class="bi bi-display"></i></button>
+                                        <button type="button" data-bulk-device="mobile" title="Mobil"><i class="bi bi-phone"></i></button>
+                                    </div>
+                                </div>
+                                <div class="bulk-email-preview-stage" data-bulk-preview-stage>
+                                    <iframe sandbox="" title="Toplu e-posta birebir önizlemesi" data-bulk-preview-frame></iframe>
+                                    <div class="bulk-email-preview-loading" data-bulk-preview-loading><i class="bi bi-arrow-repeat"></i><span>Önizleme hazırlanıyor</span></div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <section class="bulk-email-history">
+                            <div class="bulk-email-section-head">
+                                <div><span>03</span><div><h4>Kampanya Geçmişi</h4><small>Son 20 gönderim ve taslak</small></div></div>
+                            </div>
+                            <div class="ui-admin-table-wrap">
+                                <table class="ui-admin-table">
+                                    <thead><tr><th>Kampanya</th><th>Durum</th><th>Sonuç</th><th>Tarih</th><th class="ui-admin-table-actions">İşlem</th></tr></thead>
+                                    <tbody data-bulk-history-body>
+                                        <?php if ($bulkEmailHistory === []): ?>
+                                            <tr data-bulk-history-empty><td colspan="5" class="ui-admin-table-empty">Henüz toplu e-posta kampanyası yok.</td></tr>
+                                        <?php endif; ?>
+                                        <?php foreach ($bulkEmailHistory as $campaign): ?>
+                                            <tr data-bulk-history-row="<?= (int) $campaign['id'] ?>">
+                                                <td data-label="Kampanya"><strong><?= htmlspecialchars((string) $campaign['subject_template']) ?></strong><small>#<?= (int) $campaign['id'] ?> · <?= htmlspecialchars((string) ($campaign['creator_username'] ?? 'Sistem')) ?></small></td>
+                                                <td data-label="Durum"><span class="bulk-email-history-status" data-status="<?= htmlspecialchars((string) $campaign['status']) ?>"><?= htmlspecialchars((string) $campaign['status']) ?></span></td>
+                                                <td data-label="Sonuç"><strong><?= number_format((int) $campaign['sent_count'], 0, ',', '.') ?></strong> / <?= number_format((int) $campaign['recipient_total'], 0, ',', '.') ?> <small><?= (int) $campaign['failed_count'] > 0 ? number_format((int) $campaign['failed_count'], 0, ',', '.') . ' hata' : 'hata yok' ?></small></td>
+                                                <td data-label="Tarih"><?= htmlspecialchars((string) ($campaign['created_at'] ?? '-')) ?></td>
+                                                <td data-label="İşlem" class="ui-admin-table-actions">
+                                                    <?php if ((string) $campaign['status'] === 'draft'): ?>
+                                                        <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs" data-bulk-edit="<?= (int) $campaign['id'] ?>"><i class="bi bi-pencil"></i> Düzenle</button>
+                                                    <?php else: ?>
+                                                        <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-xs" data-bulk-history-preview="<?= (int) $campaign['id'] ?>"><i class="bi bi-eye"></i> Önizle</button>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </section>
+                <?php endif; ?>
+            <?php endif; ?>
 
             <?php if ($emailGroup === 'settings'): ?>
             <form method="POST" action="notifications.php?tab=email&amp;email_group=settings" class="notification-email-settings-card ui-card">
@@ -2333,7 +2513,7 @@ $csrfToken = csrf_token();
                     <?php endforeach; ?>
                 </div>
                 <div class="notification-template-actions">
-                    <small class="notif-help notif-cron-help">Cron komutu: <code>php cron/send-notification-email-queue.php --limit=25</code></small>
+                    <small class="notif-help notif-cron-help">Cron komutları: <code>php cron/send-notification-email-queue.php --limit=25</code> · <code>php cron/send-bulk-email-campaigns.php --limit=100</code></small>
                     <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-save"></i> E-Posta Ayarlarını Kaydet</button>
                 </div>
             </form>
@@ -2801,6 +2981,12 @@ $csrfToken = csrf_token();
     'templatePreviewPayloads' => $templatePreviewPayloads,
     'accountEmailPreviewPayload' => $accountEmailPreviewPayload,
     'adminEmailPreviewPayload' => $adminEmailPreviewPayload,
+    'bulkEmail' => [
+        'api' => $bulkEmailApiEndpoint,
+        'csrf' => $csrfToken,
+        'eligibleCount' => $bulkEmailEligibleCount,
+        'activeCampaign' => $bulkEmailActiveCampaign,
+    ],
     'typeMeta' => admin_notification_types(),
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?: '{}' ?></script>
 <script src="<?= asset_url('admin/assets/notifications-page.js', $baseUri) ?>" defer></script>

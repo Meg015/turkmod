@@ -1074,6 +1074,7 @@ if ($loadQueueSection && function_exists('getAdminSettings') && $pdo instanceof 
     }
 }
 $notificationEmailEnabled = healthSettingEnabled($healthAdminSettings, 'notif_email_channel_ready', '0');
+$bulkEmailEnabled = healthSettingEnabled($healthAdminSettings, 'notif_bulk_email_enabled', '1');
 $eventsReady = false;
 $eventsConfig = [];
 $eventsSystemEnabled = false;
@@ -1187,6 +1188,15 @@ $emailStuckProcessing = $loadQueueSection && healthTableExists($pdo, 'notificati
 $latestFailedEmail = $loadQueueSection && healthTableExists($pdo, 'notification_email_queue')
     ? healthTextScalar($pdo, "SELECT CONCAT('#', id, ' / ', LEFT(COALESCE(error_message, 'hata detayı yok'), 140)) FROM notification_email_queue WHERE status = 'failed' ORDER BY updated_at DESC, id DESC LIMIT 1", [], 'başarısız kayıt yok')
     : 'kuyruk detayı için Kuyruklar sekmesini açın';
+$bulkEmailPending = $loadQueueSection && healthTableExists($pdo, 'bulk_email_recipients')
+    ? healthScalar($pdo, "SELECT COUNT(*) FROM bulk_email_recipients WHERE status IN ('pending','processing')")
+    : 0;
+$bulkEmailFailed = $loadQueueSection && healthTableExists($pdo, 'bulk_email_recipients')
+    ? healthScalar($pdo, "SELECT COUNT(*) FROM bulk_email_recipients WHERE status = 'failed'")
+    : 0;
+$bulkEmailStuck = $loadQueueSection && healthTableExists($pdo, 'bulk_email_recipients')
+    ? healthScalar($pdo, "SELECT COUNT(*) FROM bulk_email_recipients WHERE status = 'processing' AND locked_at IS NOT NULL AND locked_at < DATE_SUB(NOW(), INTERVAL 20 MINUTE)")
+    : 0;
 $eventsEmailPending = $loadQueueSection && healthTableExists($pdo, 'events_email_queue')
     ? healthScalar($pdo, "SELECT COUNT(*) FROM events_email_queue WHERE status = 'pending'")
     : 0;
@@ -1219,6 +1229,7 @@ $verificationReminderEligibleUsers = $loadDatabaseSection && $verificationRemind
     : 0;
 $cronScriptPaths = [
     'Bildirim e-posta' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'send-notification-email-queue.php',
+    'Toplu e-posta' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'send-bulk-email-campaigns.php',
     'Liderlik cache' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'update-leaderboard-cache.php',
     'Doğrulama hatırlatma' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'send-verification-reminders.php',
     'Rate limit cleanup' => $root . DIRECTORY_SEPARATOR . 'cron' . DIRECTORY_SEPARATOR . 'cleanup-expired-rate-limits.php',
@@ -1233,6 +1244,7 @@ foreach ($cronScriptPaths as $label => $path) {
 $cronRuns = $loadQueueSection
     ? [
         'notification_email_queue' => healthCronLastRun($pdo, 'notification_email_queue'),
+        'bulk_email_campaigns' => healthCronLastRun($pdo, 'bulk_email_campaigns'),
         'leaderboard_cache' => healthCronLastRun($pdo, 'leaderboard_cache'),
         'verification_reminders' => healthCronLastRun($pdo, 'verification_reminders'),
         'rate_limits_cleanup' => healthCronLastRun($pdo, 'rate_limits_cleanup'),
@@ -1240,6 +1252,7 @@ $cronRuns = $loadQueueSection
     ]
     : [
         'notification_email_queue' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
+        'bulk_email_campaigns' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
         'leaderboard_cache' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
         'verification_reminders' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
         'rate_limits_cleanup' => ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []],
@@ -1329,6 +1342,8 @@ $checks = [
     healthRow('queues', 'Sıkışan e-posta işlemleri', $emailStuckProcessing === 0, $emailStuckProcessing . ' işlem 15 dakikadan uzun süredir işleniyor', 'warning', $baseUri . '/admin/notifications.php?tab=email', 'E-posta Bildirimleri'),
     healthRow('queues', 'Son e-posta hatası', $emailFailed === 0, $latestFailedEmail, 'warning', $baseUri . '/admin/system-health.php?tab=logs&logs_view=center', 'Hata Merkezi'),
     healthRow('queues', 'Bildirim e-posta cronu', healthCronIsFresh($cronRuns['notification_email_queue'], 30, $notificationEmailEnabled), $notificationEmailEnabled ? healthCronDetail($cronRuns['notification_email_queue'], 'cron kaydı yok; worker çalışmıyor olabilir') : 'e-posta kuyruğu kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/notifications.php?tab=email', 'E-posta Bildirimleri'),
+    healthRow('queues', 'Toplu e-posta kuyruğu', $bulkEmailFailed === 0 && $bulkEmailStuck === 0, $bulkEmailPending . ' bekleyen/işlenen, ' . $bulkEmailFailed . ' başarısız, ' . $bulkEmailStuck . ' sıkışmış', 'warning', $baseUri . '/admin/notifications.php?tab=email&email_group=bulk', 'Toplu E-posta'),
+    healthRow('queues', 'Toplu e-posta cronu', healthCronIsFresh($cronRuns['bulk_email_campaigns'], 30, $bulkEmailEnabled), $bulkEmailEnabled ? healthCronDetail($cronRuns['bulk_email_campaigns'], 'cron kaydı yok; toplu gönderim worker çalışmıyor olabilir') : 'toplu e-posta worker kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/notifications.php?tab=email&email_group=bulk', 'Toplu E-posta'),
     healthRow('queues', 'Doğrulama hatırlatma cronu', healthCronIsFresh($cronRuns['verification_reminders'], 180, $verificationReminderEnabled), $verificationReminderEnabled ? healthCronDetail($cronRuns['verification_reminders'], 'son 3 saat içinde cron kaydı yok; doğrulama hatırlatmaları gecikiyor olabilir') . ' • bekleyen hesap: ' . $verificationReminderEligibleUsers : 'e-posta doğrulama hatırlatma kapalı; cron zorunlu değil', 'warning', $baseUri . '/admin/settings.php#user_system', 'Kullanıcı Sistemi'),
     healthRow('queues', 'Liderlik cronu', healthCronIsFresh($cronRuns['leaderboard_cache'], 1440, true), healthCronDetail($cronRuns['leaderboard_cache'], 'son 24 saat için cron kaydı yok'), 'warning', $baseUri . '/admin/leaderboard', 'Liderlik'),
     healthRow('queues', 'Süre sınırı temizleme cronu', healthCronIsFresh($cronRuns['rate_limits_cleanup'], 180, true), healthCronDetail($cronRuns['rate_limits_cleanup'], 'son 3 saat içinde cron kaydı yok; süresi dolan kayıtlar birikiyor olabilir'), 'warning', $baseUri . '/admin/rate-limits.php?status=expired', 'Temizle'),
@@ -1348,7 +1363,7 @@ $checks = [
 $problemChecks = array_values(array_filter($checks, static fn (array $check): bool => !$check['ok']));
 $requiredIssues = count(array_filter($checks, static fn (array $check): bool => !$check['ok'] && $check['level'] === 'required'));
 $warningIssues = count(array_filter($checks, static fn (array $check): bool => !$check['ok'] && $check['level'] === 'warning'));
-$operationsCount = $topicReportsOpen + $userReportsOpen + $pendingTopics + $emailFailed + $emailStuckProcessing;
+$operationsCount = $topicReportsOpen + $userReportsOpen + $pendingTopics + $emailFailed + $emailStuckProcessing + $bulkEmailFailed + $bulkEmailStuck;
 $healthScore = max(0, min(100, 100 - ($requiredIssues * 20) - ($warningIssues * 5)));
 
 $overviewChecks = array_filter($checks, static fn(array $check): bool => 

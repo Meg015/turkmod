@@ -840,6 +840,56 @@ CREATE TABLE `media_files` (
   CONSTRAINT `media_files_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=7527 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `bulk_email_campaigns` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `created_by_user_id` bigint(20) unsigned DEFAULT NULL,
+  `subject_template` varchar(255) NOT NULL,
+  `body_html_template` longtext NOT NULL,
+  `status` varchar(30) NOT NULL DEFAULT 'draft',
+  `snapshot_after_user_id` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `snapshot_completed_at` timestamp NULL DEFAULT NULL,
+  `recipient_total` int(10) unsigned NOT NULL DEFAULT 0,
+  `pending_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `processing_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `sent_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `failed_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `cancelled_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `started_at` timestamp NULL DEFAULT NULL,
+  `paused_at` timestamp NULL DEFAULT NULL,
+  `completed_at` timestamp NULL DEFAULT NULL,
+  `cancelled_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `bulk_email_campaigns_status_created_index` (`status`,`created_at`),
+  KEY `bulk_email_campaigns_creator_index` (`created_by_user_id`,`created_at`),
+  CONSTRAINT `bulk_email_campaigns_creator_foreign` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `bulk_email_recipients` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `campaign_id` bigint(20) unsigned NOT NULL,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `recipient_email` varchar(255) NOT NULL,
+  `recipient_username` varchar(255) NOT NULL,
+  `status` varchar(30) NOT NULL DEFAULT 'pending',
+  `attempt_count` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `available_at` timestamp NULL DEFAULT current_timestamp(),
+  `lock_token` varchar(64) DEFAULT NULL,
+  `locked_at` timestamp NULL DEFAULT NULL,
+  `sent_at` timestamp NULL DEFAULT NULL,
+  `last_error` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bulk_email_recipients_campaign_user_unique` (`campaign_id`,`user_id`),
+  KEY `bulk_email_recipients_claim_index` (`campaign_id`,`status`,`available_at`,`id`),
+  KEY `bulk_email_recipients_lock_index` (`status`,`locked_at`),
+  KEY `bulk_email_recipients_email_index` (`recipient_email`,`created_at`),
+  CONSTRAINT `bulk_email_recipients_campaign_foreign` FOREIGN KEY (`campaign_id`) REFERENCES `bulk_email_campaigns` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `bulk_email_recipients_user_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `notification_email_queue` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `notification_id` bigint(20) unsigned NOT NULL,
