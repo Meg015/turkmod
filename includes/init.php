@@ -2932,7 +2932,13 @@ function buildRobotsTxt(?array $settings = null, ?string $canonicalBase = null):
         && (string) ($settings['sitemap_route_enabled'] ?? '1') === '1'
     ) {
         $lines[] = "";
-        $lines[] = "Sitemap: " . $canonicalBase . "/sitemap.xml";
+        $sitemapUrls = array_merge(
+            [$canonicalBase . "/sitemap.xml"],
+            seoSitemapIndexUrls($settings, $canonicalBase, $GLOBALS['pdo'] ?? null),
+        );
+        foreach (array_values(array_unique(array_filter($sitemapUrls))) as $sitemapUrl) {
+            $lines[] = "Sitemap: " . $sitemapUrl;
+        }
     }
 
     return implode("\n", $lines) . "\n";

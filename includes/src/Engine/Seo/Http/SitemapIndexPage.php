@@ -32,7 +32,7 @@ final class SitemapIndexPage implements Handler
         $settings = $this->settings ?? $this->resolveSettings();
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
         $cacheDuration = seoSitemapCacheTtl($settings);
-        $cacheKey = seoSitemapCacheKey('sitemap-index:v7', [
+        $cacheKey = seoSitemapCacheKey('static-page-sitemap:v8', [
             'base' => $canonicalBase,
             'settings' => $settings,
         ]);
@@ -42,20 +42,31 @@ final class SitemapIndexPage implements Handler
         }
 
         $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        $body .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
         $nowFormatted = $this->now();
+        $latestTimestamp = strtotime($nowFormatted) ?: time();
 
         if ($this->sitemapIsEnabled($settings)) {
             $inventory = new SitemapInventory($this->resolvePdo());
-            foreach ($inventory->indexUrls($settings, $canonicalBase) as $url) {
-                $body .= $this->renderSitemapEntry($url, $nowFormatted);
+            foreach (array_slice($inventory->pageEntries($settings), 0, SitemapInventory::maxUrls($settings)) as $entry) {
+                $lastmod = trim((string) ($entry['lastmod'] ?? ''));
+                $timestamp = $lastmod !== '' ? strtotime($lastmod) : false;
+                if ($timestamp !== false) {
+                    $latestTimestamp = max($latestTimestamp, $timestamp);
+                }
+                $body .= $this->renderUrlEntry(
+                    (string) ($entry['loc'] ?? ''),
+                    $timestamp !== false ? date('Y-m-d\TH:i:sP', $timestamp) : null,
+                    (string) ($entry['changefreq'] ?? ($settings['sitemap_changefreq'] ?? 'weekly')),
+                    (string) ($entry['priority'] ?? '0.5'),
+                );
             }
         }
-        $body .= '</sitemapindex>' . "\n";
+        $body .= '</urlset>' . "\n";
 
         $preparedBody = seoPrepareSitemapXml($body);
-        $lastModifiedTimestamp = strtotime($nowFormatted) ?: time();
-        seoSitemapCacheSet($this->cache, $cacheKey, $preparedBody, $lastModifiedTimestamp, $cacheDuration, ['sitemap:index']);
+        $lastModifiedTimestamp = $latestTimestamp;
+        seoSitemapCacheSet($this->cache, $cacheKey, $preparedBody, $lastModifiedTimestamp, $cacheDuration, ['sitemap:page']);
 
         return seoSitemapResponse($request, $preparedBody, $lastModifiedTimestamp, $cacheDuration);
     }
@@ -118,14 +129,16 @@ final class SitemapIndexPage implements Handler
         return $pdo instanceof PDO ? $pdo : null;
     }
 
-    private function renderSitemapEntry(string $url, ?string $lastmod = null): string
+    private function renderUrlEntry(string $url, ?string $lastmod, string $changefreq, string $priority): string
     {
-        $body = '    <sitemap>' . "\n";
+        $body = '    <url>' . "\n";
         $body .= '        <loc>' . htmlspecialchars($url, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</loc>' . "\n";
         if ($lastmod !== null && $lastmod !== '') {
             $body .= '        <lastmod>' . htmlspecialchars($lastmod, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</lastmod>' . "\n";
         }
-        $body .= '    </sitemap>' . "\n";
+        $body .= '        <changefreq>' . htmlspecialchars($changefreq, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</changefreq>' . "\n";
+        $body .= '        <priority>' . htmlspecialchars($priority, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</priority>' . "\n";
+        $body .= '    </url>' . "\n";
 
         return $body;
     }

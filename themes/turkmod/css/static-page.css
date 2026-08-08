@@ -1,0 +1,66 @@
+html[data-public-theme="turkmod"] .static-page-view {
+    width: min(100%, 920px);
+    margin: 0 auto;
+}
+
+html[data-public-theme="turkmod"] .static-page-header {
+    height: max-content;
+    padding: clamp(20px, 4vw, 38px) 0 22px;
+    border-bottom: 1px solid var(--t-border, var(--border));
+}
+
+html[data-public-theme="turkmod"] .static-page-header h1 {
+    max-width: 22ch;
+    margin: 10px 0 8px;
+    color: var(--t-text, var(--text));
+    font-size: clamp(1.7rem, 3vw, 2.4rem);
+    line-height: 1.14;
+    letter-spacing: 0;
+}
+
+html[data-public-theme="turkmod"] .static-page-header p {
+    margin: 0;
+    color: var(--t-muted, var(--text-dim));
+    font-size: .84rem;
+}
+
+html[data-public-theme="turkmod"] .static-page-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--primary);
+    font-size: .76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+html[data-public-theme="turkmod"] .static-page-content {
+    padding: 26px 0 44px;
+    color: var(--t-text, var(--text));
+    line-height: 1.75;
+}
+
+html[data-public-theme="turkmod"] .static-page-content > :first-child { margin-top: 0; }
+html[data-public-theme="turkmod"] .static-page-content > :last-child { margin-bottom: 0; }
+html[data-public-theme="turkmod"] .static-page-content img,
+html[data-public-theme="turkmod"] .static-page-content iframe { max-width: 100%; }
+html[data-public-theme="turkmod"] .static-page-content iframe { aspect-ratio: 16 / 9; height: auto; }
+
+html[data-public-theme="turkmod"] .static-page-preview-banner {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 16px;
+    padding: 11px 13px;
+    border-left: 3px solid #d97706;
+    background: color-mix(in srgb, #f59e0b 10%, var(--t-surface, var(--bg-white)));
+    color: var(--t-text, var(--text));
+    font-size: .84rem;
+    font-weight: 700;
+}
+
+@media (max-width: 720px) {
+    html[data-public-theme="turkmod"] .static-page-view { width: 100%; }
+    html[data-public-theme="turkmod"] .static-page-header h1 { max-width: none; }
+    html[data-public-theme="turkmod"] .static-page-content { padding-top: 20px; }
+}

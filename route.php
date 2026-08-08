@@ -398,6 +398,28 @@ function routerHandleDynamicContentRoute(array $segments, ?PDO $pdo): void
     }
 }
 
+function routerHandleManagedStaticPageRoute(array $segments, ?PDO $pdo): void
+{
+    if (count($segments) !== 1 || !$pdo instanceof PDO) {
+        return;
+    }
+
+    try {
+        $service = new \App\Modules\StaticPages\Services\StaticPageService($pdo);
+        $route = $service->resolveRoute((string) $segments[0]);
+        if (!is_array($route)) {
+            return;
+        }
+
+        $GLOBALS['_static_page_route'] = $route;
+        routerDispatchTarget(\App\Modules\StaticPages\Http\StaticPagePage::class, (string) $segments[0]);
+    } catch (Throwable $exception) {
+        if (function_exists('appLogException')) {
+            appLogException($exception, ['source' => 'routerHandleManagedStaticPageRoute']);
+        }
+    }
+}
+
 $segments = routeSegmentsFromRequest((string) ($baseUri ?? ''));
 $cleanRoute = implode('/', $segments);
 $settings = getAdminSettings($pdo);
@@ -408,5 +430,6 @@ routerHandleAdminApiModuleRoute($cleanRoute);
 routerHandleStaticRoute($cleanRoute);
 routerHandleGotoPostRoute($segments);
 routerHandleDynamicContentRoute($segments, $pdo);
+routerHandleManagedStaticPageRoute($segments, $pdo);
 
 routerNotFound();

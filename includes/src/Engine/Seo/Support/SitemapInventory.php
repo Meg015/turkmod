@@ -16,7 +16,7 @@ final class SitemapInventory
     /** @var array<string,list<array<string,mixed>>> */
     private array $imageTopicsCache = [];
 
-    /** @var array<string,list<array{loc:string,priority:string,changefreq:string}>> */
+    /** @var array<string,list<array{loc:string,priority:string,changefreq:string,lastmod?:string}>> */
     private array $pageEntriesCache = [];
 
     public function __construct(
@@ -158,7 +158,7 @@ final class SitemapInventory
 
     /**
      * @param array<string,mixed> $settings
-     * @return list<array{loc:string,priority:string,changefreq:string}>
+     * @return list<array{loc:string,priority:string,changefreq:string,lastmod?:string}>
      */
     public function pagePage(array $settings, int $page): array
     {
@@ -173,7 +173,7 @@ final class SitemapInventory
 
     /**
      * @param array<string,mixed> $settings
-     * @return list<array{loc:string,priority:string,changefreq:string}>
+     * @return list<array{loc:string,priority:string,changefreq:string,lastmod?:string}>
      */
     public function pageEntries(array $settings): array
     {
@@ -217,6 +217,31 @@ final class SitemapInventory
                 'priority' => (string) $priority,
                 'changefreq' => (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
             ];
+        }
+
+        if ($this->pdo instanceof PDO && class_exists(\App\Modules\StaticPages\Services\StaticPageService::class)) {
+            try {
+                $service = new \App\Modules\StaticPages\Services\StaticPageService($this->pdo);
+                $knownLocations = array_fill_keys(array_map(static fn (array $entry): string => (string) ($entry['loc'] ?? ''), $entries), true);
+                foreach ($service->sitemapPages() as $page) {
+                    $path = '/' . rawurlencode((string) ($page['slug'] ?? ''));
+                    $loc = function_exists('seoCanonicalUrl') ? seoCanonicalUrl($path, $settings) : $path;
+                    if ($loc === '' || isset($knownLocations[$loc])) {
+                        continue;
+                    }
+                    $entries[] = [
+                        'loc' => $loc,
+                        'priority' => '0.5',
+                        'changefreq' => (string) ($settings['sitemap_changefreq'] ?? 'weekly'),
+                        'lastmod' => (string) ($page['updated_at'] ?? $page['published_at'] ?? ''),
+                    ];
+                    $knownLocations[$loc] = true;
+                }
+            } catch (Throwable $exception) {
+                if (function_exists('appLogException')) {
+                    appLogException($exception, ['source' => self::class . ' static pages']);
+                }
+            }
         }
 
         return $this->pageEntriesCache[$cacheKey] = $entries;

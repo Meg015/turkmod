@@ -76,6 +76,35 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
             "social_telegram" => ["bi-telegram", "Telegram"],
         ];
         $_fColumnLinks = [];
+        $_fManagedPageLinks = [];
+        $_fManagedPageUrls = [];
+        $_fLocalLegalPages = ["terms" => null, "privacy" => null];
+        $_fStaticPageService = null;
+        if (isset($pdo) && $pdo instanceof PDO && class_exists(\App\Modules\StaticPages\Services\StaticPageService::class)) {
+            try {
+                $_fStaticPageService = new \App\Modules\StaticPages\Services\StaticPageService($pdo);
+                foreach ($_fStaticPageService->footerPages() as $_fManagedPage) {
+                    $_fManagedUrl = $_fStaticPageService->publicPath((string) ($_fManagedPage["slug"] ?? ""));
+                    if ($_fManagedUrl === "" || isset($_fManagedPageUrls[$_fManagedUrl])) {
+                        continue;
+                    }
+                    $_fManagedPageLinks[] = [
+                        trim((string) ($_fManagedPage["footer_label"] ?? "")) !== ""
+                            ? (string) $_fManagedPage["footer_label"]
+                            : (string) ($_fManagedPage["title"] ?? ""),
+                        $_fManagedUrl,
+                    ];
+                    $_fManagedPageUrls[$_fManagedUrl] = true;
+                }
+                foreach (array_keys($_fLocalLegalPages) as $_fLegalKey) {
+                    $_fLocalLegalPages[$_fLegalKey] = $_fStaticPageService->publishedSystemPage($_fLegalKey);
+                }
+            } catch (Throwable $_fStaticPageError) {
+                if (function_exists("appLogException")) {
+                    appLogException($_fStaticPageError, ["source" => "public-footer static pages"]);
+                }
+            }
+        }
         foreach (
             array_filter(
                 array_map(
@@ -209,18 +238,31 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
                             " " .
                             htmlspecialchars($_fSiteName) .
                             ". Tüm hakları saklıdır." ?></p>
-                    <?php if ($_fShowMeta): ?>
+                    <?php if ($_fShowMeta || $_fManagedPageLinks !== [] || is_array($_fLocalLegalPages["terms"]) || is_array($_fLocalLegalPages["privacy"])): ?>
                     <div class="footer-meta">
-                        <?php if (!empty($_fLay["terms_url"])): ?>
+                        <?php foreach ($_fManagedPageLinks as [$_fManagedLabel, $_fManagedHref]): ?>
+                            <a href="<?= htmlspecialchars($_fManagedHref) ?>" class="footer-meta-link"><?= htmlspecialchars($_fManagedLabel) ?></a>
+                        <?php endforeach; ?>
+                        <?php $_fTermsPage = $_fLocalLegalPages["terms"]; ?>
+                        <?php $_fTermsHref = is_array($_fTermsPage) && $_fStaticPageService ? $_fStaticPageService->publicPath((string) ($_fTermsPage["slug"] ?? "")) : ""; ?>
+                        <?php if ($_fTermsHref !== "" && !isset($_fManagedPageUrls[$_fTermsHref])): ?>
+                            <a href="<?= htmlspecialchars($_fTermsHref) ?>" class="footer-meta-link">Kullanım Koşulları</a>
+                        <?php endif; ?>
+                        <?php if (!is_array($_fTermsPage) && !empty($_fLay["terms_url"])): ?>
                             <a href="<?= htmlspecialchars($_fLay["terms_url"]) ?>" class="footer-meta-link">Kullanım Koşulları</a>
                         <?php endif; ?>
-                        <?php if (!empty($_fLay["privacy_url"])): ?>
+                        <?php $_fPrivacyPage = $_fLocalLegalPages["privacy"]; ?>
+                        <?php $_fPrivacyHref = is_array($_fPrivacyPage) && $_fStaticPageService ? $_fStaticPageService->publicPath((string) ($_fPrivacyPage["slug"] ?? "")) : ""; ?>
+                        <?php if ($_fPrivacyHref !== "" && !isset($_fManagedPageUrls[$_fPrivacyHref])): ?>
+                            <a href="<?= htmlspecialchars($_fPrivacyHref) ?>" class="footer-meta-link">Gizlilik Politikası</a>
+                        <?php endif; ?>
+                        <?php if (!is_array($_fPrivacyPage) && !empty($_fLay["privacy_url"])): ?>
                             <a href="<?= htmlspecialchars($_fLay["privacy_url"]) ?>" class="footer-meta-link">Gizlilik Politikası</a>
                         <?php endif; ?>
-                        <?php if ($_fMetaLeftText !== ""): ?>
+                        <?php if ($_fShowMeta && $_fMetaLeftText !== ""): ?>
                             <span><i class="bi <?= htmlspecialchars($_fMetaLeftIcon !== "" ? $_fMetaLeftIcon : "bi-shield-check") ?>"></i> <?= htmlspecialchars($_fMetaLeftText) ?></span>
                         <?php endif; ?>
-                        <?php if ($_fMetaRightText !== ""): ?>
+                        <?php if ($_fShowMeta && $_fMetaRightText !== ""): ?>
                             <span><i class="bi <?= htmlspecialchars($_fMetaRightIcon !== "" ? $_fMetaRightIcon : "bi-heart-fill") ?>"></i> <?= htmlspecialchars($_fMetaRightText) ?></span>
                         <?php endif; ?>
                     </div>

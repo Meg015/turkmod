@@ -16,6 +16,7 @@ $menuRouteMap = [
 
     // İçerik Yönetimi
     'admin/topics.php'                  => 'topics',
+    'admin/static-pages.php'            => 'static-pages',
     'admin/edit.php'                    => 'topics',
     'admin/create.php'                  => 'create',
     'admin/categories.php'              => 'categories',
@@ -124,6 +125,9 @@ function sidebarBadge(?int $count, int $max = 99): string {
         <div class="admin-menu-group-body ui-panel__body">
             <?php if ($adminCan('topics.view')): ?>
                 <a class="admin-menu-item<?= sidebarActiveClass('topics') ?>" href="<?= $baseUri ?>/admin/topics.php"><i class="bi bi-files"></i><span>Konular</span></a>
+            <?php endif; ?>
+            <?php if ($adminCan('manage_static_pages')): ?>
+                <a class="admin-menu-item<?= sidebarActiveClass('static-pages') ?>" href="<?= $baseUri ?>/admin/static-pages.php"><i class="bi bi-file-earmark-richtext"></i><span>Sabit Sayfalar</span></a>
             <?php endif; ?>
             <?php if ($adminCan('topics.create')): ?>
                 <a class="admin-menu-item<?= sidebarActiveClass('create') ?>" href="<?= $baseUri ?>/admin/create.php"><i class="bi bi-plus-circle"></i><span>Yeni Konu</span></a>

@@ -53,7 +53,7 @@ final class PublicThemeRenderer
         $isEventsLoginRedirect = in_array($currentScript, ['login.php', 'giris'], true)
             && preg_match('~(?:^|/)events(?:/|$)~', '/' . trim($redirectPath, '/')) === 1;
         $focusPageKeys = array_values(array_unique(array_merge(
-            ['download', 'events', 'profile', 'public_profile', 'upload_topic', 'edit_topic', 'notifications', 'messages', 'leaderboard', 'contact'],
+            ['download', 'events', 'profile', 'public_profile', 'upload_topic', 'edit_topic', 'notifications', 'messages', 'leaderboard', 'contact', 'static_page'],
             ThemeMetadata::authFocusPageKeys($themeManager),
         )));
         $isFocusLayout = in_array($pageKey, $focusPageKeys, true) || $isEventsLoginRedirect;
@@ -2340,6 +2340,9 @@ final class PublicThemeRenderer
         if (isset($pageVars['categoryId'], $pageVars['items']) && (int) $pageVars['categoryId'] > 0 && empty($pageVars['items']) && $indexEmptyCategories !== '1') {
             $robotsMeta = 'noindex, nofollow';
         }
+        if (isset($pageVars['robotsMetaOverride']) && trim((string) $pageVars['robotsMetaOverride']) !== '') {
+            $robotsMeta = trim((string) $pageVars['robotsMetaOverride']);
+        }
         $head[] = '<meta name="robots" content="' . htmlspecialchars($robotsMeta, ENT_QUOTES, 'UTF-8') . '">';
 
         $pageKey = (string) ($context['page_key'] ?? '');
@@ -2908,6 +2911,59 @@ final class PublicThemeRenderer
             }
         }
 
+        $footerUrls = [];
+        foreach ($footerNavItems as $item) {
+            $url = trim((string) ($item['url'] ?? ''));
+            if ($url !== '') {
+                $footerUrls[$url] = true;
+            }
+        }
+        if ($pdo instanceof PDO && class_exists(\App\Modules\StaticPages\Services\StaticPageService::class)) {
+            try {
+                $staticPageService = new \App\Modules\StaticPages\Services\StaticPageService($pdo);
+                $managedPages = $staticPageService->footerPages();
+                $managedIds = array_map(static fn (array $page): int => (int) ($page['id'] ?? 0), $managedPages);
+                $localLegalPages = ['terms' => false, 'privacy' => false];
+                foreach (['terms', 'privacy'] as $systemKey) {
+                    $systemPage = $staticPageService->publishedSystemPage($systemKey);
+                    if (is_array($systemPage)) {
+                        $localLegalPages[$systemKey] = true;
+                        if (!in_array((int) ($systemPage['id'] ?? 0), $managedIds, true)) {
+                            $managedPages[] = $systemPage;
+                            $managedIds[] = (int) ($systemPage['id'] ?? 0);
+                        }
+                    }
+                }
+                foreach ($managedPages as $managedPage) {
+                    $url = $staticPageService->publicPath((string) ($managedPage['slug'] ?? ''));
+                    if ($url === '' || isset($footerUrls[$url])) {
+                        continue;
+                    }
+                    $footerNavItems[] = [
+                        'label' => trim((string) ($managedPage['footer_label'] ?? '')) !== ''
+                            ? (string) $managedPage['footer_label']
+                            : (string) ($managedPage['title'] ?? ''),
+                        'url' => $url,
+                    ];
+                    $footerUrls[$url] = true;
+                }
+                foreach ([['terms_url', 'terms', 'Kullanım Koşulları'], ['privacy_url', 'privacy', 'Gizlilik Politikası']] as [$settingKey, $systemKey, $label]) {
+                    if ($localLegalPages[$systemKey]) {
+                        continue;
+                    }
+                    $url = trim((string) ($settings[$settingKey] ?? ''));
+                    if ($url !== '' && !isset($footerUrls[$url])) {
+                        $footerNavItems[] = ['label' => $label, 'url' => $url];
+                        $footerUrls[$url] = true;
+                    }
+                }
+            } catch (Throwable $error) {
+                if (function_exists('appLogException')) {
+                    appLogException($error, ['source' => 'PublicThemeRenderer static page footer']);
+                }
+            }
+        }
+
         return [
             'site_name' => $siteName,
             'site_description' => $siteDescription,
@@ -3065,6 +3121,11 @@ final class PublicThemeRenderer
 
     private static function pageKey(string $currentScript, bool $isEventsRequest, string $currentRequestUri = ''): string
     {
+        $override = trim((string) ($GLOBALS['_public_page_key_override'] ?? ''));
+        if ($override !== '') {
+            return $override;
+        }
+
         if ($isEventsRequest) {
             return 'events';
         }

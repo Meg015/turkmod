@@ -1,0 +1,65 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\StaticPages\Services;
+
+use App\Core\Database\Migration;
+use App\Core\Database\MigrationRunner;
+use App\Core\DatabaseConnection;
+use App\Core\Modules\ModuleLifecycle;
+use PDO;
+use RuntimeException;
+
+final class StaticPagesLifecycle implements ModuleLifecycle
+{
+    public function onInstall(): void
+    {
+        $runner = new MigrationRunner($this->pdo(), 'static_pages_migrations');
+        foreach ($this->migrations() as $migration) {
+            $runner->apply($migration);
+        }
+    }
+
+    public function onEnable(): void
+    {
+    }
+
+    public function onDisable(): void
+    {
+    }
+
+    public function onUninstall(): void
+    {
+        $runner = new MigrationRunner($this->pdo(), 'static_pages_migrations');
+        foreach (array_reverse($this->migrations()) as $migration) {
+            $runner->rollback($migration);
+        }
+    }
+
+    /** @return list<Migration> */
+    private function migrations(): array
+    {
+        $directory = dirname(__DIR__) . '/Database/migrations';
+        $migrations = [];
+        foreach (glob($directory . '/*.php') ?: [] as $file) {
+            $candidate = require $file;
+            if ($candidate instanceof Migration) {
+                $migrations[] = $candidate;
+            }
+        }
+        usort($migrations, static fn (Migration $a, Migration $b): int => strcmp($a->name(), $b->name()));
+
+        return $migrations;
+    }
+
+    private function pdo(): PDO
+    {
+        $pdo = DatabaseConnection::connection();
+        if (!$pdo instanceof PDO) {
+            throw new RuntimeException('Static pages lifecycle requires an active PDO connection.');
+        }
+
+        return $pdo;
+    }
+}

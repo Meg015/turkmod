@@ -1037,6 +1037,51 @@ CREATE TABLE `security_events` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB AUTO_INCREMENT=239 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `static_pages` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `system_key` varchar(50) DEFAULT NULL,
+  `title` varchar(255) NOT NULL,
+  `slug` varchar(191) NOT NULL,
+  `body_html` longtext NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'draft',
+  `seo_title` varchar(255) NOT NULL DEFAULT '',
+  `meta_description` text NOT NULL,
+  `og_image` varchar(2048) NOT NULL DEFAULT '',
+  `robots_noindex` tinyint(1) NOT NULL DEFAULT 0,
+  `robots_nofollow` tinyint(1) NOT NULL DEFAULT 0,
+  `sitemap_include` tinyint(1) NOT NULL DEFAULT 1,
+  `show_in_footer` tinyint(1) NOT NULL DEFAULT 0,
+  `footer_label` varchar(255) NOT NULL DEFAULT '',
+  `footer_order` int(11) NOT NULL DEFAULT 0,
+  `created_by_admin_id` bigint(20) unsigned DEFAULT NULL,
+  `updated_by_admin_id` bigint(20) unsigned DEFAULT NULL,
+  `published_at` datetime DEFAULT NULL,
+  `archived_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `static_pages_system_key_unique` (`system_key`),
+  UNIQUE KEY `static_pages_slug_unique` (`slug`),
+  KEY `static_pages_status_updated_index` (`status`,`updated_at`),
+  KEY `static_pages_footer_index` (`status`,`show_in_footer`,`footer_order`),
+  KEY `static_pages_sitemap_index` (`status`,`sitemap_include`,`robots_noindex`),
+  CONSTRAINT `static_pages_created_by_foreign` FOREIGN KEY (`created_by_admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `static_pages_updated_by_foreign` FOREIGN KEY (`updated_by_admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `static_page_redirects` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `page_id` bigint(20) unsigned NOT NULL,
+  `old_slug` varchar(191) NOT NULL,
+  `created_by_admin_id` bigint(20) unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `static_page_redirects_old_slug_unique` (`old_slug`),
+  KEY `static_page_redirects_page_index` (`page_id`),
+  CONSTRAINT `static_page_redirects_page_foreign` FOREIGN KEY (`page_id`) REFERENCES `static_pages` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `static_page_redirects_admin_foreign` FOREIGN KEY (`created_by_admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `topic_collection_items` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `collection_id` bigint(20) unsigned NOT NULL,

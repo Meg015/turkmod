@@ -227,6 +227,9 @@ if (isset($seoPaginationTags) && (string) $seoPaginationTags !== '') {
 if (isset($seoStructuredData) && (string) $seoStructuredData !== '') {
     $publicHeaderVars['seoStructuredData'] = (string) $seoStructuredData;
 }
+if (isset($robotsMetaOverride) && trim((string) $robotsMetaOverride) !== '') {
+    $publicHeaderVars['robotsMetaOverride'] = trim((string) $robotsMetaOverride);
+}
 if (isset($topic) && is_array($topic)) {
     $publicHeaderVars['topic'] = $topic;
 }
@@ -342,6 +345,9 @@ if (isset($topic) && ($topic['status'] ?? 'published') !== 'published' && $index
 }
 if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && $indexEmptyCategories !== '1') {
     $robotsMeta = "noindex, nofollow";
+}
+if (isset($robotsMetaOverride) && trim((string) $robotsMetaOverride) !== '') {
+    $robotsMeta = trim((string) $robotsMetaOverride);
 }
 ?>
     <meta name="robots" content="<?= htmlspecialchars($robotsMeta) ?>">

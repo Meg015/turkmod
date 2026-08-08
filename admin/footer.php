@@ -71,6 +71,9 @@
     <?php endif; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js" integrity="sha384-QUJ+ckWz1M+a7w0UfG1sEn4pPrbQwSxGm/1TIPyioqXBrwuT9l4f9gdHWLDLbVWI" crossorigin="anonymous"></script>
+<?php if (str_contains((string) ($_SERVER['SCRIPT_NAME'] ?? ''), 'admin/static-pages.php')): ?>
+<script src="<?= asset_url('admin/assets/static-pages.js', $baseUri) ?>"></script>
+<?php endif; ?>
 <script src="<?= asset_url('admin/assets/admin-shell.js', $baseUri) ?>"></script>
 </body>
 </html>

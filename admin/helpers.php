@@ -4297,6 +4297,29 @@ function saveAdminSettings(?PDO $pdo, array $input): void
         $publicRouteBlocked[$candidate] = true;
     }
 
+    $shouldValidateRoutePageConflicts = empty($allowedSections) || in_array('route_filters', $allowedSections, true);
+    if (
+        $shouldValidateRoutePageConflicts
+        && class_exists(\App\Modules\StaticPages\Services\StaticPageService::class)
+    ) {
+        $staticPageService = new \App\Modules\StaticPages\Services\StaticPageService($pdo);
+        if ($staticPageService->schemaReady()) {
+            $routeCandidates = array_values(array_unique(array_filter(array_merge(
+                array_values($routePrefixValues),
+                array_values($publicRoutePathValues),
+            ))));
+            foreach ($routeCandidates as $routeCandidate) {
+                $conflict = $staticPageService->slugConflict((string) $routeCandidate);
+                if (is_array($conflict)) {
+                    throw new RuntimeException(
+                        '/' . (string) $conflict['slug'] . ' yolu "' . (string) $conflict['title']
+                        . '" sabit sayfası veya yönlendirmesi tarafından kullanılıyor.'
+                    );
+                }
+            }
+        }
+    }
+
     $downloadAccessDurationUnit = strtolower(trim((string) ($input['download_access_grant_duration_unit'] ?? 'hours')));
     if (!in_array($downloadAccessDurationUnit, ['minutes', 'hours', 'days'], true)) {
         $downloadAccessDurationUnit = 'hours';

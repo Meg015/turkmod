@@ -38,7 +38,8 @@
         "css": [
             "css/bundle.min.css",
             "css/mobile-fixes.css",
-            "css/layout-grid-fix.css"
+            "css/layout-grid-fix.css",
+            "css/static-page.css"
         ],
         "js": [
             "js/bundle.min.js"
@@ -64,6 +65,7 @@
         "upload_topic": "addnews.tpl",
         "edit_topic": "edit-topic.tpl",
         "contact": "contact.tpl",
+        "static_page": "static-page.tpl",
         "notifications": "notifications.tpl",
         "messages": "messages.tpl",
         "leaderboard": "leaderboard.tpl",
