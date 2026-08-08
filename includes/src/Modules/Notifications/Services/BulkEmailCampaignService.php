@@ -53,6 +53,59 @@ final class BulkEmailCampaignService
         return $count;
     }
 
+    /** @return array{pending:int,processing:int,failed:int} */
+    public function queueSnapshot(PDO $pdo): array
+    {
+        $stmt = $pdo->query("SELECT
+                COALESCE(SUM(CASE WHEN r.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_count,
+                COALESCE(SUM(CASE WHEN r.status = 'processing' THEN 1 ELSE 0 END), 0) AS processing_count,
+                COALESCE(SUM(CASE WHEN r.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count
+            FROM bulk_email_recipients r
+            INNER JOIN bulk_email_campaigns c ON c.id = r.campaign_id
+            WHERE c.status IN ('preparing', 'queued', 'sending', 'paused')");
+        $row = $stmt ? ($stmt->fetch(PDO::FETCH_ASSOC) ?: []) : [];
+        return [
+            'pending' => (int) ($row['pending_count'] ?? 0),
+            'processing' => (int) ($row['processing_count'] ?? 0),
+            'failed' => (int) ($row['failed_count'] ?? 0),
+        ];
+    }
+
+    /** @return array{found:bool,status:string,created_at:?string,context:array<string,mixed>} */
+    public function latestCronRun(PDO $pdo): array
+    {
+        $snapshot = ['found' => false, 'status' => 'missing', 'created_at' => null, 'context' => []];
+        try {
+            $stmt = $pdo->prepare("SELECT level, context_json, created_at
+                FROM application_logs
+                WHERE channel = 'cron' AND message = ?
+                ORDER BY id DESC LIMIT 1");
+            $stmt->execute(['cron_run:bulk_email_campaigns']);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return $snapshot;
+            }
+            $context = json_decode((string) ($row['context_json'] ?? ''), true);
+            $context = is_array($context) ? $context : [];
+            $status = strtolower(trim((string) ($context['status'] ?? '')));
+            if ($status === '') {
+                $status = match ((string) ($row['level'] ?? 'info')) {
+                    'error' => 'error',
+                    'warning' => 'warning',
+                    default => 'success',
+                };
+            }
+            return [
+                'found' => true,
+                'status' => $status,
+                'created_at' => (string) ($row['created_at'] ?? ''),
+                'context' => $context,
+            ];
+        } catch (Throwable) {
+            return $snapshot;
+        }
+    }
+
     public function saveDraft(PDO $pdo, int $creatorId, string $subject, string $bodyHtml, int $campaignId = 0): int
     {
         $this->requireSchema($pdo);

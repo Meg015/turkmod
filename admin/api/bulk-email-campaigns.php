@@ -21,14 +21,26 @@ $campaigns = new BulkEmailCampaignService($content);
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
     try {
         $campaigns->requireSchema($connection);
+        $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($connection) : [];
+        $workerEnabled = in_array(strtolower(trim((string) ($settings['notif_bulk_email_enabled'] ?? '1'))), ['1', 'true', 'yes', 'on'], true);
         $campaignId = max(0, (int) ($_GET['campaign_id'] ?? 0));
         if ($campaignId > 0) {
-            sendSuccess('Kampanya durumu yuklendi.', ['campaign' => $campaigns->progress($connection, $campaignId)]);
+            sendSuccess('Kampanya durumu yuklendi.', [
+                'campaign' => $campaigns->progress($connection, $campaignId),
+                'active_campaign' => $campaigns->activeCampaign($connection),
+                'eligible_recipient_count' => $campaigns->eligibleRecipientCount($connection),
+                'queue_snapshot' => $campaigns->queueSnapshot($connection),
+                'cron_snapshot' => $campaigns->latestCronRun($connection),
+                'worker_enabled' => $workerEnabled,
+            ]);
         }
         sendSuccess('Toplu e-posta merkezi yuklendi.', [
             'active_campaign' => $campaigns->activeCampaign($connection),
             'history' => $campaigns->history($connection, 20),
             'eligible_recipient_count' => $campaigns->eligibleRecipientCount($connection),
+            'queue_snapshot' => $campaigns->queueSnapshot($connection),
+            'cron_snapshot' => $campaigns->latestCronRun($connection),
+            'worker_enabled' => $workerEnabled,
         ]);
     } catch (Throwable $e) {
         sendServerError('Toplu e-posta bilgileri yuklenemedi.', $e);
@@ -105,6 +117,13 @@ try {
     }
 
     if ($action === 'save' || $action === 'start') {
+        if ($action === 'start') {
+            $settings = function_exists('getAdminSettings') ? (array) getAdminSettings($connection) : [];
+            $workerEnabled = in_array(strtolower(trim((string) ($settings['notif_bulk_email_enabled'] ?? '1'))), ['1', 'true', 'yes', 'on'], true);
+            if (!$workerEnabled) {
+                sendValidationError('Toplu e-posta worker kapalı. Gönderimi başlatmadan önce bu sekmedeki worker ayarını açın.');
+            }
+        }
         $campaignId = $campaigns->saveDraft(
             $connection,
             $currentUserId,

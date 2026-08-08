@@ -67,6 +67,9 @@ try {
     $progress = $campaigns->progress($pdo, $campaignId);
     $assert((string) $progress['status'] === 'queued', 'Campaign did not enter queued state.');
     $assert((int) $progress['recipient_total'] > 3, 'Recipient snapshot is unexpectedly small.');
+    $queueSnapshot = $campaigns->queueSnapshot($pdo);
+    $assert((int) $queueSnapshot['pending'] === (int) $progress['recipient_total'], 'Operational pending count is inconsistent.');
+    $assert((int) $queueSnapshot['processing'] === 0, 'Operational processing count should be empty before worker delivery.');
 
     $campaigns->pause($pdo, $campaignId);
     $resumed = $campaigns->resume($pdo, $campaignId);

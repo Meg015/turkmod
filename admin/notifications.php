@@ -210,6 +210,12 @@ function admin_notification_email_settings_schema(): array
     return [
         ['key' => 'notif_email_channel_ready', 'type' => 'bool', 'label' => 'E-posta Kuyruğu Aktif', 'help' => 'E-posta açık kayıtlardan notification_email_queue kaydı oluşturur; cron worker bu kayıtları gönderir.', 'default' => '0'],
         ['key' => 'notif_email_queue_max_attempts', 'type' => 'number', 'label' => 'E-posta Deneme Hakkı', 'help' => 'Worker başarısız gönderimleri en fazla bu kadar tekrar dener.', 'default' => '3', 'min' => 1, 'max' => 10],
+    ];
+}
+
+function admin_notification_bulk_email_settings_schema(): array
+{
+    return [
         ['key' => 'notif_bulk_email_enabled', 'type' => 'bool', 'label' => 'Toplu E-posta Worker Aktif', 'help' => 'Kampanya alıcılarını kalıcı kuyruktan arka planda işler.', 'default' => '1'],
         ['key' => 'notif_bulk_email_batch_size', 'type' => 'number', 'label' => 'Toplu E-posta Parti Boyutu', 'help' => 'Cron her çalıştığında en fazla bu kadar kampanya alıcısını işler.', 'default' => '100', 'min' => 1, 'max' => 200],
         ['key' => 'notif_bulk_email_max_attempts', 'type' => 'number', 'label' => 'Toplu E-posta Deneme Hakkı', 'help' => 'Başarısız bir kampanya alıcısının otomatik deneme sınırı.', 'default' => '3', 'min' => 1, 'max' => 10],
@@ -871,6 +877,7 @@ $adminSettings = function_exists('getAdminSettings') && $pdo ? getAdminSettings(
 $settingsSchema = admin_notification_settings_schema();
 $flatSettingsSchema = admin_notification_flat_settings_schema();
 $emailSettingsSchema = admin_notification_email_settings_schema();
+$bulkEmailSettingsSchema = admin_notification_bulk_email_settings_schema();
 $accountEmailCatalog = \App\Engine\Email\AccountEmailService::catalog();
 $accountEmailAllowedVariables = \App\Engine\Email\AccountEmailService::allowedVariables();
 $accountEmailRequiredVariables = \App\Engine\Email\AccountEmailService::requiredVariables();
@@ -913,6 +920,21 @@ if ($bulkEmailSchemaReady) {
         $bulkEmailSchemaReady = false;
     }
 }
+$bulkEmailQueueSnapshot = $bulkEmailSchemaReady ? $bulkEmailCampaignService->queueSnapshot($pdo) : ['pending' => 0, 'processing' => 0, 'failed' => 0];
+$bulkEmailCronSnapshot = $bulkEmailCampaignService->latestCronRun($pdo);
+$bulkEmailWorkerEnabled = admin_notification_bool($adminSettings, 'notif_bulk_email_enabled', '1');
+$bulkEmailBatchSize = admin_notification_int($adminSettings, 'notif_bulk_email_batch_size', 100, 1, 200);
+$bulkEmailMaxAttempts = admin_notification_int($adminSettings, 'notif_bulk_email_max_attempts', 3, 1, 10);
+$bulkEmailCronStatus = (string) ($bulkEmailCronSnapshot['status'] ?? 'missing');
+$bulkEmailCronStatusLabel = match ($bulkEmailCronStatus) {
+    'success' => 'Başarılı',
+    'warning' => 'Uyarı',
+    'error' => 'Hatalı',
+    default => 'Henüz çalışmadı',
+};
+$bulkEmailCronResult = is_array($bulkEmailCronSnapshot['context']['result'] ?? null)
+    ? $bulkEmailCronSnapshot['context']['result']
+    : [];
 $bulkEmailCanDispatch = function_exists('userHasPermission') && $pdo instanceof PDO
     ? userHasPermission($pdo, $currentUserId, 'notifications.dispatch')
     : false;
@@ -1330,6 +1352,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
 
             flash('success', 'Site içi bildirim ayarları kaydedildi.');
             admin_notification_redirect('notifications.php?tab=site&site_group=settings');
+        }
+
+        if ($action === 'save_bulk_email_settings') {
+            $bulkSettingValues = [];
+            foreach ($bulkEmailSettingsSchema as $settingItem) {
+                $value = admin_notification_save_value($settingItem, $_POST);
+                $bulkSettingValues[$settingItem['key']] = $value;
+                $adminSettings[$settingItem['key']] = $value;
+            }
+            admin_notification_save_setting_values($pdo, $bulkSettingValues);
+            if (function_exists('logActivity')) {
+                logActivity($pdo, 'bulk_email_settings_updated', 'admin_settings', null, ['settings' => $bulkSettingValues]);
+            }
+            if (function_exists('adminAuditLogger')) {
+                adminAuditLogger()->logAction($pdo, 'bulk_email_settings_updated', 'admin_settings', 0, 'Toplu e-posta ayarları güncellendi', [], $bulkSettingValues, false);
+            }
+
+            flash('success', 'Toplu e-posta ayarları kaydedildi.');
+            admin_notification_redirect('notifications.php?tab=email&email_group=bulk');
         }
 
         if ($action === 'save_email_settings') {
@@ -2341,6 +2382,29 @@ $csrfToken = csrf_token();
                             </div>
                         </div>
 
+                        <div class="bulk-email-ops-summary" aria-label="Toplu e-posta çalışma durumu">
+                            <div class="bulk-email-ops-summary-item">
+                                <small>Worker</small>
+                                <strong data-bulk-operational="worker-status"><?= $bulkEmailWorkerEnabled ? 'Aktif' : 'Kapalı' ?></strong>
+                                <span><?= $bulkEmailWorkerEnabled ? 'Yeni gönderimleri işler' : 'Yeni gönderimler beklemede' ?></span>
+                            </div>
+                            <div class="bulk-email-ops-summary-item">
+                                <small>Cron</small>
+                                <strong class="bulk-email-cron-status" data-bulk-operational="cron-status" data-status="<?= htmlspecialchars($bulkEmailCronStatus) ?>"><?= htmlspecialchars($bulkEmailCronStatusLabel) ?></strong>
+                                <span data-bulk-operational="cron-time"><?= $bulkEmailCronSnapshot['found'] ? htmlspecialchars((string) $bulkEmailCronSnapshot['created_at']) : 'Çalışma kaydı yok' ?></span>
+                            </div>
+                            <div class="bulk-email-ops-summary-item">
+                                <small>Kuyruk</small>
+                                <strong data-bulk-operational="queue-pending"><?= number_format((int) $bulkEmailQueueSnapshot['pending'], 0, ',', '.') ?></strong>
+                                <span><span data-bulk-operational="queue-processing"><?= number_format((int) $bulkEmailQueueSnapshot['processing'], 0, ',', '.') ?></span> işleniyor</span>
+                            </div>
+                            <div class="bulk-email-ops-summary-item">
+                                <small>Aktif hatalar</small>
+                                <strong data-bulk-operational="queue-failed"><?= number_format((int) $bulkEmailQueueSnapshot['failed'], 0, ',', '.') ?></strong>
+                                <span>Yeniden denenebilir</span>
+                            </div>
+                        </div>
+
                         <?php if ($bulkEmailActiveCampaign): ?>
                             <?php
                                 $bulkTotal = max(0, (int) ($bulkEmailActiveCampaign['recipient_total'] ?? 0));
@@ -2439,9 +2503,45 @@ $csrfToken = csrf_token();
                             </div>
                         </form>
 
+                        <div class="bulk-email-operations-grid">
+                            <form method="POST" action="notifications.php?tab=email&amp;email_group=bulk" class="bulk-email-settings-panel">
+                                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                                <input type="hidden" name="action" value="save_bulk_email_settings">
+                                <div class="bulk-email-section-head">
+                                    <div><span>03</span><div><h4>Gönderim ayarları</h4><small>Worker hızı ve yeniden deneme davranışı</small></div></div>
+                                </div>
+                                <div class="bulk-email-settings-grid">
+                                    <?php foreach ($bulkEmailSettingsSchema as $item): ?>
+                                        <?php $value = admin_notification_setting_value($adminSettings, $item); ?>
+                                        <div class="notification-setting-item">
+                                            <?php if ($item['type'] === 'bool'): ?>
+                                                <div class="notification-switch-row">
+                                                    <span class="notification-setting-label notif-setting-label-flat"><span><strong><?= htmlspecialchars($item['label']) ?></strong><span><?= htmlspecialchars($item['help']) ?></span></span></span>
+                                                    <label class="ui-admin-switch"><input type="checkbox" name="<?= htmlspecialchars($item['key']) ?>" value="1" <?= $bulkEmailWorkerEnabled ? 'checked' : '' ?> data-bulk-setting-worker><span class="ui-admin-switch-label">Aktif</span></label>
+                                                </div>
+                                            <?php else: ?>
+                                                <label class="notification-setting-label" for="bulk-setting-<?= htmlspecialchars($item['key']) ?>"><span><strong><?= htmlspecialchars($item['label']) ?></strong><span><?= htmlspecialchars($item['help']) ?></span></span></label>
+                                                <input id="bulk-setting-<?= htmlspecialchars($item['key']) ?>" type="number" name="<?= htmlspecialchars($item['key']) ?>" class="ui-admin-form-control" value="<?= htmlspecialchars($value) ?>" min="<?= (int) ($item['min'] ?? 0) ?>" max="<?= (int) ($item['max'] ?? 999999) ?>">
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <div class="bulk-email-settings-actions"><small class="notif-help">Değişiklikler bir sonraki cron çalışmasında uygulanır.</small><button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-save"></i> Ayarları Kaydet</button></div>
+                            </form>
+
+                            <details class="bulk-email-operations-panel">
+                                <summary><span><i class="bi bi-terminal"></i> Cron ve operasyon bilgileri</span><i class="bi bi-chevron-down"></i></summary>
+                                <div class="bulk-email-operations-content">
+                                    <div><small>CLI komutu</small><code>php cron/send-bulk-email-campaigns.php --limit=<?= (int) $bulkEmailBatchSize ?></code></div>
+                                    <div><small>HTTP yedek endpoint</small><code><?= htmlspecialchars(rtrim((string) ($baseUri ?? ''), '/') . '/cron/send-bulk-email-campaigns.php?secret=CRON_SECRET&limit=' . $bulkEmailBatchSize) ?></code></div>
+                                    <div class="bulk-email-operations-result"><small>Son sonuç</small><span><?= $bulkEmailCronSnapshot['found'] ? htmlspecialchars($bulkEmailCronStatusLabel . ' · ' . (string) $bulkEmailCronSnapshot['created_at']) : 'Henüz cron çalışma kaydı yok.' ?></span><?php if ($bulkEmailCronResult !== []): ?><small><?= number_format((int) ($bulkEmailCronResult['sent'] ?? 0), 0, ',', '.') ?> gönderildi · <?= number_format((int) ($bulkEmailCronResult['failed'] ?? 0), 0, ',', '.') ?> hatalı</small><?php endif; ?></div>
+                                </div>
+                            </details>
+                        </div>
+
                         <section class="bulk-email-history">
                             <div class="bulk-email-section-head">
-                                <div><span>03</span><div><h4>Kampanya Geçmişi</h4><small>Son 20 gönderim ve taslak</small></div></div>
+                                <div><span>04</span><div><h4>Kampanya Geçmişi</h4><small>Son 20 gönderim ve taslak</small></div></div>
                             </div>
                             <div class="ui-admin-table-wrap">
                                 <table class="ui-admin-table">
@@ -2513,7 +2613,7 @@ $csrfToken = csrf_token();
                     <?php endforeach; ?>
                 </div>
                 <div class="notification-template-actions">
-                    <small class="notif-help notif-cron-help">Cron komutları: <code>php cron/send-notification-email-queue.php --limit=25</code> · <code>php cron/send-bulk-email-campaigns.php --limit=100</code></small>
+                    <small class="notif-help notif-cron-help">Cron komutu: <code>php cron/send-notification-email-queue.php --limit=25</code></small>
                     <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-save"></i> E-Posta Ayarlarını Kaydet</button>
                 </div>
             </form>
@@ -2986,6 +3086,12 @@ $csrfToken = csrf_token();
         'csrf' => $csrfToken,
         'eligibleCount' => $bulkEmailEligibleCount,
         'activeCampaign' => $bulkEmailActiveCampaign,
+        'workerEnabled' => $bulkEmailWorkerEnabled,
+        'batchSize' => $bulkEmailBatchSize,
+        'maxAttempts' => $bulkEmailMaxAttempts,
+        'canDispatch' => $bulkEmailCanDispatch,
+        'queueSnapshot' => $bulkEmailQueueSnapshot,
+        'cronSnapshot' => $bulkEmailCronSnapshot,
     ],
     'typeMeta' => admin_notification_types(),
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?: '{}' ?></script>

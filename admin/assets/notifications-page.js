@@ -1192,15 +1192,97 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
     const errorBox = form.querySelector('[data-bulk-error]');
     const saveState = form.querySelector('[data-bulk-save-state]');
     const progressCard = root.querySelector('[data-bulk-progress-card]');
+    const startButton = form.querySelector('[data-bulk-start]');
+    const operationalNodes = {
+        worker: root.querySelector('[data-bulk-operational="worker-status"]'),
+        cron: root.querySelector('[data-bulk-operational="cron-status"]'),
+        cronTime: root.querySelector('[data-bulk-operational="cron-time"]'),
+        pending: root.querySelector('[data-bulk-operational="queue-pending"]'),
+        processing: root.querySelector('[data-bulk-operational="queue-processing"]'),
+        failed: root.querySelector('[data-bulk-operational="queue-failed"]')
+    };
     let csrf = String(config.csrf || form.querySelector('[name="_token"]')?.value || '');
     let previewTimer = 0;
     let previewRequest = 0;
     let pollTimer = 0;
+    let operationalTimer = 0;
     let quill = null;
 
     const statusLabels = {
         draft: 'Taslak', preparing: 'Alıcılar hazırlanıyor', queued: 'Sırada', sending: 'Gönderiliyor',
         paused: 'Duraklatıldı', completed: 'Tamamlandı', cancelled: 'İptal edildi'
+    };
+    const cronStatusLabels = { success: 'Başarılı', warning: 'Uyarı', error: 'Hatalı', missing: 'Henüz çalışmadı' };
+
+    const syncStartAvailability = function () {
+        if (!startButton) {
+            return;
+        }
+        const allowed = Boolean(config.canDispatch) && Boolean(config.workerEnabled);
+        if (!startButton.matches('[aria-busy="true"]')) {
+            startButton.disabled = !allowed;
+        }
+        startButton.title = !config.workerEnabled
+            ? 'Gönderimi başlatmak için worker ayarını açın.'
+            : (!config.canDispatch ? 'Gönderim yetkiniz bulunmuyor.' : '');
+    };
+
+    const updateOperational = function (data) {
+        const queue = data.queue_snapshot || {};
+        const cron = data.cron_snapshot || {};
+        const workerEnabled = data.worker_enabled === undefined ? Boolean(config.workerEnabled) : Boolean(data.worker_enabled);
+        config.workerEnabled = workerEnabled;
+        if (operationalNodes.worker) {
+            operationalNodes.worker.textContent = workerEnabled ? 'Aktif' : 'Kapalı';
+        }
+        if (operationalNodes.pending) {
+            operationalNodes.pending.textContent = Number(queue.pending || 0).toLocaleString('tr-TR');
+        }
+        if (operationalNodes.processing) {
+            operationalNodes.processing.textContent = Number(queue.processing || 0).toLocaleString('tr-TR');
+        }
+        if (operationalNodes.failed) {
+            operationalNodes.failed.textContent = Number(queue.failed || 0).toLocaleString('tr-TR');
+        }
+        if (operationalNodes.cron) {
+            const status = String(cron.status || 'missing');
+            operationalNodes.cron.textContent = cronStatusLabels[status] || status;
+            operationalNodes.cron.dataset.status = status;
+        }
+        if (operationalNodes.cronTime) {
+            operationalNodes.cronTime.textContent = cron.found ? String(cron.created_at || '') : 'Çalışma kaydı yok';
+        }
+        const audience = root.querySelector('.bulk-email-audience strong');
+        if (audience && data.eligible_recipient_count !== undefined) {
+            audience.textContent = Number(data.eligible_recipient_count || 0).toLocaleString('tr-TR');
+        }
+        syncStartAvailability();
+    };
+
+    const refreshOperational = async function () {
+        if (document.hidden) {
+            scheduleOperationalRefresh();
+            return;
+        }
+        try {
+            const response = await fetch(api, { credentials: 'same-origin', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await response.json();
+            if (response.ok && data.success !== false) {
+                updateOperational(data);
+                if (data.active_campaign) {
+                    updateProgress(data.active_campaign);
+                }
+            }
+        } catch (error) {
+            // Campaign polling remains authoritative; transient overview failures are retried.
+        } finally {
+            scheduleOperationalRefresh();
+        }
+    };
+
+    const scheduleOperationalRefresh = function () {
+        window.clearTimeout(operationalTimer);
+        operationalTimer = window.setTimeout(refreshOperational, 15000);
     };
 
     const syncBody = function () {
@@ -1430,6 +1512,7 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
         } else {
             schedulePoll(Number(campaign.id || 0));
         }
+        syncStartAvailability();
     };
 
     const poll = async function (campaignId) {
@@ -1494,6 +1577,7 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
             return null;
         } finally {
             setBusy(button, false);
+            syncStartAvailability();
         }
     };
 
@@ -1596,7 +1680,14 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
         }
     });
 
+    updateOperational({
+        worker_enabled: config.workerEnabled,
+        queue_snapshot: config.queueSnapshot || {},
+        cron_snapshot: config.cronSnapshot || {},
+        eligible_recipient_count: config.eligibleCount
+    });
     updateProgress(config.activeCampaign || null);
+    scheduleOperationalRefresh();
     schedulePreview();
 }
 
