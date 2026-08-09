@@ -25,6 +25,10 @@
     --msg-bubble-theirs: #eff3f4;
     --msg-bubble-theirs-text: #0f1419;
     --msg-composer-radius: 24px;
+    --msg-presence-online: #16a34a;
+    --msg-presence-offline: #dc4c5a;
+    --msg-presence-tooltip: #18181b;
+    --msg-presence-tooltip-text: #fff;
 
     /* Modal Specific */
     --msg-modal-backdrop: rgba(0, 0, 0, 0.4);
@@ -333,14 +337,28 @@ html[data-theme="dark"] .messages-shell {
     overscroll-behavior: contain;
 }
 
+.messages-thread-row {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--msg-border);
+    transition: background 0.12s ease;
+}
+
+.messages-thread-row:hover,
+.messages-thread-row:focus-within,
+.messages-thread-row.is-active {
+    background: var(--msg-bg-hover);
+}
+
 .messages-thread-item {
     display: flex;
+    flex: 1;
+    min-width: 0;
     gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 0.35rem 0.75rem 1rem;
     text-decoration: none;
     color: inherit;
     transition: background 0.12s ease;
-    border-bottom: 1px solid var(--msg-border);
 }
 
 .messages-thread-item:hover {
@@ -351,12 +369,164 @@ html[data-theme="dark"] .messages-shell {
     background: var(--msg-bg-hover);
 }
 
+.messages-thread-delete {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin: 0 0.5rem 0 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--msg-text-soft);
+    font-size: 0.95rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: color 0.14s ease, background 0.14s ease, opacity 0.14s ease, transform 0.14s ease;
+}
+
+.messages-thread-row:hover .messages-thread-delete,
+.messages-thread-delete:focus-visible,
+.messages-thread-delete[aria-busy="true"] {
+    opacity: 1;
+}
+
+.messages-thread-delete:hover,
+.messages-thread-delete:focus-visible {
+    background: color-mix(in srgb, #dc2626 12%, transparent);
+    color: #dc2626;
+}
+
+.messages-thread-delete:focus-visible {
+    outline: 2px solid color-mix(in srgb, #dc2626 55%, transparent);
+    outline-offset: 2px;
+}
+
+.messages-thread-delete:active {
+    transform: scale(0.94);
+}
+
+.messages-thread-delete:disabled {
+    cursor: wait;
+}
+
+.messages-thread-delete[aria-busy="true"] i {
+    animation: messagesThreadDeleteSpin 0.8s linear infinite;
+}
+
+@keyframes messagesThreadDeleteSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    .messages-thread-delete {
+        opacity: 1;
+    }
+}
+
 .messages-thread-item img {
     width: var(--msg-avatar-size);
     height: var(--msg-avatar-size);
     border-radius: 9999px;
     object-fit: cover;
     flex-shrink: 0;
+}
+
+.messages-avatar-presence {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    isolation: isolate;
+}
+
+.messages-avatar-presence--thread {
+    width: var(--msg-avatar-size);
+    height: var(--msg-avatar-size);
+}
+
+.messages-avatar-presence--peer {
+    width: 40px;
+    height: 40px;
+}
+
+.messages-presence-dot {
+    --messages-presence-color: var(--msg-presence-offline);
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    z-index: 3;
+    width: 11px;
+    height: 11px;
+    box-sizing: border-box;
+    border: 2px solid var(--msg-bg);
+    border-radius: 50%;
+    background: var(--messages-presence-color);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--messages-presence-color) 22%, transparent);
+    cursor: default;
+}
+
+.messages-presence-dot.is-online {
+    --messages-presence-color: var(--msg-presence-online);
+    animation: messagesPresencePulse 2.4s ease-out infinite;
+}
+
+.messages-presence-dot.is-offline {
+    --messages-presence-color: var(--msg-presence-offline);
+}
+
+.messages-presence-dot::after {
+    content: attr(data-presence-tooltip);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    z-index: 20;
+    width: max-content;
+    max-width: min(130px, calc(100vw - 36px));
+    padding: 0.34rem 0.52rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 7px;
+    background: var(--msg-presence-tooltip);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+    color: var(--msg-presence-tooltip-text);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-3px, -50%);
+    transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.messages-presence-dot:hover::after,
+.messages-presence-dot:focus-visible::after,
+.messages-presence-dot.is-tooltip-open::after {
+    opacity: 1;
+    transform: translate(0, -50%);
+}
+
+.messages-presence-dot:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--messages-presence-color) 58%, #fff);
+    outline-offset: 3px;
+}
+
+@keyframes messagesPresencePulse {
+    0%, 58%, 100% {
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--messages-presence-color) 24%, transparent);
+    }
+
+    76% {
+        box-shadow:
+            0 0 0 1px color-mix(in srgb, var(--messages-presence-color) 30%, transparent),
+            0 0 0 5px color-mix(in srgb, var(--messages-presence-color) 12%, transparent);
+    }
 }
 
 .messages-thread-main {
@@ -535,7 +705,7 @@ html[data-theme="dark"] .messages-shell {
     line-height: 1.2;
 }
 
-.messages-peer span {
+.messages-peer-copy > span {
     display: block;
     font-size: 0.8125rem;
     color: var(--msg-text-dim);
@@ -1306,6 +1476,10 @@ html[data-public-theme] .messages-workspace .messages-composer-textarea:active {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
+    .messages-presence-dot.is-online {
+        animation: none;
+    }
 
     .messages-thread-item,
     .messages-submit,

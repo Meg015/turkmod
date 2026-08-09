@@ -86,23 +86,30 @@ final class StaticPagePage implements Handler
             $safeBody = function_exists('sanitizeTopicHtml')
                 ? sanitizeTopicHtml((string) ($page['body_html'] ?? ''))
                 : nl2br(htmlspecialchars($plainBody, ENT_QUOTES, 'UTF-8'));
+            $updatedDate = self::publicUpdatedDate($page['updated_at'] ?? null);
             $GLOBALS['_public_page_key_override'] = 'static_page';
 
             ob_start();
             require $rootPath . '/includes/public-header.php';
             ?>
-            <article class="static-page-view topic-section topic-descriptions ui-section" data-static-page-id="<?= (int) ($page['id'] ?? 0) ?>">
+            <article class="static-page-view" data-static-page-id="<?= (int) ($page['id'] ?? 0) ?>">
                 <?php if ($preview): ?>
                     <div class="static-page-preview-banner" role="status"><i class="bi bi-eye"></i><span>Yönetici önizlemesi: Bu sayfa henüz ziyaretçilere açık olmayabilir.</span></div>
                 <?php endif; ?>
-                <header class="static-page-header">
-                    <span class="static-page-kicker"><i class="bi bi-file-earmark-text"></i> Bilgilendirme</span>
-                    <h1><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></h1>
-                    <?php if (!empty($page['updated_at'])): ?><p>Son güncelleme: <?= htmlspecialchars((string) $page['updated_at'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+                <header class="static-page-header ui-section">
+                    <span class="static-page-header-icon" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></span>
+                    <div class="static-page-header-copy">
+                        <span class="static-page-kicker">Bilgilendirme</span>
+                        <h1><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></h1>
+                        <?php if ($updatedDate !== null): ?><p><i class="bi bi-clock" aria-hidden="true"></i> Son güncelleme: <time datetime="<?= htmlspecialchars($updatedDate['datetime'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($updatedDate['label'], ENT_QUOTES, 'UTF-8') ?></time></p><?php endif; ?>
+                    </div>
                 </header>
-                <div class="topic-content topic-detail-content static-page-content ui-section">
-                    <?= $safeBody ?>
-                </div>
+                <section class="static-page-content-panel topic-section ui-section" aria-labelledby="static-page-content-title">
+                    <h2 id="static-page-content-title"><i class="bi bi-text-paragraph" aria-hidden="true"></i> İçerik</h2>
+                    <div class="topic-content topic-detail-content static-page-content">
+                        <?= $safeBody ?>
+                    </div>
+                </section>
             </article>
             <?php
             require $rootPath . '/includes/public-footer.php';
@@ -120,5 +127,44 @@ final class StaticPagePage implements Handler
             }
             throw $exception;
         }
+    }
+
+    /** @return array{label:string,datetime:string}|null */
+    private static function publicUpdatedDate(mixed $value): ?array
+    {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            $date = new \DateTimeImmutable($raw);
+        } catch (Throwable) {
+            return null;
+        }
+
+        $months = [
+            1 => 'Ocak',
+            2 => 'Şubat',
+            3 => 'Mart',
+            4 => 'Nisan',
+            5 => 'Mayıs',
+            6 => 'Haziran',
+            7 => 'Temmuz',
+            8 => 'Ağustos',
+            9 => 'Eylül',
+            10 => 'Ekim',
+            11 => 'Kasım',
+            12 => 'Aralık',
+        ];
+
+        return [
+            'label' => $date->format('j') . ' ' . $months[(int) $date->format('n')] . ' ' . $date->format('Y'),
+            'datetime' => $date->format('Y-m-d\TH:i:sP'),
+        ];
     }
 }

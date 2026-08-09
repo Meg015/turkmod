@@ -1,0 +1,415 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e2]:
+    - navigation [ref=f1e3]:
+      - generic [ref=f1e4]:
+        - link "Mod Portal" [ref=f1e5] [cursor=pointer]:
+          - /url: /yenidosyalar/index.php
+        - list [ref=f1e10]:
+          - listitem [ref=f1e11]:
+            - link "Anasayfa" [ref=f1e12] [cursor=pointer]:
+              - /url: /yenidosyalar/index.php
+              - generic [ref=f1e13]: 
+              - text: Anasayfa
+          - listitem [ref=f1e14]:
+            - link "Kategoriler " [ref=f1e15] [cursor=pointer]:
+              - /url: /yenidosyalar/kategoriler
+              - generic [ref=f1e16]: 
+              - text: Kategoriler 
+        - generic [ref=f1e17]:
+          - search [ref=f1e18]:
+            - generic: 
+            - searchbox "Sitede ara" [ref=f1e19]
+          - button "Tema Degistir" [ref=f1e20] [cursor=pointer]:
+            - generic [ref=f1e21]: 
+          - group "Hesap işlemleri" [ref=f1e22]:
+            - link "Giriş" [ref=f1e23] [cursor=pointer]:
+              - /url: /yenidosyalar/giris?redirect=%2Fyenidosyalar%2Fkonu%2Ffs25-doku-akis-butcesinde-artis-1101-3995
+              - generic [ref=f1e24]: 
+            - link "Kayıt" [ref=f1e26] [cursor=pointer]:
+              - /url: /yenidosyalar/kayit?redirect=%2Fyenidosyalar%2Fkonu%2Ffs25-doku-akis-butcesinde-artis-1101-3995
+              - generic [ref=f1e27]: 
+  - main [ref=f1e29]:
+    - navigation "Sayfa yolu" [ref=f1e31]:
+      - link "Ana Sayfa" [ref=f1e32] [cursor=pointer]:
+        - /url: /yenidosyalar/index.php
+      - generic [ref=f1e33]: ">"
+      - link "Kategoriler" [ref=f1e34] [cursor=pointer]:
+        - /url: /yenidosyalar/kategoriler
+      - generic [ref=f1e35]: ">"
+      - link "FS 25" [ref=f1e36] [cursor=pointer]:
+        - /url: /yenidosyalar/kategori/fs-25
+      - generic [ref=f1e37]: ">"
+      - link "FS 25 - Diğer Modlar" [ref=f1e38] [cursor=pointer]:
+        - /url: /yenidosyalar/kategori/fs-25/fs-25-diger-modlar
+      - generic [ref=f1e39]: ">"
+      - link "FS25 - Doku Akış Bütçesinde Artış (1.1.0.1)" [ref=f1e40] [cursor=pointer]:
+        - /url: /yenidosyalar/konu/fs25-doku-akis-butcesinde-artis-1101-3995
+    - generic [ref=f1e42]:
+      - complementary [ref=f1e43]:
+        - text: 
+        - navigation [ref=f1e44]:
+          - generic [ref=f1e46]:
+            - generic [ref=f1e47]:
+              - heading "Menu" [level=5] [ref=f1e49]
+              - list [ref=f1e51]:
+                - listitem [ref=f1e52]:
+                  - link "Anasayfa" [ref=f1e53] [cursor=pointer]:
+                    - /url: /yenidosyalar/index.php
+                    - generic [ref=f1e54]: 
+                - listitem [ref=f1e56]:
+                  - link "Kategoriler" [ref=f1e57] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategoriler
+                    - generic [ref=f1e58]: 
+            - generic [ref=f1e60]:
+              - generic [ref=f1e61]:
+                - generic [ref=f1e62]: 
+                - heading "Kategoriler" [level=2] [ref=f1e64]
+              - list [ref=f1e66]:
+                - listitem [ref=f1e67]:
+                  - button "Euro Truck Simulator 2 alt kategorileri" [ref=f1e68] [cursor=pointer]:
+                    - generic [ref=f1e69]:
+                      - generic [ref=f1e70]: 
+                      - generic [ref=f1e71]: Euro Truck Simulator 2
+                    - generic [ref=f1e72]: "1.697"
+                    - generic [ref=f1e73]: 
+                  - text:        
+                - listitem [ref=f1e74]:
+                  - link "18 Wheels of Steel Modları 8" [ref=f1e75] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/18-wheels-of-steel-modlari
+                    - generic [ref=f1e76]:
+                      - generic [ref=f1e77]: 
+                      - generic [ref=f1e78]: 18 Wheels of Steel Modları
+                    - generic [ref=f1e79]: "8"
+                - listitem [ref=f1e81]:
+                  - button "American Truck Simulator Modları alt kategorileri" [ref=f1e82] [cursor=pointer]:
+                    - generic [ref=f1e83]:
+                      - generic [ref=f1e84]: 
+                      - generic [ref=f1e85]: American Truck Simulator Modları
+                    - generic [ref=f1e86]: "328"
+                    - generic [ref=f1e87]: 
+                  - text:        
+                - listitem [ref=f1e88]:
+                  - link "BeamNG.drive Modları 103" [ref=f1e89] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/beamng-drive-modlari
+                    - generic [ref=f1e90]:
+                      - generic [ref=f1e91]: 
+                      - generic [ref=f1e92]: BeamNG.drive Modları
+                    - generic [ref=f1e93]: "103"
+                - listitem [ref=f1e95]:
+                  - link "City Car Driving Modları 26" [ref=f1e96] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/city-car-driving-modlari
+                    - generic [ref=f1e97]:
+                      - generic [ref=f1e98]: 
+                      - generic [ref=f1e99]: City Car Driving Modları
+                    - generic [ref=f1e100]: "26"
+                - listitem [ref=f1e102]:
+                  - link "Farming Simulator 2009 Modları 15" [ref=f1e103] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/farming-simulator-2009-modlari
+                    - generic [ref=f1e104]:
+                      - generic [ref=f1e105]: 
+                      - generic [ref=f1e106]: Farming Simulator 2009 Modları
+                    - generic [ref=f1e107]: "15"
+                - listitem [ref=f1e109]:
+                  - button "FS 25 alt kategorileri" [expanded] [ref=f1e110] [cursor=pointer]:
+                    - generic [ref=f1e111]:
+                      - generic [ref=f1e112]: 
+                      - generic [ref=f1e113]: FS 25
+                    - generic [ref=f1e114]: "1.833"
+                    - generic [ref=f1e115]: 
+                  - list [ref=f1e116]:
+                    - listitem [ref=f1e117]:
+                      - link "FS 25 - Bina / Obje / Nesne Modları 277" [ref=f1e119] [cursor=pointer]:
+                        - /url: /yenidosyalar/kategori/fs-25/fs-25-bina-obje-nesne-modlari
+                        - generic [ref=f1e120]:
+                          - generic [ref=f1e121]: 
+                          - generic [ref=f1e122]: FS 25 - Bina / Obje / Nesne Modları
+                        - generic [ref=f1e123]: "277"
+                    - listitem [ref=f1e124]:
+                      - link "FS 25 - Diğer Modlar 103" [ref=f1e126] [cursor=pointer]:
+                        - /url: /yenidosyalar/kategori/fs-25/fs-25-diger-modlar
+                        - generic [ref=f1e127]:
+                          - generic [ref=f1e128]: 
+                          - generic [ref=f1e129]: FS 25 - Diğer Modlar
+                        - generic [ref=f1e130]: "103"
+                    - listitem [ref=f1e131]:
+                      - link "FS 25 - Harita Modları 184" [ref=f1e133] [cursor=pointer]:
+                        - /url: /yenidosyalar/kategori/fs-25/fs-25-harita-modlari
+                        - generic [ref=f1e134]:
+                          - generic [ref=f1e135]: 
+                          - generic [ref=f1e136]: FS 25 - Harita Modları
+                        - generic [ref=f1e137]: "184"
+                    - listitem [ref=f1e138]:
+                      - link "FS 25 - Kamyon / Araba Modları 179" [ref=f1e140] [cursor=pointer]:
+                        - /url: /yenidosyalar/kategori/fs-25/fs-25-kamyon-araba-modlari
+                        - generic [ref=f1e141]:
+                          - generic [ref=f1e142]: 
+                          - generic [ref=f1e143]: FS 25 - Kamyon / Araba Modları
+                        - generic [ref=f1e144]: "179"
+                    - listitem [ref=f1e145]:
+                      - link "FS 25 Araç Modları 488" [ref=f1e147] [cursor=pointer]:
+                        - /url: /yenidosyalar/kategori/fs-25/fs-25-arac-modlari
+                        - generic [ref=f1e148]:
+                          - generic [ref=f1e149]: 
+                          - generic [ref=f1e150]: FS 25 Araç Modları
+                        - generic [ref=f1e151]: "488"
+                    - listitem [ref=f1e152]:
+                      - link "FS25 Biçerdöver Modları 118" [ref=f1e154] [cursor=pointer]:
+                        - /url: /yenidosyalar/kategori/fs-25/fs25-bicerdover-modlari
+                        - generic [ref=f1e155]:
+                          - generic [ref=f1e156]: 
+                          - generic [ref=f1e157]: FS25 Biçerdöver Modları
+                        - generic [ref=f1e158]: "118"
+                    - listitem [ref=f1e159]:
+                      - link "FS25 Römork Modları 221" [ref=f1e161] [cursor=pointer]:
+                        - /url: /yenidosyalar/kategori/fs-25/fs25-romork-modlari
+                        - generic [ref=f1e162]:
+                          - generic [ref=f1e163]: 
+                          - generic [ref=f1e164]: FS25 Römork Modları
+                        - generic [ref=f1e165]: "221"
+                    - listitem [ref=f1e166]:
+                      - link "FS25 Traktör Modları 263" [ref=f1e168] [cursor=pointer]:
+                        - /url: /yenidosyalar/kategori/fs-25/fs25-traktor-modlari
+                        - generic [ref=f1e169]:
+                          - generic [ref=f1e170]: 
+                          - generic [ref=f1e171]: FS25 Traktör Modları
+                        - generic [ref=f1e172]: "263"
+                - listitem [ref=f1e173]:
+                  - link "Genel 0" [ref=f1e174] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/genel
+                    - generic [ref=f1e175]:
+                      - generic [ref=f1e176]: 
+                      - generic [ref=f1e177]: Genel
+                    - generic [ref=f1e178]: "0"
+                - listitem [ref=f1e180]:
+                  - link "Spintires Modları 8" [ref=f1e181] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/spintires-modlari
+                    - generic [ref=f1e182]:
+                      - generic [ref=f1e183]: 
+                      - generic [ref=f1e184]: Spintires Modları
+                    - generic [ref=f1e185]: "8"
+                - listitem [ref=f1e187]:
+                  - link "Spintires Mudrunner Modları 16" [ref=f1e188] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/spintires-mudrunner-modlari
+                    - generic [ref=f1e189]:
+                      - generic [ref=f1e190]: 
+                      - generic [ref=f1e191]: Spintires Mudrunner Modları
+                    - generic [ref=f1e192]: "16"
+                - listitem [ref=f1e194]:
+                  - link "Spintires Snowrunner Modları 9" [ref=f1e195] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/spintires-snowrunner-modlari
+                    - generic [ref=f1e196]:
+                      - generic [ref=f1e197]: 
+                      - generic [ref=f1e198]: Spintires Snowrunner Modları
+                    - generic [ref=f1e199]: "9"
+      - article [ref=f1e202]:
+        - heading "FS25 - Doku Akış Bütçesinde Artış (1.1.0.1)" [level=1] [ref=f1e205]
+        - generic "FS25 - Doku Akış Bütçesinde Artış (1.1.0.1)" [ref=f1e206]:
+          - img "FS25 - Doku Akış Bütçesinde Artış (1.1.0.1)" [ref=f1e207]
+        - region "Konu bilgileri ve islemler" [ref=f1e208]:
+          - generic [ref=f1e209]:
+            - generic [ref=f1e210]:
+              - generic [ref=f1e211]: 
+              - text: 22.07.2026
+            - generic [ref=f1e212]:
+              - generic [ref=f1e213]: 
+              - text: "4"
+            - generic [ref=f1e214]:
+              - generic [ref=f1e215]: 
+              - text: "0"
+            - generic [ref=f1e216]:
+              - generic [ref=f1e217]: 
+              - text: "2"
+          - generic [ref=f1e218]:
+            - button "Konuyu Raporla" [ref=f1e219] [cursor=pointer]:
+              - generic [ref=f1e220]: 
+            - button "Favori 0" [ref=f1e222] [cursor=pointer]:
+              - generic [ref=f1e223]: 
+              - generic [ref=f1e224]: Favori
+              - generic [ref=f1e225]: "0"
+        - generic [ref=f1e226]:
+          - region [ref=f1e228]:
+            - heading "Açıklama" [level=2] [ref=f1e229]
+            - generic [ref=f1e231]:
+              - paragraph [ref=f1e232]: Doku Akış Bütçesinin Artırılması V1.1.0.1
+              - paragraph [ref=f1e233]: Varsayılan olarak, oyun yüksek çözünürlüklü dokuları depolamak için
+              - paragraph [ref=f1e234]: yüksek çözünürlüklü dokuları depolamak için kullanır. Örneğin, oyunda bir binadan uzaklaştığınız anda,
+              - paragraph [ref=f1e235]: diğer dokuları yüklemek için o binanın dokuları bellekten silinebilir.
+              - paragraph [ref=f1e236]: Binaya tekrar dönerseniz, sadece düşük çözünürlüklü
+              - paragraph [ref=f1e237]: görünür ve oyun daha sonra yüksek çözünürlüklü dokuları belleğe yeniden yükler.
+              - paragraph [ref=f1e238]: Bu mod, kullanılan doku belleği sınırını varsayılan 4 GB'den grafik kartının kullanılabilir belleğine (VRAM) "sıfırlar".
+              - paragraph [ref=f1e239]: Bu nedenle, bu mod yalnızca grafik kartınızın
+              - paragraph [ref=f1e240]: 4 GB'den fazla belleğe sahipse kullanılmalıdır.
+              - paragraph [ref=f1e241]:
+                - strong [ref=f1e242]: "Sürüm 1.1.0.1:"
+              - paragraph [ref=f1e243]: Günlük Bilgisi'ndeki hata için düzeltme
+          - region [ref=f1e245]:
+            - heading "Resim ve Videolar" [level=2] [ref=f1e246]
+            - generic [ref=f1e247]:
+              - generic [ref=f1e248]:
+                - button "Onceki medya" [ref=f1e249] [cursor=pointer]:
+                  - generic [ref=f1e250]: 
+                - button "Sonraki medya" [ref=f1e251] [cursor=pointer]:
+                  - generic [ref=f1e252]: 
+                - generic [ref=f1e254]: 1 / 2
+              - generic "Galeri onizlemeleri" [ref=f1e255]:
+                - button "Galeri gorseli 1" [ref=f1e256] [cursor=pointer]:
+                  - img "Galeri gorseli 1" [ref=f1e257]
+                - button "Galeri gorseli 2" [ref=f1e258] [cursor=pointer]:
+                  - img "Galeri gorseli 2" [ref=f1e259]
+          - region [ref=f1e261]:
+            - heading "İçerik Bilgileri" [level=2] [ref=f1e262]
+            - generic [ref=f1e263]:
+              - generic [ref=f1e264]:
+                - generic [ref=f1e265]: 
+                - generic [ref=f1e266]: "Konu Sahibi:"
+                - strong [ref=f1e267]:
+                  - link "Yetkili Bi Abi" [ref=f1e268] [cursor=pointer]:
+                    - /url: /yenidosyalar/profil/yetkili-bi-abi-1
+              - generic [ref=f1e269]:
+                - generic [ref=f1e270]: 
+                - generic [ref=f1e271]: "Yayın Tarihi:"
+                - strong [ref=f1e272]: 22.07.2026
+              - generic [ref=f1e273]:
+                - generic [ref=f1e274]: 
+                - generic [ref=f1e275]: "Mod Yapımcısı:"
+                - strong [ref=f1e276]: Helfer B
+              - generic [ref=f1e277]:
+                - generic [ref=f1e278]: 
+                - generic [ref=f1e279]: "Oyun Sürümü:"
+                - strong [ref=f1e280]: "-"
+              - generic [ref=f1e281]:
+                - generic [ref=f1e282]: 
+                - generic [ref=f1e283]: "Kategori:"
+                - strong [ref=f1e284]:
+                  - link "FS 25 - Diğer Modlar" [ref=f1e285] [cursor=pointer]:
+                    - /url: /yenidosyalar/kategori/fs-25-diger-modlar
+              - generic [ref=f1e286]:
+                - generic [ref=f1e287]: 
+                - generic [ref=f1e288]: "Görüntülenme:"
+                - strong [ref=f1e289]: "4"
+          - generic:     
+          - region [ref=f1e292]:
+            - heading "İndirme Bağlantıları" [level=2] [ref=f1e293]
+            - note [ref=f1e294]:
+              - generic [ref=f1e295]: 
+              - generic [ref=f1e296]: İndirme bağlantısı açılmadan önce kısa bir güvenlik beklemesi uygulanır. Hedef alan adını kontrol edip dış bağlantı onay ekranından devam edebilirsiniz.
+            - status [ref=f1e297]:
+              - generic [ref=f1e298]: 
+              - generic [ref=f1e299]:
+                - strong [ref=f1e300]: Giriş gerekli
+                - generic [ref=f1e301]: Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.
+                - generic "0 adımdan 3 adımı tamamlandı" [ref=f1e302]
+                - generic "İndirme kilidi adımları" [ref=f1e303]:
+                  - 'generic "Giriş: şimdi tamamlanmalı" [ref=f1e304]':
+                    - generic [ref=f1e305]: 
+                    - generic [ref=f1e306]: Giriş
+                  - 'generic "Yorum: sırada" [ref=f1e307]':
+                    - generic [ref=f1e308]: 
+                    - generic [ref=f1e309]: Yorum
+                  - 'generic "İndirme bağlantısı: sırada" [ref=f1e310]':
+                    - generic [ref=f1e311]: 
+                    - generic [ref=f1e312]: Aç
+            - link "sharemods.com üzerinden indir sharemods.com Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim. 0 indirme Kilidi Ac" [disabled] [ref=f1e315] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=f1e316]: 
+              - generic [ref=f1e318]:
+                - strong [ref=f1e319]: sharemods.com üzerinden indir
+                - generic [ref=f1e320]: sharemods.com
+                - generic [ref=f1e321]: Bu icerigi gormek icin kayit olmaniz veya giris yapmaniz lazim.
+                - generic [ref=f1e322]:
+                  - generic [ref=f1e323]: 
+                  - text: 0 indirme
+              - generic [ref=f1e324]: Kilidi Ac
+          - region [ref=f1e328]:
+            - generic [ref=f1e329]:
+              - heading "Yorumlar (0)" [level=2] [ref=f1e330]:
+                - text: Yorumlar
+                - generic [ref=f1e331]: (0)
+              - generic [ref=f1e332]:
+                - generic [ref=f1e333]: "Sırala:"
+                - combobox [ref=f1e334] [cursor=pointer]:
+                  - option "En Eski" [selected]
+                  - option "En Yeni"
+                  - option "Popüler"
+                  - option "Beğenilenler"
+                  - option "Beğenilmeyenler"
+            - generic [ref=f1e335]:
+              - text: Yorum yapmak için
+              - link "giriş yapın" [ref=f1e336] [cursor=pointer]:
+                - /url: /yenidosyalar/giris
+              - text: .
+      - complementary [ref=f1e341]:
+        - generic [ref=f1e343]:
+          - generic [ref=f1e345]:
+            - heading "Son Yorumlar" [level=5] [ref=f1e347]
+            - generic [ref=f1e348]:
+              - link "Yetkili Bi Abi Yetkili Bi Abi Ricaaa 28.07.2026" [ref=f1e349] [cursor=pointer]:
+                - /url: /yenidosyalar/konu/fs25-doku-akis-butcesinde-artis-1101-3995
+                - img "Yetkili Bi Abi" [ref=f1e352]
+                - generic [ref=f1e353]:
+                  - strong [ref=f1e354]: Yetkili Bi Abi
+                  - generic [ref=f1e355]: Ricaaa
+                  - generic [ref=f1e356]: 28.07.2026
+              - link "dream592 dream592 eyw reis 27.07.2026" [ref=f1e357] [cursor=pointer]:
+                - /url: /yenidosyalar/konu/fs25-doku-akis-butcesinde-artis-1101-3995
+                - img "dream592" [ref=f1e360]
+                - generic [ref=f1e361]:
+                  - strong [ref=f1e362]: dream592
+                  - generic [ref=f1e363]: eyw reis
+                  - generic [ref=f1e364]: 27.07.2026
+              - link "Yetkili Bi Abi Yetkili Bi Abi lllll 12.07.2026" [ref=f1e365] [cursor=pointer]:
+                - /url: /yenidosyalar/konu/kenworth-t2000-truck-v160-3967
+                - img "Yetkili Bi Abi" [ref=f1e368]
+                - generic [ref=f1e369]:
+                  - strong [ref=f1e370]: Yetkili Bi Abi
+                  - generic [ref=f1e371]: lllll
+                  - generic [ref=f1e372]: 12.07.2026
+          - generic [ref=f1e374]:
+            - heading "Populer" [level=5] [ref=f1e376]
+            - generic [ref=f1e377]:
+              - link "ETS2 - TJS HD GPS Modu (1.59) ETS2 - TJS HD GPS Modu (1.59) 13 indirme" [ref=f1e378] [cursor=pointer]:
+                - /url: /yenidosyalar/konu/ets2-tjs-hd-gps-modu-159-1
+                - img "ETS2 - TJS HD GPS Modu (1.59)" [ref=f1e379]
+                - generic [ref=f1e380]:
+                  - strong [ref=f1e381]: ETS2 - TJS HD GPS Modu (1.59)
+                  - generic [ref=f1e382]: 13 indirme
+              - link "ETS2 - Comil Campione 3.65 Generation Otobüs Modu (1.59) ETS2 - Comil Campione 3.65 Generation Otobüs Modu (1.59) 0 indirme" [ref=f1e383] [cursor=pointer]:
+                - /url: /yenidosyalar/konu/ets2-comil-campione-3-65-generation-otobus-modu-1-59-9
+                - img "ETS2 - Comil Campione 3.65 Generation Otobüs Modu (1.59)" [ref=f1e384]
+                - generic [ref=f1e385]:
+                  - strong [ref=f1e386]: ETS2 - Comil Campione 3.65 Generation Otobüs Modu (1.59)
+                  - generic [ref=f1e387]: 0 indirme
+              - link "ETS2 - A-W Led Panel (1.58) ETS2 - A-W Led Panel (1.58) 1 indirme" [ref=f1e388] [cursor=pointer]:
+                - /url: /yenidosyalar/konu/ets2-a-w-led-panel-1-58-7
+                - img "ETS2 - A-W Led Panel (1.58)" [ref=f1e389]
+                - generic [ref=f1e390]:
+                  - strong [ref=f1e391]: ETS2 - A-W Led Panel (1.58)
+                  - generic [ref=f1e392]: 1 indirme
+              - link "ETS2 - Swap Body Taşıyıcı Şasi Paketi Modu (1.59) ETS2 - Swap Body Taşıyıcı Şasi Paketi Modu (1.59) 1 indirme" [ref=f1e393] [cursor=pointer]:
+                - /url: /yenidosyalar/konu/ets2-swap-body-tasiyici-sasi-paketi-modu-1-59-2
+                - img "ETS2 - Swap Body Taşıyıcı Şasi Paketi Modu (1.59)" [ref=f1e394]
+                - generic [ref=f1e395]:
+                  - strong [ref=f1e396]: ETS2 - Swap Body Taşıyıcı Şasi Paketi Modu (1.59)
+                  - generic [ref=f1e397]: 1 indirme
+              - link "Jetta 2000 Addon for Scania RJL V1.59 Jetta 2000 Addon for Scania RJL V1.59 3 indirme" [ref=f1e398] [cursor=pointer]:
+                - /url: /yenidosyalar/konu/jetta-2000-addon-for-scania-rjl-v159-3968
+                - img "Jetta 2000 Addon for Scania RJL V1.59" [ref=f1e399]
+                - generic [ref=f1e400]:
+                  - strong [ref=f1e401]: Jetta 2000 Addon for Scania RJL V1.59
+                  - generic [ref=f1e402]: 3 indirme
+              - link "Tum Populerler" [ref=f1e404] [cursor=pointer]:
+                - /url: /yenidosyalar/index.php?sort=popular
+  - contentinfo [ref=f1e405]:
+    - generic [ref=f1e407]:
+      - list [ref=f1e408]:
+        - listitem [ref=f1e409]:
+          - link "Ana sayfa" [ref=f1e410] [cursor=pointer]:
+            - /url: /yenidosyalar/index.php
+        - listitem [ref=f1e411]:
+          - link "Kategoriler" [ref=f1e412] [cursor=pointer]:
+            - /url: /yenidosyalar/kategoriler
+      - paragraph [ref=f1e413]:
+        - text: © 2026.
+        - link:
+          - /url: /yenidosyalar/index.php
+        - text: "- Tüm hakları saklıdır."

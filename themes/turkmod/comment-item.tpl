@@ -2,7 +2,7 @@
 <div class="[[classes]]" data-comment-id="[[id]]" id="comment-[[id]]">
 <div class="ui-comment-body ui-panel__body">
 <div class="ui-comment-profile-card">
-<div class="ui-comment-profile-avatar" data-hue="[[hue]]">[[avatar_html]]</div>
+<div class="ui-comment-profile-avatar" data-hue="[[hue]]">[[avatar_html]][[presence_html]]</div>
 <div class="ui-comment-profile-info">
 <div class="ui-comment-author-line"><a href="[[profile_url]]" class="ui-comment-author-link"><strong class="ui-comment-author">[[author]]</strong></a>[[author_badge_html]][[group_badge_html]]</div>
 </div>

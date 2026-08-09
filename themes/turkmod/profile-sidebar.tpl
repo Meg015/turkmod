@@ -29,6 +29,13 @@
                     <strong>{profile.tenure}</strong>
                 </div>
             {/if}
+            {if profile.presence_visible}
+            <div class="profile-sidebar-meta-item profile-sidebar-meta-item--presence" data-presence-user-id="{profile.id}">
+                <span class="user-presence-dot {profile.presence_state_class}" tabindex="0" role="img" aria-label="{profile.presence_status_label}" data-presence-tooltip="{profile.presence_status_label}" data-user-presence-dot></span>
+                <span class="profile-sidebar-meta-label">Son Çevrimiçi</span>
+                <strong data-user-presence-label data-presence-online-text="Çevrimiçi">{profile.presence_relative_label}</strong>
+            </div>
+            {/if}
             {if profile.has_location}
                 <div class="profile-sidebar-meta-item profile-sidebar-meta-item--location">
                     <i class="bi bi-geo-alt" aria-hidden="true"></i>

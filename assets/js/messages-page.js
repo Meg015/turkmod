@@ -50,6 +50,40 @@
         }
     }
 
+    function normalizedPresence(thread) {
+        var rawOnline = thread ? thread.with_user_is_online : false;
+        var isOnline = rawOnline === true || rawOnline === 1 || rawOnline === "1";
+
+        return {
+            isOnline: isOnline,
+            label: isOnline ? "Çevrimiçi" : "Çevrimdışı"
+        };
+    }
+
+    function updatePresenceIndicator(indicator, thread) {
+        if (!indicator) return;
+
+        var presence = normalizedPresence(thread);
+        var presenceUserId = Number(thread && thread.with_user_id || indicator.getAttribute("data-presence-user-id") || 0);
+        var realtimeState = window.publicTopbarRealtime && typeof window.publicTopbarRealtime.getPresenceState === "function"
+            ? window.publicTopbarRealtime.getPresenceState(presenceUserId)
+            : null;
+        if (realtimeState && window.publicPresenceUI && typeof window.publicPresenceUI.apply === "function") {
+            window.publicPresenceUI.apply(indicator, realtimeState);
+            return;
+        }
+
+        var isVisible = !thread || !Object.prototype.hasOwnProperty.call(thread, "with_user_presence_visible") || !!thread.with_user_presence_visible;
+        indicator.hidden = !isVisible;
+        if (!isVisible) return;
+        indicator.classList.toggle("is-online", presence.isOnline);
+        indicator.classList.toggle("is-offline", !presence.isOnline);
+        indicator.setAttribute("aria-label", presence.label);
+        indicator.removeAttribute("title");
+        indicator.setAttribute("data-presence-tooltip", presence.label);
+        indicator.setAttribute("data-presence-label", presence.label);
+    }
+
     function postSilently(url, body) {
         return fetchJson(url, {
             method: "POST",
@@ -91,6 +125,7 @@
         root.dataset.messagesPageReady = "1";
 
         var apiUrl = root.getAttribute("data-messages-api-url") || "";
+        var messagesUrl = root.getAttribute("data-messages-url") || window.location.pathname;
         var activeThreadId = Number(root.getAttribute("data-active-thread-id") || 0);
         var currentUserId = Number(root.getAttribute("data-current-user-id") || 0);
         var csrfToken = root.getAttribute("data-messages-csrf") || "";
@@ -109,6 +144,7 @@
         var activeThreadData = null;
         var historyLoading = false;
         var historyExhausted = false;
+        var pendingThreadDeletes = {};
 
         if (stream) {
             stream.scrollTop = stream.scrollHeight;
@@ -254,6 +290,126 @@
                 }
             });
         }
+
+        function confirmThreadDelete(peerName) {
+            var name = String(peerName || "Bu kullanıcı").trim() || "Bu kullanıcı";
+            var message = name + " ile olan sohbet mesaj listenizden kalıcı olarak silinecek. Eski mesajlar size tekrar gösterilmeyecek. Bu işlem geri alınamaz.";
+            if (window.TMUI && typeof window.TMUI.confirm === "function") {
+                return window.TMUI.confirm(message, {
+                    title: "Sohbeti sil?",
+                    ok: "Kalıcı olarak sil",
+                    cancel: "Vazgeç",
+                    tone: "danger"
+                });
+            }
+            return Promise.resolve(window.confirm(message));
+        }
+
+        function refreshTopbarMessages() {
+            if (window.publicTopbar && typeof window.publicTopbar.refreshMessages === "function") {
+                window.publicTopbar.refreshMessages();
+            }
+        }
+
+        function refreshPageUnreadCount() {
+            if (apiUrl === "") return;
+            var url = new URL(apiUrl, window.location.origin);
+            url.searchParams.set("action", "list");
+            url.searchParams.set("limit", "1");
+            fetchJson(url.toString(), {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+                notifyError: false
+            }).then(function (data) {
+                if (data && data.ok) updateThreadSummary(data.unread_count);
+            }).catch(function () {});
+        }
+
+        function updateThreadSummary(unreadCount) {
+            var threadCountNode = root.querySelector("[data-messages-thread-count]");
+            var unreadCountNode = root.querySelector("[data-messages-unread-count]");
+            var rows = root.querySelectorAll("[data-thread-item]");
+            if (threadCountNode) {
+                threadCountNode.textContent = Number(rows.length || 0).toLocaleString("tr-TR");
+            }
+            if (unreadCountNode && Number.isFinite(Number(unreadCount))) {
+                unreadCountNode.textContent = Math.max(0, Number(unreadCount || 0)).toLocaleString("tr-TR");
+            }
+
+            var list = root.querySelector("[data-messages-thread-list]");
+            if (list && rows.length === 0) {
+                var empty = document.createElement("div");
+                empty.className = "messages-empty-state";
+                empty.innerHTML = '<i class="bi bi-inbox" aria-hidden="true"></i><p>Henüz sohbet yok. Yeni mesaj butonu ile yeni bir sohbet başlatabilirsiniz.</p>';
+                list.replaceWith(empty);
+            }
+        }
+
+        function removeThreadFromPage(threadId, unreadCount) {
+            var normalizedThreadId = Number(threadId || 0);
+            if (normalizedThreadId <= 0) return;
+            var row = root.querySelector('[data-thread-id="' + normalizedThreadId + '"]');
+            if (row) row.remove();
+            updateThreadSummary(unreadCount);
+            refreshTopbarMessages();
+            if (!Number.isFinite(Number(unreadCount))) refreshPageUnreadCount();
+
+            if (normalizedThreadId === activeThreadId) {
+                activeThreadId = 0;
+                root.setAttribute("data-active-thread-id", "0");
+                window.location.assign(messagesUrl);
+            }
+        }
+
+        root.addEventListener("click", function (event) {
+            var button = event.target.closest("[data-messages-thread-delete]");
+            if (!button || !root.contains(button) || button.disabled) return;
+            event.preventDefault();
+            event.stopPropagation();
+
+            var threadId = Number(button.getAttribute("data-delete-thread-id") || 0);
+            if (threadId <= 0 || pendingThreadDeletes[threadId]) return;
+
+            confirmThreadDelete(button.getAttribute("data-delete-thread-name")).then(function (confirmed) {
+                if (!confirmed) return;
+
+                pendingThreadDeletes[threadId] = true;
+                button.disabled = true;
+                button.setAttribute("aria-busy", "true");
+                var icon = button.querySelector("i");
+                var originalIconClass = icon ? icon.className : "";
+                if (icon) icon.className = "bi bi-arrow-repeat";
+
+                var payload = new FormData();
+                payload.append("action", "delete_thread");
+                payload.append("_token", csrfToken);
+                payload.append("thread_id", String(threadId));
+
+                fetchJson(apiUrl, {
+                    method: "POST",
+                    body: payload,
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    notifyError: false
+                })
+                .then(function (data) {
+                    if (!data || !data.ok) {
+                        throw new Error(data && data.message ? data.message : "Sohbet silinemedi.");
+                    }
+                    toast(data.message || "Sohbet silindi.", "success");
+                    removeThreadFromPage(threadId, data.unread_count);
+                })
+                .catch(function (error) {
+                    toast(error && error.message ? error.message : "Sohbet silinemedi.", "error");
+                })
+                .finally(function () {
+                    delete pendingThreadDeletes[threadId];
+                    if (button.isConnected) {
+                        button.disabled = false;
+                        button.removeAttribute("aria-busy");
+                        if (icon) icon.className = originalIconClass;
+                    }
+                });
+            });
+        });
 
         // ==========================================
         // Typing Status Helper Functions
@@ -589,6 +745,7 @@
                         // Sohbet ve thread_id güncellenmesi
                         if (data.thread_id && Number(data.thread_id) > 0) {
                             activeThreadId = Number(data.thread_id);
+                            root.setAttribute("data-active-thread-id", String(activeThreadId));
                             var threadInput = sendForm.querySelector('input[name="thread_id"]');
                             if (threadInput) threadInput.value = String(activeThreadId);
                         }
@@ -658,6 +815,28 @@
             });
         }
 
+        function updateThreadPresence(thread) {
+            if (!thread) return;
+
+            var threadId = Number(thread.thread_id || 0);
+            if (threadId <= 0) return;
+
+            var threadItem = root.querySelector('[data-thread-id="' + threadId + '"]');
+            if (threadItem) {
+                updatePresenceIndicator(
+                    threadItem.querySelector("[data-messages-thread-presence]"),
+                    thread
+                );
+            }
+
+            if (threadId === activeThreadId) {
+                updatePresenceIndicator(
+                    root.querySelector("[data-messages-active-presence]"),
+                    thread
+                );
+            }
+        }
+
         var isPolling = false;
         var pollPending = false;
         var pollPendingForceScroll = false;
@@ -686,6 +865,7 @@
                     }
 
                     activeThreadData = data.thread;
+                    updateThreadPresence(data.thread);
                     var prevCount = threadMessages.length;
                     mergeMessages(data.messages);
                     // Yeni mesaj geldiyse "yazıyor..." göstergesini temizle
@@ -731,6 +911,14 @@
                 return;
             }
 
+            if (data.type === "thread_cleared" && Number(data.user_id || 0) === currentUserId) {
+                var clearedThreadId = Number(data.thread_id || 0);
+                if (clearedThreadId > 0 && !pendingThreadDeletes[clearedThreadId]) {
+                    removeThreadFromPage(clearedThreadId);
+                }
+                return;
+            }
+
             if (data.thread_id === activeThreadId) {
                 if (data.type === "typing") {
                     if (data.user_id !== currentUserId && activeThreadData) {
@@ -760,6 +948,8 @@
                     if (preview) {
                         preview.innerHTML = "<strong>Yeni mesaj var</strong>";
                     }
+                } else {
+                    window.location.reload();
                 }
             }
         }

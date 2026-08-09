@@ -18,7 +18,6 @@ $minLength = max(1, (int) ($settings['comment_min_length'] ?? 1));
 $guestComments = ($settings['comment_allow_guest'] ?? '0') === '1';
 $editWindow = max(0, (int) ($settings['comment_edit_window'] ?? 0));
 $nestedComments = ($settings['comment_nested'] ?? '0') === '1';
-$maxNestDepth = max(0, (int) ($settings['comment_max_depth'] ?? 3));
 $commentsPerPage = max(1, min(200, (int) ($settings['comment_per_page'] ?? 50)));
 $commentOrder = (string) ($settings['comment_sort_order'] ?? 'asc');
 $rateMinutes = max(1, (int) ($settings['comment_rate_minutes'] ?? 5));
@@ -168,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
             jsonResponse(200, [
                 'success' => true,
-                'history' => array_map(function($h) {
+                'history' => array_map(function($h) use ($pdo) {
                     return [
                         'id' => (int)$h['id'],
                         'old_body' => $h['old_body'],
@@ -176,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         'edit_reason' => $h['edit_reason'],
                         'editor_name' => $h['editor_name'] ?? 'Anonim',
                         'created_at' => $h['created_at'],
-                        'time_ago' => timeAgo($h['created_at'])
+                        'time_ago' => timeAgo($h['created_at'], $pdo)
                     ];
                 }, $history)
             ]);
@@ -229,7 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Fetch all comments for this topic (flat)
         $authorNameExpr = _commentsUserNameExpr($pdo, 'u');
-        $selectCols = "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name";
+        $selectCols = "c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, u.status AS user_status, u.is_banned AS user_is_banned, u.deleted_at AS user_deleted_at, u.last_activity_at, COALESCE(ug.name, '') AS group_name";
         // Add sorting by likes-dislikes if popular, liked, or disliked
         if ($orderByPopular) {
             $orderClause = "(COALESCE(cr_agg.likes_cnt, 0) - COALESCE(cr_agg.dislikes_cnt, 0)) DESC, c.created_at ASC";
@@ -271,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $rootComments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch ALL REPLIES for the entire topic
-        $sqlReplies = "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, COALESCE(ug.name, '') AS group_name
+        $sqlReplies = "SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, c.is_edited, c.edited_at, c.reaction_count, {$authorNameExpr} AS author, u.avatar, u.status AS user_status, u.is_banned AS user_is_banned, u.deleted_at AS user_deleted_at, u.last_activity_at, COALESCE(ug.name, '') AS group_name
                FROM comments c LEFT JOIN users u ON c.user_id = u.id
                LEFT JOIN user_group_members ugm ON ugm.user_id = u.id AND ugm.is_primary = 1
                LEFT JOIN user_groups ug ON ug.id = ugm.group_id
@@ -381,8 +380,20 @@ function formatComment(array $c, int $editWindow, array $reactionsMap = [], arra
 
     $canDelete = $userId > 0 && ($isOwner || (function_exists('userHasPermission') && userHasPermission($GLOBALS['pdo'] ?? null, $userId, 'comments.delete')));
 
+    $presenceVisible = (int) ($c['user_id'] ?? 0) > 0
+        && function_exists('userPresenceLookup')
+        && userPresenceLookup()->isVisibleRow([
+            'status' => $c['user_status'] ?? '',
+            'is_banned' => $c['user_is_banned'] ?? 0,
+            'deleted_at' => $c['user_deleted_at'] ?? null,
+        ]);
+    $presence = $presenceVisible && function_exists('userPresenceDescribePublic')
+        ? userPresenceDescribePublic(isset($c['last_activity_at']) ? (string) $c['last_activity_at'] : null)
+        : ['is_online' => false, 'status_label' => 'Çevrimdışı'];
+
     $result = [
         'id'                  => (int)$c['id'],
+        'user_id'             => (int) ($c['user_id'] ?? 0),
         'author'              => $c['author'] ?? 'Anonim',
         'avatar'              => $c['avatar'] ?? null,
         'profile_url'         => (int) ($c['user_id'] ?? 0) > 0
@@ -392,12 +403,15 @@ function formatComment(array $c, int $editWindow, array $reactionsMap = [], arra
             ])
             : '',
         'group_name'          => $c['group_name'] ?? '',
+        'is_online'           => (bool) ($presence['is_online'] ?? false),
+        'presence_visible'    => $presenceVisible,
+        'presence_label'      => (string) ($presence['status_label'] ?? 'Çevrimdışı'),
         'body'                => $c['body'],
         'parent_id'           => $c['parent_id'] ?? null,
         'parent_author'       => $c['parent_author'] ?? null,
         'parent_body_preview' => $c['parent_body_preview'] ?? null,
         'created_at'          => $c['created_at'],
-        'time_ago'            => timeAgo($c['created_at']),
+        'time_ago'            => timeAgo($c['created_at'], $GLOBALS['pdo'] ?? null),
         'is_edited'           => (bool)($c['is_edited'] ?? false),
         'edited_at'           => $c['edited_at'] ?? null,
         'can_edit'            => $canEdit,
@@ -413,14 +427,18 @@ function formatComment(array $c, int $editWindow, array $reactionsMap = [], arra
     return $result;
 }
 
-function timeAgo(string $datetime): string
+function timeAgo(string $datetime, ?PDO $pdo = null): string
 {
-    $diff = time() - strtotime($datetime);
+    $timestamp = strtotime($datetime) ?: time();
+    $diff = time() - $timestamp;
     if ($diff < 60) return 'az önce';
     if ($diff < 3600) return floor($diff / 60) . ' dk önce';
     if ($diff < 86400) return floor($diff / 3600) . ' saat önce';
     if ($diff < 604800) return floor($diff / 86400) . ' gün önce';
-    return date('d M Y', strtotime($datetime));
+    if (function_exists('formatAppDateTime')) {
+        return formatAppDateTime($datetime, $pdo);
+    }
+    return date('d.m.Y H:i', $timestamp);
 }
 
 /**
@@ -747,18 +765,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             jsonResponse(400, ['error' => 'Yanıt yorumu farklı bir konuya ait.']);
         }
 
-        if ($maxNestDepth > 0) {
-            $depth = 1;
-            $pid = $parentRow['parent_id'] ? (int)$parentRow['parent_id'] : null;
-            while ($pid && $depth < $maxNestDepth) {
-                $pStmt = $pdo->prepare("SELECT parent_id FROM comments WHERE id = ?");
-                $pStmt->execute([$pid]);
-                $pRow = $pStmt->fetch();
-                $pid = $pRow ? (($pRow['parent_id'] ?? null) !== null ? (int)$pRow['parent_id'] : null) : null;
-                $depth++;
-            }
-            if ($depth >= $maxNestDepth) jsonResponse(400, ['error' => 'Maksimum yanıt derinliğine ulaşıldı.']);
-        }
     }
 
 
@@ -922,7 +928,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Fetch the newly created comment
         $newAuthorExpr = _commentsUserNameExpr($pdo, 'u');
-        $newStmt = $pdo->prepare("SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$newAuthorExpr} AS author, u.avatar
+        $newStmt = $pdo->prepare("SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$newAuthorExpr} AS author, u.avatar, u.status AS user_status, u.is_banned AS user_is_banned, u.deleted_at AS user_deleted_at, u.last_activity_at
                                   FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?");
         $newStmt->execute([$newId]);
         $newComment = $newStmt->fetch(PDO::FETCH_ASSOC);

@@ -1,0 +1,209 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e2]:
+    - navigation [ref=f1e3]:
+      - generic [ref=f1e4]:
+        - link "Mod Portal" [ref=f1e5] [cursor=pointer]:
+          - /url: /yenidosyalar/index.php
+        - list [ref=f1e362]:
+          - listitem [ref=f1e363]:
+            - link "Anasayfa" [ref=f1e364] [cursor=pointer]:
+              - /url: /yenidosyalar/index.php
+              - generic [ref=f1e365]: 
+              - text: Anasayfa
+          - listitem [ref=f1e366]:
+            - link "Kategoriler " [ref=f1e367] [cursor=pointer]:
+              - /url: /yenidosyalar/kategoriler
+              - generic [ref=f1e368]: 
+              - text: Kategoriler 
+        - generic [ref=f1e13]:
+          - search [ref=f1e14]:
+            - generic: 
+            - searchbox "Sitede ara" [ref=f1e15]
+          - button "Tema Degistir" [ref=f1e16] [cursor=pointer]:
+            - generic [ref=f1e17]: 
+          - generic [ref=f1e18]:
+            - button "Mesajlari ac" [ref=f1e19] [cursor=pointer]:
+              - generic [ref=f1e20]: 
+            - text: 
+          - generic [ref=f1e21]:
+            - button "Bildirimleri ac" [ref=f1e22] [cursor=pointer]:
+              - generic [ref=f1e23]: 
+            - text: 
+          - button "Yetkili Bi Abi Yetkili Bi Abi" [ref=f1e25] [cursor=pointer]:
+            - img "Yetkili Bi Abi" [ref=f1e28]
+            - generic [ref=f1e29]: Yetkili Bi Abi
+            - generic [ref=f1e30]: 
+  - main [ref=f1e31]:
+    - navigation "Sayfa yolu" [ref=f1e33]:
+      - link "Ana Sayfa" [ref=f1e34] [cursor=pointer]:
+        - /url: /yenidosyalar/index.php
+      - generic [ref=f1e35]: ">"
+      - generic [ref=f1e36]: Mesajlar
+    - generic [ref=f1e40]:
+      - region "Mesajlasma" [ref=f1e41]:
+        - generic [ref=f1e42]:
+          - complementary "Sohbet listesi" [ref=f1e43]:
+            - generic [ref=f1e44]:
+              - generic [ref=f1e45]:
+                - heading "Sohbetler" [level=2] [ref=f1e46]
+                - paragraph [ref=f1e47]:
+                  - text: 1 sohbet
+                  - generic [ref=f1e48]: ·
+                  - text: 0 okunmamis
+              - generic [ref=f1e49]:
+                - link "Yenile" [ref=f1e50] [cursor=pointer]:
+                  - /url: /yenidosyalar/mesajlar
+                  - generic [ref=f1e51]: 
+                - button "Yeni Sohbet Başlat" [ref=f1e52] [cursor=pointer]:
+                  - generic [ref=f1e53]: 
+            - generic [ref=f1e54]:
+              - generic: 
+              - textbox "Sohbetlerde ara..." [ref=f1e55]
+            - link "dream592 Çevrimdışı dream592 05.08.2026 22:11 sfasf Okundu" [ref=f1e57] [cursor=pointer]:
+              - /url: /yenidosyalar/mesajlar?thread=3
+              - generic [ref=f1e58]:
+                - img "dream592" [ref=f1e59]
+                - img "Çevrimdışı" [ref=f1e60]
+              - generic [ref=f1e61]:
+                - generic [ref=f1e62]:
+                  - strong [ref=f1e63]: dream592
+                  - time [ref=f1e64]: 05.08.2026 22:11
+                - generic [ref=f1e65]: sfasf
+                - generic [ref=f1e66]: Okundu
+          - region "Aktif sohbet" [ref=f1e67]:
+            - link "dream592 Çevrimdışı dream592 Profilini Gör" [ref=f1e69] [cursor=pointer]:
+              - /url: /yenidosyalar/profil/dream592-191
+              - generic [ref=f1e70]:
+                - img "dream592" [ref=f1e71]
+                - img "Çevrimdışı" [ref=f1e72]
+              - generic [ref=f1e73]:
+                - strong [ref=f1e74]: dream592
+                - generic [ref=f1e75]: Profilini Gör
+            - generic [ref=f1e76]:
+              - generic [ref=f1e369]: 04.07.2026
+              - article [ref=f1e371]:
+                - img "dream592" [ref=f1e373]
+                - generic [ref=f1e374]:
+                  - generic [ref=f1e375]: selam
+                  - time [ref=f1e377]: 04.07.2026 11:49
+              - article [ref=f1e378]:
+                - generic [ref=f1e379]:
+                  - generic [ref=f1e380]: Harika bir tasarim olmus, ellerine saglik!Merhaba, nasitest message lsin?
+                  - generic [ref=f1e381]:
+                    - time [ref=f1e382]: 04.07.2026 12:40
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e383]': 
+              - article [ref=f1e385]:
+                - generic [ref=f1e386]:
+                  - generic [ref=f1e387]: hello new thread
+                  - generic [ref=f1e388]:
+                    - time [ref=f1e389]: 04.07.2026 12:40
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e390]': 
+              - article [ref=f1e392]:
+                - generic [ref=f1e393]:
+                  - generic [ref=f1e394]: test 1
+                  - generic [ref=f1e395]:
+                    - time [ref=f1e396]: 04.07.2026 15:51
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e397]': 
+              - article [ref=f1e399]:
+                - generic [ref=f1e400]:
+                  - generic [ref=f1e401]: test 2
+                  - generic [ref=f1e402]:
+                    - time [ref=f1e403]: 04.07.2026 15:51
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e404]': 
+              - article [ref=f1e406]:
+                - img "dream592" [ref=f1e408]
+                - generic [ref=f1e409]:
+                  - generic [ref=f1e410]: asfasfaf
+                  - time [ref=f1e412]: 04.07.2026 15:59
+              - article [ref=f1e413]:
+                - generic [ref=f1e414]:
+                  - generic [ref=f1e415]: asfasfsaf
+                  - generic [ref=f1e416]:
+                    - time [ref=f1e417]: 04.07.2026 16:00
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e418]': 
+              - article [ref=f1e420]:
+                - generic [ref=f1e421]:
+                  - generic [ref=f1e422]: asfasfasf
+                  - generic [ref=f1e423]:
+                    - time [ref=f1e424]: 04.07.2026 16:08
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e425]': 
+              - article [ref=f1e427]:
+                - generic [ref=f1e428]:
+                  - generic [ref=f1e429]: asfasfasfasfasffasfafsafafasfsaf
+                  - generic [ref=f1e430]:
+                    - time [ref=f1e431]: 04.07.2026 16:08
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e432]': 
+              - article [ref=f1e434]:
+                - generic [ref=f1e435]:
+                  - emphasis [ref=f1e437]: Bu mesaj silindi
+                  - generic [ref=f1e438]:
+                    - time [ref=f1e439]: 04.07.2026 22:45
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e440]': 
+              - generic [ref=f1e442]: 03.08.2026
+              - article [ref=f1e444]:
+                - generic [ref=f1e445]:
+                  - generic [ref=f1e446]: ss
+                  - generic [ref=f1e447]:
+                    - time [ref=f1e448]: 03.08.2026 20:53
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e449]': 
+              - article [ref=f1e451]:
+                - generic [ref=f1e452]:
+                  - generic [ref=f1e453]: asfasf
+                  - generic [ref=f1e454]:
+                    - time [ref=f1e455]: 03.08.2026 20:55
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e456]': 
+              - article [ref=f1e458]:
+                - generic [ref=f1e459]:
+                  - generic [ref=f1e460]: aaa
+                  - generic [ref=f1e461]:
+                    - time [ref=f1e462]: 03.08.2026 20:56
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e463]': 
+              - generic [ref=f1e465]: 05.08.2026
+              - article [ref=f1e467]:
+                - generic [ref=f1e468]: sss
+              - article [ref=f1e470]:
+                - generic [ref=f1e471]: selam
+              - article [ref=f1e473]:
+                - generic [ref=f1e474]: sssss
+              - article [ref=f1e476]:
+                - img "dream592" [ref=f1e478]
+                - generic [ref=f1e479]:
+                  - generic [ref=f1e480]: afasfasf
+                  - time [ref=f1e482]: 05.08.2026 22:06
+              - article [ref=f1e483]:
+                - generic [ref=f1e484]:
+                  - generic [ref=f1e485]: sss
+                  - generic [ref=f1e486]:
+                    - time [ref=f1e487]: 05.08.2026 22:11
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e488]': 
+              - article [ref=f1e490]:
+                - generic [ref=f1e491]:
+                  - generic [ref=f1e492]: sss
+                  - generic [ref=f1e493]:
+                    - time [ref=f1e494]: 05.08.2026 22:11
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e495]': 
+              - article [ref=f1e497]:
+                - generic [ref=f1e498]:
+                  - generic [ref=f1e499]: sfasf
+                  - generic [ref=f1e500]:
+                    - time [ref=f1e501]: 05.08.2026 22:11
+                    - 'generic "Görüldü: 05.08.2026 22:11" [ref=f1e502]': 
+            - generic [ref=f1e212]:
+              - textbox "Bir mesaj yazın..." [ref=f1e213]
+              - button "Gönder" [ref=f1e214] [cursor=pointer]:
+                - generic [ref=f1e215]: 
+      - text:   
+  - contentinfo [ref=f1e216]:
+    - generic [ref=f1e218]:
+      - list [ref=f1e219]:
+        - listitem [ref=f1e220]:
+          - link "Ana sayfa" [ref=f1e221] [cursor=pointer]:
+            - /url: /yenidosyalar/index.php
+        - listitem [ref=f1e222]:
+          - link "Kategoriler" [ref=f1e223] [cursor=pointer]:
+            - /url: /yenidosyalar/kategoriler
+      - paragraph [ref=f1e224]:
+        - text: © 2026.
+        - link:
+          - /url: /yenidosyalar/index.php
+        - text: "- Tüm hakları saklıdır."

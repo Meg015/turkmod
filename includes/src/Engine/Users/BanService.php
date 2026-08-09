@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Engine\Users;
 
+use App\Engine\UserActivity\UserPresenceInvalidator;
 use PDO;
 
 final class BanService
@@ -13,6 +14,7 @@ final class BanService
         $nowSql = self::isSqlite($pdo) ? "datetime('now')" : 'NOW()';
         $pdo->prepare("UPDATE users SET status = 'banned', is_banned = 1, banned_at = {$nowSql}, ban_reason = :reason, updated_at = {$nowSql} WHERE id = :id")
             ->execute(['reason' => $reason, 'id' => $userId]);
+        UserPresenceInvalidator::invalidateForDatabase($pdo, $userId);
     }
 
     public static function unban(PDO $pdo, int $userId): void
@@ -20,6 +22,7 @@ final class BanService
         $nowSql = self::isSqlite($pdo) ? "datetime('now')" : 'NOW()';
         $pdo->prepare("UPDATE users SET status = CASE WHEN status = 'banned' THEN 'active' ELSE status END, is_banned = 0, banned_at = NULL, ban_reason = NULL, updated_at = {$nowSql} WHERE id = :id")
             ->execute(['id' => $userId]);
+        UserPresenceInvalidator::invalidateForDatabase($pdo, $userId);
     }
 
     private static function isSqlite(PDO $pdo): bool

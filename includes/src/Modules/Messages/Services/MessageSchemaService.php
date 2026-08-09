@@ -24,7 +24,7 @@ final class MessageSchemaService
     public function ensureSchema(PDO $pdo, bool $unused = true): void
     {
         $this->inspector->requireTables($pdo, ['message_threads', 'message_thread_participants', 'message_messages']);
-        $this->inspector->requireColumns($pdo, 'message_thread_participants', ['typing_at']);
+        $this->inspector->requireColumns($pdo, 'message_thread_participants', ['typing_at', 'cleared_through_message_id']);
         $this->inspector->requireColumns($pdo, 'message_messages', ['is_deleted']);
     }
 

@@ -119,7 +119,6 @@
 {include "modules/user-menu.tpl"}
 {if notifications_enabled}<script src="{base_url}/assets/js/public-notifications-menu.js" defer></script>{/if}
 {if messages_enabled}<script src="{base_url}/assets/js/public-messages-menu.js" defer></script>{/if}
-<script src="{base_url}/assets/js/public-topbar-realtime.js" defer></script>
 {else}
 <div class="header-auth-actions" role="group" aria-label="Hesap işlemleri">
 <a class="header-auth-link header-auth-link--secondary" href="{login_url}">

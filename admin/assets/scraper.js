@@ -35,17 +35,21 @@ function normalizeApiError(error) {
     };
 }
 
-function apiPost(action, data = {}) {
+function apiPost(action, data = {}, requestOptions = {}) {
     const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
     const fd = new FormData();
     fd.append('action', action);
     fd.append('_token', csrfToken);
     Object.entries(data).forEach(([k, v]) => fd.append(k, typeof v === 'object' ? JSON.stringify(v) : v));
     return window.adminFetchJson(API, {
+        ...requestOptions,
         method: 'POST',
         body: fd,
         notifyError: false,
-    }).catch(normalizeApiError);
+    }).catch(error => ({
+        ...normalizeApiError(error),
+        aborted: error?.name === 'AbortError' || !!requestOptions?.signal?.aborted,
+    }));
 }
 function apiGet(action, params = {}) {
     const qs = new URLSearchParams({ action, ...params });
@@ -499,6 +503,8 @@ function renderBulkProgress(progress = {}) {
     const percent = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
     const message = escapeHtml(progress.message || 'Hazır');
     const detail = escapeHtml(progress.detail || '');
+    const unitLabel = escapeHtml(progress.unitLabel || '');
+    const showOutcomeCounts = progress.showOutcomeCounts !== false;
     const success = Math.max(parseInt(progress.success, 10) || 0, 0);
     const failed = Math.max(parseInt(progress.failed, 10) || 0, 0);
 
@@ -512,9 +518,8 @@ function renderBulkProgress(progress = {}) {
                 <progress class="bulk-progress-meter" max="100" value="${percent}" aria-label="Toplu çekim ilerlemesi"></progress>
             </div>
             <div class="bulk-progress-meta">
-                <span>${current} / ${total}</span>
-                <span>${success} başarılı</span>
-                <span>${failed} hatalı</span>
+                <span>${current} / ${total}${unitLabel ? ` ${unitLabel}` : ''}</span>
+                ${showOutcomeCounts ? `<span>${success} başarılı</span><span>${failed} hatalı</span>` : ''}
             </div>
             ${detail ? `<div class="bulk-progress-meta"><span>${detail}</span></div>` : ''}
         </div>
@@ -1821,7 +1826,154 @@ let allCategoriesTopicState = {
     topics: [],
     pageRange: null,
     totalMappings: 0,
+    mappingResults: [],
 };
+let allCategoriesScanController = null;
+let allCategoriesScanRunId = 0;
+
+function normalizeAllCategoriesPageRange(startValue, endValue) {
+    const parsePage = (value, fallback) => {
+        const parsed = parseInt(value, 10);
+        const safeValue = Number.isFinite(parsed) ? parsed : fallback;
+        return Math.max(1, Math.min(999, safeValue));
+    };
+    const parsedStart = parsePage(startValue, 1);
+    const parsedEnd = parsePage(endValue, parsedStart);
+    const start = Math.min(parsedStart, parsedEnd);
+    const end = Math.max(parsedStart, parsedEnd);
+
+    return { start, end, total: end - start + 1 };
+}
+
+function createAllCategoryScanResult(mapping, pageRange) {
+    return {
+        mappingId: parseInt(mapping.id, 10) || 0,
+        siteId: parseInt(mapping.bot_site_id, 10) || 0,
+        siteName: mapping.site_name || 'Site',
+        localCategoryName: mapping.local_category_name || 'Kategori',
+        localParentCategoryName: mapping.local_parent_category_name || '',
+        requestedStart: pageRange.start,
+        requestedEnd: pageRange.end,
+        pagesScanned: 0,
+        lastFetchedPage: 0,
+        foundCount: 0,
+        importedCount: 0,
+        availableCount: 0,
+        addedCount: 0,
+        repeatedCount: 0,
+        error: '',
+        endedEarly: false,
+        rangeUnreachable: false,
+    };
+}
+
+function getAllCategoryTotals(mappingResults) {
+    return (mappingResults || []).reduce((totals, result) => {
+        totals.found += result.foundCount;
+        totals.imported += result.importedCount;
+        totals.available += result.availableCount;
+        totals.added += result.addedCount;
+        totals.repeated += result.repeatedCount;
+        totals.errors += result.error ? 1 : 0;
+        totals.pagesScanned += result.pagesScanned;
+        return totals;
+    }, {
+        found: 0,
+        imported: 0,
+        available: 0,
+        added: 0,
+        repeated: 0,
+        errors: 0,
+        pagesScanned: 0,
+    });
+}
+
+function renderAllCategoriesEmptyState(options = {}) {
+    const tone = ['info', 'warning', 'success'].includes(options.tone) ? options.tone : 'info';
+    const icon = escapeHtml(options.icon || 'bi-inbox');
+    const title = escapeHtml(options.title || 'İçerik bulunamadı');
+    const description = escapeHtml(options.description || 'Seçilen ölçütlere uygun içerik bulunamadı.');
+    const meta = Array.isArray(options.meta) ? options.meta : [];
+    const metaHtml = meta.length
+        ? `<div class="ui-admin-empty-meta" aria-label="Durum bilgisi">${meta.map(item => `
+            <span><i class="bi ${escapeHtml(item.icon || 'bi-info-circle')}"></i>${escapeHtml(item.label || '')}</span>
+        `).join('')}</div>`
+        : '';
+
+    return `
+        <div class="ui-admin-empty ui-empty admin-ui-empty admin-ui-empty-normalized">
+            <div class="ui-admin-empty-icon tone-${tone} ui-empty"><i class="bi ${icon}"></i></div>
+            <h3 class="ui-admin-empty-title ui-empty">${title}</h3>
+            <p class="ui-admin-empty-desc ui-empty">${description}</p>
+            ${metaHtml}
+        </div>
+    `;
+}
+
+function getAllCategoryResultStatus(result) {
+    if (result.error) {
+        return { tone: 'danger', icon: 'bi-exclamation-triangle', label: 'Tarama hatası' };
+    }
+    if (result.rangeUnreachable) {
+        return { tone: 'warning', icon: 'bi-signpost-split', label: 'Aralığa ulaşılamadı' };
+    }
+    if (result.addedCount > 0) {
+        return { tone: 'success', icon: 'bi-check-circle', label: `${result.addedCount} yeni içerik` };
+    }
+    if (result.availableCount > 0 && result.repeatedCount === result.availableCount) {
+        return { tone: 'info', icon: 'bi-intersect', label: 'Karma listede mevcut' };
+    }
+    if (result.importedCount > 0) {
+        return { tone: 'secondary', icon: 'bi-clock-history', label: `${result.importedCount} daha önce çekilmiş` };
+    }
+    return { tone: 'secondary', icon: 'bi-inbox', label: 'İçerik yok' };
+}
+
+function renderAllCategoryResults(mappingResults, pageRange) {
+    if (!mappingResults.length || !pageRange) return '';
+
+    const rows = mappingResults.map(result => {
+        const status = getAllCategoryResultStatus(result);
+        const categoryName = `${result.localParentCategoryName ? result.localParentCategoryName + ' / ' : ''}${result.localCategoryName}`;
+        const pageLabel = `${result.pagesScanned}/${pageRange.total} hedef sayfa`;
+        let detail = pageLabel;
+        if (result.error) {
+            detail = result.error;
+        } else if (result.rangeUnreachable) {
+            detail = `Kategori ${result.lastFetchedPage || 1}. sayfada sona erdi; ${pageRange.start}. sayfaya ulaşılamadı.`;
+        } else if (result.endedEarly) {
+            detail = `${pageLabel} tarandı; kategori ${result.lastFetchedPage}. sayfada sona erdi.`;
+        }
+
+        return `
+            <div class="scraper-category-result-row">
+                <div class="scraper-category-result-copy">
+                    <strong>${escapeHtml(categoryName)}</strong>
+                    <span>${escapeHtml(result.siteName)} · ${escapeHtml(detail)}</span>
+                </div>
+                <div class="scraper-category-result-badges">
+                    <span class="admin-badge admin-badge-${status.tone}"><i class="bi ${status.icon}"></i>${escapeHtml(status.label)}</span>
+                    ${result.error && result.addedCount > 0 ? `<span class="admin-badge admin-badge-success">${result.addedCount} yeni içerik</span>` : ''}
+                    ${result.importedCount > 0 && (result.addedCount > 0 || result.error || result.rangeUnreachable) ? `<span class="admin-badge admin-badge-secondary">${result.importedCount} çekilmiş</span>` : ''}
+                    ${result.repeatedCount > 0 ? `<span class="admin-badge admin-badge-info">${result.repeatedCount} tekrar</span>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <section class="scraper-category-results" aria-label="Hedef kategori tarama sonuçları">
+            <div class="scraper-category-results-head">
+                <div>
+                    <strong>Hedef Kategori Sonuçları</strong>
+                    <span>Her hedef kategoride ${pageRange.start}-${pageRange.end}. sayfalar</span>
+                </div>
+                <span class="admin-badge admin-badge-info"><i class="bi bi-layers"></i>${mappingResults.length} kategori</span>
+            </div>
+            <div class="scraper-category-results-list">${rows}</div>
+        </section>
+    `;
+}
 
 async function listAllCategoriesTopics() {
     const list = document.getElementById('all-categories-list-content');
@@ -1835,12 +1987,21 @@ async function listAllCategoriesTopics() {
         return;
     }
 
-    const startValue = parseInt(startInput?.value || '1', 10) || 1;
-    const endValue = parseInt(endInput?.value || startValue, 10) || startValue;
-    const start = Math.max(1, Math.min(startValue, endValue));
-    const end = Math.max(1, Math.max(startValue, endValue));
-    const pageRange = { start, end, total: end - start + 1 };
+    if (allCategoriesScanController) {
+        allCategoriesScanController.abort();
+    }
+    const runId = ++allCategoriesScanRunId;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const requestOptions = controller ? { signal: controller.signal } : {};
+    const isCurrentRun = () => runId === allCategoriesScanRunId && !controller?.signal.aborted;
+    allCategoriesScanController = controller;
+
+    const pageRange = normalizeAllCategoriesPageRange(startInput?.value, endInput?.value);
+    const { start, end } = pageRange;
     const filterSiteId = parseInt(siteFilterSelect?.value || '0', 10) || 0;
+
+    if (startInput) startInput.value = String(start);
+    if (endInput) endInput.value = String(end);
 
     const availableMappings = typeof allMappings !== 'undefined' && Array.isArray(allMappings) ? allMappings : [];
     const activeMappings = availableMappings.filter(m => {
@@ -1851,8 +2012,16 @@ async function listAllCategoriesTopics() {
     });
 
     if (activeMappings.length === 0) {
+        if (!isCurrentRun()) return;
+        scraperHide(loading);
         scraperToast('Taranacak aktif kategori eşleşmesi bulunamadı.', 'warning');
-        list.innerHTML = '<div class="ui-admin-alert ui-admin-alert-info">Taranacak aktif kategori bulunamadı. Lütfen önce "Eşlemeler" sekmesinden kategori eşlemesi ekleyin.</div>';
+        list.innerHTML = renderAllCategoriesEmptyState({
+            tone: 'warning',
+            icon: 'bi-diagram-2',
+            title: 'Taranacak hedef kategori bulunamadı',
+            description: 'Karma içerik çekmek için önce Eşlemeler sekmesinden aktif bir kategori eşlemesi ekleyin.',
+        });
+        allCategoriesScanController = null;
         return;
     }
 
@@ -1861,15 +2030,19 @@ async function listAllCategoriesTopics() {
 
     const allTopics = [];
     const seenUrls = new Set();
-    let completedMappings = 0;
+    const mappingResults = [];
 
     for (let mIndex = 0; mIndex < activeMappings.length; mIndex++) {
+        if (!isCurrentRun()) return;
         const mapping = activeMappings[mIndex];
+        const mappingResult = createAllCategoryScanResult(mapping, pageRange);
+        const mappingSeenUrls = new Set();
         let currentUrl = mapping.remote_category_url;
 
-        loading.innerHTML = `<i class="bi bi-hourglass-split"></i> <strong>Kategori taranıyor (${mIndex + 1} / ${activeMappings.length}):</strong> ${escapeHtml(mapping.site_name)} - ${escapeHtml(mapping.local_category_name || 'Kategori')} (Toplanan Konu: ${allTopics.length})...`;
+        loading.innerHTML = `<i class="bi bi-hourglass-split"></i> <strong>Kategori taranıyor (${mIndex + 1} / ${activeMappings.length}):</strong> ${escapeHtml(mapping.site_name)} - ${escapeHtml(mapping.local_category_name || 'Kategori')} · Hedef sayfalar: ${start}-${end} (Yeni konu: ${allTopics.length})...`;
 
         for (let page = 1; page <= end; page++) {
+            if (!isCurrentRun()) return;
             const isInRange = page >= start;
             if (!currentUrl) break;
 
@@ -1880,55 +2053,86 @@ async function listAllCategoriesTopics() {
                     mapping_id: mapping.id,
                     category_url: currentUrl,
                     cover_lookup_limit: 0
-                });
+                }, requestOptions);
             } catch (e) {
+                if (!isCurrentRun()) return;
                 console.error('Discover error for mapping', mapping.id, e);
+                mappingResult.error = 'Ağ bağlantısı hatası.';
                 break;
             }
 
+            if (!isCurrentRun()) return;
+
             if (result && result.success && Array.isArray(result.urls)) {
+                mappingResult.lastFetchedPage = page;
                 if (isInRange) {
+                    mappingResult.pagesScanned++;
                     result.urls.forEach(item => {
                         const topic = normalizeDiscoveredTopic(item, allTopics.length);
+                        if (!topic.url || mappingSeenUrls.has(topic.url)) {
+                            return;
+                        }
+                        mappingSeenUrls.add(topic.url);
+                        mappingResult.foundCount++;
                         if (topic.alreadyImported) {
-                            return; // Daha önce çekilen içerikleri karma listede gösterme
+                            mappingResult.importedCount++;
+                            return;
                         }
-                        if (topic.url && !seenUrls.has(topic.url)) {
-                            seenUrls.add(topic.url);
-                            allTopics.push({
-                                ...topic,
-                                page,
-                                mappingId: mapping.id,
-                                siteId: mapping.bot_site_id,
-                                siteName: mapping.site_name,
-                                localCatId: mapping.local_category_id,
-                                localCategoryName: mapping.local_category_name,
-                                localParentCategoryName: mapping.local_parent_category_name,
-                                gameCode: mapping.game_code,
-                                gameTone: mapping.game_tone,
-                                gameIcon: mapping.game_icon,
-                            });
+                        mappingResult.availableCount++;
+                        if (seenUrls.has(topic.url)) {
+                            mappingResult.repeatedCount++;
+                            return;
                         }
+                        seenUrls.add(topic.url);
+                        mappingResult.addedCount++;
+                        allTopics.push({
+                            ...topic,
+                            page,
+                            mappingId: mapping.id,
+                            siteId: mapping.bot_site_id,
+                            siteName: mapping.site_name,
+                            localCatId: mapping.local_category_id,
+                            localCategoryName: mapping.local_category_name,
+                            localParentCategoryName: mapping.local_parent_category_name,
+                            gameCode: mapping.game_code,
+                            gameTone: mapping.game_tone,
+                            gameIcon: mapping.game_icon,
+                        });
                     });
                 }
-                if (!result.next_url) break;
+                if (!result.next_url) {
+                    mappingResult.endedEarly = page < end;
+                    break;
+                }
+                if (result.next_url === currentUrl && page < end) {
+                    mappingResult.error = 'Sonraki sayfa bağlantısı ilerlemiyor.';
+                    break;
+                }
                 currentUrl = result.next_url;
             } else {
+                mappingResult.error = result?.error || 'Kategori sayfası taranamadı.';
                 break;
             }
         }
-        completedMappings++;
+
+        mappingResult.rangeUnreachable = !mappingResult.error && mappingResult.lastFetchedPage < start;
+        mappingResults.push(mappingResult);
     }
 
+    if (!isCurrentRun()) return;
     scraperHide(loading);
 
     allCategoriesTopicState = {
         topics: allTopics,
         pageRange,
         totalMappings: activeMappings.length,
+        mappingResults,
     };
 
     renderAllCategoriesTopicList();
+    if (runId === allCategoriesScanRunId) {
+        allCategoriesScanController = null;
+    }
 }
 
 function renderAllCategoriesTopicList() {
@@ -1936,14 +2140,49 @@ function renderAllCategoriesTopicList() {
     if (!list) return;
 
     const topics = allCategoriesTopicState.topics || [];
+    const pageRange = allCategoriesTopicState.pageRange;
+    const mappingResults = allCategoriesTopicState.mappingResults || [];
+    const totals = getAllCategoryTotals(mappingResults);
     const total = topics.length;
+    const resultSummary = renderAllCategoryResults(mappingResults, pageRange);
 
     if (total === 0) {
+        const allFailed = mappingResults.length > 0
+            && mappingResults.every(result => result.error && result.pagesScanned === 0);
+        let emptyOptions;
+        if (allFailed) {
+            emptyOptions = {
+                tone: 'warning',
+                icon: 'bi-exclamation-triangle',
+                title: 'Kategori taraması tamamlanamadı',
+                description: 'Seçilen hedef kategori sayfalarının hiçbiri taranamadı. Kategori sonuçlarındaki hata bilgilerini kontrol edin.',
+            };
+        } else if (totals.imported > 0) {
+            emptyOptions = {
+                tone: 'success',
+                icon: 'bi-check2-circle',
+                title: 'Çekilecek yeni içerik kalmadı',
+                description: `Seçilen hedef kategori sayfalarında bulunan ${totals.imported} içerik daha önce çekilmiş.`,
+            };
+        } else {
+            emptyOptions = {
+                tone: 'info',
+                icon: 'bi-inbox',
+                title: 'Seçilen sayfalarda içerik bulunamadı',
+                description: 'Hedef kategorilerin seçilen sayfa aralığında çekilebilecek bir konu bulunamadı.',
+            };
+        }
+
+        emptyOptions.meta = [
+            { icon: 'bi-file-earmark-text', label: `Hedef aralık: ${pageRange?.start || 1}-${pageRange?.end || 1}` },
+            { icon: 'bi-diagram-3', label: `${mappingResults.length} kategori` },
+            { icon: 'bi-clock-history', label: `${totals.imported} daha önce çekilmiş` },
+        ];
         list.innerHTML = `
-            <div class="ui-admin-alert ui-admin-alert-info mt-3">
-                <i class="bi bi-info-circle"></i> Seçilen sayfa aralığında veya kategorilerde hiç konu bulunamadı.
-            </div>
+            ${resultSummary}
+            ${renderAllCategoriesEmptyState(emptyOptions)}
         `;
+        applyScraperPresentation(list);
         return;
     }
 
@@ -1952,17 +2191,20 @@ function renderAllCategoriesTopicList() {
     const clearAllChecked = defaultSelected ? '' : 'checked';
 
     list.innerHTML = `
+        ${resultSummary}
         <div id="all-scrape-progress" class="mb-3">${renderBulkProgress({
             total,
             current: total,
+            unitLabel: 'konu',
+            showOutcomeCounts: false,
             message: 'Tüm kategorilerden yeni konular karma listelendi',
-            detail: `${allCategoriesTopicState.totalMappings} kategoriden henüz çekilmemiş toplam ${total} yeni konu harmanlandı (Daha önce çekilenler otomatik elendi).`
+            detail: `Her hedef kategoride ${pageRange.start}-${pageRange.end}. sayfalar · ${total} yeni, ${totals.imported} daha önce çekilmiş, ${totals.errors} hatalı kategori.`
         })}</div>
 
         <div class="bulk-actions mb-3">
             <div>
                 <strong>${total} Yeni Konu Listelendi</strong>
-                <span>Tüm ekli kategorilerden çekilmeye hazır yeni içerikler</span>
+                <span>Her hedef kategorinin ${pageRange.start}-${pageRange.end}. sayfalarından çekilmeye hazır içerikler</span>
             </div>
             <div class="bulk-action-controls">
                 <label class="bulk-action-check">

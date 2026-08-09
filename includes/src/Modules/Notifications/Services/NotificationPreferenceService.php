@@ -365,6 +365,29 @@ final class NotificationPreferenceService
         }
     }
 
+    /** @return array{enabled:bool,sound_enabled:bool,desktop_enabled:bool} */
+    public function messageRealtimePreferences(PDO $pdo, int $userId): array
+    {
+        $defaults = [
+            'enabled' => true,
+            'sound_enabled' => false,
+            'desktop_enabled' => false,
+        ];
+        if ($userId <= 0) {
+            return array_replace($defaults, ['enabled' => false]);
+        }
+
+        $settings = $this->userSettings($pdo, $userId);
+        $enabled = $this->groupEnabled($settings, 'notif_group_events')
+            && $this->eventEnabledForUser($settings, 'direct_message_received');
+
+        return [
+            'enabled' => $enabled,
+            'sound_enabled' => $enabled && $this->bool($settings, 'message_notification_sound_enabled', '0'),
+            'desktop_enabled' => $enabled && $this->bool($settings, 'message_desktop_notifications_enabled', '0'),
+        ];
+    }
+
     public function groupEnabled(array $settings, string $groupKey): bool
     {
         $defaults = [

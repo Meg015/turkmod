@@ -49,6 +49,57 @@
         var list = root.querySelector("#msgList") || root.querySelector("[data-messages-list]");
         var badge = root.querySelector("#msgBadge") || root.querySelector("[data-messages-badge]");
         var markAll = root.querySelector("[data-messages-mark-all]");
+        var hasMessageBaseline = false;
+        var latestMessageIds = new Map();
+        var latestUnreadCounts = new Map();
+
+        function applyMessageNotificationPreferences(preferences) {
+            preferences = preferences || {};
+            window.publicMessageNotificationPreferences = preferences;
+
+            var realtime = window.publicTopbarRealtime || {};
+            if (typeof realtime.setMessagePreferences === "function") {
+                realtime.setMessagePreferences(preferences);
+            }
+        }
+
+        function detectIncomingMessages(latest) {
+            var isInitialLoad = !hasMessageBaseline;
+
+            latest.forEach(function (thread) {
+                var threadId = Number(thread.thread_id || 0);
+                var messageId = Number(thread.last_message_id || 0);
+                if (threadId <= 0 || messageId <= 0) {
+                    return;
+                }
+
+                var previousMessageId = Number(latestMessageIds.get(threadId) || 0);
+                var previousUnreadCount = Number(latestUnreadCounts.get(threadId) || 0);
+                var unreadCount = Math.max(0, Number(thread.unread_count || 0));
+                latestMessageIds.set(threadId, messageId);
+                latestUnreadCounts.set(threadId, unreadCount);
+
+                if (isInitialLoad || messageId <= previousMessageId || thread.last_message_is_mine) {
+                    return;
+                }
+
+                var messageCount = Math.max(1, unreadCount - previousUnreadCount);
+
+                var realtime = window.publicTopbarRealtime || {};
+                if (typeof realtime.notifyMessage === "function") {
+                    realtime.notifyMessage({
+                        message_id: messageId,
+                        message_count: messageCount,
+                        thread_id: threadId,
+                        sender_user_id: Number(thread.last_sender_user_id || thread.with_user_id || 0),
+                        sender_name: thread.with_user_name || "",
+                        thread_url: thread.thread_url || ""
+                    });
+                }
+            });
+
+            hasMessageBaseline = true;
+        }
 
         function updateBadge(count) {
             if (!badge) {
@@ -82,10 +133,12 @@
                 return;
             }
 
+            applyMessageNotificationPreferences(data.notification_preferences);
             updateBadge(data.unread_count || 0);
             list.innerHTML = "";
 
             var latest = Array.isArray(data.latest) ? data.latest : [];
+            detectIncomingMessages(latest);
             if (latest.length === 0) {
                 list.appendChild(createState("bi bi-chat-square", "Mesaj yok"));
                 return;

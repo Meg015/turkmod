@@ -51835,3 +51835,85 @@ body.public-page-messages .ui-theme-messages-full-width {
     white-space: nowrap !important;
 }
 
+/* Shared presence privacy state */
+[data-presence-user-id][hidden] {
+    display: none !important;
+}
+
+/* Public profile presence row */
+.profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot {
+    grid-row: span 2;
+    align-self: center;
+    justify-self: center;
+    position: relative;
+    display: block;
+    inline-size: 11px;
+    block-size: 11px;
+    border: 2px solid var(--color-surface, #fff);
+    border-radius: 999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 4px color-mix(in srgb, #ef4444 12%, transparent);
+    cursor: default;
+}
+
+.profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot.is-online {
+    background: #22c55e;
+    box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 14%, transparent);
+    animation: profile-presence-pulse 2.2s ease-out infinite;
+}
+
+.profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot::after {
+    position: absolute;
+    inset-inline-start: 50%;
+    inset-block-end: calc(100% + 10px);
+    z-index: 30;
+    padding: 0.34rem 0.52rem;
+    border: 1px solid color-mix(in srgb, #fff 12%, transparent);
+    border-radius: 7px;
+    background: #111827;
+    color: #f9fafb;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
+    content: attr(data-presence-tooltip);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 4px);
+    transition: opacity 140ms ease, transform 140ms ease;
+    white-space: nowrap;
+}
+
+.profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot:hover::after,
+.profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot:focus-visible::after,
+.profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot.is-tooltip-open::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.profile-page-shell .profile-sidebar-meta-item--presence strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot:focus-visible {
+    outline: 2px solid var(--color-primary, #2563eb);
+    outline-offset: 3px;
+}
+
+@keyframes profile-presence-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 14%, transparent), 0 0 0 0 rgba(34, 197, 94, 0.24); }
+    55% { box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 14%, transparent), 0 0 0 8px rgba(34, 197, 94, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot.is-online {
+        animation: none;
+    }
+
+    .profile-page-shell .profile-sidebar-meta-item--presence .user-presence-dot::after {
+        transition: none;
+    }
+}
+

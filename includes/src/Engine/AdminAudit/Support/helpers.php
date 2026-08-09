@@ -332,6 +332,10 @@ if (!function_exists('adminRevertAction')) {
                 return 'Geri almak için yeterli veri yok.';
             }
 
+            if (in_array($actionType, ['status_change', 'ban', 'unban'], true)) {
+                \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $targetId);
+            }
+
             // Log satırını reverted olarak damgala
             $pdo->prepare("UPDATE admin_action_log SET reverted_at = " . adminAuditNow($pdo) . ", reverted_by = :by WHERE id = :id")
                 ->execute(['by' => $actorId, 'id' => $logId]);

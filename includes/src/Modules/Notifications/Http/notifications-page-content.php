@@ -86,6 +86,8 @@ function notification_user_preference_groups(): array
             'items' => [
                 ['key' => 'notif_auto_mark_on_open', 'icon' => 'bi-check2-all', 'title' => 'Link acinca okundu yap', 'description' => 'Bildirim baglantisina tikladiginizda bildirimi otomatik okundu olarak isaretle.', 'default' => '1'],
                 ['key' => 'notif_compact_view', 'icon' => 'bi-layout-text-sidebar-reverse', 'title' => 'Kompakt gorunum', 'description' => 'Gelen kutusunda daha sik araliklarla daha fazla bildirimi ayni anda goster.', 'default' => '0'],
+                ['key' => 'message_notification_sound_enabled', 'icon' => 'bi-volume-up', 'title' => 'Özel mesaj sesi', 'description' => 'Yeni özel mesaj bildirimi gösterildiğinde kısa bir ses çal.', 'default' => '0'],
+                ['key' => 'message_desktop_notifications_enabled', 'icon' => 'bi-display', 'title' => 'Masaüstü mesaj bildirimi', 'description' => 'Site arka plandayken tarayıcının masaüstü bildirimini göster.', 'default' => '0'],
             ],
         ],
         'email' => [
@@ -140,6 +142,19 @@ function notification_preference_effect_text(array $item, string $channel, bool 
     $title = trim((string) ($item['title'] ?? 'Bu bildirim'));
     $title = $title !== '' ? $title : 'Bu bildirim';
     $normalizedTitle = mb_strtolower($title, 'UTF-8');
+    $key = (string) ($item['key'] ?? '');
+
+    if ($key === 'message_notification_sound_enabled') {
+        return $enabled
+            ? 'Açık: Yeni özel mesaj bildirimi gösterildiğinde kısa bir ses çalar.'
+            : 'Kapalı: Özel mesaj bildirimleri sessiz gösterilir.';
+    }
+
+    if ($key === 'message_desktop_notifications_enabled') {
+        return $enabled
+            ? 'Açık: Site arka plandayken bu cihaz izin veriyorsa masaüstü bildirimi gösterilir.'
+            : 'Kapalı: Masaüstü mesaj bildirimi gösterilmez.';
+    }
 
     if ($channel === 'email') {
         return $enabled
@@ -522,6 +537,7 @@ foreach (notification_user_preference_groups() as $preferenceGroup) {
             'disabled_effect' => $disabledEffect,
             'current_effect' => $preferenceItemEnabled ? $enabledEffect : $disabledEffect,
             'effect_disabled_class' => $preferenceItemEnabled ? '' : ' is-disabled',
+            'is_desktop_permission' => $preferenceItemKey === 'message_desktop_notifications_enabled',
         ];
     }
     $groupKey = (string) ($preferenceGroup['key'] ?? '');
@@ -876,6 +892,12 @@ require_once $projectRoot . '/includes/public-header.php';
                                             <span class="notification-slider"></span>
                                         </span>
                                     </label>
+                                    <?php if (!empty($preferenceItem['is_desktop_permission'])): ?>
+                                        <button type="button" class="message-desktop-permission-action" data-message-desktop-permission hidden>
+                                            <i class="bi bi-shield-check" aria-hidden="true"></i>
+                                            <span>Bu cihazda izin ver</span>
+                                        </button>
+                                    <?php endif; ?>
                                 <?php endforeach; ?>
                             </div>
                         </section>

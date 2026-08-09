@@ -610,10 +610,12 @@ require_once __DIR__ . '/header.php';
                 <div class="col-md-3">
                     <label class="ui-admin-form-label"><i class="bi bi-file-earmark-text"></i> Başlangıç Sayfası</label>
                     <input type="number" id="scrape-all-page-start" class="ui-admin-form-control" value="1" min="1" max="999">
+                    <small class="ui-admin-form-help">Her hedef kategorinin ilk taranacak sayfası.</small>
                 </div>
                 <div class="col-md-3">
                     <label class="ui-admin-form-label"><i class="bi bi-file-earmark-text"></i> Bitiş Sayfası</label>
                     <input type="number" id="scrape-all-page-end" class="ui-admin-form-control" value="1" min="1" max="999">
+                    <small class="ui-admin-form-help">Her hedef kategorinin son taranacak sayfası.</small>
                 </div>
                 <div class="col-md-3">
                     <label class="ui-admin-form-label"><i class="bi bi-globe"></i> Site Filtresi</label>

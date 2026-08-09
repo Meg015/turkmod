@@ -22,10 +22,28 @@ final class WebSocketBroadcaster
             return false;
         }
 
-        $body = json_encode([
+        return self::send([
             'user_id' => $userIds,
             'payload' => $payload,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        ]);
+    }
+
+    public static function invalidatePresence(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        return self::send([
+            'action' => 'presence_invalidate',
+            'user_id' => $userId,
+        ]);
+    }
+
+    /** @param array<string,mixed> $message */
+    private static function send(array $message): bool
+    {
+        $body = json_encode($message, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($body === false || strlen($body) > WebSocketConfig::broadcastMaxBytes()) {
             return false;
         }

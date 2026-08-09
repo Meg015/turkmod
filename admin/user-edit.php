@@ -176,6 +176,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $updateStmt = $pdo->prepare($updateSql);
                 $updateStmt->execute($params);
+                if ($status !== $prevStatus || $isBanned !== $prevBanned) {
+                    \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $userId);
+                }
 
                 try {
                     $accountMailer = accountEmailService($pdo);

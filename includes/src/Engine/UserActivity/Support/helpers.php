@@ -2,12 +2,111 @@
 
 declare(strict_types=1);
 
+use App\Engine\UserActivity\UserPresence;
+use App\Engine\UserActivity\UserPresenceLookup;
+
 /**
  * Detailed per-user activity tracking.
  *
  * The existing activity/security/admin logs are still useful, but this table
  * stores normalized request, device, actor and subject data for user tracking.
  */
+
+if (!function_exists('userPresence')) {
+    function userPresence(): UserPresence
+    {
+        static $presence = null;
+        if (!$presence instanceof UserPresence) {
+            $presence = new UserPresence();
+        }
+
+        return $presence;
+    }
+}
+
+if (!function_exists('userPresenceDescribe')) {
+    /**
+     * @return array{is_online:bool,status_label:string,relative_label:string,exact_label:string,has_activity:bool,state_class:string,title_label:string}
+     */
+    function userPresenceDescribe(?string $lastActivityAt): array
+    {
+        return userPresence()->describe($lastActivityAt);
+    }
+}
+
+if (!function_exists('userPresenceDescribePublic')) {
+    /**
+     * @return array{is_online:bool,status_label:string,relative_label:string,exact_label:string,has_activity:bool,state_class:string,title_label:string}
+     */
+    function userPresenceDescribePublic(?string $lastActivityAt): array
+    {
+        return userPresence()->describePublic($lastActivityAt);
+    }
+}
+
+if (!function_exists('userPresenceLookup')) {
+    function userPresenceLookup(): UserPresenceLookup
+    {
+        static $lookup = null;
+        if (!$lookup instanceof UserPresenceLookup) {
+            $lookup = new UserPresenceLookup(userPresence());
+        }
+
+        return $lookup;
+    }
+}
+
+if (!function_exists('userPresenceLookupUsers')) {
+    /**
+     * @param iterable<mixed> $userIds
+     * @param array<int,bool> $onlineOverrides
+     * @return array<int,array<string,mixed>>
+     */
+    function userPresenceLookupUsers(PDO $pdo, iterable $userIds, array $onlineOverrides = []): array
+    {
+        return userPresenceLookup()->lookup($pdo, $userIds, $onlineOverrides);
+    }
+}
+
+if (!function_exists('userPresenceTouchAuthenticated')) {
+    function userPresenceTouchAuthenticated(
+        ?PDO $pdo,
+        int $userId,
+        ?int $now = null,
+        ?callable $writer = null,
+    ): bool {
+        if ($userId <= 0 || (!$pdo instanceof PDO && $writer === null)) {
+            return false;
+        }
+
+        $now ??= time();
+        $lastWrite = (int) ($_SESSION['_auth_last_presence_write'] ?? 0);
+        if ($lastWrite > 0 && $now >= $lastWrite && ($now - $lastWrite) < UserPresence::WRITE_THROTTLE_SECONDS) {
+            return false;
+        }
+
+        try {
+            if ($writer !== null) {
+                $writer($pdo, $userId);
+            } else {
+                $stmt = $pdo->prepare('UPDATE users SET last_activity_at = NOW() WHERE id = :id AND deleted_at IS NULL');
+                $stmt->execute(['id' => $userId]);
+            }
+
+            $_SESSION['_auth_last_presence_write'] = $now;
+            return true;
+        } catch (Throwable $error) {
+            if (function_exists('appLogException')) {
+                appLogException($error, [
+                    'source' => 'User presence activity touch',
+                    'user_id' => $userId,
+                ]);
+            }
+
+            return false;
+        }
+    }
+}
 
 if (!function_exists('userActivityIsSqlite')) {
     function userActivityIsSqlite(PDO $pdo): bool

@@ -124,7 +124,7 @@ $activeThreadId = $activeThread !== null ? (int) ($activeThread['thread_id'] ?? 
 
 $pageCssFiles = array_values(array_unique(array_merge(
     $pageCssFiles ?? [],
-    ['assets/css/messages-page.css?v=' . time()],
+    ['assets/css/messages-page.css'],
 )));
 
 require_once $projectRoot . '/includes/public-header.php';
@@ -170,9 +170,9 @@ require_once $projectRoot . '/includes/public-header.php';
                 <div class="messages-sidebar-title">
                     <h2>Sohbetler</h2>
                     <p>
-                        <?= number_format(count($threads), 0, ',', '.') ?> sohbet
+                        <span data-messages-thread-count><?= number_format(count($threads), 0, ',', '.') ?></span> sohbet
                         <span aria-hidden="true">&middot;</span>
-                        <?= number_format($unreadTotal, 0, ',', '.') ?> okunmamis
+                        <span data-messages-unread-count><?= number_format($unreadTotal, 0, ',', '.') ?></span> okunmamis
                     </p>
                 </div>
                 <div class="messages-sidebar-actions">
@@ -202,21 +202,45 @@ require_once $projectRoot . '/includes/public-header.php';
                         $isActive = $threadItemId > 0 && $threadItemId === $activeThreadId;
                         $unreadCount = (int) ($threadItem['unread_count'] ?? 0);
                         $threadUrl = (string) ($threadItem['thread_url'] ?? ($messagesBaseUrl . '?thread=' . $threadItemId));
+                        $threadPresenceOnline = !empty($threadItem['with_user_is_online']);
+                        $threadPresenceVisible = !array_key_exists('with_user_presence_visible', $threadItem) || !empty($threadItem['with_user_presence_visible']);
+                        $threadPresenceClass = $threadPresenceOnline ? 'is-online' : 'is-offline';
+                        $threadPresenceLabel = $threadPresenceOnline ? 'Çevrimiçi' : 'Çevrimdışı';
                         ?>
-                        <a
-                            href="<?= htmlspecialchars($threadUrl, ENT_QUOTES, 'UTF-8') ?>"
-                            class="messages-thread-item<?= $isActive ? ' is-active' : '' ?>"
+                        <div
+                            class="messages-thread-row<?= $isActive ? ' is-active' : '' ?>"
                             data-thread-item
                             data-thread-id="<?= $threadItemId ?>"
+                            data-with-user-id="<?= (int) ($threadItem['with_user_id'] ?? 0) ?>"
                         >
-                            <img
-                                src="<?= htmlspecialchars((string) ($threadItem['with_user_avatar'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                alt="<?= htmlspecialchars((string) ($threadItem['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?>"
-                                width="42"
-                                height="42"
-                                loading="lazy"
-                                data-ui-avatar-img
+                            <a
+                                href="<?= htmlspecialchars($threadUrl, ENT_QUOTES, 'UTF-8') ?>"
+                                class="messages-thread-item<?= $isActive ? ' is-active' : '' ?>"
                             >
+                            <span class="messages-avatar-presence messages-avatar-presence--thread">
+                                <img
+                                    src="<?= htmlspecialchars((string) ($threadItem['with_user_avatar'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    alt="<?= htmlspecialchars((string) ($threadItem['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?>"
+                                    width="42"
+                                    height="42"
+                                    loading="lazy"
+                                    data-ui-avatar-img
+                                >
+                                <?php if ($threadPresenceVisible): ?>
+                                <span
+                                    class="messages-presence-dot <?= $threadPresenceClass ?>"
+                                    role="img"
+                                    tabindex="0"
+                                    aria-label="<?= htmlspecialchars($threadPresenceLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-presence-tooltip="<?= htmlspecialchars($threadPresenceLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-presence-label="<?= htmlspecialchars($threadPresenceLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-presence-user-id="<?= (int) ($threadItem['with_user_id'] ?? 0) ?>"
+                                    data-user-presence-dot
+                                    data-messages-presence-indicator
+                                    data-messages-thread-presence
+                                ></span>
+                                <?php endif; ?>
+                            </span>
                             <span class="messages-thread-main">
                                 <span class="messages-thread-topline">
                                     <strong><?= htmlspecialchars((string) ($threadItem['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?></strong>
@@ -234,7 +258,19 @@ require_once $projectRoot . '/includes/public-header.php';
                             <?php if ($unreadCount > 0): ?>
                                 <span class="messages-thread-unread"><?= $unreadCount > 99 ? '99+' : $unreadCount ?></span>
                             <?php endif; ?>
-                        </a>
+                            </a>
+                            <button
+                                type="button"
+                                class="messages-thread-delete"
+                                data-messages-thread-delete
+                                data-delete-thread-id="<?= $threadItemId ?>"
+                                data-delete-thread-name="<?= htmlspecialchars((string) ($threadItem['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?>"
+                                aria-label="<?= htmlspecialchars((string) ($threadItem['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?> ile sohbeti sil"
+                                title="Sohbeti sil"
+                            >
+                                <i class="bi bi-trash3" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
@@ -254,17 +290,37 @@ require_once $projectRoot . '/includes/public-header.php';
                         'id' => (int) ($activeThread['with_user_id'] ?? 0),
                         'name' => (string) ($activeThread['with_user_name'] ?? '')
                     ]);
+                    $activePresenceOnline = !empty($activeThread['with_user_is_online']);
+                    $activePresenceVisible = !array_key_exists('with_user_presence_visible', $activeThread) || !empty($activeThread['with_user_presence_visible']);
+                    $activePresenceClass = $activePresenceOnline ? 'is-online' : 'is-offline';
+                    $activePresenceLabel = $activePresenceOnline ? 'Çevrimiçi' : 'Çevrimdışı';
                     ?>
                     <a href="<?= htmlspecialchars($peerProfileUrl, ENT_QUOTES, 'UTF-8') ?>" class="messages-peer">
-                        <img
-                            src="<?= htmlspecialchars((string) ($activeThread['with_user_avatar'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                            alt="<?= htmlspecialchars((string) ($activeThread['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?>"
-                            width="46"
-                            height="46"
-                            loading="lazy"
-                            data-ui-avatar-img
-                        >
-                        <div>
+                        <span class="messages-avatar-presence messages-avatar-presence--peer">
+                            <img
+                                src="<?= htmlspecialchars((string) ($activeThread['with_user_avatar'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                alt="<?= htmlspecialchars((string) ($activeThread['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?>"
+                                width="46"
+                                height="46"
+                                loading="lazy"
+                                data-ui-avatar-img
+                            >
+                            <?php if ($activePresenceVisible): ?>
+                            <span
+                                class="messages-presence-dot <?= $activePresenceClass ?>"
+                                role="img"
+                                tabindex="0"
+                                aria-label="<?= htmlspecialchars($activePresenceLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                data-presence-tooltip="<?= htmlspecialchars($activePresenceLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                data-presence-label="<?= htmlspecialchars($activePresenceLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                data-presence-user-id="<?= (int) ($activeThread['with_user_id'] ?? 0) ?>"
+                                data-user-presence-dot
+                                data-messages-presence-indicator
+                                data-messages-active-presence
+                            ></span>
+                            <?php endif; ?>
+                        </span>
+                        <div class="messages-peer-copy">
                             <strong><?= htmlspecialchars((string) ($activeThread['with_user_name'] ?? 'Kullanici'), ENT_QUOTES, 'UTF-8') ?></strong>
                             <span>Profilini Gör</span>
                         </div>

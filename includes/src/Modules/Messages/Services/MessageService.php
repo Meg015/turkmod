@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Messages\Services;
 
 use App\Core\Realtime\WebSocketBroadcaster;
+use App\Engine\UserActivity\UserPresence;
 use PDO;
 use Throwable;
 
@@ -24,13 +25,17 @@ final class MessageService
     /** @var array<int,bool> */
     private array $typingColumnByConnection = [];
 
+    private UserPresence $presence;
+
     public function __construct(
         private ?MessageSchemaService $schema = null,
         ?callable $notificationDispatcher = null,
         ?callable $routeUrlResolver = null,
+        ?UserPresence $presence = null,
     ) {
         $this->schema ??= new MessageSchemaService();
         $this->notificationDispatcher = $notificationDispatcher;
+        $this->presence = $presence ?? new UserPresence();
         $this->routeUrlResolver = $routeUrlResolver ?? static function (string $routeKey, string $baseUri): string {
             if (function_exists('routePublicStaticUrl')) {
                 return routePublicStaticUrl($routeKey);
@@ -102,12 +107,17 @@ final class MessageService
                 t.last_message_at,
                 t.created_at AS thread_created_at,
                 self_p.last_read_message_id AS self_last_read_message_id,
+                self_p.cleared_through_message_id AS self_cleared_through_message_id,
                 other_p.user_id AS with_user_id,
                 other_p.last_read_message_id AS with_last_read_message_id,
                 {$typingSelect} AS with_typing_at,
                 other_p.last_read_at AS with_last_read_at,
                 {$otherUserNameSql} AS with_user_name,
                 {$otherUserAvatarSql} AS with_user_avatar,
+                u.status AS with_user_status,
+                u.is_banned AS with_user_is_banned,
+                u.deleted_at AS with_user_deleted_at,
+                u.last_activity_at AS with_user_last_activity_at,
                 lm.sender_user_id AS last_sender_user_id,
                 lm.body AS last_message_body,
                 lm.created_at AS last_message_created_at,
@@ -116,6 +126,7 @@ final class MessageService
                     FROM message_messages mm
                     WHERE mm.thread_id = t.id
                       AND mm.sender_user_id <> :user_id_unread
+                      AND mm.id > self_p.cleared_through_message_id
                       AND (self_p.last_read_message_id IS NULL OR mm.id > self_p.last_read_message_id)
                 ) AS unread_count
             FROM message_thread_participants self_p
@@ -125,6 +136,12 @@ final class MessageService
             LEFT JOIN message_messages lm ON lm.id = t.last_message_id
             WHERE self_p.user_id = :user_id
               AND t.id = :thread_id
+              AND EXISTS (
+                  SELECT 1
+                  FROM message_messages visible_mm
+                  WHERE visible_mm.thread_id = t.id
+                    AND visible_mm.id > self_p.cleared_through_message_id
+              )
             LIMIT 1
         ");
             $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
@@ -173,12 +190,17 @@ final class MessageService
                 t.last_message_at,
                 t.created_at AS thread_created_at,
                 self_p.last_read_message_id AS self_last_read_message_id,
+                self_p.cleared_through_message_id AS self_cleared_through_message_id,
                 other_p.user_id AS with_user_id,
                 other_p.last_read_message_id AS with_last_read_message_id,
                 {$typingSelect} AS with_typing_at,
                 other_p.last_read_at AS with_last_read_at,
                 {$otherUserNameSql} AS with_user_name,
                 {$otherUserAvatarSql} AS with_user_avatar,
+                u.status AS with_user_status,
+                u.is_banned AS with_user_is_banned,
+                u.deleted_at AS with_user_deleted_at,
+                u.last_activity_at AS with_user_last_activity_at,
                 lm.sender_user_id AS last_sender_user_id,
                 lm.body AS last_message_body,
                 lm.created_at AS last_message_created_at,
@@ -187,6 +209,7 @@ final class MessageService
                     FROM message_messages mm
                     WHERE mm.thread_id = t.id
                       AND mm.sender_user_id <> :user_id_unread
+                      AND mm.id > self_p.cleared_through_message_id
                       AND (self_p.last_read_message_id IS NULL OR mm.id > self_p.last_read_message_id)
                 ) AS unread_count
             FROM message_thread_participants self_p
@@ -195,6 +218,12 @@ final class MessageService
             LEFT JOIN users u ON u.id = other_p.user_id
             LEFT JOIN message_messages lm ON lm.id = t.last_message_id
             WHERE self_p.user_id = :user_id
+              AND EXISTS (
+                  SELECT 1
+                  FROM message_messages visible_mm
+                  WHERE visible_mm.thread_id = t.id
+                    AND visible_mm.id > self_p.cleared_through_message_id
+              )
             ORDER BY COALESCE(t.last_message_at, t.created_at) DESC, t.id DESC
             LIMIT :limit
         ");
@@ -262,6 +291,7 @@ final class MessageService
                         FROM message_messages mm
                         WHERE mm.thread_id = self_p.thread_id
                           AND mm.sender_user_id <> :user_id_unread
+                          AND mm.id > self_p.cleared_through_message_id
                           AND (self_p.last_read_message_id IS NULL OR mm.id > self_p.last_read_message_id)
                     ) AS unread_per_thread
                 FROM message_thread_participants self_p
@@ -299,7 +329,8 @@ final class MessageService
             return null;
         }
 
-        $messages = $this->fetchThreadMessages($pdo, $threadId, 300);
+        $clearedThroughMessageId = (int) ($thread['self_cleared_through_message_id'] ?? 0);
+        $messages = $this->fetchThreadMessages($pdo, $threadId, $clearedThroughMessageId, 300);
         $withCursor = isset($thread['with_last_read_message_id']) ? (int) $thread['with_last_read_message_id'] : 0;
         $withReadAt = (string) ($thread['with_last_read_at'] ?? '');
 
@@ -443,11 +474,16 @@ final class MessageService
             SELECT
                 self_p.thread_id,
                 self_p.last_read_message_id,
-                MAX(CASE WHEN mm.sender_user_id <> :user_id_other THEN mm.id ELSE NULL END) AS max_other_message_id
+                MAX(CASE
+                    WHEN mm.sender_user_id <> :user_id_other
+                     AND mm.id > self_p.cleared_through_message_id
+                    THEN mm.id
+                    ELSE NULL
+                END) AS max_other_message_id
             FROM message_thread_participants self_p
             LEFT JOIN message_messages mm ON mm.thread_id = self_p.thread_id
             WHERE self_p.user_id = :user_id
-            GROUP BY self_p.thread_id, self_p.last_read_message_id
+            GROUP BY self_p.thread_id, self_p.last_read_message_id, self_p.cleared_through_message_id
         ");
         $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
         $stmt->bindValue(':user_id_other', $userId, PDO::PARAM_INT);
@@ -493,6 +529,97 @@ final class MessageService
         }
 
         return $updatedThreads;
+    }
+
+    /**
+     * @return array{success:bool,message:string,thread_id:int,cleared_through_message_id:int}
+     */
+    public function clearThreadForUser(PDO $pdo, int $threadId, int $userId): array
+    {
+        $failure = [
+            'success' => false,
+            'message' => 'Sohbet bulunamadi.',
+            'thread_id' => 0,
+            'cleared_through_message_id' => 0,
+        ];
+
+        if ($threadId <= 0 || $userId <= 0 || !$this->isSchemaReady($pdo)) {
+            return $failure;
+        }
+
+        $participant = $this->participantForThread($pdo, $threadId, $userId);
+        if ($participant === null) {
+            return $failure;
+        }
+
+        $ownsTransaction = false;
+        try {
+            if (!$pdo->inTransaction()) {
+                $pdo->beginTransaction();
+                $ownsTransaction = true;
+            }
+
+            $latestMessageId = $this->latestMessageId($pdo, $threadId);
+            $clearedThroughMessageId = max(
+                $latestMessageId,
+                (int) ($participant['cleared_through_message_id'] ?? 0),
+            );
+            $nowSql = $this->schema->nowSql($pdo);
+            $update = $pdo->prepare("
+                UPDATE message_thread_participants
+                SET cleared_through_message_id = :cleared_through_message_id,
+                    last_read_message_id = :last_read_message_id,
+                    last_read_at = {$nowSql},
+                    typing_at = NULL,
+                    updated_at = {$nowSql}
+                WHERE thread_id = :thread_id
+                  AND user_id = :user_id
+            ");
+            $update->bindValue(':cleared_through_message_id', $clearedThroughMessageId, PDO::PARAM_INT);
+            if ($clearedThroughMessageId > 0) {
+                $update->bindValue(':last_read_message_id', $clearedThroughMessageId, PDO::PARAM_INT);
+            } else {
+                $update->bindValue(':last_read_message_id', null, PDO::PARAM_NULL);
+            }
+            $update->bindValue(':thread_id', $threadId, PDO::PARAM_INT);
+            $update->bindValue(':user_id', $userId, PDO::PARAM_INT);
+            $update->execute();
+
+            if ($ownsTransaction) {
+                $pdo->commit();
+            }
+
+            $this->broadcastToWebSocket($userId, [
+                'type' => 'thread_cleared',
+                'thread_id' => $threadId,
+                'user_id' => $userId,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Sohbet mesaj listenizden kalıcı olarak silindi.',
+                'thread_id' => $threadId,
+                'cleared_through_message_id' => $clearedThroughMessageId,
+            ];
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if (function_exists('appLogException')) {
+                appLogException($exception, [
+                    'source' => 'MessageService::clearThreadForUser',
+                    'thread_id' => $threadId,
+                    'user_id' => $userId,
+                ]);
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Sohbet silinemedi.',
+                'thread_id' => 0,
+                'cleared_through_message_id' => 0,
+            ];
+        }
     }
 
     /**
@@ -576,18 +703,21 @@ final class MessageService
     /**
      * @return list<array<string,mixed>>
      */
-    private function fetchThreadMessages(PDO $pdo, int $threadId, int $limit = 300): array
+    private function fetchThreadMessages(PDO $pdo, int $threadId, int $afterMessageId = 0, int $limit = 300): array
     {
+        $afterMessageId = max(0, $afterMessageId);
         $limit = max(1, min(500, $limit));
 
         $stmt = $pdo->prepare("
             SELECT id, thread_id, sender_user_id, body, is_deleted, created_at, updated_at
             FROM message_messages
             WHERE thread_id = :thread_id
+              AND id > :after_message_id
             ORDER BY id ASC
             LIMIT :limit
         ");
         $stmt->bindValue(':thread_id', $threadId, PDO::PARAM_INT);
+        $stmt->bindValue(':after_message_id', $afterMessageId, PDO::PARAM_INT);
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
 
@@ -635,7 +765,10 @@ final class MessageService
             return 0;
         }
 
-        $currentCursor = isset($participant['last_read_message_id']) ? (int) $participant['last_read_message_id'] : 0;
+        $currentCursor = max(
+            isset($participant['last_read_message_id']) ? (int) $participant['last_read_message_id'] : 0,
+            (int) ($participant['cleared_through_message_id'] ?? 0),
+        );
         $unreadCount = $this->countUnreadMessages($pdo, $threadId, $userId, $currentCursor);
         if ($unreadCount <= 0) {
             return 0;
@@ -678,7 +811,7 @@ final class MessageService
     private function participantForThread(PDO $pdo, int $threadId, int $userId): ?array
     {
         $stmt = $pdo->prepare('
-            SELECT thread_id, user_id, last_read_message_id, last_read_at
+            SELECT thread_id, user_id, last_read_message_id, last_read_at, cleared_through_message_id
             FROM message_thread_participants
             WHERE thread_id = :thread_id
               AND user_id = :user_id
@@ -800,13 +933,31 @@ final class MessageService
             return ['success' => false, 'message' => 'Mesaj gonderilemedi.', 'thread_id' => $threadId, 'message_id' => 0];
         }
 
-        $this->dispatchNotificationBestEffort($pdo, $targetUserId, $senderUserId, $threadId, $messageId, $body, $baseUri);
+        $sender = $this->lookupUser($pdo, $senderUserId);
+        $senderName = is_array($sender) && trim((string) ($sender['username'] ?? '')) !== ''
+            ? trim((string) $sender['username'])
+            : 'Bir kullanıcı';
+        $threadUrl = $this->threadUrl($threadId, $baseUri);
+
+        $this->dispatchNotificationBestEffort(
+            $pdo,
+            $targetUserId,
+            $senderUserId,
+            $threadId,
+            $messageId,
+            $body,
+            $baseUri,
+            $senderName,
+        );
 
         $participants = $this->getThreadParticipants($pdo, $threadId);
         $this->broadcastToWebSocket($participants, [
             'type' => 'new_message',
             'thread_id' => $threadId,
-            'message_id' => $messageId
+            'message_id' => $messageId,
+            'sender_user_id' => $senderUserId,
+            'sender_name' => $senderName,
+            'thread_url' => $threadUrl,
         ]);
 
         return [
@@ -825,15 +976,10 @@ final class MessageService
         int $messageId,
         string $body,
         string $baseUri,
+        string $senderName,
     ): void {
         if ($recipientUserId <= 0 || $senderUserId <= 0 || $messageId <= 0 || $threadId <= 0) {
             return;
-        }
-
-        $senderName = 'Bir kullanici';
-        $sender = $this->lookupUser($pdo, $senderUserId);
-        if (is_array($sender) && trim((string) ($sender['username'] ?? '')) !== '') {
-            $senderName = (string) $sender['username'];
         }
 
         $link = $this->threadUrl($threadId, $baseUri);
@@ -981,12 +1127,26 @@ final class MessageService
             $isTypingNow = strtotime($withTypingAt) >= time() - 6;
         }
 
+        $presenceVisible = $this->isUserMessageEligible([
+            'id' => (int) ($row['with_user_id'] ?? 0),
+            'status' => $row['with_user_status'] ?? 'active',
+            'is_banned' => $row['with_user_is_banned'] ?? 0,
+            'deleted_at' => $row['with_user_deleted_at'] ?? null,
+        ]);
+        $presence = $presenceVisible
+            ? $this->presence->describe((string) ($row['with_user_last_activity_at'] ?? ''))
+            : ['is_online' => false, 'status_label' => 'Çevrimdışı', 'state_class' => 'is-offline'];
+
         return [
             'thread_id' => $threadId,
             'thread_key' => (string) ($row['thread_key'] ?? ''),
             'with_user_id' => (int) ($row['with_user_id'] ?? 0),
             'with_user_name' => trim((string) ($row['with_user_name'] ?? 'Kullanici')) ?: 'Kullanici',
             'with_user_avatar' => $this->resolveAvatar((string) ($row['with_user_avatar'] ?? ''), $baseUri),
+            'with_user_presence_visible' => $presenceVisible,
+            'with_user_is_online' => (bool) $presence['is_online'],
+            'with_user_presence_label' => (string) $presence['status_label'],
+            'with_user_presence_state_class' => (string) $presence['state_class'],
             'unread_count' => max(0, (int) ($row['unread_count'] ?? 0)),
             'last_message_id' => $lastMessageId,
             'last_message_body' => $lastMessageBody,
@@ -997,6 +1157,7 @@ final class MessageService
             'last_message_is_mine' => $lastSenderId > 0 && $lastSenderId === $userId,
             'last_message_read' => $lastSenderId > 0 && $lastSenderId === $userId && $lastMessageId > 0 && $withCursor >= $lastMessageId,
             'self_last_read_message_id' => (int) ($row['self_last_read_message_id'] ?? 0),
+            'self_cleared_through_message_id' => (int) ($row['self_cleared_through_message_id'] ?? 0),
             'with_last_read_message_id' => $withCursor,
             'with_last_read_at' => (string) ($row['with_last_read_at'] ?? ''),
             'is_typing_now' => $isTypingNow,
@@ -1121,9 +1282,17 @@ final class MessageService
             return ['success' => false, 'message' => 'Geçersiz istek.'];
         }
 
-        // Fetch message
-        $stmt = $pdo->prepare("SELECT id, thread_id, sender_user_id, created_at, is_deleted FROM message_messages WHERE id = :id");
-        $stmt->execute(['id' => $messageId]);
+        // Fetch only messages that remain visible to the requesting participant.
+        $stmt = $pdo->prepare("
+            SELECT mm.id, mm.thread_id, mm.sender_user_id, mm.created_at, mm.is_deleted
+            FROM message_messages mm
+            INNER JOIN message_thread_participants self_p
+                ON self_p.thread_id = mm.thread_id
+               AND self_p.user_id = :user_id
+            WHERE mm.id = :id
+              AND mm.id > self_p.cleared_through_message_id
+        ");
+        $stmt->execute(['id' => $messageId, 'user_id' => $userId]);
         $msg = $stmt->fetch();
 
         if (!$msg) {
@@ -1173,9 +1342,17 @@ final class MessageService
             return ['success' => false, 'message' => 'Mesaj içeriği boş olamaz.'];
         }
 
-        // Fetch message
-        $stmt = $pdo->prepare("SELECT id, thread_id, sender_user_id, created_at, is_deleted FROM message_messages WHERE id = :id");
-        $stmt->execute(['id' => $messageId]);
+        // Fetch only messages that remain visible to the requesting participant.
+        $stmt = $pdo->prepare("
+            SELECT mm.id, mm.thread_id, mm.sender_user_id, mm.created_at, mm.is_deleted
+            FROM message_messages mm
+            INNER JOIN message_thread_participants self_p
+                ON self_p.thread_id = mm.thread_id
+               AND self_p.user_id = :user_id
+            WHERE mm.id = :id
+              AND mm.id > self_p.cleared_through_message_id
+        ");
+        $stmt->execute(['id' => $messageId, 'user_id' => $userId]);
         $msg = $stmt->fetch();
 
         if (!$msg) {
@@ -1236,6 +1413,7 @@ final class MessageService
             FROM message_messages mm
             WHERE mm.thread_id = :thread_id
               AND mm.id < :before_id
+              AND mm.id > :cleared_through_message_id
             ORDER BY mm.id DESC
             LIMIT 50
         ");
@@ -1243,6 +1421,7 @@ final class MessageService
         $stmt->bindValue(':with_cursor', (int) $thread['with_last_read_message_id'], PDO::PARAM_INT);
         $stmt->bindValue(':thread_id', $threadId, PDO::PARAM_INT);
         $stmt->bindValue(':before_id', $beforeId, PDO::PARAM_INT);
+        $stmt->bindValue(':cleared_through_message_id', (int) ($thread['self_cleared_through_message_id'] ?? 0), PDO::PARAM_INT);
         $stmt->execute();
         $messages = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 

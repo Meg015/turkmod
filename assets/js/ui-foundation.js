@@ -499,12 +499,26 @@
         };
     }
 
+    function resolveSafeClickUrl(value) {
+        if (!value) return '';
+
+        try {
+            var resolved = new URL(String(value), window.location.href);
+            if (resolved.origin !== window.location.origin) return '';
+            if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') return '';
+            return resolved.toString();
+        } catch (error) {
+            return '';
+        }
+    }
+
     window.showToast = function (message, type, duration) {
         var cfg = getConfig();
         if (!cfg) return;
 
         var args = normalizeArgs(message, type, duration);
         var options = args.options;
+        var clickUrl = resolveSafeClickUrl(options.clickUrl);
         type = args.type;
         message = args.message;
         duration = args.duration;
@@ -603,6 +617,23 @@
 
         if (cfg.clickToClose && !options.actionLabel) {
             toast.style.cursor = 'pointer';
+        }
+
+        if (clickUrl) {
+            toast.style.cursor = 'pointer';
+            toast.tabIndex = 0;
+            toast.setAttribute('aria-label', options.clickLabel || (message + ' Konuşmayı aç'));
+            toast.addEventListener('click', function (event) {
+                var eventTarget = event.target;
+                if (event.defaultPrevented || (eventTarget && typeof eventTarget.closest === 'function' && eventTarget.closest('a, button'))) return;
+                window.location.assign(clickUrl);
+            });
+            toast.addEventListener('keydown', function (event) {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                window.location.assign(clickUrl);
+            });
+        } else if (cfg.clickToClose && !options.actionLabel) {
             toast.addEventListener('click', function () {
                 dismissToast(toast, 'click');
             });
@@ -646,6 +677,103 @@
         }
     };
     window.showToast._uiFoundationEnhanced = true;
+
+    var activePresenceDot = null;
+    var activePresenceTimer = null;
+
+    function closePresenceTooltip() {
+        if (activePresenceTimer) {
+            window.clearTimeout(activePresenceTimer);
+            activePresenceTimer = null;
+        }
+        if (activePresenceDot) {
+            activePresenceDot.classList.remove('is-tooltip-open');
+            activePresenceDot.setAttribute('aria-expanded', 'false');
+            activePresenceDot = null;
+        }
+    }
+
+    function openPresenceTooltip(dot) {
+        if (!dot) return;
+        if (activePresenceDot && activePresenceDot !== dot) {
+            closePresenceTooltip();
+        }
+        activePresenceDot = dot;
+        dot.classList.add('is-tooltip-open');
+        dot.setAttribute('aria-expanded', 'true');
+        activePresenceTimer = window.setTimeout(closePresenceTooltip, 2500);
+    }
+
+    function applyPresenceState(root, state) {
+        root = typeof root === 'string'
+            ? document.querySelector(root)
+            : (root && root.nodeType === 1 ? root : null);
+        state = state || {};
+        if (!root) return;
+
+        var visible = state.visible === true;
+        root.hidden = !visible;
+        root.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        if (!visible) {
+            if (activePresenceDot && root.contains(activePresenceDot)) closePresenceTooltip();
+            return;
+        }
+
+        var isOnline = state.is_online === true;
+        var label = isOnline ? 'Çevrimiçi' : 'Çevrimdışı';
+        var dot = root.matches('[data-user-presence-dot]')
+            ? root
+            : root.querySelector('[data-user-presence-dot], .user-presence-dot, .messages-presence-dot');
+        if (dot) {
+            dot.classList.toggle('is-online', isOnline);
+            dot.classList.toggle('is-offline', !isOnline);
+            dot.setAttribute('aria-label', label);
+            dot.removeAttribute('title');
+            dot.setAttribute('data-presence-tooltip', label);
+            dot.setAttribute('data-presence-label', label);
+        }
+
+        var relativeTarget = root.querySelector('[data-user-presence-label]');
+        if (relativeTarget) {
+            relativeTarget.textContent = isOnline
+                ? String(relativeTarget.getAttribute('data-presence-online-text') || 'Çevrimiçi')
+                : String(state.relative_label || 'Bilinmiyor');
+        }
+    }
+
+    window.publicPresenceUI = {
+        apply: applyPresenceState,
+        closeTooltip: closePresenceTooltip
+    };
+
+    document.addEventListener('click', function (event) {
+        var target = event.target;
+        var dot = target && typeof target.closest === 'function' ? target.closest('[data-user-presence-dot]') : null;
+        if (!dot) return;
+        event.preventDefault();
+        event.stopPropagation();
+        openPresenceTooltip(dot);
+    }, true);
+
+    document.addEventListener('pointerdown', function (event) {
+        if (!activePresenceDot) return;
+        var target = event.target;
+        if (target && (target === activePresenceDot || activePresenceDot.contains(target))) return;
+        closePresenceTooltip();
+    }, true);
+
+    document.addEventListener('keydown', function (event) {
+        var target = event.target;
+        if (event.key === 'Escape' && activePresenceDot) {
+            closePresenceTooltip();
+            return;
+        }
+        if ((event.key === 'Enter' || event.key === ' ') && target && target.matches && target.matches('[data-user-presence-dot]')) {
+            event.preventDefault();
+            event.stopPropagation();
+            openPresenceTooltip(target);
+        }
+    }, true);
 
     document.addEventListener('DOMContentLoaded', function () {
         var container = document.getElementById('toastContainer');

@@ -266,6 +266,96 @@
             });
         }
 
+        function initDesktopNotificationPermission() {
+            var input = root.querySelector('input[name="message_desktop_notifications_enabled"]');
+            var action = root.querySelector("[data-message-desktop-permission]");
+            if (!input || !action) {
+                return;
+            }
+
+            var actionText = action.querySelector("span");
+
+            function notify(message, type) {
+                if (typeof window.showToast === "function") {
+                    window.showToast(message, type || "info");
+                }
+            }
+
+            function notificationSupported() {
+                return "Notification" in window && typeof window.Notification.requestPermission === "function";
+            }
+
+            function setActionState(text, disabled, hidden) {
+                if (actionText) {
+                    actionText.textContent = text;
+                }
+                action.disabled = !!disabled;
+                action.hidden = !!hidden;
+            }
+
+            function syncPermissionState() {
+                if (!input.checked) {
+                    setActionState("Bu cihazda izin ver", false, true);
+                    return;
+                }
+                if (!notificationSupported()) {
+                    setActionState("Bu tarayıcı masaüstü bildirimini desteklemiyor", true, false);
+                    return;
+                }
+                if (window.Notification.permission === "granted") {
+                    setActionState("Bu cihazda izin verildi", true, true);
+                    return;
+                }
+                if (window.Notification.permission === "denied") {
+                    setActionState("Tarayıcı ayarlarından izin verin", true, false);
+                    return;
+                }
+                setActionState("Bu cihazda izin ver", false, false);
+            }
+
+            function requestDesktopPermission() {
+                if (!notificationSupported()) {
+                    notify("Bu tarayıcı masaüstü bildirimlerini desteklemiyor.", "warning");
+                    syncPermissionState();
+                    return Promise.resolve("unsupported");
+                }
+                if (window.Notification.permission === "granted") {
+                    syncPermissionState();
+                    return Promise.resolve("granted");
+                }
+                if (window.Notification.permission === "denied") {
+                    notify("Masaüstü bildirimi tarayıcı tarafından engellenmiş. Tarayıcı site ayarlarından izin verebilirsiniz.", "warning");
+                    syncPermissionState();
+                    return Promise.resolve("denied");
+                }
+
+                action.disabled = true;
+                return Promise.resolve(window.Notification.requestPermission())
+                    .then(function (permission) {
+                        if (permission === "granted") {
+                            notify("Bu cihaz için masaüstü mesaj bildirimlerine izin verildi.", "success");
+                        } else {
+                            notify("Masaüstü bildirim izni verilmedi. Hesap tercihiniz açık kalabilir ancak bu cihaz bildirim gösteremez.", "warning");
+                        }
+                        return permission;
+                    })
+                    .catch(function () {
+                        notify("Masaüstü bildirim izni alınamadı.", "warning");
+                        return "error";
+                    })
+                    .finally(syncPermissionState);
+            }
+
+            input.addEventListener("change", function () {
+                syncPermissionState();
+                if (input.checked && notificationSupported() && window.Notification.permission === "default") {
+                    requestDesktopPermission();
+                }
+            });
+            action.addEventListener("click", requestDesktopPermission);
+            syncPermissionState();
+        }
+
         function initPreferenceTabs() {
             var tabs = Array.from(root.querySelectorAll("[data-notification-settings-tab]"));
             var panels = Array.from(root.querySelectorAll("[data-notification-settings-panel]"));
@@ -302,6 +392,7 @@
         initPreferenceTabs();
         initPreferenceEffects();
         initPreferenceGroups();
+        initDesktopNotificationPermission();
         refreshMessageToggles();
 
         root.addEventListener("change", function (event) {

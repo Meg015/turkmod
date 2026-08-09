@@ -11,6 +11,12 @@ $profileSidebarBio = trim((string) ($profileSidebar['bio'] ?? ''));
 $profileSidebarCreatedAtRaw = trim((string) ($profileSidebar['created_at'] ?? $profileSidebar['member_since'] ?? ''));
 $profileSidebarCreatedAt = $profileSidebarCreatedAtRaw;
 $profileSidebarTenure = trim((string) ($profileSidebar['tenure'] ?? ''));
+$profileSidebarPresenceStatus = trim((string) ($profileSidebar['presence_status_label'] ?? 'Çevrimdışı')) ?: 'Çevrimdışı';
+$profileSidebarPresenceRelative = trim((string) ($profileSidebar['presence_relative_label'] ?? 'Bilinmiyor')) ?: 'Bilinmiyor';
+$profileSidebarPresenceTitle = trim((string) ($profileSidebar['presence_title_label'] ?? $profileSidebarPresenceStatus)) ?: $profileSidebarPresenceStatus;
+$profileSidebarPresenceClass = (string) ($profileSidebar['presence_state_class'] ?? 'is-offline') === 'is-online' ? 'is-online' : 'is-offline';
+$profileSidebarPresenceVisible = !array_key_exists('presence_visible', $profileSidebar) || !empty($profileSidebar['presence_visible']);
+$profileSidebarUserId = (int) ($profileSidebar['id'] ?? $profileSidebar['user_id'] ?? 0);
 if ($profileSidebarCreatedAtRaw !== '') {
     $profileSidebarCreatedAtTs = strtotime($profileSidebarCreatedAtRaw);
     if ($profileSidebarCreatedAtTs !== false) {
@@ -63,6 +69,13 @@ $profileSidebarLeaderboardUserId = (int) ($profileSidebar['leaderboard_user_id']
                     <span class="profile-sidebar-meta-label">Üyelik Süresi</span>
                     <strong><?= htmlspecialchars($profileSidebarTenure, ENT_QUOTES, 'UTF-8') ?></strong>
                 </div>
+            <?php endif; ?>
+            <?php if ($profileSidebarPresenceVisible && $profileSidebarUserId > 0): ?>
+            <div class="profile-sidebar-meta-item profile-sidebar-meta-item--presence" data-presence-user-id="<?= $profileSidebarUserId ?>">
+                <span class="user-presence-dot <?= $profileSidebarPresenceClass ?>" tabindex="0" role="img" aria-label="<?= htmlspecialchars($profileSidebarPresenceStatus, ENT_QUOTES, 'UTF-8') ?>" data-presence-tooltip="<?= htmlspecialchars($profileSidebarPresenceStatus, ENT_QUOTES, 'UTF-8') ?>" data-user-presence-dot></span>
+                <span class="profile-sidebar-meta-label">Son Çevrimiçi</span>
+                <strong data-user-presence-label data-presence-online-text="Çevrimiçi"><?= htmlspecialchars($profileSidebarPresenceRelative, ENT_QUOTES, 'UTF-8') ?></strong>
+            </div>
             <?php endif; ?>
             <?php if ($profileSidebarLocation !== ''): ?>
                 <div class="profile-sidebar-meta-item">

@@ -12,6 +12,8 @@
             const BASE_URI = (section.dataset.baseUrl || (document.querySelector('meta[name="app-base-uri"]')?.content || '')).replace(/\/$/, '');
             const AVATAR_FALLBACK = section.dataset.avatarFallback || (BASE_URI + '/assets/images/noavatar-neon-helmet.svg');
             const COMMENT_MAX_LENGTH = Math.max(1, parseInt(section.dataset.commentMaxLength || '1000', 10) || 1000);
+            const parsedCommentMaxDepth = parseInt(section.dataset.commentMaxDepth || '3', 10);
+            const COMMENT_MAX_DEPTH = Number.isFinite(parsedCommentMaxDepth) ? Math.max(0, parsedCommentMaxDepth) : 3;
             const reactionsEnabled = section.dataset.reactionsEnabled === '1';
             const list    = document.getElementById('tcList');
             const loading = document.getElementById('tcLoading');
@@ -110,6 +112,16 @@
                     ? (avUrl.startsWith('http') ? avUrl : BASE_URI + '/' + avUrl.replace(/^\/+/,''))
                     : AVATAR_FALLBACK;
                 return '<img src="' + escAttr(src) + '" alt="' + escAttr(name || 'Kullanıcı') + '" width="32" height="32" loading="lazy" decoding="async" data-ui-avatar-img data-ui-avatar-fallback="' + escAttr(AVATAR_FALLBACK) + '">';
+            }
+
+            function presenceIndicator(comment){
+                const userId = Number(comment && comment.user_id || 0);
+                const isVisible = !!(comment && (comment.presence_visible === true || comment.presence_visible === 1 || comment.presence_visible === '1'));
+                if (!isVisible || userId <= 0) return '';
+                const isOnline = comment && (comment.is_online === true || comment.is_online === 1 || comment.is_online === '1');
+                const label = isOnline ? 'Çevrimiçi' : 'Çevrimdışı';
+                const stateClass = isOnline ? 'is-online' : 'is-offline';
+                return '<span class="user-presence-dot ui-comment-presence-dot ' + stateClass + '" tabindex="0" role="img" aria-label="' + escAttr(label) + '" data-presence-tooltip="' + escAttr(label) + '" data-presence-user-id="' + userId + '" data-user-presence-dot></span>';
             }
             function escAttr(s){return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
             function formatEditedDateTime(value) {
@@ -223,7 +235,7 @@
             }
 
             // -- Render --
-            function renderComment(c, isReply=false){
+            function renderComment(c, isReply=false, depth=0){
                 let cls = isReply ? 'ui-comment-item ui-comment-reply animate-in' : 'ui-comment-item animate-in';
                 const actions = [];
                 if(LOGGED) actions.push('<button class="ui-comment-action-btn ui-comment-reply-btn" data-id="' + c.id + '" data-author="' + escAttr(c.author) + '" data-root="' + (c.parent_id || c.id) + '" title="Yanıtla"><i class="bi bi-chat-left-text"></i> <span>Yanıtla</span></button>');
@@ -233,7 +245,11 @@
 
                 let replies = '';
                 if(c.replies && c.replies.length){
-                    replies = '<div class="ui-comment-replies">' + c.replies.map(r=>renderComment(r,true)).join('') + '</div>';
+                    const childDepth = depth + 1;
+                    const overflowClass = COMMENT_MAX_DEPTH > 0 && childDepth >= COMMENT_MAX_DEPTH
+                        ? ' ui-comment-replies--depth-overflow'
+                        : '';
+                    replies = '<div class="ui-comment-replies' + overflowClass + '">' + c.replies.map(r=>renderComment(r,true,childDepth)).join('') + '</div>';
                 }
 
                 // Alıntı etiketi (minimal)
@@ -300,6 +316,7 @@
                     id: c.id,
                     hue: (c.author || '').length % 7,
                     avatar_html: avatar(c.author, c.avatar),
+                    presence_html: presenceIndicator(c),
                     avatar_cls: 'ui-comment-profile-avatar',
                     avatar_style: '',
                     author: esc(c.author || 'Anonim'),
@@ -322,7 +339,7 @@
                 return '<div class="' + cls + '" data-comment-id="' + c.id + '" id="comment-' + c.id + '">' +
                     '<div class="ui-comment-body ui-panel__body">' +
                         '<div class="ui-comment-profile-card">' +
-                            '<div class="ui-comment-profile-avatar" data-hue="' + ((c.author || '').length % 7) + '">' + avatar(c.author, c.avatar) + '</div>' +
+                            '<div class="ui-comment-profile-avatar" data-hue="' + ((c.author || '').length % 7) + '">' + avatar(c.author, c.avatar) + presenceIndicator(c) + '</div>' +
                             '<div class="ui-comment-profile-info">' +
                                 '<div class="ui-comment-author-line"><a href="' + escAttr(profileUrl) + '" class="ui-comment-author-link"><strong class="ui-comment-author">' + esc(c.author) + '</strong></a>' + authorBadge + groupBadge + '</div>' +
                             '</div>' +

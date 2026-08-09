@@ -47,6 +47,7 @@ $stmt->execute([$newStatus, $userId]);
 if ($stmt->rowCount() <= 0) {
     sendError('status_update_failed', 'Durum güncelleme sırasında bir hata oluştu.', 500);
 }
+\App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $userId);
 
 adminAuditLogger()->logAction($pdo, 'status_change', 'user', $userId, $reason,
     ['status' => $user['status']], ['status' => $newStatus], true);

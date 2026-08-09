@@ -79,6 +79,7 @@ final class MessageSchemaInstaller
                     last_read_message_id INTEGER NULL,
                     last_read_at TEXT NULL,
                     typing_at TEXT NULL,
+                    cleared_through_message_id INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NULL DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(thread_id, user_id),
@@ -98,6 +99,7 @@ final class MessageSchemaInstaller
                 last_read_message_id BIGINT UNSIGNED NULL,
                 last_read_at TIMESTAMP NULL,
                 typing_at TIMESTAMP NULL,
+                cleared_through_message_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
                 created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
@@ -113,6 +115,14 @@ final class MessageSchemaInstaller
                     $pdo->exec("ALTER TABLE message_thread_participants ADD COLUMN typing_at TEXT NULL");
                 } else {
                     $pdo->exec("ALTER TABLE message_thread_participants ADD COLUMN typing_at TIMESTAMP NULL AFTER last_read_at");
+                }
+            }
+
+            if (!$this->columnExists($pdo, 'message_thread_participants', 'cleared_through_message_id')) {
+                if ($this->isSqlite($pdo)) {
+                    $pdo->exec('ALTER TABLE message_thread_participants ADD COLUMN cleared_through_message_id INTEGER NOT NULL DEFAULT 0');
+                } else {
+                    $pdo->exec('ALTER TABLE message_thread_participants ADD COLUMN cleared_through_message_id BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER typing_at');
                 }
             }
         });

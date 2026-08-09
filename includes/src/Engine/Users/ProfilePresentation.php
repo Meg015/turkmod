@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Engine\Users;
 
+use App\Engine\UserActivity\UserPresence;
+use App\Engine\UserActivity\UserPresenceLookup;
 use Closure;
 
 final class ProfilePresentation
@@ -18,6 +20,8 @@ final class ProfilePresentation
 
     private Closure $timeResolver;
 
+    private UserPresence $presence;
+
     private bool $hasCustomAvatarResolver;
 
     public function __construct(
@@ -26,6 +30,7 @@ final class ProfilePresentation
         ?callable $initialsResolver = null,
         ?callable $externalUrlSanitizer = null,
         ?callable $timeResolver = null,
+        ?UserPresence $presence = null,
     ) {
         $this->hasCustomAvatarResolver = $avatarResolver !== null;
         $this->avatarResolver = $avatarResolver !== null
@@ -43,6 +48,7 @@ final class ProfilePresentation
         $this->timeResolver = $timeResolver !== null
             ? Closure::fromCallable($timeResolver)
             : static fn (): int => time();
+        $this->presence = $presence ?? new UserPresence($this->timeResolver);
     }
 
     public function groupBadge(string $groupSlug, string $groupName): string
@@ -341,6 +347,11 @@ final class ProfilePresentation
         $bio = trim((string) ($options['bio'] ?? ($user['bio'] ?? '')));
         $createdAt = (string) ($options['created_at'] ?? ($user['created_at'] ?? date('Y-m-d')));
         $location = trim((string) ($options['location'] ?? ($user['location'] ?? '')));
+        $presence = $this->presence->describePublic(isset($user['last_activity_at']) ? (string) $user['last_activity_at'] : null);
+        $hasPresenceEligibility = array_key_exists('status', $user)
+            || array_key_exists('is_banned', $user)
+            || array_key_exists('deleted_at', $user);
+        $presenceVisible = !$hasPresenceEligibility || (new UserPresenceLookup($this->presence))->isVisibleRow($user);
 
         if (isset($options['stats']) && is_array($options['stats'])) {
             $stats = array_values(array_filter($options['stats'], static fn ($item): bool => is_array($item)));
@@ -356,6 +367,7 @@ final class ProfilePresentation
         $username = (string) ($user['username'] ?? $options['username'] ?? 'Kullanici');
 
         return [
+            'id' => (int) ($user['id'] ?? $options['user_id'] ?? 0),
             'username' => $username,
             'name' => $username,
             'avatar' => $avatar,
@@ -373,6 +385,14 @@ final class ProfilePresentation
             'created_at' => $createdAt,
             'member_since' => $this->memberSince($createdAt),
             'tenure' => $this->tenureLabel($createdAt),
+            'is_online' => $presence['is_online'],
+            'presence_visible' => $presenceVisible,
+            'presence_status_label' => $presence['status_label'],
+            'presence_relative_label' => $presence['relative_label'],
+            'presence_exact_label' => $presence['exact_label'],
+            'presence_has_activity' => $presence['has_activity'],
+            'presence_state_class' => $presence['state_class'],
+            'presence_title_label' => $presence['title_label'],
             'location' => $location,
             'has_location' => $location !== '',
             'website' => (string) ($options['website'] ?? ($user['website'] ?? '')),

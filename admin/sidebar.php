@@ -129,9 +129,6 @@ function sidebarBadge(?int $count, int $max = 99): string {
             <?php if ($adminCan('manage_static_pages')): ?>
                 <a class="admin-menu-item<?= sidebarActiveClass('static-pages') ?>" href="<?= $baseUri ?>/admin/static-pages.php"><i class="bi bi-file-earmark-richtext"></i><span>Sabit Sayfalar</span></a>
             <?php endif; ?>
-            <?php if ($adminCan('topics.create')): ?>
-                <a class="admin-menu-item<?= sidebarActiveClass('create') ?>" href="<?= $baseUri ?>/admin/create.php"><i class="bi bi-plus-circle"></i><span>Yeni Konu</span></a>
-            <?php endif; ?>
             <?php if ($adminCan('categories.view')): ?>
                 <a class="admin-menu-item<?= sidebarActiveClass('categories') ?>" href="<?= $baseUri ?>/admin/categories.php"><i class="bi bi-diagram-3"></i><span>Kategoriler</span></a>
             <?php endif; ?>

@@ -403,6 +403,7 @@ if (isset($robotsMetaOverride) && trim((string) $robotsMetaOverride) !== '') {
     <?php if ($_themeManager instanceof ThemeManager): ?>
     <?= $_themeManager->renderAssetTags("js") . "\n" ?>
     <?php endif; ?>
+    <script src="<?= asset_url('assets/js/public-topbar-realtime.js', $baseUri) ?>" defer></script>
     <?php if (($_lay["structured_data"] ?? "1") === "1" && ($_lay["schema_site_search"] ?? "1") === "1"): ?>
     <script type="application/ld+json"><?= getWebsiteStructuredDataJson($_lay) ?></script>
     <?php endif; ?>
@@ -624,7 +625,6 @@ echo htmlspecialchars($_mLabel);
                         </div>
                         <script src="<?= asset_url('assets/js/public-notifications-menu.js', $baseUri) ?>" defer></script>
                         <script src="<?= asset_url('assets/js/public-messages-menu.js', $baseUri) ?>" defer></script>
-                        <script src="<?= asset_url('assets/js/public-topbar-realtime.js', $baseUri) ?>" defer></script>
 
                         <?php
                         $_profileName = htmlspecialchars(

@@ -201,6 +201,12 @@
                                 <span class="notification-slider"></span>
                             </span>
                         </label>
+                        {if item.is_desktop_permission}
+                        <button type="button" class="message-desktop-permission-action" data-message-desktop-permission hidden>
+                            <i class="bi bi-shield-check" aria-hidden="true"></i>
+                            <span>Bu cihazda izin ver</span>
+                        </button>
+                        {/if}
                         {/loop}
                     </div>
                 </section>

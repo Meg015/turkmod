@@ -2434,17 +2434,20 @@ function usersActivate(PDO $pdo, int $userId): void
 {
     $pdo->prepare("UPDATE users SET status = 'active', updated_at = NOW() WHERE id = :id")
         ->execute(['id' => $userId]);
+    \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $userId);
 }
 
 function usersDeactivate(PDO $pdo, int $userId): void
 {
     $pdo->prepare("UPDATE users SET status = 'inactive', updated_at = NOW() WHERE id = :id")
         ->execute(['id' => $userId]);
+    \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $userId);
 }
 
 function usersDelete(PDO $pdo, int $userId): void
 {
     $pdo->prepare("DELETE FROM users WHERE id = :id")->execute(['id' => $userId]);
+    \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $userId);
 }
 
 function usersBuildListFilters(string $search = '', string $filterGroup = '', string $filterStatus = '', ?PDO $pdo = null): array
@@ -2715,6 +2718,7 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
             $stmt = $pdo->prepare("UPDATE users SET status = 'active', updated_at = NOW() WHERE id = ?");
             foreach ($userIds as $id) {
                 $stmt->execute([$id]);
+                \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $id);
             }
             return '';
 
@@ -2725,6 +2729,7 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
                     continue;
                 }
                 $stmt->execute([$id]);
+                \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $id);
             }
             return '';
 
@@ -2739,6 +2744,7 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
                     continue;
                 }
                 $stmt->execute([$reason, $id]);
+                \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $id);
             }
             return '';
 
@@ -2746,6 +2752,7 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
             $stmt = $pdo->prepare('UPDATE users SET is_banned = 0, banned_at = NULL, ban_reason = NULL, updated_at = NOW() WHERE id = ?');
             foreach ($userIds as $id) {
                 $stmt->execute([$id]);
+                \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $id);
             }
             return '';
 
@@ -2769,6 +2776,7 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
                     continue;
                 }
                 $stmt->execute([$id]);
+                \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $id);
             }
             return '';
     }

@@ -18,6 +18,11 @@ $service = new MessageService();
 $baseUri = rtrim((string) ($baseUri ?? ''), '/');
 $schemaReady = $service->isSchemaReady($pdo, true);
 $schemaUnavailableMessage = $service->unavailableMessage();
+$loadMessageNotificationPreferences = static function () use ($pdo, $userId): array {
+    return function_exists('notificationMessageRealtimePreferences')
+        ? notificationMessageRealtimePreferences($pdo, $userId)
+        : ['enabled' => true, 'sound_enabled' => false, 'desktop_enabled' => false];
+};
 
 $getAction = trim((string) ($_GET['action'] ?? 'dropdown'));
 $postAction = trim((string) ($_POST['action'] ?? ''));
@@ -29,14 +34,19 @@ try {
         switch ($action) {
             case 'dropdown':
                 $limit = max(1, min(20, (int) ($_GET['limit'] ?? 6)));
+                $messageNotificationPreferences = $loadMessageNotificationPreferences();
                 if (!$schemaReady) {
                     sendSuccess($schemaUnavailableMessage, [
                         'ok' => false,
                         'unread_count' => 0,
                         'latest' => [],
+                        'notification_preferences' => $messageNotificationPreferences,
                     ]);
                 }
-                sendSuccess('OK', $service->dropdownPayload($pdo, $userId, $limit, $baseUri));
+                sendSuccess('OK', array_merge(
+                    $service->dropdownPayload($pdo, $userId, $limit, $baseUri),
+                    ['notification_preferences' => $messageNotificationPreferences],
+                ));
 
             case 'list':
                 $limit = max(1, min(100, (int) ($_GET['limit'] ?? 80)));
@@ -182,6 +192,21 @@ try {
                     $service->clearTypingStatus($pdo, $threadId, $userId);
                 }
                 sendSuccess('OK', ['ok' => true]);
+
+            case 'delete_thread':
+                if (!$schemaReady) {
+                    sendValidationError($schemaUnavailableMessage);
+                }
+                $threadId = max(0, (int) ($_POST['thread_id'] ?? 0));
+                $result = $service->clearThreadForUser($pdo, $threadId, $userId);
+                if (empty($result['success'])) {
+                    sendValidationError((string) ($result['message'] ?? 'Sohbet silinemedi.'));
+                }
+                sendSuccess((string) ($result['message'] ?? 'Sohbet silindi.'), [
+                    'ok' => true,
+                    'thread_id' => (int) ($result['thread_id'] ?? 0),
+                    'unread_count' => $service->unreadCount($pdo, $userId),
+                ]);
 
             case 'delete':
                 if (!$schemaReady) {

@@ -220,8 +220,16 @@ final class PublicThemeRenderer
                 }
                 $toastBridgeScript = '<script src="' . htmlspecialchars(asset_url('assets/js/public-toast-bridge.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
                 $publicApiScript = '<script src="' . htmlspecialchars(asset_url('assets/js/public-api.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                $uiFoundationScript = '<script src="' . htmlspecialchars(asset_url('assets/js/ui-foundation.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                $realtimeScript = '<script src="' . htmlspecialchars(asset_url('assets/js/public-topbar-realtime.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
                 if (!str_contains($scripts, 'assets/js/public-api.js')) {
                     $scripts = trim($publicApiScript . "\n" . $scripts);
+                }
+                if (!str_contains($scripts, 'assets/js/ui-foundation.js') && !str_contains($scripts, 'assets/dist/public.min.js')) {
+                    $scripts = trim($uiFoundationScript . "\n" . $scripts);
+                }
+                if (!str_contains($scripts, 'assets/js/public-topbar-realtime.js')) {
+                    $scripts = trim($scripts . "\n" . $realtimeScript);
                 }
                 if (!str_contains($scripts, 'assets/js/public-toast-bridge.js')) {
                     $scripts = trim($scripts . "\n" . $toastBridgeScript);
@@ -229,6 +237,7 @@ final class PublicThemeRenderer
                 if ($pageKey === 'topic') {
                     $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-view-track.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                     $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-downloads.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
+                    $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/topic-comments.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                 }
                 if (in_array($pageKey, ['login', 'register'], true)) {
                     $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars(asset_url('assets/js/auth-csrf-refresh.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>');
@@ -1394,6 +1403,8 @@ final class PublicThemeRenderer
      */
     private static function topicCommentsVars(array $topic, string $baseUri, array $settings, bool $isLoggedIn): array
     {
+        $commentMaxDepth = max(0, (int) ($settings['comment_max_depth'] ?? 3));
+
         if (($settings['topic_detail_comments_enabled'] ?? '1') !== '1') {
             return [
                 'comments_enabled' => false,
@@ -1408,6 +1419,7 @@ final class PublicThemeRenderer
                 'author' => (string) ($topic['author'] ?? ''),
                 'comment_poll' => 0,
                 'comment_max_length' => defined('COMMENT_MAX_LENGTH') ? (int) COMMENT_MAX_LENGTH : 2000,
+                'comment_max_depth' => $commentMaxDepth,
                 'comment_form_info_text' => trim((string) ($settings['comment_form_info_text'] ?? 'Spam, anlamsız veya tekrarlı yorumlar otomatik olarak engellenir. Lütfen konuya katkı sağlayan bir yorum yazın.')),
                 'csrf_token' => function_exists('csrf_token') ? csrf_token() : '',
             ];
@@ -1436,6 +1448,7 @@ final class PublicThemeRenderer
             'author' => (string) ($topic['author'] ?? ''),
             'comment_poll' => (int) ($settings['comment_realtime_poll'] ?? 15),
             'comment_max_length' => $maxLength,
+            'comment_max_depth' => $commentMaxDepth,
             'comment_form_info_text' => trim((string) ($settings['comment_form_info_text'] ?? 'Spam, anlamsız veya tekrarlı yorumlar otomatik olarak engellenir. Lütfen konuya katkı sağlayan bir yorum yazın.')),
             'csrf_token' => function_exists('csrf_token') ? csrf_token() : '',
         ];
@@ -1783,11 +1796,12 @@ final class PublicThemeRenderer
             ? defaultAvatarUrl($baseUri)
             : rtrim($baseUri, '/') . '/assets/images/noavatar-neon-helmet.svg';
         $maxLength = defined('COMMENT_MAX_LENGTH') ? (int) COMMENT_MAX_LENGTH : 2000;
+        $commentMaxDepth = max(0, (int) ($settings['comment_max_depth'] ?? 3));
         $commentFormInfoText = trim((string) ($settings['comment_form_info_text'] ?? 'Spam, anlamsız veya tekrarlı yorumlar otomatik olarak engellenir. Lütfen konuya katkı sağlayan bir yorum yazın.'));
         $commentFormInfoHtml = $commentFormInfoText !== ''
             ? '<span class="ui-comment-form-info" role="note"><i class="bi bi-info-circle" aria-hidden="true"></i><span>' . htmlspecialchars($commentFormInfoText, ENT_QUOTES, 'UTF-8') . '</span></span>'
             : '';
-        $html = '<section class="topic-section topic-comments ui-section" aria-labelledby="comments-heading" data-topic-id="' . (int) ($topic['id'] ?? 0) . '" data-api="' . htmlspecialchars(rtrim($baseUri, '/') . '/api/comments.php', ENT_QUOTES, 'UTF-8') . '" data-csrf="' . htmlspecialchars(function_exists('csrf_token') ? csrf_token() : '', ENT_QUOTES, 'UTF-8') . '" data-logged-in="' . ($isLoggedIn ? '1' : '0') . '" data-user-name="' . htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') . '" data-user-avatar="' . htmlspecialchars($avatar, ENT_QUOTES, 'UTF-8') . '" data-avatar-fallback="' . htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8') . '" data-report-enabled="' . (($settings['comment_report_enabled'] ?? '1') === '1' ? '1' : '0') . '" data-topic-author="' . htmlspecialchars((string) ($topic['author'] ?? ''), ENT_QUOTES, 'UTF-8') . '" data-poll="' . (int) ($settings['comment_realtime_poll'] ?? 15) . '">';
+        $html = '<section class="topic-section topic-comments ui-section" aria-labelledby="comments-heading" data-topic-id="' . (int) ($topic['id'] ?? 0) . '" data-api="' . htmlspecialchars(rtrim($baseUri, '/') . '/api/comments.php', ENT_QUOTES, 'UTF-8') . '" data-csrf="' . htmlspecialchars(function_exists('csrf_token') ? csrf_token() : '', ENT_QUOTES, 'UTF-8') . '" data-logged-in="' . ($isLoggedIn ? '1' : '0') . '" data-user-name="' . htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') . '" data-user-avatar="' . htmlspecialchars($avatar, ENT_QUOTES, 'UTF-8') . '" data-avatar-fallback="' . htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8') . '" data-report-enabled="' . (($settings['comment_report_enabled'] ?? '1') === '1' ? '1' : '0') . '" data-topic-author="' . htmlspecialchars((string) ($topic['author'] ?? ''), ENT_QUOTES, 'UTF-8') . '" data-poll="' . (int) ($settings['comment_realtime_poll'] ?? 15) . '" data-comment-max-depth="' . $commentMaxDepth . '">';
         $html .= '<div class="ui-comment-header ui-comment-header--compact ui-panel__head"><h2 id="comments-heading" class="ui-comment-header__title">Yorumlar <span class="ui-comment-count" id="tcCount">(0)</span></h2><div class="ui-comment-sort ui-comment-header__sort"><span class="ui-comment-sort-label">Sırala:</span><select class="ui-comment-sort-select" id="tcSort"><option value="asc">En Eski</option><option value="desc">En Yeni</option><option value="popular">Popüler</option><option value="liked">Beğenilenler</option><option value="disliked">Beğenilmeyenler</option></select></div></div>';
         if ($isLoggedIn) {
             $avatarHtml = function_exists('avatarImageHtml')
@@ -3419,6 +3433,14 @@ final class PublicThemeRenderer
                 'location' => '',
                 'has_location' => false,
                 'member_since' => '',
+                'is_online' => false,
+                'presence_visible' => false,
+                'presence_status_label' => 'Çevrimdışı',
+                'presence_relative_label' => 'Bilinmiyor',
+                'presence_exact_label' => '',
+                'presence_has_activity' => false,
+                'presence_state_class' => 'is-offline',
+                'presence_title_label' => 'Çevrimdışı · Son etkinlik bilinmiyor',
                 'page_summary' => '',
             ];
         }
@@ -3457,6 +3479,22 @@ final class PublicThemeRenderer
         $createdAt = (string) ($user['created_at'] ?? date('Y-m-d'));
         $updatedAt = (string) ($user['updated_at'] ?? $createdAt);
         $location = (string) ($pageVars['profile_location'] ?? $pageVars['profile_private_location'] ?? $user['location'] ?? '');
+        $presence = function_exists('userPresenceDescribePublic')
+            ? userPresenceDescribePublic(isset($user['last_activity_at']) ? (string) $user['last_activity_at'] : null)
+            : [
+                'is_online' => false,
+                'status_label' => 'Çevrimdışı',
+                'relative_label' => 'Bilinmiyor',
+                'exact_label' => '',
+                'has_activity' => false,
+                'state_class' => 'is-offline',
+                'title_label' => 'Çevrimdışı · Son etkinlik bilinmiyor',
+            ];
+        $hasPresenceEligibility = array_key_exists('status', $user)
+            || array_key_exists('is_banned', $user)
+            || array_key_exists('deleted_at', $user);
+        $presenceVisible = !$hasPresenceEligibility
+            || (function_exists('userPresenceLookup') && userPresenceLookup()->isVisibleRow($user));
 
         $profile = [
             'id' => (int) ($user['id'] ?? $pageVars['profileUserId'] ?? 0),
@@ -3480,6 +3518,14 @@ final class PublicThemeRenderer
             'has_location' => trim($location) !== '',
             'member_since' => (string) ($pageVars['profile_member_since'] ?? (function_exists('profileMemberSince') ? profileMemberSince($createdAt) : self::formatDate($createdAt))),
             'tenure' => function_exists('profileTenureLabel') ? profileTenureLabel($createdAt) : '',
+            'is_online' => $presence['is_online'],
+            'presence_visible' => $presenceVisible,
+            'presence_status_label' => $presence['status_label'],
+            'presence_relative_label' => $presence['relative_label'],
+            'presence_exact_label' => $presence['exact_label'],
+            'presence_has_activity' => $presence['has_activity'],
+            'presence_state_class' => $presence['state_class'],
+            'presence_title_label' => $presence['title_label'],
             'created_date' => self::formatDate($createdAt),
             'updated_date' => self::formatDate($updatedAt),
             'created_at' => self::formatDateTime($createdAt),

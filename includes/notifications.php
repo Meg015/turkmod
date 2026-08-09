@@ -241,6 +241,11 @@ function notificationEventUserSettings(PDO $pdo, int $userId): array
     return notificationPreferenceService()->userSettings($pdo, $userId);
 }
 
+function notificationMessageRealtimePreferences(PDO $pdo, int $userId): array
+{
+    return notificationPreferenceService()->messageRealtimePreferences($pdo, $userId);
+}
+
 function notificationPreferenceBool(array $settings, string $key, string $default = '1'): bool
 {
     return notificationPreferenceService()->bool($settings, $key, $default);

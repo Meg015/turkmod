@@ -854,6 +854,10 @@ if ($pdo && $isLoggedIn && function_exists('refreshAuthenticatedSession') && (ti
     }
 }
 
+if ($pdo instanceof PDO && $isLoggedIn && function_exists('userPresenceTouchAuthenticated')) {
+    userPresenceTouchAuthenticated($pdo, (int) ($_SESSION['_auth_user_id'] ?? 0));
+}
+
 $restrictedGatePathAllowed = false;
 if ($isLoggedIn) {
     $restrictedGateScriptPath = (string) ($_SERVER["SCRIPT_NAME"] ?? "");

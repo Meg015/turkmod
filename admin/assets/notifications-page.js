@@ -1181,6 +1181,12 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
 
     const config = adminNotificationsPageData.bulkEmail || {};
     const api = String(config.api || '');
+    const requestJson = function (url, options) {
+        if (typeof window.adminFetchJson !== 'function') {
+            return Promise.reject(new Error('Admin API yardımcısı yüklenemedi.'));
+        }
+        return window.adminFetchJson(url, Object.assign({ notifyError: false }, options || {}));
+    };
     const subject = form.querySelector('[name="subject"]');
     const body = form.querySelector('[name="body_html"]');
     const campaignIdField = form.querySelector('[data-bulk-campaign-id]');
@@ -1266,13 +1272,10 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
             return;
         }
         try {
-            const response = await fetch(api, { credentials: 'same-origin', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
-            const data = await response.json();
-            if (response.ok && data.success !== false) {
-                updateOperational(data);
-                if (data.active_campaign) {
-                    updateProgress(data.active_campaign);
-                }
+            const data = await requestJson(api, { credentials: 'same-origin', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+            updateOperational(data);
+            if (data.active_campaign) {
+                updateProgress(data.active_campaign);
             }
         } catch (error) {
             // Campaign polling remains authoritative; transient overview failures are retried.
@@ -1334,22 +1337,18 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
         Object.entries(values || {}).forEach(function (entry) {
             payload.set(entry[0], String(entry[1] ?? ''));
         });
-        const response = await fetch(api, {
+        const data = await requestJson(api, {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
             body: payload
         });
-        const data = await response.json().catch(function () { return {}; });
         if (data.csrfToken) {
             csrf = String(data.csrfToken);
             const token = form.querySelector('[name="_token"]');
             if (token) {
                 token.value = csrf;
             }
-        }
-        if (!response.ok || data.success === false) {
-            throw new Error(String(data.message || 'İşlem tamamlanamadı.'));
         }
         return data;
     };
@@ -1538,12 +1537,11 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
             return;
         }
         try {
-            const response = await fetch(api + '?campaign_id=' + encodeURIComponent(campaignId), {
+            const data = await requestJson(api + '?campaign_id=' + encodeURIComponent(campaignId), {
                 credentials: 'same-origin',
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
             });
-            const data = await response.json();
-            if (response.ok && data.campaign) {
+            if (data.campaign) {
                 updateProgress(data.campaign);
             }
         } catch (error) {
@@ -1696,9 +1694,8 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
         }
         setBusy(loadButton, true, 'Yükleniyor...');
         try {
-            const response = await fetch(api + '?campaign_id=' + encodeURIComponent(id), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-            const data = await response.json();
-            if (!response.ok || !data.campaign) {
+            const data = await requestJson(api + '?campaign_id=' + encodeURIComponent(id), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+            if (!data.campaign) {
                 throw new Error(String(data.message || 'Kampanya yüklenemedi.'));
             }
             if (loadButton.hasAttribute('data-bulk-edit')) {
