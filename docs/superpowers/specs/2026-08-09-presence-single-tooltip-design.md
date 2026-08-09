@@ -29,6 +29,7 @@ Yalnızca şablonlardan `title` kaldırmak yeterli değildir; ortak UI kodu her 
 ## Davranış
 
 - Fareyle üzerine gelince yalnızca özel tooltip görünür.
+- Presence noktasında `cursor: default` kullanılır; soru işareti veya el imleci gösterilmez.
 - Klavyeyle odaklanınca aynı özel tooltip görünür.
 - Enter, Space veya mobil dokunmada tooltip açılır ve 2,5 saniye sonra kapanır.
 - Noktaya dokunmak/tıklamak çevresindeki profil veya konuşma bağlantısına yönlendirme yapmaz.
@@ -42,6 +43,7 @@ Ortak UI kodu bir presence kökünde uygun nokta bulamazsa mevcut sessiz geri d�
 ## Doğrulama
 
 - Kaynak taraması presence noktalarında `title` üretilmediğini doğrular.
+- Kaynak ve computed-style kontrolleri profil, yorum ve mesaj presence noktalarında `cursor: default` kullanıldığını doğrular.
 - Ortak UI testi presence uygulamasının `title` kaldırdığını doğrular.
 - Profil, yorum ve mesaj DOM'larında `data-presence-tooltip` ve `aria-label` korunur.
 - Gerçek tarayıcıda yorum noktası hover/tıklama akışında yalnızca özel tooltip açılır.
@@ -51,6 +53,7 @@ Ortak UI kodu bir presence kökünde uygun nokta bulamazsa mevcut sessiz geri d�
 ## Tamamlanma Ölçütleri
 
 - Hiçbir presence işaretinde native `title` bulunmaz.
+- Hiçbir presence işareti soru işareti veya el imleci göstermez.
 - Profil, yorumlar ve mesajların tamamında tek tooltip sözleşmesi kullanılır.
 - Erişilebilirlik ve mobil davranışta gerileme oluşmaz.
 - Derlenmiş assetler kaynak değişikliklerle birlikte yenilenir.
