@@ -979,7 +979,7 @@
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['class', 'hidden', 'style']
+            attributeFilter: ['class', 'hidden', 'aria-hidden']
         });
     }
 
