@@ -16,7 +16,6 @@
             window.showToast(message, type || 'info');
             return;
         }
-        console.log('[topic-downloads]', message);
     }
 
     function sectionState(section) {

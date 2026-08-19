@@ -66,7 +66,6 @@
                         <a href="{auth_register_url}">Ücretsiz kayıt ol</a>
                     </div>
 
-                    {if auth_demo_visible}<div class="ui-theme-auth-demo"><strong>Demo bilgileri:</strong> admin@topic.test / password</div>{/if}
                 </div>
 
                 <aside class="ui-theme-auth-support" aria-label="TurkMod hesap avantajları">

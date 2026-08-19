@@ -142,7 +142,7 @@ final class SitemapInventory
 
         $canonicalBase = rtrim($canonicalBase, '/');
         $urls = [];
-        foreach (['category', 'topic', 'image', 'profile'] as $type) {
+        foreach (['page', 'category', 'topic', 'image', 'profile'] as $type) {
             if (!$this->typeEnabled($type, $settings)) {
                 continue;
             }

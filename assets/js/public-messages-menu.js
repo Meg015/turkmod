@@ -52,6 +52,73 @@
         var hasMessageBaseline = false;
         var latestMessageIds = new Map();
         var latestUnreadCounts = new Map();
+        var serverBadgeCount = 0;
+        var badgeCount = 0;
+        var pendingBadgeIncrease = false;
+        var lastBadgeIncreaseAt = 0;
+        var badgeStaleWindowMs = 1500;
+
+        function normalizeBadgeCount(value) {
+            var parsed = parseInt(String(value || "").replace(/\D/g, ""), 10);
+            return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+        }
+
+        function renderBadgeCount() {
+            if (!badge) {
+                return;
+            }
+
+            var total = Math.max(0, badgeCount);
+            badge.textContent = total > 99 ? "99+" : String(total);
+            if (total > 0) {
+                badge.classList.add("is-visible");
+            } else {
+                badge.classList.remove("is-visible");
+            }
+        }
+
+        function setBadgeCount(count, options) {
+            var nextCount = normalizeBadgeCount(count);
+            options = options || {};
+            serverBadgeCount = nextCount;
+
+            if (options.force) {
+                pendingBadgeIncrease = false;
+                badgeCount = nextCount;
+                renderBadgeCount();
+                return badgeCount;
+            }
+
+            if (
+                pendingBadgeIncrease &&
+                nextCount < badgeCount &&
+                Date.now() - lastBadgeIncreaseAt < badgeStaleWindowMs
+            ) {
+                renderBadgeCount();
+                return badgeCount;
+            }
+
+            pendingBadgeIncrease = false;
+            badgeCount = nextCount;
+            renderBadgeCount();
+            return badgeCount;
+        }
+
+        function bumpBadge(by) {
+            var increment = Number(by || 1);
+            if (!Number.isFinite(increment) || increment <= 0) {
+                increment = 1;
+            }
+
+            pendingBadgeIncrease = true;
+            lastBadgeIncreaseAt = Date.now();
+            badgeCount = Math.max(serverBadgeCount, badgeCount) + increment;
+            renderBadgeCount();
+            return badgeCount;
+        }
+
+        badgeCount = normalizeBadgeCount(badge ? badge.textContent : 0);
+        serverBadgeCount = badgeCount;
 
         function applyMessageNotificationPreferences(preferences) {
             preferences = preferences || {};
@@ -101,20 +168,6 @@
             hasMessageBaseline = true;
         }
 
-        function updateBadge(count) {
-            if (!badge) {
-                return;
-            }
-
-            var total = Number(count || 0);
-            if (total > 0) {
-                badge.textContent = total > 99 ? "99+" : String(total);
-                badge.classList.add("is-visible");
-            } else {
-                badge.classList.remove("is-visible");
-            }
-        }
-
         function dropdownUrl() {
             var url = toAbsoluteUrl(apiUrl);
             if (url.indexOf("?") === -1) {
@@ -134,7 +187,7 @@
             }
 
             applyMessageNotificationPreferences(data.notification_preferences);
-            updateBadge(data.unread_count || 0);
+            setBadgeCount(data.unread_count || 0);
             list.innerHTML = "";
 
             var latest = Array.isArray(data.latest) ? data.latest : [];
@@ -226,7 +279,8 @@
                 body: formData,
                 headers: { "X-Requested-With": "XMLHttpRequest" }
             })
-                .then(function () {
+                .then(function (data) {
+                    setBadgeCount(data && typeof data.unread_count !== "undefined" ? data.unread_count : 0, { force: true });
                     fetchDropdown();
                 })
                 .catch(function () {
@@ -267,9 +321,17 @@
             }
         });
 
+        function incrementBadge(by) {
+            return bumpBadge(by);
+        }
+
         fetchDropdown();
+        window.updateMessageBadge = setBadgeCount;
         window.publicTopbar = window.publicTopbar || {};
         window.publicTopbar.refreshMessages = fetchDropdown;
+        window.publicTopbar.updateMessageBadge = setBadgeCount;
+        window.publicTopbar.setMessageBadgeCount = setBadgeCount;
+        window.publicTopbar.incrementMessageBadge = bumpBadge;
     }
 
     function initAll() {

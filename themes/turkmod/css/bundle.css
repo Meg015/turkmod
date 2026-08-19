@@ -153638,34 +153638,6 @@ html[data-public-theme="turkmod"] .ui-theme-auth-switch {
 
 
 
-html[data-public-theme="turkmod"] .ui-theme-auth-demo {
-
-    margin-top: var(--space-4);
-
-    padding: var(--space-3) var(--space-4);
-
-    color: var(--color-text-muted);
-
-    background: var(--color-surface-muted);
-
-    border: 1px dashed var(--color-border-strong);
-
-    border-radius: var(--radius-lg);
-
-    font-size: var(--font-size-xs);
-
-}
-
-
-
-html[data-public-theme="turkmod"] .ui-theme-auth-demo strong {
-
-    color: var(--color-text);
-
-}
-
-
-
 html[data-public-theme="turkmod"] .ui-theme-auth-benefits {
 
     display: flex;

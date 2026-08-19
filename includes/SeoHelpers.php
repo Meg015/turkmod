@@ -130,6 +130,7 @@ if (!function_exists('seoGenerateSitemapOutput')) {
         $normalizedType = strtolower(trim($type));
         $requestUri = match ($normalizedType) {
             'sitemap', 'sitemap.xml', 'index' => '/sitemap.xml',
+            'page', 'page-sitemap', 'page-sitemap.xml' => '/page-sitemap.xml',
             'category', 'category-sitemap', 'category-sitemap.xml' => '/category-sitemap.xml',
             'topic', 'topic-sitemap', 'topic-sitemap.xml' => '/topic-sitemap.xml',
             'profile', 'profile-sitemap', 'profile-sitemap.xml' => '/profile-sitemap.xml',
@@ -147,6 +148,7 @@ if (!function_exists('seoGenerateSitemapOutput')) {
         );
         $pdo = $GLOBALS['pdo'] ?? null;
         $handler = match (true) {
+            str_starts_with($normalizedType, 'page') => new \App\Engine\Seo\Http\PageSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
             str_starts_with($normalizedType, 'category') => new \App\Engine\Seo\Http\CategorySitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
             str_starts_with($normalizedType, 'profile') => new \App\Engine\Seo\Http\ProfileSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),
             str_starts_with($normalizedType, 'image') => new \App\Engine\Seo\Http\ImageSitemapPage($settings, null, $pdo instanceof PDO ? $pdo : null),

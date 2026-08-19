@@ -82,9 +82,16 @@
         var list = root.querySelector("#notifList") || root.querySelector("[data-notif-list]");
         var badge = root.querySelector("#notifBadge") || root.querySelector("[data-notif-badge]");
         var markAll = root.querySelector("[data-notif-mark-all]");
+        var badgeEnabled = badge ? badge.getAttribute("data-notif-badge-enabled") !== "0" : true;
 
         function updateNotificationBadge(count) {
             if (!badge) {
+                return;
+            }
+
+            if (badgeEnabled === false) {
+                badge.textContent = "0";
+                badge.classList.remove("is-visible");
                 return;
             }
 
@@ -92,6 +99,7 @@
                 badge.textContent = count > 99 ? "99+" : String(count);
                 badge.classList.add("is-visible");
             } else {
+                badge.textContent = "0";
                 badge.classList.remove("is-visible");
             }
         }
@@ -101,6 +109,8 @@
                 return;
             }
 
+            badgeEnabled = data.show_badge !== false;
+            badge.setAttribute("data-notif-badge-enabled", badgeEnabled ? "1" : "0");
             updateNotificationBadge(data.show_badge === false ? 0 : data.unread_count);
             list.innerHTML = "";
 
@@ -166,6 +176,9 @@
                         .then(function (data) {
                             if (!isApiSuccess(data)) {
                                 throw new Error(data && data.message ? data.message : "Bildirimler güncellenemedi.");
+                            }
+                            if (typeof data.unread_count !== "undefined") {
+                                updateNotificationBadge(Number(data.unread_count || 0));
                             }
                             return data;
                         })
@@ -290,11 +303,25 @@
             }
         });
 
+        function incrementNotificationBadge(by) {
+            if (!badge) return;
+            if (badgeEnabled === false) {
+                updateNotificationBadge(0);
+                return;
+            }
+            var currentText = badge.textContent || "0";
+            var current = parseInt(currentText.replace(/\D/g, ""), 10) || 0;
+            var next = Math.max(1, current + (typeof by === "number" ? by : 1));
+            updateNotificationBadge(next);
+        }
+
         fetchNotifications();
         window.updateNotificationBadge = updateNotificationBadge;
         window.fetchNotifications = fetchNotifications;
         window.publicTopbar = window.publicTopbar || {};
         window.publicTopbar.refreshNotifications = fetchNotifications;
+        window.publicTopbar.updateNotificationBadge = updateNotificationBadge;
+        window.publicTopbar.incrementNotificationBadge = incrementNotificationBadge;
     }
 
     function initAll() {

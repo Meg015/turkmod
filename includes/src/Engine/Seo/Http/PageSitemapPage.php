@@ -12,7 +12,7 @@ use App\Engine\Seo\Support\SitemapInventory;
 use Closure;
 use PDO;
 
-final class SitemapIndexPage implements Handler
+final class PageSitemapPage implements Handler
 {
     /**
      * @param array<string,mixed>|null $settings
@@ -31,9 +31,16 @@ final class SitemapIndexPage implements Handler
     {
         $settings = $this->settings ?? $this->resolveSettings();
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
+        $page = $this->resolvePage($request);
+        $inventory = new SitemapInventory($this->resolvePdo());
+        if (!$inventory->pageIsValid('page', $page, $settings)) {
+            return seoSitemapNotFoundResponse();
+        }
+
         $cacheDuration = seoSitemapCacheTtl($settings);
-        $cacheKey = seoSitemapCacheKey('sitemap-index:v2', [
+        $cacheKey = seoSitemapCacheKey('page-sitemap:v1', [
             'base' => $canonicalBase,
+            'page' => $page,
             'settings' => $settings,
         ]);
         $cached = seoSitemapCacheGet($this->cache, $cacheKey);
@@ -42,38 +49,31 @@ final class SitemapIndexPage implements Handler
         }
 
         $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        $body .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-        $latestTimestamp = strtotime($this->now()) ?: time();
+        $body .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        $latestLastmod = null;
+        $maxUrlsPerSitemap = SitemapInventory::maxUrls($settings);
 
-        if ($this->sitemapIsEnabled($settings)) {
-            $inventory = new SitemapInventory($this->resolvePdo());
-            foreach ($inventory->indexUrls($settings, $canonicalBase) as $sitemapUrl) {
-                $body .= $this->renderSitemapEntry($sitemapUrl, $this->now());
+        foreach ($inventory->pagePage($settings, $page) as $entry) {
+            $lastmod = trim((string) ($entry['lastmod'] ?? ''));
+            $timestamp = $lastmod !== '' ? strtotime($lastmod) : false;
+            if ($timestamp !== false && ($latestLastmod === null || $timestamp > $latestLastmod)) {
+                $latestLastmod = $timestamp;
             }
+
+            $body .= $this->renderUrlEntry(
+                (string) ($entry['loc'] ?? ''),
+                $timestamp !== false ? date('Y-m-d\TH:i:sP', $timestamp) : null,
+                (string) ($entry['changefreq'] ?? ($settings['sitemap_changefreq'] ?? 'weekly')),
+                (string) ($entry['priority'] ?? '0.5'),
+            );
         }
 
-        $body .= '</sitemapindex>' . "\n";
-
+        $body .= '</urlset>' . "\n";
         $preparedBody = seoPrepareSitemapXml($body);
-        seoSitemapCacheSet($this->cache, $cacheKey, $preparedBody, $latestTimestamp, $cacheDuration, ['sitemap:index']);
+        $lastModifiedTimestamp = $latestLastmod ?? (strtotime($this->now()) ?: time());
+        seoSitemapCacheSet($this->cache, $cacheKey, $preparedBody, $lastModifiedTimestamp, $cacheDuration, ['sitemap:page']);
 
-        return seoSitemapResponse($request, $preparedBody, $latestTimestamp, $cacheDuration);
-    }
-
-    /**
-     * @param array<string,mixed> $settings
-     */
-    private function sitemapIsEnabled(array $settings): bool
-    {
-        if ((string) ($settings['sitemap_enabled'] ?? '1') !== '1') {
-            return false;
-        }
-
-        if (function_exists('seoIndexToggleValue')) {
-            return seoIndexToggleValue($settings, 'allow_indexing', '1') === '1';
-        }
-
-        return (string) ($settings['allow_indexing'] ?? '1') === '1';
+        return seoSitemapResponse($request, $preparedBody, $lastModifiedTimestamp, $cacheDuration);
     }
 
     /**
@@ -118,14 +118,27 @@ final class SitemapIndexPage implements Handler
         return $pdo instanceof PDO ? $pdo : null;
     }
 
-    private function renderSitemapEntry(string $url, string $lastmod): string
+    private function resolvePage(Request $request): int
     {
-        $body = '    <sitemap>' . "\n";
+        $path = $request->getPath();
+        if (preg_match('/page-sitemap-(\d+)\.xml/', $path, $matches) !== 1) {
+            $uri = (string) $request->serverParam('REQUEST_URI', '');
+            preg_match('/page-sitemap-(\d+)\.xml/', $uri, $matches);
+        }
+
+        return isset($matches[1]) ? (int) $matches[1] : 1;
+    }
+
+    private function renderUrlEntry(string $url, ?string $lastmod, string $changefreq, string $priority): string
+    {
+        $body = '    <url>' . "\n";
         $body .= '        <loc>' . htmlspecialchars($url, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</loc>' . "\n";
-        if ($lastmod !== '') {
+        if ($lastmod !== null && $lastmod !== '') {
             $body .= '        <lastmod>' . htmlspecialchars($lastmod, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</lastmod>' . "\n";
         }
-        $body .= '    </sitemap>' . "\n";
+        $body .= '        <changefreq>' . htmlspecialchars($changefreq, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</changefreq>' . "\n";
+        $body .= '        <priority>' . htmlspecialchars($priority, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</priority>' . "\n";
+        $body .= '    </url>' . "\n";
 
         return $body;
     }

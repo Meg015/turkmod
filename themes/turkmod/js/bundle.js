@@ -2773,11 +2773,20 @@ if (typeof module !== 'undefined' && module.exports) {
 (function () {
     'use strict';
 
-    // Read config from the container's data attributes (set by PHP)
+    // Read config from the container's data attributes (set by PHP) or create fallback container
     function getConfig() {
         var container = document.getElementById('toastContainer');
-        if (!container) return null;
-        var d = container.dataset;
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'topic-toast-container toast-pos-top-right';
+            if (document.body) {
+                document.body.appendChild(container);
+            } else {
+                return null;
+            }
+        }
+        var d = container.dataset || {};
         return {
             container:      container,
             duration:       parseInt(d.toastDuration, 10) || 5000,
@@ -2807,7 +2816,7 @@ if (typeof module !== 'undefined' && module.exports) {
     var aliases = { danger: 'error', failed: 'error', warn: 'warning', ok: 'success' };
 
     function dismissToast(toast, reason) {
-        if (toast._dismissed) return;
+        if (!toast || toast._dismissed) return;
         toast._dismissed = true;
         toast._dismissReason = reason || toast._dismissReason || 'dismissed';
         var onClose = toast._onClose;
@@ -2825,68 +2834,132 @@ if (typeof module !== 'undefined' && module.exports) {
         }, 350);
     }
 
+    function normalizeArgs(message, type, duration) {
+        var options = {};
+        if (message && typeof message === 'object') {
+            options = message;
+            message = options.message || options.text || '';
+            type = options.type || type;
+            duration = options.duration || duration;
+        } else if (duration && typeof duration === 'object') {
+            options = duration;
+            duration = options.duration;
+        }
+        return {
+            message: String(message || ''),
+            type: aliases[type] || type || 'info',
+            duration: duration,
+            options: options
+        };
+    }
+
+    function resolveSafeClickUrl(value) {
+        if (!value) return '';
+
+        try {
+            var resolved = new URL(String(value), window.location.href);
+            if (resolved.origin !== window.location.origin) return '';
+            if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') return '';
+            return resolved.toString();
+        } catch (error) {
+            return '';
+        }
+    }
+
     window.showToast = function (message, type, duration) {
         var cfg = getConfig();
         if (!cfg) return;
 
-        var options = {};
-        if (duration && typeof duration === 'object') {
-            options = duration;
-            duration = options.duration;
-        }
+        var args = normalizeArgs(message, type, duration);
+        var options = args.options;
+        var clickUrl = resolveSafeClickUrl(options.clickUrl);
+        type = args.type;
+        message = args.message;
+        duration = args.duration;
 
-        type = aliases[type] || type || 'info';
-
-        // Resolve duration: explicit > type-specific > default
         if (typeof duration !== 'number' || duration <= 0) {
-            if (type === 'success' && cfg.durSuccess > 0)     duration = cfg.durSuccess;
-            else if (type === 'error' && cfg.durError > 0)    duration = cfg.durError;
+            if (type === 'success' && cfg.durSuccess > 0) duration = cfg.durSuccess;
+            else if (type === 'error' && cfg.durError > 0) duration = cfg.durError;
             else if (type === 'warning' && cfg.durWarning > 0) duration = cfg.durWarning;
             else duration = cfg.duration;
         }
+        if (type === 'success' && !options.duration && cfg.durSuccess <= 0) {
+            duration = Math.min(duration, 3200);
+        }
+        if (type === 'error' && options.solution && !options.duration) {
+            duration = Math.max(duration, 7600);
+        }
+        if (options.sticky) {
+            duration = 0;
+        }
 
-        // Enforce max visible
         var existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
         while (existing.length >= cfg.maxVisible) {
             dismissToast(existing[0], 'overflow');
             existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
         }
 
-        // Build toast element
         var toast = document.createElement('div');
-        toast.className = 'topic-toast toast-' + type
-            + ' toast-theme-' + cfg.theme
-            + ' toast-anim-' + cfg.animation;
+        toast.className = 'topic-toast toast-' + type + ' toast-theme-' + cfg.theme + ' toast-anim-' + cfg.animation;
         toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
         toast._onClose = typeof options.onClose === 'function' ? options.onClose : null;
 
-        // Icon
         var iconEl = document.createElement('i');
         iconEl.className = 'bi ' + (icons[type] || icons.info) + ' toast-icon';
         toast.appendChild(iconEl);
 
-        // Message
-        var span = document.createElement('span');
-        span.className = 'toast-message';
-        span.textContent = message;
-        toast.appendChild(span);
+        var content = document.createElement('span');
+        content.className = 'toast-content';
+        if (options.title) {
+            var titleEl = document.createElement('span');
+            titleEl.className = 'toast-title';
+            titleEl.textContent = options.title;
+            content.appendChild(titleEl);
+        }
+        var bodyEl = document.createElement('span');
+        bodyEl.className = 'toast-message';
+        bodyEl.textContent = message;
+        content.appendChild(bodyEl);
+        if (options.solution || options.detail) {
+            var detailEl = document.createElement('span');
+            detailEl.className = 'toast-detail';
+            detailEl.textContent = options.solution || options.detail;
+            content.appendChild(detailEl);
+        }
+        if (options.actionLabel && (options.actionUrl || typeof options.onAction === 'function')) {
+            var action = options.actionUrl ? document.createElement('a') : document.createElement('button');
+            action.className = 'toast-action';
+            action.textContent = options.actionLabel;
+            if (options.actionUrl) {
+                action.href = options.actionUrl;
+                if (options.actionTarget) action.target = options.actionTarget;
+                if (options.actionTarget === '_blank') action.rel = 'noopener';
+            } else {
+                action.type = 'button';
+            }
+            action.addEventListener('click', function (event) {
+                event.stopPropagation();
+                if (typeof options.onAction === 'function') options.onAction(event, toast);
+                if (options.dismissOnAction !== false) dismissToast(toast, 'action');
+            });
+            content.appendChild(action);
+        }
+        toast.appendChild(content);
 
-        // Close button
         if (cfg.closeButton) {
             var closeBtn = document.createElement('button');
             closeBtn.className = 'toast-close-btn';
             closeBtn.innerHTML = '&times;';
             closeBtn.setAttribute('aria-label', 'Kapat');
-            closeBtn.addEventListener('click', function (e) {
-                e.stopPropagation();
+            closeBtn.addEventListener('click', function (event) {
+                event.stopPropagation();
                 dismissToast(toast, 'button');
             });
             toast.appendChild(closeBtn);
         }
 
-        // Progress bar
         var progressEl = null;
-        if (cfg.progressBar) {
+        if (cfg.progressBar && duration > 0) {
             var progressWrap = document.createElement('div');
             progressWrap.className = 'toast-progress-wrap';
             progressEl = document.createElement('div');
@@ -2896,36 +2969,49 @@ if (typeof module !== 'undefined' && module.exports) {
             toast.appendChild(progressWrap);
         }
 
-        // Click to close
-        if (cfg.clickToClose) {
+        if (cfg.clickToClose && !options.actionLabel) {
             toast.style.cursor = 'pointer';
+        }
+
+        if (clickUrl) {
+            toast.style.cursor = 'pointer';
+            toast.tabIndex = 0;
+            toast.setAttribute('aria-label', options.clickLabel || (message + ' Konuşmayı aç'));
+            toast.addEventListener('click', function (event) {
+                var eventTarget = event.target;
+                if (event.defaultPrevented || (eventTarget && typeof eventTarget.closest === 'function' && eventTarget.closest('a, button'))) return;
+                window.location.assign(clickUrl);
+            });
+            toast.addEventListener('keydown', function (event) {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                window.location.assign(clickUrl);
+            });
+        } else if (cfg.clickToClose && !options.actionLabel) {
             toast.addEventListener('click', function () {
                 dismissToast(toast, 'click');
             });
         }
 
-        // Insert (stack direction)
         if (cfg.stackDirection === 'up') {
             cfg.container.insertBefore(toast, cfg.container.firstChild);
         } else {
             cfg.container.appendChild(toast);
         }
 
-        // Auto-dismiss timer
+        if (duration <= 0) return;
+
         var timer = null;
         var remaining = duration;
         var startTime = Date.now();
-
         function startTimer() {
             startTime = Date.now();
             timer = setTimeout(function () {
                 dismissToast(toast, 'timeout');
             }, remaining);
         }
-
         startTimer();
 
-        // Pause on hover
         if (cfg.pauseOnHover) {
             toast.addEventListener('mouseenter', function () {
                 if (timer) {
@@ -2934,17 +3020,12 @@ if (typeof module !== 'undefined' && module.exports) {
                 }
                 remaining -= (Date.now() - startTime);
                 if (remaining < 0) remaining = 0;
-                // Pause progress bar animation
-                if (progressEl) {
-                    progressEl.style.animationPlayState = 'paused';
-                }
+                if (progressEl) progressEl.style.animationPlayState = 'paused';
             });
             toast.addEventListener('mouseleave', function () {
                 if (!toast._dismissed) {
                     startTimer();
-                    if (progressEl) {
-                        progressEl.style.animationPlayState = 'running';
-                    }
+                    if (progressEl) progressEl.style.animationPlayState = 'running';
                 }
             });
         }
@@ -5026,258 +5107,6 @@ e.init();
   }
 })();
 
-/* --- turkmod-notifications.js --- */
-(function () {
-  "use strict";
-
-  function notificationRoot() {
-    return document.querySelector("[data-notif-dropdown]");
-  }
-
-  function notificationUrl(root) {
-    return (root && root.getAttribute("data-notif-url")) || "";
-  }
-
-  function safeNotificationUrl(url, defaultUrl) {
-    if (!url) return defaultUrl;
-    try {
-      var parsed = new URL(url, window.location.origin);
-      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-        return parsed.href;
-      }
-    } catch (error) {
-      if (url.charAt(0) === "/" || url.charAt(0) === "#") return url;
-    }
-    return defaultUrl;
-  }
-
-  function setState(list, iconClass, label) {
-    if (!list) return;
-    list.innerHTML = "";
-    var state = document.createElement("div");
-    state.className = "notif-menu-state";
-    var icon = document.createElement("i");
-    icon.className = "bi " + iconClass;
-    icon.setAttribute("aria-hidden", "true");
-    state.appendChild(icon);
-    state.appendChild(document.createTextNode(label));
-    list.appendChild(state);
-  }
-
-  function updateNotificationBadge(count) {
-    var badge = document.getElementById("notifBadge");
-    var value = Number(count || 0);
-    if (!badge) return;
-
-    if (value > 0) {
-      badge.textContent = value > 99 ? "99+" : String(value);
-      badge.classList.add("is-visible");
-    } else {
-      badge.classList.remove("is-visible");
-    }
-  }
-
-  function fetchNotifications() {
-    var root = notificationRoot();
-    if (!root) return Promise.resolve(null);
-
-    var endpoint = root.getAttribute("data-notif-api") || "";
-    var list = document.getElementById("notifList");
-    if (!endpoint) return Promise.resolve(null);
-
-    return (window.publicFetchJson ? window.publicFetchJson(endpoint, { headers: { "X-Requested-With": "XMLHttpRequest" } }) : Promise.reject(new Error("Public API helper yuklenemedi.")))
-      .then(function (data) {
-        if (!data || !data.ok) return data;
-
-        updateNotificationBadge(data.show_badge === false ? 0 : data.unread_count);
-        if (!list) return data;
-
-        list.innerHTML = "";
-        if (data.disabled || data.muted) {
-          setState(
-            list,
-            data.disabled ? "bi-bell-slash" : "bi-volume-mute",
-            data.disabled ? "Bildirim merkezi kapali" : "Bildirimler sessize alindi"
-          );
-          return data;
-        }
-
-        var latest = Array.isArray(data.latest) ? data.latest : [];
-        if (latest.length === 0) {
-          setState(list, "bi-inbox", "Bildirim yok");
-          return data;
-        }
-
-        latest.forEach(function (notification) {
-          var icon = "bi-info-circle";
-          var iconState = "";
-          if (notification.type === "success") { icon = "bi-check-circle"; iconState = " is-success"; }
-          if (notification.type === "warning") { icon = "bi-exclamation-triangle"; iconState = " is-warning"; }
-          if (notification.type === "error") { icon = "bi-x-circle"; iconState = " is-error"; }
-          if (notification.type === "system") { icon = "bi-gear"; iconState = " is-system"; }
-
-          var item = document.createElement("a");
-          item.className = "notif-item " + (notification.is_read ? "" : "unread");
-          item.setAttribute("data-notif-dropdown-item", "true");
-          item.setAttribute("data-id", notification.id);
-          item.href = safeNotificationUrl(notification.link || "", notificationUrl(root));
-
-          var iconWrap = document.createElement("div");
-          iconWrap.className = "notif-item-icon" + iconState;
-          var iconEl = document.createElement("i");
-          iconEl.className = "bi " + icon;
-          iconEl.setAttribute("aria-hidden", "true");
-          iconWrap.appendChild(iconEl);
-
-          var content = document.createElement("div");
-          content.className = "notif-item-content";
-          var titleEl = document.createElement("div");
-          titleEl.className = "notif-item-title";
-          titleEl.textContent = notification.title || "";
-          var msgEl = document.createElement("div");
-          msgEl.className = "notif-item-msg";
-          msgEl.textContent = notification.message || "";
-          content.appendChild(titleEl);
-          content.appendChild(msgEl);
-
-          item.appendChild(iconWrap);
-          item.appendChild(content);
-
-          (function(notif, el) {
-            el.addEventListener("click", function(e) {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              var readApi = root.getAttribute("data-notif-read-api") || "";
-              var dest = notificationUrl(root) + "#notif-" + notif.id;
-              var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-              var csrfToken = csrfMeta ? csrfMeta.getAttribute("content") : "";
-              if (!notif.is_read && readApi) {
-                var fd = new FormData();
-                fd.append("_token", csrfToken);
-                fd.append("id", notif.id);
-                (window.publicFetchJson ? window.publicFetchJson(readApi, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, notifyError: false }) : Promise.reject(new Error("Public API helper yuklenemedi.")))
-                  .then(function() {
-                    el.classList.remove("unread");
-                    notif.is_read = true;
-                    var badge = document.getElementById("notifBadge");
-                    if (badge && badge.classList.contains("is-visible")) {
-                      var cur = parseInt(badge.textContent || "0", 10);
-                      if (cur > 1) { badge.textContent = String(cur - 1); }
-                      else { badge.textContent = "0"; badge.classList.remove("is-visible"); }
-                    }
-                    window.location.href = dest;
-                  })
-                  .catch(function(error) {
-                    if (window.showToast) {
-                      window.showToast(error && error.message ? error.message : "Bildirimler guncellenemedi.", "error");
-                    }
-                    window.location.href = dest;
-                  });
-              } else {
-                window.location.href = dest;
-              }
-            });
-          })(notification, item);
-
-          list.appendChild(item);
-        });
-
-        return data;
-      })
-      .catch(function () {
-        if (list) setState(list, "bi-exclamation-triangle", "Bildirimler yuklenemedi");
-        return null;
-      });
-  }
-
-  function toggleNotifMenu(forceOpen) {
-    var root = notificationRoot();
-    if (!root) return;
-
-    var toggle = root.querySelector("[data-notif-toggle]");
-    var shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !root.classList.contains("show");
-    root.classList.toggle("show", shouldOpen);
-    if (toggle) toggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
-    if (shouldOpen) fetchNotifications();
-  }
-
-  function markAllNotificationsAsRead(event) {
-    if (event) event.preventDefault();
-    var root = notificationRoot();
-    var markAll = event && event.target ? event.target.closest("[data-notif-mark-all]") : null;
-    if (!root || !markAll || markAll.dataset.busy === "1") return;
-
-    var readApi = root.getAttribute("data-notif-read-api") || "";
-    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    var csrfToken = csrfMeta ? csrfMeta.getAttribute("content") || "" : "";
-    if (!readApi) {
-      if (window.showToast) window.showToast("Bildirim servisi kullanilamiyor.", "error");
-      return;
-    }
-
-    markAll.dataset.busy = "1";
-    markAll.setAttribute("aria-disabled", "true");
-
-    var formData = new FormData();
-    formData.append("_token", csrfToken);
-    formData.append("id", "all");
-
-    (window.publicFetchJson ? window.publicFetchJson(readApi, {
-      method: "POST",
-      body: formData,
-      headers: { "X-Requested-With": "XMLHttpRequest" },
-      notifyError: false
-    }) : Promise.reject(new Error("Public API helper yuklenemedi.")))
-      .then(function () {
-        var list = document.getElementById("notifList");
-        if (list) {
-          list.querySelectorAll(".notif-item.unread").forEach(function (item) {
-            item.classList.remove("unread");
-          });
-        }
-        updateNotificationBadge(0);
-        return fetchNotifications();
-      })
-      .catch(function (error) {
-        fetchNotifications();
-        if (window.showToast) {
-          window.showToast(error && error.message ? error.message : "Bildirimler guncellenemedi.", "error");
-        }
-      })
-      .finally(function () {
-        markAll.dataset.busy = "0";
-        markAll.removeAttribute("aria-disabled");
-      });
-  }
-
-  document.addEventListener("click", function (event) {
-    var root = notificationRoot();
-    var toggle = root ? event.target.closest("[data-notif-dropdown] [data-notif-toggle]") : null;
-    var markAll = event.target.closest("[data-notif-mark-all]");
-
-    if (toggle) {
-      event.preventDefault();
-      toggleNotifMenu();
-      return;
-    }
-
-    if (markAll) {
-      markAllNotificationsAsRead(event);
-      return;
-    }
-
-    if (root && root.classList.contains("show") && !root.contains(event.target)) {
-      toggleNotifMenu(false);
-    }
-  });
-
-  window.updateNotificationBadge = updateNotificationBadge;
-  window.fetchNotifications = fetchNotifications;
-  window.toggleNotifMenu = toggleNotifMenu;
-  window.markAllNotificationsAsRead = markAllNotificationsAsRead;
-})();
-
 /* --- turkmod-download-confirm.js --- */
 (function () {
   "use strict";
@@ -5362,157 +5191,6 @@ e.init();
     document.addEventListener("DOMContentLoaded", initDownloadConfirm);
   } else {
     initDownloadConfirm();
-  }
-})();
-
-/* --- turkmod-notifications-page.js --- */
-(function () {
-  "use strict";
-
-  function initNotificationsPage() {
-    var root = document.querySelector("[data-notifications-root]");
-    if (!root || root.dataset.ready === "1") return;
-    root.dataset.ready = "1";
-
-    var csrfToken = root.dataset.csrfToken || "";
-    var readEndpoint = root.dataset.readEndpoint || "";
-    var readMoreEnabled = root.dataset.readMoreEnabled === "true";
-    var autoMarkOnOpen = root.dataset.autoMarkOnOpen === "true";
-
-    function postNotificationRead(id) {
-      var formData = new FormData();
-      formData.append("_token", csrfToken);
-      formData.append("id", id);
-
-      return window.publicFetchJson ? window.publicFetchJson(readEndpoint, {
-        method: "POST",
-        body: formData,
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-        notifyError: false
-      }) : Promise.reject(new Error("Public API helper yuklenemedi."));
-    }
-
-    function initPreferenceGroups() {
-      root.querySelectorAll("[data-notification-preference-group]").forEach(function (group) {
-        var master = group.querySelector("[data-notification-group-toggle]");
-        var items = Array.from(group.querySelectorAll("[data-notification-group-item]"));
-        if (!master || items.length === 0) return;
-
-        function setGroupState(enabled) {
-          items.forEach(function (input) {
-            input.checked = enabled;
-          });
-          master.checked = enabled;
-          master.indeterminate = false;
-          group.classList.toggle("is-group-disabled", !enabled);
-        }
-
-        function syncMasterFromItems() {
-          var checkedCount = items.filter(function (input) {
-            return input.checked;
-          }).length;
-          master.checked = checkedCount > 0;
-          master.indeterminate = checkedCount > 0 && checkedCount < items.length;
-          group.classList.toggle("is-group-disabled", checkedCount === 0);
-        }
-
-        master.addEventListener("change", function () {
-          setGroupState(master.checked);
-        });
-
-        items.forEach(function (input) {
-          input.addEventListener("change", syncMasterFromItems);
-        });
-
-        if (!master.checked) {
-          setGroupState(false);
-          return;
-        }
-        syncMasterFromItems();
-      });
-    }
-
-    function refreshMessageToggles() {
-      if (!readMoreEnabled) return;
-      root.querySelectorAll("[data-notif-message]").forEach(function (message) {
-        var item = message.closest("[data-notif-item]");
-        var toggle = item ? item.querySelector("[data-notification-message-toggle]") : null;
-        if (toggle) toggle.hidden = !(message.scrollHeight > message.clientHeight + 2);
-      });
-    }
-
-    initPreferenceGroups();
-    refreshMessageToggles();
-    window.addEventListener("resize", refreshMessageToggles, { passive: true });
-
-    document.addEventListener("click", function (event) {
-      var toggle = event.target.closest("[data-notification-message-toggle]");
-      if (toggle && root.contains(toggle)) {
-        var item = toggle.closest("[data-notif-item]");
-        var message = item ? item.querySelector("[data-notif-message]") : null;
-        if (!message) return;
-
-        var expanded = message.classList.toggle("is-expanded");
-        toggle.innerHTML = expanded
-          ? '<span>Daha kisa goster</span><i class="bi bi-chevron-up" aria-hidden="true"></i>'
-          : '<span>Daha fazla goster</span><i class="bi bi-chevron-down" aria-hidden="true"></i>';
-        return;
-      }
-
-      var notificationLink = event.target.closest("[data-notif-open]");
-      if (notificationLink && root.contains(notificationLink) && !notificationLink.closest("[data-notif-dropdown]")) {
-        event.preventDefault();
-        var targetUrl = notificationLink.href;
-        if (!autoMarkOnOpen) {
-          window.location.href = targetUrl;
-          return;
-        }
-        postNotificationRead(notificationLink.getAttribute("data-id")).finally(function () {
-          window.location.href = targetUrl;
-        });
-      }
-    });
-
-    var markAllButton = root.querySelector("[data-mark-all-read]");
-    if (markAllButton) {
-      markAllButton.addEventListener("click", function () {
-        if (markAllButton.disabled) return;
-
-        var originalHtml = markAllButton.innerHTML;
-        markAllButton.disabled = true;
-        markAllButton.innerHTML = '<i class="bi bi-arrow-repeat spin" aria-hidden="true"></i><span>Isleniyor...</span>';
-
-        postNotificationRead("all").then(function (data) {
-          if (!data || !data.ok) {
-            throw new Error(data && data.message ? data.message : "Bildirimler guncellenemedi.");
-          }
-
-          root.querySelectorAll("[data-notif-item].is-unread").forEach(function (item) {
-            item.classList.remove("is-unread");
-            item.classList.add("is-read");
-          });
-
-          var unreadMetric = root.querySelector("[data-notif-unread]");
-          var sidebarUnread = document.querySelector("[data-sidebar-unread]");
-          if (unreadMetric) unreadMetric.textContent = "0";
-          if (sidebarUnread) sidebarUnread.remove();
-          markAllButton.innerHTML = '<i class="bi bi-check2" aria-hidden="true"></i><span>Okundu</span>';
-          window.setTimeout(function () { markAllButton.remove(); }, 1200);
-        }).catch(function (error) {
-          markAllButton.disabled = false;
-          markAllButton.innerHTML = originalHtml;
-          if (window.showToast) {
-            window.showToast(error && error.message ? error.message : "Bildirimler guncellenemedi.", "error");
-          }
-        });
-      });
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initNotificationsPage);
-  } else {
-    initNotificationsPage();
   }
 })();
 

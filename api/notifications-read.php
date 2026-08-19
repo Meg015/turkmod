@@ -27,11 +27,18 @@ $pdo = requireDatabaseConnection($pdo ?? null);
 $notificationId = $_POST['id'] ?? 'all';
 
 try {
-    $marked = (new NotificationCenterService())->markRead($pdo, $userId, is_scalar($notificationId) ? (string) $notificationId : 'all');
+    $service = new NotificationCenterService();
+    $marked = $service->markRead($pdo, $userId, is_scalar($notificationId) ? (string) $notificationId : 'all');
     if (!$marked) {
         sendError('notification_read_failed', 'Bildirim okundu olarak işaretlenemedi.', 409);
     }
-    sendSuccess('Okundu olarak işaretlendi.', ['ok' => true]);
+
+    $dropdownState = $service->dropdownPayload($pdo, $userId);
+    sendSuccess('Okundu olarak işaretlendi.', [
+        'ok' => true,
+        'show_badge' => !empty($dropdownState['show_badge']),
+        'unread_count' => (int) ($dropdownState['unread_count'] ?? 0),
+    ]);
 } catch (Throwable $e) {
     appLogException($e, ['source' => '/api/notifications-read.php']);
     sendServerError('Bir hata oluştu.', $e);

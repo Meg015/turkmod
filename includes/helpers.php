@@ -123,6 +123,45 @@ if (! function_exists('recordCronRun')) {
     }
 }
 
+if (! function_exists('publicTopbarUnreadState')) {
+    /**
+     * @return array{notifications_show_badge:bool,notifications_unread_count:int,messages_unread_count:int}
+     */
+    function publicTopbarUnreadState(?PDO $pdo, int $userId): array
+    {
+        static $cache = [];
+
+        $cacheKey = ($pdo instanceof PDO ? spl_object_id($pdo) : 0) . ':' . $userId;
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
+        }
+
+        $state = [
+            'notifications_show_badge' => false,
+            'notifications_unread_count' => 0,
+            'messages_unread_count' => 0,
+        ];
+
+        if ($pdo instanceof PDO && $userId > 0) {
+            if (class_exists(\App\Modules\Notifications\Services\NotificationCenterService::class)) {
+                $payload = (new \App\Modules\Notifications\Services\NotificationCenterService())->dropdownPayload($pdo, $userId);
+                if (is_array($payload)) {
+                    $state['notifications_show_badge'] = !empty($payload['show_badge']);
+                    if ($state['notifications_show_badge']) {
+                        $state['notifications_unread_count'] = max(0, (int) ($payload['unread_count'] ?? 0));
+                    }
+                }
+            }
+
+            if (class_exists(\App\Modules\Messages\Services\MessageService::class)) {
+                $state['messages_unread_count'] = max(0, (new \App\Modules\Messages\Services\MessageService())->unreadCount($pdo, $userId));
+            }
+        }
+
+        return $cache[$cacheKey] = $state;
+    }
+}
+
 if (! function_exists('base_uri')) {
     /**
      * Get the base URI for asset and link generation.

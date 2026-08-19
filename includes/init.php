@@ -1075,6 +1075,7 @@ function routePublicStaticReservedSegments(): array
         "route",
         "index",
         "sitemap",
+        "page-sitemap",
         "category-sitemap",
         "topic-sitemap",
         "profile-sitemap",
@@ -1378,6 +1379,7 @@ function routePublicRouteCatalog(): array
     }
 
     $routes["sitemap.xml"] = ["label" => "Site Haritası İndeksi", "target" => \App\Engine\Seo\Http\SitemapIndexPage::class, "kind" => "Sistem", "dispatch" => "handler"];
+    $routes["page-sitemap.xml"] = ["label" => "Sayfa Site Haritası", "target" => \App\Engine\Seo\Http\PageSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
     $routes["category-sitemap.xml"] = ["label" => "Kategori Site Haritası", "target" => \App\Engine\Seo\Http\CategorySitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
     $routes["topic-sitemap.xml"] = ["label" => "Konu Site Haritası", "target" => \App\Engine\Seo\Http\TopicSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
     $routes["profile-sitemap.xml"] = ["label" => "Profil Site Haritası", "target" => \App\Engine\Seo\Http\ProfileSitemapPage::class, "kind" => "Sistem", "dispatch" => "handler"];
@@ -1749,6 +1751,7 @@ function routePrefixReservedSegments(): array
         "uploads",
         "index.php",
         "sitemap.xml",
+        "page-sitemap.xml",
         "category-sitemap.xml",
         "topic-sitemap.xml",
         "profile-sitemap.xml",
@@ -2936,13 +2939,7 @@ function buildRobotsTxt(?array $settings = null, ?string $canonicalBase = null):
         && (string) ($settings['sitemap_route_enabled'] ?? '1') === '1'
     ) {
         $lines[] = "";
-        $sitemapUrls = array_merge(
-            [$canonicalBase . "/sitemap.xml"],
-            seoSitemapIndexUrls($settings, $canonicalBase, $GLOBALS['pdo'] ?? null),
-        );
-        foreach (array_values(array_unique(array_filter($sitemapUrls))) as $sitemapUrl) {
-            $lines[] = "Sitemap: " . $sitemapUrl;
-        }
+        $lines[] = "Sitemap: " . $canonicalBase . "/sitemap.xml";
     }
 
     return implode("\n", $lines) . "\n";

@@ -31,7 +31,6 @@ function loginRedirectForAuthenticatedUser(bool $isAdminUser, string $requestedR
 }
 
 $requestedRedirect = loginSafeRedirect((string) ($_GET['redirect'] ?? $_POST['redirect'] ?? ''), $baseUri . '/index.php');
-$appDebug = isset($appDebug) ? (bool) $appDebug : ((defined('APP_DEBUG') && APP_DEBUG) ? true : false);
 $loginUrl = routePublicStaticUrl('login');
 $loginPath = '/' . ltrim(routePublicStaticPath('login'), '/');
 $registerUrl = routePublicStaticUrl('register');
@@ -170,8 +169,7 @@ $auth_redirect = $requestedRedirect;
 $auth_login_url = $loginUrlWithRedirect;
 $auth_register_url = $registerUrlWithRedirect;
 $auth_csrf_token = csrf_token();
-$auth_demo_visible = $appDebug && getRealIp() === '127.0.0.1';
-$auth_login_identifier_mode = $loginIdentifierMode;
+$auth_login_identifier_mode = $loginIdentifierMode;
 $auth_login_label = $loginIdentifierLabel;
 $auth_login_placeholder = $loginIdentifierPlaceholder;
 $auth_login_type = $loginIdentifierType;
@@ -275,10 +273,7 @@ if (function_exists('usesPublicThemeRenderer') && usesPublicThemeRenderer()) {
                 <p class="form-options">Hesabın yok mu? <a href="<?= htmlspecialchars($registerUrlWithRedirect, ENT_QUOTES, 'UTF-8') ?>">Kayıt Ol</a></p>
             </div>
 
-            <?php if ($appDebug && getRealIp() === '127.0.0.1'): ?>
-                <div class="settings-info"><strong>Demo bilgileri:</strong> admin@topic.test / password</div>
-            <?php endif; ?>
-        </div>
+        </div>
     </section>
 </div>
 

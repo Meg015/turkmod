@@ -32,13 +32,24 @@ final class PublicThemeRenderer
         $siteDescription = (string) ($settings['footer_description'] ?? $settings['footer_text'] ?? 'Topluluk dosyalari, guncellemeler ve modlar.');
         $currentScript = (string) ($context['current_script'] ?? basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'index.php')));
         $currentRequestUri = (string) ($context['current_request_uri'] ?? ($_SERVER['REQUEST_URI'] ?? ($baseUri . '/index.php')));
-        $isLoggedIn = !empty($_SESSION['_auth_user_id']) || (bool) ($context['is_logged_in'] ?? false);
-        $userName = (string) ($_SESSION['_auth_user_name'] ?? 'Uye');
+        $pdo = $context['pdo'] ?? null;
+        $isLoggedIn = (bool) ($context['is_logged_in'] ?? false);
+        $sessionUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+        $lastSessionRefresh = (int) ($_SESSION['_auth_last_session_refresh'] ?? 0);
+        if (
+            $pdo instanceof PDO
+            && function_exists('refreshAuthenticatedSession')
+            && ($isLoggedIn || $sessionUserId > 0)
+            && (time() - $lastSessionRefresh) >= 300
+        ) {
+            $isLoggedIn = refreshAuthenticatedSession($pdo);
+        }
+        $userName = $isLoggedIn ? (string) ($_SESSION['_auth_user_name'] ?? 'Uye') : 'Uye';
         $publicCategories = self::arrayValue($context, 'public_categories');
         $publicCategoriesTree = self::arrayValue($context, 'public_categories_tree');
-        $pdo = $context['pdo'] ?? null;
-        $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
-        $userIsAdmin = function_exists('userHasPermission')
+        $currentUserId = $isLoggedIn ? (int) ($_SESSION['_auth_user_id'] ?? 0) : 0;
+        $userIsAdmin = $isLoggedIn
+            && function_exists('userHasPermission')
             && userHasPermission($pdo instanceof PDO ? $pdo : null, $currentUserId, 'admin.access');
 
         $activeCategorySlug = self::activeCategorySlug($pageVars);
@@ -117,18 +128,15 @@ final class PublicThemeRenderer
             $headerVars['menu_items'] = array_slice($headerVars['menu_items'], 0, 2);
         }
 
-        $unreadCount = 0;
-        if ($isLoggedIn && $pdo instanceof \PDO && $currentUserId > 0) {
-            if (class_exists(\App\Modules\Notifications\Services\NotificationCenterService::class)) {
-                $payload = (new \App\Modules\Notifications\Services\NotificationCenterService())->dropdownPayload($pdo, $currentUserId);
-                if (isset($payload['show_badge']) && $payload['show_badge']) {
-                    $unreadCount = (int) ($payload['unread_count'] ?? 0);
-                }
-            }
-        }
+        $topbarUnreadState = publicTopbarUnreadState($pdo instanceof PDO ? $pdo : null, $currentUserId);
+        $unreadCount = (int) ($topbarUnreadState['notifications_unread_count'] ?? 0);
+        $unreadMessagesCount = (int) ($topbarUnreadState['messages_unread_count'] ?? 0);
 
         $headerVars['notifications_has_unread'] = $unreadCount > 0;
         $headerVars['notifications_unread_count_text'] = $unreadCount > 99 ? '99+' : (string) $unreadCount;
+        $headerVars['notifications_badge_enabled'] = !empty($topbarUnreadState['notifications_show_badge']) ? '1' : '0';
+        $headerVars['messages_has_unread'] = $unreadMessagesCount > 0;
+        $headerVars['messages_unread_count_text'] = $unreadMessagesCount > 99 ? '99+' : (string) $unreadMessagesCount;
 
         $footerData = self::buildFooterData($context);
         if ($pageKey === 'leaderboard') {
@@ -190,8 +198,7 @@ final class PublicThemeRenderer
                 // Public header/sidebar behavior must stay identical across all Turkmod pages.
                 // Use the full theme runtime everywhere so Bootstrap dropdowns, theme toggle,
                 // notifications, profile menu, and sidebar controls share one initializer path.
-                $preferLeanRuntime = false;
-                $themeOwnsSharedRuntime = $themeJs !== '' && $activeThemeId === 'turkmod' && !$preferLeanRuntime;
+                $themeOwnsSharedRuntime = $themeJs !== '' && $activeThemeId === 'turkmod';
                 if ($themeOwnsSharedRuntime) {
                     // Turkmod bundle already includes shared public runtime (analytics/ui bootstrap).
                     // Avoid loading root public bundle again to prevent duplicate initializers.
@@ -205,17 +212,8 @@ final class PublicThemeRenderer
                                    '<script src="' . htmlspecialchars(asset_url('assets/js/ui.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>' . "\n" .
                                    '<script src="' . htmlspecialchars(asset_url('assets/js/ui-foundation.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
                     }
-                    if ($themeJs !== '' && !$preferLeanRuntime) {
+                    if ($themeJs !== '') {
                         $scripts = trim($scripts . "\n" . $themeJs);
-                    }
-                }
-                if ($preferLeanRuntime && $activeThemeId === 'turkmod') {
-                    // Lean listing runtime still needs sidebar category/atlas toggles.
-                    // Load a tiny theme script instead of the full turkmod bundle.
-                    $leanRuntimeRelative = 'js/lean-runtime.js';
-                    $leanRuntimePath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanRuntimeRelative;
-                    if (preg_match('/^[a-z0-9_-]+$/', $activeThemeId) === 1 && is_file($leanRuntimePath)) {
-                        $scripts = trim($scripts . "\n" . '<script src="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanRuntimeRelative), ENT_QUOTES, 'UTF-8') . '" defer></script>');
                     }
                 }
                 $toastBridgeScript = '<script src="' . htmlspecialchars(asset_url('assets/js/public-toast-bridge.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
@@ -688,7 +686,6 @@ final class PublicThemeRenderer
             'auth_show_onboarding' => '',
             'auth_redirect' => '',
             'auth_csrf_token' => '',
-            'auth_demo_visible' => '',
             'auth_login_identifier_mode' => '',
             'auth_login_label' => '',
             'auth_login_placeholder' => '',
@@ -2398,48 +2395,18 @@ final class PublicThemeRenderer
         $head[] = '<link rel="preload" as="style" href="' . $robotoLocalEsc . '">';
         $head[] = '<link rel="stylesheet" href="' . $robotoLocalEsc . '">';
 
-        // Keep Turkmod on the same CSS bundle across public pages. The lean listing bundle is
-        // intentionally skipped here because it can omit topbar/sidebar rules used by shared shell widgets.
-        $preferLeanThemeCss = false;
-        $skipRootPublicCssForLeanListing = $preferLeanThemeCss && $activeThemeId === 'turkmod';
-
         if ($themeManager instanceof ThemeManager) {
             if (function_exists('asset_url')) {
                 try {
-                    // Keep the non-min listing bundle for visual parity.
-                    // The previous minified variant dropped some style rules on parse in production browsers.
-                    $leanThemeCssRelative = 'css/bundle-listing.css';
-                    $leanThemeCssPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanThemeCssRelative;
-                    $leanThemeCssAvailable = $preferLeanThemeCss
-                        && preg_match('/^[a-z0-9_-]+$/', $activeThemeId) === 1
-                        && is_file($leanThemeCssPath);
                     // Critical CSS (render-blocking) - design tokens, shell layout, ui-foundation
                     $publicCssPath = __DIR__ . '/../assets/dist/public.min.css';
-                    if ($skipRootPublicCssForLeanListing) {
-                        // Lean turkmod listing pages already include shared shell/foundation CSS in the theme bundle.
-                        // Skipping root public.min.css avoids duplicate render-blocking payload.
-                        // bundle-listing.css already contains @font-face + icon map.
-                        // Keep standalone icon CSS only when lean bundle is unavailable.
-                        if (!$leanThemeCssAvailable) {
-                            $leanIconsRelative = 'css/bootstrap-icons-lean.min.css';
-                            $leanIconsPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanIconsRelative;
-                            if (is_file($leanIconsPath)) {
-                                $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanIconsRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-icons-lean="1">';
-                            } else {
-                                $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/bootstrap-icons.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
-                            }
-                        }
-                    } elseif (is_file($publicCssPath)) {
+                    if (is_file($publicCssPath)) {
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/dist/public.min.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     } else {
                         // Fallback: load individual files
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/general.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     }
-                    // The lean turkmod listing bundle already includes ui-foundation.
-                    // Skip duplicate render-blocking payload on those pages.
-                    if (!$leanThemeCssAvailable) {
-                        $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/ui-foundation.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
-                    }
+                    $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/ui-foundation.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
 
                     // Theme CSS - load normally so CSP cannot leave it stuck in print media.
                     // Prefer dist bundle ONLY if active theme is default. Always load active theme's own CSS asset tags.
@@ -2447,18 +2414,7 @@ final class PublicThemeRenderer
                     if ($activeThemeId === 'default' && is_file($themeMinCssPath)) {
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/dist/theme.min.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     }
-                    if ($leanThemeCssAvailable) {
-                        $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanThemeCssRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-asset-lean="1">';
-                        if ($pageKey === 'home' && $activeThemeId === 'turkmod') {
-                            $leanHomeToolbarCssRelative = 'css/lean-home-toolbar.css';
-                            $leanHomeToolbarCssPath = __DIR__ . '/../themes/' . $activeThemeId . '/' . $leanHomeToolbarCssRelative;
-                            if (is_file($leanHomeToolbarCssPath)) {
-                                $head[] = '<link rel="stylesheet" href="' . htmlspecialchars($themeManager->assetUrl($activeThemeId, $leanHomeToolbarCssRelative), ENT_QUOTES, 'UTF-8') . '" data-theme-asset="' . htmlspecialchars($activeThemeId, ENT_QUOTES, 'UTF-8') . '" data-theme-home-toolbar-lean="1">';
-                            }
-                        }
-                    } else {
-                        $head[] = $themeManager->renderAssetTags('css');
-                    }
+                    $head[] = $themeManager->renderAssetTags('css');
 
                     if ($activeThemeId !== 'turkmod') {
                         // Font preload

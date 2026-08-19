@@ -43,11 +43,15 @@ $pdo = requireDatabaseConnection($pdo ?? null);
 try {
     notificationEnsureDismissalSchema($pdo, false);
 
-    $deletedCount = (new NotificationCenterService())->dismissNotifications($pdo, $userId, $notificationIds);
+    $service = new NotificationCenterService();
+    $deletedCount = $service->dismissNotifications($pdo, $userId, $notificationIds);
+    $dropdownState = $service->dropdownPayload($pdo, $userId);
 
     sendSuccess('Seçilen bildirimler silindi.', [
         'ok' => true,
         'deleted_count' => $deletedCount,
+        'show_badge' => !empty($dropdownState['show_badge']),
+        'unread_count' => (int) ($dropdownState['unread_count'] ?? 0),
     ]);
 } catch (Throwable $e) {
     appLogException($e, ['source' => '/api/notifications-delete.php']);

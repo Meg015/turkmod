@@ -440,7 +440,11 @@
                     return;
                 }
 
-                postNotificationRead(notificationLink.getAttribute("data-id")).finally(function () {
+                postNotificationRead(notificationLink.getAttribute("data-id")).then(function (data) {
+                    if (typeof window.updateNotificationBadge === "function") {
+                        window.updateNotificationBadge(data && data.show_badge === false ? 0 : Number(data && data.unread_count || 0));
+                    }
+                }).finally(function () {
                     window.location.href = targetUrl;
                 });
             }
@@ -600,6 +604,9 @@
                     .then(function (data) {
                         if (!isApiSuccess(data)) {
                             throw new Error(data && data.message ? data.message : "Bildirimler silinemedi.");
+                        }
+                        if (typeof window.updateNotificationBadge === "function") {
+                            window.updateNotificationBadge(data && data.show_badge === false ? 0 : Number(data && data.unread_count || 0));
                         }
 
                         var refreshTriggered = false;

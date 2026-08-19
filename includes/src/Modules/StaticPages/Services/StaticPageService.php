@@ -342,7 +342,7 @@ final class StaticPageService
     {
         $reserved = array_fill_keys([
             'admin', 'api', 'assets', 'themes', 'uploads', 'includes', 'database', 'scripts', 'cron',
-            'index.php', 'route.php', 'robots.txt', 'sitemap.xml', 'category-sitemap.xml',
+            'index.php', 'route.php', 'robots.txt', 'sitemap.xml', 'page-sitemap.xml', 'category-sitemap.xml',
             'topic-sitemap.xml', 'profile-sitemap.xml', 'image-sitemap.xml', 'health', 'favicon.ico', 'xmlrpc.php',
         ], true);
         if (function_exists('routePublicRouteCatalog')) {

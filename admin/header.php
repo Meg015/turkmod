@@ -112,6 +112,7 @@ $adminStyleBridge = $adminAccentColor !== ''
     // Sayfa bazında conditional asset yüklemeleri için route map kontrolü
     $isMediaManagerPage = str_contains($_SERVER['SCRIPT_NAME'], 'admin/media-manager.php');
     $isStaticPagesPage = str_contains($_SERVER['SCRIPT_NAME'], 'admin/static-pages.php');
+    $isContactsPage = str_contains($_SERVER['SCRIPT_NAME'], 'admin/contacts.php');
     ?>
     <link rel="stylesheet" href="<?= asset_url('assets/css/design-tokens.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('assets/css/ui-foundation.css', $baseUri) ?>">
@@ -123,6 +124,9 @@ $adminStyleBridge = $adminAccentColor !== ''
     <?php endif; ?>
     <?php if ($isStaticPagesPage): ?>
     <link rel="stylesheet" href="<?= asset_url('admin/assets/static-pages.css', $baseUri) ?>">
+    <?php endif; ?>
+    <?php if ($isContactsPage): ?>
+    <link rel="stylesheet" href="<?= asset_url('admin/assets/contacts-page.css', $baseUri) ?>">
     <?php endif; ?>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
 </head>

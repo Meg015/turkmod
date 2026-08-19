@@ -1970,7 +1970,7 @@ function adminSettingDefinitions(): array
             'type' => 'bool',
             'default' => '1',
             'section' => 'seo',
-            'tooltip' => 'Sitemap dosyalarını route.php üzerinden dinamik olarak sunar (/sitemap.xml, /category-sitemap.xml, /topic-sitemap.xml, /profile-sitemap.xml, /image-sitemap.xml)'
+            'tooltip' => 'Sitemap dosyalarını route.php üzerinden dinamik olarak sunar (/sitemap.xml, /page-sitemap.xml, /category-sitemap.xml, /topic-sitemap.xml, /profile-sitemap.xml, /image-sitemap.xml)'
         ],
         'sitemap_cache_duration' => [
             'label' => 'Sitemap Cache Süresi (saniye)',

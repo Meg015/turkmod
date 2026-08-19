@@ -311,6 +311,14 @@
             }
         }
 
+        function setTopbarMessageBadge(unreadCount, force) {
+            if (!window.publicTopbar) return;
+            var updater = window.publicTopbar.setMessageBadgeCount || window.publicTopbar.updateMessageBadge;
+            if (typeof updater === "function") {
+                updater(unreadCount, force ? { force: true } : undefined);
+            }
+        }
+
         function refreshPageUnreadCount() {
             if (apiUrl === "") return;
             var url = new URL(apiUrl, window.location.origin);
@@ -320,7 +328,10 @@
                 headers: { "X-Requested-With": "XMLHttpRequest" },
                 notifyError: false
             }).then(function (data) {
-                if (data && data.ok) updateThreadSummary(data.unread_count);
+                if (data && data.ok) {
+                    updateThreadSummary(data.unread_count);
+                    setTopbarMessageBadge(data.unread_count, true);
+                }
             }).catch(function () {});
         }
 
@@ -350,6 +361,7 @@
             var row = root.querySelector('[data-thread-id="' + normalizedThreadId + '"]');
             if (row) row.remove();
             updateThreadSummary(unreadCount);
+            setTopbarMessageBadge(unreadCount, true);
             refreshTopbarMessages();
             if (!Number.isFinite(Number(unreadCount))) refreshPageUnreadCount();
 
@@ -877,6 +889,10 @@
 
                     if (stream && (wasAtBottom || forceScroll)) {
                         stream.scrollTop = stream.scrollHeight;
+                    }
+
+                    if (typeof data.unread_count !== "undefined") {
+                        setTopbarMessageBadge(data.unread_count, true);
                     }
 
                     // Optional: update sidebar thread preview

@@ -5,7 +5,16 @@ declare(strict_types=1);
 $envConfig = $envConfig ?? [];
 $baseUri = $baseUri ?? "";
 $pdo = $pdo ?? null;
-$isLoggedIn = !empty($_SESSION['_auth_user_id']) || (bool) ($isLoggedIn ?? false);
+$isLoggedIn = (bool) ($isLoggedIn ?? false);
+$lastSessionRefresh = (int) ($_SESSION['_auth_last_session_refresh'] ?? 0);
+if (
+    $pdo instanceof PDO
+    && function_exists('refreshAuthenticatedSession')
+    && ($isLoggedIn || !empty($_SESSION['_auth_user_id']))
+    && (time() - $lastSessionRefresh) >= 300
+) {
+    $isLoggedIn = refreshAuthenticatedSession($pdo);
+}
 
 $appName = $envConfig["APP_NAME"] ?? "İçerik Topic";
 $pageTitle = $pageTitle ?? "Ana Sayfa";
@@ -248,7 +257,6 @@ $authVars = [
     'auth_login_url',
     'auth_register_url',
     'auth_csrf_token',
-    'auth_demo_visible',
     'auth_login_identifier_mode',
     'auth_login_label',
     'auth_login_placeholder',
@@ -568,8 +576,16 @@ echo htmlspecialchars($_mLabel);
                     <button class="theme-toggle" title="Tema Değiştir" type="button"><i class="bi bi-moon-stars-fill" id="theme-icon" aria-hidden="true"></i></button>
 
                     <?php if ($isLoggedIn): ?>
-                        <?php $_headerRealtimeUserId = (int) ($_SESSION["_auth_user_id"] ?? 0); ?>
-                        <?php $_headerRealtimeEndpoint = \App\Core\Realtime\WebSocketConfig::publicEndpoint(); ?>
+                        <?php
+                        $_headerRealtimeUserId = (int) ($_SESSION["_auth_user_id"] ?? 0);
+                        $_headerRealtimeEndpoint = \App\Core\Realtime\WebSocketConfig::publicEndpoint();
+                        $_topbarUnreadState = publicTopbarUnreadState(isset($pdo) && $pdo instanceof PDO ? $pdo : null, $_headerRealtimeUserId);
+                        $_unreadMessagesCount = (int) ($_topbarUnreadState['messages_unread_count'] ?? 0);
+                        $_unreadNotifCount = !empty($_topbarUnreadState['notifications_show_badge'])
+                            ? (int) ($_topbarUnreadState['notifications_unread_count'] ?? 0)
+                            : 0;
+                        $_notificationsBadgeEnabled = !empty($_topbarUnreadState['notifications_show_badge']);
+                        ?>
                         <div
                             class="notif-dropdown"
                             id="messagesDropdown"
@@ -580,7 +596,7 @@ echo htmlspecialchars($_mLabel);
                         >
                             <button class="notif-toggle" type="button" aria-expanded="false" aria-label="Mesajlari ac" data-messages-toggle>
                                 <i class="bi bi-chat-left-text-fill"></i>
-                                <span class="notif-badge" id="msgBadge">0</span>
+                                <span class="notif-badge<?= $_unreadMessagesCount > 0 ? ' is-visible' : '' ?>" id="msgBadge"><?= $_unreadMessagesCount > 99 ? '99+' : (string) $_unreadMessagesCount ?></span>
                             </button>
                             <div class="notif-menu">
                                 <div class="notif-menu-header">
@@ -608,7 +624,7 @@ echo htmlspecialchars($_mLabel);
                         >
                             <button class="notif-toggle" type="button" aria-expanded="false" aria-label="Bildirimleri aç" data-notif-toggle>
                                 <i class="bi bi-bell-fill"></i>
-                                <span class="notif-badge" id="notifBadge">0</span>
+                                <span class="notif-badge<?= $_unreadNotifCount > 0 ? ' is-visible' : '' ?>" id="notifBadge" data-notif-badge-enabled="<?= $_notificationsBadgeEnabled ? '1' : '0' ?>"><?= $_unreadNotifCount > 99 ? '99+' : (string) $_unreadNotifCount ?></span>
                             </button>
                             <div class="notif-menu">
                                 <div class="notif-menu-header">

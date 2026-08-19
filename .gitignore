@@ -46,6 +46,7 @@ node_modules/
 .superpowers/
 .vato_index/
 .agents/
+.playwright-cli/
 tmp/
 output/
 scratch/

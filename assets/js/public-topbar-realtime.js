@@ -29,6 +29,10 @@
         var baseUriMeta = document.querySelector('meta[name="app-base-uri"]');
         var baseUri = baseUriMeta ? String(baseUriMeta.getAttribute("content") || "").replace(/\/$/, "") : "";
         var presenceEndpoint = baseUri + "/api/user-presence.php";
+        var authStateRefreshPromise = null;
+        var authStateReloadScheduled = false;
+        var authStateLastCheckedAt = 0;
+        var authStateMinRefreshIntervalMs = 15000;
 
         var socket = null;
         var connected = false;
@@ -75,6 +79,87 @@
         var domPresenceWatcherCleanup = null;
         var domPresenceObserver = null;
         var domPresenceScanTimer = null;
+
+        function authStateIsLoggedIn(payload) {
+            var state = payload && payload.auth && typeof payload.auth === "object"
+                ? payload.auth
+                : payload;
+
+            if (!state || typeof state !== "object") {
+                return false;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(state, "logged_in")) {
+                return state.logged_in === true || state.logged_in === 1 || state.logged_in === "1";
+            }
+
+            if (Object.prototype.hasOwnProperty.call(state, "authenticated")) {
+                return state.authenticated === true || state.authenticated === 1 || state.authenticated === "1";
+            }
+
+            return false;
+        }
+
+        function scheduleAuthReload() {
+            if (authStateReloadScheduled) {
+                return;
+            }
+
+            authStateReloadScheduled = true;
+            window.setTimeout(function () {
+                window.location.reload();
+            }, 0);
+        }
+
+        function refreshAuthState(force) {
+            if (userId <= 0) {
+                return Promise.resolve(true);
+            }
+
+            if (!window.publicFetchJson || typeof window.publicFetchJson !== "function") {
+                return Promise.resolve(true);
+            }
+
+            if (!force && document.hidden) {
+                return Promise.resolve(true);
+            }
+
+            if (authStateRefreshPromise) {
+                return authStateRefreshPromise;
+            }
+
+            var now = Date.now();
+            if (!force && authStateLastCheckedAt > 0 && now - authStateLastCheckedAt < authStateMinRefreshIntervalMs) {
+                return Promise.resolve(true);
+            }
+
+            authStateLastCheckedAt = now;
+            try {
+                authStateRefreshPromise = window.publicFetchJson(baseUri + "/api/auth-state.php", {
+                    method: "GET",
+                    cache: "no-store",
+                    notifyError: false,
+                    csrfRetry: false
+                }).then(function (payload) {
+                    authStateRefreshPromise = null;
+
+                    if (!authStateIsLoggedIn(payload)) {
+                        scheduleAuthReload();
+                        return false;
+                    }
+
+                    return true;
+                }).catch(function () {
+                    authStateRefreshPromise = null;
+                    return true;
+                });
+            } catch (error) {
+                authStateRefreshPromise = null;
+                return true;
+            }
+
+            return authStateRefreshPromise;
+        }
 
         function createTabId() {
             try {
@@ -539,12 +624,13 @@
             }
 
             group.timer = null;
+
             if (!ownsNotificationSurface()) {
                 group.deferred = true;
                 return false;
             }
 
-            if (pageHasFocus()) {
+            if (!document.hidden) {
                 if (activeMessageThreadId() === group.thread_id) {
                     rememberMessages(group.message_ids);
                     clearPendingGroup(group);
@@ -560,7 +646,9 @@
                     clickUrl: group.thread_url,
                     clickLabel: group.sender_name + " ile konuşmayı aç"
                 });
-                playMessageSound();
+                if (pageHasFocus()) {
+                    playMessageSound();
+                }
                 rememberMessages(group.message_ids);
                 clearPendingGroup(group);
                 return true;
@@ -635,8 +723,7 @@
             if (messageWasSeen(messageId) || pendingMessageIds.has(messageId)) {
                 return false;
             }
-            var ownsSurface = ownsNotificationSurface();
-            if (ownsSurface && pageHasFocus() && activeMessageThreadId() === threadId) {
+            if (!document.hidden && activeMessageThreadId() === threadId) {
                 rememberMessage(messageId);
                 return false;
             }
@@ -649,7 +736,7 @@
                 sender_name: senderName.slice(0, 120),
                 thread_url: threadUrl
             });
-            return ownsSurface;
+            return ownsNotificationSurface();
         }
 
         function handleCrossTabMessage(data) {
@@ -1147,9 +1234,29 @@
                 return;
             }
             if (payload.type === "new_message") {
+                var topbar = window.publicTopbar || {};
+                var messageId = Number(payload.message_id || 0);
+                var threadId = Number(payload.thread_id || 0);
+                var senderUserId = Number(payload.sender_user_id || 0);
+                var shouldBumpBadge =
+                    senderUserId > 0
+                    && senderUserId !== userId
+                    && messageId > 0
+                    && threadId > 0
+                    && !messageWasSeen(messageId)
+                    && !pendingMessageIds.has(messageId)
+                    && (document.hidden || activeMessageThreadId() !== threadId);
+
+                if (shouldBumpBadge && typeof topbar.incrementMessageBadge === "function") {
+                    topbar.incrementMessageBadge();
+                }
                 notifyMessage(payload);
                 refresh("messages");
             } else if (payload.type === "notification") {
+                var topbar = window.publicTopbar || {};
+                if (typeof topbar.incrementNotificationBadge === "function") {
+                    topbar.incrementNotificationBadge();
+                }
                 refresh("notifications");
             }
         }
@@ -1231,10 +1338,15 @@
         document.addEventListener("visibilitychange", function () {
             persistTabState(pageHasFocus());
             if (!document.hidden) {
-                refreshAll();
-                window.setTimeout(flushDeferredMessageGroups, 25);
-                reconcileNetworkOwnership();
-                schedulePresenceRefresh(0);
+                refreshAuthState(true).then(function (isValid) {
+                    if (!isValid) {
+                        return;
+                    }
+                    refreshAll();
+                    window.setTimeout(flushDeferredMessageGroups, 25);
+                    reconcileNetworkOwnership();
+                    schedulePresenceRefresh(0);
+                });
             } else {
                 clearPresenceFallbackTimer();
             }
@@ -1242,11 +1354,18 @@
 
         window.addEventListener("focus", function () {
             persistTabState(true);
+            refreshAuthState(false);
             window.setTimeout(flushDeferredMessageGroups, 25);
         });
 
         window.addEventListener("blur", function () {
             persistTabState(false);
+        });
+
+        window.addEventListener("pageshow", function (event) {
+            if (event.persisted) {
+                refreshAuthState(true);
+            }
         });
 
         window.addEventListener("storage", function (event) {
@@ -1345,6 +1464,7 @@
                 var state = presenceStates.get(Number(presenceUserId || 0));
                 return state ? Object.assign({}, state) : null;
             },
+            refreshAuthState: refreshAuthState,
             subscribe: function (subscriber) {
                 if (typeof subscriber !== "function") {
                     return function () {};
@@ -1358,8 +1478,13 @@
             }
         };
 
-        initPresenceDomObserver();
-        reconcileNetworkOwnership();
+        refreshAuthState(true).then(function (isValid) {
+            if (!isValid) {
+                return;
+            }
+            initPresenceDomObserver();
+            reconcileNetworkOwnership();
+        });
     }
 
     document.addEventListener("DOMContentLoaded", init);

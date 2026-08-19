@@ -30,10 +30,24 @@ final class StaticPagePage implements Handler
             return new Response('', 301, ['Location' => $location, 'Cache-Control' => 'public, max-age=3600']);
         }
 
-        return new Response($this->render($page, !empty($route['preview'])), 200, [
+        $preview = !empty($route['preview']);
+        $isLoggedIn = (bool) ($GLOBALS['isLoggedIn'] ?? false);
+        $cacheControl = ($preview || $isLoggedIn)
+            ? 'private, no-store, must-revalidate, max-age=0'
+            : 'public, max-age=300';
+
+        $headers = [
             'Content-Type' => 'text/html; charset=utf-8',
-            'Cache-Control' => !empty($route['preview']) ? 'private, no-store' : 'public, max-age=300',
-        ]);
+            'Cache-Control' => $cacheControl,
+            'Vary' => $preview || $isLoggedIn ? 'Accept-Encoding, Cookie' : 'Accept-Encoding',
+        ];
+
+        if ($preview || $isLoggedIn) {
+            $headers['Pragma'] = 'no-cache';
+            $headers['Expires'] = '0';
+        }
+
+        return new Response($this->render($page, $preview), 200, $headers);
     }
 
     /** @param array<string,mixed> $page */
