@@ -10,6 +10,22 @@
         return api && typeof api.csrfToken === "function" ? api.csrfToken() : "";
     }
 
+    function getPublicFetchJson() {
+        var api = getPublicApi();
+
+        if (typeof window.publicFetchJson !== "function" && api && typeof api.fetchJson === "function") {
+            window.publicFetchJson = api.fetchJson.bind(api);
+        }
+
+        if (typeof window.publicFetchJson === "function") {
+            return window.publicFetchJson;
+        }
+
+        return api && typeof api.fetchJson === "function"
+            ? api.fetchJson.bind(api)
+            : null;
+    }
+
     function createState(iconClass, text) {
         var state = document.createElement("div");
         state.className = "notif-menu-state";
@@ -31,13 +47,9 @@
     }
 
     function fetchJson(url, options) {
-        if (typeof window.publicFetchJson === "function") {
-            return window.publicFetchJson(url, options);
-        }
-
-        var api = getPublicApi();
-        if (api && typeof api.fetchJson === "function") {
-            return api.fetchJson(url, options);
+        var apiFetch = getPublicFetchJson();
+        if (typeof apiFetch === "function") {
+            return apiFetch(url, options);
         }
 
         return Promise.reject(new Error("Public API helper yuklenemedi."));

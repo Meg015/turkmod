@@ -18,6 +18,20 @@ use App\Core\Realtime\PresenceSubscriptionRegistry;
 use App\Engine\UserActivity\UserPresenceLookup;
 
 $loop = Loop::get();
+$isDevelopmentTls = strtolower(trim((string) (DatabaseConnection::getEnvConfig()['APP_ENV'] ?? 'production'))) !== 'production';
+$socketAddress = WebSocketConfig::websocketBindHost() . ':' . WebSocketConfig::websocketPort();
+$socketContext = [];
+
+if ($isDevelopmentTls) {
+    $socketAddress = 'tls://' . $socketAddress;
+    $socketContext['tls'] = [
+        'local_cert' => 'C:/xampp/apache/conf/ssl.crt/server.crt',
+        'local_pk' => 'C:/xampp/apache/conf/ssl.key/server.key',
+        'allow_self_signed' => true,
+        'verify_peer' => false,
+        'verify_peer_name' => false,
+    ];
+}
 
 // This long-running CLI server reads PHP sessions manually; disable cookie/cache
 // header behavior so session_id/session_start remain safe after stdout logging.
@@ -392,11 +406,7 @@ class ChatServer implements MessageComponentInterface
 $chat = new ChatServer();
 
 // Setup WebSocket Server
-$webSock = new SocketServer(
-    WebSocketConfig::websocketBindHost() . ':' . WebSocketConfig::websocketPort(),
-    [],
-    $loop
-);
+$webSock = new SocketServer($socketAddress, $socketContext, $loop);
 $server = new IoServer(
     new HttpServer(
         new WsServer(
@@ -489,7 +499,7 @@ $internalApiSocket->on('connection', function (\React\Socket\ConnectionInterface
     });
 });
 
-echo "WebSocket server running on " . WebSocketConfig::websocketBindHost() . ':' . WebSocketConfig::websocketPort() . "\n";
+echo "WebSocket server running on " . $socketAddress . "\n";
 echo "Internal API server running on " . WebSocketConfig::broadcastBindHost() . ':' . WebSocketConfig::broadcastPort() . "\n";
 
 $loop->run();

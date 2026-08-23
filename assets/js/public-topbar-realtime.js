@@ -51,6 +51,22 @@
         return nextCount;
     };
 
+    function getPublicFetchJson() {
+        var api = window.publicApi && typeof window.publicApi === "object" ? window.publicApi : null;
+
+        if (typeof window.publicFetchJson !== "function" && api && typeof api.fetchJson === "function") {
+            window.publicFetchJson = api.fetchJson.bind(api);
+        }
+
+        if (typeof window.publicFetchJson === "function") {
+            return window.publicFetchJson;
+        }
+
+        return api && typeof api.fetchJson === "function"
+            ? api.fetchJson.bind(api)
+            : null;
+    }
+
     function init() {
         var menu = document.querySelector("[data-public-topbar-user-id]");
         var userId = menu ? Number(menu.getAttribute("data-public-topbar-user-id") || 0) : 0;
@@ -167,7 +183,12 @@
 
             authStateLastCheckedAt = now;
             try {
-                authStateRefreshPromise = window.publicFetchJson(baseUri + "/api/auth-state.php", {
+                var apiFetch = getPublicFetchJson();
+                if (typeof apiFetch !== "function") {
+                    return Promise.resolve(true);
+                }
+
+                authStateRefreshPromise = apiFetch(baseUri + "/api/auth-state.php", {
                     method: "GET",
                     cache: "no-store",
                     notifyError: false,
@@ -1313,11 +1334,16 @@
             var requestSequence = presenceRequestSequence;
             var users = {};
             var batches = chunkIds(ids, 100);
+            var apiFetch = getPublicFetchJson();
+            if (typeof apiFetch !== "function") {
+                schedulePresenceRefresh(60000);
+                return;
+            }
             var chain = Promise.resolve();
             batches.forEach(function (batch) {
                 chain = chain.then(function () {
                     var url = presenceEndpoint + "?ids=" + encodeURIComponent(batch.join(","));
-                    return window.publicFetchJson(url, {
+                    return apiFetch(url, {
                         method: "GET",
                         credentials: "same-origin",
                         headers: { Accept: "application/json" },
@@ -1565,6 +1591,7 @@
         document.addEventListener("visibilitychange", function () {
             persistTabState(pageHasFocus());
             if (!document.hidden) {
+                reconcileNetworkOwnership();
                 refreshAuthState(true).then(function (isValid) {
                     if (!isValid) {
                         return;
@@ -1581,6 +1608,7 @@
 
         window.addEventListener("focus", function () {
             persistTabState(true);
+            reconcileNetworkOwnership();
             refreshAuthState(false);
             window.setTimeout(flushDeferredMessageGroups, 25);
         });
@@ -1591,6 +1619,7 @@
 
         window.addEventListener("pageshow", function (event) {
             if (event.persisted) {
+                reconcileNetworkOwnership();
                 refreshAuthState(true);
             }
         });

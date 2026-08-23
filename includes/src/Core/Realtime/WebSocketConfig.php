@@ -13,7 +13,7 @@ final class WebSocketConfig
         $endpoint = trim((string) (self::env()['PUBLIC_WEBSOCKET_URL'] ?? ''));
         if ($endpoint === '') {
             $environment = strtolower(trim((string) (self::env()['APP_ENV'] ?? 'development')));
-            $endpoint = $environment === 'production' ? '/ws' : 'ws://localhost:' . self::websocketPort() . '/';
+            $endpoint = $environment === 'production' ? '/ws' : 'wss://localhost:' . self::websocketPort() . '/';
         }
         if (preg_match('~^(?:wss?://[^\s]+|/(?!/)[^\s]*)$~i', $endpoint) !== 1) {
             return '';
