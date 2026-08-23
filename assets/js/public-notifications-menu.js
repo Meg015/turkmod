@@ -93,6 +93,16 @@
         }
     }
 
+    function normalizeNotificationToastType(type) {
+        if (type === "success" || type === "warning" || type === "error" || type === "info") {
+            return type;
+        }
+        if (type === "system") {
+            return "info";
+        }
+        return "info";
+    }
+
     function initNotificationMenu(root) {
         if (!root || root.dataset.publicNotifMenuReady === "1") {
             return;
@@ -107,6 +117,8 @@
         var badge = root.querySelector("#notifBadge") || root.querySelector("[data-notif-badge]");
         var markAll = root.querySelector("[data-notif-mark-all]");
         var badgeEnabled = badge ? badge.getAttribute("data-notif-badge-enabled") !== "0" : true;
+        var localNotificationSeenIds = new Set();
+        var hasNotificationBaseline = false;
 
         function updateNotificationBadge(count) {
             if (!badge) {
@@ -128,6 +140,70 @@
             }
         }
 
+        function recordNotificationId(notificationId) {
+            var realtime = window.publicTopbarRealtime || {};
+            var nextId = Number(notificationId || 0);
+
+            if (typeof realtime.recordNotificationId === "function") {
+                return realtime.recordNotificationId(nextId);
+            }
+
+            if (nextId <= 0) {
+                return true;
+            }
+
+            if (localNotificationSeenIds.has(nextId)) {
+                return false;
+            }
+
+            localNotificationSeenIds.add(nextId);
+            return true;
+        }
+
+        function showNotificationToast(notification) {
+            if (document.hidden || typeof window.showToast !== "function") {
+                return;
+            }
+
+            var title = String(notification && notification.title || "").trim();
+            var message = String(notification && notification.message || "").trim();
+            var body = message || title || "Yeni bildiriminiz var.";
+            var options = {
+                type: normalizeNotificationToastType(notification && notification.type || "info"),
+                message: body
+            };
+
+            if (title !== "" && message !== "") {
+                options.title = "Bildirim";
+                options.detail = message;
+            }
+
+            if (notification && (notification.link || notificationUrl)) {
+                options.clickUrl = notification.link || notificationUrl;
+                options.clickLabel = "Bildirimi aç";
+            }
+
+            window.showToast(options);
+        }
+
+        function detectIncomingNotifications(latest, allowToast) {
+            allowToast = allowToast !== false && hasNotificationBaseline;
+
+            latest.forEach(function (notification) {
+                var notificationId = Number(notification && notification.id || 0);
+                if (notificationId <= 0) {
+                    return;
+                }
+
+                var isNewNotification = recordNotificationId(notificationId);
+                if (allowToast && isNewNotification && !notification.is_read) {
+                    showNotificationToast(notification);
+                }
+            });
+
+            hasNotificationBaseline = true;
+        }
+
         function renderNotifications(data) {
             if (!list || !isApiSuccess(data)) {
                 return;
@@ -136,6 +212,8 @@
             badgeEnabled = data.show_badge !== false;
             badge.setAttribute("data-notif-badge-enabled", badgeEnabled ? "1" : "0");
             updateNotificationBadge(data.show_badge === false ? 0 : data.unread_count);
+            var latest = Array.isArray(data.latest) ? data.latest : [];
+            detectIncomingNotifications(latest, !data.disabled && !data.muted);
             list.innerHTML = "";
 
             if (data.disabled || data.muted) {
@@ -146,12 +224,12 @@
                 return;
             }
 
-            if (!Array.isArray(data.latest) || data.latest.length === 0) {
+            if (latest.length === 0) {
                 list.appendChild(createState("bi bi-inbox", "Bildirim yok"));
                 return;
             }
 
-            data.latest.forEach(function (notification) {
+            latest.forEach(function (notification) {
                 var iconState = getIconState(notification.type);
                 var item = document.createElement("a");
                 item.href = notification.link ? notification.link : notificationUrl;

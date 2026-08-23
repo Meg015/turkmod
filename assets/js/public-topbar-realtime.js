@@ -3,7 +3,7 @@
 
     var reconnectDelay = 5000;
     var reconnectDelayMax = 30000;
-    var fallbackIntervalMs = 30000;
+    var fallbackIntervalMs = 5000;
 
     function refresh(kind) {
         if (document.hidden) {
@@ -91,6 +91,8 @@
         };
         var seenMessageIds = new Set();
         var seenMessageOrder = [];
+        var seenNotificationIds = new Set();
+        var seenNotificationOrder = [];
         var pendingMessageIds = new Set();
         var pendingMessageGroups = new Map();
         // Keep direct-message websocket paths from producing duplicate toasts.
@@ -98,6 +100,7 @@
         var directMessageToastWindowMs = 1500;
         var aggregationWindowMs = 2000;
         var seenTtlMs = 10 * 60 * 1000;
+        var notificationSeenTtlMs = 10 * 60 * 1000;
         var tabStateTtlMs = 20 * 1000;
         var tabId = createTabId();
         var lastActiveAt = Date.now();
@@ -105,6 +108,7 @@
         var tabStatePrefix = "public-message-tab:" + coordinationScope + ":";
         var tabStateKey = tabStatePrefix + tabId;
         var seenStorageKey = "public-message-seen:" + coordinationScope;
+        var notificationSeenStorageKey = "public-notification-seen:" + coordinationScope;
         var crossTabEventKey = "public-realtime-event:" + coordinationScope;
         var peerStates = new Map();
         var messageChannel = null;
@@ -326,7 +330,7 @@
                     // localStorage remains available as a fallback where possible.
                 }
             }
-            if (!channelDelivered && payload && ["realtime_event", "presence_payload", "bye", "seen"].indexOf(payload.type) !== -1) {
+            if (!channelDelivered && payload && ["realtime_event", "presence_payload", "bye", "seen", "notification_seen"].indexOf(payload.type) !== -1) {
                 safeStorageSet(crossTabEventKey, JSON.stringify({
                     sender_tab_id: tabId,
                     nonce: createTabId(),
@@ -560,6 +564,66 @@
         function messageWasSeen(messageId) {
             loadSeenMessages();
             return seenMessageIds.has(messageId);
+        }
+
+        function loadSeenNotifications() {
+            var now = Date.now();
+            var stored = safeStorageGet(notificationSeenStorageKey);
+            if (!stored) {
+                return;
+            }
+            var nextSeenNotificationIds = new Set();
+            var nextSeenNotificationOrder = [];
+            try {
+                var entries = JSON.parse(stored);
+                if (!Array.isArray(entries)) {
+                    return;
+                }
+                entries.forEach(function (entry) {
+                    var notificationId = Number(entry && entry.id || 0);
+                    var seenAt = Number(entry && entry.at || 0);
+                    if (notificationId > 0 && now - seenAt <= notificationSeenTtlMs && !nextSeenNotificationIds.has(notificationId)) {
+                        nextSeenNotificationIds.add(notificationId);
+                        nextSeenNotificationOrder.push(notificationId);
+                    }
+                });
+                seenNotificationIds = nextSeenNotificationIds;
+                seenNotificationOrder = nextSeenNotificationOrder;
+            } catch (error) {
+                // Ignore malformed optional client cache data.
+            }
+        }
+
+        function persistSeenNotifications() {
+            var now = Date.now();
+            var entries = seenNotificationOrder.slice(-200).map(function (notificationId) {
+                return { id: notificationId, at: now };
+            });
+            safeStorageSet(notificationSeenStorageKey, JSON.stringify(entries));
+        }
+
+        function recordNotificationId(notificationId, options) {
+            notificationId = Number(notificationId || 0);
+            options = options || {};
+            if (notificationId <= 0) {
+                return true;
+            }
+
+            loadSeenNotifications();
+            if (seenNotificationIds.has(notificationId)) {
+                return false;
+            }
+
+            seenNotificationIds.add(notificationId);
+            seenNotificationOrder.push(notificationId);
+            while (seenNotificationOrder.length > 200) {
+                seenNotificationIds.delete(seenNotificationOrder.shift());
+            }
+            persistSeenNotifications();
+            if (options.broadcast !== false) {
+                broadcastChannelMessage({ type: "notification_seen", notification_ids: [notificationId] });
+            }
+            return true;
         }
 
         function activeMessageThreadId() {
@@ -1007,6 +1071,12 @@
                 applyPresencePayload(data.payload);
                 return;
             }
+            if (data.type === "notification_seen" && Array.isArray(data.notification_ids)) {
+                data.notification_ids.forEach(function (notificationId) {
+                    recordNotificationId(notificationId, { broadcast: false });
+                });
+                return;
+            }
             if (data.type !== "seen" || !Array.isArray(data.message_ids)) {
                 return;
             }
@@ -1027,6 +1097,7 @@
 
         function initCrossTabCoordination() {
             loadSeenMessages();
+            loadSeenNotifications();
             try {
                 if (typeof window.BroadcastChannel === "function") {
                     messageChannel = new window.BroadcastChannel("public-message-notifications:" + userId);
@@ -1500,13 +1571,17 @@
                 refresh("messages");
             } else if (payload.type === "notification") {
                 var topbar = window.publicTopbar || {};
+                var notificationId = Number(payload.notification_id || 0);
+                var shouldToastNotification = recordNotificationId(notificationId);
                 if (typeof topbar.incrementNotificationBadge === "function") {
                     topbar.incrementNotificationBadge();
                 }
-                if (document.hidden) {
-                    showRealtimeDesktopNotification(payload);
-                } else {
-                    showNotificationToast(payload);
+                if (shouldToastNotification) {
+                    if (document.hidden) {
+                        showRealtimeDesktopNotification(payload);
+                    } else {
+                        showNotificationToast(payload);
+                    }
                 }
                 refresh("notifications");
             }
@@ -1718,6 +1793,7 @@
             notifyMessage: notifyMessage,
             setMessagePreferences: setMessagePreferences,
             flushMessageNotifications: flushDeferredMessageGroups,
+            recordNotificationId: recordNotificationId,
             broadcastMessageBadgeCount: broadcastMessageBadgeCount,
             watchPresence: watchPresence,
             getPresenceState: function (presenceUserId) {
