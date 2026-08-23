@@ -79,9 +79,7 @@ function scraperToast(message, type = 'info', duration) {
         window.adminToast[type](message, duration);
         return;
     }
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type, duration);
-    }
+    window.showToast(message, type, duration);
 }
 
 function scraperShow(el, visibleClass = 'is-visible') {
@@ -1312,22 +1310,11 @@ function openPreviewModalFrame() {
     if (modal.parentElement !== document.body) {
         document.body.appendChild(modal);
     }
-    if (window.adminDialog && typeof window.adminDialog.open === 'function') {
-        window.adminDialog.open(modal, {
-            bodyClass: 'ui-admin-dialog-open',
-            initialFocus: '.crm-close',
-            returnFocus: document.activeElement,
-            onClose: function () {
-                modal.classList.remove('ui-admin-modal-open');
-            }
-        });
-        modal.classList.add('ui-admin-modal-open');
-        return modal;
-    }
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
-    modal.classList.add('is-open', 'ui-admin-modal-open');
-    document.body.classList.add('ui-admin-dialog-open');
+    window.adminModal.open(modal, {
+        bodyClass: 'ui-admin-dialog-open',
+        initialFocus: '.crm-close',
+        returnFocus: document.activeElement
+    });
     return modal;
 }
 
@@ -1442,28 +1429,12 @@ function previewImport(id) {
 function closePreview() {
     const modal = document.getElementById('previewModal');
     if (!modal) return;
-    if (window.adminDialog && typeof window.adminDialog.close === 'function') {
-        window.adminDialog.close(modal);
-        modal.classList.remove('ui-admin-modal-open');
-        return;
-    }
-    modal.classList.remove('is-open', 'ui-admin-modal-open');
-    modal.setAttribute('aria-hidden', 'true');
-    modal.hidden = true;
-    document.body.classList.remove('ui-admin-dialog-open');
+    window.adminModal.close(modal);
 }
 
 function initScraperPreviewModalEvents() {
     document.addEventListener('click', function (event) {
         if (event.target && event.target.id === 'previewModal') {
-            closePreview();
-        }
-    });
-
-    document.addEventListener('keydown', function (event) {
-        if (window.adminDialog && typeof window.adminDialog.getOpen === 'function' && window.adminDialog.getOpen()) return;
-        const modal = document.getElementById('previewModal');
-        if (event.key === 'Escape' && modal && !modal.hidden) {
             closePreview();
         }
     });

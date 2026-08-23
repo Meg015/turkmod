@@ -462,12 +462,12 @@ $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $medi
 </div>
 
 <div id="mediaPreviewModal" class="mm-modal-overlay ui-admin-modal-overlay media-modal-overlay" hidden aria-hidden="true">
-    <div class="mm-modal media-modal ui-admin-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
-        <div class="mm-modal-header media-modal-header ui-panel__head">
+    <div class="mm-modal media-modal ui-admin-modal-shell ui-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+        <div class="mm-modal-header media-modal-header ui-modal__head ui-panel__head">
             <h3 id="previewTitle" class="mm-modal-title"></h3>
             <button type="button" id="mediaPreviewClose" class="mm-modal-close ui-admin-btn ui-admin-btn-ghost ui-admin-btn-xs" data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
         </div>
-        <div class="mm-modal-body media-modal-body ui-panel__body">
+        <div class="mm-modal-body media-modal-body ui-modal__body ui-panel__body">
             <div id="previewImageWrap" class="mm-preview-image-wrap">
                 <img id="previewImage" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="" class="mm-preview-image" width="1200" height="800">
             </div>
@@ -501,7 +501,7 @@ $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $medi
                 </div>
             </div>
         </div>
-        <div class="mm-modal-footer media-modal-footer ui-panel__foot">
+        <div class="mm-modal-footer media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
             <a id="previewDownload" href="" download class="mm-btn mm-btn-secondary mm-btn-sm ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">
                 <i class="bi bi-download"></i> İndir
             </a>

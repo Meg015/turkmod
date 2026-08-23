@@ -6,19 +6,7 @@
             return;
         }
 
-        if (window.publicApi && typeof window.publicApi.updateCsrfToken === "function") {
-            window.publicApi.updateCsrfToken(token);
-            return;
-        }
-
-        document.querySelectorAll('input[name="_token"], input[name="csrf_token"]').forEach(function (input) {
-            input.value = token;
-        });
-
-        var meta = document.querySelector('meta[name="csrf-token"]');
-        if (meta) {
-            meta.setAttribute("content", token);
-        }
+        window.publicApi.updateCsrfToken(token);
     }
 
     function nativeSubmit(form) {
@@ -26,17 +14,11 @@
     }
 
     function refreshToken() {
-        if (!window.publicApi || typeof window.publicApi.refreshCsrfToken !== "function") {
-            return Promise.resolve(false);
-        }
-
         return window.publicApi.refreshCsrfToken().then(function (refreshed) {
             if (refreshed && typeof window.publicApi.csrfToken === "function") {
                 updateTokens(window.publicApi.csrfToken());
             }
             return refreshed;
-        }).catch(function () {
-            return false;
         });
     }
 
@@ -60,13 +42,9 @@
             form.dataset.authCsrfSubmitting = "1";
             form.setAttribute("aria-busy", "true");
 
-            refreshToken()
-                .then(function () {
-                    nativeSubmit(form);
-                })
-                .catch(function () {
-                    nativeSubmit(form);
-                });
+            refreshToken().then(function () {
+                nativeSubmit(form);
+            });
         });
     }
 

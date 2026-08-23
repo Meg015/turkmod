@@ -1248,9 +1248,9 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div id="previewModal" class="ui-admin-modal-overlay scraper-preview-modal" role="dialog" aria-modal="true" aria-label="Icerik inceleme ve duzenleme" hidden aria-hidden="true">
-    <div class="ui-admin-modal-shell scraper-preview-dialog ui-panel">
+    <div class="ui-admin-modal-shell ui-modal-shell scraper-preview-dialog ui-panel">
         <!--  Premium Header  -->
-        <div class="crm-header">
+        <div class="crm-header ui-modal__head ui-panel__head">
             <div class="crm-header-left">
                 <div class="crm-header-icon"><i class="bi bi-pencil-square"></i></div>
                 <div class="crm-header-text">
@@ -1262,7 +1262,7 @@ require_once __DIR__ . '/header.php';
         </div>
         
         <!--  Scrollable Body  -->
-        <div class="crm-body">
+        <div class="crm-body ui-modal__body ui-panel__body">
             
             <!-- § Title -->
             <div class="crm-section">
@@ -1328,7 +1328,7 @@ require_once __DIR__ . '/header.php';
         </div>
         
         <!--  Premium Footer  -->
-        <div class="crm-footer scraper-preview-footer">
+        <div class="crm-footer scraper-preview-footer ui-modal__foot ui-panel__foot">
             <a href="#" id="btnGoToTopic" target="_blank" class="scraper-topic-link">
                 <i class="bi bi-box-arrow-up-right"></i> İçerik Aktarıldı konuya gitmek için tıklayın
             </a>

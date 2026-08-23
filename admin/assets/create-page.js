@@ -121,9 +121,7 @@ function syncDownloadRowsToHidden() {
 }
 
 function initCreatePage() {
-    if (window.TMUI && typeof window.TMUI.registerAction === 'function') {
-        window.TMUI.registerAction('addDlRow', function() { addDlRow(); });
-    }
+    window.TMUI.registerAction('addDlRow', function() { addDlRow(); });
 
     bindTopicMediaPickers([
         { inputId: 'coverInput', previewId: 'coverPreview', maxFiles: 1 },

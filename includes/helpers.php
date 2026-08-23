@@ -1625,8 +1625,8 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
         </style>
 
         <div id="popupAnnouncementModal" class="popup-announcement-overlay" data-cookie-days="<?= $cookieDays ?>" data-popup-hash="<?= $contentHash ?>" data-popup-strict="<?= $strict ? '1' : '0' ?>" data-popup-timer="<?= $timer ?>" role="dialog" aria-modal="true" aria-labelledby="popupAnnouncementTitle">
-            <div class="popup-announcement-card" role="document">
-                <div class="popup-announcement-head">
+            <div class="popup-announcement-card ui-dialog-shell ui-panel" role="document">
+                <div class="popup-announcement-head ui-modal__head ui-panel__head">
                     <?php if (!$strict): ?>
                         <button class="popup-announcement-close-btn" aria-label="Kapat" type="button">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -1636,7 +1636,7 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
                     <?php endif; ?>
                 </div>
 
-                <div class="popup-announcement-body">
+                <div class="popup-announcement-body ui-modal__body ui-panel__body">
                     <div class="popup-announcement-badge-row">
                         <span class="popup-announcement-stripe"><?= htmlspecialchars($badgeLabel, ENT_QUOTES, 'UTF-8') ?></span>
                     </div>
@@ -1648,7 +1648,7 @@ if (! function_exists('renderPopupAnnouncementHtml')) {
                     </div>
                 </div>
 
-                <div class="popup-announcement-footer popup-announcement-footer--<?= $hasAction ? 'dual' : 'single' ?>">
+                <div class="popup-announcement-footer popup-announcement-footer--<?= $hasAction ? 'dual' : 'single' ?> ui-modal__foot ui-panel__foot">
                     <button type="button" class="popup-announcement-btn popup-announcement-btn-close" data-popup-dismiss><?= htmlspecialchars($buttonText, ENT_QUOTES, 'UTF-8') ?></button>
                     <?php if ($hasAction): ?>
                         <a href="<?= htmlspecialchars($actionUrl, ENT_QUOTES, 'UTF-8') ?>" class="popup-announcement-btn popup-announcement-btn-action">

@@ -95,6 +95,104 @@
     min-width: 0;
 }
 
+.ui-modal-shell,
+.ui-dialog-shell {
+    display: flex;
+    flex-direction: column;
+    width: min(100% - 2rem, var(--ui-modal-width, 42rem));
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+    border: 1px solid var(--modal-border, var(--color-border, #d8dee8));
+    border-radius: var(--modal-radius, 12px);
+    background: var(--modal-bg, var(--color-surface, #fff));
+    color: var(--color-text, #111827);
+    box-shadow: var(--modal-shadow, 0 24px 70px rgba(15, 23, 42, .2));
+}
+
+.ui-modal__head,
+.ui-modal__body,
+.ui-modal__foot {
+    min-width: 0;
+}
+
+.ui-modal__head,
+.ui-modal__body {
+    padding: clamp(1rem, 1.6vw, 1.25rem);
+}
+
+.ui-modal__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--modal-border, var(--color-border, #d8dee8));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--color-surface-muted, #f8fafc) 82%, transparent), transparent);
+}
+
+.ui-modal__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.ui-modal__foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .75rem;
+    padding: .95rem clamp(1rem, 1.6vw, 1.25rem);
+    border-top: 1px solid var(--modal-border, var(--color-border, #d8dee8));
+    background: var(--color-surface-muted, #f8fafc);
+}
+
+.ui-status,
+.ui-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    min-height: 1.75rem;
+    max-width: 100%;
+    padding: .32rem .72rem;
+    border: 1px solid color-mix(in srgb, currentColor 18%, var(--color-border, #d8dee8));
+    border-radius: 999px;
+    background: color-mix(in srgb, currentColor 9%, transparent);
+    color: currentColor;
+    font-size: .74rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.ui-status i,
+.ui-badge i {
+    font-size: .95em;
+}
+
+.ui-status--muted,
+.ui-badge--muted {
+    color: var(--text-dim, #64748b);
+}
+
+.ui-status--info,
+.ui-badge--info {
+    color: var(--info, #2563eb);
+}
+
+.ui-status--success,
+.ui-badge--success {
+    color: var(--success, #16a34a);
+}
+
+.ui-status--warning,
+.ui-badge--warning {
+    color: var(--warning, #d97706);
+}
+
+.ui-status--danger,
+.ui-badge--danger {
+    color: var(--danger, #dc2626);
+}
+
 .ui-button,
 [data-ui-button] {
     display: inline-flex;

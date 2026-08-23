@@ -1,8 +1,8 @@
 <div class="ui-theme-topic-report">
 <div class="topic-report-modal" id="topicReportModal" role="dialog" aria-modal="true" aria-labelledby="report-heading" aria-describedby="report-description" hidden aria-hidden="true">
 <div class="topic-report-backdrop" data-report-modal-close data-ui-modal-close></div>
-<div class="topic-report-dialog ui-panel">
-<div class="topic-report-header ui-panel__head">
+<div class="topic-report-dialog ui-panel ui-modal-shell">
+<div class="topic-report-header ui-panel__head ui-modal__head">
 <div class="topic-report-heading">
 <span class="topic-report-heading-icon" aria-hidden="true"><i class="bi bi-shield-exclamation"></i></span>
 <div class="topic-report-titleblock">
@@ -13,7 +13,7 @@
 </div>
 <button type="button" class="topic-report-close" data-report-modal-close data-ui-modal-close aria-label="Pencereyi kapat"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
 </div>
-<form class="topic-report-form" action="{topic.report_endpoint}" method="post">
+<form id="topicReportForm" class="topic-report-form ui-modal__body" action="{topic.report_endpoint}" method="post">
 <input type="hidden" name="_token" value="{topic.csrf_token}">
 <input type="hidden" name="action" value="create">
 <input type="hidden" name="topic_id" value="{topic.id}">
@@ -27,12 +27,12 @@
 <label class="topic-report-field topic-report-field--full"><span>Rapor nedeni</span><select name="reason" required>{loop topic.report_reasons}<option value="{item.value}">{item.label}</option>{/loop}</select></label>
 <label class="topic-report-field topic-report-field--full"><span>Açıklama <small>(isteğe bağlı)</small></span><textarea name="details" rows="3" maxlength="1000" placeholder="Sorunu anlamamıza yardımcı olacak kısa bir açıklama yazın"></textarea></label>
 </div>
-<div class="topic-report-actions">
-<span class="topic-report-privacy"><i class="bi bi-info-circle" aria-hidden="true"></i> Gereksiz raporlar inceleme süresini uzatabilir.</span>
-<button type="submit" class="topic-report-submit" data-loading-label="Gönderiliyor..."><i class="bi bi-flag" aria-hidden="true"></i> Raporu gönder</button>
-</div>
 <div class="topic-report-feedback" role="status" aria-live="polite" aria-atomic="true"></div>
 </form>
+<div class="topic-report-actions ui-modal__foot">
+<span class="topic-report-privacy"><i class="bi bi-info-circle" aria-hidden="true"></i> Gereksiz raporlar inceleme süresini uzatabilir.</span>
+<button type="submit" form="topicReportForm" class="topic-report-submit" data-loading-label="Gönderiliyor..."><i class="bi bi-flag" aria-hidden="true"></i> Raporu gönder</button>
+</div>
 </div>
 </div>
 </div>

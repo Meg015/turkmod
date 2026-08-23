@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/init.php';
 
 use App\Modules\Notifications\Services\NotificationCenterService;
+use App\Modules\Messages\Services\MessageService;
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendMethodNotAllowed(['POST']);
@@ -34,10 +35,12 @@ try {
     }
 
     $dropdownState = $service->dropdownPayload($pdo, $userId);
+    $messageService = new MessageService();
     sendSuccess('Okundu olarak işaretlendi.', [
         'ok' => true,
         'show_badge' => !empty($dropdownState['show_badge']),
         'unread_count' => (int) ($dropdownState['unread_count'] ?? 0),
+        'messages_unread_count' => $messageService->unreadCount($pdo, $userId),
     ]);
 } catch (Throwable $e) {
     appLogException($e, ['source' => '/api/notifications-read.php']);

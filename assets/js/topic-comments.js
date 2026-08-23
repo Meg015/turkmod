@@ -55,10 +55,8 @@
             // -- Helpers --
             function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
             function showAlert(msg,type='success'){
-                if (window.showToast) {
-                    window.showToast(msg, type);
-                    return;
-                }
+                window.showToast(msg, type);
+                return;
                 let container = document.getElementById('tcToastContainer');
                 if(!container){
                     container = document.createElement('div');
@@ -78,14 +76,10 @@
                 }, 3000);
             }
             function fetchCommentJson(url, options) {
-                if (window.publicFetchJson) {
-                    return window.publicFetchJson(url, options || {}).catch(function(error) {
-                        if (error && error.data && error.data._token) CSRF = error.data._token;
-                        throw error;
-                    });
-                }
-
-                return Promise.reject(new Error('Public API helper yuklenemedi.'));
+                return window.publicFetchJson(url, options).catch(function(error) {
+                    if (error && error.data && error.data._token) CSRF = error.data._token;
+                    throw error;
+                });
             }
             function dispatchCommentCreatedEvent(payload = {}) {
                 try {
@@ -996,17 +990,21 @@
                 const previouslyFocused = document.activeElement;
                 const modal = document.createElement('div');
                 modal.className = 'ui-comment-report-modal';
-                modal.setAttribute('role', 'dialog');
-                modal.setAttribute('aria-modal', 'true');
-                modal.setAttribute('aria-labelledby', 'ui-comment-report-heading-' + commentId);
+                modal.setAttribute('role', 'presentation');
                 modal.innerHTML =
                     '<div class="ui-comment-report-overlay" data-ui-modal-close></div>' +
-                    '<div class="ui-comment-report-content ui-section">' +
-                        '<div class="ui-comment-report-header ui-panel__head">' +
-                            '<h3 id="ui-comment-report-heading-' + commentId + '">Yorum Şikayet Et</h3>' +
+                    '<div class="ui-comment-report-content ui-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="ui-comment-report-heading-' + commentId + '" aria-describedby="ui-comment-report-description-' + commentId + '">' +
+                        '<div class="ui-comment-report-header ui-modal__head ui-panel__head">' +
+                            '<div class="ui-comment-report-head-copy">' +
+                                '<div class="ui-comment-report-icon"><i class="bi bi-flag"></i></div>' +
+                                '<div class="ui-comment-report-copy">' +
+                                    '<h3 id="ui-comment-report-heading-' + commentId + '">Yorum Şikayet Et</h3>' +
+                                    '<p id="ui-comment-report-description-' + commentId + '" class="ui-comment-report-intro">Şikayet nedenini seçin ve isterseniz kısa not ekleyin.</p>' +
+                                '</div>' +
+                            '</div>' +
                             '<button type="button" class="ui-comment-report-close" data-ui-modal-close aria-label="Kapat">&times;</button>' +
                         '</div>' +
-                        '<div class="ui-comment-report-body ui-panel__body">' +
+                        '<div class="ui-comment-report-body ui-modal__body ui-panel__body">' +
                             '<div class="ui-comment-report-reasons">' +
                                 '<button type="button" class="ui-comment-report-reason-btn" data-reason="spam" aria-pressed="false">Spam / Reklam</button>' +
                                 '<button type="button" class="ui-comment-report-reason-btn" data-reason="abusive" aria-pressed="false">Küfürlü / Hakaret</button>' +
@@ -1016,62 +1014,34 @@
                             '</div>' +
                             '<p class="ui-comment-report-selected" aria-live="polite">Henüz bir gerekçe seçilmedi.</p>' +
                             '<textarea class="ui-comment-report-details" placeholder="Ek açıklama (isteğe bağlı)..." rows="2"></textarea>' +
+                        '</div>' +
+                        '<div class="ui-comment-report-footer ui-modal__foot ui-panel__foot">' +
+                            '<button type="button" class="ui-comment-report-cancel">Vazgeç</button>' +
                             '<button type="button" class="ui-comment-report-submit" disabled>Şikayet Et</button>' +
                         '</div>' +
                     '</div>';
                 document.body.appendChild(modal);
 
                 let selectedReason = '';
-                const focusSelector = 'button:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
                 let reportModalController = null;
                 const closeModal = () => {
                     if (reportModalController && typeof reportModalController.close === 'function') {
                         reportModalController.close(true);
-                        return;
-                    }
-                    modal.remove();
-                    document.removeEventListener('keydown', handleKeydown);
-                    if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-                        previouslyFocused.focus();
                     }
                 };
-                const handleKeydown = (event) => {
-                    if (window.TMUI && typeof window.TMUI.openDialog === 'function') return;
-                    if (event.key === 'Escape') {
-                        closeModal();
-                        return;
+                reportModalController = window.TMUI.openDialog(modal, {
+                    initialFocus: '.ui-comment-report-reason-btn',
+                    returnFocus: previouslyFocused,
+                    onClose: function () {
+                        reportModalController = null;
+                        modal.remove();
                     }
-                    if (event.key !== 'Tab') return;
-                    const focusables = Array.from(modal.querySelectorAll(focusSelector)).filter(el => !el.disabled);
-                    if (!focusables.length) return;
-                    const first = focusables[0];
-                    const last = focusables[focusables.length - 1];
-                    if (event.shiftKey && document.activeElement === first) {
-                        event.preventDefault();
-                        last.focus();
-                    } else if (!event.shiftKey && document.activeElement === last) {
-                        event.preventDefault();
-                        first.focus();
-                    }
-                };
-                if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-                    reportModalController = window.TMUI.openDialog(modal, {
-                        initialFocus: '.ui-comment-report-reason-btn',
-                        returnFocus: previouslyFocused,
-                        onClose: function () {
-                            reportModalController = null;
-                            modal.remove();
-                            document.removeEventListener('keydown', handleKeydown);
-                        }
-                    });
-                } else {
-                    document.addEventListener('keydown', handleKeydown);
-                    modal.querySelector('.ui-comment-report-reason-btn')?.focus();
-                }
+                });
 
                 // Close handlers
                 modal.querySelector('.ui-comment-report-close')?.addEventListener('click', closeModal);
                 modal.querySelector('.ui-comment-report-overlay')?.addEventListener('click', closeModal);
+                modal.querySelector('.ui-comment-report-cancel')?.addEventListener('click', closeModal);
 
                 // Reason selection
                 const submitBtnEl = modal.querySelector('.ui-comment-report-submit');

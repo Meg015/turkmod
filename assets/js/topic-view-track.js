@@ -15,7 +15,7 @@
 
             var topicId = element.getAttribute('data-topic-view-id') || '';
             var endpoint = element.getAttribute('data-topic-view-url') || '';
-            if (!topicId || !endpoint || typeof window.publicFetchJson !== 'function' || typeof window.FormData !== 'function') {
+            if (!topicId || !endpoint) {
                 return;
             }
 

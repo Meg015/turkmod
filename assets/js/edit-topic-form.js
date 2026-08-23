@@ -88,7 +88,7 @@
         for (const field of required) {
             if (!field.checkValidity()) {
                 focusField(field);
-                window.showToast?.(invalidFieldMessage(field), 'warning');
+                window.showToast(invalidFieldMessage(field), 'warning');
                 return false;
             }
         }
@@ -153,7 +153,7 @@
         e.preventDefault();
 
         if (form.dataset.submitting === '1' || form.dataset.submitted === '1') {
-            window.showToast?.('Bu değişiklik zaten gönderiliyor veya gönderildi.', 'warning');
+            window.showToast('Bu değişiklik zaten gönderiliyor veya gönderildi.', 'warning');
             return;
         }
 
@@ -169,7 +169,7 @@
             if (firstInvalid) {
                 focusField(firstInvalid);
             }
-            window.showToast?.(invalidFieldMessage(firstInvalid), 'warning');
+            window.showToast(invalidFieldMessage(firstInvalid), 'warning');
             return;
         }
 
@@ -183,10 +183,6 @@
         }
 
         try {
-            if (!window.publicFetchJson) {
-                throw new Error('Public API helper yuklenemedi.');
-            }
-
             const payload = await window.publicFetchJson(form.action, {
                 method: 'POST',
                 body: new FormData(form),
@@ -202,7 +198,7 @@
             }
 
             form.dataset.submitted = '1';
-            window.showToast?.(payload.message || 'Değişiklikler onaya gönderildi.', 'success');
+            window.showToast(payload.message || 'Değişiklikler onaya gönderildi.', 'success');
             if (submitButton) {
                 submitButton.classList.remove('is-submitting');
                 submitButton.classList.add('is-submitted');
@@ -215,7 +211,7 @@
             }
     } catch (error) {
         delete form.dataset.submitting;
-        window.showToast?.(error.message || 'Mod güncellenemedi.', 'error');
+        window.showToast(error.message || 'Mod güncellenemedi.', 'error');
         if (submitButton && form.dataset.submitted !== '1') {
                 submitButton.disabled = false;
                 submitButton.classList.remove('is-submitting');
@@ -237,6 +233,4 @@ function addDlRow() {
     `;
     document.getElementById('dlRows')?.appendChild(row);
 }
-if (window.TMUI && typeof window.TMUI.registerAction === 'function') {
-    window.TMUI.registerAction('addDlRow', function() { addDlRow(); });
-}
+window.TMUI.registerAction('addDlRow', function() { addDlRow(); });

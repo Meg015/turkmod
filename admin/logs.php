@@ -1619,13 +1619,13 @@ require_once __DIR__ . '/header.php';
                 <?php endif; ?>
     <?= adminRenderLogListPanelClose('div') ?>
 
-                <div class="media-modal-overlay system-notification-detail-modal" id="systemNotificationDetailModal" role="dialog" aria-modal="true" aria-labelledby="systemNotificationDetailTitle" hidden aria-hidden="true">
-                    <div class="media-modal ui-admin-modal-md ui-panel">
-                        <div class="media-modal-header ui-panel__head">
+                <div class="media-modal-overlay ui-admin-modal-overlay system-notification-detail-modal" id="systemNotificationDetailModal" role="dialog" aria-modal="true" aria-labelledby="systemNotificationDetailTitle" hidden aria-hidden="true">
+                    <div class="media-modal ui-admin-modal-md ui-admin-modal-shell ui-modal-shell ui-panel">
+                        <div class="media-modal-header ui-modal__head ui-panel__head">
                             <h3 class="ui-admin-modal-title" id="systemNotificationDetailTitle"><i class="bi bi-card-text"></i> Bildirim Detayı</h3>
-                            <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-system-notification-detail-close aria-label="Kapat" title="Kapat" data-admin-tooltip="Kapat"><i class="bi bi-x-lg"></i></button>
+                            <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-system-notification-detail-close data-ui-modal-close aria-label="Kapat" title="Kapat" data-admin-tooltip="Kapat"><i class="bi bi-x-lg"></i></button>
                         </div>
-                        <div class="media-modal-body ui-panel__body system-notification-detail-body">
+                        <div class="media-modal-body ui-modal__body ui-panel__body system-notification-detail-body">
                             <div class="system-notification-detail-head">
                                 <div>
                                     <span class="ui-admin-muted" data-system-notification-detail-id>#</span>
@@ -1644,7 +1644,7 @@ require_once __DIR__ . '/header.php';
                                 <p data-system-notification-detail-message>—</p>
                             </div>
                         </div>
-                        <div class="media-modal-footer ui-panel__foot system-notification-detail-footer">
+                        <div class="media-modal-footer ui-modal__foot ui-panel__foot system-notification-detail-footer">
                             <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-system-notification-detail-close>Kapat</button>
                             <a href="#" class="ui-admin-btn ui-admin-btn-outline" target="_blank" rel="noopener" hidden data-system-notification-detail-link><i class="bi bi-box-arrow-up-right"></i> Bağlantıyı Aç</a>
                             <?php if ($canManageLogs): ?>

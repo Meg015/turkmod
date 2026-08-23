@@ -6,32 +6,7 @@
        Usage: adminToast.success('Kaydedildi'), .error(), .info(), .warning()
        ═══════════════════════════════════════════ */
     function renderAdminToast(message, type, duration) {
-        if (window.showToast) {
-            window.showToast(message, type, duration);
-            return;
-        }
-
-        var container = document.getElementById('toastContainer');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'toastContainer';
-            container.className = 'topic-toast-container toast-pos-bottom-right';
-            container.setAttribute('aria-live', 'polite');
-            document.body.appendChild(container);
-        }
-
-        var toast = document.createElement('div');
-        toast.className = 'topic-toast toast-' + (type || 'info') + ' toast-theme-default toast-anim-slide';
-        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
-        toast.innerHTML = '<i class="bi bi-info-circle toast-icon"></i><span class="toast-message"></span>';
-        toast.querySelector('.toast-message').textContent = String(message || '');
-        container.appendChild(toast);
-        if (duration !== 0) {
-            window.setTimeout(function () {
-                toast.classList.add('toast-out');
-                window.setTimeout(function () { toast.remove(); }, 260);
-            }, typeof duration === 'number' ? duration : 4200);
-        }
+        window.showToast(message, type, duration);
     }
 
     window.adminToast = {
@@ -631,13 +606,13 @@
         var grouped = {};
         SHORTCUTS.forEach(function (s) { (grouped[s.group] = grouped[s.group] || []).push(s); });
 
-        var html = '<div class="ui-admin-shortcut-overlay" id="ui-admin-shortcut-overlay" role="dialog" aria-label="Klavye kısayolları">'
-            + '<div class="ui-admin-shortcut-modal">'
-            +   '<div class="ui-admin-shortcut-head">'
-            +     '<h3><i class="bi bi-keyboard"></i> Klavye Kısayolları</h3>'
+        var html = '<div class="ui-admin-shortcut-overlay" id="ui-admin-shortcut-overlay" role="dialog" aria-modal="true" aria-labelledby="ui-admin-shortcut-title">'
+            + '<div class="ui-admin-shortcut-modal ui-dialog-shell ui-panel">'
+            +   '<div class="ui-admin-shortcut-head ui-modal__head ui-panel__head">'
+            +     '<h3 id="ui-admin-shortcut-title"><i class="bi bi-keyboard"></i> Klavye Kısayolları</h3>'
             +     '<button type="button" class="ui-admin-shortcut-close" aria-label="Kapat"><i class="bi bi-x-lg"></i></button>'
             +   '</div>'
-            +   '<div class="ui-admin-shortcut-body">';
+            +   '<div class="ui-admin-shortcut-body ui-modal__body ui-panel__body">';
         Object.keys(grouped).forEach(function (g) {
             html += '<div class="ui-admin-shortcut-group"><h4>' + g + '</h4><ul>';
             grouped[g].forEach(function (s) {
@@ -663,7 +638,7 @@
         if (el) el.classList.remove('is-open');
     }
 
-    var OPEN_MODAL_SELECTOR = '.ui-admin-modal-overlay.is-open, .ui-admin-modal-overlay.ui-admin-modal-open, .media-modal-overlay.is-open, .media-modal-overlay.ui-admin-modal-open, .mm-modal-overlay.active, .ui-admin-detail-overlay.is-open';
+    var OPEN_MODAL_SELECTOR = '.ui-admin-modal-overlay.is-open, .ui-admin-modal-overlay.ui-admin-modal-open, .media-modal-overlay.is-open, .media-modal-overlay.ui-admin-modal-open, .mm-modal-overlay.active, .ui-admin-detail-overlay.is-open, .ui-comment-manager-edit-modal.active, .ui-comment-manager-edit-modal.is-open, .notification-preview-modal.is-open, .notification-preview-modal[aria-hidden="false"], .moderation-note-modal.is-open, .scraper-preview-modal.is-open, .ui-admin-shortcut-overlay.is-open, .ui-admin-native-dialog-overlay:not([hidden]), .ui-events-confirm-modal:not([hidden])';
     var MODAL_FOCUSABLE_SELECTOR = 'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
 
     function listOpenModals() {
@@ -695,7 +670,7 @@
         if (!modal || !modal.querySelector) {
             return null;
         }
-        return modal.querySelector('.contacts-message-modal-shell, .ui-admin-detail-modal, .ui-admin-modal-shell, .media-modal, .mm-modal');
+        return modal.querySelector('.contacts-message-modal-shell, .ui-admin-detail-modal, .ui-admin-modal-shell, .ui-modal-shell, .ui-dialog-shell, .media-modal, .mm-modal, .ui-comment-manager-edit-content, .notification-preview-dialog, .scraper-preview-dialog, .moderation-note-dialog');
     }
 
     function applyModalTopOffset(modal, offset) {
@@ -949,7 +924,7 @@
             for (var i = 0; i < mutations.length; i += 1) {
                 var mutation = mutations[i];
                 if (mutation.type === 'attributes') {
-                    if (mutation.target && mutation.target.matches && mutation.target.matches('.ui-admin-detail-overlay, .ui-admin-modal-overlay, .media-modal-overlay, .mm-modal-overlay')) {
+                    if (mutation.target && mutation.target.matches && mutation.target.matches('.ui-admin-detail-overlay, .ui-admin-modal-overlay, .media-modal-overlay, .mm-modal-overlay, .ui-comment-manager-edit-modal, .notification-preview-modal, .moderation-note-modal, .scraper-preview-modal')) {
                         shouldRefresh = true;
                         break;
                     }
@@ -982,13 +957,6 @@
             attributeFilter: ['class', 'hidden', 'aria-hidden']
         });
     }
-
-    window.uiAdminModal = {
-        open: openModalOverlay,
-        close: closeModalOverlay,
-        getOpen: topOpenModal,
-        refresh: initOpenModalOverlays
-    };
 
     window.addEventListener('resize', requestModalOffsetSync, { passive: true });
     window.addEventListener('orientationchange', requestModalOffsetSync);
@@ -1423,14 +1391,21 @@
         overlay.className = 'ui-admin-native-dialog-overlay';
         overlay.hidden = true;
         overlay.innerHTML = ''
-            + '<div class="ui-admin-native-dialog" role="dialog" aria-modal="true" aria-labelledby="ui-admin-native-dialog-title">'
-            + '  <div class="ui-admin-native-dialog-icon"><i class="bi bi-question-lg"></i></div>'
-            + '  <div class="ui-admin-native-dialog-copy">'
-            + '    <h3 id="ui-admin-native-dialog-title"></h3>'
-            + '    <p data-ui-admin-native-message></p>'
-            + '    <input class="ui-admin-form-control ui-admin-native-dialog-input" data-ui-admin-native-input hidden>'
+            + '<div class="ui-admin-native-dialog ui-dialog-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="ui-admin-native-dialog-title" aria-describedby="ui-admin-native-dialog-message">'
+            + '  <div class="ui-admin-native-dialog-head ui-modal__head ui-panel__head">'
+            + '    <div class="ui-admin-native-dialog-head-copy">'
+            + '      <div class="ui-admin-native-dialog-icon"><i class="bi bi-question-lg"></i></div>'
+            + '      <div class="ui-admin-native-dialog-copy">'
+            + '      <h3 id="ui-admin-native-dialog-title"></h3>'
+            + '      <p id="ui-admin-native-dialog-message" data-ui-admin-native-message></p>'
+            + '      </div>'
+            + '    </div>'
             + '  </div>'
-            + '  <div class="ui-admin-native-dialog-actions">'
+            + '  <div class="ui-admin-native-dialog-body ui-modal__body ui-panel__body">'
+            + '    <input class="ui-admin-form-control ui-admin-native-dialog-input" data-ui-admin-native-input hidden>'
+            + '    <textarea class="ui-admin-form-control ui-admin-native-dialog-input" data-ui-admin-native-textarea hidden rows="5"></textarea>'
+            + '  </div>'
+            + '  <div class="ui-admin-native-dialog-actions ui-modal__foot ui-panel__foot">'
             + '    <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-native-cancel" data-ui-admin-native-cancel>Vazgeç</button>'
             + '    <button type="button" class="ui-admin-btn ui-admin-btn-primary ui-admin-native-ok" data-ui-admin-native-ok>Onayla</button>'
             + '  </div>'
@@ -1451,7 +1426,8 @@
             showCancel: true,
             input: null,
             value: '',
-            placeholder: ''
+            placeholder: '',
+            rows: 5
         }, options || {});
 
         var overlay = ensureNativeDialog();
@@ -1460,8 +1436,14 @@
         var message = overlay.querySelector('[data-ui-admin-native-message]');
         var icon = overlay.querySelector('.ui-admin-native-dialog-icon i');
         var input = overlay.querySelector('[data-ui-admin-native-input]');
+        var textarea = overlay.querySelector('[data-ui-admin-native-textarea]');
         var okButton = overlay.querySelector('[data-ui-admin-native-ok]');
         var cancelButton = overlay.querySelector('[data-ui-admin-native-cancel]');
+        var inputMode = opts.input === 'textarea' || opts.multiline === true
+            ? 'textarea'
+            : (opts.input === true ? (opts.type || 'text') : opts.input);
+        var useTextarea = inputMode === 'textarea';
+        var inputField = useTextarea ? textarea : input;
 
         var kindClass = opts.kind ? String(opts.kind).replace(/[^a-z0-9_-]/gi, '') : '';
         overlay.className = 'ui-admin-native-dialog-overlay is-' + (opts.tone || 'warning') + (kindClass ? ' is-' + kindClass : '');
@@ -1473,14 +1455,37 @@
         cancelButton.textContent = opts.cancel || 'Vazgeç';
         cancelButton.hidden = opts.showCancel === false;
 
-        if (opts.input) {
-            input.hidden = false;
-            input.type = opts.input === 'textarea' ? 'text' : opts.input;
-            input.value = opts.value || '';
-            input.placeholder = opts.placeholder || '';
-        } else {
-            input.hidden = true;
-            input.value = '';
+        [input, textarea].forEach(function (field) {
+            if (!field) {
+                return;
+            }
+            field.hidden = true;
+            field.value = '';
+        });
+
+        if (inputField) {
+            inputField.hidden = false;
+            inputField.value = opts.value || '';
+            inputField.placeholder = opts.placeholder || '';
+            if (inputField.tagName === 'TEXTAREA') {
+                inputField.rows = Number(opts.rows || 5) || 5;
+                inputField.style.minHeight = opts.minHeight || '120px';
+                inputField.style.resize = 'vertical';
+            } else {
+                inputField.type = inputMode || 'text';
+            }
+            if (opts.inputAttributes && typeof opts.inputAttributes === 'object') {
+                Object.keys(opts.inputAttributes).forEach(function (attribute) {
+                    var attributeValue = opts.inputAttributes[attribute];
+                    if (attributeValue === null || attributeValue === undefined || attributeValue === false) {
+                        inputField.removeAttribute(attribute);
+                    } else if (attributeValue === true) {
+                        inputField.setAttribute(attribute, '');
+                    } else {
+                        inputField.setAttribute(attribute, String(attributeValue));
+                    }
+                });
+            }
         }
 
         overlay.hidden = false;
@@ -1497,10 +1502,10 @@
                 resolve(result);
             };
             var onOk = function () {
-                finish(opts.input ? input.value : true);
+                finish(inputField ? inputField.value : true);
             };
             var onCancel = function () {
-                finish(opts.input ? null : false);
+                finish(inputField ? null : false);
             };
             var onOverlay = function (event) {
                 if (event.target === overlay) {
@@ -1511,7 +1516,10 @@
                 if (event.key === 'Escape') {
                     onCancel();
                 }
-                if (event.key === 'Enter' && opts.input && document.activeElement === input) {
+                if (event.key === 'Enter' && inputField && document.activeElement === inputField) {
+                    if (inputField.tagName === 'TEXTAREA' && !event.ctrlKey && !event.metaKey) {
+                        return;
+                    }
                     event.preventDefault();
                     onOk();
                 }
@@ -1522,7 +1530,7 @@
             overlay.addEventListener('click', onOverlay);
             document.addEventListener('keydown', onKeydown);
             window.setTimeout(function () {
-                (opts.input ? input : okButton).focus();
+                (inputField || okButton).focus();
             }, 0);
         });
     }
@@ -1825,6 +1833,7 @@
 
     window.adminPrompt = function (message, options) {
         var opts = Object.assign({ message: message }, options || {});
+        var inputMode = opts.input === true ? (opts.type || 'text') : (opts.input || 'text');
         if (window.Swal && typeof window.Swal.fire === 'function') {
             return window.Swal.fire(Object.assign(swalOptions({
                 title: opts.title || message || 'Bilgi girin',
@@ -1833,7 +1842,7 @@
                 cancel: opts.cancel || 'Vazgeç',
                 tone: opts.tone || 'info'
             }), {
-                input: opts.input || 'text',
+                input: inputMode,
                 inputValue: opts.value || '',
                 inputPlaceholder: opts.placeholder || '',
                 inputAttributes: opts.inputAttributes || {}
@@ -1842,7 +1851,7 @@
             });
         }
 
-        return nativeDialog(Object.assign({ input: opts.input || 'text', showCancel: true }, opts));
+        return nativeDialog(Object.assign({ input: inputMode, showCancel: true }, opts));
     };
 
     function openManagedDialog(modal, options) {
@@ -1854,18 +1863,6 @@
         var bodyClass = opts.bodyClass || 'ui-admin-dialog-open';
         var returnFocus = opts.returnFocus || document.activeElement;
 
-        if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-            var dialog = window.TMUI.openDialog(modal, {
-                openClass: openClass,
-                bodyClass: bodyClass,
-                initialFocus: opts.initialFocus,
-                returnFocus: returnFocus,
-                onClose: opts.onClose
-            });
-            modal.classList.add('ui-admin-modal-open');
-            return dialog;
-        }
-
         modal.hidden = false;
         modal.setAttribute('aria-hidden', 'false');
         modal.classList.add(openClass, 'ui-admin-modal-open');
@@ -1873,7 +1870,6 @@
         document.body.classList.add(bodyClass);
         syncModalViewportOffset(modal);
         syncDialogBodyLock();
-        document.body.classList.add(bodyClass);
 
         if (opts.initialFocus) {
             window.setTimeout(function () {
@@ -1909,16 +1905,6 @@
             }
         };
 
-        if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-            window.TMUI.closeDialog(modal);
-            modal.classList.remove('ui-admin-modal-open');
-            if (typeof opts.onClose === 'function') {
-                opts.onClose();
-            }
-            syncDialogBodyLock();
-            return;
-        }
-
         modal.classList.add('is-closing');
         window.setTimeout(finish, Number(opts.delay || 160));
     }
@@ -1935,10 +1921,7 @@
         setBusy: setButtonBusy
     };
 
-    window.adminDialog = Object.assign(window.adminDialog || {}, adminManagedDialogApi);
-    window.adminModal = Object.assign(window.adminModal || {}, adminManagedDialogApi);
-    window.openAdminManagedModal = openManagedDialog;
-    window.closeAdminManagedModal = closeManagedDialog;
+    window.adminModal = adminManagedDialogApi;
 
     window.adminUpdateCsrfToken = updateAdminCsrfToken;
     window.adminApplyResponse = applyAdminJsonResponse;
@@ -1954,7 +1937,7 @@
         var type = data.success === false ? 'error' : (defaultType || 'success');
         if (typeof window.adminToast[type] === 'function') {
             window.adminToast[type](data.message);
-        } else if (window.showToast) {
+        } else {
             window.showToast(data.message, type);
         }
     };
@@ -2569,7 +2552,7 @@
                 return;
             }
 
-            var modal = closeTrigger.closest('.ui-admin-detail-overlay, .ui-admin-modal-overlay, .media-modal-overlay, .mm-modal-overlay');
+            var modal = closeTrigger.closest('.ui-admin-detail-overlay, .ui-admin-modal-overlay, .media-modal-overlay, .mm-modal-overlay, .ui-comment-manager-edit-modal, .notification-preview-modal, .moderation-note-modal, .scraper-preview-modal');
             if (!modal) {
                 return;
             }

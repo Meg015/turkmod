@@ -405,57 +405,61 @@
 }
 
 .contacts-page .contacts-message-modal {
-    width: min(1120px, calc(100vw - 24px));
-    max-width: 1120px;
+    width: min(1040px, calc(100vw - 2rem));
+    max-width: 1040px;
 }
 
 .contacts-page .contacts-message-modal-shell {
     display: flex !important;
     flex-direction: column !important;
-    align-self: center;
-    width: min(1120px, calc(100vw - 24px));
-    max-height: calc(100dvh - 24px) !important;
-    border-radius: var(--contacts-radius) !important;
+    align-self: flex-start;
+    width: min(1040px, calc(100vw - 2 * var(--contacts-modal-viewport-gap, var(--ui-admin-modal-viewport-gap, 12px))));
+    max-height: calc(100vh - var(--contacts-modal-top-offset, 0px) - max(var(--contacts-modal-viewport-gap, var(--ui-admin-modal-viewport-gap, 12px)), env(safe-area-inset-bottom, 0px)) - 4px) !important;
+    max-height: calc(100dvh - var(--contacts-modal-top-offset, 0px) - max(var(--contacts-modal-viewport-gap, var(--ui-admin-modal-viewport-gap, 12px)), env(safe-area-inset-bottom, 0px)) - 4px) !important;
+    border-radius: 18px !important;
     margin: 0 !important;
     box-sizing: border-box;
     min-height: 0;
     overflow: hidden !important;
     background: var(--ui-admin-surface);
-    box-shadow: 0 24px 72px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .28), 0 0 0 1px rgba(15, 23, 42, .08);
 }
 
 .contacts-page .ui-admin-detail-overlay {
+    --contacts-modal-top-offset: var(--ui-admin-modal-top-offset, 0px);
+    --contacts-modal-viewport-gap: var(--ui-admin-modal-viewport-gap, 12px);
     display: flex !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     justify-content: center !important;
-    padding: 12px !important;
-    overflow: hidden !important;
+    padding: calc(var(--contacts-modal-top-offset) + var(--contacts-modal-viewport-gap)) max(var(--contacts-modal-viewport-gap), env(safe-area-inset-right, 0px)) max(var(--contacts-modal-viewport-gap), env(safe-area-inset-bottom, 0px)) max(var(--contacts-modal-viewport-gap), env(safe-area-inset-left, 0px)) !important;
+    overflow-y: auto !important;
     overscroll-behavior: contain;
     box-sizing: border-box;
-    background: rgba(15, 23, 42, 0.56);
-    backdrop-filter: blur(4px);
+    background: rgba(15, 23, 42, .65);
+    backdrop-filter: blur(6px);
 }
 
 .contacts-page .contacts-message-modal-head {
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 4;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 14px 16px;
-    background: linear-gradient(180deg, var(--ui-admin-surface) 0%, var(--ui-admin-surface-alt) 100%);
+    gap: .9rem;
+    padding: 1rem 1.15rem;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ui-admin-surface-alt) 72%, var(--ui-admin-surface)) 0%, var(--ui-admin-surface) 100%);
     border-bottom: 1px solid var(--ui-admin-border);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .04), 0 8px 18px rgba(15, 23, 42, .04);
 }
 
 .contacts-page .contacts-message-modal-head h3 {
     display: flex;
     align-items: center;
-    gap: 0.55rem;
+    gap: .6rem;
     margin: 0;
     min-width: 0;
-    font-size: 1rem;
+    font-size: 1.02rem;
     font-weight: 800;
     line-height: 1.25;
     overflow-wrap: anywhere;
@@ -510,11 +514,11 @@
 
 .contacts-page .contacts-message-summary {
     display: grid;
-    gap: 0.35rem;
+    gap: .35rem;
     padding: 14px 16px;
     border: 1px solid var(--ui-admin-border);
     border-radius: var(--contacts-radius);
-    background: var(--ui-admin-surface-alt);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ui-admin-surface-alt) 72%, var(--ui-admin-surface)) 0%, var(--ui-admin-surface) 100%);
     box-shadow: none;
 }
 
@@ -536,6 +540,243 @@
     margin: 0;
     max-width: 76ch;
     color: var(--ui-admin-text-secondary);
+}
+
+.contacts-page .contacts-message-modal-head-copy {
+    display: grid;
+    gap: .22rem;
+    min-width: 0;
+}
+
+.contacts-page .contacts-message-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    color: var(--ui-admin-primary);
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+.contacts-page .contacts-message-head-note {
+    margin: 0;
+    max-width: 72ch;
+    color: var(--ui-admin-text-secondary);
+    font-size: .84rem;
+    line-height: 1.45;
+}
+
+.contacts-page .contacts-message-summary-hero {
+    gap: .45rem;
+}
+
+.contacts-page .contacts-message-summary-hero .contacts-message-title {
+    font-size: 1.12rem;
+}
+
+.contacts-page .contacts-message-timeline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: .15rem;
+}
+
+.contacts-page .contacts-message-timeline-item {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    min-height: 32px;
+    padding: 0 .75rem;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--contacts-radius);
+    background: var(--ui-admin-surface);
+    color: var(--ui-admin-text-secondary);
+    font-size: .79rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.contacts-page .contacts-message-timeline-item i,
+.contacts-page .contacts-message-panel-kicker i {
+    color: var(--ui-admin-primary);
+}
+
+.contacts-page .contacts-message-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, .95fr);
+    gap: 12px;
+    align-items: start;
+}
+
+.contacts-page .contacts-message-detail-main {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+}
+
+.contacts-page .contacts-message-detail-rail {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    align-content: start;
+}
+
+.contacts-page .contacts-message-panel {
+    overflow: hidden;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--contacts-radius);
+    background: var(--ui-admin-surface);
+    box-shadow: none;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .85rem .95rem;
+    border-bottom: 1px solid var(--ui-admin-border);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ui-admin-surface-alt) 76%, var(--ui-admin-surface)) 0%, var(--ui-admin-surface) 100%);
+}
+
+.contacts-page .contacts-message-modal .contacts-message-panel-head-copy {
+    display: grid;
+    gap: .2rem;
+    min-width: 0;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-panel-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ui-admin-text-secondary);
+}
+
+.contacts-page .contacts-message-modal .contacts-message-panel-head-copy strong {
+    font-size: .95rem;
+    font-weight: 800;
+    line-height: 1.25;
+    color: var(--ui-admin-text);
+}
+
+.contacts-page .contacts-message-modal .contacts-message-panel-sub {
+    flex: 0 0 auto;
+    padding-top: .1rem;
+    color: var(--ui-admin-text-muted);
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-panel-body {
+    display: grid;
+    gap: .85rem;
+    padding: 14px 16px;
+}
+
+.contacts-page .contacts-message-body-text {
+    padding: 14px 16px;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--contacts-radius);
+    background: var(--ui-admin-surface-alt);
+    white-space: pre-wrap;
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-source-note,
+.contacts-page .contacts-message-modal .contacts-message-compose-note {
+    display: flex;
+    align-items: flex-start;
+    gap: .45rem;
+    padding: 10px 12px;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--contacts-radius);
+    background: color-mix(in srgb, var(--ui-admin-surface-alt) 70%, var(--ui-admin-surface));
+    color: var(--ui-admin-text-secondary);
+    font-size: .84rem;
+    line-height: 1.5;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-compose-note {
+    margin: 0;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-source-note i,
+.contacts-page .contacts-message-modal .contacts-message-compose-note i {
+    margin-top: .1rem;
+    color: var(--ui-admin-primary);
+    flex-shrink: 0;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-reply-box {
+    padding: 14px 16px;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--contacts-radius);
+    background: var(--ui-admin-surface-alt);
+}
+
+.contacts-page .contacts-message-modal .contacts-message-reply-box .contacts-message-body-text {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-panel-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    color: var(--ui-admin-text-secondary);
+    font-size: .82rem;
+    line-height: 1.5;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-panel-foot span {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-compose-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-actions-inline {
+    justify-content: flex-start;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-rail-list {
+    display: grid;
+    gap: .75rem;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-rail-item {
+    display: grid;
+    gap: .25rem;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-rail-label {
+    color: var(--ui-admin-text-muted);
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.contacts-page .contacts-message-modal .contacts-message-rail-value {
+    color: var(--ui-admin-text);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
 }
 
 .contacts-page .contacts-message-modal-body .ui-admin-stack-sm {
@@ -722,6 +963,14 @@
 .contacts-page .contacts-message-actions-spaced {
     justify-content: flex-end;
     margin-top: 4px;
+    padding: 12px 14px;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: var(--contacts-radius);
+    background: color-mix(in srgb, var(--ui-admin-surface-alt) 68%, var(--ui-admin-surface));
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    backdrop-filter: blur(6px);
 }
 
 .contacts-page .contacts-message-actions-spaced .ui-admin-btn,
@@ -829,7 +1078,7 @@
 
 @media (max-width: 960px) {
     .contacts-page .ui-admin-page-hero,
-    .contacts-page .contacts-message-panel-head {
+    .contacts-page .contacts-message-modal .contacts-message-panel-head {
         grid-template-columns: minmax(0, 1fr);
     }
 
@@ -852,6 +1101,10 @@
 
     .contacts-page .contacts-message-meta-grid,
     .contacts-page .contacts-message-modal-body .ui-admin-form-grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .contacts-page .contacts-message-detail-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -916,6 +1169,7 @@
 
     .contacts-page .contacts-message-modal-shell {
         max-height: calc(100dvh - 16px) !important;
+        border-radius: 16px !important;
     }
 
     .contacts-page .contacts-message-modal-head h3 {
@@ -931,6 +1185,24 @@
         padding: 12px;
     }
 
+    .contacts-page .contacts-message-summary-hero .contacts-message-title {
+        font-size: 1rem;
+    }
+
+    .contacts-page .contacts-message-timeline-item {
+        width: 100%;
+        justify-content: flex-start;
+        white-space: normal;
+    }
+
+    .contacts-page .contacts-message-modal .contacts-message-panel-head {
+        flex-direction: column;
+    }
+
+    .contacts-page .contacts-message-modal .contacts-message-panel-sub {
+        white-space: normal;
+    }
+
     .contacts-page .contacts-message-inline-card .ui-admin-premium-card-header,
     .contacts-page .contacts-message-modal-body > .ui-admin-stack.ui-admin-stack-sm:not(.contacts-message-summary) {
         padding-left: 12px;
@@ -940,6 +1212,11 @@
     .contacts-page .contacts-message-inline-card .ui-admin-premium-card-body,
     .contacts-page .contacts-message-modal-body > .ui-admin-stack.ui-admin-stack-md > form.ui-admin-stack.ui-admin-stack-md {
         padding: 12px;
+    }
+
+    .contacts-page .contacts-message-actions-spaced {
+        padding: 10px 12px;
+        border-radius: 16px;
     }
 }
 

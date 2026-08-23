@@ -1080,17 +1080,17 @@ html[data-public-theme] .messages-workspace .messages-composer-textarea:active {
 
 .messages-modal-container {
     position: relative;
-    width: 90%;
-    max-width: var(--msg-modal-width);
-    background: var(--msg-bg);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
-    display: flex;
-    flex-direction: column;
-    max-height: 85vh;
+    --ui-modal-width: var(--msg-modal-width);
+    max-height: calc(100dvh - 2rem);
     animation: messagesModalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    border: 1px solid var(--msg-border);
     overflow: hidden;
+}
+
+.messages-start-form {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
 }
 
 @keyframes messagesModalFadeIn {
@@ -1106,17 +1106,18 @@ html[data-public-theme] .messages-workspace .messages-composer-textarea:active {
 }
 
 .messages-modal-header {
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--msg-border);
     display: flex;
+    min-width: 0;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
 }
 
 .messages-modal-header h3 {
     margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1.25;
     color: var(--msg-text);
 }
 
@@ -1140,15 +1141,26 @@ html[data-public-theme] .messages-workspace .messages-composer-textarea:active {
 }
 
 .messages-modal-body {
-    padding: 1.25rem;
-    overflow-y: auto;
+    display: grid;
+    gap: 1rem;
+}
+
+.messages-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.messages-modal-footer .messages-modal-submit {
+    width: auto;
+    min-width: 11rem;
 }
 
 .messages-modal-field {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 0.4rem;
-    margin-bottom: 1.25rem;
+    margin: 0;
 }
 
 .messages-modal-field label {
@@ -1212,7 +1224,7 @@ html[data-public-theme] .messages-workspace .messages-composer-textarea:active {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    width: 100%;
+    width: auto;
     min-height: 44px;
     padding: 0 1.5rem;
     border: none;
@@ -1240,6 +1252,13 @@ html[data-public-theme] .messages-workspace .messages-composer-textarea:active {
 
 .messages-modal-submit i {
     font-size: 1.1rem;
+}
+
+@media (max-width: 640px) {
+    .messages-modal-footer .messages-modal-submit {
+        width: 100%;
+        min-width: 0;
+    }
 }
 
 /* ============================================================

@@ -6888,9 +6888,10 @@ body:has(.topic-layout) #main-content {
 
 .topic-report-login {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     flex-wrap: wrap;
     gap: .65rem;
+    padding: 1.1rem 1.25rem 1.25rem;
     color: var(--text-dim);
 }
 
@@ -6901,10 +6902,12 @@ body.topic-report-modal-open {
 .topic-report-dialog {
     width: min(680px, 100%);
     max-height: min(760px, calc(100vh - 2.5rem));
+    display: flex;
+    flex-direction: column;
     gap: 0;
     padding: 0;
     border-radius: 20px;
-    overflow: auto;
+    overflow: hidden;
     box-shadow: 0 28px 90px rgba(0, 0, 0, .38);
 }
 
@@ -6944,6 +6947,12 @@ body.topic-report-modal-open {
 }
 
 .topic-report-form {
+    display: grid;
+    gap: .95rem;
+    padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.user-report-form {
     display: grid;
     gap: .95rem;
     padding: 1.1rem 1.25rem 1.25rem;
@@ -7071,6 +7080,10 @@ body.topic-report-modal-open {
     }
 
     .topic-report-form {
+        padding: 1rem;
+    }
+
+    .user-report-form {
         padding: 1rem;
     }
 

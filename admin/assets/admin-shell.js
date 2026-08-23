@@ -7,7 +7,7 @@
 
     function dispatchInlineFlashes() {
         var container = toastContainer();
-        if (!container || typeof window.showToast !== "function") {
+        if (!container) {
             return;
         }
         if (!window.showToast._uiFoundationEnhanced || container.dataset.uiFoundationFlashDispatched === "1") {
@@ -163,7 +163,7 @@
                 return;
             }
 
-            if (message && !footerFlashMessages.has(message) && typeof window.showToast === "function") {
+            if (message && !footerFlashMessages.has(message)) {
                 window.showToast(message, tone);
                 footerFlashMessages.add(message);
             }

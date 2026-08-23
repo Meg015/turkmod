@@ -278,7 +278,14 @@ final class NotificationDispatchService
                 );
             }
 
-            $this->publishRealtimeEvent($recipientId, $notificationId);
+            $this->publishRealtimeEvent(
+                $recipientId,
+                $notificationId,
+                $type,
+                (string) $insertData['title'],
+                $message,
+                $link
+            );
 
             return true;
         } catch (Throwable $e) {
@@ -452,7 +459,14 @@ final class NotificationDispatchService
         }
     }
 
-    private function publishRealtimeEvent(int $recipientId, int $notificationId): void
+    private function publishRealtimeEvent(
+        int $recipientId,
+        int $notificationId,
+        string $type,
+        string $title,
+        string $message,
+        string $link
+    ): void
     {
         if ($recipientId <= 0 || $notificationId <= 0) {
             return;
@@ -461,6 +475,10 @@ final class NotificationDispatchService
         WebSocketBroadcaster::publish($recipientId, [
             'type' => 'notification',
             'notification_id' => $notificationId,
+            'notification_type' => $type,
+            'title' => $title,
+            'message' => $message,
+            'link' => $link,
         ]);
     }
 

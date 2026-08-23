@@ -3,9 +3,7 @@ function mediaManagerToast(message, type = 'info', duration) {
         window.adminToast[type](message, duration);
         return;
     }
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type, duration);
-    }
+    window.showToast(message, type, duration);
 }
 
 function escapeHtml(value) {
@@ -52,20 +50,12 @@ function openMediaPreview(el) {
 
     var modal = document.getElementById('mediaPreviewModal');
     if (modal) {
-        if (window.adminDialog && typeof window.adminDialog.open === 'function') {
-            window.adminDialog.open(modal, {
-                bodyClass: 'ui-admin-dialog-open',
-                initialFocus: '#mediaPreviewClose',
-                returnFocus: document.activeElement,
-                onClose: resetMediaPreviewContent
-            });
-            modal.classList.add('active', 'ui-admin-modal-open');
-        } else {
-            modal.hidden = false;
-            modal.setAttribute('aria-hidden', 'false');
-            modal.classList.add('active', 'is-open', 'ui-admin-modal-open');
-            document.body.classList.add('ui-admin-dialog-open');
-        }
+        window.adminModal.open(modal, {
+            bodyClass: 'ui-admin-dialog-open',
+            initialFocus: '#mediaPreviewClose',
+            returnFocus: document.activeElement,
+            onClose: resetMediaPreviewContent
+        });
     }
     
     // Check usage
@@ -108,18 +98,10 @@ function openMediaPreview(el) {
 function closeMediaPreview() {
     var modal = document.getElementById('mediaPreviewModal');
     if (modal) {
-        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
-            window.adminDialog.close(modal, function () {
-                modal.classList.remove('active', 'ui-admin-modal-open');
-                resetMediaPreviewContent();
-            });
+        window.adminModal.close(modal, function () {
             modal.classList.remove('active', 'ui-admin-modal-open');
-            return;
-        }
-        modal.classList.remove('active', 'is-open', 'ui-admin-modal-open');
-        modal.setAttribute('aria-hidden', 'true');
-        modal.hidden = true;
-        document.body.classList.remove('ui-admin-dialog-open');
+            resetMediaPreviewContent();
+        });
     }
     resetMediaPreviewContent();
 }

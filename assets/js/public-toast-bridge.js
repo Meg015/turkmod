@@ -72,9 +72,6 @@
         if (!container || container.classList.contains('is-hidden')) {
             return false;
         }
-        if (typeof window.showToast !== 'function') {
-            return false;
-        }
         if (!isPublicSurface()) {
             return false;
         }

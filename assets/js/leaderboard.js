@@ -102,7 +102,7 @@
         const fallbackAvatarUrl = getLocalAssetUrl('assets/images/noavatar-neon-helmet.svg');
         const apiUrl = `${baseUri}/api/leaderboard?category=daily_login&period=${period}&limit=5`;
 
-        (window.publicFetchJson ? window.publicFetchJson(apiUrl) : Promise.reject(new Error('Public API helper yuklenemedi.')))
+        window.publicFetchJson(apiUrl)
             .then(data => {
                 if (data.success && data.data) {
                     renderWidgetUsers(data.data, widgetList, fallbackAvatarUrl);

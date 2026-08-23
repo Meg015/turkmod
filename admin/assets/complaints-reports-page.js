@@ -1,30 +1,15 @@
 function openComplaintsModal(modal, trigger) {
     if (!modal) return;
-    if (window.adminDialog && typeof window.adminDialog.open === 'function') {
-        window.adminDialog.open(modal, {
-            bodyClass: 'ui-admin-dialog-open',
-            initialFocus: '[data-complaints-modal-close]',
-            returnFocus: trigger || document.activeElement
-        });
-        return;
-    }
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
-    modal.classList.add('is-open', 'ui-admin-modal-open');
-    document.body.classList.add('ui-admin-dialog-open');
-    modal.querySelector('[data-complaints-modal-close]')?.focus();
+    window.adminModal.open(modal, {
+        bodyClass: 'ui-admin-dialog-open',
+        initialFocus: '[data-complaints-modal-close]',
+        returnFocus: trigger || document.activeElement
+    });
 }
 
 function closeComplaintsModal(modal) {
     if (!modal) return;
-    if (window.adminDialog && typeof window.adminDialog.close === 'function') {
-        window.adminDialog.close(modal);
-        return;
-    }
-    modal.hidden = true;
-    modal.setAttribute('aria-hidden', 'true');
-    modal.classList.remove('is-open', 'ui-admin-modal-open');
-    document.body.classList.remove('ui-admin-dialog-open');
+    window.adminModal.close(modal);
 }
 
 function initComplaintsModalDelegates() {
@@ -59,7 +44,6 @@ function initComplaintsModalDelegates() {
         }
     });
     document.addEventListener('keydown', function(event) {
-        if (window.adminDialog && typeof window.adminDialog.open === 'function') return;
         if (event.key !== 'Escape') return;
         document.querySelectorAll('.complaints-modal:not([hidden])').forEach(function(modal) {
             closeComplaintsModal(modal);

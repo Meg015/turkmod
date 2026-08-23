@@ -32,9 +32,7 @@ function syncEditDownloadRowsToHidden() {
 }
 
 function initEditPageEditor() {
-    if (window.TMUI && typeof window.TMUI.registerAction === 'function') {
-        window.TMUI.registerAction('addDlRow', function() { addDlRow(); });
-    }
+    window.TMUI.registerAction('addDlRow', function() { addDlRow(); });
 
     document.getElementById('topicForm')?.addEventListener('submit', syncEditDownloadRowsToHidden);
 }

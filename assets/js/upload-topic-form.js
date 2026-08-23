@@ -23,9 +23,7 @@ function addDlRow(name, url) {
     document.getElementById('dlRows').appendChild(row);
     bindUploadRuleInputs(row);
 }
-if (window.TMUI && typeof window.TMUI.registerAction === 'function') {
-    window.TMUI.registerAction('addDlRow', function() { addDlRow(); });
-}
+window.TMUI.registerAction('addDlRow', function() { addDlRow(); });
 
 function setUploadLiveHint(key, message, state) {
     const hint = document.querySelector('[data-live-hint="' + key + '"]');
@@ -288,11 +286,9 @@ function syncInputFiles(input, files) {
     input.files = dt.files;
 }
 
-function notifyUploadImageRule(message, type) {
-    if (window.showToast) {
+    function notifyUploadImageRule(message, type) {
         window.showToast(message, type || 'warning');
         return;
-    }
     console.warn(message);
 }
 
@@ -645,10 +641,8 @@ const uploadWizard = (function() {
     let current = 1;
 
     function notify(message) {
-        if (window.showToast) {
-            window.showToast(message, 'warning');
-            return;
-        }
+        window.showToast(message, 'warning');
+        return;
         console.warn(message);
     }
 
@@ -789,7 +783,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
 
     const form = this;
     if (form.dataset.submitting === '1' || form.dataset.submitted === '1') {
-        window.showToast?.('Bu konu zaten gönderiliyor veya gönderildi.', 'warning', {
+        window.showToast('Bu konu zaten gönderiliyor veya gönderildi.', 'warning', {
             solution: 'Yükleme bittikten sonra Profil > Konularım ekranından durumunu kontrol edebilirsiniz.',
             actionLabel: 'Konularım',
             actionUrl: document.getElementById('uploadForm')?.getAttribute('data-profile-topics-url') || '#'
@@ -821,7 +815,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     const coverInput = document.getElementById('publicCoverInput');
     const maxImages = Number(form.dataset.maxImages || 10);
     if (filesInput && filesInput.files.length > maxImages) {
-        window.showToast?.('En fazla ' + maxImages + ' adet resim yükleyebilirsiniz.', 'error', {
+        window.showToast('En fazla ' + maxImages + ' adet resim yükleyebilirsiniz.', 'error', {
             solution: 'Fazla görselleri kaldırıp tekrar gönderin.'
         });
         return;
@@ -866,10 +860,6 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     }
 
     try {
-        if (!window.publicFetchJson) {
-            throw new Error('Public API helper yuklenemedi.');
-        }
-
         const payload = await window.publicFetchJson(form.action, {
             method: 'POST',
             body: new FormData(form),
@@ -888,7 +878,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
             form.dataset.submitted = '1';
         }
         clearUploadTopicDraft();
-        window.showToast?.(payload.message || 'Mod kaydedildi.', 'success', {
+        window.showToast(payload.message || 'Mod kaydedildi.', 'success', {
             actionLabel: 'Konularım',
             actionUrl: document.getElementById('uploadForm')?.getAttribute('data-profile-draft-url') || '#'
         });
@@ -914,7 +904,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
             submitButton.classList.add('is-submit-locked');
             submitButton.innerHTML = '<i class="bi bi-lock"></i> Gönderim Kilitlendi';
         }
-        window.showToast?.(error.message || 'Mod gönderilemedi.', 'error', {
+        window.showToast(error.message || 'Mod gönderilemedi.', 'error', {
             solution: 'Zorunlu alanları, görsel limitlerini ve indirme linkini kontrol edip tekrar deneyin.'
         });
         if (submitButton && form.dataset.submitted !== '1') {

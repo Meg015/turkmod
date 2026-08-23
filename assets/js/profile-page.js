@@ -59,16 +59,12 @@
                     return;
                 }
                 if (!allowedTypes.includes(file.type)) {
-                    if (window.showToast) {
-                        window.showToast("Lütfen JPG, PNG, WebP veya GIF seçin.", "warning");
-                    }
+                    window.showToast("Lütfen JPG, PNG, WebP veya GIF seçin.", "warning");
                     clearPreview();
                     return;
                 }
                 if (file.size > maxSize) {
-                    if (window.showToast) {
-                        window.showToast("Profil fotoğrafı en fazla 2 MB olabilir.", "warning");
-                    }
+                    window.showToast("Profil fotoğrafı en fazla 2 MB olabilir.", "warning");
                     clearPreview();
                     return;
                 }
@@ -110,9 +106,7 @@
         form.addEventListener("submit", function (event) {
             if (!input || !input.files || !input.files.length) {
                 event.preventDefault();
-                if (window.showToast) {
-                    window.showToast("Önce bir profil fotoğrafı seçin.", "warning");
-                }
+                window.showToast("Önce bir profil fotoğrafı seçin.", "warning");
             }
         });
     }
@@ -128,9 +122,7 @@
             var confirmPassword = document.getElementById("pw_confirm");
             if (newPassword && confirmPassword && newPassword.value !== confirmPassword.value) {
                 event.preventDefault();
-                if (window.showToast) {
-                    window.showToast("Şifreler eşleşmiyor.", "warning");
-                }
+                window.showToast("Şifreler eşleşmiyor.", "warning");
                 confirmPassword.focus();
             }
         });

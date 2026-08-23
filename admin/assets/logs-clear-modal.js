@@ -10,34 +10,17 @@ function initLogsClearModal() {
     function openClearLogsModal() {
         const dialog = modal();
         if (!dialog) return;
-        if (window.adminDialog && typeof window.adminDialog.open === 'function') {
-            window.adminDialog.open(dialog, {
-                bodyClass: 'ui-admin-dialog-open',
-                initialFocus: '[data-clear-logs-scope], select[name="scope"], select[name="action"]',
-                returnFocus: document.activeElement
-            });
-            return;
-        }
-        dialog.hidden = false;
-        dialog.setAttribute('aria-hidden', 'false');
-        dialog.classList.add('is-open', 'ui-admin-modal-open');
-        dialog.classList.remove('is-closing');
-        scopeSelect(dialog.querySelector('form'))?.focus();
+        window.adminModal.open(dialog, {
+            bodyClass: 'ui-admin-dialog-open',
+            initialFocus: '[data-clear-logs-scope], select[name="scope"], select[name="action"]',
+            returnFocus: document.activeElement
+        });
     }
 
     function closeClearLogsModal() {
         const dialog = modal();
         if (!dialog) return;
-        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
-            window.adminDialog.close(dialog);
-            return;
-        }
-        dialog.classList.add('is-closing');
-        setTimeout(() => {
-            dialog.classList.remove('is-open', 'is-closing', 'ui-admin-modal-open');
-            dialog.hidden = true;
-            dialog.setAttribute('aria-hidden', 'true');
-        }, 160);
+        window.adminModal.close(dialog);
     }
 
     function updateDependentFields(form) {

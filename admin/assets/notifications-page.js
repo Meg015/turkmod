@@ -244,10 +244,14 @@ function initNotificationTemplatePreviews(adminNotificationsPageData) {
         activeForm = form;
         restoreFocus = trigger || null;
         renderModalPreview(form);
-        modal.hidden = false;
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('notification-preview-modal-open');
-        closeButton?.focus();
+        window.adminModal.open(modal, {
+            bodyClass: 'notification-preview-modal-open',
+            returnFocus: restoreFocus,
+            initialFocus: '[data-notification-preview-close]',
+            onClose: function () {
+                activeForm = null;
+            }
+        });
     };
 
     const closePreview = function () {
@@ -255,15 +259,8 @@ function initNotificationTemplatePreviews(adminNotificationsPageData) {
             return;
         }
 
-        modal.hidden = true;
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('notification-preview-modal-open');
+        window.adminModal.close(modal);
         activeForm = null;
-
-        if (restoreFocus && document.contains(restoreFocus)) {
-            restoreFocus.focus();
-        }
-        restoreFocus = null;
     };
 
     const keepFocusInsideModal = function (event) {
@@ -323,8 +320,7 @@ function initNotificationTemplatePreviews(adminNotificationsPageData) {
     if (modal.dataset.notificationPreviewEscapeBound !== '1') {
         modal.dataset.notificationPreviewEscapeBound = '1';
         document.addEventListener('keydown', function (event) {
-            keepFocusInsideModal(event);
-            if (event.key === 'Escape') {
+            if (event.key === 'Escape' && modal && !modal.hidden) {
                 closePreview();
             }
         });
@@ -530,10 +526,14 @@ function initAccountEmailTemplates(adminNotificationsPageData) {
         activeCard = card;
         restoreFocus = trigger || null;
         refreshAccountModal(card);
-        modal.hidden = false;
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('notification-preview-modal-open');
-        closeButton?.focus();
+        window.adminModal.open(modal, {
+            bodyClass: 'notification-preview-modal-open',
+            returnFocus: restoreFocus,
+            initialFocus: '[data-notification-preview-close]',
+            onClose: function () {
+                activeCard = null;
+            }
+        });
     };
 
     const closeAccountPreview = function () {
@@ -541,16 +541,8 @@ function initAccountEmailTemplates(adminNotificationsPageData) {
         if (!modal) {
             return;
         }
-        if (!modal.hidden) {
-            modal.hidden = true;
-            modal.setAttribute('aria-hidden', 'true');
-            document.body.classList.remove('notification-preview-modal-open');
-        }
+        window.adminModal.close(modal);
         activeCard = null;
-        if (shouldRestore && restoreFocus && document.contains(restoreFocus)) {
-            restoreFocus.focus();
-        }
-        restoreFocus = null;
     };
 
     ensureAccountEmailRichEditors();
@@ -914,10 +906,14 @@ function initAdminEmailTemplates(adminNotificationsPageData) {
         activeCard = card;
         restoreFocus = trigger || null;
         refreshAdminModal(card);
-        modal.hidden = false;
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('notification-preview-modal-open');
-        closeButton?.focus();
+        window.adminModal.open(modal, {
+            bodyClass: 'notification-preview-modal-open',
+            returnFocus: restoreFocus,
+            initialFocus: '[data-notification-preview-close]',
+            onClose: function () {
+                activeCard = null;
+            }
+        });
     };
 
     const closeAdminPreview = function () {
@@ -925,16 +921,8 @@ function initAdminEmailTemplates(adminNotificationsPageData) {
         if (!modal) {
             return;
         }
-        if (!modal.hidden) {
-            modal.hidden = true;
-            modal.setAttribute('aria-hidden', 'true');
-            document.body.classList.remove('notification-preview-modal-open');
-        }
+        window.adminModal.close(modal);
         activeCard = null;
-        if (shouldRestore && restoreFocus && document.contains(restoreFocus)) {
-            restoreFocus.focus();
-        }
-        restoreFocus = null;
     };
 
     document.querySelectorAll('[data-admin-email-card]').forEach(function (card) {
@@ -1445,9 +1433,9 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
                     ],
                     handlers: {
                         image: function () {
-                            const prompt = typeof window.appPrompt === 'function'
-                                ? window.appPrompt('Görsel adresi', { placeholder: 'https://...', ok: 'Ekle', icon: 'bi-image' })
-                                : Promise.resolve(window.prompt('Görsel URL adresi'));
+                            const prompt = typeof window.adminPrompt === 'function'
+                                ? window.adminPrompt('Görsel adresi', { input: 'url', placeholder: 'https://...', ok: 'Ekle', icon: 'bi-image' })
+                                : Promise.resolve(null);
                             prompt.then(function (url) {
                                 url = String(url || '').trim();
                                 if (!/^https?:\/\//i.test(url)) {
@@ -1580,15 +1568,11 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
                     }
                 }
             }
-            if (typeof window.showToast === 'function') {
-                window.showToast(String(data.message || 'İşlem tamamlandı.'), 'success');
-            }
+            window.showToast(String(data.message || 'İşlem tamamlandı.'), 'success');
             return data;
         } catch (error) {
             showError(error.message);
-            if (typeof window.showToast === 'function') {
-                window.showToast(error.message, 'error');
-            }
+            window.showToast(error.message, 'error');
             return null;
         } finally {
             setBusy(button, false);
@@ -1649,9 +1633,9 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
                 return;
             }
             const count = Number(config.eligibleCount || 0).toLocaleString('tr-TR');
-            const confirmed = typeof window.appConfirm === 'function'
-                ? await window.appConfirm(count + ' uygun üyeye gönderim kuyruğu oluşturulacak.', { title: 'Gönderim başlatılsın mı?', ok: 'Gönderimi Başlat', icon: 'bi-send' })
-                : window.confirm(count + ' uygun üyeye gönderim başlatılsın mı?');
+            const confirmed = typeof window.adminConfirm === 'function'
+                ? await window.adminConfirm(count + ' uygun üyeye gönderim kuyruğu oluşturulacak.', { title: 'Gönderim başlatılsın mı?', ok: 'Gönderimi Başlat', icon: 'bi-send' })
+                : false;
             if (confirmed) {
                 submitContentAction('start', button);
             }
@@ -1662,9 +1646,9 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
         if (actionButton && progressCard) {
             const action = String(actionButton.dataset.bulkAction || '');
             if (action === 'cancel') {
-                const confirmed = typeof window.appConfirm === 'function'
-                    ? await window.appConfirm('Henüz gönderilmemiş alıcılar iptal edilecek.', { title: 'Kampanya iptal edilsin mi?', ok: 'İptal Et', icon: 'bi-x-octagon' })
-                    : window.confirm('Kampanya iptal edilsin mi?');
+                const confirmed = typeof window.adminConfirm === 'function'
+                    ? await window.adminConfirm('Henüz gönderilmemiş alıcılar iptal edilecek.', { title: 'Kampanya iptal edilsin mi?', ok: 'İptal Et', icon: 'bi-x-octagon' })
+                    : false;
                 if (!confirmed) {
                     return;
                 }
@@ -1673,10 +1657,10 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
             try {
                 const data = await request(action, { campaign_id: progressCard.dataset.campaignId || '' });
                 updateProgress(data.campaign);
-                window.showToast?.(String(data.message || 'Kampanya güncellendi.'), 'success');
+                window.showToast(String(data.message || 'Kampanya güncellendi.'), 'success');
             } catch (error) {
                 showError(error.message);
-                window.showToast?.(error.message, 'error');
+                window.showToast(error.message, 'error');
             } finally {
                 setBusy(actionButton, false);
                 updateLifecycleControls(currentCampaign);

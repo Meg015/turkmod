@@ -427,7 +427,7 @@ $renderWheelRewardForm = static function (array $reward, string $panelKey, bool 
                     <?php endif; ?>
                 </div>
 
-                <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-events-wheel-detail-panel ui-panel" data-ui-events-wheel-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Cark ayarlari" hidden>
+                <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-events-wheel-detail-panel ui-admin-modal-shell ui-modal-shell ui-panel" data-ui-events-wheel-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Cark ayarlari" hidden>
                     <?php $renderWheelConfigForm($config, (string)($baseUri ?? '')); ?>
                     <?php $renderWheelRewardForm($newReward, 'new', $initialRewardKey === 'new', (string)($baseUri ?? ''), $totalActiveWeight, $wheelStockLabel, $wheelChanceLabel); ?>
                     <?php foreach ($rewards as $reward): ?>

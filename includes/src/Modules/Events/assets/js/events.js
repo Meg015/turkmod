@@ -59,12 +59,7 @@
     }
 
     function csrfToken() {
-        if (window.publicApi && typeof window.publicApi.csrfToken === 'function') {
-            return window.publicApi.csrfToken();
-        }
-
-        var meta = document.querySelector('meta[name="csrf-token"]');
-        return meta ? meta.getAttribute('content') || '' : '';
+        return window.publicApi.csrfToken();
     }
 
     function baseUri() {
@@ -442,17 +437,21 @@
         modal = document.createElement('div');
         modal.className = 'ui-events-confirm-modal';
         modal.setAttribute('data-ui-events-confirm-modal', '');
-        modal.setAttribute('role', 'dialog');
-        modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-labelledby', 'ui-events-confirm-title');
         modal.setAttribute('hidden', '');
         modal.setAttribute('aria-hidden', 'true');
         modal.innerHTML =
             '<div class="ui-events-confirm-backdrop" data-ui-events-confirm-cancel data-ui-modal-close></div>' +
-            '<div class="ui-events-confirm-dialog">' +
-                '<div class="ui-events-confirm-icon"><i class="bi bi-exclamation-triangle"></i></div>' +
-                '<div class="ui-events-confirm-copy"><h3 id="ui-events-confirm-title"></h3><p data-ui-events-confirm-message></p></div>' +
-                '<div class="ui-events-confirm-actions">' +
+            '<div class="ui-events-confirm-dialog ui-dialog-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="ui-events-confirm-title" aria-describedby="ui-events-confirm-message">' +
+                '<div class="ui-events-confirm-head ui-modal__head ui-panel__head">' +
+                    '<div class="ui-events-confirm-head-copy">' +
+                        '<div class="ui-events-confirm-icon"><i class="bi bi-question-circle"></i></div>' +
+                        '<div class="ui-events-confirm-copy"><h3 id="ui-events-confirm-title"></h3></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="ui-events-confirm-body ui-modal__body ui-panel__body">' +
+                    '<p id="ui-events-confirm-message" data-ui-events-confirm-message></p>' +
+                '</div>' +
+                '<div class="ui-events-confirm-actions ui-modal__foot ui-panel__foot">' +
                     '<button type="button" class="ui-events-btn ui-events-btn-secondary" data-ui-events-confirm-cancel>Vazgeç</button>' +
                     '<button type="button" class="ui-events-btn ui-events-btn-primary" data-ui-events-confirm-ok>Onayla</button>' +
                 '</div>' +
@@ -467,11 +466,21 @@
         var message = modal.querySelector('[data-ui-events-confirm-message]');
         var okButton = modal.querySelector('[data-ui-events-confirm-ok]');
         var cancelButtons = modal.querySelectorAll('[data-ui-events-confirm-cancel]');
+        var icon = modal.querySelector('.ui-events-confirm-icon i');
 
         title.textContent = options.title || 'İşlemi onayla';
         message.textContent = options.message || 'Bu işlem uygulanacak.';
         okButton.textContent = options.confirmLabel || 'Onayla';
         okButton.className = 'ui-events-btn ' + (options.tone === 'danger' ? 'ui-events-btn-danger' : 'ui-events-btn-primary');
+        if (icon) {
+            icon.className = 'bi ' + (options.tone === 'danger'
+                ? 'bi-exclamation-octagon'
+                : options.tone === 'warning'
+                    ? 'bi-exclamation-triangle'
+                    : options.tone === 'success'
+                        ? 'bi-check2-circle'
+                        : 'bi-question-circle');
+        }
         cancelButtons.forEach(function (button) {
             if (button.tagName === 'BUTTON') button.textContent = options.cancelLabel || 'Vazgeç';
         });
@@ -487,41 +496,24 @@
                 settled = true;
                 okButton.removeEventListener('click', onOk);
                 cancelButtons.forEach(function (button) { button.removeEventListener('click', onCancel); });
-                document.removeEventListener('keydown', onKeydown);
-                if (controller && modal._tmuiDialog) {
+                if (controller) {
                     controller.close(true);
-                } else {
-                    modal.hidden = true;
-                    modal.setAttribute('aria-hidden', 'true');
-                    document.body.classList.remove('ui-events-confirm-open');
                 }
                 resolve(result);
             };
             var onOk = function () { cleanup(true); };
             var onCancel = function () { cleanup(false); };
-            var onKeydown = function (event) {
-                if (window.TMUI && typeof window.TMUI.openDialog === 'function') return;
-                if (event.key === 'Escape') cleanup(false);
-            };
 
             okButton.addEventListener('click', onOk);
             cancelButtons.forEach(function (button) { button.addEventListener('click', onCancel); });
-            if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-                controller = window.TMUI.openDialog(modal, {
-                    bodyClass: 'ui-events-confirm-open',
-                    initialFocus: '[data-ui-events-confirm-ok]',
-                    returnFocus: document.activeElement,
-                    onClose: function () {
-                        cleanup(false);
-                    }
-                });
-            } else {
-                modal.hidden = false;
-                modal.setAttribute('aria-hidden', 'false');
-                document.body.classList.add('ui-events-confirm-open');
-                okButton.focus();
-                document.addEventListener('keydown', onKeydown);
-            }
+            controller = window.TMUI.openDialog(modal, {
+                bodyClass: 'ui-events-confirm-open',
+                initialFocus: '[data-ui-events-confirm-ok]',
+                returnFocus: document.activeElement,
+                onClose: function () {
+                    cleanup(false);
+                }
+            });
         });
     }
 
@@ -539,16 +531,10 @@
     }
 
     function eventsToast(message, type, duration) {
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type || 'info', duration);
-        }
+        window.showToast(message, type || 'info', duration);
     }
 
     async function postJson(url, payload) {
-        if (typeof window.publicFetchJson !== 'function') {
-            throw new Error('Public API helper yuklenemedi.');
-        }
-
         return window.publicFetchJson(url, {
             method: 'POST',
             headers: {
@@ -1291,9 +1277,6 @@
         }
     });
     function pollToastNotifications() {
-        if (typeof window.showToast !== 'function') return;
-        if (typeof window.publicFetchJson !== 'function') return;
-
         window.publicFetchJson(baseUri() + '/events/api/notifications?toast_poll=1', {
             notifyError: false
         })
@@ -1316,12 +1299,10 @@
     }
 
     // Start polling using dynamic interval
-    if (typeof window.showToast === 'function') {
-        var interval = window.eventsSettings && window.eventsSettings.pollingInterval ? window.eventsSettings.pollingInterval : 15000;
-        setInterval(pollToastNotifications, interval);
-        // Do an initial poll after a short delay
-        setTimeout(pollToastNotifications, 2000);
-    }
+    var interval = window.eventsSettings && window.eventsSettings.pollingInterval ? window.eventsSettings.pollingInterval : 15000;
+    setInterval(pollToastNotifications, interval);
+    // Do an initial poll after a short delay
+    setTimeout(pollToastNotifications, 2000);
 
     // --- PUAN HISTORY FILTERING ---
     var filterButtons = document.querySelectorAll('.ui-events-filter-btn');

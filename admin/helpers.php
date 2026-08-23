@@ -422,7 +422,7 @@ function adminRenderBadge(string $label, array $options = []): string
     $tone = adminNormalizeTone((string) ($options['tone'] ?? 'muted'));
     $size = adminUiClass((string) ($options['size'] ?? ''));
     $sizeClass = $size !== '' ? 'ui-admin-badge-' . $size : '';
-    $class = trim(adminUiClass('ui-admin-badge admin-badge ' . adminToneBadgeClass($tone) . ' admin-badge-' . $tone . ' ' . $sizeClass . ' ' . (string) ($options['class'] ?? '')));
+    $class = trim(adminUiClass('ui-admin-badge admin-badge ui-status ui-status--' . $tone . ' ' . adminToneBadgeClass($tone) . ' admin-badge-' . $tone . ' ' . $sizeClass . ' ' . (string) ($options['class'] ?? '')));
     $attrs = (array) ($options['attrs'] ?? []);
     if (!empty($options['title'])) {
         $attrs['title'] = (string) $options['title'];

@@ -1,48 +1,42 @@
 (function () {
     "use strict";
 
-    function getCsrfToken() {
-        if (window.publicApi && typeof window.publicApi.csrfToken === "function") {
-            return window.publicApi.csrfToken();
-        }
+    function getPublicApi() {
+        return window.publicApi && typeof window.publicApi === "object" ? window.publicApi : null;
+    }
 
-        var meta = document.querySelector('meta[name="csrf-token"]');
-        return meta ? meta.getAttribute("content") || "" : "";
+    function getCsrfToken() {
+        var api = getPublicApi();
+        return api && typeof api.csrfToken === "function" ? api.csrfToken() : "";
     }
 
     function setCsrfToken(token) {
-        if (window.publicApi && typeof window.publicApi.updateCsrfToken === "function") {
-            window.publicApi.updateCsrfToken(token);
-            return;
-        }
-        if (!token) {
-            return;
-        }
-
-        var meta = document.querySelector('meta[name="csrf-token"]');
-        if (meta) {
-            meta.setAttribute("content", token);
+        var api = getPublicApi();
+        if (api && typeof api.updateCsrfToken === "function") {
+            api.updateCsrfToken(token);
         }
     }
 
     function notifyError(error, defaultMessage) {
         var message = error && error.message ? error.message : defaultMessage;
-        if (window.showToast) {
-            window.showToast(message || "Bildirim islemi tamamlanamadi.", "error");
-        }
+        window.showToast(message || "Bildirim islemi tamamlanamadi.", "error");
     }
 
     function fetchJson(url, options) {
-        if (window.publicFetchJson) {
-            return window.publicFetchJson(url, options || {}).then(function (data) {
-                if (data && (data._token || data.csrf_token)) {
-                    setCsrfToken(data._token || data.csrf_token);
-                }
-                return data;
-            });
+        var apiFetch = typeof window.publicFetchJson === "function"
+            ? window.publicFetchJson
+            : (getPublicApi() && typeof getPublicApi().fetchJson === "function" ? getPublicApi().fetchJson.bind(getPublicApi()) : null);
+
+        if (typeof apiFetch !== "function") {
+            return Promise.reject(new Error("Public API helper yuklenemedi."));
         }
 
-        return Promise.reject(new Error("Public API helper yuklenemedi."));
+        return apiFetch(url, options).then(function (data) {
+            if (data && (data._token || data.csrf_token)) {
+                setCsrfToken(data._token || data.csrf_token);
+            }
+            return data;
+        });
     }
 
     function createState(iconClass, text) {
@@ -67,6 +61,22 @@
 
     function isApiSuccess(data) {
         return !!data && (data.ok === true || data.success === true);
+    }
+
+    function updateTopbarMessageBadge(count) {
+        var nextCount = Number(count);
+        if (!Number.isFinite(nextCount) || nextCount < 0) {
+            return;
+        }
+
+        if (window.publicTopbarRealtime && typeof window.publicTopbarRealtime.broadcastMessageBadgeCount === "function") {
+            window.publicTopbarRealtime.broadcastMessageBadgeCount(nextCount);
+            return;
+        }
+
+        if (window.publicTopbar && typeof window.publicTopbar.setMessageBadgeCount === "function") {
+            window.publicTopbar.setMessageBadgeCount(nextCount);
+        }
     }
 
     function initNotificationMenu(root) {
@@ -180,6 +190,9 @@
                             if (typeof data.unread_count !== "undefined") {
                                 updateNotificationBadge(Number(data.unread_count || 0));
                             }
+                            if (typeof data.messages_unread_count !== "undefined") {
+                                updateTopbarMessageBadge(data.messages_unread_count);
+                            }
                             return data;
                         })
                         .then(function () {
@@ -251,8 +264,12 @@
                     if (!isApiSuccess(data)) {
                         throw new Error(data.message || "Bildirimler güncellenemedi.");
                     }
-                    if (window.showToast) {
-                        window.showToast("Bildirimler okundu olarak işaretlendi.", "success");
+                    window.showToast("Bildirimler okundu olarak işaretlendi.", "success");
+                    if (typeof data.messages_unread_count !== "undefined") {
+                        updateTopbarMessageBadge(data.messages_unread_count);
+                    }
+                    if (window.publicTopbar && typeof window.publicTopbar.refreshMessages === "function") {
+                        window.publicTopbar.refreshMessages();
                     }
                     fetchNotifications();
                     if (notificationUrl) {

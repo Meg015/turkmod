@@ -318,6 +318,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 $selectedMessageStatusMeta = $selectedMessage ? adminContactsStatusMeta($statusLabels, (string) ($selectedMessage['status'] ?? 'new')) : $statusLabels['new'];
 $selectedMessageEmailMeta = $selectedMessage ? adminContactsEmailStatusMeta($emailStatusLabels, (string) ($selectedMessage['admin_reply_email_status'] ?? 'pending')) : $emailStatusLabels['pending'];
 $selectedMessageIsUnread = $selectedMessage ? empty($selectedMessage['seen_at']) : false;
+$selectedMessageCreatedAt = $selectedMessage ? adminContactsDate((string) ($selectedMessage['created_at'] ?? 'now')) : '';
+$selectedMessageSeenAt = $selectedMessage && !empty($selectedMessage['seen_at'])
+    ? adminContactsDate((string) $selectedMessage['seen_at'])
+    : 'Henüz görülmedi';
+$selectedMessageReplySentAt = $selectedMessage && !empty($selectedMessage['admin_reply_sent_at'])
+    ? adminContactsDate((string) $selectedMessage['admin_reply_sent_at'])
+    : 'Henüz gönderilmedi';
+$selectedMessageReplyAdminName = $selectedMessage ? trim((string) ($selectedMessage['reply_admin_name_display'] ?? '')) : '';
+$selectedMessageReplyAdminId = $selectedMessage ? (int) ($selectedMessage['admin_reply_admin_id'] ?? 0) : 0;
+$selectedMessageSubmittedIp = $selectedMessage && trim((string) ($selectedMessage['submitted_ip'] ?? '')) !== ''
+    ? (string) $selectedMessage['submitted_ip']
+    : '—';
+$selectedMessageUserAgent = $selectedMessage
+    ? adminContactsShortValue((string) ($selectedMessage['submitted_user_agent'] ?? '—'), 120)
+    : '—';
 $activeMessageCount = (int) ($messageStats['new'] ?? 0);
 $categoryStats = [
     'total' => count($categories),
@@ -536,163 +551,263 @@ require_once __DIR__ . '/header.php';
         </section>
 
         <?php if ($selectedMessage): ?>
-            <div class="ui-admin-detail-overlay is-open" id="contactMessageModal" role="dialog" aria-modal="true" aria-labelledby="contactMessageModalTitle">
-                <div class="ui-admin-detail-modal contacts-message-modal contacts-message-modal-shell">
-                    <div class="ui-admin-detail-modal-head contacts-message-modal-head">
-                        <h3 id="contactMessageModalTitle"><i class="bi bi-card-text"></i> Mesaj Detayı #<?= (int) $selectedMessage['id'] ?></h3>
+            <div class="ui-admin-detail-overlay ui-admin-modal-overlay is-open" id="contactMessageModal" role="dialog" aria-modal="true" aria-labelledby="contactMessageModalTitle">
+                <div class="ui-admin-detail-modal ui-admin-modal-shell ui-modal-shell contacts-message-modal contacts-message-modal-shell">
+                    <div class="ui-admin-detail-modal-head ui-modal__head contacts-message-modal-head">
+                        <div class="contacts-message-modal-head-copy">
+                            <span class="contacts-message-kicker">İletişim mesajı</span>
+                            <h3 id="contactMessageModalTitle"><i class="bi bi-card-text"></i> Mesaj #<?= (int) $selectedMessage['id'] ?></h3>
+                            <p class="contacts-message-head-note">Public formdan gelen kayıt, gönderilen mesaj, yanıt ve teknik bilgiler tek ekranda.</p>
+                        </div>
                         <a href="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-detail-close" data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></a>
                     </div>
-                    <div class="ui-admin-detail-modal-body contacts-message-modal-body">
-                        <div class="ui-admin-stack ui-admin-stack-md">
-                            <div class="ui-admin-stack ui-admin-stack-sm contacts-message-summary">
-                                <div class="contacts-message-badges">
-                                    <span class="ui-admin-badge ui-admin-badge-muted">#<?= (int) $selectedMessage['id'] ?></span>
-                                    <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars((string) $selectedMessageStatusMeta['class'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $selectedMessageStatusMeta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $selectedMessageStatusMeta['label'], ENT_QUOTES, 'UTF-8') ?></span>
-                                    <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars((string) $selectedMessageEmailMeta['class'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $selectedMessageEmailMeta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $selectedMessageEmailMeta['label'], ENT_QUOTES, 'UTF-8') ?></span>
-                                    <?php if ($selectedMessageIsUnread): ?>
-                                        <span class="ui-admin-badge ui-admin-badge-danger"><i class="bi bi-eye-slash"></i> Görülmedi</span>
-                                    <?php endif; ?>
-                                </div>
-                                <h3 class="contacts-message-title"><?= htmlspecialchars((string) ($selectedMessage['subject'] ?? ''), ENT_QUOTES, 'UTF-8') ?></h3>
-                                <p class="ui-admin-table-cell-desc contacts-message-note">Konu snapshot’ı üzerinden tek seferlik destek/şikayet kaydı.</p>
+                    <div class="ui-admin-detail-modal-body ui-modal__body contacts-message-modal-body">
+                        <div class="contacts-message-detail-grid">
+                            <div class="contacts-message-detail-main">
+                                <section class="contacts-message-summary contacts-message-summary-hero">
+                                    <div class="contacts-message-badges">
+                                        <span class="ui-admin-badge ui-admin-badge-muted">#<?= (int) $selectedMessage['id'] ?></span>
+                                        <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars((string) $selectedMessageStatusMeta['class'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $selectedMessageStatusMeta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $selectedMessageStatusMeta['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars((string) $selectedMessageEmailMeta['class'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $selectedMessageEmailMeta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $selectedMessageEmailMeta['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <?php if ($selectedMessageIsUnread): ?>
+                                            <span class="ui-admin-badge ui-admin-badge-danger"><i class="bi bi-eye-slash"></i> Görülmedi</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <h4 class="contacts-message-title"><?= htmlspecialchars((string) ($selectedMessage['subject'] ?? ''), ENT_QUOTES, 'UTF-8') ?></h4>
+                                    <p class="contacts-message-note">Bu alan kullanıcının formdan gönderdiği orijinal mesajı ve yönetim yanıtını birlikte gösterir.</p>
+                                    <div class="contacts-message-timeline">
+                                        <span class="contacts-message-timeline-item"><i class="bi bi-send"></i> <?= htmlspecialchars($selectedMessageCreatedAt, ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="contacts-message-timeline-item"><i class="bi bi-eye"></i> <?= htmlspecialchars($selectedMessageSeenAt, ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span class="contacts-message-timeline-item"><i class="bi bi-reply"></i> <?= htmlspecialchars($selectedMessageReplySentAt, ENT_QUOTES, 'UTF-8') ?></span>
+                                    </div>
+                                </section>
+
+                                <section class="contacts-message-panel contacts-message-panel-message">
+                                    <div class="contacts-message-panel-head">
+                                        <div class="contacts-message-panel-head-copy">
+                                            <span class="contacts-message-panel-kicker"><i class="bi bi-chat-left-text"></i> Gönderilen mesaj</span>
+                                            <strong>Formdan iletilen ham içerik</strong>
+                                        </div>
+                                        <span class="contacts-message-panel-sub">Public kayıttan</span>
+                                    </div>
+                                    <div class="contacts-message-panel-body">
+                                        <div class="contacts-message-body-text"><?= htmlspecialchars((string) ($selectedMessage['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                                        <div class="contacts-message-source-note"><i class="bi bi-info-circle"></i> Bu metin kullanıcı tarafından gönderilen orijinal mesajdır.</div>
+                                    </div>
+                                </section>
+
+                                <section class="contacts-message-panel contacts-message-panel-reply">
+                                    <div class="contacts-message-panel-head">
+                                        <div class="contacts-message-panel-head-copy">
+                                            <span class="contacts-message-panel-kicker"><i class="bi bi-reply"></i> Yönetici yanıtı</span>
+                                            <strong>E-posta olarak gönderilen cevap</strong>
+                                        </div>
+                                        <span class="contacts-message-panel-sub"><?= htmlspecialchars((string) $selectedMessageEmailMeta['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                    </div>
+                                    <div class="contacts-message-panel-body">
+                                        <?php if (!empty($selectedMessage['admin_reply_body'])): ?>
+                                            <div class="contacts-message-reply-box">
+                                                <div class="contacts-message-body-text"><?= htmlspecialchars((string) $selectedMessage['admin_reply_body'], ENT_QUOTES, 'UTF-8') ?></div>
+                                            </div>
+                                            <div class="contacts-message-panel-foot">
+                                                <span><i class="bi bi-clock"></i> <?= htmlspecialchars($selectedMessageReplySentAt, ENT_QUOTES, 'UTF-8') ?></span>
+                                                <span><i class="bi bi-person-badge"></i> <?= htmlspecialchars($selectedMessageReplyAdminName !== '' ? $selectedMessageReplyAdminName : ($selectedMessageReplyAdminId > 0 ? 'ID #' . $selectedMessageReplyAdminId : 'Bilinmiyor'), ENT_QUOTES, 'UTF-8') ?></span>
+                                                <?php if (!empty($selectedMessage['admin_reply_email_error'])): ?>
+                                                    <span class="contacts-message-reply-alert"><i class="bi bi-exclamation-octagon"></i> <?= htmlspecialchars((string) $selectedMessage['admin_reply_email_error'], ENT_QUOTES, 'UTF-8') ?></span>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <?= adminRenderEmptyState([
+                                                'icon' => 'bi-reply',
+                                                'tone' => 'info',
+                                                'title' => 'Henüz yanıt yok',
+                                                'description' => 'Aşağıdaki alandan tek seferlik e-posta yanıtı gönderebilirsiniz.',
+                                                'pro' => true,
+                                                'class' => 'contacts-empty-state contacts-empty-state-compact contacts-message-empty-inline',
+                                            ]) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                </section>
+
+                                <?php if (adminCurrentUserCan('contact.manage')): ?>
+                                    <section class="contacts-message-panel contacts-message-panel-compose">
+                                        <div class="contacts-message-panel-head">
+                                            <div class="contacts-message-panel-head-copy">
+                                                <span class="contacts-message-panel-kicker"><i class="bi bi-send"></i> Yanıt hazırlama</span>
+                                                <strong>E-posta ile iletilecek mesaj</strong>
+                                            </div>
+                                            <span class="contacts-message-panel-sub">Yanıt kaydı</span>
+                                        </div>
+                                        <div class="contacts-message-panel-body">
+                                            <div class="contacts-message-compose-note">
+                                                <i class="bi bi-shield-check"></i>
+                                                <span>Bu alanda yazılan içerik mesaj sahibine e-posta olarak gönderilir ve kayıt altında tutulur.</span>
+                                            </div>
+                                            <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="contacts-message-compose-form ui-admin-stack ui-admin-stack-md">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="action" value="reply">
+                                                <input type="hidden" name="tab" value="messages">
+                                                <input type="hidden" name="message_id" value="<?= (int) $selectedMessage['id'] ?>">
+                                                <input type="hidden" name="status" value="<?= htmlspecialchars($messageFilters['status'], ENT_QUOTES, 'UTF-8') ?>">
+                                                <input type="hidden" name="q" value="<?= htmlspecialchars($messageFilters['q'], ENT_QUOTES, 'UTF-8') ?>">
+                                                <input type="hidden" name="category_id" value="<?= (int) $messageFilters['category_id'] ?>">
+                                                <input type="hidden" name="page" value="<?= $messagePage ?>">
+
+                                                <div class="ui-admin-field">
+                                                    <label class="ui-admin-form-label" for="replyBody">Yanıt metni</label>
+                                                    <textarea id="replyBody" name="reply_body" class="ui-admin-form-control" rows="9" maxlength="5000" placeholder="Tek seferlik e-posta yanıtı..."><?= htmlspecialchars((string) ($selectedMessage['admin_reply_body'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+                                                </div>
+
+                                                <div class="contacts-message-actions contacts-message-actions-inline">
+                                                    <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-envelope-paper"></i> Yanıtı Gönder</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </section>
+
+                                    <div class="contacts-message-actions contacts-message-actions-spaced">
+                                        <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="action" value="resolve">
+                                            <input type="hidden" name="tab" value="messages">
+                                            <input type="hidden" name="message_id" value="<?= (int) $selectedMessage['id'] ?>">
+                                            <input type="hidden" name="status" value="<?= htmlspecialchars($messageFilters['status'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="q" value="<?= htmlspecialchars($messageFilters['q'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="category_id" value="<?= (int) $messageFilters['category_id'] ?>">
+                                            <input type="hidden" name="page" value="<?= $messagePage ?>">
+                                            <button type="submit" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-check2-circle"></i> Çözüldü</button>
+                                        </form>
+
+                                        <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu mesaj kalıcı olarak silinecek. Devam edilsin mi?', 'title' => 'Mesaj silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="action" value="delete_message">
+                                            <input type="hidden" name="tab" value="messages">
+                                            <input type="hidden" name="message_id" value="<?= (int) $selectedMessage['id'] ?>">
+                                            <input type="hidden" name="status" value="<?= htmlspecialchars($messageFilters['status'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="q" value="<?= htmlspecialchars($messageFilters['q'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="category_id" value="<?= (int) $messageFilters['category_id'] ?>">
+                                            <input type="hidden" name="page" value="<?= $messagePage ?>">
+                                            <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-trash"></i> Kalıcı Sil</button>
+                                        </form>
+                                    </div>
+                                <?php else: ?>
+                                    <?= adminRenderAlert('Sadece görüntüleme yetkiniz var. Yanıt ve silme işlemleri kapalı.', 'info', ['icon' => 'bi-info-circle']) ?>
+                                <?php endif; ?>
                             </div>
 
-                            <div class="ui-admin-two-col contacts-message-meta-grid">
+                            <aside class="contacts-message-detail-rail">
                                 <div class="ui-admin-premium-card contacts-message-inline-card">
                                     <div class="ui-admin-premium-card-header ui-panel__head">
                                         <i class="bi bi-person"></i> Gönderen
                                     </div>
                                     <div class="ui-admin-premium-card-body ui-panel__body">
-                                        <div class="ui-admin-stack ui-admin-stack-sm">
-                                            <strong><?= htmlspecialchars((string) ($selectedMessage['sender_name_display'] ?? 'Anonim'), ENT_QUOTES, 'UTF-8') ?></strong>
-                                            <span><?= htmlspecialchars((string) ($selectedMessage['sender_email_display'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-                                            <span class="ui-admin-badge ui-admin-badge-muted ui-admin-badge-xs"><?= !empty($selectedMessage['is_member']) ? 'Üye' : 'Misafir' ?></span>
+                                        <div class="contacts-message-rail-list">
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Ad</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars((string) ($selectedMessage['sender_name_display'] ?? 'Anonim'), ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">E-posta</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars((string) ($selectedMessage['sender_email_display'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Hesap</span>
+                                                <span class="ui-admin-badge ui-admin-badge-muted ui-admin-badge-xs"><?= !empty($selectedMessage['is_member']) ? 'Üye' : 'Misafir' ?></span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+
                                 <div class="ui-admin-premium-card contacts-message-inline-card">
                                     <div class="ui-admin-premium-card-header ui-panel__head">
-                                        <i class="bi bi-tags"></i> Kategori
+                                        <i class="bi bi-tags"></i> Kategori ve kaynak
                                     </div>
                                     <div class="ui-admin-premium-card-body ui-panel__body">
-                                        <div class="ui-admin-stack ui-admin-stack-sm">
-                                            <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi <?= htmlspecialchars((string) ($selectedMessage['category_icon_display'] ?? 'bi-envelope'), ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) ($selectedMessage['category_name_display'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-                                            <span class="ui-admin-table-cell-secondary"><?= htmlspecialchars((string) ($selectedMessage['category_name_snapshot'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                        <div class="contacts-message-rail-list">
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Kategori</span>
+                                                <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi <?= htmlspecialchars((string) ($selectedMessage['category_icon_display'] ?? 'bi-envelope'), ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) ($selectedMessage['category_name_display'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Snapshot</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars((string) ($selectedMessage['category_name_snapshot'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Konu</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars((string) ($selectedMessage['subject'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div class="ui-admin-stack ui-admin-stack-sm contacts-message-summary">
-                                <strong>Mesaj</strong>
-                                <div class="ui-admin-table-cell-desc contacts-message-body-text"><?= htmlspecialchars((string) ($selectedMessage['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-                            </div>
-
-                            <div class="ui-admin-form-grid-2 ui-grid">
-                                <div class="ui-admin-field">
-                                    <label class="ui-admin-form-label">Tarih</label>
-                                    <div class="ui-admin-table-cell-secondary"><?= htmlspecialchars(adminContactsDate((string) ($selectedMessage['created_at'] ?? 'now')), ENT_QUOTES, 'UTF-8') ?></div>
-                                </div>
-                                <div class="ui-admin-field">
-                                    <label class="ui-admin-form-label">Görüldü</label>
-                                    <div class="ui-admin-table-cell-secondary"><?= !empty($selectedMessage['seen_at']) ? htmlspecialchars(adminContactsDate((string) $selectedMessage['seen_at']), ENT_QUOTES, 'UTF-8') : 'Henüz görülmedi' ?></div>
-                                </div>
-                                <div class="ui-admin-field">
-                                    <label class="ui-admin-form-label">IP</label>
-                                    <div class="ui-admin-table-cell-secondary"><?= htmlspecialchars((string) ($selectedMessage['submitted_ip'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></div>
-                                </div>
-                                <div class="ui-admin-field">
-                                    <label class="ui-admin-form-label">Cihaz</label>
-                                    <div class="ui-admin-table-cell-secondary"><?= htmlspecialchars(adminContactsShortValue((string) ($selectedMessage['submitted_user_agent'] ?? '—'), 120), ENT_QUOTES, 'UTF-8') ?></div>
-                                </div>
-                            </div>
-
-                            <div class="ui-admin-stack ui-admin-stack-sm">
-                                <strong>Yönetici Yanıtı</strong>
-                                <?php if (!empty($selectedMessage['admin_reply_body'])): ?>
-                                    <div class="ui-admin-table-cell-desc contacts-message-body-text"><?= htmlspecialchars((string) $selectedMessage['admin_reply_body'], ENT_QUOTES, 'UTF-8') ?></div>
-                                    <div class="ui-admin-stack ui-admin-stack-sm">
-                                        <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars((string) $selectedMessageEmailMeta['class'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $selectedMessageEmailMeta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $selectedMessageEmailMeta['label'], ENT_QUOTES, 'UTF-8') ?></span>
-                                        <?php if (!empty($selectedMessage['admin_reply_sent_at'])): ?>
-                                            <span class="ui-admin-table-cell-secondary"><?= htmlspecialchars(adminContactsDate((string) $selectedMessage['admin_reply_sent_at']), ENT_QUOTES, 'UTF-8') ?></span>
-                                        <?php endif; ?>
-                                        <?php
-                                        $replyAdminName = trim((string) ($selectedMessage['reply_admin_name_display'] ?? ''));
-                                        $replyAdminId = (int) ($selectedMessage['admin_reply_admin_id'] ?? 0);
-                                        ?>
-                                        <?php if ($replyAdminName !== '' || $replyAdminId > 0): ?>
-                                            <span class="ui-admin-table-cell-secondary">
-                                                Yanıtlayan: <?= htmlspecialchars($replyAdminName !== '' ? $replyAdminName : ('ID #' . $replyAdminId), ENT_QUOTES, 'UTF-8') ?>
-                                            </span>
-                                        <?php endif; ?>
-                                        <?php if (!empty($selectedMessage['admin_reply_email_error'])): ?>
-                                            <div class="contacts-message-reply-alert">
-                                                <i class="bi bi-exclamation-octagon"></i>
-                                                <?= htmlspecialchars((string) $selectedMessage['admin_reply_email_error'], ENT_QUOTES, 'UTF-8') ?>
+                                <div class="ui-admin-premium-card contacts-message-inline-card">
+                                    <div class="ui-admin-premium-card-header ui-panel__head">
+                                        <i class="bi bi-clock-history"></i> Zamanlama
+                                    </div>
+                                    <div class="ui-admin-premium-card-body ui-panel__body">
+                                        <div class="contacts-message-rail-list">
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Gönderildi</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars($selectedMessageCreatedAt, ENT_QUOTES, 'UTF-8') ?></span>
                                             </div>
-                                        <?php endif; ?>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Görüldü</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars($selectedMessageSeenAt, ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Yanıt</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars($selectedMessageReplySentAt, ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                        </div>
                                     </div>
-                                <?php else: ?>
-                                    <?= adminRenderEmptyState([
-                                        'icon' => 'bi-reply',
-                                        'tone' => 'info',
-                                        'title' => 'Henüz yanıt yok',
-                                        'description' => 'İsterseniz aşağıdan tek bir e-posta yanıtı gönderebilirsiniz.',
-                                        'pro' => true,
-                                        'class' => 'contacts-empty-state contacts-empty-state-compact',
-                                    ]) ?>
-                                <?php endif; ?>
-                            </div>
-
-                            <?php if (adminCurrentUserCan('contact.manage')): ?>
-                                <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-stack ui-admin-stack-md">
-                                    <?= csrf_field() ?>
-                                    <input type="hidden" name="action" value="reply">
-                                    <input type="hidden" name="tab" value="messages">
-                                    <input type="hidden" name="message_id" value="<?= (int) $selectedMessage['id'] ?>">
-                                    <input type="hidden" name="status" value="<?= htmlspecialchars($messageFilters['status'], ENT_QUOTES, 'UTF-8') ?>">
-                                    <input type="hidden" name="q" value="<?= htmlspecialchars($messageFilters['q'], ENT_QUOTES, 'UTF-8') ?>">
-                                    <input type="hidden" name="category_id" value="<?= (int) $messageFilters['category_id'] ?>">
-                                    <input type="hidden" name="page" value="<?= $messagePage ?>">
-
-                                    <div class="ui-admin-field">
-                                        <label class="ui-admin-form-label" for="replyBody">Yanıt metni</label>
-                                        <textarea id="replyBody" name="reply_body" class="ui-admin-form-control" rows="8" maxlength="5000" placeholder="Tek seferlik e-posta yanıtı..."><?= htmlspecialchars((string) ($selectedMessage['admin_reply_body'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
-                                    </div>
-
-                                    <div class="contacts-message-actions">
-                                        <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-envelope-paper"></i> Yanıtı Gönder</button>
-                                    </div>
-                                </form>
-
-                                <div class="contacts-message-actions contacts-message-actions-spaced">
-                                    <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="action" value="resolve">
-                                        <input type="hidden" name="tab" value="messages">
-                                        <input type="hidden" name="message_id" value="<?= (int) $selectedMessage['id'] ?>">
-                                        <input type="hidden" name="status" value="<?= htmlspecialchars($messageFilters['status'], ENT_QUOTES, 'UTF-8') ?>">
-                                        <input type="hidden" name="q" value="<?= htmlspecialchars($messageFilters['q'], ENT_QUOTES, 'UTF-8') ?>">
-                                        <input type="hidden" name="category_id" value="<?= (int) $messageFilters['category_id'] ?>">
-                                        <input type="hidden" name="page" value="<?= $messagePage ?>">
-                                        <button type="submit" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-check2-circle"></i> Çözüldü</button>
-                                    </form>
-
-                                    <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu mesaj kalıcı olarak silinecek. Devam edilsin mi?', 'title' => 'Mesaj silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="action" value="delete_message">
-                                        <input type="hidden" name="tab" value="messages">
-                                        <input type="hidden" name="message_id" value="<?= (int) $selectedMessage['id'] ?>">
-                                        <input type="hidden" name="status" value="<?= htmlspecialchars($messageFilters['status'], ENT_QUOTES, 'UTF-8') ?>">
-                                        <input type="hidden" name="q" value="<?= htmlspecialchars($messageFilters['q'], ENT_QUOTES, 'UTF-8') ?>">
-                                        <input type="hidden" name="category_id" value="<?= (int) $messageFilters['category_id'] ?>">
-                                        <input type="hidden" name="page" value="<?= $messagePage ?>">
-                                        <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-trash"></i> Kalıcı Sil</button>
-                                    </form>
                                 </div>
-                            <?php else: ?>
-                                <?= adminRenderAlert('Sadece görüntüleme yetkiniz var. Yanıt ve silme işlemleri kapalı.', 'info', ['icon' => 'bi-info-circle']) ?>
-                            <?php endif; ?>
+
+                                <div class="ui-admin-premium-card contacts-message-inline-card">
+                                    <div class="ui-admin-premium-card-header ui-panel__head">
+                                        <i class="bi bi-cpu"></i> Teknik
+                                    </div>
+                                    <div class="ui-admin-premium-card-body ui-panel__body">
+                                        <div class="contacts-message-rail-list">
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">IP</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars($selectedMessageSubmittedIp, ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Cihaz</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars($selectedMessageUserAgent, ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Yanıtlayan</span>
+                                                <span class="contacts-message-rail-value"><?= htmlspecialchars($selectedMessageReplyAdminName !== '' ? $selectedMessageReplyAdminName : ($selectedMessageReplyAdminId > 0 ? 'ID #' . $selectedMessageReplyAdminId : 'Bilinmiyor'), ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="ui-admin-premium-card contacts-message-inline-card">
+                                    <div class="ui-admin-premium-card-header ui-panel__head">
+                                        <i class="bi bi-broadcast"></i> Durum
+                                    </div>
+                                    <div class="ui-admin-premium-card-body ui-panel__body">
+                                        <div class="contacts-message-rail-list">
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">Kayıt</span>
+                                                <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars((string) $selectedMessageStatusMeta['class'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $selectedMessageStatusMeta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $selectedMessageStatusMeta['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <div class="contacts-message-rail-item">
+                                                <span class="contacts-message-rail-label">E-posta</span>
+                                                <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars((string) $selectedMessageEmailMeta['class'], ENT_QUOTES, 'UTF-8') ?>"><i class="bi <?= htmlspecialchars((string) $selectedMessageEmailMeta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars((string) $selectedMessageEmailMeta['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                            </div>
+                                            <?php if (!empty($selectedMessage['admin_reply_email_error'])): ?>
+                                                <div class="contacts-message-reply-alert">
+                                                    <i class="bi bi-exclamation-octagon"></i>
+                                                    <span><?= htmlspecialchars((string) $selectedMessage['admin_reply_email_error'], ENT_QUOTES, 'UTF-8') ?></span>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     </div>
                 </div>

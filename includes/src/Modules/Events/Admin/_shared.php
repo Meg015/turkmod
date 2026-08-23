@@ -237,6 +237,8 @@ if (!function_exists('eventsAdminModalShellStart')) {
             'ui-events-admin-detail-panel',
             'ui-events-admin-modal-panel',
             'ui-events-admin-detail-overlay',
+            'ui-admin-modal-shell',
+            'ui-modal-shell',
             'ui-panel',
         ];
 

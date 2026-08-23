@@ -3,9 +3,7 @@ function adminTopicToast(message, type = 'info', duration) {
         window.adminToast[type](message, duration);
         return;
     }
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type, duration);
-    }
+    window.showToast(message, type, duration);
 }
 
 function initTopicsSelection() {
@@ -118,16 +116,9 @@ function initTopicsModerationNoteModal() {
     }
 
     function closeModal() {
-        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
-            window.adminDialog.close(modal, function () {
-                modal.classList.remove('ui-admin-modal-open');
-            });
-            return;
-        }
-        modal.hidden = true;
-        modal.setAttribute('aria-hidden', 'true');
-        modal.classList.remove('is-open', 'ui-admin-modal-open');
-        document.body.classList.remove('ui-admin-dialog-open');
+        window.adminModal.close(modal, function () {
+            modal.classList.remove('ui-admin-modal-open');
+        });
         if (lastTrigger) {
             lastTrigger.focus();
         }
@@ -140,25 +131,14 @@ function initTopicsModerationNoteModal() {
             const topicTitle = trigger.getAttribute('data-moderation-topic') || '';
             title.textContent = topicTitle ? 'Moderasyon notu: ' + topicTitle : 'Son moderasyon notu';
             body.textContent = trigger.getAttribute('data-moderation-note') || '';
-            if (window.adminDialog && typeof window.adminDialog.open === 'function') {
-                window.adminDialog.open(modal, {
-                    bodyClass: 'ui-admin-dialog-open',
-                    initialFocus: '[data-moderation-note-close]',
-                    returnFocus: lastTrigger,
-                    onClose: function () {
-                        modal.classList.remove('ui-admin-modal-open');
-                    }
-                });
-            } else {
-                modal.hidden = false;
-                modal.setAttribute('aria-hidden', 'false');
-                modal.classList.add('is-open', 'ui-admin-modal-open');
-                document.body.classList.add('ui-admin-dialog-open');
-                const closeButton = modal.querySelector('[data-moderation-note-close]');
-                if (closeButton) {
-                    closeButton.focus();
+            window.adminModal.open(modal, {
+                bodyClass: 'ui-admin-dialog-open',
+                initialFocus: '[data-moderation-note-close]',
+                returnFocus: lastTrigger,
+                onClose: function () {
+                    modal.classList.remove('ui-admin-modal-open');
                 }
-            }
+            });
             return;
         }
 
@@ -168,7 +148,6 @@ function initTopicsModerationNoteModal() {
     });
 
     document.addEventListener('keydown', function(event) {
-        if (window.adminDialog && typeof window.adminDialog.open === 'function') return;
         if (event.key === 'Escape' && !modal.hidden) {
             closeModal();
         }
@@ -191,20 +170,13 @@ function initTopicsModerationActionNoteModal() {
     }
 
     function closeModal() {
-        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
-            window.adminDialog.close(modal, function () {
-                modal.classList.remove('ui-admin-modal-open');
-                error.textContent = '';
-                error.hidden = true;
-                pendingForm = null;
-                pendingField = null;
-            });
-            return;
-        }
-        modal.hidden = true;
-        modal.setAttribute('aria-hidden', 'true');
-        modal.classList.remove('is-open', 'ui-admin-modal-open');
-        document.body.classList.remove('ui-admin-dialog-open');
+        window.adminModal.close(modal, function () {
+            modal.classList.remove('ui-admin-modal-open');
+            error.textContent = '';
+            error.hidden = true;
+            pendingForm = null;
+            pendingField = null;
+        });
         error.textContent = '';
         error.hidden = true;
         pendingForm = null;
@@ -230,26 +202,18 @@ function initTopicsModerationActionNoteModal() {
             textarea.value = field.value || '';
             error.textContent = '';
             error.hidden = true;
-            if (window.adminDialog && typeof window.adminDialog.open === 'function') {
-                window.adminDialog.open(modal, {
-                    bodyClass: 'ui-admin-dialog-open',
-                    initialFocus: '#moderationActionNoteText',
-                    returnFocus: lastTrigger,
-                    onClose: function () {
-                        modal.classList.remove('ui-admin-modal-open');
-                        error.textContent = '';
-                        error.hidden = true;
-                        pendingForm = null;
-                        pendingField = null;
-                    }
-                });
-            } else {
-                modal.hidden = false;
-                modal.setAttribute('aria-hidden', 'false');
-                modal.classList.add('is-open', 'ui-admin-modal-open');
-                document.body.classList.add('ui-admin-dialog-open');
-                textarea.focus();
-            }
+            window.adminModal.open(modal, {
+                bodyClass: 'ui-admin-dialog-open',
+                initialFocus: '#moderationActionNoteText',
+                returnFocus: lastTrigger,
+                onClose: function () {
+                    modal.classList.remove('ui-admin-modal-open');
+                    error.textContent = '';
+                    error.hidden = true;
+                    pendingForm = null;
+                    pendingField = null;
+                }
+            });
         });
     });
 
@@ -282,7 +246,6 @@ function initTopicsModerationActionNoteModal() {
     });
 
     document.addEventListener('keydown', function(event) {
-        if (window.adminDialog && typeof window.adminDialog.getOpen === 'function' && window.adminDialog.getOpen()) return;
         if (event.key === 'Escape' && !modal.hidden) {
             closeModal();
         }

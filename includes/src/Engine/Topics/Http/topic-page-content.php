@@ -1229,26 +1229,31 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
         $reporterReadonlyAttrs = $isLoggedIn ? ' readonly aria-readonly="true"' : '';
         ?>
 
-        <div class="topic-report-modal" id="topicReportModal" role="dialog" aria-modal="true" aria-labelledby="report-heading" hidden aria-hidden="true">
+        <div class="topic-report-modal" id="topicReportModal" role="dialog" aria-modal="true" aria-labelledby="report-heading" aria-describedby="report-description" hidden aria-hidden="true">
 
             <div class="topic-report-backdrop" data-report-modal-close data-ui-modal-close></div>
 
-            <div class="topic-report-dialog ui-panel">
+            <div class="topic-report-dialog ui-panel ui-modal-shell">
 
-            <div class="topic-report-header ui-panel__head">
+            <div class="topic-report-header ui-panel__head ui-modal__head">
 
                 <h2 id="report-heading"><i class="bi bi-flag"></i> İçeriği Raporla</h2>
 
                 <button type="button" class="topic-report-close" data-report-modal-close data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
 
             </div>
-<form class="topic-report-form" action="<?= $baseUri ?>/api/reports.php" method="post">
+<form id="topicReportForm" class="topic-report-form ui-modal__body" action="<?= $baseUri ?>/api/reports.php" method="post">
 
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="action" value="create">
 
                 <input type="hidden" name="topic_id" value="<?= (int) $topic["id"] ?>">
+
+                <div class="topic-report-summary" id="report-description">
+                    <i class="bi bi-eye-slash" aria-hidden="true"></i>
+                    <span>Raporunuz yalnızca moderasyon ekibi tarafından görülür. Üyelik bilgileriniz varsa alanlara otomatik eklenir.</span>
+                </div>
 
                 <div class="topic-report-grid topic-report-grid--identity ui-grid">
 
@@ -1294,11 +1299,12 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
 
                 </div>
 
-                <button type="submit" class="topic-report-submit" data-loading-label="Gönderiliyor..."><i class="bi bi-send"></i> Rapor Gönder</button>
-
-                <div class="topic-report-feedback" aria-live="polite"></div>
+                <div class="topic-report-feedback" role="status" aria-live="polite" aria-atomic="true"></div>
 
             </form>
+            <div class="topic-report-actions ui-modal__foot">
+                <button type="submit" form="topicReportForm" class="topic-report-submit" data-loading-label="Gönderiliyor..."><i class="bi bi-send"></i> Rapor Gönder</button>
+            </div>
 </div>
 
         </div>

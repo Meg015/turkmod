@@ -5,32 +5,12 @@ function adminUsersCsrfToken() {
 // Page-level modal helpers delegate to the shared admin modal controller.
 function openUsersManagedModal(modal, options) {
     if (!modal) return null;
-    if (window.adminModal && typeof window.adminModal.open === 'function') {
-        return window.adminModal.open(modal, options || {});
-    }
-    if (window.openAdminManagedModal && window.openAdminManagedModal !== openUsersManagedModal) {
-        return window.openAdminManagedModal(modal, options || {});
-    }
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
-    modal.classList.add((options && options.openClass) || 'is-open', 'ui-admin-modal-open');
-    return null;
+    return window.adminModal.open(modal, options || {});
 }
 
 function closeUsersManagedModal(modal, resetCallback) {
     if (!modal) return;
-    if (window.adminModal && typeof window.adminModal.close === 'function') {
-        window.adminModal.close(modal, resetCallback);
-        return;
-    }
-    if (window.closeAdminManagedModal && window.closeAdminManagedModal !== closeUsersManagedModal) {
-        window.closeAdminManagedModal(modal, resetCallback);
-        return;
-    }
-    modal.classList.remove('is-open', 'ui-admin-modal-open');
-    modal.hidden = true;
-    modal.setAttribute('aria-hidden', 'true');
-    if (typeof resetCallback === 'function') resetCallback();
+    window.adminModal.close(modal, resetCallback);
 }
 
 var USER_RESTRICTION_LABELS = {
@@ -908,11 +888,7 @@ function bindUserBulkActions() {
         const count = selectedCount();
         const action = actionSelect ? actionSelect.value : '';
         const alertUser = function (message) {
-            if (typeof adminAlert === 'function') {
-                adminAlert(message, { title: 'Uyarı', tone: 'warning' });
-            } else {
-                alert(message);
-            }
+            window.adminAlert(message, { title: 'Uyarı', tone: 'warning' });
         };
 
         if (count === 0) {
@@ -954,14 +930,12 @@ function bindUserBulkActions() {
         event.preventDefault();
         event.stopPropagation();
         const confirmData = buildBulkConfirm(action, count);
-        const confirmPromise = typeof adminConfirm === 'function'
-            ? adminConfirm(confirmData.message, {
-                title: confirmData.title,
-                ok: confirmData.ok,
-                cancel: 'Vazgeç',
-                tone: confirmData.tone
-            })
-            : Promise.resolve(window.confirm(plainText(confirmData.message)));
+        const confirmPromise = adminConfirm(confirmData.message, {
+            title: confirmData.title,
+            ok: confirmData.ok,
+            cancel: 'Vazgeç',
+            tone: confirmData.tone
+        });
 
         confirmPromise.then(function (confirmed) {
             if (!confirmed) {

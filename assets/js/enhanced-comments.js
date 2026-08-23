@@ -7,11 +7,7 @@
     'use strict';
 
     function fetchJson(url, options) {
-        if (window.publicFetchJson) {
-            return window.publicFetchJson(url, options || {});
-        }
-
-        return Promise.reject(new Error('Public API helper yuklenemedi.'));
+        return window.publicFetchJson(url, options);
     }
 
     // Initialize enhanced comments
@@ -186,13 +182,13 @@
             modal.setAttribute('aria-modal', 'true');
             modal.setAttribute('aria-labelledby', 'comment-history-heading');
             modal.innerHTML = `
-                <div class="comment-history-overlay"></div>
-                <div class="comment-history-content">
-                    <div class="comment-history-header">
+                <div class="comment-history-overlay" data-ui-modal-close></div>
+                <div class="comment-history-content ui-modal-shell ui-panel">
+                    <div class="comment-history-header ui-modal__head ui-panel__head">
                         <h3 id="comment-history-heading"><i class="bi bi-clock-history"></i> Düzenleme Geçmişi</h3>
-                        <button class="comment-history-close" type="button" aria-label="Kapat">&times;</button>
+                        <button class="comment-history-close" type="button" data-ui-modal-close aria-label="Kapat">&times;</button>
                     </div>
-                    <div class="comment-history-body">
+                    <div class="comment-history-body ui-modal__body ui-panel__body">
                         ${history.length === 0 ? '<p class="text-muted">Düzenleme geçmişi bulunamadı.</p>' : ''}
                         ${history.map(h => `
                             <div class="history-item">
@@ -221,36 +217,22 @@
                 </div>
             `;
 
-            document.body.appendChild(modal);
+            const commentHistoryShell = modal.querySelector('.comment-history-content');
+            if (commentHistoryShell) {
+                commentHistoryShell.style.setProperty('--ui-modal-width', '540px');
+                commentHistoryShell.style.setProperty('overflow', 'hidden', 'important');
+            }
 
-            const closeModal = () => {
-                modal.remove();
-                document.removeEventListener('keydown', handleHistoryKeydown);
-                if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-                    previouslyFocused.focus();
+           document.body.appendChild(modal);
+
+            window.TMUI.openDialog(modal, {
+                bodyClass: 'ui-modal-open',
+                returnFocus: previouslyFocused,
+                initialFocus: '.comment-history-close',
+                onClose: function () {
+                    modal.remove();
                 }
-            };
-
-            const focusSelector = 'button:not([disabled]), [tabindex]:not([tabindex="-1"])';
-            const handleHistoryKeydown = (e) => {
-                if (e.key === 'Escape') { closeModal(); return; }
-                if (e.key !== 'Tab') return;
-                const focusables = Array.from(modal.querySelectorAll(focusSelector)).filter(el => !el.disabled);
-                if (!focusables.length) return;
-                const first = focusables[0];
-                const last = focusables[focusables.length - 1];
-                if (e.shiftKey && document.activeElement === first) {
-                    e.preventDefault(); last.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                    e.preventDefault(); first.focus();
-                }
-            };
-
-            document.addEventListener('keydown', handleHistoryKeydown);
-            modal.querySelector('.comment-history-close')?.addEventListener('click', closeModal);
-            modal.querySelector('.comment-history-overlay')?.addEventListener('click', closeModal);
-            // Initial focus on close button
-            modal.querySelector('.comment-history-close')?.focus();
+            });
         },
 
         // ─── Markdown Toolbar ────────────────────────────────
@@ -559,10 +541,8 @@
         },
 
         showToast: function (message, type = 'info') {
-            if (typeof window.showToast === 'function') {
-                window.showToast(message, type);
-                return;
-            }
+            window.showToast(message, type);
+            return;
 
             const aliases = { danger: 'error', failed: 'error', warn: 'warning', ok: 'success' };
             const normalizedType = aliases[type] || type || 'info';

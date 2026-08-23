@@ -1,13 +1,13 @@
 (function () {
     "use strict";
 
-    function getCsrfToken() {
-        if (window.publicApi && typeof window.publicApi.csrfToken === "function") {
-            return window.publicApi.csrfToken();
-        }
+    function getPublicApi() {
+        return window.publicApi && typeof window.publicApi === "object" ? window.publicApi : null;
+    }
 
-        var meta = document.querySelector('meta[name="csrf-token"]');
-        return meta ? meta.getAttribute("content") || "" : "";
+    function getCsrfToken() {
+        var api = getPublicApi();
+        return api && typeof api.csrfToken === "function" ? api.csrfToken() : "";
     }
 
     function createState(iconClass, text) {
@@ -31,8 +31,13 @@
     }
 
     function fetchJson(url, options) {
-        if (window.publicFetchJson) {
-            return window.publicFetchJson(url, options || {});
+        if (typeof window.publicFetchJson === "function") {
+            return window.publicFetchJson(url, options);
+        }
+
+        var api = getPublicApi();
+        if (api && typeof api.fetchJson === "function") {
+            return api.fetchJson(url, options);
         }
 
         return Promise.reject(new Error("Public API helper yuklenemedi."));
@@ -81,6 +86,8 @@
             var nextCount = normalizeBadgeCount(count);
             options = options || {};
             serverBadgeCount = nextCount;
+            window.publicTopbar = window.publicTopbar || {};
+            window.publicTopbar.messageBadgeCount = nextCount;
 
             if (options.force) {
                 pendingBadgeIncrease = false;
@@ -113,6 +120,8 @@
             pendingBadgeIncrease = true;
             lastBadgeIncreaseAt = Date.now();
             badgeCount = Math.max(serverBadgeCount, badgeCount) + increment;
+            window.publicTopbar = window.publicTopbar || {};
+            window.publicTopbar.messageBadgeCount = badgeCount;
             renderBadgeCount();
             return badgeCount;
         }

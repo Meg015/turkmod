@@ -632,9 +632,9 @@ require_once __DIR__ . '/header.php';
     ?>
 
     <?php $editGroups = $groups ?? []; ?>
-    <div class="media-modal-overlay user-edit-modal<?= $editUser ? ' ui-admin-modal-open is-open' : '' ?>" id="userEditModal" role="dialog" aria-modal="true" aria-label="Kullanıcı düzenle" <?= $editUser ? 'aria-hidden="false"' : 'hidden aria-hidden="true"' ?>>
-        <div class="media-modal ui-panel">
-            <div class="media-modal-header ui-panel__head">
+    <div class="media-modal-overlay ui-admin-modal-overlay user-edit-modal<?= $editUser ? ' ui-admin-modal-open is-open' : '' ?>" id="userEditModal" role="dialog" aria-modal="true" aria-label="Kullanıcı düzenle" <?= $editUser ? 'aria-hidden="false"' : 'hidden aria-hidden="true"' ?>>
+        <div class="media-modal ui-admin-modal-shell ui-modal-shell ui-panel">
+            <div class="media-modal-header ui-modal__head ui-panel__head">
                 <div>
                     <h3 class="ui-admin-modal-title"><i class="bi bi-pencil-square"></i> Kullanıcıyı Düzenle</h3>
                     <p class="user-edit-help" id="userEditEmailPreview"><?= htmlspecialchars((string) ($editUser['email'] ?? '')) ?></p>
@@ -642,7 +642,7 @@ require_once __DIR__ . '/header.php';
                 <a href="<?= htmlspecialchars($currentTabUrl) ?>" class="user-edit-close" data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></a>
             </div>
             <form method="post" action="<?= htmlspecialchars($currentTabUrl) ?>">
-                <div class="media-modal-body ui-panel__body">
+                <div class="media-modal-body ui-modal__body ui-panel__body">
                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="action" value="save_user">
                     <input type="hidden" name="user_id" id="editUserId" value="<?= (int) ($editUser['id'] ?? 0) ?>">
@@ -715,7 +715,7 @@ require_once __DIR__ . '/header.php';
                         <textarea name="bio" id="editUserBio" class="ui-admin-form-control" rows="4"><?= htmlspecialchars((string) ($editUser['bio'] ?? '')) ?></textarea>
                     </div>
                 </div>
-                <div class="media-modal-footer user-edit-footer ui-panel__foot">
+                <div class="media-modal-footer user-edit-footer ui-modal__foot ui-panel__foot">
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-user-edit-close>
                         <i class="bi bi-x-circle"></i> İptal
                     </button>
@@ -728,13 +728,13 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <!-- Ban Modal -->
-    <div class="media-modal-overlay" id="banModal" role="dialog" aria-modal="true" aria-label="Kullanıcı banla" hidden aria-hidden="true">
-        <div class="media-modal ui-admin-modal-sm ui-panel">
-            <div class="media-modal-header ui-panel__head">
+    <div class="media-modal-overlay ui-admin-modal-overlay" id="banModal" role="dialog" aria-modal="true" aria-label="Kullanıcı banla" hidden aria-hidden="true">
+        <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
+            <div class="media-modal-header ui-modal__head ui-panel__head">
                 <h3 class="ui-admin-modal-title"><i class="bi bi-slash-circle"></i> Kullanıcıyı Banla</h3>
                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-ban-close>&times;</button>
             </div>
-            <div class="media-modal-body ui-panel__body">
+            <div class="media-modal-body ui-modal__body ui-panel__body">
                 <form id="banForm" data-ban-form>
                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="action" value="ban">
@@ -775,7 +775,7 @@ require_once __DIR__ . '/header.php';
                             <div class="ui-admin-muted-sm">Yorumlar kalıcı olarak silinmez; Silinenler’e taşınır.</div>
                         </div>
                     <?php endif; ?>
-                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
                         <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-ban-close>İptal</button>
                         <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-slash-circle"></i> Banla</button>
                     </div>
@@ -786,11 +786,11 @@ require_once __DIR__ . '/header.php';
 
     <!-- Unban Modal -->
 
-    <div class="media-modal-overlay" id="unbanModal" role="dialog" aria-modal="true" aria-label="Kullanıcı banını kaldır" hidden aria-hidden="true">
+    <div class="media-modal-overlay ui-admin-modal-overlay" id="unbanModal" role="dialog" aria-modal="true" aria-label="Kullanıcı banını kaldır" hidden aria-hidden="true">
 
-        <div class="media-modal ui-admin-modal-sm ui-panel">
+        <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
 
-            <div class="media-modal-header ui-panel__head">
+            <div class="media-modal-header ui-modal__head ui-panel__head">
 
                 <h3 class="ui-admin-modal-title"><i class="bi bi-check-circle"></i> Kullanıcının Banını Kaldır</h3>
 
@@ -798,7 +798,7 @@ require_once __DIR__ . '/header.php';
 
             </div>
 
-            <div class="media-modal-body ui-panel__body">
+                <div class="media-modal-body ui-modal__body ui-panel__body">
 
                 <form id="unbanForm" data-unban-form>
 
@@ -836,7 +836,7 @@ require_once __DIR__ . '/header.php';
 
                     </div>
 
-                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
 
                         <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-unban-close>İptal</button>
 
@@ -855,13 +855,13 @@ require_once __DIR__ . '/header.php';
 
 
     <!-- Admin Note Modal -->
-    <div class="media-modal-overlay" id="adminNoteModal" role="dialog" aria-modal="true" aria-label="Admin notu" hidden aria-hidden="true">
-        <div class="media-modal ui-admin-modal-sm ui-panel">
-            <div class="media-modal-header ui-panel__head">
+    <div class="media-modal-overlay ui-admin-modal-overlay" id="adminNoteModal" role="dialog" aria-modal="true" aria-label="Admin notu" hidden aria-hidden="true">
+        <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
+            <div class="media-modal-header ui-modal__head ui-panel__head">
                 <h3 class="ui-admin-modal-title"><i class="bi bi-journal-plus"></i> Admin Notu</h3>
                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-admin-note-close>&times;</button>
             </div>
-            <div class="media-modal-body ui-panel__body">
+            <div class="media-modal-body ui-modal__body ui-panel__body">
                 <form id="adminNoteForm" method="post" action="users.php?tab=<?= htmlspecialchars($activeTab) ?>">
                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="action" value="add_admin_note">
@@ -887,7 +887,7 @@ require_once __DIR__ . '/header.php';
                         <label class="ui-admin-form-label">Not</label>
                         <textarea name="admin_note" class="ui-admin-form-control" rows="4" required placeholder="Sadece adminler görür..."></textarea>
                     </div>
-                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
                         <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-admin-note-close>İptal</button>
                         <button type="submit" class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-save"></i> Kaydet</button>
                     </div>
@@ -897,13 +897,13 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <!-- Restriction Modal -->
-    <div class="media-modal-overlay" id="restrictionModal" role="dialog" aria-modal="true" aria-label="Kısıtlama ekle" hidden aria-hidden="true">
-        <div class="media-modal ui-admin-modal-sm ui-panel">
-            <div class="media-modal-header ui-panel__head">
+    <div class="media-modal-overlay ui-admin-modal-overlay" id="restrictionModal" role="dialog" aria-modal="true" aria-label="Kısıtlama ekle" hidden aria-hidden="true">
+        <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
+            <div class="media-modal-header ui-modal__head ui-panel__head">
                 <h3 class="ui-admin-modal-title"><i class="bi bi-shield-exclamation"></i> Kısıtlama Ekle</h3>
                 <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-restriction-close>&times;</button>
             </div>
-            <div class="media-modal-body ui-panel__body">
+            <div class="media-modal-body ui-modal__body ui-panel__body">
                 <form id="restrictionForm" data-restriction-form>
                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="user_id" id="restrictUserId">
@@ -961,7 +961,7 @@ require_once __DIR__ . '/header.php';
                         <textarea name="restrict_message" class="ui-admin-form-control" rows="2" placeholder="Boş kalırsa sebep metni gösterilir."></textarea>
                     </div>
 
-                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                    <div class="media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
                         <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-restriction-close>İptal</button>
                         <button type="submit" class="ui-admin-btn ui-admin-btn-warning">
                             <i class="bi bi-shield-exclamation"></i> Kısıtla
@@ -976,16 +976,16 @@ require_once __DIR__ . '/header.php';
     <?php if ($viewRestrictionsUserId > 0 && !empty($userRestrictions)):
         $restrictedUser = usersGetById($pdo, $viewRestrictionsUserId);
     ?>
-    <div class="media-modal-overlay ui-admin-modal-open is-open" id="viewRestrictionsModal" role="dialog" aria-modal="true" aria-label="Kullanıcı kısıtlamaları" aria-hidden="false">
-        <div class="media-modal ui-admin-modal-md ui-panel">
-            <div class="media-modal-header ui-panel__head">
+    <div class="media-modal-overlay ui-admin-modal-overlay ui-admin-modal-open is-open" id="viewRestrictionsModal" role="dialog" aria-modal="true" aria-label="Kullanıcı kısıtlamaları" aria-hidden="false">
+        <div class="media-modal ui-admin-modal-md ui-admin-modal-shell ui-modal-shell ui-panel">
+            <div class="media-modal-header ui-modal__head ui-panel__head">
                 <h3 class="ui-admin-modal-title">
                     <i class="bi bi-shield-exclamation"></i>
                     <?= htmlspecialchars((string) ($restrictedUser['username'] ?? 'Kullanici')) ?> - Kısıtlamalar
                 </h3>
                 <a href="<?= htmlspecialchars($currentTabUrl) ?>" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost">&times;</a>
             </div>
-            <div class="media-modal-body ui-panel__body">
+            <div class="media-modal-body ui-modal__body ui-panel__body">
                 <div class="ui-admin-section-head-inline ui-panel__head">
                     <p class="ui-admin-m-0 ui-admin-muted-sm">
                         Toplam <?= count($userRestrictions) ?> kısıtlama

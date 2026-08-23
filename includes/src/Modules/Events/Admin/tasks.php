@@ -376,7 +376,7 @@ $renderTaskForm = static function (array $task, string $panelKey, bool $isActive
                     <?php endif; ?>
                 </div>
 
-                <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-events-task-detail-panel ui-panel" data-ui-events-task-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Gorev ayarlari" hidden>
+                <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-events-task-detail-panel ui-admin-modal-shell ui-modal-shell ui-panel" data-ui-events-task-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Gorev ayarlari" hidden>
                     <?php $renderTaskForm($newTask, 'new', $initialTaskKey === 'new', $groups, (string)($baseUri ?? '')); ?>
                     <?php foreach ($tasks as $task): ?>
                         <?php $taskId = (int)$task['id']; ?>

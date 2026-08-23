@@ -20,48 +20,65 @@
 }
 
 .app-dialog {
-    width: min(420px, 100%);
-    padding: 1.25rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg, 16px);
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: var(--shadow-xl, 0 24px 80px rgba(15, 23, 42, 0.28));
+    --ui-modal-width: 32rem;
     animation: app-dialog-pop 0.18s ease-out;
 }
 
+.app-dialog--textarea {
+    --ui-modal-width: 38rem;
+}
+
+.app-dialog-head-copy {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    min-width: 0;
+}
+
 .app-dialog-icon {
+    flex: 0 0 auto;
     width: 42px;
     height: 42px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 0.85rem;
-    border-radius: 14px;
+    border-radius: 10px;
     color: var(--primary);
     background: var(--primary-soft, rgba(139, 21, 56, 0.14));
+}
+
+.app-dialog-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.18rem;
 }
 
 .app-dialog-copy h3 {
     margin: 0;
     font-size: 1.05rem;
     font-weight: 800;
+    line-height: 1.25;
 }
 
-.app-dialog-copy p {
-    margin: 0.45rem 0 0;
+.app-dialog-message {
+    margin: 0;
     color: var(--text-secondary);
     line-height: 1.5;
 }
 
+.app-dialog-body {
+    display: grid;
+    gap: 0.9rem;
+}
+
 .app-dialog-input {
     width: 100%;
-    margin-top: 1rem;
-    padding: 0.7rem 0.8rem;
+    padding: 0.72rem 0.82rem;
     border: 1px solid var(--border);
     border-radius: var(--radius-md, 10px);
     background: var(--surface-alt);
     color: var(--text);
+    font: inherit;
 }
 
 .app-dialog-input:focus {
@@ -70,14 +87,12 @@
     box-shadow: 0 0 0 3px var(--primary-alpha-20, rgba(139, 21, 56, 0.22));
 }
 
-.app-dialog-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.65rem;
-    margin-top: 1.15rem;
+.app-dialog-textarea {
+    min-height: 120px;
+    resize: vertical;
 }
 
-.app-dialog-btn {
+.app-dialog-footer .app-dialog-btn {
     border: 1px solid var(--border);
     border-radius: var(--radius-md, 10px);
     padding: 0.65rem 0.95rem;

@@ -504,9 +504,7 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
             window.adminAsync.markSuccess(submitter);
         }
         
-        if (typeof window.showToast === 'function') {
-            window.showToast(data.message || 'İşlem tamamlandı', data.success ? 'success' : 'error');
-        }
+        window.showToast(data.message || 'İşlem tamamlandı', data.success ? 'success' : 'error');
     })
     .catch(error => {
         if (window.adminAsync) {
@@ -517,9 +515,7 @@ document.getElementById('settingsForm').addEventListener('submit', function(e){
             return;
         }
         console.error('Save error:', error);
-        if (typeof window.showToast === 'function') {
-            window.showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
-        }
+        window.showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
     });
 });
 

@@ -768,15 +768,15 @@ $_profileAvatarUrl = function_exists('defaultAvatarUrl') ? defaultAvatarUrl($bas
                                 <i class="bi bi-person-circle" aria-hidden="true"></i>
                                 <span>Giriş / Kayıt Ol</span>
                             </button>
-                            <div class="auth-popover-panel ui-panel" id="authPopoverPanel" role="dialog" aria-label="Giriş ve kayıt seçenekleri" hidden>
-                                <div class="auth-popover-head ui-panel__head">
+                            <div class="auth-popover-panel ui-dialog-shell ui-panel" id="authPopoverPanel" role="dialog" aria-label="Giriş ve kayıt seçenekleri" hidden>
+                                <div class="auth-popover-head ui-modal__head ui-panel__head">
                                     <span class="auth-popover-icon"><i class="bi bi-stars" aria-hidden="true"></i></span>
                                     <div>
                                         <strong>Hesabına devam et</strong>
                                         <small>İçerik yükle, favorilerini sakla ve profilini yönet.</small>
                                     </div>
                                 </div>
-                                <div class="auth-popover-actions">
+                                <div class="auth-popover-actions ui-modal__body ui-panel__body">
                                     <a class="auth-popover-primary" href="<?= htmlspecialchars($_loginHref) ?>">
                                         <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                                         Giriş Yap

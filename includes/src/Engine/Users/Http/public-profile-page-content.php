@@ -191,6 +191,8 @@ foreach ($publicCollections as $collection) {
 }
 $profile_has_public_collections = $profile_public_collections !== [];
 
+$pageCssFiles = ["assets/css/topic-report-modal.css"];
+
 require_once $projectRoot . '/includes/public-header.php';
 ?>
 
@@ -207,15 +209,19 @@ require_once $projectRoot . '/includes/public-header.php';
 <?php endif; ?>
 
 <div class="container profile-container profile-page-shell profile-shell profile-public-shell ui-container ui-section">
-    <div class="topic-report-modal user-report-modal" id="userReportModal" role="dialog" aria-modal="true" aria-labelledby="user-report-heading" hidden aria-hidden="true">
+    <div class="topic-report-modal user-report-modal" id="userReportModal" role="dialog" aria-modal="true" aria-labelledby="user-report-heading" aria-describedby="user-report-description" hidden aria-hidden="true">
         <div class="topic-report-backdrop" data-user-report-modal-close data-ui-modal-close></div>
-        <div class="topic-report-dialog ui-panel">
-            <div class="topic-report-header ui-panel__head">
+        <div class="topic-report-dialog ui-panel ui-modal-shell">
+            <div class="topic-report-header ui-panel__head ui-modal__head">
                 <h2 id="user-report-heading"><i class="bi bi-flag"></i> Kullaniciyi Sikayet Et</h2>
                 <button type="button" class="topic-report-close" data-user-report-modal-close data-ui-modal-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
             </div>
+            <div class="topic-report-summary" id="user-report-description">
+                <i class="bi bi-eye-slash" aria-hidden="true"></i>
+                <span>Kullanıcı şikayeti moderasyon ekibine iletilir ve yalnızca yetkili ekip tarafından görülür.</span>
+            </div>
             <?php if ($canReportProfile): ?>
-            <form class="user-report-form" action="<?= $baseUri ?>/api/user-reports.php" method="post">
+            <form id="userReportForm" class="user-report-form ui-modal__body" action="<?= $baseUri ?>/api/user-reports.php" method="post">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="create">
                 <input type="hidden" name="reported_user_id" value="<?= (int) $user['id'] ?>">
@@ -233,9 +239,11 @@ require_once $projectRoot . '/includes/public-header.php';
                         <textarea name="details" rows="3" maxlength="1000" placeholder="Ek bilgi varsa yazin"></textarea>
                     </label>
                 </div>
-                <button type="submit" class="topic-report-submit"><i class="bi bi-send"></i> Sikayet Gonder</button>
-                <div class="topic-report-feedback" aria-live="polite"></div>
+                <div class="topic-report-feedback" role="status" aria-live="polite" aria-atomic="true"></div>
             </form>
+            <div class="topic-report-actions ui-modal__foot">
+                <button type="submit" form="userReportForm" class="topic-report-submit"><i class="bi bi-send"></i> Sikayet Gonder</button>
+            </div>
             <?php else: ?>
             <div class="topic-report-login">
                 <i class="bi bi-shield-exclamation"></i>

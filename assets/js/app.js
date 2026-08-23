@@ -53,16 +53,14 @@ class Analytics {
             return;
         }
 
-        if (typeof window.publicFetchJson === 'function') {
-            window.publicFetchJson(this.baseUri + '/api/analytics/track.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: payload,
-                keepalive: true,
-                notifyError: false,
-                csrfRetry: false,
-            }).catch(() => {});
-        }
+        window.publicFetchJson(this.baseUri + '/api/analytics/track.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true,
+            notifyError: false,
+            csrfRetry: false,
+        }).catch(() => {});
     }
 
     /**
@@ -477,9 +475,6 @@ window.addEventListener('unhandledrejection', (event) => {
                     },
                     body: JSON.stringify({ topic_id: Number(topicId || button.dataset.topicId || 0) }),
                 };
-                if (!window.publicFetchJson) {
-                    throw new Error('Public API helper yuklenemedi.');
-                }
                 const payload = await window.publicFetchJson(`${baseUri}/api/favorites/toggle.php`, Object.assign({}, requestOptions, {
                     notifyError: false
                 }));
@@ -507,7 +502,7 @@ window.addEventListener('unhandledrejection', (event) => {
                         }, 180);
                     }
                 }
-                window.showToast?.(payload.favorited ? 'Favorilere eklendi' : 'Favorilerden kaldırıldı', 'success');
+                window.showToast(payload.favorited ? 'Favorilere eklendi' : 'Favorilerden kaldırıldı', 'success');
                 window.analytics?.trackFavorite?.(payload.topic_id, payload.favorited ? 'add' : 'remove');
             } catch (error) {
                 if (Number(error && error.status) === 401) {
@@ -515,7 +510,7 @@ window.addEventListener('unhandledrejection', (event) => {
                     return;
                 }
                 setTopicFavoriteState(topicId, previous.active, previous.count);
-                window.showToast?.(optimistic.messageFor(error.message, 'Favori işlemi tamamlanamadı.'), 'error');
+                window.showToast(optimistic.messageFor(error.message, 'Favori işlemi tamamlanamadı.'), 'error');
             } finally {
                 button.disabled = false;
                 optimistic.markPending(button, false);
@@ -617,9 +612,6 @@ window.addEventListener('unhandledrejection', (event) => {
             this.renderSkeleton();
 
             try {
-                if (!window.publicFetchJson) {
-                    throw new Error('Public API helper yuklenemedi.');
-                }
                 const payload = await window.publicFetchJson(apiUrl, { headers: { 'Accept': 'application/json' } });
                 this.container.innerHTML = payload.html || '';
                 if (pushState) history.pushState({}, '', pageUrl);

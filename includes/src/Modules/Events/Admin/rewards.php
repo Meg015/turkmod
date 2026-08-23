@@ -332,7 +332,7 @@ $renderItemForm = static function (array $item, string $panelKey, bool $isActive
                                 <?php endif; ?>
                             </div>
 
-                            <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-panel" data-ui-events-item-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Odul ayarlari" hidden>
+                            <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-admin-modal-shell ui-modal-shell ui-panel" data-ui-events-item-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Odul ayarlari" hidden>
                                 <?php $renderItemForm($newItem, 'new', $initialItemKey === 'new', $baseUri ?? ''); ?>
                                 <?php foreach ($catalogItems as $item): ?>
                                     <?php $itemKey = 'item-' . (int)$item['id']; ?>

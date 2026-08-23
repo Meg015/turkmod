@@ -1372,13 +1372,13 @@ require_once __DIR__ . '/header.php';
     <?php require __DIR__ . '/partials/user-management-action-modals.php'; ?>
 <?php endif; ?>
 
-<div id="commentBanModal" class="media-modal-overlay" role="dialog" aria-modal="true" aria-label="Kullanıcı banla" hidden aria-hidden="true">
-    <div class="media-modal ui-admin-modal-sm ui-panel">
-        <div class="media-modal-header ui-panel__head">
+<div id="commentBanModal" class="media-modal-overlay ui-admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Kullanıcı banla" hidden aria-hidden="true">
+    <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
+        <div class="media-modal-header ui-modal__head ui-panel__head">
             <h3 class="ui-admin-modal-title"><i class="bi bi-slash-circle"></i> Kullanıcıyı Banla</h3>
             <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-comment-ban-close>&times;</button>
         </div>
-        <div class="media-modal-body ui-panel__body">
+        <div class="media-modal-body ui-modal__body ui-panel__body">
             <form method="post" id="commentBanForm" data-comment-ban-form>
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="ban">
@@ -1411,7 +1411,7 @@ require_once __DIR__ . '/header.php';
                         </div>
                     <?php endif; ?>
                 </div>
-                <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                <div class="media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-ban-close>İptal</button>
                     <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-slash-circle"></i> Banla</button>
                 </div>
@@ -1420,13 +1420,13 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
-<div id="commentUnbanModal" class="media-modal-overlay" role="dialog" aria-modal="true" aria-label="Kullanıcı banını kaldır" hidden aria-hidden="true">
-    <div class="media-modal ui-admin-modal-sm ui-panel">
-        <div class="media-modal-header ui-panel__head">
+<div id="commentUnbanModal" class="media-modal-overlay ui-admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Kullanıcı banını kaldır" hidden aria-hidden="true">
+    <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
+        <div class="media-modal-header ui-modal__head ui-panel__head">
             <h3 class="ui-admin-modal-title"><i class="bi bi-check-circle"></i> Kullanıcının Banını Kaldır</h3>
             <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-comment-unban-close>&times;</button>
         </div>
-        <div class="media-modal-body ui-panel__body">
+        <div class="media-modal-body ui-modal__body ui-panel__body">
             <form method="post" id="commentUnbanForm" data-comment-unban-form>
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="unban">
@@ -1450,7 +1450,7 @@ require_once __DIR__ . '/header.php';
                     <label class="ui-admin-form-label">İşlem Notu <small class="ui-admin-muted-xs">(Opsiyonel)</small></label>
                     <textarea name="reason" id="commentUnbanReason" class="ui-admin-form-control" rows="2" placeholder="Ban kaldırma notu..."></textarea>
                 </div>
-                <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                <div class="media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-unban-close>İptal</button>
                     <button type="submit" class="ui-admin-btn ui-admin-btn-success"><i class="bi bi-check-circle"></i> Ban Kaldır</button>
                 </div>
@@ -1459,13 +1459,13 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
-<div id="commentRestrictionModal" class="media-modal-overlay" role="dialog" aria-modal="true" aria-label="Kısıtlama ekle" hidden aria-hidden="true">
-    <div class="media-modal ui-admin-modal-sm ui-panel">
-        <div class="media-modal-header ui-panel__head">
+<div id="commentRestrictionModal" class="media-modal-overlay ui-admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Kısıtlama ekle" hidden aria-hidden="true">
+    <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
+        <div class="media-modal-header ui-modal__head ui-panel__head">
             <h3 class="ui-admin-modal-title"><i class="bi bi-shield-exclamation"></i> Kısıtlama Ekle</h3>
             <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-comment-restriction-close>&times;</button>
         </div>
-        <div class="media-modal-body ui-panel__body">
+        <div class="media-modal-body ui-modal__body ui-panel__body">
             <form method="post" id="commentRestrictionForm" data-comment-restriction-form>
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="add_restriction">
@@ -1508,7 +1508,7 @@ require_once __DIR__ . '/header.php';
                     <label class="ui-admin-form-label">Sebep</label>
                     <textarea name="restrict_reason" class="ui-admin-form-control" rows="3" required placeholder="Kısıtlama sebebi..."></textarea>
                 </div>
-                <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                <div class="media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-comment-restriction-close>İptal</button>
                     <button type="submit" class="ui-admin-btn ui-admin-btn-warning"><i class="bi bi-shield-exclamation"></i> Kısıtla</button>
                 </div>
@@ -1518,10 +1518,10 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <!-- Edit Modal -->
-<div id="editModal" class="ui-comment-manager-edit-modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" hidden>
+<div id="editModal" class="ui-comment-manager-edit-modal ui-admin-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" hidden>
     <div class="ui-comment-manager-edit-overlay" data-ui-modal-close></div>
-    <div class="ui-comment-manager-edit-content ui-section" tabindex="-1">
-        <div class="ui-comment-manager-edit-header ui-panel__head">
+    <div class="ui-comment-manager-edit-content ui-admin-modal-shell ui-modal-shell ui-panel ui-section" tabindex="-1">
+        <div class="ui-comment-manager-edit-header ui-modal__head ui-panel__head">
             <h3 class="ui-comment-manager-edit-title" id="editModalTitle">
                 <i class="bi bi-pencil-square"></i>
                 Yorumu Düzenle
@@ -1534,21 +1534,34 @@ require_once __DIR__ . '/header.php';
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="comment_id" id="editCommentId">
-            <div class="ui-comment-manager-edit-body ui-panel__body">
-                <div class="ui-comment-manager-edit-form-group">
-                    <label class="ui-comment-manager-edit-label" for="editCommentBody">
-                        <i class="bi bi-chat-text"></i> Yorum İçeriği
-                    </label>
-                    <textarea name="body" id="editCommentBody" class="ui-comment-manager-edit-textarea" required></textarea>
-                </div>
-                <div class="ui-comment-manager-edit-form-group">
-                    <label class="ui-comment-manager-edit-label" for="editCommentReason">
-                        <i class="bi bi-card-text"></i> Düzenleme Nedeni <span class="text-muted">(isteğe bağlı)</span>
-                    </label>
-                    <textarea name="edit_reason" id="editCommentReason" class="ui-comment-manager-edit-textarea" maxlength="255" rows="3" placeholder="Kullanıcıya gösterilecek kısa açıklama..."></textarea>
+            <div class="ui-comment-manager-edit-body ui-modal__body ui-panel__body">
+                <div class="ui-admin-stack ui-admin-stack-md">
+                    <?= adminRenderFormField([
+                        'type' => 'textarea',
+                        'name' => 'body',
+                        'id' => 'editCommentBody',
+                        'label' => 'Yorum İçeriği',
+                        'class' => 'ui-comment-manager-edit-field',
+                        'control_class' => 'ui-comment-manager-edit-textarea',
+                        'required' => true,
+                    ]) ?>
+                    <?= adminRenderFormField([
+                        'type' => 'textarea',
+                        'name' => 'edit_reason',
+                        'id' => 'editCommentReason',
+                        'label' => 'Düzenleme Nedeni',
+                        'help' => 'Kullanıcıya gösterilecek kısa açıklama. İsteğe bağlı.',
+                        'class' => 'ui-comment-manager-edit-field',
+                        'control_class' => 'ui-comment-manager-edit-textarea',
+                        'attrs' => [
+                            'maxlength' => 255,
+                            'rows' => 3,
+                            'placeholder' => 'Kullanıcıya gösterilecek kısa açıklama...',
+                        ],
+                    ]) ?>
                 </div>
             </div>
-            <div class="ui-comment-manager-edit-footer ui-panel__foot">
+            <div class="ui-comment-manager-edit-footer ui-modal__foot ui-panel__foot">
                 <button type="button" class="ui-comment-manager-edit-btn ui-comment-manager-edit-btn-cancel" data-ui-modal-close>
                     <i class="bi bi-x-circle"></i> İptal
                 </button>

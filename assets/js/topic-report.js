@@ -7,34 +7,19 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
             if (modal.parentElement !== document.body) {
                 document.body.appendChild(modal);
             }
-            if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-                topicReportController = window.TMUI.openDialog(modal, {
-                    bodyClass: 'topic-report-modal-open',
-                    initialFocus: 'input[name="reporter_name"], select[name="reason"]',
-                    returnFocus: topicReportLastTrigger,
-                    onClose: function () {
-                        topicReportController = null;
-                    }
-                });
-                return;
-            }
-            modal.hidden = false;
-            modal.setAttribute('aria-hidden', 'false');
-            document.body.classList.add('topic-report-modal-open');
-            const first = modal.querySelector(topicReportFocusSelector);
-            if (first) first.focus();
+            topicReportController = window.TMUI.openDialog(modal, {
+                bodyClass: 'topic-report-modal-open',
+                initialFocus: 'input[name="reporter_name"], select[name="reason"]',
+                returnFocus: topicReportLastTrigger,
+                onClose: function () {
+                    topicReportController = null;
+                }
+            });
         }
 
         function closeTopicReportModal(modal) {
             if (topicReportController && typeof topicReportController.close === 'function') {
                 topicReportController.close(true);
-                return;
-            }
-            modal.hidden = true;
-            modal.setAttribute('aria-hidden', 'true');
-            document.body.classList.remove('topic-report-modal-open');
-            if (topicReportLastTrigger && typeof topicReportLastTrigger.focus === 'function') {
-                topicReportLastTrigger.focus();
             }
         }
 
@@ -48,9 +33,8 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
             if (event.target.closest('[data-report-modal-close]')) {
                 closeTopicReportModal(modal);
             }
-});
+        });
         document.addEventListener('keydown', function(event) {
-            if (window.TMUI) return;
             const modal = document.getElementById('topicReportModal');
             if (!modal || modal.hidden) return;
 
@@ -79,8 +63,10 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
             const form = event.target.closest('.topic-report-form');
             if (!form) return;
             event.preventDefault();
+            const modal = form.closest('#topicReportModal') || document.getElementById('topicReportModal');
             const feedback = form.querySelector('.topic-report-feedback');
-            const button = form.querySelector('button[type="submit"]');
+            const button = event.submitter || (modal ? modal.querySelector('button[form="' + form.id + '"]') : null) || form.querySelector('button[type="submit"]');
+            if (!button) return;
             const original = button.innerHTML;
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
@@ -93,12 +79,9 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
                 headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
                 body: body
             };
-            (window.publicFetchJson
-                ? window.publicFetchJson(endpoint, Object.assign({}, requestOptions, { notifyError: false })).then(function(payload) {
-                    return {ok: true, payload: payload};
-                })
-                : Promise.reject(new Error('Public API helper yuklenemedi.'))
-            ).then(function(result) {
+            window.publicFetchJson(endpoint, Object.assign({}, requestOptions, { notifyError: false })).then(function(payload) {
+                return {ok: true, payload: payload};
+            }).then(function(result) {
                 const isSuccess = !!(result.ok && result.payload.success);
                 const message = result.payload.message || (isSuccess ? 'Rapor gönderildi.' : 'Rapor gönderilemedi.');
                 feedback.textContent = message;
@@ -109,26 +92,20 @@ const topicReportFocusSelector = 'a[href], button:not([disabled]), textarea:not(
                     if (modal) {
                         closeTopicReportModal(modal);
                     }
-                    if (window.showToast) {
-                        window.showToast(message, 'success', {
-                            detail: 'İnceleme kuyruğuna alındı.'
-                        });
-                    }
+                    window.showToast(message, 'success', {
+                        detail: 'İnceleme kuyruğuna alındı.'
+                    });
                     return;
                 }
-                if (window.showToast) {
-                    window.showToast(message, 'error', {
-                        solution: 'Lütfen alanları kontrol edip tekrar deneyin.'
-                    });
-                }
+                window.showToast(message, 'error', {
+                    solution: 'Lütfen alanları kontrol edip tekrar deneyin.'
+                });
             }).catch(function(error) {
                 feedback.textContent = error && error.message ? error.message : 'Bağlantı hatası. Lütfen tekrar deneyin.';
                 feedback.className = 'topic-report-feedback is-error';
-                if (window.showToast) {
-                    window.showToast('Rapor gönderilemedi.', 'error', {
-                        solution: 'Bağlantınızı kontrol edip tekrar deneyin. Sorun sürerse sayfayı yenileyin.'
-                    });
-                }
+                window.showToast('Rapor gönderilemedi.', 'error', {
+                    solution: 'Bağlantınızı kontrol edip tekrar deneyin. Sorun sürerse sayfayı yenileyin.'
+                });
             }).finally(function() {
                 button.disabled = false;
                 button.removeAttribute('aria-busy');

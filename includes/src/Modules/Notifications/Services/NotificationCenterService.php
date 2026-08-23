@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Services;
 
+use App\Modules\Messages\Services\MessageService;
 use PDO;
 use Throwable;
 
@@ -155,9 +156,11 @@ final class NotificationCenterService
             $typeParams = is_array($preferenceWhere['params'] ?? null) ? $preferenceWhere['params'] : [];
             $dismissalSql = $this->dismissalSql($pdo);
             $dismissalParams = $dismissalSql !== '' ? [$userId] : [];
+            $eventColumns = $this->schema->eventTableColumns($pdo);
+            $hasNotificationMetaColumns = isset($eventColumns['event_key'], $eventColumns['entity_type'], $eventColumns['entity_id']);
 
             $stmtUnread = $pdo->prepare("
-                SELECT id FROM notifications n
+                SELECT id" . ($hasNotificationMetaColumns ? ', event_key, entity_type, entity_id' : '') . " FROM notifications n
                 WHERE (n.user_id IS NULL OR n.user_id = ?)
                 {$typeSql}
                 AND NOT EXISTS (
@@ -167,23 +170,38 @@ final class NotificationCenterService
                 {$dismissalSql}
             ");
             $stmtUnread->execute(array_merge([$userId], $typeParams, [$userId], $dismissalParams));
-            $unreadIds = $stmtUnread->fetchAll(PDO::FETCH_COLUMN) ?: [];
+            $unreadNotifications = $stmtUnread->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-            if ($unreadIds === []) {
+            if ($unreadNotifications === []) {
                 return true;
             }
 
             $values = [];
             $params = [];
-            foreach ($unreadIds as $id) {
+            foreach ($unreadNotifications as $notification) {
+                $id = (int) ($notification['id'] ?? 0);
+                if ($id <= 0) {
+                    continue;
+                }
                 $values[] = '(?, ?)';
-                $params[] = (int) $id;
+                $params[] = $id;
                 $params[] = $userId;
             }
 
-            $stmtInsert = $pdo->prepare($this->insertIgnorePrefix($pdo) . ' INTO notification_reads (notification_id, user_id) VALUES ' . implode(', ', $values));
+            if ($values === []) {
+                return true;
+            }
 
-            return $stmtInsert->execute($params);
+            $stmtInsert = $pdo->prepare($this->insertIgnorePrefix($pdo) . ' INTO notification_reads (notification_id, user_id) VALUES ' . implode(', ', $values));
+            if (!$stmtInsert->execute($params)) {
+                return false;
+            }
+
+            if ($hasNotificationMetaColumns) {
+                $this->syncDirectMessageThreads($pdo, $userId, $unreadNotifications);
+            }
+
+            return true;
         }
 
         $notifId = (int) $notificationId;
@@ -191,15 +209,74 @@ final class NotificationCenterService
             return false;
         }
 
-        $stmtCheck = $pdo->prepare('SELECT id FROM notifications WHERE id = ? AND (user_id IS NULL OR user_id = ?)');
+        $eventColumns = $this->schema->eventTableColumns($pdo);
+        $hasNotificationMetaColumns = isset($eventColumns['event_key'], $eventColumns['entity_type'], $eventColumns['entity_id']);
+        $stmtCheck = $pdo->prepare(
+            'SELECT id' . ($hasNotificationMetaColumns ? ', event_key, entity_type, entity_id' : '') . ' FROM notifications WHERE id = ? AND (user_id IS NULL OR user_id = ?)'
+        );
         $stmtCheck->execute([$notifId, $userId]);
-        if (!$stmtCheck->fetchColumn()) {
+        $notificationRow = $stmtCheck->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($notificationRow === null) {
             return false;
         }
 
         $stmtInsert = $pdo->prepare($this->insertIgnorePrefix($pdo) . ' INTO notification_reads (notification_id, user_id) VALUES (?, ?)');
+        if (!$stmtInsert->execute([$notifId, $userId])) {
+            return false;
+        }
 
-        return $stmtInsert->execute([$notifId, $userId]);
+        if ($hasNotificationMetaColumns) {
+            $this->syncDirectMessageThreads($pdo, $userId, [$notificationRow]);
+        }
+
+        return true;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $notifications
+     * @return list<int>
+     */
+    private function directMessageThreadIds(array $notifications): array
+    {
+        $threadIds = [];
+        foreach ($notifications as $notification) {
+            if (!is_array($notification)) {
+                continue;
+            }
+
+            if ((string) ($notification['event_key'] ?? '') !== 'direct_message_received') {
+                continue;
+            }
+
+            if ((string) ($notification['entity_type'] ?? '') !== 'message_thread') {
+                continue;
+            }
+
+            $threadId = (int) ($notification['entity_id'] ?? 0);
+            if ($threadId > 0) {
+                $threadIds[$threadId] = $threadId;
+            }
+        }
+
+        return array_values($threadIds);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $notifications
+     */
+    private function syncDirectMessageThreads(PDO $pdo, int $userId, array $notifications): void
+    {
+        $threadIds = $this->directMessageThreadIds($notifications);
+        if ($threadIds === []) {
+            return;
+        }
+
+        try {
+            $messageService = new MessageService();
+            $messageService->markThreadsRead($pdo, $userId, $threadIds);
+        } catch (Throwable $e) {
+            error_log('Notification related message sync failed: ' . $e->getMessage());
+        }
     }
 
     /**

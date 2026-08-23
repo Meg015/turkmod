@@ -725,8 +725,8 @@ require_once __DIR__ . '/header.php';
 
                     <div class="complaints-modal ui-admin-modal-overlay" id="<?= htmlspecialchars($modalId) ?>" hidden aria-hidden="true">
                         <div class="complaints-modal-backdrop" data-complaints-modal-close></div>
-                        <div class="complaints-modal-dialog ui-admin-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="<?= htmlspecialchars($modalId) ?>-title">
-                            <div class="complaints-modal-head">
+                        <div class="complaints-modal-dialog ui-admin-modal-shell ui-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="<?= htmlspecialchars($modalId) ?>-title">
+                            <div class="complaints-modal-head ui-modal__head ui-panel__head">
                                 <div>
                                     <h3 id="<?= htmlspecialchars($modalId) ?>-title">
                                         <?php if ($activeTab === 'users'): ?>
@@ -750,7 +750,7 @@ require_once __DIR__ . '/header.php';
                                     <i class="bi bi-clock-history"></i> İşlem Geçmişi (<?= count($events) ?>)
                                 </button>
                             </div>
-                            <div class="complaints-modal-body">
+                            <div class="complaints-modal-body ui-modal__body ui-panel__body">
                                 <div class="complaints-modal-panel" data-complaints-modal-panel="action">
                                     <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-modal-admin-form">
                                         <?= csrf_field() ?>
@@ -827,6 +827,9 @@ require_once __DIR__ . '/header.php';
                                         <?php endif; ?>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="complaints-modal-foot ui-modal__foot ui-panel__foot">
+                                <span class="ui-admin-muted-sm"><i class="bi bi-info-circle"></i> İşlem değişiklikleri burada kaydedilir.</span>
                             </div>
                         </div>
                     </div>

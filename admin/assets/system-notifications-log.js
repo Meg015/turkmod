@@ -4,25 +4,11 @@ function initSystemNotificationsLogPage() {
     let modalNotificationId = '';
 
     function confirmDialog(message, options) {
-        if (window.adminDialog && typeof window.adminDialog.confirm === 'function') {
-            return window.adminDialog.confirm(message, options);
-        }
-        if (typeof window.adminConfirm === 'function') {
-            return window.adminConfirm(message, options);
-        }
-
-        return Promise.resolve(window.confirm(message));
+        return window.adminConfirm(message, options);
     }
 
     function alertDialog(message, options) {
-        if (window.adminDialog && typeof window.adminDialog.alert === 'function') {
-            return window.adminDialog.alert(message, options);
-        }
-        if (typeof window.adminAlert === 'function') {
-            return window.adminAlert(message, options);
-        }
-        window.alert(message);
-        return Promise.resolve();
+        return window.adminAlert(message, options);
     }
 
     function rowCheckboxes() {
@@ -145,35 +131,16 @@ function initSystemNotificationsLogPage() {
             }
         }
 
-        if (window.adminDialog && typeof window.adminDialog.open === 'function') {
-            window.adminDialog.open(modal, {
-                bodyClass: 'ui-admin-dialog-open',
-                initialFocus: '[data-system-notification-detail-close]',
-                returnFocus: button
-            });
-            return;
-        }
-
-        modal.hidden = false;
-        modal.setAttribute('aria-hidden', 'false');
-        modal.classList.add('is-open', 'ui-admin-modal-open');
-        modal.classList.remove('is-closing');
-        modal.querySelector('[data-system-notification-detail-close]')?.focus();
+        window.adminModal.open(modal, {
+            bodyClass: 'ui-admin-dialog-open',
+            initialFocus: '[data-system-notification-detail-close]',
+            returnFocus: button
+        });
     }
 
     function closeModal() {
         if (!modal) return;
-        if (window.adminDialog && typeof window.adminDialog.close === 'function') {
-            window.adminDialog.close(modal);
-            return;
-        }
-
-        modal.classList.add('is-closing');
-        setTimeout(() => {
-            modal.classList.remove('is-open', 'is-closing', 'ui-admin-modal-open');
-            modal.hidden = true;
-            modal.setAttribute('aria-hidden', 'true');
-        }, 160);
+        window.adminModal.close(modal);
     }
 
     if (form) {

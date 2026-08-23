@@ -210,9 +210,18 @@
             var confirmTrigger = event.target.closest && event.target.closest('[data-ui-confirm]');
             if (confirmTrigger) {
                 var message = confirmTrigger.getAttribute('data-ui-confirm') || '';
-                if (message && !window.confirm(message)) {
+                if (confirmTrigger.dataset.uiConfirmed === '1') {
+                    delete confirmTrigger.dataset.uiConfirmed;
+                } else if (message) {
                     event.preventDefault();
                     event.stopPropagation();
+                    confirm(message).then(function (confirmed) {
+                        if (!confirmed) return;
+                        confirmTrigger.dataset.uiConfirmed = '1';
+                        if (typeof confirmTrigger.click === 'function') {
+                            confirmTrigger.click();
+                        }
+                    });
                     return;
                 }
             }
@@ -392,13 +401,7 @@
     }
 
     function confirm(message, options) {
-        if (typeof window.adminConfirm === 'function') {
-            return window.adminConfirm(message, options);
-        }
-        if (typeof window.appConfirm === 'function') {
-            return window.appConfirm(message, options);
-        }
-        return Promise.resolve(window.confirm(String(message || '')));
+        return window.appConfirm(message, options);
     }
 
     window.TMUI = Object.assign(window.TMUI || {}, {
@@ -414,9 +417,7 @@
         registerAction: registerAction,
         confirm: confirm,
         toast: function (message, type, duration) {
-            if (typeof window.showToast === 'function') {
-                window.showToast(message, type, duration);
-            }
+            window.showToast(message, type, duration);
         }
     });
 

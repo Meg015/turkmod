@@ -894,8 +894,8 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
 
 <div class="moderation-note-modal ui-admin-modal-overlay" id="moderationActionNoteModal" hidden aria-hidden="true">
     <div class="moderation-note-backdrop" data-moderation-action-note-close></div>
-    <div class="moderation-note-dialog moderation-action-note-dialog ui-admin-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="moderationActionNoteTitle">
-        <div class="moderation-note-header">
+    <div class="moderation-note-dialog moderation-action-note-dialog ui-admin-modal-shell ui-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="moderationActionNoteTitle">
+        <div class="moderation-note-header ui-modal__head ui-panel__head">
             <div class="moderation-action-note-head">
                 <span class="moderation-action-note-icon" aria-hidden="true"><i class="bi bi-pencil-square"></i></span>
                 <div class="moderation-action-note-title-wrap">
@@ -905,7 +905,7 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
             </div>
             <button type="button" class="ui-admin-btn ui-admin-btn-ghost ui-admin-btn-xs" data-moderation-action-note-close aria-label="Kapat"><i class="bi bi-x-lg"></i></button>
         </div>
-        <div class="moderation-note-body moderation-action-note-body">
+        <div class="moderation-note-body moderation-action-note-body ui-modal__body ui-panel__body">
             <label class="moderation-action-note-label" for="moderationActionNoteText">
                 Not metni
                 <span>Zorunlu</span>
@@ -913,7 +913,7 @@ $healthPercent = (int)($topicHealthSummary['total'] ?? 0) > 0
             <textarea class="moderation-action-note-text" id="moderationActionNoteText" rows="5" placeholder="Örn: İçeriği yayınlamadan önce eksik bilgileri tamamlayın."></textarea>
             <div class="moderation-action-note-error" id="moderationActionNoteError" aria-live="polite" hidden></div>
         </div>
-        <div class="moderation-note-footer">
+        <div class="moderation-note-footer ui-modal__foot ui-panel__foot">
             <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-moderation-action-note-close>İptal</button>
             <button type="button" class="ui-admin-btn ui-admin-btn-primary" id="moderationActionNoteSubmit"><i class="bi bi-send"></i> Gönder</button>
         </div>

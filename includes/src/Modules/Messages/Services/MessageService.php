@@ -532,6 +532,37 @@ final class MessageService
     }
 
     /**
+     * @param list<int|string> $threadIds
+     */
+    public function markThreadsRead(PDO $pdo, int $userId, array $threadIds): int
+    {
+        if ($userId <= 0 || $threadIds === [] || !$this->isSchemaReady($pdo)) {
+            return 0;
+        }
+
+        $uniqueThreadIds = [];
+        foreach ($threadIds as $threadId) {
+            $threadId = (int) $threadId;
+            if ($threadId > 0) {
+                $uniqueThreadIds[$threadId] = $threadId;
+            }
+        }
+
+        if ($uniqueThreadIds === []) {
+            return 0;
+        }
+
+        $updatedThreads = 0;
+        foreach ($uniqueThreadIds as $threadId) {
+            if ($this->markThreadReadOnOpen($pdo, $threadId, $userId) > 0) {
+                $updatedThreads++;
+            }
+        }
+
+        return $updatedThreads;
+    }
+
+    /**
      * @return array{success:bool,message:string,thread_id:int,cleared_through_message_id:int}
      */
     public function clearThreadForUser(PDO $pdo, int $threadId, int $userId): array

@@ -11,25 +11,11 @@
     }
 
     function openManagedModal(modal) {
-        if (window.adminModal && typeof window.adminModal.open === 'function') {
-            window.adminModal.open(modal, { initialFocus: '.ui-admin-detail-close' });
-            return;
-        }
-        modal.hidden = false;
-        modal.setAttribute('aria-hidden', 'false');
-        modal.classList.add('is-open', 'ui-admin-modal-open');
-        modal.querySelector('.ui-admin-detail-close')?.focus();
+        window.adminModal.open(modal, { initialFocus: '.ui-admin-detail-close' });
     }
 
     function closeManagedModal(modal, callback) {
-        if (window.adminModal && typeof window.adminModal.close === 'function') {
-            window.adminModal.close(modal, callback);
-            return;
-        }
-        modal.classList.remove('is-open', 'ui-admin-modal-open');
-        modal.hidden = true;
-        modal.setAttribute('aria-hidden', 'true');
-        callback?.();
+        window.adminModal.close(modal, callback);
     }
 
     function renderList(rows, renderer) {

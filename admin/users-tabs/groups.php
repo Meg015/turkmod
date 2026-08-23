@@ -189,9 +189,9 @@ $groupPriorityForAdmin = static function (array $group, int $fallback): int {
 </div>
 
 <!-- Group Edit Modal -->
-<div class="media-modal-overlay group-edit-modal" id="groupEditModal" role="dialog" aria-modal="true" aria-label="Grup Düzenle" hidden aria-hidden="true">
-    <div class="media-modal ui-panel">
-        <div class="media-modal-header ui-panel__head">
+<div class="media-modal-overlay ui-admin-modal-overlay group-edit-modal" id="groupEditModal" role="dialog" aria-modal="true" aria-label="Grup Düzenle" hidden aria-hidden="true">
+    <div class="media-modal ui-admin-modal-shell ui-modal-shell ui-panel">
+        <div class="media-modal-header ui-modal__head ui-panel__head">
             <div>
                 <h3 class="ui-admin-modal-title" id="groupModalTitle"><i class="bi bi-sliders"></i> Grup Ayarları</h3>
                 <p class="group-edit-help" id="groupModalSubtitle">Grup kimliği, sıralama, renk ve yetki kapsamlarını düzenleyin.</p>
@@ -214,7 +214,7 @@ $groupPriorityForAdmin = static function (array $group, int $fallback): int {
             <input type="hidden" name="action" value="save_group">
             <input type="hidden" name="group_id" id="groupEditId" value="0">
 
-            <div class="media-modal-body ui-panel__body">
+            <div class="media-modal-body ui-modal__body ui-panel__body">
                 <!-- Tab Pane: General -->
                 <div class="group-tab-pane active" data-group-tab-pane="general">
                     <div class="user-group-form-grid ui-grid">
@@ -301,7 +301,7 @@ $groupPriorityForAdmin = static function (array $group, int $fallback): int {
                 </div>
             </div>
 
-            <div class="media-modal-footer ui-panel__foot">
+            <div class="media-modal-footer ui-modal__foot ui-panel__foot">
                 <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-ui-modal-close id="groupModalCancelBtn">
                     <i class="bi bi-x-circle"></i> İptal
                 </button>

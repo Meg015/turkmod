@@ -1,4 +1,3 @@
-var editModalController = null;
 var COMMENT_READ_MORE_LIMIT = 160;
 var commentActionsMenuController = null;
 var commentUserInsightController = null;
@@ -25,42 +24,17 @@ function cmEscHtml(value) {
 }
 
 function cmConfirm(message, options) {
-    if (typeof adminConfirm === 'function') {
-        return adminConfirm(message, options || {});
-    }
-    return Promise.resolve(window.confirm(String(message).replace(/<[^>]+>/g, '')));
+    return window.adminConfirm(message, options || {});
 }
 
 function openCommentManagedModal(modal, options) {
     if (!modal) return null;
-    if (window.adminModal && typeof window.adminModal.open === 'function') {
-        return window.adminModal.open(modal, options || {});
-    }
-    if (window.openAdminManagedModal && window.openAdminManagedModal !== openCommentManagedModal) {
-        return window.openAdminManagedModal(modal, options || {});
-    }
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
-    modal.classList.add('is-open', 'ui-admin-modal-open');
-    var focusTarget = options && options.initialFocus ? modal.querySelector(options.initialFocus) : null;
-    if (focusTarget) focusTarget.focus();
-    return null;
+    return window.adminModal.open(modal, options || {});
 }
 
 function closeCommentManagedModal(modal, resetCallback) {
     if (!modal) return;
-    if (window.adminModal && typeof window.adminModal.close === 'function') {
-        window.adminModal.close(modal, resetCallback);
-        return;
-    }
-    if (window.closeAdminManagedModal && window.closeAdminManagedModal !== closeCommentManagedModal) {
-        window.closeAdminManagedModal(modal, resetCallback);
-        return;
-    }
-    modal.classList.remove('is-open', 'ui-admin-modal-open');
-    modal.hidden = true;
-    modal.setAttribute('aria-hidden', 'true');
-    if (typeof resetCallback === 'function') resetCallback();
+    window.adminModal.close(modal, resetCallback);
 }
 
 function cmModerationEmpty(message) {
@@ -507,38 +481,21 @@ function openEditModal(commentId, commentBody) {
     var modal = document.getElementById('editModal');
     document.body.style.overflow = 'hidden';
 
-    if (window.adminModal && typeof window.adminModal.open === 'function') {
-        editModalController = window.adminModal.open(modal, {
-            openClass: 'active',
-            bodyClass: 'ui-admin-dialog-open',
-            initialFocus: '#editCommentBody',
-            returnFocus: document.activeElement,
-            onClose: function () {
-                editModalController = null;
-                document.body.style.overflow = '';
-            }
-        });
-        return;
-    }
-
-    modal.hidden = false;
-    modal.classList.add('active');
-    document.getElementById('editCommentBody').focus();
+    window.adminModal.open(modal, {
+        openClass: 'active',
+        bodyClass: 'ui-admin-dialog-open',
+        initialFocus: '#editCommentBody',
+        returnFocus: document.activeElement,
+        onClose: function () {
+            document.body.style.overflow = '';
+        }
+    });
 }
 
 function closeEditModal() {
     var modal = document.getElementById('editModal');
     if (!modal) return;
-    if (window.adminModal && typeof window.adminModal.close === 'function') {
-        window.adminModal.close(modal, function () {
-            editModalController = null;
-            document.body.style.overflow = '';
-        });
-        return;
-    }
-    modal.classList.remove('active');
-    modal.hidden = true;
-    document.body.style.overflow = '';
+    window.adminModal.close(modal);
 }
 
 function openCommentBanModal(userId, userName) {
@@ -821,7 +778,7 @@ function initCommentsManagerPage() {
     });
 
     document.addEventListener('keydown', function(e) {
-        if (!window.TMUI && e.key === 'Escape') {
+        if (e.key === 'Escape') {
             closeEditModal();
             closeCommentBanModal();
             closeCommentUnbanModal();

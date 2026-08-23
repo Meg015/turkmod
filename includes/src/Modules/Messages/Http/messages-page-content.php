@@ -430,17 +430,17 @@ require_once $projectRoot . '/includes/public-header.php';
 </section>
 
 <!-- Modal overlay starting new chats -->
-<div class="messages-modal" id="newChatModal" hidden aria-hidden="true">
-    <div class="messages-modal-backdrop" data-messages-modal-close></div>
-    <div class="messages-modal-container">
-        <div class="messages-modal-header">
-            <h3>Yeni Mesaj</h3>
-            <button type="button" class="messages-modal-close" data-messages-modal-close aria-label="Kapat">
+<div class="messages-modal" id="newChatModal" role="dialog" aria-modal="true" aria-labelledby="newChatModalTitle" hidden aria-hidden="true">
+    <div class="messages-modal-backdrop" data-messages-modal-close data-ui-modal-close></div>
+    <div class="messages-modal-container ui-modal-shell ui-panel">
+        <div class="messages-modal-header ui-modal__head ui-panel__head">
+            <h3 id="newChatModalTitle">Yeni Mesaj</h3>
+            <button type="button" class="messages-modal-close" data-messages-modal-close data-ui-modal-close aria-label="Kapat">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="messages-modal-body">
-            <form method="post" class="messages-start-form" data-messages-start-form>
+        <form method="post" class="messages-start-form" data-messages-start-form>
+            <div class="messages-modal-body ui-modal__body ui-panel__body">
                 <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="start">
                 <input type="hidden" name="target_user_id" value="" data-messages-target-user-id>
@@ -459,12 +459,14 @@ require_once $projectRoot . '/includes/public-header.php';
                     <textarea id="newChatMessage" name="body" rows="4" maxlength="4000" placeholder="İlk mesajınızı buraya yazın..." required></textarea>
                 </div>
 
+            </div>
+            <div class="messages-modal-footer ui-modal__foot ui-panel__foot">
                 <button type="submit" class="messages-modal-submit"<?= $messagesReady ? '' : ' disabled aria-disabled="true"' ?>>
                     <i class="bi bi-send-fill"></i>
                     <span>Sohbeti Başlat</span>
                 </button>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 </div>
 

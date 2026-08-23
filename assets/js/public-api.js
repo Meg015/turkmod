@@ -108,9 +108,7 @@
 
     function notifyError(error, defaultMessage) {
         var message = error && error.message ? error.message : (defaultMessage || "Islem tamamlanamadi.");
-        if (typeof window.showToast === "function") {
-            window.showToast(message, "error");
-        }
+        window.showToast(message, "error");
     }
 
     function isCsrfError(error) {

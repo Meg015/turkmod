@@ -1,31 +1,11 @@
 function openGroupManagedModal(modal, options) {
     if (!modal) return null;
-    if (window.adminModal && typeof window.adminModal.open === 'function') {
-        return window.adminModal.open(modal, options || {});
-    }
-    if (window.openAdminManagedModal && window.openAdminManagedModal !== openGroupManagedModal) {
-        return window.openAdminManagedModal(modal, options || {});
-    }
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
-    modal.classList.add((options && options.openClass) || 'is-open', 'ui-admin-modal-open');
-    return null;
+    return window.adminModal.open(modal, options || {});
 }
 
 function closeGroupManagedModal(modal, resetCallback) {
     if (!modal) return;
-    if (window.adminModal && typeof window.adminModal.close === 'function') {
-        window.adminModal.close(modal, resetCallback);
-        return;
-    }
-    if (window.closeAdminManagedModal && window.closeAdminManagedModal !== closeGroupManagedModal) {
-        window.closeAdminManagedModal(modal, resetCallback);
-        return;
-    }
-    modal.classList.remove('is-open', 'ui-admin-modal-open');
-    modal.hidden = true;
-    modal.setAttribute('aria-hidden', 'true');
-    if (typeof resetCallback === 'function') resetCallback();
+    window.adminModal.close(modal, resetCallback);
 }
 
 function escHtml(s) {

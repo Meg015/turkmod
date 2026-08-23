@@ -40,13 +40,13 @@ $renderAttributes = static function (array $attributes) use ($escape): void {
 };
 
 ?>
-<div class="media-modal-overlay" id="<?= $escape($modalId) ?>" role="dialog" aria-modal="true" aria-label="<?= $escape($ariaLabel) ?>" hidden aria-hidden="true" data-confirm-title="<?= $escape($confirmTitle) ?>">
-    <div class="media-modal ui-admin-modal-sm ui-panel">
-        <div class="media-modal-header ui-panel__head">
+<div class="media-modal-overlay ui-admin-modal-overlay" id="<?= $escape($modalId) ?>" role="dialog" aria-modal="true" aria-label="<?= $escape($ariaLabel) ?>" hidden aria-hidden="true" data-confirm-title="<?= $escape($confirmTitle) ?>">
+    <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
+        <div class="media-modal-header ui-modal__head ui-panel__head">
             <h3 class="ui-admin-modal-title"><i class="bi bi-trash"></i> <?= $escape($modalTitle) ?></h3>
             <button type="button" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost" data-ui-modal-close data-clear-logs-close>&times;</button>
         </div>
-        <div class="media-modal-body ui-panel__body">
+        <div class="media-modal-body ui-modal__body ui-panel__body">
             <form id="clearLogsForm" data-clear-logs-form method="<?= $escape($formMethod) ?>" action="<?= $escape($formAction) ?>">
                 <?php if ($includeCsrf && function_exists('csrf_field')): ?>
                     <?= csrf_field() ?>
@@ -128,7 +128,7 @@ $renderAttributes = static function (array $attributes) use ($escape): void {
                     'html' => '<strong>' . $escape($warningTitle) . '</strong> ' . $escape($warningText),
                 ]) ?>
 
-                <div class="media-modal-footer ui-admin-modal-footer-flush ui-panel__foot">
+                <div class="media-modal-footer ui-admin-modal-footer-flush ui-modal__foot ui-panel__foot">
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-clear-logs-close><?= $escape($cancelLabel) ?></button>
                     <button type="submit" class="ui-admin-btn ui-admin-btn-danger"><i class="bi bi-trash"></i> <?= $escape($submitLabel) ?></button>
                 </div>

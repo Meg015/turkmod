@@ -3070,19 +3070,19 @@ $csrfToken = csrf_token();
 
 </div>
 
-<div class="notification-preview-modal" id="notificationPreviewModal" hidden aria-hidden="true">
-    <div class="notification-preview-backdrop" data-notification-preview-close></div>
-    <section class="notification-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="notificationPreviewTitle">
-        <header class="notification-preview-modal-head">
+<div class="notification-preview-modal ui-admin-modal-overlay" id="notificationPreviewModal" hidden aria-hidden="true">
+    <div class="notification-preview-backdrop" data-notification-preview-close data-ui-modal-close></div>
+    <section class="notification-preview-dialog ui-admin-modal-shell ui-modal-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="notificationPreviewTitle">
+        <header class="notification-preview-modal-head ui-modal__head ui-panel__head">
             <div>
                 <span class="notification-preview-channel" data-notification-preview-channel>Önizleme</span>
                 <h3 id="notificationPreviewTitle">Bildirim Önizlemesi</h3>
             </div>
-            <button type="button" class="ui-admin-detail-close" data-notification-preview-close aria-label="Önizlemeyi kapat">
+            <button type="button" class="ui-admin-detail-close" data-notification-preview-close data-ui-modal-close aria-label="Önizlemeyi kapat">
                 <i class="bi bi-x-lg"></i>
             </button>
         </header>
-        <div class="notification-preview-modal-body">
+        <div class="notification-preview-modal-body ui-modal__body ui-panel__body">
             <div class="notification-template-preview notification-preview-modal-content" data-notification-preview-content></div>
         </div>
     </section>

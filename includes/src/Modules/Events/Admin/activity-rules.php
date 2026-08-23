@@ -129,7 +129,7 @@ if ($ready) {
                         <?php endforeach; ?>
                     </div>
 
-                    <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-panel" data-ui-events-rule-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Etkinlik kurali ayarlari" hidden>
+                    <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-admin-modal-shell ui-modal-shell ui-panel" data-ui-events-rule-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Etkinlik kurali ayarlari" hidden>
                         <?php foreach ($rules as $index => $rule): ?>
                             <?php
                             $activityType = (string)$rule['activity_type'];

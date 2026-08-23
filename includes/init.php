@@ -880,13 +880,15 @@ if ($pdo && $isLoggedIn && !$restrictedGatePathAllowed) {
             $reason = htmlspecialchars((string) $restriction["message"], ENT_QUOTES, "UTF-8");
             $title = htmlspecialchars((string) $restriction["title"], ENT_QUOTES, "UTF-8");
             $date = !empty($restriction["date"]) ? date("d.m.Y H:i", strtotime((string) $restriction["date"])) : "";
+            $uiFoundationCssHref = rtrim($baseUri, "/") . "/assets/css/ui-foundation.css?v=" . $fallbackCssVersion;
             echo '<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . '</title>';
+            echo '<link rel="stylesheet" href="' . htmlspecialchars($uiFoundationCssHref, ENT_QUOTES, "UTF-8") . '">';
             echo '<link rel="stylesheet" href="' . htmlspecialchars($fallbackCssHref, ENT_QUOTES, "UTF-8") . '"></head>';
-            echo '<body class="system-fallback-page"><main class="ban-lock" role="dialog" aria-modal="true"><div class="ban-lock-head"><span>Hesap erişimi sınırlandı</span><h1>' . $title . '</h1></div><div class="ban-lock-body"><div class="ban-lock-row"><span class="ban-lock-label">Açıklama</span><p>' . $reason . '</p></div>';
+            echo '<body class="system-fallback-page"><main class="ban-lock ui-dialog-shell ui-panel" role="dialog" aria-modal="true"><div class="ban-lock-head ui-modal__head ui-panel__head"><span>Hesap erişimi sınırlandı</span><h1>' . $title . '</h1></div><div class="ban-lock-body ui-modal__body ui-panel__body"><div class="ban-lock-row"><span class="ban-lock-label">Açıklama</span><p>' . $reason . '</p></div>';
             if ($date !== "") {
                 echo '<div class="ban-lock-row"><span class="ban-lock-label">İşlem tarihi</span><p>' . htmlspecialchars($date, ENT_QUOTES, "UTF-8") . '</p></div>';
             }
-            echo '<div class="ban-lock-actions"><a class="ban-primary" href="' . htmlspecialchars($appealUrl, ENT_QUOTES, "UTF-8") . '">Ban itirazlarım</a><form method="post" action="' . htmlspecialchars($logoutUrl, ENT_QUOTES, "UTF-8") . '">' . csrf_field() . '<button class="ban-secondary" type="submit">Çıkış yap</button></form></div></div></main></body></html>';
+            echo '<div class="ban-lock-actions ui-modal__foot ui-panel__foot"><a class="ban-primary" href="' . htmlspecialchars($appealUrl, ENT_QUOTES, "UTF-8") . '">Ban itirazlarım</a><form method="post" action="' . htmlspecialchars($logoutUrl, ENT_QUOTES, "UTF-8") . '">' . csrf_field() . '<button class="ban-secondary" type="submit">Çıkış yap</button></form></div></div></main></body></html>';
             exit;
         }
     } catch (Throwable $e) {

@@ -37,17 +37,11 @@
     }
 
     function fetchJson(url, options) {
-        if (window.publicFetchJson) {
-            return window.publicFetchJson(url, options || {});
-        }
-
-        return Promise.reject(new Error("Public API helper yuklenemedi."));
+        return window.publicFetchJson(url, options);
     }
 
     function toast(message, type) {
-        if (typeof window.showToast === "function") {
-            window.showToast(message, type || "info");
-        }
+        window.showToast(message, type || "info");
     }
 
     function normalizedPresence(thread) {
@@ -247,27 +241,37 @@
             }
         }
 
-        var newChatBtn = root.querySelector("[data-messages-new-chat-toggle]");
-        if (newChatBtn && chatModal) {
+       var newChatBtn = root.querySelector("[data-messages-new-chat-toggle]");
+       if (newChatBtn && chatModal) {
+            var lastChatTrigger = null;
+            var resetChatModal = function () {
+                if (targetInput) targetInput.value = "";
+                if (searchInput) searchInput.value = "";
+                var bodyText = startForm ? startForm.querySelector("textarea") : null;
+                if (bodyText) bodyText.value = "";
+                clearResults();
+            };
+
+            var closeChatModal = function () {
+                window.TMUI.closeDialog(chatModal);
+                resetChatModal();
+            };
+
             newChatBtn.addEventListener("click", function () {
-                chatModal.removeAttribute("hidden");
-                chatModal.removeAttribute("aria-hidden");
-                setTimeout(function () {
-                    if (searchInput) searchInput.focus();
-                }, 50);
+                lastChatTrigger = document.activeElement;
+                window.TMUI.openDialog(chatModal, {
+                    bodyClass: 'ui-modal-open',
+                    returnFocus: lastChatTrigger || newChatBtn,
+                    initialFocus: '[data-messages-user-search]',
+                    onClose: function () {
+                        resetChatModal();
+                    }
+                });
             });
 
             var closeButtons = chatModal.querySelectorAll("[data-messages-modal-close]");
             closeButtons.forEach(function (btn) {
-                btn.addEventListener("click", function () {
-                    chatModal.setAttribute("hidden", "true");
-                    chatModal.setAttribute("aria-hidden", "true");
-                    if (targetInput) targetInput.value = "";
-                    if (searchInput) searchInput.value = "";
-                    var bodyText = startForm ? startForm.querySelector("textarea") : null;
-                    if (bodyText) bodyText.value = "";
-                    clearResults();
-                });
+                btn.addEventListener("click", closeChatModal);
             });
         }
 
@@ -294,15 +298,12 @@
         function confirmThreadDelete(peerName) {
             var name = String(peerName || "Bu kullanıcı").trim() || "Bu kullanıcı";
             var message = name + " ile olan sohbet mesaj listenizden kalıcı olarak silinecek. Eski mesajlar size tekrar gösterilmeyecek. Bu işlem geri alınamaz.";
-            if (window.TMUI && typeof window.TMUI.confirm === "function") {
-                return window.TMUI.confirm(message, {
-                    title: "Sohbeti sil?",
-                    ok: "Kalıcı olarak sil",
-                    cancel: "Vazgeç",
-                    tone: "danger"
-                });
-            }
-            return Promise.resolve(window.confirm(message));
+            return window.appConfirm(message, {
+                title: "Sohbeti sil?",
+                ok: "Kalıcı olarak sil",
+                cancel: "Vazgeç",
+                tone: "danger"
+            });
         }
 
         function refreshTopbarMessages() {
@@ -516,27 +517,48 @@
 
             var action = btn.getAttribute('data-msg-action');
             if (action === 'delete') {
-                if (!confirm("Bu mesajı silmek istediğinize emin misiniz?")) return;
-                var fd = new FormData();
-                fd.append("action", "delete");
-                fd.append("_token", csrfToken);
-                fd.append("message_id", msgId);
-                fetchJson(apiUrl, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
-                .then(function(data) {
-                    if (data.ok) {
-                        toast(data.message || "Mesaj silindi.", "success");
-                        pollThread(false); // refresh thread
-                    }
-                    else toast(data.message || "Hata oluştu", "error");
-                })
-                .catch(function (error) {
-                    toast(error && error.message ? error.message : "Mesaj silinemedi.", "error");
+                var confirmDelete = window.TMUI.confirm("Bu mesajı silmek istediğinize emin misiniz?", {
+                    title: "Mesaj silinsin mi?",
+                    ok: "Sil",
+                    cancel: "Vazgeç",
+                    tone: "danger"
+                });
+                confirmDelete.then(function (confirmed) {
+                    if (!confirmed) return;
+                    var fd = new FormData();
+                    fd.append("action", "delete");
+                    fd.append("_token", csrfToken);
+                    fd.append("message_id", msgId);
+                    fetchJson(apiUrl, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
+                    .then(function(data) {
+                        if (data.ok) {
+                            toast(data.message || "Mesaj silindi.", "success");
+                            pollThread(false); // refresh thread
+                        }
+                        else toast(data.message || "Hata oluştu", "error");
+                    })
+                    .catch(function (error) {
+                        toast(error && error.message ? error.message : "Mesaj silinemedi.", "error");
+                    });
                 });
             } else if (action === 'edit') {
                 var msgBodyEl = article.querySelector('.msg-body');
                 var oldText = msgBodyEl.textContent.trim();
-                var newBody = prompt("Mesajı düzenle:", oldText);
-                if (newBody !== null && newBody.trim() !== "") {
+                var promptPromise = typeof window.appPrompt === "function"
+                    ? window.appPrompt("Mesajı düzenle", {
+                        title: "Mesajı düzenle",
+                        value: oldText,
+                        input: "textarea",
+                        rows: 8,
+                        ok: "Kaydet",
+                        cancel: "Vazgeç",
+                        icon: "bi-pencil"
+                    })
+                    : Promise.resolve(null);
+                promptPromise.then(function (newBody) {
+                    if (newBody === null || !String(newBody || "").trim()) {
+                        return;
+                    }
                     var fd2 = new FormData();
                     fd2.append("action", "edit");
                     fd2.append("_token", csrfToken);
@@ -553,7 +575,7 @@
                     .catch(function (error) {
                         toast(error && error.message ? error.message : "Mesaj duzenlenemedi.", "error");
                     });
-                }
+                });
             }
         }
 
@@ -965,7 +987,8 @@
                         preview.innerHTML = "<strong>Yeni mesaj var</strong>";
                     }
                 } else {
-                    window.location.reload();
+                    refreshTopbarMessages();
+                    refreshPageUnreadCount();
                 }
             }
         }
@@ -974,7 +997,7 @@
             window.publicTopbarRealtime.subscribe(handleRealtimeEvent);
         }
 
-        // Automatic 3.5s HTTP Polling interval for active thread (Real-time updates & typing indicator fallback)
+        // Automatic 3.5s HTTP Polling interval for active thread (Real-time updates & typing indicator)
         var activeThreadPollInterval = setInterval(function () {
             if (activeThreadId > 0 && !document.hidden) {
                 pollThread(false);

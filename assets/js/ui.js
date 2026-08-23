@@ -148,18 +148,37 @@
 
         return new Promise(function (resolve) {
             var dialog = document.createElement('div');
-            var needsInput = options.input === true;
+            var inputMode = options.input === 'textarea'
+                ? 'textarea'
+                : (options.input === true ? (options.type || 'text') : options.input);
+            var needsInput = Boolean(inputMode);
+            var needsTextarea = inputMode === 'textarea';
+            var shellClasses = ['app-dialog', 'ui-dialog-shell', 'ui-panel'];
+            var descriptionId = options.message ? 'appDialogDescription' : '';
+            if (needsTextarea) {
+                shellClasses.push('app-dialog--textarea');
+            }
             dialog.className = 'app-dialog-overlay';
             dialog.setAttribute('role', 'presentation');
             dialog.innerHTML = [
-                '<div class="app-dialog" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle">',
-                    '<div class="app-dialog-icon"><i class="bi ', appDialogEscape(options.icon || 'bi-question-circle'), '"></i></div>',
-                    '<div class="app-dialog-copy">',
-                        '<h3 id="appDialogTitle">', appDialogEscape(options.title || 'Onay gerekiyor'), '</h3>',
-                        options.message ? '<p>' + appDialogEscape(options.message) + '</p>' : '',
+                '<div class="' + shellClasses.join(' ') + '" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle"' + (descriptionId ? ' aria-describedby="' + descriptionId + '"' : '') + '>',
+                    '<div class="app-dialog-head ui-modal__head ui-panel__head">',
+                        '<div class="app-dialog-head-copy">',
+                            '<div class="app-dialog-icon"><i class="bi ', appDialogEscape(options.icon || 'bi-question-circle'), '" aria-hidden="true"></i></div>',
+                            '<div class="app-dialog-copy">',
+                                '<h3 id="appDialogTitle">', appDialogEscape(options.title || 'Onay gerekiyor'), '</h3>',
+                            '</div>',
+                        '</div>',
                     '</div>',
-                    needsInput ? '<input class="app-dialog-input" type="' + appDialogEscape(options.type || 'text') + '" value="' + appDialogEscape(options.value || '') + '" placeholder="' + appDialogEscape(options.placeholder || '') + '">' : '',
-                    '<div class="app-dialog-actions">',
+                    '<div class="app-dialog-body ui-modal__body ui-panel__body">',
+                        options.message ? '<p class="app-dialog-message" id="' + descriptionId + '">' + appDialogEscape(options.message) + '</p>' : '',
+                        needsInput ? (
+                            needsTextarea
+                                ? '<textarea class="app-dialog-input app-dialog-textarea" rows="' + String(options.rows || 6) + '" placeholder="' + appDialogEscape(options.placeholder || '') + '">' + appDialogEscape(options.value || '') + '</textarea>'
+                                : '<input class="app-dialog-input" type="' + appDialogEscape(inputMode || 'text') + '" value="' + appDialogEscape(options.value || '') + '" placeholder="' + appDialogEscape(options.placeholder || '') + '">'
+                        ) : '',
+                    '</div>',
+                    '<div class="app-dialog-footer ui-modal__foot ui-panel__foot">',
                         '<button type="button" class="app-dialog-btn app-dialog-cancel">', appDialogEscape(options.cancel || 'Vazgeç'), '</button>',
                         '<button type="button" class="app-dialog-btn app-dialog-ok">', appDialogEscape(options.ok || 'Onayla'), '</button>',
                     '</div>',
@@ -173,6 +192,11 @@
             var ok = dialog.querySelector('.app-dialog-ok');
             var cancel = dialog.querySelector('.app-dialog-cancel');
 
+            if (input && input.tagName === 'TEXTAREA') {
+                input.style.minHeight = options.minHeight || '120px';
+                input.style.resize = 'vertical';
+            }
+
             function resolveCancel() { closeAppDialog(dialog, needsInput ? null : false, resolve); }
             function resolveOk() { closeAppDialog(dialog, needsInput ? (input.value || '').trim() : true, resolve); }
 
@@ -183,7 +207,13 @@
             });
             dialog.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') resolveCancel();
-                if (event.key === 'Enter') resolveOk();
+                if (event.key === 'Enter' && event.target === input) {
+                    if (input.tagName === 'TEXTAREA' && !event.ctrlKey && !event.metaKey) {
+                        return;
+                    }
+                    event.preventDefault();
+                    resolveOk();
+                }
             });
 
             setTimeout(function () {
@@ -506,9 +536,7 @@
                 if (!valid) {
                     e.preventDefault();
                     form.dataset.clientInvalid = '1';
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('Lütfen tüm alanları doğru doldurun.', 'error');
-                    }
+                    window.showToast('Lütfen tüm alanları doğru doldurun.', 'error');
                 }
             });
         });
@@ -958,7 +986,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const email = input ? input.value.trim() : '';
             if (!input || !email || !input.checkValidity()) {
                 if (feedback) feedback.textContent = 'Lütfen geçerli bir e-posta adresi girin.';
-                if (window.showToast) window.showToast('Lütfen geçerli bir e-posta adresi girin.', 'warning');
+                window.showToast('Lütfen geçerli bir e-posta adresi girin.', 'warning');
                 input && input.focus();
                 return;
             }
@@ -971,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {}
             newsletterForm.classList.add('is-submitted');
             if (feedback) feedback.textContent = 'Kaydınız alındı. Yeni içerik duyuruları için bu adresi hatırlayacağız.';
-            if (window.showToast) window.showToast('Bülten kaydınız alındı.', 'success');
+            window.showToast('Bülten kaydınız alındı.', 'success');
         });
     }
 
@@ -1052,9 +1080,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             try {
-                if (!window.publicFetchJson) {
-                    throw new Error('Public API helper yuklenemedi.');
-                }
                 const payload = await window.publicFetchJson(`${baseUri}/api/search.php?q=${encodeURIComponent(query)}`, {
                     headers: { 'Accept': 'application/json' },
                 });

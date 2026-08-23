@@ -12,10 +12,8 @@
         if (!message) {
             return;
         }
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type || 'info');
-            return;
-        }
+        window.showToast(message, type || 'info');
+        return;
     }
 
     function sectionState(section) {
@@ -397,9 +395,6 @@
             return null;
         }
         const url = state.statusApi + '?topic_id=' + encodeURIComponent(String(state.topicId)) + '&_=' + Date.now();
-        if (!window.publicFetchJson) {
-            return null;
-        }
         let data = null;
         try {
             data = await window.publicFetchJson(url, {
@@ -905,57 +900,14 @@
     }
 
     async function refreshAuthCsrfToken(section, state) {
-        try {
-            if (window.publicApi && typeof window.publicApi.refreshCsrfToken === 'function') {
-                const refreshed = await window.publicApi.refreshCsrfToken();
-                const nextToken = typeof window.publicApi.csrfToken === 'function' ? window.publicApi.csrfToken() : '';
-                if (refreshed && nextToken) {
-                    updateCsrfTokenFromResponse(state, section, { _token: nextToken });
-                    return true;
-                }
-            }
-        } catch (error) {}
-
-        try {
-            if (window.publicFetchJson) {
-                const refreshData = await window.publicFetchJson(state.statusApi, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: { topic_id: state.topicId, _token: state.csrf },
-                    notifyError: false,
-                    csrfRetry: false
-                });
-                return updateCsrfTokenFromResponse(state, section, refreshData);
-            }
-        } catch (error) {}
-
-        if (!state.statusApi || !state.topicId) {
-            return false;
+        const refreshed = await window.publicApi.refreshCsrfToken();
+        const nextToken = window.publicApi.csrfToken();
+        if (refreshed && nextToken) {
+            updateCsrfTokenFromResponse(state, section, { _token: nextToken });
+            return true;
         }
 
-        try {
-            if (!window.publicFetchJson) {
-                return false;
-            }
-            const refreshData = await window.publicFetchJson(state.statusApi, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: { topic_id: state.topicId, _token: state.csrf },
-                notifyError: false,
-                csrfRetry: false
-            });
-            return updateCsrfTokenFromResponse(state, section, refreshData);
-        } catch (error) {
-            return false;
-        }
+        return false;
     }
 
     async function submitAuth(state, section, action, submitBtn) {
@@ -1005,11 +957,6 @@
         setModalFeedback(state, '', 'info');
 
         try {
-            if (!window.publicFetchJson) {
-                setModalFeedback(state, 'Public API helper yuklenemedi.', 'error');
-                return;
-            }
-
             let response = null;
             let data = null;
             let requestError = null;

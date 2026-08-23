@@ -22,6 +22,35 @@
         refresh("notifications");
     }
 
+    function normalizeMessageBadgeCount(value) {
+        var parsed = parseInt(String(value || "").replace(/\D/g, ""), 10);
+        return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+    }
+
+    function updateMessageBadgeDom(count) {
+        var badge = document.getElementById("msgBadge") || document.querySelector("[data-messages-badge]");
+        if (!badge) {
+            return false;
+        }
+
+        badge.textContent = count > 99 ? "99+" : String(count);
+        if (count > 0) {
+            badge.classList.add("is-visible");
+        } else {
+            badge.classList.remove("is-visible");
+        }
+
+        return true;
+    }
+
+    window.publicTopbar = window.publicTopbar || {};
+    window.publicTopbar.setMessageBadgeCount = function (count) {
+        var nextCount = normalizeMessageBadgeCount(count);
+        window.publicTopbar.messageBadgeCount = nextCount;
+        updateMessageBadgeDom(nextCount);
+        return nextCount;
+    };
+
     function init() {
         var menu = document.querySelector("[data-public-topbar-user-id]");
         var userId = menu ? Number(menu.getAttribute("data-public-topbar-user-id") || 0) : 0;
@@ -48,9 +77,12 @@
         var seenMessageOrder = [];
         var pendingMessageIds = new Set();
         var pendingMessageGroups = new Map();
+        // Keep direct-message websocket paths from producing duplicate toasts.
+        var directMessageToastThreads = new Map();
+        var directMessageToastWindowMs = 1500;
         var aggregationWindowMs = 2000;
         var seenTtlMs = 10 * 60 * 1000;
-        var tabStateTtlMs = 45 * 1000;
+        var tabStateTtlMs = 20 * 1000;
         var tabId = createTabId();
         var lastActiveAt = Date.now();
         var coordinationScope = userId > 0 ? "user-" + userId : "guest";
@@ -79,6 +111,10 @@
         var domPresenceWatcherCleanup = null;
         var domPresenceObserver = null;
         var domPresenceScanTimer = null;
+
+        if (typeof window.publicTopbar.messageBadgeCount === "number") {
+            updateMessageBadgeDom(window.publicTopbar.messageBadgeCount);
+        }
 
         function authStateIsLoggedIn(payload) {
             var state = payload && payload.auth && typeof payload.auth === "object"
@@ -113,10 +149,6 @@
 
         function refreshAuthState(force) {
             if (userId <= 0) {
-                return Promise.resolve(true);
-            }
-
-            if (!window.publicFetchJson || typeof window.publicFetchJson !== "function") {
                 return Promise.resolve(true);
             }
 
@@ -240,6 +272,10 @@
             return typeof document.hasFocus !== "function" || document.hasFocus();
         }
 
+        function pageIsVisible() {
+            return !document.hidden;
+        }
+
         function currentTabState() {
             return {
                 tab_id: tabId,
@@ -278,6 +314,19 @@
             }
         }
 
+        function broadcastMessageBadgeCount(count) {
+            var nextCount = normalizeMessageBadgeCount(count);
+            window.publicTopbar.setMessageBadgeCount(nextCount);
+            broadcastChannelMessage({
+                type: "realtime_event",
+                payload: {
+                    type: "message_badge_sync",
+                    message_count: nextCount
+                }
+            });
+            return nextCount;
+        }
+
         function persistTabState(markActive) {
             if (markActive) {
                 lastActiveAt = Date.now();
@@ -290,6 +339,9 @@
 
         function loadStoredTabStates() {
             var states = [];
+            if (messageChannel !== null) {
+                return states;
+            }
             var now = Date.now();
             try {
                 if (!window.localStorage) {
@@ -338,10 +390,25 @@
             if (liveStates.length === 0) {
                 return tabId;
             }
-            liveStates.sort(function (left, right) {
+            var visibleStates = liveStates.filter(function (state) {
+                return !!state.visible;
+            });
+            var focusedStates = liveStates.filter(function (state) {
+                return !!state.visible && !!state.focused;
+            });
+            var pool = focusedStates.length > 0 ? focusedStates : (visibleStates.length > 0 ? visibleStates : liveStates);
+            pool.sort(function (left, right) {
+                var activeDifference = Number(right.last_active_at || 0) - Number(left.last_active_at || 0);
+                if (activeDifference !== 0) {
+                    return activeDifference;
+                }
+                var updateDifference = Number(right.updated_at || 0) - Number(left.updated_at || 0);
+                if (updateDifference !== 0) {
+                    return updateDifference;
+                }
                 return String(left.tab_id).localeCompare(String(right.tab_id));
             });
-            return String(liveStates[0].tab_id || tabId);
+            return String(pool[0].tab_id || tabId);
         }
 
         function ownsNetworkSurface() {
@@ -378,10 +445,13 @@
                 return tabId;
             }
 
+            var visibleStates = liveStates.filter(function (state) {
+                return !!state.visible;
+            });
             var focusedStates = liveStates.filter(function (state) {
                 return !!state.visible && !!state.focused;
             });
-            var pool = focusedStates.length > 0 ? focusedStates : liveStates;
+            var pool = focusedStates.length > 0 ? focusedStates : (visibleStates.length > 0 ? visibleStates : liveStates);
             pool.sort(function (left, right) {
                 var activeDifference = Number(right.last_active_at || 0) - Number(left.last_active_at || 0);
                 if (activeDifference !== 0) {
@@ -491,11 +561,154 @@
             }
         }
 
+        function threadIdFromUrl(value) {
+            var resolvedUrl = safeThreadUrl(value);
+            if (!resolvedUrl) {
+                return 0;
+            }
+
+            try {
+                var parsed = new URL(resolvedUrl, window.location.href);
+                return Math.max(0, Number(parsed.searchParams.get("thread") || 0));
+            } catch (error) {
+                return 0;
+            }
+        }
+
+        function rememberDirectMessageToast(threadId) {
+            threadId = Number(threadId || 0);
+            if (threadId <= 0) {
+                return;
+            }
+            directMessageToastThreads.set(threadId, Date.now());
+        }
+
+        function recentDirectMessageToast(threadId) {
+            threadId = Number(threadId || 0);
+            if (threadId <= 0) {
+                return false;
+            }
+
+            var shownAt = directMessageToastThreads.get(threadId);
+            if (typeof shownAt !== "number") {
+                return false;
+            }
+            if (Date.now() - shownAt > directMessageToastWindowMs) {
+                directMessageToastThreads.delete(threadId);
+                return false;
+            }
+
+            return true;
+        }
+
         function notificationText(group) {
             if (group.count > 1) {
                 return group.sender_name + " tarafından " + group.count + " yeni mesaj gönderildi.";
             }
             return group.sender_name + " tarafından bir mesaj gönderildi.";
+        }
+
+        function normalizeNotificationToastType(value) {
+            var type = String(value || "").trim().toLowerCase();
+            if (type === "danger" || type === "failed") {
+                return "error";
+            }
+            if (type === "warn") {
+                return "warning";
+            }
+            if (type === "ok") {
+                return "success";
+            }
+            if (type === "system") {
+                return "info";
+            }
+            if (type === "error" || type === "warning" || type === "success" || type === "info") {
+                return type;
+            }
+            return "info";
+        }
+
+        function notificationToastVisible() {
+            return pageIsVisible();
+        }
+
+        function notificationToastOptions(payload) {
+            var title = String(payload && (payload.title || payload.notification_title) || "").trim();
+            var message = String(payload && (payload.message || payload.notification_message) || "").trim();
+            var link = safeThreadUrl(payload && (payload.link || payload.notification_link) || "");
+            var toastType = normalizeNotificationToastType(payload && (payload.notification_type || payload.level || payload.severity) || "info");
+            var hasBody = title !== "" && message !== "";
+            var body = hasBody ? title : (message || title || "Yeni bildiriminiz var.");
+            var options = {
+                type: toastType,
+                message: body
+            };
+
+            if (hasBody) {
+                options.title = "Bildirim";
+                options.detail = message;
+            }
+
+            if (link) {
+                options.clickUrl = link;
+                options.clickLabel = "Bildirimi aç";
+            }
+
+            return options;
+        }
+
+        function showNotificationToast(payload) {
+            if (!notificationToastVisible()) {
+                return false;
+            }
+            var messageThreadId = threadIdFromUrl(payload && (payload.link || payload.notification_link) || "");
+            if (recentDirectMessageToast(messageThreadId)) {
+                return false;
+            }
+            window.showToast(notificationToastOptions(payload));
+            rememberDirectMessageToast(messageThreadId);
+            return true;
+        }
+
+        function showRealtimeDesktopNotification(payload) {
+            if (!ownsNotificationSurface() || !("Notification" in window) || window.Notification.permission !== "granted") {
+                return false;
+            }
+
+            var notificationId = Number(payload && payload.notification_id || 0);
+            var title = String(payload && (payload.title || payload.notification_title) || "").trim();
+            var message = String(payload && (payload.message || payload.notification_message) || "").trim();
+            var link = safeThreadUrl(payload && (payload.link || payload.notification_link) || "");
+            var messageThreadId = threadIdFromUrl(link);
+
+            if (messageThreadId > 0) {
+                rememberDirectMessageToast(messageThreadId);
+                return false;
+            }
+
+            try {
+                var desktopNotification = new window.Notification(title || "Yeni bildirim", {
+                    body: message || "Yeni bildiriminiz var.",
+                    tag: notificationId > 0 ? "site-notification-" + notificationId : "site-notification",
+                    renotify: true,
+                    silent: true
+                });
+                desktopNotification.onclick = function () {
+                    try {
+                        desktopNotification.close();
+                    } catch (error) {
+                        // Closing is optional.
+                    }
+                    window.focus();
+                    if (link) {
+                        window.location.assign(link);
+                    }
+                };
+                rememberDirectMessageToast(messageThreadId);
+                return true;
+            } catch (error) {
+                return false;
+            }
         }
 
         function ensureAudioContext() {
@@ -522,7 +735,7 @@
         }
 
         function playMessageSound() {
-            if (!messagePreferences.sound_enabled || !pageHasFocus()) {
+            if (!messagePreferences.sound_enabled || !pageIsVisible()) {
                 return;
             }
             var context = ensureAudioContext();
@@ -625,42 +838,37 @@
 
             group.timer = null;
 
-            if (!ownsNotificationSurface()) {
-                group.deferred = true;
+            if (recentDirectMessageToast(group.thread_id)) {
+                rememberMessages(group.message_ids);
+                clearPendingGroup(group);
                 return false;
             }
 
-            if (!document.hidden) {
-                if (activeMessageThreadId() === group.thread_id) {
-                    rememberMessages(group.message_ids);
-                    clearPendingGroup(group);
-                    return false;
-                }
-                if (typeof window.showToast !== "function") {
-                    group.deferred = true;
-                    return false;
-                }
+            if (pageIsVisible()) {
                 window.showToast({
                     message: notificationText(group),
                     type: "info",
                     clickUrl: group.thread_url,
                     clickLabel: group.sender_name + " ile konuşmayı aç"
                 });
-                if (pageHasFocus()) {
+                if (pageIsVisible()) {
                     playMessageSound();
                 }
+                rememberDirectMessageToast(group.thread_id);
                 rememberMessages(group.message_ids);
                 clearPendingGroup(group);
                 return true;
             }
 
             if (showDesktopNotification(group)) {
+                rememberDirectMessageToast(group.thread_id);
                 rememberMessages(group.message_ids);
                 clearPendingGroup(group);
                 return true;
             }
 
-            group.deferred = true;
+            rememberMessages(group.message_ids);
+            clearPendingGroup(group);
             return false;
         }
 
@@ -723,20 +931,34 @@
             if (messageWasSeen(messageId) || pendingMessageIds.has(messageId)) {
                 return false;
             }
-            if (!document.hidden && activeMessageThreadId() === threadId) {
+            if (recentDirectMessageToast(threadId)) {
                 rememberMessage(messageId);
                 return false;
             }
 
-            queueMessageNotification({
-                message_id: messageId,
-                message_count: messageCount,
-                thread_id: threadId,
-                sender_user_id: senderUserId,
-                sender_name: senderName.slice(0, 120),
-                thread_url: threadUrl
+            if (!pageIsVisible()) {
+                rememberMessage(messageId);
+                return false;
+            }
+
+            var toastMessage = notificationText({
+                count: messageCount,
+                sender_name: senderName.slice(0, 120)
             });
-            return ownsNotificationSurface();
+
+            if (typeof window.showToast === "function") {
+                window.showToast({
+                    message: toastMessage,
+                    type: "info",
+                    clickUrl: threadUrl,
+                    clickLabel: senderName + " ile konuşmayı aç"
+                });
+            }
+
+            rememberDirectMessageToast(threadId);
+            rememberMessage(messageId);
+            playMessageSound();
+            return true;
         }
 
         function handleCrossTabMessage(data) {
@@ -799,7 +1021,8 @@
             persistTabState(true);
             heartbeatTimer = window.setInterval(function () {
                 persistTabState(false);
-            }, 15000);
+            }, 10000);
+            scheduleOwnershipReconcile();
         }
 
         function normalizePresenceIds(userIds, limit) {
@@ -1082,7 +1305,7 @@
                 return;
             }
             var ids = combinedPresenceIds();
-            if (ids.length === 0 || typeof window.publicFetchJson !== "function") {
+            if (ids.length === 0) {
                 return;
             }
 
@@ -1224,16 +1447,13 @@
                 return;
             }
 
-            emit(payload);
             if (payload.type === "presence_snapshot" || payload.type === "presence_changed") {
                 applyPresencePayload(payload);
-                return;
-            }
-            if (payload.type === "presence_error") {
+            } else if (payload.type === "presence_error") {
                 schedulePresenceRefresh(0);
-                return;
-            }
-            if (payload.type === "new_message") {
+            } else if (payload.type === "message_badge_sync") {
+                window.publicTopbar.setMessageBadgeCount(payload.message_count || 0);
+            } else if (payload.type === "new_message") {
                 var topbar = window.publicTopbar || {};
                 var messageId = Number(payload.message_id || 0);
                 var threadId = Number(payload.thread_id || 0);
@@ -1257,8 +1477,15 @@
                 if (typeof topbar.incrementNotificationBadge === "function") {
                     topbar.incrementNotificationBadge();
                 }
+                if (document.hidden) {
+                    showRealtimeDesktopNotification(payload);
+                } else {
+                    showNotificationToast(payload);
+                }
                 refresh("notifications");
             }
+
+            emit(payload);
         }
 
         function clearReconnectTimer() {
@@ -1451,6 +1678,9 @@
 
         window.setInterval(function () {
             if (!connected && !document.hidden) {
+                reconcileNetworkOwnership();
+            }
+            if (!connected && !document.hidden) {
                 refreshAll();
             }
         }, fallbackIntervalMs);
@@ -1459,6 +1689,7 @@
             notifyMessage: notifyMessage,
             setMessagePreferences: setMessagePreferences,
             flushMessageNotifications: flushDeferredMessageGroups,
+            broadcastMessageBadgeCount: broadcastMessageBadgeCount,
             watchPresence: watchPresence,
             getPresenceState: function (presenceUserId) {
                 var state = presenceStates.get(Number(presenceUserId || 0));

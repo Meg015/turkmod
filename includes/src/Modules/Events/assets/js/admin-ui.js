@@ -457,81 +457,28 @@
                     initialFocus: config.initialFocus,
                     returnFocus: lastFocused,
                     onClose: () => {
-                        modal.classList.remove('ui-admin-modal-open');
                         document.body.classList.remove('ui-events-rule-modal-open');
                     }
                 };
 
                 document.body.classList.add('ui-events-rule-modal-open');
                 scheduleEventsAdminModalViewportSync(modal);
-
-                if (typeof window.openAdminManagedModal === 'function') {
-                    window.openAdminManagedModal(modal, commonOptions);
-                    scheduleEventsAdminModalViewportSync(modal);
-                    return true;
-                }
-
-                if (window.TMUI && typeof window.TMUI.openDialog === 'function') {
-                    window.TMUI.openDialog(modal, commonOptions);
-                    modal.classList.add('ui-admin-modal-open');
-                    scheduleEventsAdminModalViewportSync(modal);
-                    return true;
-                }
-
-                if (window.uiAdminModal && typeof window.uiAdminModal.open === 'function') {
-                    window.uiAdminModal.open(modal);
-                    modal.classList.add('ui-admin-modal-open');
-                    scheduleEventsAdminModalViewportSync(modal);
-                    return true;
-                }
-
-                modal.hidden = false;
-                modal.removeAttribute('aria-hidden');
-                modal.classList.add('is-open', 'ui-admin-modal-open');
-                document.body.classList.add('ui-admin-dialog-open');
-
+                window.adminModal.open(modal, commonOptions);
+                scheduleEventsAdminModalViewportSync(modal);
                 const focusTarget = preferredFocus || fallbackFocus;
                 if (focusTarget && typeof focusTarget.focus === 'function') {
-                    focusTarget.focus({ preventScroll: true });
+                    window.setTimeout(() => {
+                        if (!modal.hidden && document.activeElement === document.body) {
+                            focusTarget.focus({ preventScroll: true });
+                        }
+                    }, 0);
                 }
-
-                scheduleEventsAdminModalViewportSync(modal);
                 return true;
             };
 
             const closeAdminModal = () => {
                 if (!modal || modal.hidden) return;
-
-                if (typeof window.closeAdminManagedModal === 'function') {
-                    window.closeAdminManagedModal(modal, () => {
-                        document.body.classList.remove('ui-events-rule-modal-open');
-                    });
-                    return;
-                }
-
-                if (window.TMUI && typeof window.TMUI.closeDialog === 'function' && modal._tmuiDialog) {
-                    window.TMUI.closeDialog(modal);
-                    modal.classList.remove('ui-admin-modal-open');
-                    document.body.classList.remove('ui-events-rule-modal-open');
-                    return;
-                }
-
-                if (window.uiAdminModal && typeof window.uiAdminModal.close === 'function') {
-                    window.uiAdminModal.close(modal, { preferNavigate: false });
-                    modal.classList.remove('ui-admin-modal-open');
-                    document.body.classList.remove('ui-events-rule-modal-open');
-                    return;
-                }
-
-                modal.classList.remove('is-open', 'ui-admin-modal-open');
-                modal.hidden = true;
-                modal.setAttribute('aria-hidden', 'true');
-                document.body.classList.remove('ui-admin-dialog-open');
-                document.body.classList.remove('ui-events-rule-modal-open');
-
-                if (lastFocused && typeof lastFocused.focus === 'function') {
-                    lastFocused.focus();
-                }
+                window.adminModal.close(modal);
             };
 
             const getFallbackFocusTarget = () => {
@@ -618,12 +565,6 @@
                     if (event.target === modal) close();
                 });
             }
-
-            document.addEventListener('keydown', event => {
-                if (window.TMUI && typeof window.TMUI.openDialog === 'function') return;
-                if (event.key === 'Escape') close();
-            });
-
             const initial = config.initialAttr ? root.getAttribute(config.initialAttr) : '';
             if (initial) {
                 activate(initial);
@@ -1057,21 +998,7 @@
     }
 
     function eventsToast(message, type = 'info', duration) {
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type, duration);
-            return;
-        }
-
-        const container = document.getElementById('toastContainer') || document.body;
-        const toast = document.createElement('div');
-        toast.className = `topic-toast toast-${type || 'info'}`;
-        toast.textContent = String(message || '');
-        container.appendChild(toast);
-
-        setTimeout(() => {
-            toast.classList.add('toast-out');
-            setTimeout(() => toast.remove(), 300);
-        }, duration || 3500);
+        window.showToast(message, type, duration);
     }
 
     window.EventsToast = window.EventsToast || {};
@@ -1134,13 +1061,19 @@
         modal.setAttribute('hidden', '');
         modal.innerHTML = `
             <div class="ui-events-confirm-backdrop" data-ui-events-confirm-cancel></div>
-            <div class="ui-events-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="ui-events-confirm-title">
-                <div class="ui-events-confirm-icon"><i class="bi bi-exclamation-triangle"></i></div>
-                <div class="ui-events-confirm-copy">
-                    <h3 id="ui-events-confirm-title"></h3>
-                    <p data-ui-events-confirm-message></p>
+            <div class="ui-events-confirm-dialog ui-dialog-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="ui-events-confirm-title" aria-describedby="ui-events-confirm-message">
+                <div class="ui-events-confirm-head ui-modal__head ui-panel__head">
+                    <div class="ui-events-confirm-head-copy">
+                        <div class="ui-events-confirm-icon"><i class="bi bi-question-circle"></i></div>
+                        <div class="ui-events-confirm-copy">
+                            <h3 id="ui-events-confirm-title"></h3>
+                        </div>
+                    </div>
                 </div>
-                <div class="ui-events-confirm-actions">
+                <div class="ui-events-confirm-body ui-modal__body ui-panel__body">
+                    <p id="ui-events-confirm-message" data-ui-events-confirm-message></p>
+                </div>
+                <div class="ui-events-confirm-actions ui-modal__foot ui-panel__foot">
                     <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-ui-events-confirm-cancel>Vazgeç</button>
                     <button type="button" class="ui-admin-btn ui-admin-btn-primary" data-ui-events-confirm-ok>Onayla</button>
                 </div>
@@ -1162,14 +1095,20 @@
         message.textContent = options.message || 'Bu işlem uygulanacak.';
         okButton.textContent = options.confirmLabel || 'Onayla';
         okButton.className = 'ui-admin-btn ' + (options.tone === 'danger' ? 'ui-admin-btn-danger' : 'ui-admin-btn-primary');
+        if (icon) {
+            icon.className = 'bi ' + (options.tone === 'danger'
+                ? 'bi-exclamation-octagon'
+                : options.tone === 'warning'
+                    ? 'bi-exclamation-triangle'
+                    : options.tone === 'success'
+                        ? 'bi-check2-circle'
+                        : 'bi-question-circle');
+        }
         cancelButtons.forEach(button => {
             if (button.tagName === 'BUTTON') {
                 button.textContent = options.cancelLabel || 'Vazgeç';
             }
         });
-        if (icon) {
-            icon.className = 'bi ' + (options.tone === 'danger' ? 'bi-exclamation-octagon' : 'bi-check2-circle');
-        }
 
         modal.classList.remove('is-danger', 'is-warning', 'is-success');
         if (options.tone) modal.classList.add('is-' + options.tone);

@@ -345,7 +345,7 @@ $renderRaffleForm = static function (array $raffle, array $selectedItemIds, stri
                     <?php endif; ?>
                 </div>
 
-                <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-events-raffle-detail-panel ui-panel" data-ui-events-raffle-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Cekilis ayarlari" hidden>
+                <div class="ui-events-rule-detail-panel ui-events-admin-detail-panel ui-events-admin-modal-panel ui-events-admin-detail-overlay ui-events-raffle-detail-panel ui-admin-modal-shell ui-modal-shell ui-panel" data-ui-events-raffle-modal data-ui-events-admin-modal role="dialog" aria-modal="true" aria-label="Cekilis ayarlari" hidden>
                     <?php $renderRaffleForm($newRaffle, [], 'new', $initialRaffleKey === 'new', $pools, (string)($baseUri ?? ''), $raffleDateInput); ?>
                     <?php foreach ($raffles as $raffle): ?>
                         <?php $raffleId = (int)$raffle['id']; ?>

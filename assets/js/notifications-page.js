@@ -29,6 +29,22 @@
             return !!data && (data.ok === true || data.success === true);
         }
 
+        function updateTopbarMessageBadge(count) {
+            var nextCount = Number(count);
+            if (!Number.isFinite(nextCount) || nextCount < 0) {
+                return;
+            }
+
+            if (window.publicTopbarRealtime && typeof window.publicTopbarRealtime.broadcastMessageBadgeCount === "function") {
+                window.publicTopbarRealtime.broadcastMessageBadgeCount(nextCount);
+                return;
+            }
+
+            if (window.publicTopbar && typeof window.publicTopbar.setMessageBadgeCount === "function") {
+                window.publicTopbar.setMessageBadgeCount(nextCount);
+            }
+        }
+
         var csrfToken = rootAttribute(["data-notifications-csrf", "data-csrf-token"]);
         var readEndpoint = rootAttribute(["data-notifications-read-endpoint", "data-read-endpoint"]);
         var deleteEndpoint = rootAttribute(["data-notifications-delete-endpoint", "data-delete-endpoint"]);
@@ -41,19 +57,13 @@
             }
 
             csrfToken = token;
-            if (window.publicApi && typeof window.publicApi.updateCsrfToken === "function") {
-                window.publicApi.updateCsrfToken(token);
-            }
+            window.publicApi.updateCsrfToken(token);
             root.setAttribute("data-notifications-csrf", token);
             root.setAttribute("data-csrf-token", token);
         }
 
         function currentCsrfToken() {
-            var publicToken = window.publicApi && typeof window.publicApi.csrfToken === "function"
-                ? window.publicApi.csrfToken()
-                : "";
-            var metaToken = document.querySelector('meta[name="csrf-token"]');
-            var token = publicToken || (metaToken ? (metaToken.getAttribute("content") || "") : "");
+            var token = window.publicApi.csrfToken();
             if (token && token !== csrfToken) {
                 setCsrfToken(token);
             }
@@ -62,10 +72,6 @@
         }
 
         function refreshCsrfToken() {
-            if (!window.publicApi || typeof window.publicApi.refreshCsrfToken !== "function") {
-                return Promise.resolve(false);
-            }
-
             return window.publicApi.refreshCsrfToken().then(function (refreshed) {
                 currentCsrfToken();
                 return refreshed;
@@ -79,10 +85,6 @@
 
             var token = currentCsrfToken();
             var formData = buildFormData(token);
-
-            if (!window.publicFetchJson) {
-                return Promise.reject(new Error("Public API helper yuklenemedi."));
-            }
 
             return window.publicFetchJson(endpoint, {
                 method: "POST",
@@ -276,9 +278,7 @@
             var actionText = action.querySelector("span");
 
             function notify(message, type) {
-                if (typeof window.showToast === "function") {
-                    window.showToast(message, type || "info");
-                }
+                window.showToast(message, type || "info");
             }
 
             function notificationSupported() {
@@ -444,6 +444,9 @@
                     if (typeof window.updateNotificationBadge === "function") {
                         window.updateNotificationBadge(data && data.show_badge === false ? 0 : Number(data && data.unread_count || 0));
                     }
+                    if (typeof data !== "undefined" && typeof data.messages_unread_count !== "undefined") {
+                        updateTopbarMessageBadge(data.messages_unread_count);
+                    }
                 }).finally(function () {
                     window.location.href = targetUrl;
                 });
@@ -550,8 +553,12 @@
 
                         markAllButton.innerHTML = '<i class="bi bi-check2"></i><span>Okundu</span>';
                         if (feed) feed.classList.remove("is-updating");
-                        if (window.showToast) {
-                            window.showToast("Tüm bildirimler okundu olarak işaretlendi.", "success");
+                        window.showToast("Tüm bildirimler okundu olarak işaretlendi.", "success");
+                        if (typeof data.messages_unread_count !== "undefined") {
+                            updateTopbarMessageBadge(data.messages_unread_count);
+                        }
+                        if (window.publicTopbar && typeof window.publicTopbar.refreshMessages === "function") {
+                            window.publicTopbar.refreshMessages();
                         }
                         window.setTimeout(function () {
                             markAllButton.remove();
@@ -562,9 +569,7 @@
                         if (feed) feed.classList.remove("is-updating");
                         markAllButton.disabled = false;
                         markAllButton.innerHTML = originalHtml;
-                        if (window.showToast) {
-                            window.showToast(error && error.message ? error.message : "Bildirimler güncellenemedi.", "error");
-                        }
+                        window.showToast(error && error.message ? error.message : "Bildirimler güncellenemedi.", "error");
                     });
             });
         }
@@ -592,34 +597,40 @@
                 var confirmMessage = isSingle
                     ? "Seçili bildirimi silmek istediğinize emin misiniz?"
                     : selectedIds.length + " bildirimi silmek istediğinize emin misiniz?";
-                if (!window.confirm(confirmMessage)) {
-                    return;
-                }
+                var confirmDelete = window.appConfirm(confirmMessage, {
+                    title: isSingle ? "Bildirimi sil?" : "Bildirimler silinsin mi?",
+                    ok: "Sil",
+                    cancel: "Vazgeç",
+                    tone: "danger"
+                });
+                confirmDelete.then(function (confirmed) {
+                    if (!confirmed) {
+                        return;
+                    }
 
-                var originalHtml = deleteSelectedButton.innerHTML;
-                deleteSelectedButton.disabled = true;
-                deleteSelectedButton.innerHTML = '<i class="bi bi-arrow-repeat spin"></i><span>Siliniyor...</span>';
+                    var originalHtml = deleteSelectedButton.innerHTML;
+                    deleteSelectedButton.disabled = true;
+                    deleteSelectedButton.innerHTML = '<i class="bi bi-arrow-repeat spin"></i><span>Siliniyor...</span>';
 
-                postNotificationDelete(selectedIds)
-                    .then(function (data) {
-                        if (!isApiSuccess(data)) {
-                            throw new Error(data && data.message ? data.message : "Bildirimler silinemedi.");
-                        }
-                        if (typeof window.updateNotificationBadge === "function") {
-                            window.updateNotificationBadge(data && data.show_badge === false ? 0 : Number(data && data.unread_count || 0));
-                        }
-
-                        var refreshTriggered = false;
-                        function refreshAfterToast() {
-                            if (refreshTriggered) {
-                                return;
+                    postNotificationDelete(selectedIds)
+                        .then(function (data) {
+                            if (!isApiSuccess(data)) {
+                                throw new Error(data && data.message ? data.message : "Bildirimler silinemedi.");
                             }
-                            refreshTriggered = true;
-                            refreshNotificationsPage();
-                        }
+                            if (typeof window.updateNotificationBadge === "function") {
+                                window.updateNotificationBadge(data && data.show_badge === false ? 0 : Number(data && data.unread_count || 0));
+                            }
 
-                        try {
-                            if (window.showToast) {
+                            var refreshTriggered = false;
+                            function refreshAfterToast() {
+                                if (refreshTriggered) {
+                                    return;
+                                }
+                                refreshTriggered = true;
+                                refreshNotificationsPage();
+                            }
+
+                            try {
                                 var deletedCount = parseInt(String(data.deleted_count || selectedIds.length), 10) || selectedIds.length;
                                 window.showToast(deletedCount + " bildirim silindi.", "success", {
                                     onClose: function (reason) {
@@ -628,21 +639,17 @@
                                         }
                                     }
                                 });
-                            } else {
+                            } catch (toastError) {
                                 refreshAfterToast();
                             }
-                        } catch (toastError) {
-                            refreshAfterToast();
-                        }
-                    })
-                    .catch(function (error) {
-                        deleteSelectedButton.disabled = false;
-                        deleteSelectedButton.innerHTML = originalHtml;
-                        syncNotificationSelectionState();
-                        if (window.showToast) {
+                        })
+                        .catch(function (error) {
+                            deleteSelectedButton.disabled = false;
+                            deleteSelectedButton.innerHTML = originalHtml;
+                            syncNotificationSelectionState();
                             window.showToast(error && error.message ? error.message : "Bildirimler silinemedi.", "error");
-                        }
-                    });
+                        });
+                });
             });
         }
     });
