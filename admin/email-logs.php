@@ -320,7 +320,17 @@ require_once __DIR__ . '/header.php';
                     'description' => $hasFilters ? 'Seçili filtrelerle eşleşen e-posta kaydı yok.' : 'Henüz e-posta gönderim kaydı oluşmamış.',
                 ]) ?>
             <?php else: ?>
-                <?= adminRenderLogTableOpen() ?>
+                <?= adminRenderLogTableOpen([
+                    'table_class' => 'admin-log-card-table',
+                ]) ?>
+                        <colgroup>
+                            <col class="admin-log-col-date">
+                            <col class="admin-log-col-status">
+                            <col class="admin-log-col-source">
+                            <col class="admin-log-col-recipient">
+                            <col class="admin-log-col-subject">
+                            <col class="admin-log-col-grow">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>Tarih</th>
@@ -401,26 +411,26 @@ require_once __DIR__ . '/header.php';
                                 }
                                 ?>
                                 <tr>
-                                    <td class="ui-admin-table-cell-date"><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td>
+                                    <td class="ui-admin-table-cell-date" data-label="Tarih"><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td data-label="Durum">
                                         <span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars((string) ($statusMeta['class'] ?? 'secondary'), ENT_QUOTES, 'UTF-8') ?>">
                                             <i class="bi <?= htmlspecialchars((string) ($statusMeta['icon'] ?? 'bi-envelope'), ENT_QUOTES, 'UTF-8') ?>"></i>
                                             <?= htmlspecialchars((string) ($statusMeta['label'] ?? strtoupper($status !== '' ? $status : 'bilinmiyor')), ENT_QUOTES, 'UTF-8') ?>
                                         </span>
                                     </td>
-                                    <td class="ui-admin-table-cell-secondary">
+                                    <td class="ui-admin-table-cell-secondary" data-label="Kaynak">
                                         <div class="email-logs-source">
                                             <strong><?= htmlspecialchars($sourceLabel !== '' ? $sourceLabel : 'Sistem', ENT_QUOTES, 'UTF-8') ?></strong>
                                             <small><?= htmlspecialchars($sourceKey !== '' ? $sourceKey : '—', ENT_QUOTES, 'UTF-8') ?></small>
                                         </div>
                                     </td>
-                                    <td class="ui-admin-table-cell-secondary">
+                                    <td class="ui-admin-table-cell-secondary" data-label="Alıcı">
                                         <div class="email-logs-recipient">
                                             <strong><?= htmlspecialchars($recipientEmail !== '' ? $recipientEmail : '—', ENT_QUOTES, 'UTF-8') ?></strong>
                                             <small><?= htmlspecialchars($recipientName !== '' ? $recipientName : '—', ENT_QUOTES, 'UTF-8') ?></small>
                                         </div>
                                     </td>
-                                    <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
+                                    <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell" data-label="Konu">
                                         <div class="ui-admin-log-desc-scroll email-logs-subject">
                                             <strong><?= htmlspecialchars($subject !== '' ? $subject : '(Başlıksız)', ENT_QUOTES, 'UTF-8') ?></strong>
                                             <?php if ($providerMessageId !== ''): ?>
@@ -428,7 +438,7 @@ require_once __DIR__ . '/header.php';
                                             <?php endif; ?>
                                         </div>
                                     </td>
-                                    <td class="ui-admin-table-cell-desc email-logs-tech-cell">
+                                    <td class="ui-admin-table-cell-desc email-logs-tech-cell" data-label="Teknik">
                                         <div class="email-logs-tech-shell">
                                             <div class="email-logs-tech-badges">
                                                 <?php if ($driver !== ''): ?>

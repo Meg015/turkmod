@@ -277,20 +277,20 @@ require_once __DIR__ . '/header.php';
                     'table_attrs' => ['aria-label' => 'Uygulama logları'],
                 ]) ?>
                         <colgroup>
-                            <col class="application-logs-col-date">
-                            <col class="application-logs-col-level">
-                            <col class="application-logs-col-channel">
-                            <col class="application-logs-col-message">
-                            <col class="application-logs-col-ip">
-                            <col class="application-logs-col-detail">
+                            <col class="admin-log-col-date">
+                            <col class="admin-log-col-status">
+                            <col class="admin-log-col-source">
+                            <col class="admin-log-col-key">
+                            <col class="admin-log-col-subject">
+                            <col class="admin-log-col-grow">
                         </colgroup>
                         <thead>
                             <tr>
                             <th class="application-logs-date-head">Tarih</th>
                             <th class="application-logs-level-head">Seviye</th>
                             <th class="application-logs-channel-head">Kanal</th>
-                            <th class="application-logs-message-head">Mesaj</th>
                             <th class="application-logs-ip-head">IP</th>
+                            <th class="application-logs-message-head">Mesaj</th>
                             <th class="application-logs-detail-head">Ayrıntı</th>
                         </tr>
                         </thead>
@@ -315,10 +315,10 @@ require_once __DIR__ . '/header.php';
                                     </span>
                                 </td>
                                 <td class="ui-admin-table-cell-secondary ui-admin-muted-sm application-logs-channel-cell" data-label="Kanal"><?= htmlspecialchars($channelLabel !== '' ? $channelLabel : '-', ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm application-logs-ip-cell" data-label="IP"><?= htmlspecialchars((string) (($log['ip_address'] ?? '') !== '' ? $log['ip_address'] : '-'), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td class="ui-admin-table-cell-desc ui-admin-log-message-cell application-logs-message-cell" data-label="Mesaj">
                                     <div class="ui-admin-log-message-title"><?= htmlspecialchars($humanMessage !== '' ? $humanMessage : '-', ENT_QUOTES, 'UTF-8') ?></div>
                                 </td>
-                                <td class="ui-admin-table-cell-secondary ui-admin-muted-sm application-logs-ip-cell" data-label="IP"><?= htmlspecialchars((string) (($log['ip_address'] ?? '') !== '' ? $log['ip_address'] : '-'), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell application-logs-detail-cell" data-label="Ayrıntı">
                                     <div class="ui-admin-log-summary"><?= htmlspecialchars($contextSummary !== '' ? $contextSummary : 'Ek detay yok', ENT_QUOTES, 'UTF-8') ?></div>
                                     <?php if ($technicalContext !== ''): ?>

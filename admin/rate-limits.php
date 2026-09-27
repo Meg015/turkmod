@@ -279,18 +279,28 @@ require_once __DIR__ . '/header.php';
                 <?php else: ?>
                     <?= adminRenderLogTableOpen([
                         'wrapper_class' => 'rate-limit-table-wrap',
-                        'table_class' => 'rate-limit-table',
+                        'table_class' => 'rate-limit-table admin-log-card-table',
                     ]) ?>
+                            <colgroup>
+                                <col class="admin-log-col-check">
+                                <col class="admin-log-col-key">
+                                <col class="admin-log-col-grow">
+                                <col class="admin-log-col-count">
+                                <col class="admin-log-col-range">
+                                <col class="admin-log-col-range">
+                                <col class="admin-log-col-status">
+                                <col class="admin-log-col-actions">
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th class="rate-limit-check-cell"><input type="checkbox" id="selectAllRateLimits" aria-label="Tüm kayıtları seç"></th>
+                                    <th class="rate-limit-check-cell admin-log-col-check-head"><input type="checkbox" id="selectAllRateLimits" aria-label="Tüm kayıtları seç"></th>
                                     <th>Tür</th>
                                     <th>Hedef (IP/Kullanıcı)</th>
                                     <th>Deneme</th>
                                     <th>İlk / Son</th>
                                     <th>Bitiş</th>
                                     <th>Durum</th>
-                                    <th class="ui-admin-table-head-actions">İşlem</th>
+                                    <th class="ui-admin-table-head-actions admin-log-col-actions-head">İşlem</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -302,33 +312,33 @@ require_once __DIR__ . '/header.php';
                                     $remaining = $isActive ? max(0, $expiresAt - time()) : 0;
                                     ?>
                                     <tr>
-                                        <td class="rate-limit-check-cell"><input type="checkbox" name="rate_ids[]" value="<?= (int)$item['id'] ?>" class="rate-limit-check" aria-label="Kaydı seç"></td>
-                                        <td>
+                                        <td class="rate-limit-check-cell" data-label="Seç"><input type="checkbox" name="rate_ids[]" value="<?= (int)$item['id'] ?>" class="rate-limit-check" aria-label="Kaydı seç"></td>
+                                        <td data-label="Tür">
                                             <div class="rate-limit-key">
                                                 <strong title="<?= htmlspecialchars((string)$item['rate_key']) ?>"><?= htmlspecialchars($keyMeta['type']) ?></strong>
                                                 <span class="ui-admin-muted-sm"><?= htmlspecialchars((string)$item['scope']) ?></span>
                                             </div>
                                         </td>
-                                        <td><code title="<?= htmlspecialchars((string)$item['rate_key']) ?>"><?= htmlspecialchars($keyMeta['identifier']) ?></code></td>
-                                        <td><span class="rate-limit-count"><?= (int)$item['attempt_count'] ?>x</span></td>
-                                        <td class="rate-limit-time">
+                                        <td data-label="Hedef"><code title="<?= htmlspecialchars((string)$item['rate_key']) ?>"><?= htmlspecialchars($keyMeta['identifier']) ?></code></td>
+                                        <td data-label="Deneme"><span class="rate-limit-count"><?= (int)$item['attempt_count'] ?>x</span></td>
+                                        <td class="rate-limit-time" data-label="İlk / Son">
                                             <?= htmlspecialchars(date('d.m.Y H:i', strtotime((string)$item['first_attempt_at']))) ?><br>
                                             <span class="rate-limit-time-muted"><?= htmlspecialchars(date('d.m.Y H:i', strtotime((string)$item['last_attempt_at']))) ?></span>
                                         </td>
-                                        <td class="rate-limit-time">
+                                        <td class="rate-limit-time" data-label="Bitiş">
                                             <?= htmlspecialchars(date('d.m.Y H:i', strtotime((string)$item['expires_at']))) ?>
                                             <?php if ($isActive): ?>
                                                 <br><span class="rate-limit-remaining">⏱ <?= (int)ceil($remaining / 60) ?> dk kaldı</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td>
+                                        <td data-label="Durum">
                                             <?= adminRenderBadge($isActive ? 'Aktif' : 'Süresi Dolmuş', [
                                                 'tone' => $isActive ? 'success' : 'muted',
                                                 'icon' => $isActive ? 'bi-lock' : 'bi-check-circle',
                                                 'class' => 'rate-limit-status ' . ($isActive ? 'active' : 'expired'),
                                             ]) ?>
                                         </td>
-                                        <td class="ui-admin-table-cell-actions">
+                                        <td class="ui-admin-table-cell-actions" data-label="İşlem">
                                             <button type="submit" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-danger-outline rate-limit-row-action" form="rate-limit-delete-<?= (int)$item['id'] ?>" title="Sil"><i class="bi bi-trash"></i></button>
                                         </td>
                                     </tr>

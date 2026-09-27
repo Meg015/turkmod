@@ -559,27 +559,75 @@ if ($pdo && $view === 'activity') {
 if ($pdo && $view === 'cron') {
     try {
         $cronWhereBase = function_exists('appLogsCronWhereClause') ? appLogsCronWhereClause('') : "channel = 'cron'";
-        $jobStmt = $pdo->query("SELECT message, context_json FROM application_logs WHERE {$cronWhereBase} ORDER BY message ASC");
-        $jobRows = $jobStmt ? ($jobStmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
-        $jobMap = [];
-        foreach ($jobRows as $jobRow) {
-            $jobContext = json_decode((string) ($jobRow['context_json'] ?? ''), true);
-            $jobKey = is_array($jobContext) ? trim((string) ($jobContext['job_key'] ?? '')) : '';
-            if ($jobKey === '') {
-                $jobMessage = trim((string) ($jobRow['message'] ?? ''));
-                if ($jobMessage === '') {
-                    continue;
+
+        // Benzersiz cron iş adları önce veritabanında gruplanır; tüm kayıtlar
+        // PHP belleğine taşınmaz (büyük tablolarda bellek limitini aşan durumu
+        // engeller). JSON fonksiyonu desteklemeyen veritabanlarında satır satır
+        // (tamponsuz) okuma fallback'i devreye girer.
+        $cronJobs = [];
+        try {
+            $jobStmt = $pdo->query("
+                SELECT cron_job_keys.job_key
+                FROM (
+                    SELECT
+                        COALESCE(
+                            NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(context_json, '$.job_key'))), ''),
+                            CASE
+                                WHEN COALESCE(message, '') LIKE BINARY 'cron_run:%' THEN SUBSTRING(message, 10)
+                                ELSE COALESCE(message, '')
+                            END
+                        ) AS job_key
+                    FROM application_logs
+                    WHERE {$cronWhereBase}
+                ) cron_job_keys
+                WHERE cron_job_keys.job_key IS NOT NULL AND cron_job_keys.job_key <> ''
+                GROUP BY cron_job_keys.job_key
+                ORDER BY cron_job_keys.job_key ASC
+            ");
+            $jobRows = $jobStmt ? ($jobStmt->fetchAll(PDO::FETCH_COLUMN) ?: []) : [];
+            foreach ($jobRows as $jobKey) {
+                $jobKey = trim((string) ($jobKey ?? ''));
+                if ($jobKey !== '') {
+                    $cronJobs[] = $jobKey;
                 }
-                $jobKey = str_starts_with($jobMessage, 'cron_run:') ? substr($jobMessage, 9) : $jobMessage;
             }
-            $jobKey = trim((string) $jobKey);
-            if ($jobKey === '') {
-                continue;
+            $cronJobs = array_values(array_unique($cronJobs));
+            sort($cronJobs);
+        } catch (Throwable $jobListException) {
+            $jobMap = [];
+            $bufferedAttr = defined('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY') ? PDO::MYSQL_ATTR_USE_BUFFERED_QUERY : null;
+            $previousBuffered = null;
+            if ($bufferedAttr !== null) {
+                $previousBuffered = $pdo->getAttribute($bufferedAttr);
+                $pdo->setAttribute($bufferedAttr, false);
             }
-            $jobMap[$jobKey] = $jobKey;
+            try {
+                $jobStmt = $pdo->query("SELECT message, context_json FROM application_logs WHERE {$cronWhereBase}");
+                if ($jobStmt) {
+                    while (($jobRow = $jobStmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+                        $jobContext = json_decode((string) ($jobRow['context_json'] ?? ''), true);
+                        $jobKey = is_array($jobContext) ? trim((string) ($jobContext['job_key'] ?? '')) : '';
+                        if ($jobKey === '') {
+                            $jobMessage = trim((string) ($jobRow['message'] ?? ''));
+                            if ($jobMessage === '') {
+                                continue;
+                            }
+                            $jobKey = str_starts_with($jobMessage, 'cron_run:') ? substr($jobMessage, 9) : $jobMessage;
+                        }
+                        $jobKey = trim((string) $jobKey);
+                        if ($jobKey !== '') {
+                            $jobMap[$jobKey] = $jobKey;
+                        }
+                    }
+                }
+            } finally {
+                if ($bufferedAttr !== null && $previousBuffered !== null) {
+                    $pdo->setAttribute($bufferedAttr, $previousBuffered);
+                }
+            }
+            $cronJobs = array_values($jobMap);
+            sort($cronJobs);
         }
-        $cronJobs = array_values($jobMap);
-        sort($cronJobs);
 
         $cronStatsStmt = $pdo->query("
             SELECT
@@ -1104,8 +1152,17 @@ require_once __DIR__ . '/header.php';
             <?php else: ?>
                 <?= adminRenderLogTableOpen([
                     'wrapper_class' => 'ui-admin-table-responsive',
-                    'table_class' => 'ui-admin-table ui-admin-table-striped',
+                    'table_class' => 'ui-admin-table ui-admin-table-striped admin-log-card-table',
                 ]) ?>
+                        <colgroup>
+                            <col class="admin-log-col-date">
+                            <col class="admin-log-col-actor">
+                            <col class="admin-log-col-action">
+                            <col class="admin-log-col-target">
+                            <col class="admin-log-col-detail">
+                            <col class="admin-log-col-status">
+                            <col class="admin-log-col-actions">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>Tarih</th>
@@ -1114,7 +1171,7 @@ require_once __DIR__ . '/header.php';
                                 <th>Hedef</th>
                                 <th>Ayrıntı</th>
                                 <th>Durum</th>
-                                <th>İşlem</th>
+                                <th class="admin-log-col-actions-head">İşlem</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1152,13 +1209,13 @@ require_once __DIR__ . '/header.php';
                                 ?>
 
                                 <tr<?= $isReverted ? ' class="ui-admin-row-muted"' : '' ?>>
-                                    <td class="ui-admin-muted ui-admin-nowrap"><?= htmlspecialchars((string) ($log['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td>
+                                    <td class="ui-admin-muted ui-admin-nowrap" data-label="Tarih"><?= htmlspecialchars((string) ($log['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td data-label="Yönetici">
                                         <i class="bi bi-person-badge ui-admin-text-muted"></i>
                                         <?= htmlspecialchars((string) ($log['actor_name'] ?? ('#' . (int) ($log['actor_id'] ?? 0))), ENT_QUOTES, 'UTF-8') ?>
                                     </td>
-                                    <td><span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars($tone, ENT_QUOTES, 'UTF-8') ?>"><?= $actionLabel ?></span></td>
-                                    <td>
+                                    <td data-label="Eylem"><span class="ui-admin-badge ui-admin-badge-<?= htmlspecialchars($tone, ENT_QUOTES, 'UTF-8') ?>"><?= $actionLabel ?></span></td>
+                                    <td data-label="Hedef">
                                         <?php if ($targetType === 'user' && (int) ($log['target_id'] ?? 0) > 0): ?>
                                             <a href="users.php?edit=<?= (int) $log['target_id'] ?>">
                                                 <?= htmlspecialchars($adminAuditTargetLabel($targetType, (int) $log['target_id'], $targetName !== '' ? $targetName : null), ENT_QUOTES, 'UTF-8') ?>
@@ -1167,7 +1224,7 @@ require_once __DIR__ . '/header.php';
                                             <?= htmlspecialchars($adminAuditTargetLabel($targetType, (int) ($log['target_id'] ?? 0), $targetName !== '' ? $targetName : null), ENT_QUOTES, 'UTF-8') ?>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell">
+                                    <td class="ui-admin-table-cell-desc ui-admin-log-desc-cell" data-label="Ayrıntı">
                                         <div class="ui-admin-log-summary"><?= htmlspecialchars($reason !== '' ? $reason : 'Gerekçe yok', ENT_QUOTES, 'UTF-8') ?></div>
                                         <?= $cleanupSummaryHtml ?>
                                         <?php if ($hasChangeDetails): ?>
@@ -1177,14 +1234,14 @@ require_once __DIR__ . '/header.php';
                                             </details>
                                         <?php endif; ?>
                                     </td>
-                                    <td>
+                                    <td data-label="Durum">
                                         <?php if ($isReverted): ?>
                                             <span class="ui-admin-badge ui-admin-badge-muted"><i class="bi bi-arrow-counterclockwise"></i> Geri alındı</span>
                                         <?php else: ?>
                                             <span class="ui-admin-badge ui-admin-badge-success">Aktif</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td>
+                                    <td data-label="İşlem">
                                         <?php if ($canRevert): ?>
                                             <form method="post" action="<?= htmlspecialchars($activityPostAction, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu işlemi geri almak istediğinize emin misiniz?', 'tone' => 'warning']) ?>>
                                                 <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -1307,6 +1364,14 @@ require_once __DIR__ . '/header.php';
                     'table_class' => 'cron-logs-table admin-log-card-table',
                     'table_attrs' => ['aria-label' => 'Cron logları'],
                 ]) ?>
+                        <colgroup>
+                            <col class="admin-log-col-id">
+                            <col class="admin-log-col-date">
+                            <col class="admin-log-col-status">
+                            <col class="admin-log-col-job">
+                            <col class="admin-log-col-detail">
+                            <col class="admin-log-col-grow">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th class="ui-admin-table-head-narrow">#</th>

@@ -9168,18 +9168,19 @@ body.notification-preview-modal-open { overflow:hidden; }
     }
 }
 
+/* Panel genişliği diğer log sayfalarıyla aynı standarttadır; kenar taşması kaldırıldı. */
 .application-logs-list-card {
-    width: calc(100% + (var(--spacing-6) * 2)) !important;
-    max-width: calc(100% + (var(--spacing-6) * 2)) !important;
-    margin-inline: calc(var(--spacing-6) * -1) !important;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
     padding: 0 !important;
     overflow: hidden;
 }
 
 .admin-content .application-logs-page > .application-logs-list-card {
-    width: calc(100% + (var(--spacing-6) * 2)) !important;
-    max-width: calc(100% + (var(--spacing-6) * 2)) !important;
-    margin-inline: calc(var(--spacing-6) * -1) !important;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
 }
 
 .application-logs-list-body {
@@ -9198,12 +9199,7 @@ body.notification-preview-modal-open { overflow:hidden; }
     table-layout: fixed !important;
 }
 
-.application-logs-table col.application-logs-col-date { width: 12%; }
-.application-logs-table col.application-logs-col-level { width: 10%; }
-.application-logs-table col.application-logs-col-channel { width: 14%; }
-.application-logs-table col.application-logs-col-message { width: 27%; }
-.application-logs-table col.application-logs-col-ip { width: 11%; }
-.application-logs-table col.application-logs-col-detail { width: 26%; }
+/* Sütun genişlikleri .admin-log-standard-table colgroup'u ile yönetilir. */
 
 .application-logs-table.admin-table thead th,
 .application-logs-table.admin-table tbody td {
@@ -9265,9 +9261,6 @@ body.notification-preview-modal-open { overflow:hidden; }
         padding-inline: .55rem;
     }
 
-    .application-logs-table col.application-logs-col-channel { width: 13%; }
-    .application-logs-table col.application-logs-col-message { width: 28%; }
-    .application-logs-table col.application-logs-col-detail { width: 26%; }
 }
 
 @media (max-width: 760px) {
@@ -9277,27 +9270,9 @@ body.notification-preview-modal-open { overflow:hidden; }
         font-size: .76rem;
     }
 
-    .application-logs-table col.application-logs-col-date { width: 13%; }
-    .application-logs-table col.application-logs-col-level { width: 11%; }
-    .application-logs-table col.application-logs-col-channel { width: 12%; }
-    .application-logs-table col.application-logs-col-message { width: 29%; }
-    .application-logs-table col.application-logs-col-ip { width: 10%; }
-    .application-logs-table col.application-logs-col-detail { width: 25%; }
 }
 
-@media (max-width: 768px) {
-    .application-logs-list-card {
-        width: calc(100% + (var(--spacing-4) * 2)) !important;
-        max-width: calc(100% + (var(--spacing-4) * 2)) !important;
-        margin-inline: calc(var(--spacing-4) * -1) !important;
-    }
-
-    .admin-content .application-logs-page > .application-logs-list-card {
-        width: calc(100% + (var(--spacing-4) * 2)) !important;
-        max-width: calc(100% + (var(--spacing-4) * 2)) !important;
-        margin-inline: calc(var(--spacing-4) * -1) !important;
-    }
-}
+/* Mobil: panel genişliği standart %100'dür; ayrıca genişletme uygulanmaz. */
 
 /* Source: admin/queue.php */
 .queue-page { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
@@ -9346,10 +9321,6 @@ body.notification-preview-modal-open { overflow:hidden; }
     min-width:0;
     width:100%;
     max-width:100%;
-}
-.email-logs-tech-head,
-.email-logs-tech-cell {
-    min-width:360px;
 }
 .email-logs-tech-shell {
     display:grid;
@@ -9499,11 +9470,6 @@ body.notification-preview-modal-open { overflow:hidden; }
     white-space:pre-wrap;
 }
 @media (max-width: 720px) {
-    .email-logs-tech-head,
-    .email-logs-tech-cell {
-        min-width:280px;
-    }
-
     .email-log-detail-grid {
         grid-template-columns:1fr;
     }
@@ -9556,10 +9522,9 @@ body.notification-preview-modal-open { overflow:hidden; }
     font-weight:800;
 }
 .rate-limit-list-title i { color:var(--ui-admin-accent); font-size:1rem; }
-.rate-limit-table {
-    min-width:820px;
-}
-.rate-limit-check-cell { width:34px; text-align:center; }
+/* Sütun genişlikleri .admin-log-standard-table colgroup'u ile yönetilir;
+   kart moduna akıcı geçiş için sabit min-width kaldırıldı. */
+.rate-limit-check-cell { text-align:center; }
 .rate-limit-key { display:grid; gap:.1rem; min-width:0; }
 .rate-limit-key strong {
     overflow:hidden;
@@ -15326,18 +15291,19 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     margin: 0;
 }
 
+/* Panel genişliği diğer log sayfalarıyla aynı standarttadır; kenar taşması kaldırıldı. */
 .system-notifications-list-card {
-    width: calc(100% + (var(--spacing-6) * 2)) !important;
-    max-width: calc(100% + (var(--spacing-6) * 2)) !important;
-    margin-inline: calc(var(--spacing-6) * -1) !important;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
     padding: 0 !important;
     overflow: hidden;
 }
 
 .admin-content .logs-page > .system-notifications-list-card {
-    width: calc(100% + (var(--spacing-6) * 2)) !important;
-    max-width: calc(100% + (var(--spacing-6) * 2)) !important;
-    margin-inline: calc(var(--spacing-6) * -1) !important;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
 }
 
 .system-notifications-list-body {
@@ -15638,19 +15604,7 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     }
 }
 
-@media (max-width: 768px) {
-    .system-notifications-list-card {
-        width: calc(100% + (var(--spacing-4) * 2)) !important;
-        max-width: calc(100% + (var(--spacing-4) * 2)) !important;
-        margin-inline: calc(var(--spacing-4) * -1) !important;
-    }
-
-    .admin-content .logs-page > .system-notifications-list-card {
-        width: calc(100% + (var(--spacing-4) * 2)) !important;
-        max-width: calc(100% + (var(--spacing-4) * 2)) !important;
-        margin-inline: calc(var(--spacing-4) * -1) !important;
-    }
-}
+/* Mobil: panel genişliği standart %100'dür; ayrıca genişletme uygulanmaz. */
 
 @media (max-width: 640px) {
 
@@ -15806,12 +15760,7 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     word-break: break-word;
 }
 
-.email-logs-tech-head,
-.email-logs-tech-cell {
-    width: min(360px, 36vw);
-    min-width: min(300px, 36vw);
-    max-width: 380px;
-}
+/* Teknik sütun genişliği artık .admin-log-standard-table colgroup'u ile yönetilir. */
 
 .email-log-details {
     overflow: hidden;
@@ -15870,15 +15819,6 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
 .settings-tab-content .form-grid,
 .settings-tab-content .ui-grid {
     gap: .75rem;
-}
-
-@media (max-width: 720px) {
-    .email-logs-tech-head,
-    .email-logs-tech-cell {
-        width: min(280px, 70vw);
-        min-width: min(260px, 70vw);
-    }
-
 }
 
 /* Admin list standard: pagination, empty states and filters. */
@@ -17587,4 +17527,62 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     .bulk-email-preview-stage iframe { min-width: 0; width: 100%; height: 500px; }
     .bulk-email-preview-stage.is-mobile iframe { width: 100%; }
     .bulk-email-save-state { max-width: 110px; overflow-wrap: anywhere; }
+}
+
+/* ============================================================
+   Log listings — standardized column widths
+   ------------------------------------------------------------
+   Ortak sütun rolleri (logs.php activity/cron, email-logs.php,
+   rate-limits.php): dar yardımcı sütunlar sabit kalır, içerik
+   sütunları kalan alanı paylaşır. Böylece her log tablosu aynı
+   dikey ritimle okunur.
+   ============================================================ */
+.admin-log-standard-table {
+    table-layout: fixed !important;
+}
+
+.admin-log-standard-table tbody td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+/* Sabit genişlikli kolonlardaki nowrap hücreler (tarih vb.) taşmaz. */
+.admin-log-standard-table tbody td.ui-admin-nowrap {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Eski sabit max-width'ler (300px/340px) sabit düzende sütunları
+   ezip sayfalar arası genişlik farkı yaratıyordu; standarda bırakılır. */
+.admin-log-standard-table td.ui-admin-log-desc-cell,
+.admin-log-standard-table td.ui-admin-log-message-cell {
+    max-width: 100% !important;
+}
+
+.admin-log-standard-table col.admin-log-col-check { width: 3rem; }
+.admin-log-standard-table col.admin-log-col-id { width: 3.2rem; }
+.admin-log-standard-table col.admin-log-col-date { width: 12%; }
+.admin-log-standard-table col.admin-log-col-status { width: 11%; }
+.admin-log-standard-table col.admin-log-col-action { width: 11%; }
+.admin-log-standard-table col.admin-log-col-actor { width: 13%; }
+.admin-log-standard-table col.admin-log-col-target { width: 15%; }
+.admin-log-standard-table col.admin-log-col-job { width: 14%; }
+.admin-log-standard-table col.admin-log-col-source { width: 12%; }
+.admin-log-standard-table col.admin-log-col-recipient { width: 16%; }
+.admin-log-standard-table col.admin-log-col-subject { width: 26%; }
+.admin-log-standard-table col.admin-log-col-detail { width: 22%; }
+.admin-log-standard-table col.admin-log-col-count { width: 8%; }
+.admin-log-standard-table col.admin-log-col-range { width: 14%; }
+.admin-log-standard-table col.admin-log-col-key { width: 11%; }
+.admin-log-standard-table col.admin-log-col-actions { width: 6.5rem; }
+.admin-log-standard-table col.admin-log-col-grow { width: auto; }
+
+/* Sadece ikon butonu taşıyan rate-limits işlem sütunu daha kompakt tutulur. */
+.rate-limit-table col.admin-log-col-actions { width: 4.5rem; }
+
+/* Sabit genişlikli işlem/onay başlıkları ortalanır; metin başlıkları solda kalır. */
+.admin-log-standard-table thead th.admin-log-col-actions-head,
+.admin-log-standard-table thead th.admin-log-col-check-head {
+    text-align: center;
 }
