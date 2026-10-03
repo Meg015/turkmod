@@ -278,6 +278,60 @@ foreach ($authVars as $authVarKey) {
     $publicHeaderVars[$authVarKey] = $$authVarKey ?? '';
 }
 
+// Upload/edit form verilerini temali renderer'a acik bir allowlist ile aktar.
+// PublicThemeRenderer::uploadFormVars() bu alanlardan upload.categories dahil
+// yapilandirilmis upload.* sozlesmesini olusturur.
+$uploadRendererVars = [
+    'upload_mode' => '',
+    'upload_form_action' => '',
+    'upload_csrf_token' => '',
+    'upload_submit_token' => '',
+    'upload_categories' => [],
+    'upload_form_data' => [],
+    'upload_min_title_length' => '',
+    'upload_max_title_length' => '',
+    'upload_min_content_length' => '',
+    'upload_accept_image_attr' => '',
+    'upload_allowed_image_ext_text' => '',
+    'upload_image_dimension_rule_text' => '',
+    'upload_cover_required' => '',
+    'upload_gallery_required' => '',
+    'upload_author_required' => '',
+    'upload_version_required' => '',
+    'upload_download_required' => '',
+    'upload_video_allowed' => false,
+    'upload_attachment_accept' => '',
+    'upload_default_content_align' => '',
+    'upload_notice' => '',
+    'edit_status_label' => '',
+    'edit_moderation_note' => '',
+    'edit_has_moderation_note' => false,
+    'edit_title_value' => '',
+    'edit_content_value' => '',
+    'edit_author_value' => '',
+    'edit_version_value' => '',
+    'edit_video_url' => '',
+    'edit_existing_media' => [],
+    'edit_download_links' => [],
+    'submissionRateLimit' => 0,
+    'submissionRateWindow' => 0,
+    'remainingSubmissionUploads' => null,
+    'allowedVideoHosts' => [],
+    'wizardEnabled' => true,
+    'allowStepSkip' => false,
+    'blockDuplicateTitles' => false,
+    'showProfileFollowup' => false,
+    'showProfileButton' => false,
+    'lockAfterSubmit' => false,
+    'maxImages' => 10,
+    'coverMaxSizeMb' => 10,
+    'galleryMaxSizeMb' => 10,
+    'attachmentMaxSizeMb' => 50,
+];
+foreach ($uploadRendererVars as $uploadRendererVarKey => $uploadRendererDefault) {
+    $publicHeaderVars[$uploadRendererVarKey] = $$uploadRendererVarKey ?? $uploadRendererDefault;
+}
+
 if ($_isAuthPage && function_exists('sendNoStoreHeaders')) {
     sendNoStoreHeaders();
 }
