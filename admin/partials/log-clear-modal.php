@@ -8,7 +8,6 @@ $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QU
 $modalId = (string) ($modalConfig['id'] ?? 'clearLogsModal');
 $modalTitle = (string) ($modalConfig['title'] ?? 'Günlüğü Temizle');
 $ariaLabel = (string) ($modalConfig['aria_label'] ?? $modalTitle);
-$confirmTitle = (string) ($modalConfig['confirm_title'] ?? $modalTitle);
 $formAction = (string) ($modalConfig['form_action'] ?? '');
 $formMethod = strtoupper((string) ($modalConfig['form_method'] ?? 'post'));
 $scopeName = (string) ($modalConfig['scope_name'] ?? 'scope');
@@ -40,7 +39,7 @@ $renderAttributes = static function (array $attributes) use ($escape): void {
 };
 
 ?>
-<div class="media-modal-overlay ui-admin-modal-overlay" id="<?= $escape($modalId) ?>" role="dialog" aria-modal="true" aria-label="<?= $escape($ariaLabel) ?>" hidden aria-hidden="true" data-confirm-title="<?= $escape($confirmTitle) ?>">
+<div class="media-modal-overlay ui-admin-modal-overlay" id="<?= $escape($modalId) ?>" role="dialog" aria-modal="true" aria-label="<?= $escape($ariaLabel) ?>" hidden aria-hidden="true">
     <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">
         <div class="media-modal-header ui-modal__head ui-panel__head">
             <h3 class="ui-admin-modal-title"><i class="bi bi-trash"></i> <?= $escape($modalTitle) ?></h3>
@@ -83,9 +82,6 @@ $renderAttributes = static function (array $attributes) use ($escape): void {
                             $optionLabel = (string) ($option['label'] ?? $optionValue);
                             $optionAttrs = [
                                 'value' => $optionValue,
-                                'data-confirm-title' => $option['confirm_title'] ?? null,
-                                'data-confirm-message' => $option['confirm_message'] ?? null,
-                                'data-confirm-ok' => $option['confirm_ok'] ?? null,
                                 'selected' => !empty($option['selected']),
                                 'disabled' => !empty($option['disabled']),
                             ];

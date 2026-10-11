@@ -638,7 +638,7 @@
         if (el) el.classList.remove('is-open');
     }
 
-    var OPEN_MODAL_SELECTOR = '.ui-admin-modal-overlay.is-open, .ui-admin-modal-overlay.ui-admin-modal-open, .media-modal-overlay.is-open, .media-modal-overlay.ui-admin-modal-open, .mm-modal-overlay.active, .ui-admin-detail-overlay.is-open, .ui-comment-manager-edit-modal.active, .ui-comment-manager-edit-modal.is-open, .notification-preview-modal.is-open, .notification-preview-modal[aria-hidden="false"], .moderation-note-modal.is-open, .scraper-preview-modal.is-open, .ui-admin-shortcut-overlay.is-open, .ui-admin-native-dialog-overlay:not([hidden]), .ui-events-confirm-modal:not([hidden])';
+    var OPEN_MODAL_SELECTOR = '.ui-admin-modal-overlay.is-open, .ui-admin-modal-overlay.ui-admin-modal-open, .media-modal-overlay.is-open, .media-modal-overlay.ui-admin-modal-open, .mm-modal-overlay.active, .ui-admin-detail-overlay.is-open, .ui-comment-manager-edit-modal.active, .ui-comment-manager-edit-modal.is-open, .notification-preview-modal.is-open, .notification-preview-modal[aria-hidden="false"], .moderation-note-modal.is-open, .scraper-preview-modal.is-open, .ui-admin-shortcut-overlay.is-open, .ui-admin-native-dialog-overlay:not([hidden])';
     var MODAL_FOCUSABLE_SELECTOR = 'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
 
     function listOpenModals() {
@@ -1071,18 +1071,18 @@
     }
 
     function swalOptions(options) {
-        var tone = options.tone || 'warning';
+        var tone = options.tone || 'info';
         var kindClass = options.kind ? String(options.kind).replace(/[^a-z0-9_-]/gi, '') : '';
         var iconClass = options.icon ? String(options.icon).replace(/[^a-z0-9_-]/gi, '') : '';
 
         return {
-            title: options.title || 'Onay gerekiyor',
+            title: options.title || 'Bilgi',
             text: options.message || '',
             icon: dialogIcon(tone),
             iconHtml: iconClass ? '<i class="bi ' + iconClass + '"></i>' : undefined,
-            confirmButtonText: options.ok || 'Onayla',
+            confirmButtonText: options.ok || 'Tamam',
             cancelButtonText: options.cancel || 'Vazgeç',
-            showCancelButton: options.showCancel !== false,
+            showCancelButton: options.showCancel === true,
             reverseButtons: true,
             focusCancel: tone === 'danger',
             customClass: {
@@ -1407,7 +1407,7 @@
             + '  </div>'
             + '  <div class="ui-admin-native-dialog-actions ui-modal__foot ui-panel__foot">'
             + '    <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-native-cancel" data-ui-admin-native-cancel>Vazgeç</button>'
-            + '    <button type="button" class="ui-admin-btn ui-admin-btn-primary ui-admin-native-ok" data-ui-admin-native-ok>Onayla</button>'
+            + '    <button type="button" class="ui-admin-btn ui-admin-btn-primary ui-admin-native-ok" data-ui-admin-native-ok>Tamam</button>'
             + '  </div>'
             + '</div>';
         document.body.appendChild(overlay);
@@ -1416,14 +1416,14 @@
 
     function nativeDialog(options) {
         var opts = Object.assign({
-            title: 'İşlem onayı',
+            title: 'Bilgi',
             message: '',
-            ok: 'Onayla',
+            ok: 'Tamam',
             cancel: 'Vazgeç',
-            tone: 'warning',
+            tone: 'info',
             kind: '',
             icon: '',
-            showCancel: true,
+            showCancel: false,
             input: null,
             value: '',
             placeholder: '',
@@ -1451,7 +1451,7 @@
         icon.className = 'bi ' + (opts.icon || (opts.tone === 'forbidden' ? 'bi-shield-lock-fill' : (opts.tone === 'danger' ? 'bi-exclamation-triangle-fill' : (opts.tone === 'success' ? 'bi-check-circle-fill' : 'bi-question-lg'))));
         title.textContent = opts.title || 'Bilgi';
         message.textContent = opts.message || '';
-        okButton.textContent = opts.ok || 'Onayla';
+        okButton.textContent = opts.ok || 'Tamam';
         cancelButton.textContent = opts.cancel || 'Vazgeç';
         cancelButton.hidden = opts.showCancel === false;
 
@@ -1774,17 +1774,6 @@
         setProgress: setAsyncProgress
     });
 
-    window.adminConfirm = function (message, options) {
-        var opts = Object.assign({ message: message }, options || {});
-        if (window.Swal && typeof window.Swal.fire === 'function') {
-            return window.Swal.fire(swalOptions(opts)).then(function (result) {
-                return Boolean(result.isConfirmed);
-            });
-        }
-
-        return nativeDialog(opts).then(Boolean);
-    };
-
     window.adminAlert = function (message, options) {
         var opts = Object.assign({ message: message }, options || {});
         if (window.Swal && typeof window.Swal.fire === 'function') {
@@ -1840,6 +1829,7 @@
                 message: opts.help || '',
                 ok: opts.ok || 'Kaydet',
                 cancel: opts.cancel || 'Vazgeç',
+                showCancel: true,
                 tone: opts.tone || 'info'
             }), {
                 input: inputMode,
@@ -1911,7 +1901,6 @@
 
     var adminManagedDialogApi = {
         alert: function (message, options) { return window.adminAlert(message, options); },
-        confirm: function (message, options) { return window.adminConfirm(message, options); },
         forbidden: function (message, options) { return window.adminForbidden(message, options); },
         prompt: function (message, options) { return window.adminPrompt(message, options); },
         open: openManagedDialog,
@@ -2610,74 +2599,9 @@
                 return;
             }
 
-            if (!form.matches('form[data-admin-confirm]') || form.dataset.adminConfirmed === '1') {
-                if ((form.method || '').toLowerCase() === 'post' || form.dataset.adminLock === '1') {
-                    setSubmittingState(form, event.submitter || null);
-                }
-                return;
+            if ((form.method || '').toLowerCase() === 'post' || form.dataset.adminLock === '1') {
+                setSubmittingState(form, event.submitter || null);
             }
-
-            event.preventDefault();
-            window.adminConfirm(form.dataset.adminConfirm, {
-                title: form.dataset.adminConfirmTitle || 'İşlem onayı',
-                ok: form.dataset.adminConfirmOk || 'Onayla',
-                cancel: form.dataset.adminConfirmCancel || 'Vazgeç',
-                tone: form.dataset.adminConfirmTone || 'danger',
-                kind: form.dataset.adminConfirmKind || '',
-                icon: form.dataset.adminConfirmIcon || ''
-            }).then(function (confirmed) {
-                if (!confirmed) {
-                    return;
-                }
-
-                form.dataset.adminConfirmed = '1';
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit();
-                } else {
-                    setSubmittingState(form, null);
-                    form.submit();
-                }
-            });
-        });
-
-        document.addEventListener('click', function (event) {
-            var trigger = event.target && event.target.closest ? event.target.closest('[data-admin-confirm]:not(form)') : null;
-            if (!trigger || trigger.dataset.adminConfirmed === '1') {
-                return;
-            }
-
-            var href = trigger.getAttribute('href');
-            var isSubmit = trigger.matches('button[type="submit"], input[type="submit"]');
-            if (!href && !isSubmit) {
-                return;
-            }
-
-            event.preventDefault();
-            window.adminConfirm(trigger.dataset.adminConfirm, {
-                title: trigger.dataset.adminConfirmTitle || 'İşlem onayı',
-                ok: trigger.dataset.adminConfirmOk || 'Onayla',
-                cancel: trigger.dataset.adminConfirmCancel || 'Vazgeç',
-                tone: trigger.dataset.adminConfirmTone || 'danger',
-                kind: trigger.dataset.adminConfirmKind || '',
-                icon: trigger.dataset.adminConfirmIcon || ''
-            }).then(function (confirmed) {
-                if (!confirmed) {
-                    return;
-                }
-
-                trigger.dataset.adminConfirmed = '1';
-                if (href) {
-                    window.location.href = href;
-                    return;
-                }
-
-                var ownerForm = trigger.form || trigger.closest('form');
-                if (ownerForm && typeof ownerForm.requestSubmit === 'function') {
-                    ownerForm.requestSubmit(trigger);
-                } else if (ownerForm) {
-                    ownerForm.submit();
-                }
-            });
         });
     }, { id: 'admin-ui:core' });
 })();

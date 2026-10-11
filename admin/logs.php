@@ -1243,7 +1243,7 @@ require_once __DIR__ . '/header.php';
                                     </td>
                                     <td data-label="İşlem">
                                         <?php if ($canRevert): ?>
-                                            <form method="post" action="<?= htmlspecialchars($activityPostAction, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu işlemi geri almak istediğinize emin misiniz?', 'tone' => 'warning']) ?>>
+                                            <form method="post" action="<?= htmlspecialchars($activityPostAction, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form">
                                                 <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                                                 <input type="hidden" name="action" value="revert">
                                                 <input type="hidden" name="log_id" value="<?= (int) $log['id'] ?>">
@@ -1286,12 +1286,10 @@ require_once __DIR__ . '/header.php';
                 [
                     'value' => 'older_than_30_days',
                     'label' => '30 Günden Eski Kayıtları Sil',
-                    'confirm_title' => 'Kayıtları Temizle',
                 ],
                 [
                     'value' => 'all',
                     'label' => 'Tüm Günlüğü Sil (Tehlikeli)',
-                    'confirm_title' => 'Günlüğü Temizle',
                 ],
             ],
             'warning' => 'Bu işlem denetim kayıtlarını silecektir. Güvenlik incelemeleri için son logların tutulması önerilir. Sadece gerekli olduğunda temizlik yapın. İşlem geri alınamaz.',
@@ -1448,7 +1446,6 @@ require_once __DIR__ . '/header.php';
                 [
                     'value' => 'all',
                     'label' => 'Tüm cron günlüğünü sil (Tehlikeli)',
-                    'confirm_title' => 'Günlüğü Temizle',
                 ],
             ],
             'warning' => 'Seçilen cron logları kalıcı olarak silinir. Bu işlem geri alınamaz.',
@@ -1734,7 +1731,6 @@ require_once __DIR__ . '/header.php';
                         [
                             'value' => 'all',
                             'label' => 'Tüm sistem bildirimlerini sil (Tehlikeli)',
-                            'confirm_title' => 'Sistem Bildirimlerini Temizle',
                         ],
                     ],
                     'warning' => 'Tüm sistem bildirimleri ve ilişkili okundu/kuyruk/gizleme kayıtları kalıcı olarak silinir. Bu işlem geri alınamaz.',

@@ -249,7 +249,7 @@ require_once __DIR__ . '/header.php';
     <?= adminRenderLogToolbarClose() ?>
 
     <!-- Kayıt Listesi -->
-    <form method="post" action="rate-limits.php" id="rateLimitBulkForm"<?= adminConfirmAttrs(['message' => 'Seçili istek sınırı kayıtları kalıcı olarak silinecek. Bu işlem geri alınamaz.', 'title' => 'Kayıtları Temizle', 'ok' => 'Seçilenleri Kalıcı Olarak Sil', 'cancel' => 'İptal', 'tone' => 'danger', 'kind' => 'logs-clear', 'icon' => 'bi-trash']) ?>>
+    <form method="post" action="rate-limits.php" id="rateLimitBulkForm">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="delete_selected">
         <?= adminRenderLogListPanelOpen([
@@ -378,17 +378,14 @@ require_once __DIR__ . '/header.php';
                 [
                     'value' => 'clear_expired',
                     'label' => 'Süresi dolmuş kayıtları sil',
-                    'confirm_title' => 'Kayıtları Temizle',
                 ],
                 [
                     'value' => 'clear_login',
                     'label' => 'Tüm giriş kilidi kayıtlarını sil',
-                    'confirm_title' => 'Kayıtları Temizle',
                 ],
                 [
                     'value' => 'clear_all',
                     'label' => 'Tüm istek sınırı günlüğünü sil (Tehlikeli)',
-                    'confirm_title' => 'Günlüğü Temizle',
                 ],
             ],
             'warning' => 'Seçilen istek sınırı kayıtları kalıcı olarak silinir. Bu işlem geri alınamaz.',
@@ -400,7 +397,7 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <?php foreach ($items as $item): ?>
-<form method="post" action="rate-limits.php" id="rate-limit-delete-<?= (int)$item['id'] ?>"<?= adminConfirmAttrs(['message' => 'Bu istek sınırı kaydı kalıcı olarak silinecek. Bu işlem geri alınamaz.', 'title' => 'Kayıtları Temizle', 'ok' => 'Seçilenleri Kalıcı Olarak Sil', 'cancel' => 'İptal', 'tone' => 'danger', 'kind' => 'logs-clear', 'icon' => 'bi-trash']) ?>>
+<form method="post" action="rate-limits.php" id="rate-limit-delete-<?= (int)$item['id'] ?>">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="delete_one">
     <input type="hidden" name="id" value="<?= (int)$item['id'] ?>">

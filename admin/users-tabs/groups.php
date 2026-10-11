@@ -171,7 +171,7 @@ $groupPriorityForAdmin = static function (array $group, int $fallback): int {
                                         <i class="bi bi-files"></i>
                                     </button>
                                     <?php if ($groupSlug !== 'admin'): ?>
-                                        <form method="post" action="users.php?tab=groups&group_view=list" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu grup pasife alınacak. Devam edilsin mi?', 'title' => 'Grup pasife alınsın mı?', 'ok' => 'Pasife Al', 'tone' => 'warning']) ?>>
+                                        <form method="post" action="users.php?tab=groups&group_view=list" class="ui-admin-inline-form">
                                             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                                             <input type="hidden" name="action" value="delete_group">
                                             <input type="hidden" name="group_id" value="<?= $groupId ?>">

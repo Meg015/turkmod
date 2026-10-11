@@ -387,5 +387,4 @@ return [
     ],
     'lifecycle' => \App\Modules\Notifications\Services\NotificationsLifecycle::class,
     'migrations' => __DIR__ . '/Database/migrations',
-    'lang' => __DIR__ . '/lang',
 ];

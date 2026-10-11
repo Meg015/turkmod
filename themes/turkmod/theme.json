@@ -200,7 +200,6 @@
     "conversion": {
         "source": "dle",
         "dle_aliases": true,
-        "layout_strategy": "TurkMod main.tpl structure is preserved; DLE tags are mapped to TurkMod variables.",
-        "documentation": "README.md"
+        "layout_strategy": "TurkMod main.tpl structure is preserved; DLE tags are mapped to TurkMod variables."
     }
 }

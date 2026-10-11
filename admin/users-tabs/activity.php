@@ -559,26 +559,22 @@ $activityClearOptions = [
     [
         'value' => 'older_than_30_days',
         'label' => '30 Günden Eski Kayıtları Sil',
-        'confirm_title' => 'Kayıtları Temizle',
     ],
 ];
 if ($userId > 0 && $selectedUser) {
     $activityClearOptions[] = [
         'value' => 'user',
         'label' => 'Sadece Bu Kullanıcının Kayıtlarını Sil (' . (string) ($selectedUser['username'] ?? 'Kullanici') . ')',
-        'confirm_title' => 'Kayıtları Temizle',
     ];
 }
 $activityClearOptions[] = [
     'value' => 'all',
     'label' => 'Tüm Sistemin Loglarını Sil (Tehlikeli)',
-    'confirm_title' => 'Günlüğü Temizle',
 ];
 
 $logClearModal = [
     'aria_label' => 'Kayıtları temizle',
     'title' => 'Kayıtları Temizle',
-    'confirm_title' => 'Kayıtları Temizle',
     'form_action' => $activityBuildUrl(),
     'hidden_fields' => [
         ['name' => 'action', 'value' => 'clear_activity_logs'],

@@ -127,5 +127,4 @@ return [
     ],
     'lifecycle' => \App\Modules\Leaderboard\Services\LeaderboardLifecycle::class,
     'migrations' => __DIR__ . '/Database/migrations',
-    'lang' => __DIR__ . '/lang',
 ];

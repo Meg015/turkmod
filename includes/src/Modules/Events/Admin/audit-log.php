@@ -195,7 +195,7 @@ eventsAdminStyles($baseUri ?? '');
 
         // Clear Button
         if ($auditReady && ($totalRows > 0 || ($filterAction ?? 'all') === 'all')) {
-            echo '<form method="post" data-ui-events-confirm="Tüm işlem kayıtlarını geri dönülemez şekilde silmek istediğinize emin misiniz?">
+            echo '<form method="post">
                 <input type="hidden" name="_events_action" value="clear_logs">
                 ' . csrf_field() . '
                 <button type="submit" class="ui-admin-btn ui-admin-btn-danger ui-admin-btn-sm"><i class="bi bi-trash"></i> Logları Temizle</button>

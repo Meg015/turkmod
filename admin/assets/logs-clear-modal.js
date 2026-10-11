@@ -40,46 +40,28 @@ function initLogsClearModal() {
     function submitClearLogs(event) {
         event.preventDefault();
         const form = event.target;
-        const select = scopeSelect(form);
-        const selected = select ? select.options[select.selectedIndex] : null;
-        const scopeText = selected ? selected.textContent.trim() : 'Seçilen temizlik';
-        const dialog = modal();
-        const title = selected?.dataset.confirmTitle || form.dataset.clearLogsConfirmTitle || dialog?.dataset.confirmTitle || 'Günlüğü Temizle';
-        const message = selected?.dataset.confirmMessage || form.dataset.clearLogsConfirm || `"${scopeText}" işlemini yapmak üzeresiniz. Bu işlem kesinlikle geri alınamaz. Emin misiniz?`;
-        const ok = selected?.dataset.confirmOk || form.dataset.clearLogsConfirmOk || 'Evet, Kalıcı Olarak Sil';
-        const cancel = form.dataset.clearLogsConfirmCancel || 'İptal';
 
-        adminConfirm(message, {
-            title,
-            ok,
-            cancel,
-            tone: 'danger',
-            kind: 'logs-clear',
-            icon: 'bi-trash'
-        }).then((confirmed) => {
-            if (!confirmed) return;
+        const button = form.querySelector('button[type="submit"]');
+        if (button?.disabled) return false;
 
-            const button = form.querySelector('button[type="submit"]');
-
-            window.adminAsync.submitForm(form, {
-                button: button,
-                loadingHtml: '<i class="bi bi-hourglass-split"></i> Siliniyor...',
-                notifyError: false
+        window.adminAsync.submitForm(form, {
+            button: button,
+            loadingHtml: '<i class="bi bi-hourglass-split"></i> Siliniyor...',
+            notifyError: false
+        })
+            .then((data) => {
+                if (!data) return;
+                if (data.ok || data.success) {
+                    closeClearLogsModal();
+                    adminAlert(data.message || 'Günlük temizlendi.', { title: 'Başarılı', tone: 'success' }).then(() => window.location.reload());
+                    return;
+                }
+                adminAlert(data.message || 'Bir hata oluştu.', { title: 'Hata', tone: 'danger' });
             })
-                .then((data) => {
-                    if (!data) return;
-                    if (data.ok || data.success) {
-                        closeClearLogsModal();
-                        adminAlert(data.message || 'Günlük temizlendi.', { title: 'Başarılı', tone: 'success' }).then(() => window.location.reload());
-                        return;
-                    }
-                    adminAlert(data.message || 'Bir hata oluştu.', { title: 'Hata', tone: 'danger' });
-                })
-                .catch((error) => {
-                    const message = error && error.message ? error.message : 'Bir bağlantı hatası oluştu. Lütfen tekrar deneyin.';
-                    adminAlert(message, { title: 'Hata', tone: 'danger' });
-                });
-        });
+            .catch((error) => {
+                const message = error && error.message ? error.message : 'Bir bağlantı hatası oluştu. Lütfen tekrar deneyin.';
+                adminAlert(message, { title: 'Hata', tone: 'danger' });
+            });
         return false;
     }
 

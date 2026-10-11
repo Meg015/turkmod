@@ -1124,7 +1124,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                 </form>
                 <?php if ($status === 'deleted' && !empty($comments)): ?>
-                    <form method="post" action="comments-manager.php?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['page' => $page]))) ?>" class="comments-manager-toolbar__actions"<?= adminConfirmAttrs(['message' => 'Bu görünümdeki silinen yorumları, yanıtları ve ilişkili kayıtları kalıcı olarak silmek istediğinize emin misiniz?', 'title' => 'Tümünü kalıcı sil', 'ok' => 'Kalıcı sil', 'tone' => 'danger']) ?>>
+                    <form method="post" action="comments-manager.php?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['page' => $page]))) ?>" class="comments-manager-toolbar__actions">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="purge_deleted">
                         <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm">
@@ -1310,7 +1310,7 @@ require_once __DIR__ . '/header.php';
                                                 <i class="bi bi-pencil"></i> Düzenle
                                             </button>
 
-                                            <form method="post" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu yorumu silmek istediğinize emin misiniz?', 'title' => 'Yorum silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                            <form method="post" class="ui-admin-inline-form">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="comment_id" value="<?= $commentIdValue ?>">

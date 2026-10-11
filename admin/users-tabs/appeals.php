@@ -299,7 +299,7 @@ $excerpt = static function (mixed $message, int $limit = 220): string {
             }
             ?>
             <?php if ($pendingAppealCount > 0): ?>
-                <form id="bulkAppealsForm" method="post" class="report-bulk-bar appeals-admin-bulk admin-bulk-action-bar"<?= adminConfirmAttrs(['message' => 'Secili itirazlarin tumune bu islemi uygulamak istiyor musunuz?', 'tone' => 'warning']) ?>>
+                <form id="bulkAppealsForm" method="post" class="report-bulk-bar appeals-admin-bulk admin-bulk-action-bar">
                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="action" value="bulk_appeal_update">
                     <div class="appeals-admin-bulk-selection">

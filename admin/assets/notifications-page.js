@@ -1621,7 +1621,7 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
         submitContentAction('test', event.currentTarget, { test_email: testEmail?.value || '' });
     });
     startButtons.forEach(function (startButton) {
-        startButton.addEventListener('click', async function (event) {
+        startButton.addEventListener('click', function (event) {
             const button = event.currentTarget;
             const subjectValue = String(subject?.value || '').trim();
             const bodyValue = syncBody();
@@ -1632,27 +1632,13 @@ function initBulkEmailCampaigns(adminNotificationsPageData) {
                 subject?.focus({ preventScroll: true });
                 return;
             }
-            const count = Number(config.eligibleCount || 0).toLocaleString('tr-TR');
-            const confirmed = typeof window.adminConfirm === 'function'
-                ? await window.adminConfirm(count + ' uygun üyeye gönderim kuyruğu oluşturulacak.', { title: 'Gönderim başlatılsın mı?', ok: 'Gönderimi Başlat', icon: 'bi-send' })
-                : false;
-            if (confirmed) {
-                submitContentAction('start', button);
-            }
+            submitContentAction('start', button);
         });
     });
     root.addEventListener('click', async function (event) {
         const actionButton = event.target.closest('[data-bulk-action]');
         if (actionButton && progressCard) {
             const action = String(actionButton.dataset.bulkAction || '');
-            if (action === 'cancel') {
-                const confirmed = typeof window.adminConfirm === 'function'
-                    ? await window.adminConfirm('Henüz gönderilmemiş alıcılar iptal edilecek.', { title: 'Kampanya iptal edilsin mi?', ok: 'İptal Et', icon: 'bi-x-octagon' })
-                    : false;
-                if (!confirmed) {
-                    return;
-                }
-            }
             setBusy(actionButton, true, 'İşleniyor...');
             try {
                 const data = await request(action, { campaign_id: progressCard.dataset.campaignId || '' });

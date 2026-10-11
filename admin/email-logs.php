@@ -528,7 +528,6 @@ require_once __DIR__ . '/header.php';
             [
                 'value' => 'all',
                 'label' => 'Tüm e-posta günlüğünü sil (Tehlikeli)',
-                'confirm_title' => 'Günlüğü Temizle',
             ],
         ],
         'warning' => 'Tüm e-posta logları kalıcı olarak silinir. SMTP yanıtları ve teknik hata ayrıntıları dahil bu işlem geri alınamaz.',

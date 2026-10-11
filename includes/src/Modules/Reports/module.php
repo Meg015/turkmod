@@ -126,5 +126,4 @@ return [
     'events' => [],
     'lifecycle' => \App\Modules\Reports\Services\ReportsLifecycle::class,
     'migrations' => __DIR__ . '/Database/migrations',
-    'lang' => __DIR__ . '/lang',
 ];

@@ -520,7 +520,7 @@ require_once __DIR__ . '/header.php';
                     <span><?= number_format(count($reports), 0, ',', '.') ?> kayıt listeleniyor</span>
                 </div>
                 <?php if ($activeTab === 'topics'): ?>
-                <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl('topics')) ?>" class="ui-admin-inline-form complaints-delete-all-form"<?= adminConfirmAttrs(['message' => 'Tüm konu raporları; geçmişleri, rapora bağlı bildirimleri ve aktivite kayıtlarıyla birlikte kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?', 'title' => 'Tüm konu raporları silinsin mi?', 'ok' => 'Tümünü Kalıcı Sil', 'tone' => 'danger']) ?>>
+                <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl('topics')) ?>" class="ui-admin-inline-form complaints-delete-all-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="delete_all_topic_reports">
                     <input type="hidden" name="report_scope" value="topics">
@@ -584,7 +584,7 @@ require_once __DIR__ . '/header.php';
                 'class' => 'complaints-empty',
             ]) ?>
         <?php else: ?>
-            <form id="bulkReportsForm" method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-bulk-bar admin-bulk-action-bar"<?= adminConfirmAttrs(['message' => 'Seçili kayıtlar güncellensin mi?', 'title' => 'Raporlar güncellensin mi?', 'ok' => 'Güncelle', 'tone' => 'warning']) ?>>
+            <form id="bulkReportsForm" method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-bulk-bar admin-bulk-action-bar">
                 <?= csrf_field() ?>
                 <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
                 <input type="hidden" name="action" value="bulk_update">
@@ -703,7 +703,7 @@ require_once __DIR__ . '/header.php';
                                         </form>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
-                                <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu şikayet/rapor kaydını silmek istediğinize emin misiniz?', 'title' => 'Rapor silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="ui-admin-inline-form">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
                                     <input type="hidden" name="_return" value="<?= htmlspecialchars($returnQuery) ?>">

@@ -529,10 +529,6 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                     method="post"
                     action="<?= htmlspecialchars($leaderboardAdminUrl, ENT_QUOTES, 'UTF-8') ?>"
                     class="leaderboard-activity-bulk-bar"
-                    data-admin-confirm="Son aktivite kayıtlarının tamamı kalıcı olarak silinecek. Devam edilsin mi?"
-                    data-admin-confirm-title="Tüm aktiviteler silinsin mi?"
-                    data-admin-confirm-ok="Sil"
-                    data-admin-confirm-tone="danger"
                 >
                     <?= csrf_field() ?>
                     <input type="hidden" name="_leaderboard_activity_action" value="bulk_delete_all">
@@ -582,7 +578,7 @@ require_once $leaderboardProjectRoot . '/admin/header.php';
                                 </td>
                                 <?php if ($canManageLeaderboard): ?>
                                     <td>
-                                        <form method="post" action="<?= htmlspecialchars($leaderboardAdminUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form" data-admin-confirm="Bu aktivite kaydı kalıcı olarak silinecek. Devam edilsin mi?" data-admin-confirm-title="Aktivite kaydı silinsin mi?" data-admin-confirm-ok="Sil" data-admin-confirm-tone="danger">
+                                        <form method="post" action="<?= htmlspecialchars($leaderboardAdminUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form">
                                             <?= csrf_field() ?>
                                             <input type="hidden" name="_leaderboard_activity_action" value="delete">
                                             <input type="hidden" name="activity_log_id" value="<?= (int) $log['id'] ?>">

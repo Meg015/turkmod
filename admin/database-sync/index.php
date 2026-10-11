@@ -148,7 +148,7 @@ require __DIR__ . '/../header.php';
             </div>
             <div class="dbs-hero-actions">
                 <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="index.php"><i class="bi bi-arrow-clockwise"></i> Yenile</a>
-                <form method="post" action="index.php"<?= adminConfirmAttrs(['message' => 'Bekleyen migrationlar uygulanacak. Devam etmek istiyor musunuz?', 'title' => 'Migrationlar uygulansın mı?', 'ok' => 'Uygula', 'tone' => 'warning']) ?>>
+                <form method="post" action="index.php">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="apply_pending_migrations">
                     <button class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm" type="submit" <?= $allPending <= 0 ? 'disabled' : '' ?>>

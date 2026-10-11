@@ -202,7 +202,7 @@ $totalPages = max(1, (int) ceil($totalSpins / max(1, $perPage)));
                 <div class="ui-surface admin-card ui-events-admin-panel ui-events-admin-table-panel ui-panel logs-list-card">
                     <div class="ui-panel__body card-body ui-events-table-wrap ui-events-admin-table-wrap ui-table-wrap ui-surface admin-log-table-wrap">
                         <div class="ui-events-admin-actionstrip logs-toolbar-actions">
-                            <form class="ui-events-inline-form" method="post" data-ui-events-confirm="Tüm çark çevirme kayıtları kalıntı bırakmadan silinecektir. Bu işlem geri alınamaz." data-ui-events-confirm-title="Tüm kayıtlar silinsin mi?" data-ui-events-confirm-ok="Tümünü Sil" data-ui-events-confirm-tone="danger">
+                            <form class="ui-events-inline-form" method="post">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="_events_action" value="delete_all_spins">
                                 <button class="ui-admin-btn ui-admin-btn-danger ui-admin-btn-sm" type="submit">
@@ -240,7 +240,7 @@ $totalPages = max(1, (int) ceil($totalSpins / max(1, $perPage)));
                                             <td><?= date('d.m.Y H:i', strtotime($spin['created_at'])) ?></td>
                                             <td><?= e($spin['reward_value']) ?></td>
                                             <td>
-                                                <form class="ui-events-inline-form" method="post" data-ui-events-confirm="Bu çark çevirme kaydı kalıntı bırakmadan silinecektir." data-ui-events-confirm-title="Kayıt silinsin mi?" data-ui-events-confirm-ok="Sil" data-ui-events-confirm-tone="danger">
+                                                <form class="ui-events-inline-form" method="post">
                                                     <?= csrf_field() ?>
                                                     <input type="hidden" name="_events_action" value="delete_spin">
                                                     <input type="hidden" name="spin_id" value="<?= $spin['id'] ?>">
@@ -293,7 +293,7 @@ $totalPages = max(1, (int) ceil($totalSpins / max(1, $perPage)));
                                             </td>
                                             <td><?= date('d.m.Y H:i', strtotime($user['last_spin'])) ?></td>
                                             <td>
-                                                <form class="ui-events-inline-form" method="post" data-ui-events-confirm="Bu kullanıcının tüm çark kayıtları kalıntı bırakmadan silinecektir." data-ui-events-confirm-title="Kullanıcı kayıtları silinsin mi?" data-ui-events-confirm-ok="Sil" data-ui-events-confirm-tone="danger">
+                                                <form class="ui-events-inline-form" method="post">
                                                     <?= csrf_field() ?>
                                                     <input type="hidden" name="_events_action" value="delete_user_spins">
                                                     <input type="hidden" name="user_id" value="<?= $user['id'] ?>">

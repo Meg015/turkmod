@@ -50,5 +50,4 @@ return [
     ],
     'lifecycle' => \App\Modules\BanAppeals\Services\BanAppealsLifecycle::class,
     'migrations' => __DIR__ . '/Database/migrations',
-    'lang' => __DIR__ . '/lang',
 ];

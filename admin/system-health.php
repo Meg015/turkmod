@@ -1394,7 +1394,7 @@ require_once __DIR__ . '/header.php';
 
     <?php if ($activeTab === 'database'): ?>
     <?= adminRenderPanelShellOpen(['class' => 'ui-admin-db-status-panel health-db-optimize-panel']) ?>
-        <form method="post" action="system-health.php?tab=database" class="health-db-optimize-form"<?= adminConfirmAttrs(['message' => 'Seçili tablolar sırayla optimize edilecek. Büyük tablolarda kısa süreli kilitlenme yaşanabilir. Devam edilsin mi?', 'title' => 'Veritabanı optimize edilsin mi?', 'ok' => 'Seçili Tabloları Optimize Et', 'tone' => 'warning']) ?>>
+        <form method="post" action="system-health.php?tab=database" class="health-db-optimize-form">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="optimize_db">
             <input type="hidden" name="table_selection_present" value="1">

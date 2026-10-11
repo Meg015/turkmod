@@ -45,7 +45,6 @@ final class ModuleLoader
         $metadata['config'] = isset($metadata['config']) && is_array($metadata['config']) ? $metadata['config'] : [];
         $metadata['events'] = isset($metadata['events']) && is_array($metadata['events']) ? $metadata['events'] : [];
         $metadata['migrations'] = isset($metadata['migrations']) ? (string) $metadata['migrations'] : '';
-        $metadata['lang'] = isset($metadata['lang']) ? (string) $metadata['lang'] : '';
         $metadata['admin'] = isset($metadata['admin']) && is_array($metadata['admin']) ? $metadata['admin'] : [];
 
         $this->assertRequiredKeys($metadata, $moduleFile);

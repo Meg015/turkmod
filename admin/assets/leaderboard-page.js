@@ -52,13 +52,6 @@ function initLeaderboardPage() {
             const category = this.dataset.category;
             const period = this.dataset.period;
 
-            if (!await adminConfirm(`${category} - ${period} icin liderlik tablosunu yeniden hesaplamak istediginize emin misiniz?`, {
-                title: 'Yeniden hesapla',
-                ok: 'Hesapla',
-                tone: 'warning'
-            })) {
-                return;
-            }
 
             const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(this, {
                 loadingHtml: '<i class="bi bi-arrow-repeat spin"></i> Hesaplaniyor...'
@@ -98,13 +91,6 @@ function initLeaderboardPage() {
             const category = this.dataset.category;
             const period = this.dataset.period;
 
-            if (!await adminConfirm(`${category} - ${period} cache'ini temizlemek istediginize emin misiniz?`, {
-                title: 'Cache temizle',
-                ok: 'Temizle',
-                tone: 'danger'
-            })) {
-                return;
-            }
 
             const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(this, {
                 loadingHtml: '<i class="bi bi-trash spin"></i> Temizleniyor...'
@@ -139,13 +125,6 @@ function initLeaderboardPage() {
     });
 
     document.getElementById('recalculateAllBtn')?.addEventListener('click', async function() {
-        if (!await adminConfirm('TUM liderlik tablolarini yeniden hesaplamak istediginize emin misiniz? Bu islem uzun surebilir.', {
-            title: 'Tumunu yeniden hesapla',
-            ok: 'Hesapla',
-            tone: 'warning'
-        })) {
-            return;
-        }
 
         window.adminAsync?.setButtonLoading(this, {
             loadingHtml: '<i class="bi bi-arrow-repeat spin"></i> Hesaplaniyor...'
@@ -186,13 +165,6 @@ function initLeaderboardPage() {
     });
 
     document.getElementById('clearAllCacheBtn')?.addEventListener('click', async function() {
-        if (!await adminConfirm('TUM cache kayitlarini temizlemek istediginize emin misiniz? Bu islem geri alinamaz.', {
-            title: 'Tum cache temizlensin mi?',
-            ok: 'Temizle',
-            tone: 'danger'
-        })) {
-            return;
-        }
 
         const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(this, {
             loadingHtml: '<i class="bi bi-trash spin"></i> Temizleniyor...'

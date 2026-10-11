@@ -44,6 +44,51 @@ async function listJavaScriptSourceFiles(directory) {
     return files;
 }
 
+async function listAdminActionSourceFiles(directory) {
+    const files = [];
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...await listAdminActionSourceFiles(entryPath));
+        } else if (/\.(?:php|js)$/.test(entry.name) && !entry.name.endsWith('.min.js')) {
+            files.push(entryPath);
+        }
+    }
+    return files;
+}
+
+async function assertAdminActionsRunDirectly() {
+    const moduleFiles = (await listAdminActionSourceFiles(fromRoot('includes', 'src', 'Modules')))
+        .filter(file => /[\\/]Admin[\\/]/.test(file) || /^admin.*\.js$/.test(path.basename(file)));
+    const files = [...await listAdminActionSourceFiles(fromRoot('admin')), ...moduleFiles];
+    const checks = [
+        ['admin confirmation helper', /\b(?:adminConfirm(?:Attrs)?|EventsConfirm)\b/g],
+        ['admin confirmation attribute', /data-(?:admin|ui-events)-confirm\b/g],
+        ['browser confirmation', /\bconfirm\s*\(|\bwindow\s*\[\s*['"]confirm['"]\s*\]\s*\(/g],
+        ['navigation confirmation', /\bbeforeunload\b/g],
+    ];
+    const violations = [];
+
+    for (const file of files) {
+        const source = await readFile(file, 'utf8');
+        for (const [label, pattern] of checks) {
+            pattern.lastIndex = 0;
+            let match;
+            while ((match = pattern.exec(source)) !== null) {
+                const line = source.slice(0, match.index).split(/\r?\n/).length;
+                violations.push(`${path.relative(root, file)}:${line} uses ${label}`);
+            }
+        }
+    }
+
+    if (violations.length > 0) {
+        throw new Error(
+            'Admin actions must run directly after input validation, without confirmation prompts.\n' +
+            violations.join('\n')
+        );
+    }
+}
+
 async function assertAdminAjaxUsesSharedHelpers() {
     const adminFiles = (await listJavaScriptSourceFiles(fromRoot('admin', 'assets')))
         .filter(file => path.basename(file) !== 'admin-ui.js');
@@ -144,6 +189,7 @@ async function assertNoDestructiveUniversalCssReset() {
 }
 
 async function buildJavaScript() {
+    await assertAdminActionsRunDirectly();
     await assertAdminAjaxUsesSharedHelpers();
     await assertPublicAjaxUsesSharedHelpers();
 
@@ -160,6 +206,16 @@ async function buildJavaScript() {
     await build({
         entryPoints: [fromRoot('themes', 'turkmod', 'js', 'bundle.js')],
         outfile: fromRoot('themes', 'turkmod', 'js', 'bundle.min.js'),
+        bundle: false,
+        minify: true,
+        legalComments: 'none',
+        sourcemap: false,
+        target: ['es2020'],
+    });
+
+    await build({
+        entryPoints: [fromRoot('includes', 'src', 'Modules', 'Events', 'assets', 'js', 'admin-ui.js')],
+        outfile: fromRoot('includes', 'src', 'Modules', 'Events', 'assets', 'js', 'admin-ui.min.js'),
         bundle: false,
         minify: true,
         legalComments: 'none',

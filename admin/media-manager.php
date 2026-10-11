@@ -505,7 +505,7 @@ $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $medi
             <a id="previewDownload" href="" download class="mm-btn mm-btn-secondary mm-btn-sm ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm">
                 <i class="bi bi-download"></i> İndir
             </a>
-            <form method="post" action="media-manager.php" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu dosyayı silmek istediğinize emin misiniz?', 'title' => 'Dosya silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+            <form method="post" action="media-manager.php" class="ui-admin-inline-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="file_path" id="previewDeletePath" value="">

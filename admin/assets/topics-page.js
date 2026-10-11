@@ -9,9 +9,7 @@ function adminTopicToast(message, type = 'info', duration) {
 function initTopicsSelection() {
     const selectAll = document.getElementById('selectAllTopics');
     const rowChecks = Array.from(document.querySelectorAll('.topic-row-checkbox'));
-    const selectedCount = document.getElementById('selectedTopicCount');
     const bulkTitle = document.getElementById('topicsBulkTitle');
-    const bulkHint = document.getElementById('topicsBulkHint');
     const bulkBar = document.querySelector('[data-topic-bulk-bar]');
     const bulkApply = document.getElementById('bulkTopicApply');
     const bulkAction = document.getElementById('bulkTopicAction');
@@ -19,24 +17,21 @@ function initTopicsSelection() {
 
     function syncSelectionState() {
         const checkedCount = rowChecks.filter(function(input){ return input.checked; }).length;
-        if (selectedCount) {
-            selectedCount.textContent = String(checkedCount);
-        }
         if (bulkTitle) {
-            bulkTitle.textContent = checkedCount > 0 ? checkedCount + ' konu secildi' : 'Konu secilmedi';
-        }
-        if (bulkHint) {
-            bulkHint.textContent = checkedCount > 0
-                ? 'Secimi temizle veya asagidan toplu islem uygula.'
-                : 'Listeden konu secince islemler aktiflesir.';
+            bulkTitle.textContent = checkedCount > 0 ? checkedCount + ' konu seçildi' : 'Konu seçilmedi';
         }
         if (selectAll) {
             selectAll.checked = checkedCount > 0 && checkedCount === rowChecks.length;
             selectAll.indeterminate = checkedCount > 0 && checkedCount < rowChecks.length;
         }
         if (bulkBar) {
+            bulkBar.hidden = checkedCount === 0;
             bulkBar.classList.toggle('is-active', checkedCount > 0);
         }
+        rowChecks.forEach(function(input) {
+            const row = input.closest('tr');
+            if (row) row.classList.toggle('is-selected', input.checked);
+        });
         if (bulkApply) {
             bulkApply.disabled = checkedCount === 0 || !bulkAction || bulkAction.value === '';
         }
@@ -72,6 +67,45 @@ function initTopicsSelection() {
     syncSelectionState();
 }
 
+function initTopicsActionPopovers() {
+    const panels = Array.from(document.querySelectorAll('.topic-actions-popover'));
+
+    panels.forEach(function(panel) {
+        const trigger = document.querySelector('[popovertarget="' + panel.id + '"]');
+        if (!trigger) return;
+
+        panel.addEventListener('toggle', function(event) {
+            if (event.newState !== 'open') return;
+            const anchor = trigger.getBoundingClientRect();
+            const bounds = panel.getBoundingClientRect();
+            const viewportWidth = document.documentElement.clientWidth;
+            const viewportHeight = document.documentElement.clientHeight;
+            const left = Math.max(8, Math.min(anchor.right - bounds.width, viewportWidth - bounds.width - 8));
+            const below = anchor.bottom + 6;
+            const top = below + bounds.height <= viewportHeight - 8
+                ? below
+                : Math.max(8, anchor.top - bounds.height - 6);
+            panel.style.left = left + 'px';
+            panel.style.top = top + 'px';
+        });
+    });
+
+    function closePopovers() {
+        panels.forEach(function(panel) {
+            if (panel.matches(':popover-open')) panel.hidePopover();
+        });
+    }
+    window.addEventListener('resize', closePopovers);
+    document.addEventListener('scroll', function(event) {
+        if (!(event.target instanceof Element) || !event.target.closest('.topic-actions-popover')) {
+            closePopovers();
+        }
+    }, true);
+    document.addEventListener('click', function(event) {
+        if (event.target.closest('[data-moderation-note-form]')) closePopovers();
+    });
+}
+
 function initTopicsEditableRows() {
     const interactiveSelector = 'a, button, input, select, textarea, label, form, [role="button"], [data-moderation-note-open]';
     const bindEditableRows = function(selector, attributeName) {
@@ -101,7 +135,7 @@ function initTopicsEditableRows() {
         });
     };
 
-    bindEditableRows('.ui-admin-topic-click-row[data-topic-edit-url]', 'data-topic-edit-url');
+    bindEditableRows('.topics-editable-row[data-topic-edit-url]', 'data-topic-edit-url');
     bindEditableRows('[data-health-edit-url]', 'data-health-edit-url');
 }
 
@@ -118,10 +152,8 @@ function initTopicsModerationNoteModal() {
     function closeModal() {
         window.adminModal.close(modal, function () {
             modal.classList.remove('ui-admin-modal-open');
+            if (lastTrigger) lastTrigger.focus({ preventScroll: true });
         });
-        if (lastTrigger) {
-            lastTrigger.focus();
-        }
     }
 
     document.addEventListener('click', function(event) {
@@ -149,9 +181,11 @@ function initTopicsModerationNoteModal() {
 
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !modal.hidden) {
+            event.preventDefault();
+            event.stopPropagation();
             closeModal();
         }
-    });
+    }, true);
 }
 
 function initTopicsModerationActionNoteModal() {
@@ -176,14 +210,12 @@ function initTopicsModerationActionNoteModal() {
             error.hidden = true;
             pendingForm = null;
             pendingField = null;
+            if (lastTrigger) lastTrigger.focus({ preventScroll: true });
         });
         error.textContent = '';
         error.hidden = true;
         pendingForm = null;
         pendingField = null;
-        if (lastTrigger) {
-            lastTrigger.focus();
-        }
     }
 
     document.querySelectorAll('[data-moderation-note-form]').forEach(function(form) {
@@ -196,7 +228,10 @@ function initTopicsModerationActionNoteModal() {
             event.preventDefault();
             pendingForm = form;
             pendingField = field;
-            lastTrigger = event.submitter || form.querySelector('button[type="submit"]');
+            const actionPanel = form.closest('.topic-actions-popover');
+            lastTrigger = actionPanel
+                ? document.querySelector('[popovertarget="' + actionPanel.id + '"]')
+                : event.submitter || form.querySelector('button[type="submit"]');
             noteRequired = form.getAttribute('data-moderation-note-required') === '1';
             title.textContent = form.getAttribute('data-moderation-note-title') || 'Moderasyon notu';
             textarea.value = field.value || '';
@@ -247,12 +282,14 @@ function initTopicsModerationActionNoteModal() {
 
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !modal.hidden) {
+            event.preventDefault();
+            event.stopPropagation();
             closeModal();
         }
-    });
+    }, true);
 }
 
-async function handleBulkTopicSubmit(form) {
+function validateBulkTopicSubmit() {
     const selected = document.querySelectorAll('.topic-row-checkbox:checked');
     const actionField = document.getElementById('bulkTopicAction');
     const action = actionField ? actionField.value : '';
@@ -265,31 +302,14 @@ async function handleBulkTopicSubmit(form) {
         adminTopicToast('Lütfen en az bir konu seçin.', 'warning');
         return false;
     }
-    if (action === 'delete') return adminConfirm('Seçilen konular çöp kutusuna taşınacak. Onaylıyor musunuz?', { title: 'Toplu işlem', ok: 'Çöpe Taşı', tone: 'danger' });
-    if (action === 'restore') return adminConfirm('Seçilen konular geri yüklenecek. Onaylıyor musunuz?', { title: 'Toplu işlem', ok: 'Geri Yükle', tone: 'warning' });
-    if (action === 'purge') return adminConfirm('Kalıcı olarak silinecek. Bu işlem geri alınamaz. Onaylıyor musunuz?', { title: 'Kalıcı silme', ok: 'Kalıcı Sil', tone: 'danger' });
     return true;
 }
 
 function initTopicsBulkSubmit() {
-    document.getElementById('bulkTopicsForm')?.addEventListener('submit', async function(event) {
-    if (this.dataset.adminBulkConfirmed === '1') {
-        return;
-    }
-
-    event.preventDefault();
-    if (!await handleBulkTopicSubmit(this)) {
-        return;
-    }
-
-    this.dataset.adminBulkConfirmed = '1';
-    const button = document.getElementById('bulkTopicApply');
-    if (button) {
-        window.adminAsync?.setButtonLoading(button, {
-            loadingHtml: '<i class="bi bi-hourglass-split"></i> Uygulanıyor'
-        });
-    }
-        this.submit();
+    document.getElementById('bulkTopicsForm')?.addEventListener('submit', function(event) {
+        if (!validateBulkTopicSubmit()) {
+            event.preventDefault();
+        }
     });
 }
 
@@ -466,14 +486,13 @@ function initTopicHealthScan() {
 
 function initTopicsPage() {
     initTopicsSelection();
+    initTopicsActionPopovers();
     initTopicsEditableRows();
     initTopicsModerationNoteModal();
     initTopicsModerationActionNoteModal();
     initTopicsBulkSubmit();
     initTopicHealthScan();
 }
-
-window.handleBulkTopicSubmit = handleBulkTopicSubmit;
 
 window.adminPage.register('topics', initTopicsPage, {
     id: 'topics-page',

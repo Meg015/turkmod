@@ -512,7 +512,7 @@ require_once __DIR__ . '/header.php';
                                             <div class="ui-admin-actions-inline">
                                                 <a href="<?= htmlspecialchars($messageUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi bi-eye"></i> Aç</a>
                                                 <?php if (function_exists('adminCurrentUserCan') && adminCurrentUserCan('contact.manage')): ?>
-                                                <form method="post" action="<?= htmlspecialchars($messageUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu mesaj kalıcı olarak silinecek. Devam edilsin mi?', 'title' => 'Mesaj silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                                <form method="post" action="<?= htmlspecialchars($messageUrl, ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form">
                                                     <?= csrf_field() ?>
                                                     <input type="hidden" name="action" value="delete_message">
                                                     <input type="hidden" name="tab" value="messages">
@@ -678,7 +678,7 @@ require_once __DIR__ . '/header.php';
                                             <button type="submit" class="ui-admin-btn ui-admin-btn-outline"><i class="bi bi-check2-circle"></i> Çözüldü</button>
                                         </form>
 
-                                        <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu mesaj kalıcı olarak silinecek. Devam edilsin mi?', 'title' => 'Mesaj silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                        <form method="post" action="<?= htmlspecialchars(adminContactsUrl('messages', $messageFilters + ['page' => $messagePage, 'message_id' => (int) $selectedMessage['id']]), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form">
                                             <?= csrf_field() ?>
                                             <input type="hidden" name="action" value="delete_message">
                                             <input type="hidden" name="tab" value="messages">
@@ -887,7 +887,7 @@ require_once __DIR__ . '/header.php';
                                                             <input type="hidden" name="is_active" value="<?= (int) ($category['is_active'] ?? 0) === 1 ? 0 : 1 ?>">
                                                             <button type="submit" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm"><i class="bi <?= (int) ($category['is_active'] ?? 0) === 1 ? 'bi-pause-circle' : 'bi-play-circle' ?>"></i> <?= (int) ($category['is_active'] ?? 0) === 1 ? 'Pasif' : 'Aktif' ?></button>
                                                         </form>
-                                                        <form method="post" action="<?= htmlspecialchars(adminContactsUrl('categories'), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu kategori kalıcı olarak silinecek. Mesajlardaki kategori adı ve ikonu korunur. Devam edilsin mi?', 'title' => 'Kategori silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                                        <form method="post" action="<?= htmlspecialchars(adminContactsUrl('categories'), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-inline-form">
                                                             <?= csrf_field() ?>
                                                             <input type="hidden" name="action" value="delete_category">
                                                             <input type="hidden" name="tab" value="categories">

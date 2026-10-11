@@ -130,7 +130,7 @@ require_once __DIR__ . '/header.php';
     if ($selectedRevision) {
         ob_start();
         ?>
-                <form method="post"<?= adminConfirmAttrs(['message' => 'Bu konuyu secilen eski versiyona geri almak istiyor musunuz?', 'title' => 'Eski versiyona dönülsün mü?', 'ok' => 'Geri Al', 'tone' => 'danger']) ?>>
+                <form method="post">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="restore">
                     <input type="hidden" name="revision_id" value="<?= (int)$selectedRevision['id'] ?>">

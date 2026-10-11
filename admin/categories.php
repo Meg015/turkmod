@@ -278,7 +278,6 @@ $csrfToken = csrf_token();
                                     </a>
                                     <button class="ui-admin-action-btn danger"
                                         data-category-delete="<?= (int)$category['id'] ?>"
-                                        data-category-name="<?= htmlspecialchars((string)$category['name'], ENT_QUOTES) ?>"
                                         title="Sil">
                                         <i class="bi bi-trash"></i> Sil
                                     </button>

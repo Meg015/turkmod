@@ -3,10 +3,6 @@ function initSystemNotificationsLogPage() {
     const modal = document.getElementById('systemNotificationDetailModal');
     let modalNotificationId = '';
 
-    function confirmDialog(message, options) {
-        return window.adminConfirm(message, options);
-    }
-
     function alertDialog(message, options) {
         return window.adminAlert(message, options);
     }
@@ -55,45 +51,32 @@ function initSystemNotificationsLogPage() {
             return;
         }
 
-        const message = actionLabel === 'single'
-            ? 'Bu sistem bildirimi kalıcı olarak silinsin mi?'
-            : selected.length + ' sistem bildirimi kalıcı olarak silinsin mi?';
+        const button = actionLabel === 'bulk'
+            ? form.querySelector('[data-system-notifications-bulk-delete]')
+            : document.querySelector('[data-system-notification-delete][data-notification-id="' + selected[0].value + '"]')
+                || document.querySelector('[data-system-notification-detail-delete]');
 
-        confirmDialog(message, {
-            title: 'Sistem Bildirimlerini Sil',
-            ok: 'Kalıcı Olarak Sil',
-            cancel: 'İptal',
-            tone: 'danger',
-            kind: 'system-notifications-delete',
-            icon: 'bi-trash'
-        }).then((confirmed) => {
-            if (!confirmed) return;
+        if (button?.disabled) return;
 
-            const button = actionLabel === 'bulk'
-                ? form.querySelector('[data-system-notifications-bulk-delete]')
-                : document.querySelector('[data-system-notification-delete][data-notification-id="' + selected[0].value + '"]')
-                    || document.querySelector('[data-system-notification-detail-delete]');
-
-            window.adminAsync.submitForm(form, {
-                button: button,
-                loadingHtml: '<i class="bi bi-hourglass-split"></i> Siliniyor...',
-                notifyError: false
+        window.adminAsync.submitForm(form, {
+            button: button,
+            loadingHtml: '<i class="bi bi-hourglass-split"></i> Siliniyor...',
+            notifyError: false
+        })
+            .then((data) => {
+                if (!data) return;
+                if (data.ok || data.success) {
+                    closeModal();
+                    alertDialog(data.message || 'Seçili bildirimler silindi.', { title: 'Başarılı', tone: 'success' })
+                        .then(() => window.location.reload());
+                    return;
+                }
+                alertDialog(data.message || 'Silme işlemi tamamlanamadı.', { title: 'Hata', tone: 'danger' });
             })
-                .then((data) => {
-                    if (!data) return;
-                    if (data.ok || data.success) {
-                        closeModal();
-                        alertDialog(data.message || 'Seçili bildirimler silindi.', { title: 'Başarılı', tone: 'success' })
-                            .then(() => window.location.reload());
-                        return;
-                    }
-                    alertDialog(data.message || 'Silme işlemi tamamlanamadı.', { title: 'Hata', tone: 'danger' });
-                })
-                .catch((error) => {
-                    const message = error && error.message ? error.message : 'Bir bağlantı hatası oluştu. Lütfen tekrar deneyin.';
-                    alertDialog(message, { title: 'Hata', tone: 'danger' });
-                });
-        });
+            .catch((error) => {
+                const message = error && error.message ? error.message : 'Bir bağlantı hatası oluştu. Lütfen tekrar deneyin.';
+                alertDialog(message, { title: 'Hata', tone: 'danger' });
+            });
     }
 
     function text(selector, value) {

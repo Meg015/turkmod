@@ -1863,7 +1863,7 @@ $csrfToken = csrf_token();
             if ($totalNotifications > 0) {
                 ob_start();
                 ?>
-                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Tüm bildirim geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz.', 'title' => 'Geçmişi Temizle', 'ok' => 'Tümünü Kalıcı Olarak Sil', 'cancel' => 'İptal', 'tone' => 'danger', 'kind' => 'logs-clear', 'icon' => 'bi-trash']) ?>>
+                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form">
                             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                             <input type="hidden" name="action" value="clear_all">
                             <button type="submit" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger-outline" title="Tümünü Sil">
@@ -1932,7 +1932,7 @@ $csrfToken = csrf_token();
                                     </td>
                                     <td class="notif-date-cell"><?= date('d.m.Y H:i', strtotime((string) $notification['created_at'])) ?></td>
                                     <td class="notif-action-cell">
-                                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu bildirim kalıcı olarak silinecek ve kullanıcılardan da kaldırılacak. Bu işlem geri alınamaz.', 'title' => 'Kayıtları Temizle', 'ok' => 'Seçilenleri Kalıcı Olarak Sil', 'cancel' => 'İptal', 'tone' => 'danger', 'kind' => 'logs-clear', 'icon' => 'bi-trash']) ?>>
+                                        <form method="POST" action="notifications.php?tab=history" class="ui-admin-inline-form">
                                             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="id" value="<?= (int) $notification['id'] ?>">
@@ -2101,7 +2101,7 @@ $csrfToken = csrf_token();
                         <div class="notification-template-actions">
                             <span class="notif-help">Bu metin yeni üyelik oluştuğunda admin ve yetkili hesaplara gönderilir.</span>
                             <div class="notification-template-actions-group">
-                                <button type="submit" name="action" value="reset_admin_registration_site_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate<?= adminConfirmAttrs(['message' => 'Yeni kullanıcı kayıt admin bildirimi varsayılan metinlere döndürülecek. Devam edilsin mi?', 'title' => 'Metin sıfırlansın mı?', 'ok' => 'Varsayılana Dön', 'tone' => 'warning']) ?>>
+                                <button type="submit" name="action" value="reset_admin_registration_site_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate>
                                     <i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön
                                 </button>
                                 <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-notification-preview-open>
@@ -2208,11 +2208,11 @@ $csrfToken = csrf_token();
                                 <span class="notif-help"><?= !empty($template['is_default']) ? 'Varsayılan olay metni' : 'Özel manuel metin' ?></span>
                                 <div class="notification-template-actions-group">
                                     <?php if (!empty($template['is_default'])): ?>
-                                        <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu kaydı varsayılan metinlere döndürmek istiyor musunuz?', 'title' => 'Metin sıfırlansın mı?', 'ok' => 'Sıfırla', 'tone' => 'warning']) ?>>
+                                        <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate>
                                             <i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön
                                         </button>
                                     <?php else: ?>
-                                        <button type="submit" name="action" value="delete_template" class="ui-admin-btn ui-admin-btn-danger" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu özel metni silmek istiyor musunuz?', 'title' => 'Metin silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                        <button type="submit" name="action" value="delete_template" class="ui-admin-btn ui-admin-btn-danger" formnovalidate>
                                             <i class="bi bi-trash"></i> Sil
                                         </button>
                                     <?php endif; ?>
@@ -3041,11 +3041,11 @@ $csrfToken = csrf_token();
                             <span class="notif-help">E-posta metni site içi bildirim metninden bağımsızdır.</span>
                             <div class="notification-template-actions-group">
                                 <?php if (!empty($template['is_default'])): ?>
-                                    <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate <?= $emailControlsDisabled ? 'disabled' : '' ?><?= adminConfirmAttrs(['message' => 'Bu kaydı varsayılan metinlere döndürmek istiyor musunuz?', 'title' => 'Metin sıfırlansın mı?', 'ok' => 'Sıfırla', 'tone' => 'warning']) ?>>
+                                    <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate <?= $emailControlsDisabled ? 'disabled' : '' ?>>
                                         <i class="bi bi-arrow-counterclockwise"></i> Varsayılana Dön
                                     </button>
                                 <?php else: ?>
-                                    <button type="submit" name="action" value="delete_template" class="ui-admin-btn ui-admin-btn-danger" formnovalidate<?= adminConfirmAttrs(['message' => 'Bu özel metni silmek istiyor musunuz?', 'title' => 'Metin silinsin mi?', 'ok' => 'Sil', 'tone' => 'danger']) ?>>
+                                    <button type="submit" name="action" value="delete_template" class="ui-admin-btn ui-admin-btn-danger" formnovalidate>
                                         <i class="bi bi-trash"></i> Sil
                                     </button>
                                 <?php endif; ?>

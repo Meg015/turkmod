@@ -290,40 +290,29 @@ function submitBan(e) {
         adminAlert('Ban sebebi gereklidir.', { title: 'Uyarı', tone: 'warning' });
         return false;
     }
-    const deleteComments = String(formData.get('delete_comments') || '') === '1';
-    const confirmMessage = deleteComments
-        ? 'Bu kullanıcı banlanacak ve yorumları Silinenler’e taşınacak. İşlemi onaylıyor musunuz?'
-        : 'Bu kullanıcı banlanacak. İşlemi onaylıyor musunuz?';
-    adminConfirm(confirmMessage, {
-        title: 'Kullanıcıyı banla',
-        ok: 'Banla',
-        cancel: 'İptal',
-        tone: 'danger'
-    }).then((confirmed) => {
-        if (!confirmed) return;
-        const submitButton = form.querySelector('button[type="submit"]');
-        const request = window.adminAsync ? window.adminAsync.fetchJson('users.php', {
-            button: submitButton,
-            loadingText: 'Isleniyor...',
-            method: 'POST',
-            body: formData,
-            notifyError: false
-        }) : window.adminFetchJson('users.php', {
-            method: 'POST',
-            body: formData,
-            notifyError: false
-        });
-
-        request
-        .then(data => {
-            if (data.ok || data.success) {
-                adminAlert(data.message, { title: 'Başarılı', tone: 'success' }).then(() => window.location.reload());
-            } else {
-                adminAlert(data.message, { title: 'Hata', tone: 'danger' });
-            }
-        })
-        .catch((error) => adminAlert(error && error.message ? error.message : 'Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata', tone: 'danger' }));
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton?.disabled) return false;
+    const request = window.adminAsync ? window.adminAsync.fetchJson('users.php', {
+        button: submitButton,
+        loadingText: 'Isleniyor...',
+        method: 'POST',
+        body: formData,
+        notifyError: false
+    }) : window.adminFetchJson('users.php', {
+        method: 'POST',
+        body: formData,
+        notifyError: false
     });
+
+    request
+    .then(data => {
+        if (data.ok || data.success) {
+            adminAlert(data.message, { title: 'Başarılı', tone: 'success' }).then(() => window.location.reload());
+        } else {
+            adminAlert(data.message, { title: 'Hata', tone: 'danger' });
+        }
+    })
+    .catch((error) => adminAlert(error && error.message ? error.message : 'Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata', tone: 'danger' }));
     return false;
 }
 
@@ -458,6 +447,7 @@ function submitRestriction(e) {
     e.preventDefault();
     const form = e.target;
     const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn?.disabled) return false;
 
     // Get selected restriction types from multi-select
     const selectElement = form.querySelector('#restrictTypes');
@@ -471,54 +461,33 @@ function submitRestriction(e) {
     const formData = new FormData(form);
     formData.set('action', 'add_restriction');
 
-    // Show confirmation with selected types
-    const typeLabels = {
-        'all': 'Tüm İşlemler',
-        'comment': 'Yorum Yapma',
-        'topic': 'Konu Oluşturma',
-        'upload': 'Dosya Yükleme',
-        'download': 'İndirme',
-        'profile': 'Profil Düzenleme',
-        'events': 'Etkinlik Kullanımı'
-    };
-    const selectedLabels = selectedTypes.map(t => typeLabels[t] || t).join(', ');
+    if (window.adminToast) adminToast.info('Kısıtlamalar ekleniyor...');
 
-    adminConfirm(selectedTypes.length + ' kısıtlama eklenecek: ' + selectedLabels, {
-        title: 'Kısıtlama Ekle?',
-        ok: 'Evet, Ekle',
-        cancel: 'İptal',
-        tone: 'warning'
-    }).then((confirmed) => {
-        if (confirmed) {
-            if (window.adminToast) adminToast.info('Kısıtlamalar ekleniyor...');
+    const request = window.adminAsync ? window.adminAsync.fetchJson('users.php', {
+        button: submitBtn,
+        className: 'loading',
+        loadingText: 'Isleniyor...',
+        method: 'POST',
+        body: formData,
+        notifyError: false
+    }) : window.adminFetchJson('users.php', {
+        method: 'POST',
+        body: formData,
+        notifyError: false
+    });
 
-            const request = window.adminAsync ? window.adminAsync.fetchJson('users.php', {
-                button: submitBtn,
-                className: 'loading',
-                loadingText: 'Isleniyor...',
-                method: 'POST',
-                body: formData,
-                notifyError: false
-            }) : window.adminFetchJson('users.php', {
-                method: 'POST',
-                body: formData,
-                notifyError: false
+    request
+    .then(data => {
+        if (data.ok || data.success) {
+            adminAlert(data.message, { title: 'Başarılı!', tone: 'success' }).then(() => {
+                window.location.reload();
             });
-
-            request
-            .then(data => {
-                if (data.ok || data.success) {
-                    adminAlert(data.message, { title: 'Başarılı!', tone: 'success' }).then(() => {
-                        window.location.reload();
-                    });
-                } else {
-                    adminAlert(data.message, { title: 'Hata!', tone: 'danger' });
-                }
-            })
-            .catch((error) => {
-                adminAlert(error && error.message ? error.message : 'Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata!', tone: 'danger' });
-            });
+        } else {
+            adminAlert(data.message, { title: 'Hata!', tone: 'danger' });
         }
+    })
+    .catch((error) => {
+        adminAlert(error && error.message ? error.message : 'Bir hata oluştu. Lütfen tekrar deneyin.', { title: 'Hata!', tone: 'danger' });
     });
 
     return false;
@@ -768,82 +737,6 @@ function bindUserBulkActions() {
         return checkboxes.filter(function (checkbox) { return checkbox.checked; }).length;
     }
 
-    function selectedUsers() {
-        return checkboxes.filter(function (checkbox) { return checkbox.checked; }).map(function (checkbox) {
-            return checkbox.getAttribute('data-user-name') || ('#' + checkbox.value);
-        });
-    }
-
-    function plainText(html) {
-        var node = document.createElement('div');
-        node.innerHTML = html;
-        return node.textContent || node.innerText || '';
-    }
-
-    function buildBulkConfirm(action, count) {
-        const selected = selectedUsers();
-        const visibleNames = selected.slice(0, 3).map(escHtml).join(', ');
-        const restText = count > 3 ? ' ve ' + (count - 3) + ' kişi daha' : '';
-        const selectedLine = visibleNames ? visibleNames + restText : count + ' kullanıcı';
-        const groupField = form.querySelector('[data-user-bulk-field="change_group"]');
-        const reasonField = form.querySelector('[data-user-bulk-field="ban"]');
-        const groupName = groupField && groupField.selectedOptions[0] ? groupField.selectedOptions[0].textContent.trim() : '';
-        const banReason = reasonField ? String(reasonField.value || '').trim() : '';
-        const config = {
-            activate: {
-                label: 'Aktif yap',
-                detail: 'Seçili hesaplar aktif duruma alınacak.',
-                title: 'Kullanıcılar aktif yapılsın mı?',
-                ok: 'Aktif Yap',
-                tone: 'success'
-            },
-            deactivate: {
-                label: 'Pasif yap',
-                detail: 'Seçili hesaplar pasif duruma alınacak.',
-                title: 'Kullanıcılar pasif yapılsın mı?',
-                ok: 'Pasif Yap',
-                tone: 'warning'
-            },
-            change_group: {
-                label: 'Grup değiştir',
-                detail: groupName ? 'Hedef grup: ' + groupName : 'Hedef grup seçilecek.',
-                title: 'Kullanıcı grupları değiştirilsin mi?',
-                ok: 'Grubu Değiştir',
-                tone: 'warning'
-            },
-            ban: {
-                label: 'Banla',
-                detail: banReason ? 'Ban gerekçesi: ' + banReason : 'Ban gerekçesi girilecek.',
-                title: 'Kullanıcılar banlansın mı?',
-                ok: 'Banla',
-                tone: 'danger'
-            },
-            unban: {
-                label: 'Ban kaldır',
-                detail: 'Seçili hesapların ban durumu kaldırılacak.',
-                title: 'Banlar kaldırılsın mı?',
-                ok: 'Ban Kaldır',
-                tone: 'success'
-            }
-        }[action] || {
-            label: 'Toplu işlem',
-            detail: 'Seçili kullanıcılara işlem uygulanacak.',
-            title: 'Toplu işlem uygulansın mı?',
-            ok: 'Uygula',
-            tone: 'warning'
-        };
-
-        return {
-            title: config.title,
-            ok: config.ok,
-            tone: config.tone,
-            message: count + ' kullanıcı seçildi.'
-                + '\nİşlem: ' + config.label
-                + '\nEtki: ' + config.detail
-                + '\nSeçim: ' + selectedLine
-        };
-    }
-
     function syncExtraFields() {
         const action = actionSelect ? actionSelect.value : '';
         extraFields.forEach(function (field) {
@@ -921,33 +814,6 @@ function bindUserBulkActions() {
                 return;
             }
         }
-
-        if (form.dataset.userBulkConfirmed === '1') {
-            delete form.dataset.userBulkConfirmed;
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-        const confirmData = buildBulkConfirm(action, count);
-        const confirmPromise = adminConfirm(confirmData.message, {
-            title: confirmData.title,
-            ok: confirmData.ok,
-            cancel: 'Vazgeç',
-            tone: confirmData.tone
-        });
-
-        confirmPromise.then(function (confirmed) {
-            if (!confirmed) {
-                return;
-            }
-            form.dataset.userBulkConfirmed = '1';
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit(submitBtn || undefined);
-            } else {
-                HTMLFormElement.prototype.submit.call(form);
-            }
-        });
     });
 
     document.addEventListener('click', function (event) {

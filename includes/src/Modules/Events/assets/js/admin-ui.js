@@ -1004,171 +1004,6 @@
     window.EventsToast = window.EventsToast || {};
     window.EventsToast.show = eventsToast;
 
-    function confirmPresetForAction(form) {
-        const action = form.querySelector('input[name="_events_action"]')?.value || '';
-        if (action === 'cancel_reward') {
-            return {
-                title: 'Ödül iptal edilsin mi?',
-                message: 'Bu ödül bekleyen işlemlerden kaldırılır ve kullanıcıya teslim edilmez.',
-                confirmLabel: 'İptal Et',
-                tone: 'danger'
-            };
-        }
-        if (action === 'apply_reward') {
-            return {
-                title: 'Ödül teslim edilsin mi?',
-                message: 'Bu işlem ödülü kullanıcı hesabına uygular ve durumunu teslim edildi yapar.',
-                confirmLabel: 'Teslim Et',
-                tone: 'success'
-            };
-        }
-        if (form.classList.contains('ui-events-draw-form')) {
-            return {
-                title: 'Çekiliş çekilsin mi?',
-                message: 'Kazananlar belirlenecek ve sonuç etkinlik kayıtlarına işlenecek.',
-                confirmLabel: 'Çekilişi Çek',
-                tone: 'warning'
-            };
-        }
-        return null;
-    }
-
-    function confirmOptionsFromElement(form, submitter) {
-        if (!form) return null;
-        const source = submitter?.dataset?.eventsConfirm !== undefined ? submitter : form;
-        const rawConfirm = source.dataset.eventsConfirm;
-        if (rawConfirm === 'off' || rawConfirm === 'false') return null;
-
-        const preset = confirmPresetForAction(form);
-        if (rawConfirm === undefined && !preset) return null;
-
-        return {
-            title: source.dataset.eventsConfirmTitle || preset?.title || 'İşlemi onayla',
-            message: rawConfirm || source.dataset.eventsConfirmMessage || preset?.message || 'Bu işlem uygulanacak.',
-            confirmLabel: source.dataset.eventsConfirmOk || preset?.confirmLabel || 'Onayla',
-            cancelLabel: source.dataset.eventsConfirmCancel || 'Vazgeç',
-            tone: source.dataset.eventsConfirmTone || preset?.tone || 'primary'
-        };
-    }
-
-    function ensureEventsConfirmModal() {
-        let modal = document.querySelector('[data-ui-events-confirm-modal]');
-        if (modal) return modal;
-
-        modal = document.createElement('div');
-        modal.className = 'ui-events-confirm-modal';
-        modal.setAttribute('data-ui-events-confirm-modal', '');
-        modal.setAttribute('hidden', '');
-        modal.innerHTML = `
-            <div class="ui-events-confirm-backdrop" data-ui-events-confirm-cancel></div>
-            <div class="ui-events-confirm-dialog ui-dialog-shell ui-panel" role="dialog" aria-modal="true" aria-labelledby="ui-events-confirm-title" aria-describedby="ui-events-confirm-message">
-                <div class="ui-events-confirm-head ui-modal__head ui-panel__head">
-                    <div class="ui-events-confirm-head-copy">
-                        <div class="ui-events-confirm-icon"><i class="bi bi-question-circle"></i></div>
-                        <div class="ui-events-confirm-copy">
-                            <h3 id="ui-events-confirm-title"></h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="ui-events-confirm-body ui-modal__body ui-panel__body">
-                    <p id="ui-events-confirm-message" data-ui-events-confirm-message></p>
-                </div>
-                <div class="ui-events-confirm-actions ui-modal__foot ui-panel__foot">
-                    <button type="button" class="ui-admin-btn ui-admin-btn-outline" data-ui-events-confirm-cancel>Vazgeç</button>
-                    <button type="button" class="ui-admin-btn ui-admin-btn-primary" data-ui-events-confirm-ok>Onayla</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        return modal;
-    }
-
-    function showEventsConfirm(options) {
-        const modal = ensureEventsConfirmModal();
-        const title = modal.querySelector('#ui-events-confirm-title');
-        const message = modal.querySelector('[data-ui-events-confirm-message]');
-        const okButton = modal.querySelector('[data-ui-events-confirm-ok]');
-        const cancelButtons = modal.querySelectorAll('[data-ui-events-confirm-cancel]');
-        const icon = modal.querySelector('.ui-events-confirm-icon i');
-
-        title.textContent = options.title || 'İşlemi onayla';
-        message.textContent = options.message || 'Bu işlem uygulanacak.';
-        okButton.textContent = options.confirmLabel || 'Onayla';
-        okButton.className = 'ui-admin-btn ' + (options.tone === 'danger' ? 'ui-admin-btn-danger' : 'ui-admin-btn-primary');
-        if (icon) {
-            icon.className = 'bi ' + (options.tone === 'danger'
-                ? 'bi-exclamation-octagon'
-                : options.tone === 'warning'
-                    ? 'bi-exclamation-triangle'
-                    : options.tone === 'success'
-                        ? 'bi-check2-circle'
-                        : 'bi-question-circle');
-        }
-        cancelButtons.forEach(button => {
-            if (button.tagName === 'BUTTON') {
-                button.textContent = options.cancelLabel || 'Vazgeç';
-            }
-        });
-
-        modal.classList.remove('is-danger', 'is-warning', 'is-success');
-        if (options.tone) modal.classList.add('is-' + options.tone);
-        modal.hidden = false;
-        document.body.classList.add('ui-events-confirm-open');
-        okButton.focus();
-
-        return new Promise(resolve => {
-            const cleanup = result => {
-                modal.hidden = true;
-                document.body.classList.remove('ui-events-confirm-open');
-                okButton.removeEventListener('click', onOk);
-                cancelButtons.forEach(button => button.removeEventListener('click', onCancel));
-                document.removeEventListener('keydown', onKeydown);
-                resolve(result);
-            };
-            const onOk = () => cleanup(true);
-            const onCancel = () => cleanup(false);
-            const onKeydown = event => {
-                if (event.key === 'Escape') cleanup(false);
-            };
-
-            okButton.addEventListener('click', onOk);
-            cancelButtons.forEach(button => button.addEventListener('click', onCancel));
-            document.addEventListener('keydown', onKeydown);
-        });
-    }
-
-    window.EventsConfirm = window.EventsConfirm || {};
-    window.EventsConfirm.show = showEventsConfirm;
-    window.EventsConfirm.confirmElement = function(element) {
-        const form = element?.closest ? element.closest('form') : element;
-        const options = confirmOptionsFromElement(form, element);
-        return options ? showEventsConfirm(options) : Promise.resolve(true);
-    };
-
-    function initEventsConfirmGuard() {
-        document.addEventListener('submit', function(event) {
-            const form = event.target.closest('form');
-            const options = confirmOptionsFromElement(form, event.submitter || null);
-            if (!form || !options) return;
-            if (form.dataset.eventsConfirmApproved === '1') {
-                delete form.dataset.eventsConfirmApproved;
-                return;
-            }
-
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            showEventsConfirm(options).then(confirmed => {
-                if (!confirmed) return;
-                form.dataset.eventsConfirmApproved = '1';
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit(event.submitter || undefined);
-                    return;
-                }
-                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-            });
-        }, true);
-    }
-
     function formActionLabel(form) {
         const action = form.querySelector('input[name="_events_action"]')?.value || '';
         const labels = {
@@ -1359,20 +1194,6 @@
         return document.querySelector('.ui-events-admin-page[data-ui-events-admin-page="pending"] input[name="_token"]')?.value || '';
     }
 
-    function showPendingBulkConfirm(options) {
-        if (window.EventsConfirm && typeof window.EventsConfirm.show === 'function') {
-            return window.EventsConfirm.show(options);
-        }
-        if (typeof window.adminConfirm === 'function') {
-            return window.adminConfirm(options.message || 'Bu işlem uygulanacak.', {
-                title: options.title || 'İşlem onayı',
-                ok: options.ok || 'Onayla',
-                tone: options.tone || 'warning'
-            });
-        }
-        return Promise.resolve(window['confirm'](options.message || 'Bu işlem uygulanacak.'));
-    }
-
     async function submitPendingBulkAction(action, rewardIds, button) {
         const formData = new FormData();
         formData.append('_events_action', action);
@@ -1446,36 +1267,20 @@
         });
 
         if (applyAllButton) {
-            applyAllButton.addEventListener('click', async () => {
+            applyAllButton.addEventListener('click', () => {
+                if (applyAllButton.disabled) return;
                 const rewardIds = selectedPendingRewardIds();
                 if (rewardIds.length === 0) return;
-
-                const confirmed = await showPendingBulkConfirm({
-                    title: 'Seçilen ödüller teslim edilsin mi?',
-                    message: 'Seçili ' + rewardIds.length + ' ödül kullanıcı hesaplarına teslim edilecek.',
-                    confirmLabel: 'Teslim Et',
-                    cancelLabel: 'Vazgeç',
-                    tone: 'success'
-                });
-                if (!confirmed) return;
 
                 submitPendingBulkAction('bulk_apply_rewards', rewardIds, applyAllButton);
             });
         }
 
         if (cancelAllButton) {
-            cancelAllButton.addEventListener('click', async () => {
+            cancelAllButton.addEventListener('click', () => {
+                if (cancelAllButton.disabled) return;
                 const rewardIds = selectedPendingRewardIds();
                 if (rewardIds.length === 0) return;
-
-                const confirmed = await showPendingBulkConfirm({
-                    title: 'Seçilen ödüller iptal edilsin mi?',
-                    message: 'Seçili ' + rewardIds.length + ' ödül bekleyen listeden iptal edilecek.',
-                    confirmLabel: 'İptal Et',
-                    cancelLabel: 'Vazgeç',
-                    tone: 'danger'
-                });
-                if (!confirmed) return;
 
                 submitPendingBulkAction('bulk_cancel_rewards', rewardIds, cancelAllButton);
             });
@@ -1612,12 +1417,6 @@
                 updateDirtySavebar(form, false);
             });
         });
-
-        window.addEventListener('beforeunload', function(event) {
-            if (!document.querySelector('.ui-events-admin-page form.is-dirty')) return;
-            event.preventDefault();
-            event.returnValue = '';
-        });
     }
 
     // Loading State
@@ -1665,7 +1464,6 @@
         initRowSelection();
         initExpandableRows();
         initInlineEditing();
-        initEventsConfirmGuard();
         initTabs();
         initEventsAdminTabs();
         initSearch();

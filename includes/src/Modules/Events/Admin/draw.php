@@ -110,7 +110,7 @@ $activeTab = $_GET['tab'] ?? 'ready';
                                         <td><?= (int)$raffle['winner_count'] ?></td>
                                         <td><span class="ui-events-badge <?= $canDraw ? 'ui-events-badge-success' : 'ui-events-badge-warning' ?>"><?= $canDraw ? 'Hazır' : 'Yetersiz' ?></span></td>
                                         <td>
-                                            <form class="ui-events-draw-form" data-raffle-id="<?= (int)$raffle['id'] ?>" data-ui-events-confirm="Bu çekiliş için kazananlar belirlenecek ve sonuçlar kaydedilecek." data-ui-events-confirm-title="Çekiliş çekilsin mi?" data-ui-events-confirm-ok="Çekilişi Çek" data-ui-events-confirm-tone="warning">
+                                            <form class="ui-events-draw-form" data-raffle-id="<?= (int)$raffle['id'] ?>">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="raffle_id" value="<?= (int)$raffle['id'] ?>">
                                                 <input type="hidden" name="notes" value="Admin panel çekimi">

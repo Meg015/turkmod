@@ -119,7 +119,7 @@
                                 <button type="button" class="ui-admin-btn ui-admin-btn-xs ui-admin-btn-warning" data-user-restrict="<?= $userId ?>" data-user-name="<?= htmlspecialchars($displayUsername, ENT_QUOTES) ?>" title="Kısıtlama Ekle">
                                     <i class="bi bi-plus-circle"></i>
                                 </button>
-                                <form method="post" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu kullanıcının tüm kısıtlamalarını kaldırmak istediğinizden emin misiniz?', 'title' => 'Tüm kısıtlamalar kaldırılsın mı?', 'ok' => 'Kaldır', 'tone' => 'danger']) ?>>
+                                <form method="post" class="ui-admin-inline-form">
                                     <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                                     <input type="hidden" name="action" value="remove_all_restrictions">
                                     <input type="hidden" name="user_id" value="<?= $userId ?>">

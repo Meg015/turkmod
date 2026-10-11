@@ -23,10 +23,6 @@ function cmEscHtml(value) {
     });
 }
 
-function cmConfirm(message, options) {
-    return window.adminConfirm(message, options || {});
-}
-
 function openCommentManagedModal(modal, options) {
     if (!modal) return null;
     return window.adminModal.open(modal, options || {});
@@ -340,12 +336,7 @@ function initCommentBulkActions() {
     var actionField = form.querySelector('[data-comments-bulk-action]');
     var countEl = form.querySelector('[data-comments-bulk-count]');
     var submitButtons = Array.from(form.querySelectorAll('[data-comments-bulk-submit]'));
-    var actionLabels = {
-        bulk_approve: { title: 'Toplu Onay', ok: 'Onayla', verb: 'onaylanacak', tone: 'success' },
-        bulk_reject: { title: 'Toplu Ret', ok: 'Reddet', verb: 'reddedilecek', tone: 'warning' },
-        bulk_delete: { title: 'Toplu Silme', ok: 'Sil', verb: 'silinecek', tone: 'danger' },
-        bulk_restore: { title: 'Toplu Geri Yükleme', ok: 'Geri Yükle', verb: 'geri yüklenecek', tone: 'info' }
-    };
+    var allowedActions = ['bulk_approve', 'bulk_reject', 'bulk_delete', 'bulk_restore'];
 
     function checkboxes() {
         return Array.from(document.querySelectorAll('[data-comment-bulk-checkbox]'));
@@ -397,12 +388,11 @@ function initCommentBulkActions() {
     }
 
     form.addEventListener('submit', function (event) {
-        event.preventDefault();
         var submitter = event.submitter || document.activeElement;
         var bulkAction = submitter ? submitter.getAttribute('data-comments-bulk-action-name') : '';
         var selected = selectedCheckboxes();
-        var meta = actionLabels[bulkAction];
-        if (!meta || selected.length === 0) {
+        if (!allowedActions.includes(bulkAction) || selected.length === 0) {
+            event.preventDefault();
             if (typeof adminAlert === 'function') {
                 adminAlert('Toplu işlem için en az bir yorum seçmelisiniz.', { title: 'Uyarı', tone: 'warning' });
             }
@@ -411,16 +401,6 @@ function initCommentBulkActions() {
         if (actionField) {
             actionField.value = bulkAction;
         }
-        cmConfirm(selected.length + ' yorum ' + meta.verb + '. İşlemi onaylıyor musunuz?', {
-            title: meta.title,
-            ok: meta.ok,
-            cancel: 'İptal',
-            tone: meta.tone
-        }).then(function (confirmed) {
-            if (confirmed) {
-                HTMLFormElement.prototype.submit.call(form);
-            }
-        });
     });
 
     updateBulkState();
@@ -822,48 +802,28 @@ function initCommentsManagerPage() {
     });
 
     document.getElementById('commentBanForm')?.addEventListener('submit', function (event) {
-        event.preventDefault();
         var form = event.currentTarget;
         var reason = String(form.querySelector('[name="ban_reason"]')?.value || '').trim();
         if (!reason) {
+            event.preventDefault();
             if (typeof adminAlert === 'function') {
                 adminAlert('Ban sebebi gereklidir.', { title: 'Uyarı', tone: 'warning' });
             }
             return;
         }
-        var deleteComments = form.querySelector('[name="delete_comments"]')?.checked === true;
-        var confirmMessage = deleteComments
-            ? 'Bu kullanıcı banlanacak ve yorumları Silinenler’e taşınacak. İşlemi onaylıyor musunuz?'
-            : 'Bu kullanıcı banlanacak. İşlemi onaylıyor musunuz?';
-        cmConfirm(confirmMessage, {
-            title: 'Kullanıcıyı banla',
-            ok: 'Banla',
-            cancel: 'İptal',
-            tone: 'danger'
-        }).then(function (confirmed) {
-            if (confirmed) HTMLFormElement.prototype.submit.call(form);
-        });
     });
 
     document.getElementById('commentRestrictionForm')?.addEventListener('submit', function (event) {
-        event.preventDefault();
         var form = event.currentTarget;
         var selected = Array.from(form.querySelector('#commentRestrictTypes')?.selectedOptions || []);
         var reason = String(form.querySelector('[name="restrict_reason"]')?.value || '').trim();
         if (selected.length === 0 || !reason) {
+            event.preventDefault();
             if (typeof adminAlert === 'function') {
                 adminAlert(selected.length === 0 ? 'En az bir kısıtlama türü seçmelisiniz.' : 'Kısıtlama sebebi gereklidir.', { title: 'Uyarı', tone: 'warning' });
             }
             return;
         }
-        cmConfirm(selected.length + ' kısıtlama eklenecek. İşlemi onaylıyor musunuz?', {
-            title: 'Kısıtlama Ekle?',
-            ok: 'Evet, Ekle',
-            cancel: 'İptal',
-            tone: 'warning'
-        }).then(function (confirmed) {
-            if (confirmed) HTMLFormElement.prototype.submit.call(form);
-        });
     });
 }
 

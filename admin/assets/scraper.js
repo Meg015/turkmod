@@ -724,12 +724,7 @@ function editSite(id) {
     });
 }
 
-async function deleteSite(id) {
-    if (!await adminConfirm('Bu siteyi ve tüm verilerini silmek istediğinize emin misiniz?', {
-        title: 'Site silinsin mi?',
-        ok: 'Sil',
-        tone: 'danger'
-    })) return;
+function deleteSite(id) {
     apiPost('delete_site', { id }).then(r => {
         if (r.success) { scraperToast(r.message, 'success'); setTimeout(() => location.reload(), 600); }
         else scraperToast(r.error || 'Hata', 'error');
@@ -807,12 +802,7 @@ function resetMappingForm() {
     scraperHide(cancelBtn, 'scraper-visible-inline');
 }
 
-async function deleteMapping(id) {
-    if (!await adminConfirm('Bu eşlemeyi silmek istiyor musunuz?', {
-        title: 'Eşleme silinsin mi?',
-        ok: 'Sil',
-        tone: 'danger'
-    })) return;
+function deleteMapping(id) {
     apiPost('delete_mapping', { id }).then(r => {
         if (r.success) { scraperToast(r.message, 'success'); setTimeout(() => location.reload(), 600); }
     });
@@ -975,18 +965,13 @@ function scrapeSingle() {
     });
 }
 
-async function scrapeBatch() {
+function scrapeBatch() {
     const siteId = document.getElementById('scrape_site_id')?.value;
     const mappingId = document.getElementById('scrape_mapping_id')?.value || '';
     const checked = document.querySelectorAll('#discoveredUrls input[type="checkbox"]:checked');
     const urls = Array.from(checked).map(c => c.value);
     if (!urls.length) return scraperToast('Çekilecek URL seçin', 'error');
-    if (!await adminConfirm(urls.length + ' URL çekilecek. Devam?', {
-        title: 'Toplu çekim başlasın mı?',
-        ok: 'Başlat',
-        tone: 'warning'
-    })) return;
-    if (!await warnIfSelectedImportedTopics('#discoveredUrls input[type="checkbox"]')) return;
+    warnAboutSelectedImportedTopics('#discoveredUrls input[type="checkbox"]');
     const btn = document.getElementById('btnScrapeBatch');
     runScraperAsync(btn, '<i class="bi bi-hourglass-split"></i> ' + urls.length + ' URL çekiliyor...', () => apiPost('scrape_batch', { site_id: siteId, mapping_id: mappingId, urls })).then(r => {
         if (r.success) {
@@ -1585,18 +1570,13 @@ function getSelectedBulkTopics(mappingId, topics) {
     return topics.filter(topic => selectedUrls.has(topic.url));
 }
 
-async function warnIfSelectedImportedTopics(selector) {
+function warnAboutSelectedImportedTopics(selector) {
     const selectedImported = Array.from(document.querySelectorAll(selector))
         .filter(item => item.checked && item.dataset.imported === '1');
-    if (!selectedImported.length) return true;
+    if (!selectedImported.length) return;
 
-    const message = `${selectedImported.length} konu Daha önce çekilmiş. Tekrar çekmeye çalışırsanız bot duplicate ayarına göre atlar, günceller veya taslak kopya oluşturur. Devam?`;
+    const message = `${selectedImported.length} konu daha önce çekilmiş. Bot duplicate ayarına göre atlanacak, güncellenecek veya taslak kopya oluşturulacak.`;
     scraperToast(message, 'warning');
-    return adminConfirm(message, {
-        title: 'Daha önce çekilmiş içerik var',
-        ok: 'Devam Et',
-        tone: 'warning'
-    });
 }
 
 function setBulkProgress(mappingId, progress) {
@@ -1730,9 +1710,7 @@ async function scrapeBulkTopics(mappingId) {
         return;
     }
 
-    if (!warnIfSelectedImportedTopics(`[data-bulk-topic-checkbox="${mappingId}"]`)) {
-        return;
-    }
+    warnAboutSelectedImportedTopics(`[data-bulk-topic-checkbox="${mappingId}"]`);
 
     let success = 0;
     let failed = 0;
@@ -2286,9 +2264,7 @@ async function scrapeAllSelectedTopics() {
 
     if (!selectedTopics.length) return;
 
-    if (!await warnIfSelectedImportedTopics('[data-all-topic-checkbox="1"]')) {
-        return;
-    }
+    warnAboutSelectedImportedTopics('[data-all-topic-checkbox="1"]');
 
     let success = 0;
     let failed = 0;
@@ -2482,12 +2458,7 @@ function publishImport() {
     }
 }
 
-async function deleteImport(id) {
-    if (!await adminConfirm('Bu içeriği silmek istiyor musunuz?', {
-        title: 'İçerik silinsin mi?',
-        ok: 'Sil',
-        tone: 'danger'
-    })) return;
+function deleteImport(id) {
     apiPost('delete_import', { id }).then(r => {
         if (r.success) { scraperToast(r.message, 'success'); setTimeout(() => location.reload(), 600); }
     });
@@ -2552,15 +2523,7 @@ async function bulkPublishImports() {
         scraperToast('Lütfen bir kategori seçin', 'warning');
         return;
     }
-    
-    if (!await adminConfirm(`${ids.length} içerik yayınlanacak. Devam etmek istiyor musunuz?`, {
-        title: 'Toplu yayınlama',
-        ok: 'Yayınla',
-        tone: 'warning'
-    })) {
-        return;
-    }
-    
+
     const btn = document.getElementById('btnBulkPublish');
     const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(btn, {
         loadingHtml: '<i class="bi bi-hourglass-split"></i> Yayınlanıyor...'
@@ -2610,15 +2573,7 @@ async function bulkDeleteImports() {
         scraperToast('Lütfen en az bir içerik seçin', 'warning');
         return;
     }
-    
-    if (!await adminConfirm(`${ids.length} içerik silinecek. Bu işlem geri alınamaz! Devam etmek istiyor musunuz?`, {
-        title: 'Toplu silme',
-        ok: 'Sil',
-        tone: 'danger'
-    })) {
-        return;
-    }
-    
+
     const btn = document.getElementById('btnBulkDelete');
     const buttonState = window.adminAsync ? window.adminAsync.setButtonLoading(btn, {
         loadingHtml: '<i class="bi bi-hourglass-split"></i> Siliniyor...'

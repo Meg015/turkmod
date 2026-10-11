@@ -93,7 +93,7 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
                 ],
             ]), ['tag' => 'div']) ?>
 <?php else: ?>
-    <form method="post" action="users.php?tab=users" id="userBulkForm" class="user-bulk-form" data-user-bulk-form<?= adminConfirmAttrs(['message' => 'Seçili kullanıcılara toplu işlem uygulanacak. Devam edilsin mi?', 'title' => 'Toplu işlem uygulansın mı?', 'ok' => 'Uygula', 'tone' => 'warning']) ?>>
+    <form method="post" action="users.php?tab=users" id="userBulkForm" class="user-bulk-form" data-user-bulk-form>
         <input type="hidden" name="_token" value="<?= $csrfToken ?>">
         <input type="hidden" name="action" value="bulk_action">
 

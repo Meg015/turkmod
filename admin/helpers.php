@@ -1177,30 +1177,6 @@ function adminRenderBulkActionBarClose(): string
     return '</div>';
 }
 
-/**
- * @param array{message:string,title?:string,ok?:string,cancel?:string,tone?:string,kind?:string,icon?:string} $options
- */
-function adminConfirmAttrs(array $options): string
-{
-    $map = [
-        'message' => 'data-admin-confirm',
-        'title' => 'data-admin-confirm-title',
-        'ok' => 'data-admin-confirm-ok',
-        'cancel' => 'data-admin-confirm-cancel',
-        'tone' => 'data-admin-confirm-tone',
-        'kind' => 'data-admin-confirm-kind',
-        'icon' => 'data-admin-confirm-icon',
-    ];
-    $attrs = [];
-    foreach ($map as $key => $attrName) {
-        if (array_key_exists($key, $options) && (string) $options[$key] !== '') {
-            $attrs[$attrName] = (string) $options[$key];
-        }
-    }
-
-    return adminUiAttrs($attrs);
-}
-
 function adminLogUiEscape(mixed $value): string
 {
     return adminUiEscape($value);

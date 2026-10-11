@@ -990,7 +990,7 @@ require_once __DIR__ . '/header.php';
                     <p class="ui-admin-m-0 ui-admin-muted-sm">
                         Toplam <?= count($userRestrictions) ?> kısıtlama
                     </p>
-                    <form method="post" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Tüm kısıtlamaları kaldırmak istediğinizden emin misiniz?', 'title' => 'Tüm kısıtlamalar kaldırılsın mı?', 'ok' => 'Kaldır', 'tone' => 'danger']) ?>>
+                    <form method="post" class="ui-admin-inline-form">
                         <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                         <input type="hidden" name="action" value="remove_all_restrictions">
                         <input type="hidden" name="user_id" value="<?= $viewRestrictionsUserId ?>">
@@ -1009,7 +1009,7 @@ require_once __DIR__ . '/header.php';
                                     <?= htmlspecialchars(usersGetRestrictionTypeLabel($restriction['restriction_type'])) ?>
                                 </span>
                             </div>
-                            <form method="post" class="ui-admin-inline-form"<?= adminConfirmAttrs(['message' => 'Bu kısıtlamayı kaldırmak istediğinizden emin misiniz?', 'title' => 'Kısıtlama kaldırılsın mı?', 'ok' => 'Kaldır', 'tone' => 'danger']) ?>>
+                            <form method="post" class="ui-admin-inline-form">
                                 <input type="hidden" name="_token" value="<?= $csrfToken ?>">
                                 <input type="hidden" name="action" value="remove_restriction">
                                 <input type="hidden" name="restriction_id" value="<?= (int) $restriction['id'] ?>">

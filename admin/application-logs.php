@@ -361,18 +361,15 @@ require_once __DIR__ . '/header.php';
         $applicationClearOptions[] = [
             'value' => 'clear_filtered',
             'label' => 'Aktif filtreye uyan kayıtları sil',
-            'confirm_title' => 'Kayıtları Temizle',
         ];
     }
     $applicationClearOptions[] = [
         'value' => 'clear_old',
         'label' => 'Belirtilen günden eski kayıtları sil',
-        'confirm_title' => 'Kayıtları Temizle',
     ];
     $applicationClearOptions[] = [
         'value' => 'clear_all',
         'label' => 'Tüm uygulama günlüğünü sil (Tehlikeli)',
-        'confirm_title' => 'Günlüğü Temizle',
     ];
 
     $logClearModal = [
