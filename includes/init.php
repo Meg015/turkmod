@@ -3122,7 +3122,7 @@ function handleFileUpload(
         ? (string) finfo_file($finfo, $tmpName)
         : "application/octet-stream";
     if ($finfo) {
-        finfo_close($finfo);
+        unset($finfo);
     }
 
     if ($mimeType === "image/svg+xml" || stripos($mimeType, "svg") !== false) {

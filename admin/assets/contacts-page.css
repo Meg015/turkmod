@@ -381,29 +381,6 @@
     margin-top: 0;
 }
 
-.contacts-page .contacts-empty-state {
-    width: 100%;
-}
-
-.contacts-page .contacts-empty-state-list {
-    min-height: 260px;
-}
-
-.contacts-page .contacts-empty-state-compact {
-    min-height: 0;
-    padding: 1rem;
-}
-
-.contacts-page .contacts-empty-state-compact .ui-admin-empty-icon {
-    width: 60px;
-    height: 60px;
-    font-size: 1.6rem;
-}
-
-.contacts-page .contacts-empty-state .ui-admin-empty-desc {
-    max-width: 460px;
-}
-
 .contacts-page .contacts-message-modal {
     width: min(1040px, calc(100vw - 2rem));
     max-width: 1040px;

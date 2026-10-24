@@ -144,9 +144,13 @@ $adminStyleBridge = $adminAccentColor !== ''
     <?php if ($isTopicsPage): ?>
     <link rel="stylesheet" href="<?= asset_url('admin/assets/topics-page.css', $baseUri) ?>">
     <?php endif; ?>
+    <link rel="stylesheet" href="<?= asset_url('admin/assets/page-heading.css', $baseUri) ?>">
+    <link rel="stylesheet" href="<?= asset_url('admin/assets/empty-state.css', $baseUri) ?>">
+    <script src="<?= asset_url('admin/assets/empty-state.js', $baseUri) ?>"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
 </head>
 <body>
+    <?= adminRenderEmptyStateTemplate() ?>
     <div id="admin-overlay" class="admin-overlay"></div>
     <div class="admin-shell ui-section">
         <aside id="admin-sidebar" class="admin-sidebar">

@@ -174,7 +174,7 @@ document.querySelectorAll('[data-color-field]').forEach(function(field) {
                         '<button type="button" title="Sil" data-sidebar-remove="' + esc(widget.id) + '"><i class="bi bi-trash"></i></button>' +
                     '</div>' +
                 '</article>';
-            }).join('') : '<div class="sidebar-builder-drop-empty ui-empty">Widgetleri buraya surukle</div>';
+            }).join('') : window.adminEmptyState.render({ size: 'inline', icon: 'bi-box-arrow-in-down', title: 'Widgetleri buraya sürükle', description: '' });
         });
     }
 
@@ -185,7 +185,7 @@ document.querySelectorAll('[data-color-field]').forEach(function(field) {
         var found = selected ? findWidget(selected) : null;
         if (!found) {
             if (label) label.textContent = 'Secim yok';
-            body.innerHTML = '<div class="sidebar-builder-empty ui-empty"><i class="bi bi-cursor"></i><strong>Bir widget sec</strong><span>Orta alandaki kartlardan birini secince ayarlari burada acilir.</span></div>';
+            body.innerHTML = window.adminEmptyState.render({ size: 'compact', icon: 'bi-cursor', title: 'Bir widget seç', description: 'Orta alandaki kartlardan birini seçince ayarları burada açılır.' });
             return;
         }
         var widget = found.widget;

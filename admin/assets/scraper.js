@@ -317,9 +317,7 @@ function scraperSetGalleryPreview(target, images = []) {
 
     const validImages = images.map(src => getScraperImageUrl(src)).filter(Boolean);
     if (validImages.length === 0) {
-        const empty = document.createElement('span');
-        empty.className = 'crm-gallery-empty';
-        empty.textContent = 'Ek görsel yok';
+        const empty = window.adminEmptyState.create({ size: 'inline', icon: 'bi-images', title: 'Ek görsel yok', description: '' });
         target.appendChild(empty);
         return;
     }
@@ -337,9 +335,7 @@ function scraperSetGalleryPreview(target, images = []) {
         img.addEventListener('error', () => {
             thumb.remove();
             if (!target.querySelector('.scraper-gallery-thumb-lg')) {
-                const empty = document.createElement('span');
-                empty.className = 'crm-gallery-empty';
-                empty.textContent = 'Ek gorsel yuklenemedi';
+                const empty = window.adminEmptyState.create({ size: 'inline', icon: 'bi-image', tone: 'warning', title: 'Ek görsel yüklenemedi', description: '' });
                 target.appendChild(empty);
             }
         }, { once: true });
@@ -944,7 +940,7 @@ function discoverUrls() {
             scraperShow(panel);
         } else {
             scraperShow(list, 'scraper-visible-block');
-            list.innerHTML = '<div class="scraper-mini-empty"><i class="bi bi-info-circle"></i> Hiç konu bulunamadı veya bağlantılar okunamadı.</div>';
+            list.innerHTML = window.adminEmptyState.render({ size: 'compact', icon: 'bi-search', title: 'Konu bulunamadı', description: 'Konu bağlantıları bulunamadı veya okunamadı.' });
             scraperShow(panel);
         }
     }).catch(() => scraperToast('Hata oluştu', 'error'));
@@ -1475,7 +1471,7 @@ function listMappingTopics(mappingId, siteId, categoryUrl, localCatId, pageUrl =
             } else {
                 list.innerHTML = `
                     ${renderMappingPagination(state, mappingId)}
-                    <div class="scraper-mini-empty-lg">Bu kategoride içerik bulunamadı.</div>
+                    ${window.adminEmptyState.render({ size: 'compact', icon: 'bi-files', title: 'Bu kategoride içerik bulunamadı', description: 'Farklı bir kategori veya sayfa seçebilirsiniz.' })}
                 `;
             }
             scraperShow(list, 'scraper-visible-block');
@@ -1838,25 +1834,11 @@ function getAllCategoryTotals(mappingResults) {
 }
 
 function renderAllCategoriesEmptyState(options = {}) {
-    const tone = ['info', 'warning', 'success'].includes(options.tone) ? options.tone : 'info';
-    const icon = escapeHtml(options.icon || 'bi-inbox');
-    const title = escapeHtml(options.title || 'İçerik bulunamadı');
-    const description = escapeHtml(options.description || 'Seçilen ölçütlere uygun içerik bulunamadı.');
-    const meta = Array.isArray(options.meta) ? options.meta : [];
-    const metaHtml = meta.length
-        ? `<div class="ui-admin-empty-meta" aria-label="Durum bilgisi">${meta.map(item => `
-            <span><i class="bi ${escapeHtml(item.icon || 'bi-info-circle')}"></i>${escapeHtml(item.label || '')}</span>
-        `).join('')}</div>`
-        : '';
-
-    return `
-        <div class="ui-admin-empty ui-empty admin-ui-empty admin-ui-empty-normalized">
-            <div class="ui-admin-empty-icon tone-${tone} ui-empty"><i class="bi ${icon}"></i></div>
-            <h3 class="ui-admin-empty-title ui-empty">${title}</h3>
-            <p class="ui-admin-empty-desc ui-empty">${description}</p>
-            ${metaHtml}
-        </div>
-    `;
+    return window.adminEmptyState.render(Object.assign({
+        icon: 'bi-inbox',
+        title: 'İçerik bulunamadı',
+        description: 'Seçilen ölçütlere uygun içerik bulunamadı.'
+    }, options));
 }
 
 function getAllCategoryResultStatus(result) {

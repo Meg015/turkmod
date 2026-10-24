@@ -446,7 +446,7 @@ require_once __DIR__ . '/header.php';
                         'title' => $hasMessageFilters ? 'Filtreye uyan mesaj yok' : 'Henüz mesaj yok',
                         'description' => $hasMessageFilters ? 'Seçili filtrelerle eşleşen bir kayıt bulamadım. Filtreleri sıfırlayıp yeniden deneyin.' : 'Yeni iletişim talepleri burada listelenecek. Şu anda gelen kutusu boş görünüyor.',
                         'pro' => true,
-                        'class' => 'contacts-empty-state contacts-empty-state-list',
+                        'size' => 'regular',
                         'meta' => array_values(array_filter([
                             ['icon' => 'bi-eye-slash', 'label' => number_format((int) ($messageStats['unseen'] ?? 0), 0, ',', '.') . ' görülmemiş'],
                             ['icon' => 'bi-reply', 'label' => number_format((int) ($messageStats['replied'] ?? 0), 0, ',', '.') . ' yanıtlanmış'],
@@ -623,7 +623,7 @@ require_once __DIR__ . '/header.php';
                                                 'title' => 'Henüz yanıt yok',
                                                 'description' => 'Aşağıdaki alandan tek seferlik e-posta yanıtı gönderebilirsiniz.',
                                                 'pro' => true,
-                                                'class' => 'contacts-empty-state contacts-empty-state-compact contacts-message-empty-inline',
+                                                'size' => 'inline',
                                             ]) ?>
                                         <?php endif; ?>
                                     </div>
@@ -836,7 +836,7 @@ require_once __DIR__ . '/header.php';
                             'title' => 'Henüz kategori yok',
                             'description' => 'Mesajları gruplamak için ilk kategoriyi oluşturun. İkon, sıra ve aktif/pasif durumu bu panelden yönetilir.',
                             'pro' => true,
-                            'class' => 'contacts-empty-state contacts-empty-state-list',
+                            'size' => 'regular',
                             'meta' => [
                                 ['icon' => 'bi-diagram-3', 'label' => 'Sıralı yapı'],
                                 ['icon' => 'bi-icons', 'label' => 'Bootstrap ikonları'],
@@ -918,7 +918,7 @@ require_once __DIR__ . '/header.php';
                             'title' => 'Yetki yok',
                             'description' => 'Kategori düzenleme ve silme işlemleri kapalı.',
                             'pro' => true,
-                            'class' => 'contacts-empty-state contacts-empty-state-compact',
+                            'size' => 'compact',
                         ]) ?>
                     <?php else: ?>
                         <form method="post" action="<?= htmlspecialchars(adminContactsUrl('categories', $selectedCategoryId > 0 ? ['category_id' => $selectedCategoryId] : []), ENT_QUOTES, 'UTF-8') ?>" class="ui-admin-form ui-stack">

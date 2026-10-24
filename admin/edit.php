@@ -177,6 +177,9 @@ if ($viewTopicUrl !== '') {
     $actionsHtml .= ' <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="' . htmlspecialchars($viewTopicUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Sitede Gör</a>';
 }
 ?>
+<?= adminRenderPageHero('bi-pencil-square', 'İçerik yönetimi', $pageTitle, 'İçeriğin bilgilerini, dosyalarını ve yayın durumunu düzenleyin.', [
+    ['href' => 'topics.php', 'label' => 'Konulara dön', 'icon' => 'bi-arrow-left'],
+]) ?>
 <?= adminRenderPanelOpen([
     'tag' => 'div',
     'icon' => 'bi-pencil',

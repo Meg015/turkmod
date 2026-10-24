@@ -49,7 +49,7 @@
     if ((!$suppressAdminFooterToasts && ($fSuccess || $fError || $fInfo || $fWarning))) { $_tEnabled = true; }
     ?>
     <?php if ($_tEnabled): ?>
-    <div class="topic-toast-container toast-pos-<?= htmlspecialchars($_tPos) ?> ui-panel__foot" id="toastContainer" aria-live="polite" aria-atomic="true"
+    <div class="topic-toast-container toast-pos-<?= htmlspecialchars($_tPos) ?>" id="toastContainer" aria-live="polite" aria-atomic="true"
          data-toast-duration="<?= $_tDuration ?>"
          data-toast-theme="<?= htmlspecialchars($_tTheme) ?>"
          data-toast-animation="<?= htmlspecialchars($_tAnim) ?>"
@@ -67,7 +67,7 @@
          data-toast-warning="<?= htmlspecialchars((string)$fWarning) ?>"
          data-toast-info="<?= htmlspecialchars((string)$fInfo) ?>"></div>
     <?php else: ?>
-    <div class="topic-toast-container ui-admin-hidden ui-panel__foot" id="toastContainer"></div>
+    <div class="topic-toast-container ui-admin-hidden" id="toastContainer"></div>
     <?php endif; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js" integrity="sha384-QUJ+ckWz1M+a7w0UfG1sEn4pPrbQwSxGm/1TIPyioqXBrwuT9l4f9gdHWLDLbVWI" crossorigin="anonymous"></script>

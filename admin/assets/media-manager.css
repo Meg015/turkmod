@@ -482,33 +482,6 @@
    Empty State
    ============================================ */
 
-.mm-empty-state {
-    text-align: center;
-    padding: 3rem 1.5rem;
-    color: var(--ui-admin-text-secondary);
-}
-
-.mm-empty-icon {
-    font-size: 2rem;
-}
-
-.mm-empty-title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--ui-admin-text);
-    margin: 0 0 0.5rem;
-}
-
-.mm-empty-text {
-    font-size: 0.9rem;
-    color: var(--ui-admin-text-secondary);
-    margin: 0;
-}
-
-/* ============================================
-   Grid
-   ============================================ */
-
 .mm-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

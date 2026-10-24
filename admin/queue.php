@@ -24,13 +24,16 @@ $samples = [
 
 if ($pdo) {
     try {
+        $unreadNotificationsSql = adminQualityTableExists($pdo, 'admin_notifications')
+            ? '(SELECT COUNT(*) FROM admin_notifications WHERE read_at IS NULL)'
+            : '0';
         $counts = $pdo->query("
             SELECT
                 (SELECT COUNT(*) FROM topic_reports WHERE status IN ('open','reviewing')) AS topic_reports,
                 (SELECT COUNT(*) FROM user_reports WHERE status IN ('open','reviewing')) AS user_reports,
                 (SELECT COUNT(*) FROM topics WHERE status = 'draft' AND deleted_at IS NULL) AS pending_topics,
                 (SELECT COUNT(*) FROM comments WHERE status='pending' AND deleted_at IS NULL) AS pending_comments,
-                (SELECT COUNT(*) FROM admin_notifications WHERE read_at IS NULL) AS unread_notifs
+                {$unreadNotificationsSql} AS unread_notifs
         ")->fetch(PDO::FETCH_ASSOC) ?: [];
         $queue['topic_reports']    = (int) ($counts['topic_reports'] ?? 0);
         $queue['user_reports']     = (int) ($counts['user_reports'] ?? 0);
@@ -160,12 +163,12 @@ function formatRelative(?string $ts): string
 require_once __DIR__ . '/header.php';
 ?>
 <div class="queue-page">
-    <section class="queue-hero">
-        <div>
+    <section class="queue-hero admin-page-heading">
+        <div class="admin-page-heading__copy">
             <h2><i class="bi bi-inbox-fill"></i> Bekleyen İş Kuyruğu</h2>
             <p>Onay, inceleme veya müdahale bekleyen tüm işleri tek ekranda görün.</p>
         </div>
-        <div class="queue-hero-actions">
+        <div class="queue-hero-actions admin-page-heading__actions">
             <button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-ui-reload>
                 <i class="bi bi-arrow-clockwise"></i> Yenile
             </button>
@@ -175,13 +178,14 @@ require_once __DIR__ . '/header.php';
         </div>
     </section>
 
+    <?php if ($total > 0): ?>
     <div class="ui-admin-queue-summary">
         <div class="ui-admin-queue-summary-text">
             <strong><?= number_format($total, 0, ',', '.') ?></strong>
-            <span><?= $total === 0 ? 'Harika — şu an bekleyen iş yok' : 'iş bekliyor — aşağıdaki kategorileri inceleyin' ?></span>
+            <span>iş bekliyor — aşağıdaki kategorileri inceleyin</span>
         </div>
         <div class="ui-admin-queue-summary-icon">
-            <i class="bi bi-<?= $total === 0 ? 'check2-circle' : 'hourglass-split' ?>"></i>
+            <i class="bi bi-hourglass-split"></i>
         </div>
     </div>
 
@@ -200,17 +204,16 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
+    <?php endif; ?>
+
     <?php if ($total === 0): ?>
         <?= adminRenderPanel(adminRenderEmptyState([
                 'icon' => 'bi-check2-all',
                 'tone' => 'success',
-                'title' => 'Tüm kuyruklar temiz',
-                'description' => 'Şu an için inceleme bekleyen rapor, itiraz veya konu yok. Yeni bildirim geldiğinde burada belirir.',
-                'pro' => true,
-                'class' => 'ui-admin-empty-queue',
+                'title' => 'Bekleyen iş yok',
+                'description' => 'Şu anda inceleme bekleyen rapor, itiraz, konu veya yorum bulunmuyor. Yeni işler geldiğinde burada listelenir.',
                 'meta' => [
                     ['icon' => 'bi-inbox', 'label' => '0 bekleyen iş'],
-                    ['icon' => 'bi-shield-check', 'label' => 'Moderasyon sakin'],
                 ],
                 'actions' => [
                     ['href' => $baseUri . '/admin/index.php', 'label' => 'Dashboard\'a Dön', 'icon' => 'bi-speedometer2'],

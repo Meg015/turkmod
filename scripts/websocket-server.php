@@ -147,7 +147,7 @@ class ChatServer implements MessageComponentInterface
         // The CSRF token is NOT passed in the URL query string — it would leak
         // via server logs, Referer headers, and browser history.
         if ($this->authenticateConnection($conn, $userId) && $this->presenceActorAllowed($userId)) {
-            $this->clients->attach($conn);
+            $this->clients->offsetSet($conn);
             $conn->userId = $userId;
             $connectionId = (string) $conn->resourceId;
             $this->connectionsById[$connectionId] = $conn;
@@ -155,7 +155,7 @@ class ChatServer implements MessageComponentInterface
             if (!isset($this->userConnections[$userId])) {
                 $this->userConnections[$userId] = new \SplObjectStorage;
             }
-            $this->userConnections[$userId]->attach($conn);
+            $this->userConnections[$userId]->offsetSet($conn);
             $isFirstConnection = $this->presenceRegistry->attach($connectionId, $userId);
 
             if (isset($this->offlineTimers[$userId])) {
@@ -221,11 +221,11 @@ class ChatServer implements MessageComponentInterface
 
     public function onClose(ConnectionInterface $conn)
     {
-        if ($this->clients->contains($conn)) {
-            $this->clients->detach($conn);
+        if ($this->clients->offsetExists($conn)) {
+            $this->clients->offsetUnset($conn);
         }
         if (isset($conn->userId) && isset($this->userConnections[$conn->userId])) {
-            $this->userConnections[$conn->userId]->detach($conn);
+            $this->userConnections[$conn->userId]->offsetUnset($conn);
             if (count($this->userConnections[$conn->userId]) === 0) {
                 unset($this->userConnections[$conn->userId]);
             }

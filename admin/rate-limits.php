@@ -270,7 +270,6 @@ require_once __DIR__ . '/header.php';
                             ? 'Seçili arama ve durum filtresiyle eşleşen kayıt bulunamadı.'
                             : 'Hiçbir işlem sınıra takılmamış. Kayıt oluştuğunda burada listelenecek.',
                         'pro' => true,
-                        'class' => 'ui-admin-empty-rate-limit',
                         'attrs' => ['role' => 'status'],
                         'actions' => $search !== '' || $status !== 'all' ? [
                             ['href' => 'rate-limits.php', 'label' => 'Filtreleri Temizle', 'icon' => 'bi-x-lg', 'class' => 'ui-admin-btn-sm'],

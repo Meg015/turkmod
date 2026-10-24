@@ -217,7 +217,7 @@ class UploadSecurity {
         if (function_exists('finfo_file')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mimeType = finfo_file($finfo, $filePath);
-            finfo_close($finfo);
+            unset($finfo);
         } elseif (function_exists('mime_content_type')) {
             $mimeType = mime_content_type($filePath);
         } else {
@@ -292,7 +292,7 @@ class UploadSecurity {
                     $image = imagecreatefromjpeg($filePath);
                     if ($image) {
                         $success = imagejpeg($image, $filePath, 90);
-                        imagedestroy($image);
+                        unset($image);
                     }
                     break;
 
@@ -300,7 +300,7 @@ class UploadSecurity {
                     $image = imagecreatefrompng($filePath);
                     if ($image) {
                         $success = imagepng($image, $filePath, 9);
-                        imagedestroy($image);
+                        unset($image);
                     }
                     break;
             }

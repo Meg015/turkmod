@@ -228,13 +228,13 @@ require_once __DIR__ . '/header.php';
 <link rel="stylesheet" href="<?= asset_url('admin/assets/themes-page.css', $baseUri) ?>">
 
 <div class="theme-center">
-    <header class="theme-center-top">
-        <div>
+    <header class="theme-center-top admin-page-heading">
+        <div class="admin-page-heading__copy">
             <span class="theme-eyebrow"><i class="bi bi-brush"></i> Tema Merkezi</span>
             <h2 class="theme-center-title">Public tema kütüphanesi</h2>
             <p class="theme-center-copy">Tema paketlerini buradan yükle, doğrula, önizle, aktif et ve düzenle. DLE temaları geldiğinde dönüşüm ve dosya edit akışı aynı merkezden yönetilecek.</p>
         </div>
-        <div class="theme-commandbar">
+        <div class="theme-commandbar admin-page-heading__actions">
             <details class="theme-action-popover">
                 <summary class="ui-admin-btn ui-admin-btn-primary"><i class="bi bi-plus-lg"></i> Yeni Tema</summary>
                 <div class="theme-action-menu">
@@ -481,7 +481,7 @@ require_once __DIR__ . '/header.php';
                                     <span class="theme-badge theme-badge-neutral"><?= count($editableFiles) ?> dosya</span>
                             </div>
                             <?php if ($selectedFile === ''): ?>
-                                <p class="theme-muted">Bu tema içinde düzenlenebilir dosya bulunamadı.</p>
+                                <?= adminRenderEmptyState(['size' => 'compact', 'icon' => 'bi-file-earmark-code', 'title' => 'Düzenlenebilir dosya bulunamadı', 'description' => 'Bu temada editöre uygun bir dosya bulunmuyor.']) ?>
                             <?php else: ?>
                             <div class="theme-editor-grid" data-theme-editor>
                                 <aside class="theme-file-list">

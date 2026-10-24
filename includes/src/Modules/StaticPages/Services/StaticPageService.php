@@ -39,8 +39,9 @@ final class StaticPageService
         }
         $search = trim($search);
         if ($search !== '') {
-            $clauses[] = '(title LIKE :search OR slug LIKE :search)';
-            $params['search'] = '%' . $search . '%';
+            $clauses[] = '(title LIKE :search_title OR slug LIKE :search_slug)';
+            $params['search_title'] = '%' . $search . '%';
+            $params['search_slug'] = '%' . $search . '%';
         }
         $where = $clauses === [] ? '' : ' WHERE ' . implode(' AND ', $clauses);
         $count = $this->pdo->prepare('SELECT COUNT(*) FROM static_pages' . $where);

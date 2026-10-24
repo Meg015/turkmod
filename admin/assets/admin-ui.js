@@ -493,7 +493,7 @@
     }
 
     function adminModerationEmpty(message) {
-        return '<div class="ui-admin-moderation-empty">' + adminModerationEscapeHtml(message) + '</div>';
+        return window.adminEmptyState.render({ size: 'inline', icon: 'bi-shield-check', title: message, description: '' });
     }
 
     function adminModerationLoading(message) {
@@ -2071,7 +2071,7 @@
             }
             table.querySelectorAll('tbody tr').forEach(function (row) {
                 Array.prototype.forEach.call(row.children || [], function (cell, index) {
-                    if (!cell || cell.hasAttribute('data-label')) {
+                    if (!cell || cell.colSpan > 1 || cell.hasAttribute('data-label') || cell.querySelector('[data-admin-empty-state]')) {
                         return;
                     }
                     var label = headers[index] || '';
@@ -2203,8 +2203,6 @@
             '.sidebar-builder-metrics',
             '.theme-selected-summary',
             '.admin-audit-cleanup-summary',
-            '.ui-admin-queue-summary',
-            '.ui-admin-queue-summary-icon',
             '.dbs-alert-grid',
             '.dbs-meta',
             '.theme-metrics',
@@ -2222,10 +2220,7 @@
     }
 
     function enhanceAdminEmptyStates(root) {
-        var scope = root || document;
-        scope.querySelectorAll('.ui-empty, .admin-log-empty-row, .scraper-empty-table, .appeals-admin-empty-inline, .sidebar-builder-empty').forEach(function (empty) {
-            empty.classList.add('admin-ui-empty-normalized');
-        });
+        if (window.adminEmptyState) window.adminEmptyState.enhance(root || document);
     }
 
     function enhanceAdminActions(root) {
@@ -2300,11 +2295,11 @@
     function enhanceAdminSurface(root) {
         var scope = root || document;
         enhanceAdminTables(scope);
+        enhanceAdminEmptyStates(scope);
         enhanceAdminForms(scope);
         enhanceAdminTabs(scope);
         enhanceAdminBadges(scope);
         enhanceAdminGrids(scope);
-        enhanceAdminEmptyStates(scope);
         enhanceAdminActions(scope);
         bindAdminImageFallbacks(scope);
     }

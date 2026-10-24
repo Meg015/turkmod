@@ -27,7 +27,6 @@ if (!function_exists('eventsAdminStyles')) {
             'admin-modals-enhanced.css',
             'admin-navigation.css',
             'admin-interactive.css',
-            'admin-empty-states.css',
             'admin-toolbar-redesign.css',
             'admin-backgrounds-improved.css',
             'admin-console.css',
@@ -35,7 +34,8 @@ if (!function_exists('eventsAdminStyles')) {
         foreach ($cssAssets as $asset) {
             echo '<link rel="stylesheet" href="' . eventsGetAssetUrl('/events/assets/css/' . $asset, 'css') . '">' . PHP_EOL;
         }
-foreach (['admin-theme.js', 'admin-mobile.js', 'admin-ui.js'] as $asset) {
+        // The admin shell owns theme persistence and the shared toggle button.
+        foreach (['admin-mobile.js', 'admin-ui.js'] as $asset) {
             echo '<script src="' . eventsGetAssetUrl('/events/assets/js/' . $asset, 'js') . '" defer></script>' . PHP_EOL;
         }
     }
@@ -118,10 +118,10 @@ if (!function_exists('eventsAdminTabs')) {
 if (!function_exists('eventsAdminPageHero')) {
     function eventsAdminPageHero(string $title, string $description, string $icon, string $actionsHtml = '', string $metaHtml = ''): void
     {
-        echo '<section class="ui-events-page-hero ui-events-admin-hero" data-ui-events-admin-component="hero">';
-        echo '  <div class="ui-events-page-hero-main ui-events-admin-hero-main">';
+        echo '<section class="ui-events-page-hero ui-events-admin-hero admin-page-heading" data-ui-events-admin-component="hero">';
+        echo '  <div class="ui-events-page-hero-main ui-events-admin-hero-main admin-page-heading__main">';
         echo '    <span class="ui-events-page-hero-icon"><i class="bi ' . htmlspecialchars($icon) . '"></i></span>';
-        echo '    <div class="ui-events-page-hero-text">';
+        echo '    <div class="ui-events-page-hero-text admin-page-heading__copy">';
         echo '      <span class="ui-events-page-kicker">Etkinlikler</span>';
         echo '      <h2>' . htmlspecialchars($title) . '</h2>';
         echo '      <p>' . htmlspecialchars($description) . '</p>';
@@ -131,7 +131,7 @@ if (!function_exists('eventsAdminPageHero')) {
         echo '    </div>';
         echo '  </div>';
         if ($actionsHtml !== '') {
-            echo '  <div class="ui-events-page-hero-actions ui-events-admin-actions">' . $actionsHtml . '</div>';
+            echo '  <div class="ui-events-page-hero-actions ui-events-admin-actions admin-page-heading__actions">' . $actionsHtml . '</div>';
         }
         echo '</section>';
     }
@@ -188,16 +188,12 @@ if (!function_exists('eventsAdminChecked')) {
 if (!function_exists('eventsAdminEmptyState')) {
     function eventsAdminEmptyState(string $icon, string $title, string $description, string $actionHtml = ''): void
     {
-        echo '<div class="ui-events-empty-state ui-events-empty-standard ui-events-admin-empty-state ui-empty" data-ui-events-admin-component="empty-state">';
-        echo '  <div class="ui-events-empty-icon">';
-        echo '    <i class="bi ' . htmlspecialchars($icon) . '"></i>';
-        echo '  </div>';
-        echo '  <h3>' . htmlspecialchars($title) . '</h3>';
-        echo '  <p>' . htmlspecialchars($description) . '</p>';
-        if ($actionHtml !== '') {
-            echo '  <div class="ui-events-empty-action">' . $actionHtml . '</div>';
-        }
-        echo '</div>';
+        echo adminRenderEmptyState([
+            'icon' => $icon,
+            'title' => $title,
+            'description' => $description,
+            'actions_html' => $actionHtml,
+        ]);
     }
 }
 

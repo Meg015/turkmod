@@ -69,7 +69,7 @@ final class WebSocketBroadcaster
                 }
                 curl_exec($handle);
                 $statusCode = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-                curl_close($handle);
+                unset($handle);
 
                 return $statusCode >= 200 && $statusCode < 300;
             }

@@ -52,6 +52,10 @@ class ErrorHandler {
         // Log'a yaz
         $this->log($errorType, $errstr, $errfile, $errline);
 
+        if ($this->isCli() && $this->isFatalError($errno)) {
+            $this->exitCliError($errorType . ': ' . $errstr, $errfile, $errline);
+        }
+
         // Production'da kullanıcıya güvenli mesaj göster
         if ($this->isProduction && $this->isFatalError($errno)) {
             $this->showErrorPage();
@@ -72,6 +76,10 @@ class ErrorHandler {
             $exception->getLine(),
             $exception->getTraceAsString()
         );
+
+        if ($this->isCli()) {
+            $this->exitCliError(get_class($exception) . ': ' . $exception->getMessage(), $exception->getFile(), $exception->getLine());
+        }
 
         // Production'da güvenli mesaj
         if ($this->isProduction) {
@@ -104,10 +112,23 @@ class ErrorHandler {
                 $error['line']
             );
 
+            if ($this->isCli()) {
+                $this->exitCliError($error['message'], $error['file'], $error['line']);
+            }
+
             if ($this->isProduction) {
                 $this->showErrorPage();
             }
         }
+    }
+
+    private function isCli(): bool {
+        return PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg';
+    }
+
+    private function exitCliError(string $message, string $file, int $line): void {
+        fwrite(STDERR, $message . ' in ' . $file . ':' . $line . PHP_EOL);
+        exit(1);
     }
 
     /**
@@ -126,7 +147,6 @@ class ErrorHandler {
             E_USER_ERROR => 'USER_ERROR',
             E_USER_WARNING => 'USER_WARNING',
             E_USER_NOTICE => 'USER_NOTICE',
-            E_STRICT => 'STRICT',
             E_RECOVERABLE_ERROR => 'RECOVERABLE_ERROR',
             E_DEPRECATED => 'DEPRECATED',
             E_USER_DEPRECATED => 'USER_DEPRECATED',

@@ -1056,7 +1056,6 @@ html[data-theme="dark"] .ui-events-admin-page {
     --ui-events-console-shadow: 0 16px 34px rgba(0, 0, 0, .28);
 }
 
-html[data-theme="dark"] .ui-events-admin-page .ui-events-page-hero,
 html[data-theme="dark"] .ui-events-admin-page>.ui-events-module-shell,
 html[data-theme="dark"] .ui-events-admin-page .admin-card,
 html[data-theme="dark"] .ui-events-admin-page .ui-events-admin-panel {

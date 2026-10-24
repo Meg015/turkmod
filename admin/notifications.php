@@ -2560,7 +2560,7 @@ $csrfToken = csrf_token();
                                     <thead><tr><th>Kampanya</th><th>Durum</th><th>Sonuç</th><th>Tarih</th><th class="ui-admin-table-actions">İşlem</th></tr></thead>
                                     <tbody data-bulk-history-body>
                                         <?php if ($bulkEmailHistory === []): ?>
-                                            <tr data-bulk-history-empty><td colspan="5" class="ui-admin-table-empty">Henüz toplu e-posta kampanyası yok.</td></tr>
+                                            <?= adminRenderTableEmptyRow(5, ['icon' => 'bi-envelope-paper', 'title' => 'Henüz kampanya yok', 'description' => 'Oluşturduğunuz toplu e-posta kampanyaları burada listelenir.'], ['attrs' => ['data-bulk-history-empty' => true]]) ?>
                                         <?php endif; ?>
                                         <?php foreach ($bulkEmailHistory as $campaign): ?>
                                             <tr data-bulk-history-row="<?= (int) $campaign['id'] ?>">

@@ -143,7 +143,7 @@ function showPreviews(files) {
             img.src = URL.createObjectURL(file);
             card.appendChild(img);
         } else {
-            card.innerHTML = '<div class="media-preview-empty ui-empty"><i class="bi bi-file-earmark"></i></div>';
+            card.appendChild(window.adminEmptyState.create({ size: 'inline', icon: 'bi-file-earmark', title: 'Önizleme yok', description: '' }));
         }
 
         var label = document.createElement('div');

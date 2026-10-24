@@ -384,8 +384,8 @@ function appLogsBuildWhere(
     $createdCol = $prefix . 'created_at';
 
     if ($search !== '') {
-        $where[] = "({$messageCol} LIKE :search OR {$channelCol} LIKE :search OR {$levelCol} LIKE :search OR {$ipCol} LIKE :search OR CAST({$contextCol} AS CHAR) LIKE :search)";
-        $params['search'] = '%' . $search . '%';
+        $where[] = "({$messageCol} LIKE :search_message OR {$channelCol} LIKE :search_channel OR {$levelCol} LIKE :search_level OR {$ipCol} LIKE :search_ip OR CAST({$contextCol} AS CHAR) LIKE :search_context)";
+        $params += array_fill_keys(['search_message', 'search_channel', 'search_level', 'search_ip', 'search_context'], '%' . $search . '%');
     }
     if ($level !== '') {
         $where[] = "{$levelCol} = :level";

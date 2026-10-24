@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/components/empty-state.php';
+
 /**
  * Admin panel ic yardimci fonksiyonlari.
  *
@@ -28,11 +30,14 @@ function adminRenderForbiddenPage(string $message = 'Bu sayfaya erişim yetkiniz
 
     require __DIR__ . '/header.php';
     ?>
-    <section class="ui-empty ui-admin-forbidden-empty" aria-labelledby="admin-forbidden-title" data-admin-forbidden-page data-admin-forbidden-message="<?= htmlspecialchars($forbiddenMessage, ENT_QUOTES, 'UTF-8') ?>">
-        <i class="bi bi-shield-lock" aria-hidden="true"></i>
-        <h2 id="admin-forbidden-title">Bu alan için yetkiniz yok</h2>
-        <p><?= htmlspecialchars($forbiddenMessage, ENT_QUOTES, 'UTF-8') ?></p>
-    </section>
+    <?= adminRenderEmptyState([
+        'icon' => 'bi-shield-lock',
+        'tone' => 'danger',
+        'title' => 'Bu alan için yetkiniz yok',
+        'description' => $forbiddenMessage,
+        'title_attrs' => ['id' => 'admin-forbidden-title'],
+        'attrs' => ['aria-labelledby' => 'admin-forbidden-title', 'data-admin-forbidden-page' => true, 'data-admin-forbidden-message' => $forbiddenMessage],
+    ]) ?>
     <?php
     require __DIR__ . '/footer.php';
     exit;
@@ -560,11 +565,6 @@ function adminRenderTableClose(): string
     return '</tbody></table></div>';
 }
 
-function adminRenderTableEmptyRow(int $columns, array $emptyOptions): string
-{
-    return '<tr><td colspan="' . max(1, $columns) . '">' . adminRenderEmptyState($emptyOptions) . '</td></tr>';
-}
-
 /**
  * @param array{
  *   type?:string,name:string,id?:string,label?:string,value?:mixed,options?:array<string,string>,
@@ -1001,7 +1001,7 @@ function adminRenderPageHero(string $icon, string $kicker, string $title, string
     if (!in_array($titleTag, ['h1', 'h2', 'h3'], true)) {
         $titleTag = 'h2';
     }
-    $class = trim('ui-admin-page-hero admin-ui-page-hero ' . adminUiClass((string) ($options['class'] ?? '')));
+    $class = trim('ui-admin-page-hero admin-ui-page-hero admin-page-heading ' . adminUiClass((string) ($options['class'] ?? '')));
     $titleClass = adminUiClass((string) ($options['title_class'] ?? ''));
     $titleAttrs = $titleClass !== '' ? ' class="' . adminUiEscape($titleClass) . '"' : '';
     $descriptionClass = adminUiClass((string) ($options['description_class'] ?? ''));
@@ -1009,7 +1009,7 @@ function adminRenderPageHero(string $icon, string $kicker, string $title, string
     $attrs = adminUiAttrs((array) ($options['attrs'] ?? []));
 
     $html = '<' . $tag . ' class="' . adminUiEscape($class) . '"' . $attrs . '>';
-    $html .= '<div class="ui-admin-page-hero-text admin-ui-page-hero__text">';
+    $html .= '<div class="ui-admin-page-hero-text admin-ui-page-hero__text admin-page-heading__copy">';
     if ($kicker !== '') {
         $html .= '<span class="ui-admin-kicker admin-ui-page-kicker"><i class="bi ' . adminUiEscape(adminUiClass($icon)) . '"></i> ' . adminUiEscape($kicker) . '</span>';
     }
@@ -1021,7 +1021,7 @@ function adminRenderPageHero(string $icon, string $kicker, string $title, string
 
     $actionsHtml = trim((string) ($options['actions_html'] ?? ''));
     if ($actions !== [] || $actionsHtml !== '') {
-        $html .= '<div class="ui-admin-page-hero-actions admin-ui-page-hero__actions admin-ui-action-row">';
+        $html .= '<div class="ui-admin-page-hero-actions admin-ui-page-hero__actions admin-ui-action-row admin-page-heading__actions">';
         foreach ($actions as $action) {
             $label = (string) ($action['label'] ?? '');
             if ($label === '') {
@@ -1109,63 +1109,6 @@ function adminRenderFilterToolbarClose(): string
     return '</div></div>';
 }
 
-/**
- * @param array{icon?:string,tone?:string,title:string,description:string,pro?:bool,class?:string,attrs?:array<string,string|int|bool|null>,meta?:array<int,array{icon?:string,label:string}>,actions?:array<int,array{href?:string,label:string,icon?:string,class?:string,attrs?:array<string,string|int|bool|null>}>} $options
- */
-function adminRenderEmptyState(array $options): string
-{
-    $icon = adminUiClass((string) ($options['icon'] ?? 'bi-inbox')) ?: 'bi-inbox';
-    $tone = adminUiClass((string) ($options['tone'] ?? 'info')) ?: 'info';
-    $class = trim(adminUiClass('ui-admin-empty ui-empty admin-ui-empty ' . (!empty($options['pro']) ? 'ui-admin-empty-pro ' : '') . (string) ($options['class'] ?? '')));
-    $html = '<div class="' . adminUiEscape($class) . '"' . adminUiAttrs((array) ($options['attrs'] ?? [])) . '>';
-    $html .= '<div class="ui-admin-empty-icon tone-' . adminUiEscape($tone) . ' ui-empty"><i class="bi ' . adminUiEscape($icon) . '"></i></div>';
-    $html .= '<h3 class="ui-admin-empty-title ui-empty">' . adminUiEscape((string) ($options['title'] ?? 'Kayıt bulunamadı')) . '</h3>';
-    $html .= '<p class="ui-admin-empty-desc ui-empty">' . adminUiEscape((string) ($options['description'] ?? 'Filtreye uyan kayıt bulunamadı.')) . '</p>';
-
-    $meta = (array) ($options['meta'] ?? []);
-    if ($meta !== []) {
-        $html .= '<div class="ui-admin-empty-meta" aria-label="Durum bilgisi">';
-        foreach ($meta as $item) {
-            $label = (string) ($item['label'] ?? '');
-            if ($label === '') {
-                continue;
-            }
-            $metaIcon = trim((string) ($item['icon'] ?? '')) !== ''
-                ? '<i class="bi ' . adminUiEscape(adminUiClass((string) $item['icon'])) . '"></i> '
-                : '';
-            $html .= '<span>' . $metaIcon . adminUiEscape($label) . '</span>';
-        }
-        $html .= '</div>';
-    }
-
-    $actions = (array) ($options['actions'] ?? []);
-    if ($actions !== []) {
-        $html .= '<div class="ui-admin-empty-actions ui-empty">';
-        foreach ($actions as $action) {
-            $label = (string) ($action['label'] ?? '');
-            if ($label === '') {
-                continue;
-            }
-            $href = trim((string) ($action['href'] ?? ''));
-            $tag = $href !== '' ? 'a' : 'button';
-            $buttonClass = trim(adminUiClass('ui-admin-btn ui-admin-btn-outline ' . (string) ($action['class'] ?? '')));
-            $iconHtml = trim((string) ($action['icon'] ?? '')) !== ''
-                ? '<i class="bi ' . adminUiEscape(adminUiClass((string) $action['icon'])) . '"></i> '
-                : '';
-            $html .= '<' . $tag
-                . ($href !== '' ? ' href="' . adminUiEscape($href) . '"' : ' type="button"')
-                . ' class="' . adminUiEscape($buttonClass) . '"'
-                . adminUiAttrs((array) ($action['attrs'] ?? [])) . '>'
-                . $iconHtml . adminUiEscape($label)
-                . '</' . $tag . '>';
-        }
-        $html .= '</div>';
-    }
-
-    $html .= '</div>';
-    return $html;
-}
-
 function adminRenderBulkActionBarOpen(string $class = '', array $attrs = []): string
 {
     $barClass = trim(adminUiClass('admin-bulk-action-bar ui-panel ' . $class));
@@ -1225,7 +1168,6 @@ function adminRenderLogToolbarClose(): string
  */
 function adminRenderLogEmptyState(array $options): string
 {
-    $options['class'] = trim('admin-log-empty ' . (string) ($options['class'] ?? ''));
     return adminRenderEmptyState($options);
 }
 

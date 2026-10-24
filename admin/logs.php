@@ -595,7 +595,9 @@ if ($pdo && $view === 'cron') {
             sort($cronJobs);
         } catch (Throwable $jobListException) {
             $jobMap = [];
-            $bufferedAttr = defined('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY') ? PDO::MYSQL_ATTR_USE_BUFFERED_QUERY : null;
+            $bufferedAttr = defined('Pdo\\Mysql::ATTR_USE_BUFFERED_QUERY')
+                ? \Pdo\Mysql::ATTR_USE_BUFFERED_QUERY
+                : (defined('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY') ? PDO::MYSQL_ATTR_USE_BUFFERED_QUERY : null);
             $previousBuffered = null;
             if ($bufferedAttr !== null) {
                 $previousBuffered = $pdo->getAttribute($bufferedAttr);
@@ -649,8 +651,8 @@ if ($pdo && $view === 'cron') {
         $params = [];
 
         if ($cronSearch !== '') {
-            $where[] = '(message LIKE :cron_search OR context_json LIKE :cron_search OR ip_address LIKE :cron_search)';
-            $params['cron_search'] = '%' . $cronSearch . '%';
+            $where[] = '(message LIKE :cron_search_message OR context_json LIKE :cron_search_context OR ip_address LIKE :cron_search_ip)';
+            $params += array_fill_keys(['cron_search_message', 'cron_search_context', 'cron_search_ip'], '%' . $cronSearch . '%');
         }
 
         if ($cronJob !== '') {
@@ -786,8 +788,11 @@ if ($pdo && $view === 'system_notifications') {
             $params = [];
 
             if ($systemNotificationSearch !== '') {
-                $where[] = '(n.title LIKE :system_q OR n.message LIKE :system_q OR n.link LIKE :system_q' . ($usersJoin !== '' ? ' OR u.username LIKE :system_q OR u.email LIKE :system_q' : '') . ')';
-                $params['system_q'] = '%' . $systemNotificationSearch . '%';
+                $where[] = '(n.title LIKE :system_q_title OR n.message LIKE :system_q_message OR n.link LIKE :system_q_link' . ($usersJoin !== '' ? ' OR u.username LIKE :system_q_user OR u.email LIKE :system_q_email' : '') . ')';
+                $params += array_fill_keys(['system_q_title', 'system_q_message', 'system_q_link'], '%' . $systemNotificationSearch . '%');
+                if ($usersJoin !== '') {
+                    $params += array_fill_keys(['system_q_user', 'system_q_email'], '%' . $systemNotificationSearch . '%');
+                }
             }
 
             if ($systemNotificationTarget === 'global') {
@@ -1144,7 +1149,6 @@ require_once __DIR__ . '/header.php';
                     'title' => 'İşlem kaydı bulunamadı',
                     'description' => $activityActionQuery !== '' ? 'Seçili filtrelerle eşleşen denetim kaydı yok.' : 'Henüz kritik veya geri alınabilir admin işlemi kaydedilmedi.',
                     'pro' => true,
-                    'class' => 'ui-admin-empty-audit',
                     'actions' => $activityActionQuery !== '' ? [
                         ['href' => 'logs.php', 'label' => 'Filtreleri Sıfırla', 'icon' => 'bi-x-circle', 'class' => 'ui-admin-btn-sm logs-filter-reset'],
                     ] : [],

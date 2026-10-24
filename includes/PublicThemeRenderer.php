@@ -3054,10 +3054,10 @@ final class PublicThemeRenderer
         }
 
         if (!$enabled) {
-            return '<div class="topic-toast-container is-hidden ui-panel__foot" id="toastContainer"></div>';
+            return '<div class="topic-toast-container is-hidden" id="toastContainer"></div>';
         }
 
-        return '<div class="topic-toast-container toast-pos-' . htmlspecialchars($position, ENT_QUOTES, 'UTF-8') . ' ui-panel__foot" id="toastContainer" aria-live="polite" aria-atomic="true"'
+        return '<div class="topic-toast-container toast-pos-' . htmlspecialchars($position, ENT_QUOTES, 'UTF-8') . '" id="toastContainer" aria-live="polite" aria-atomic="true"'
             . ' data-toast-duration="' . $duration . '"'
             . ' data-toast-theme="' . htmlspecialchars($theme, ENT_QUOTES, 'UTF-8') . '"'
             . ' data-toast-animation="' . htmlspecialchars($animation, ENT_QUOTES, 'UTF-8') . '"'

@@ -37,7 +37,7 @@ function cmModerationEmpty(message) {
     if (window.adminModerationHistory && typeof window.adminModerationHistory.empty === 'function') {
         return window.adminModerationHistory.empty(message);
     }
-    return '<div class="ui-admin-moderation-empty">' + cmEscHtml(message) + '</div>';
+    return window.adminEmptyState.render({ size: 'inline', icon: 'bi-shield-check', title: message, description: '' });
 }
 
 function cmModerationLoading(message) {
@@ -201,7 +201,7 @@ function closeCommentUserInsightMenu(menu) {
 }
 
 function commentInsightEmpty(message) {
-    return '<div class="comments-manager-user-insight-empty">' + cmEscHtml(message) + '</div>';
+    return window.adminEmptyState.render({ size: 'inline', icon: 'bi-shield-check', title: message, description: '' });
 }
 
 function commentInsightRestrictionRows(rows) {

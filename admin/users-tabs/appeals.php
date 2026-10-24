@@ -181,7 +181,7 @@ $excerpt = static function (mixed $message, int $limit = 220): string {
                                 <span><?= count($selectedMessages) ?> kayit</span>
                             </div>
                             <?php if (empty($selectedMessages)): ?>
-                                <div class="appeals-admin-empty-inline">Mesaj gecmisi yok.</div>
+                                <?= adminRenderEmptyState(['size' => 'inline', 'icon' => 'bi-chat-dots', 'title' => 'Mesaj geçmişi yok', 'description' => '']) ?>
                             <?php else: ?>
                                 <div class="user-appeal-thread appeals-admin-thread">
                                     <?php foreach ($selectedMessages as $msg): ?>

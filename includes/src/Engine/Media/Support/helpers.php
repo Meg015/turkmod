@@ -141,7 +141,7 @@ function mediaDetectMimeType(string $filePath): ?string
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         if ($finfo !== false) {
             $mime = finfo_file($finfo, $filePath);
-            finfo_close($finfo);
+            unset($finfo);
         }
     } elseif (function_exists('mime_content_type')) {
         $mime = mime_content_type($filePath);
@@ -589,7 +589,7 @@ function mediaProcessImage(string $filePath, array $imageSettings): array
 
     $result['final_size'] = filesize($filePath);
 
-    imagedestroy($image);
+    unset($image);
 
     // 6) Thumbnail (kayıtlı dosyadan oluştur)
     $thumbEnabled = ($imageSettings['thumbnail_enabled'] ?? '1') === '1';
@@ -625,7 +625,7 @@ function mediaResizeImage(\GdImage $image, int $origW, int $origH, int $maxW, in
     imagealphablending($resized, false);
     imagesavealpha($resized, true);
     imagecopyresampled($resized, $image, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
-    imagedestroy($image);
+    unset($image);
 
     return $resized;
 }
@@ -763,8 +763,7 @@ function mediaCreateThumbnail(string $sourcePath, array $settings): ?string
         mediaSaveImage($thumb, $thumbPath, $ext, $settings);
     }
 
-    imagedestroy($image);
-    imagedestroy($thumb);
+    unset($image, $thumb);
 
     return $thumbPath;
 }

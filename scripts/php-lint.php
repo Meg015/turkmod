@@ -37,8 +37,9 @@ foreach ($files as $file) {
     $output = [];
     $exitCode = 0;
     exec(escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($file) . ' 2>&1', $output, $exitCode);
-    if ($exitCode !== 0) {
-        $failed[$file] = implode(PHP_EOL, $output);
+    $diagnostics = implode(PHP_EOL, $output);
+    if ($exitCode !== 0 || preg_match('/^(?:PHP )?(?:Deprecated|Warning|Fatal error|Parse error):/mi', $diagnostics)) {
+        $failed[$file] = $diagnostics;
     }
 }
 

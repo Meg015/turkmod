@@ -28,7 +28,7 @@ function moderationContextEmpty(message) {
     if (window.adminModerationHistory && typeof window.adminModerationHistory.empty === 'function') {
         return window.adminModerationHistory.empty(message);
     }
-    return '<div class="ui-admin-moderation-empty">' + escHtml(message) + '</div>';
+    return window.adminEmptyState.render({ size: 'inline', icon: 'bi-shield-check', title: message, description: '' });
 }
 
 function moderationContextLoading(message) {

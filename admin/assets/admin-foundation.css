@@ -394,69 +394,6 @@
     min-width: 170px;
 }
 
-.ui-admin-empty-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 16px;
-}
-
-.ui-admin-empty {
-    display: grid;
-    place-items: center;
-    gap: .7rem;
-    min-height: 10rem;
-    padding: 1.5rem;
-    border: 1px dashed var(--ui-admin-border);
-    border-radius: var(--ui-admin-ui-radius, 8px);
-    background: var(--ui-admin-surface-alt);
-    color: var(--ui-admin-text-muted);
-    text-align: center;
-}
-
-.ui-admin-empty-icon {
-    display: grid;
-    place-items: center;
-    width: 3rem;
-    height: 3rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--ui-admin-primary) 10%, transparent);
-    color: var(--ui-admin-primary);
-}
-
-.ui-admin-empty-icon i {
-    font-size: 1.1rem;
-}
-
-.ui-admin-empty-title {
-    margin: 0;
-    color: var(--ui-admin-text);
-    font-size: 1rem;
-    font-weight: 800;
-}
-
-.ui-admin-empty-desc {
-    margin: 0;
-    max-width: 42rem;
-    line-height: 1.55;
-}
-
-.ui-admin-empty-meta {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: .5rem .75rem;
-    color: var(--ui-admin-text-secondary);
-    font-size: .8rem;
-}
-
-.ui-admin-empty-meta span {
-    display: inline-flex;
-    align-items: center;
-    gap: .35rem;
-}
-
 .admin-filter-toolbar {
     gap: 0;
 }
@@ -531,14 +468,12 @@
 }
 
 .ui-admin-btn.is-ui-loading,
-.topics-bulk-apply.is-ui-loading,
-.topic-health-scan-actions .is-loading {
+.topics-bulk-apply.is-ui-loading {
     cursor: progress !important;
 }
 
 .ui-admin-btn.is-ui-loading i,
-.topics-bulk-apply.is-ui-loading i,
-.topic-health-scan-actions .is-loading i {
+.topics-bulk-apply.is-ui-loading i {
     animation: ui-admin-foundation-spin .75s linear infinite;
 }
 

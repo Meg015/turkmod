@@ -141,7 +141,7 @@ if (!function_exists("validateInteger")) {
     /**
      * Validate and sanitize integer input
      */
-    function validateInteger($value, int $min = null, int $max = null): ?int
+    function validateInteger($value, ?int $min = null, ?int $max = null): ?int
     {
         if ($value === null || $value === "") {
             return null;

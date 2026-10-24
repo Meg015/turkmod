@@ -81,10 +81,10 @@ if ($selectedRevision) {
 
 require_once __DIR__ . '/header.php';
 ?>
-<div class="ui-admin-page-actions ui-admin-page-actions-row">
-    <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="edit.php?id=<?= (int)$topicId ?>"><i class="bi bi-pencil"></i> Duzenlemeye Don</a>
-    <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="topics.php"><i class="bi bi-files"></i> Konular</a>
-</div>
+<?= adminRenderPageHero('bi-clock-history', 'İçerik geçmişi', $pageTitle, 'Kayıtlı konu sürümlerini karşılaştırın ve önceki değişiklikleri inceleyin.', [
+    ['href' => 'edit.php?id=' . (int) $topicId, 'label' => 'Düzenlemeye dön', 'icon' => 'bi-pencil'],
+    ['href' => 'topics.php', 'label' => 'Konular', 'icon' => 'bi-files'],
+]) ?>
 
 <?= adminRenderPanelOpen([
     'tag' => 'div',

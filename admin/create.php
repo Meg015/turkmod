@@ -139,6 +139,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 $errorMsg = get_flash('error');
 require_once __DIR__ . '/header.php';
 ?>
+<?= adminRenderPageHero('bi-plus-circle', 'İçerik yönetimi', $pageTitle, 'Yeni içeriğin başlık, görsel, kategori ve yayın bilgilerini hazırlayın.', [
+    ['href' => 'topics.php', 'label' => 'Konulara dön', 'icon' => 'bi-arrow-left'],
+]) ?>
 <?= adminRenderPanelOpen([
     'tag' => 'div',
     'icon' => 'bi-plus-circle',

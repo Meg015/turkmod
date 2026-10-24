@@ -223,7 +223,7 @@ function adminQualityProbeHttpUrl(string $url, int $maxRedirects = 3): ?int
         curl_exec($ch);
         $statusCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $redirectUrl = (string)curl_getinfo($ch, CURLINFO_REDIRECT_URL);
-        curl_close($ch);
+        unset($ch);
 
         if ($statusCode < 300 || $statusCode >= 400 || $redirectUrl === '') {
             return $statusCode;
@@ -353,7 +353,7 @@ function adminQualityProbeUrlDetailed(string $url, string $method = 'HEAD', int 
         $contentType = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         $contentLength = curl_getinfo($ch, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
         $error = curl_errno($ch) ? curl_error($ch) : '';
-        curl_close($ch);
+        unset($ch);
 
         if ($method === 'GET' && strlen($body) >= $bodyBytes) {
             $error = '';

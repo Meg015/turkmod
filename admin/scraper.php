@@ -223,6 +223,7 @@ require_once __DIR__ . '/header.php';
 ?>
 <!-- Grid stretch ve boşluk sorunlarını tamamen çözmek için tek bir sarmalayıcı -->
 <div class="scraper-full-layout">
+    <?= adminRenderPageHero('bi-cloud-download', 'İçerik botu', $pageTitle, 'Kaynak siteleri, içerik eşlemelerini ve bot çalışmalarını yönetin.') ?>
     <div class="bot-tabs-wrapper">
         <a class="bot-tab scraper-tab-link active" data-tab="dashboard"><i class="bi bi-speedometer2"></i>Özet</a>
         <a class="bot-tab scraper-tab-link" data-tab="sites"><i class="bi bi-globe"></i>Siteler</a>
@@ -845,15 +846,7 @@ require_once __DIR__ . '/header.php';
                         </tr>
                         <?php endforeach; ?>
                         <?php if(!empty($imports)): ?>
-                        <tr class="scraper-filter-empty-row" data-log-empty="filter" hidden>
-                            <td colspan="7">
-                                <div class="scraper-empty-table">
-                                    <i class="bi bi-filter-circle"></i>
-                                    <strong>Filtreye uygun log bulunamadı</strong>
-                                    <span data-log-empty-label>Bu durumda içerik yok</span>
-                                </div>
-                            </td>
-                        </tr>
+                        <?= adminRenderTableEmptyRow(7, ['icon' => 'bi-filter-circle', 'title' => 'Filtreye uygun log bulunamadı', 'description' => 'Bu durumda içerik yok', 'description_attrs' => ['data-log-empty-label' => true]], ['class' => 'scraper-filter-empty-row', 'attrs' => ['data-log-empty' => 'filter', 'hidden' => true]]) ?>
                         <?php endif; ?>
                         <?php if(empty($imports)): ?>
                         <?= adminRenderTableEmptyRow(7, [

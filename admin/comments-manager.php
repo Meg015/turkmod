@@ -1038,20 +1038,13 @@ require_once __DIR__ . '/header.php';
 <div class="comments-manager">
     <?= adminRenderFlashAlerts($successMsg, $errorMsg) ?>
 
+    <?= adminRenderPageHero('bi-chat-left-text', 'Yorumlar', 'Yorum Yönetimi', 'Konu ve yanıt bağlamıyla yorumları inceleyin.', [
+        ['href' => '?' . http_build_query($commentsManagerFilterQuery(['status' => 'pending', 'page' => null])), 'label' => 'Bekleyenler', 'icon' => 'bi-hourglass-split'],
+        ['href' => '?' . http_build_query($commentsManagerFilterQuery(['status' => 'deleted', 'page' => null])), 'label' => 'Silinenler', 'icon' => 'bi-trash'],
+    ]) ?>
+
     <div class="comments-manager-shell">
         <aside class="comments-manager-sidebar">
-            <section class="comments-manager-top ui-card">
-                <div class="comments-manager-top__copy">
-                    <span class="comments-manager-kicker"><i class="bi bi-chat-left-text"></i> Yorumlar</span>
-                    <h2>Yorum Yönetimi</h2>
-                    <p>Konu ve yanıt bağlamıyla yorumları inceleyin.</p>
-                </div>
-                <div class="comments-manager-top__actions">
-                    <a href="?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['status' => 'pending', 'page' => null]))) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" aria-label="Bekleyen yorumlar" title="Bekleyen yorumlar"><i class="bi bi-hourglass-split" aria-hidden="true"></i><span class="visually-hidden">Bekleyenler</span></a>
-                    <a href="?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['status' => 'deleted', 'page' => null]))) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" aria-label="Silinen yorumlar" title="Silinen yorumlar"><i class="bi bi-trash" aria-hidden="true"></i><span class="visually-hidden">Silinenler</span></a>
-                </div>
-            </section>
-
             <section class="comments-manager-facet ui-card">
                 <div class="comments-manager-section-head">
                     <i class="bi bi-funnel"></i>
@@ -1140,7 +1133,6 @@ require_once __DIR__ . '/header.php';
                     'tone' => 'info',
                     'title' => 'Yorum Bulunamadı',
                     'description' => 'Seçili filtrelere uygun yorum bulunmuyor.',
-                    'class' => 'ui-comment-manager-empty comments-manager-empty',
                 ]) ?>
             <?php else: ?>
                 <form method="post" action="comments-manager.php?<?= htmlspecialchars(http_build_query($commentsManagerFilterQuery(['page' => $page]))) ?>" id="commentsBulkForm" class="comments-manager-bulk-form" data-comments-bulk-form>

@@ -140,13 +140,13 @@ require __DIR__ . '/../header.php';
 
     <!-- HEADER -->
     <div class="ui-panel">
-        <div class="ui-panel__head ui-admin-card-header-actions dbs-hero-head">
-            <div>
+        <div class="ui-panel__head ui-admin-card-header-actions dbs-hero-head admin-page-heading">
+            <div class="admin-page-heading__copy">
                 <span class="ui-admin-badge ui-admin-badge-<?= $overallBadgeClass ?>"><i class="bi <?= dbsIcon($overall) ?>"></i> <?= $overallBadgeText ?></span>
                 <h1 class="ui-admin-card-title dbs-hero-title">Veritabanı Senkronizasyonu</h1>
                 <p class="dbs-hero-copy">Sayfa açıldığında sadece kontrol yapılır. Migration uygulamak için butonu kullanın.</p>
             </div>
-            <div class="dbs-hero-actions">
+            <div class="dbs-hero-actions admin-page-heading__actions">
                 <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="index.php"><i class="bi bi-arrow-clockwise"></i> Yenile</a>
                 <form method="post" action="index.php">
                     <?= csrf_field() ?>
@@ -227,7 +227,6 @@ require __DIR__ . '/../header.php';
                 'tone' => 'info',
                 'title' => 'Modül bulunamadı',
                 'description' => 'Migration dizini olan aktif modül bulunamadı.',
-                'class' => 'database-sync-empty',
             ]) ?>
             <?php else: ?>
             <?= adminRenderTableOpen(['Modül', 'Durum', 'Migrationlar'], [
@@ -319,7 +318,6 @@ require __DIR__ . '/../header.php';
                 'tone' => 'info',
                 'title' => 'Root migration bulunamadı',
                 'description' => 'database/migrations dizininde dosya görünmüyor.',
-                'class' => 'database-sync-empty',
             ]) ?>
             <?php else: ?>
             <?= adminRenderTableOpen(['Dosya', 'Tür', 'Durum'], [

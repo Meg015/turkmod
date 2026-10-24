@@ -26,7 +26,7 @@ function adminComplaintsUrl(string $tab, array $params = []): string
     $query = ['tab' => $tab];
     foreach ($allowed as $key) {
         $value = $params[$key] ?? null;
-        if ($value === null || $value === '') {
+        if ($value === null || ($value === '' && $key !== 'status')) {
             continue;
         }
         $query[$key] = (string) $value;
@@ -326,8 +326,8 @@ $topicActiveCount = $topicStatusCounts['open'] + $topicStatusCounts['reviewing']
 $userActiveCount = $userStatusCounts['open'] + $userStatusCounts['reviewing'];
 $totalActiveCount = $topicActiveCount + $userActiveCount;
 
-$currentStatus = (string) ($_GET['status'] ?? '');
-$currentStatus = in_array($currentStatus, $allowedStatuses, true) ? $currentStatus : '';
+$currentStatus = is_string($_GET['status'] ?? null) ? $_GET['status'] : 'open';
+$currentStatus = $currentStatus === '' || in_array($currentStatus, $allowedStatuses, true) ? $currentStatus : 'open';
 $filters = [
     'q' => trim((string) ($_GET['q'] ?? '')),
     'reason' => trim((string) ($_GET['reason'] ?? '')),
@@ -341,7 +341,7 @@ $returnQuery = http_build_query(array_filter([
     'reason' => $filters['reason'],
     'date_from' => $filters['date_from'],
     'date_to' => $filters['date_to'],
-], static fn ($value): bool => $value !== '' && $value !== null));
+], static fn ($value, $key): bool => $key === 'status' || ($value !== '' && $value !== null), ARRAY_FILTER_USE_BOTH));
 
 if ($activeTab === 'users') {
     $reasonLabels = adminComplaintsReasonLabels('users');
@@ -489,7 +489,7 @@ require_once __DIR__ . '/header.php';
 
     <?php
     $complaintsSummaryCards = [[
-        'href' => adminComplaintsUrl($activeTab),
+        'href' => adminComplaintsUrl($activeTab, ['status' => '']),
         'tone' => 'info',
         'icon' => $scopeIcon,
         'label' => 'Tüm kayıtlar',
@@ -539,7 +539,7 @@ require_once __DIR__ . '/header.php';
                     <div>
                         <label class="ui-admin-form-label" for="report-status-filter">Durum</label>
                         <select id="report-status-filter" name="status" class="ui-admin-form-select">
-                            <option value="">Tüm kayıtlar</option>
+                            <option value="" <?= $currentStatus === '' ? 'selected' : '' ?>>Tüm kayıtlar</option>
                             <?php foreach ($statusLabels as $key => $meta): ?>
                                 <option value="<?= htmlspecialchars($key) ?>" <?= $currentStatus === $key ? 'selected' : '' ?>><?= htmlspecialchars($meta[0]) ?></option>
                             <?php endforeach; ?>
@@ -581,7 +581,6 @@ require_once __DIR__ . '/header.php';
                 'tone' => 'info',
                 'title' => 'Bu filtrede kayıt yok.',
                 'description' => 'Yeni bildirimler geldiğinde burada listelenecek.',
-                'class' => 'complaints-empty',
             ]) ?>
         <?php else: ?>
             <form id="bulkReportsForm" method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-bulk-bar admin-bulk-action-bar">
@@ -810,7 +809,7 @@ require_once __DIR__ . '/header.php';
                                 <div class="complaints-modal-panel" data-complaints-modal-panel="history" hidden>
                                     <div class="complaints-history">
                                         <?php if ($events === []): ?>
-                                            <div class="complaints-history-item"><span>Henüz bir geçmiş kaydı bulunmuyor.</span></div>
+                                            <?= adminRenderEmptyState(['size' => 'inline', 'icon' => 'bi-clock-history', 'title' => 'Geçmiş kaydı yok', 'description' => '']) ?>
                                         <?php else: ?>
                                             <?php foreach ($events as $event): ?>
                                                 <div class="complaints-history-item">

@@ -304,7 +304,7 @@ $renderTaskForm = static function (array $task, string $panelKey, bool $isActive
 <div class="ui-events-admin-page ui-events-admin-console ui-section" data-ui-events-admin-page="tasks">
     <?php eventsAdminTabs($baseUri ?? ''); ?>
     <?php eventsAdminSetupNotice(eventsTablesReady($pdo ?? null)); ?>
-    <?php if (!$ready): ?><div class="ui-events-empty ui-events-setup ui-empty">Gorev tablolari icin <code>database/schema.sql</code> kurulumu tamamlanmali.</div><?php endif; ?>
+    <?php if (!$ready): ?><?= adminRenderEmptyState(['size' => 'compact', 'icon' => 'bi-database-gear', 'tone' => 'warning', 'title' => 'Görev tabloları hazır değil', 'description' => 'Veritabanı senkronizasyonunu tamamladıktan sonra görevleri yönetebilirsiniz.']) ?><?php endif; ?>
     <?php
     eventsAdminPageHero(
         'Görev Yönetimi',

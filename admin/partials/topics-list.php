@@ -6,15 +6,30 @@
 </form>
 
 <?php
-$hasTopicFilters = $search !== '' || $statusFilter !== '' || $viewFilter === 'deleted' || $sortFilter !== 'newest';
-$topicQuery = ['q' => $search, 'sort' => $sortFilter];
+$hasTopicFilters = $search !== '' || $categoryFilter > 0 || $statusFilter !== '' || $viewFilter === 'deleted' || $sortFilter !== 'newest';
+$topicQuery = ['q' => $search, 'sort' => $sortFilter, 'category' => $categoryFilter > 0 ? $categoryFilter : ''];
 $topicQuery = array_filter($topicQuery, static fn ($value): bool => $value !== '');
 $topicHref = static function (array $changes = []) use ($topicQuery): string {
     $query = array_merge($topicQuery, $changes);
     $query = array_filter($query, static fn ($value): bool => $value !== '' && $value !== null);
     return 'topics.php' . ($query ? '?' . http_build_query($query) : '');
 };
+$topicSummaryItems = [
+    ['key' => 'total', 'label' => 'Toplam konu', 'icon' => 'bi-files', 'status' => ''],
+    ['key' => 'published', 'label' => 'Yayında', 'icon' => 'bi-check-circle', 'status' => 'published'],
+    ['key' => 'draft', 'label' => 'Taslak', 'icon' => 'bi-file-earmark-text', 'status' => 'draft'],
+    ['key' => 'revision', 'label' => 'Revizyon', 'icon' => 'bi-arrow-counterclockwise', 'status' => 'revision'],
+];
 ?>
+<nav class="topics-summary" aria-label="Konu özeti">
+    <?php foreach ($topicSummaryItems as $summaryItem): ?>
+        <?php $summaryActive = $viewFilter !== 'deleted' && $statusFilter === $summaryItem['status']; ?>
+        <a class="topics-summary-item<?= $summaryActive ? ' is-active' : '' ?>" href="<?= htmlspecialchars($topicHref(['status' => $summaryItem['status'], 'view' => 'active']), ENT_QUOTES, 'UTF-8') ?>"<?= $summaryActive ? ' aria-current="page"' : '' ?>>
+            <span class="topics-summary-icon"><i class="bi <?= $summaryItem['icon'] ?>" aria-hidden="true"></i></span>
+            <span class="topics-summary-copy"><strong><?= number_format((int) $stats[$summaryItem['key']], 0, ',', '.') ?></strong><span><?= $summaryItem['label'] ?></span></span>
+        </a>
+    <?php endforeach; ?>
+</nav>
 <section class="topics-list-shell" aria-label="Konu listesi">
     <div class="topics-toolbar">
         <form method="get" action="topics.php" class="topics-filter-form">
@@ -24,6 +39,15 @@ $topicHref = static function (array $changes = []) use ($topicQuery): string {
                 <input type="search" name="q" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" placeholder="Başlık, slug veya kategori ara...">
             </label>
             <input type="hidden" name="view" value="<?= htmlspecialchars($viewFilter, ENT_QUOTES, 'UTF-8') ?>">
+            <label class="topics-select-field topics-category-field">
+                <span class="topics-sr-only">Kategori</span>
+                <select name="category">
+                    <option value="">Tüm kategoriler</option>
+                    <?php foreach ($topicCategories as $topicCategory): ?>
+                        <option value="<?= (int) $topicCategory['id'] ?>" <?= $categoryFilter === (int) $topicCategory['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $topicCategory['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
             <label class="topics-select-field">
                 <span class="topics-sr-only">Durum</span>
                 <select name="status">
@@ -50,6 +74,7 @@ $topicHref = static function (array $changes = []) use ($topicQuery): string {
         <a href="<?= htmlspecialchars($topicHref(['status' => '', 'view' => 'active', 'page' => '']), ENT_QUOTES, 'UTF-8') ?>" class="<?= $viewFilter !== 'deleted' && $statusFilter === '' ? 'is-active' : '' ?>">Tümü <span><?= number_format((int) $stats['total'], 0, ',', '.') ?></span></a>
         <a href="<?= htmlspecialchars($topicHref(['status' => 'published', 'view' => 'active', 'page' => '']), ENT_QUOTES, 'UTF-8') ?>" class="<?= $viewFilter !== 'deleted' && $statusFilter === 'published' ? 'is-active' : '' ?>">Yayında <span><?= number_format((int) $stats['published'], 0, ',', '.') ?></span></a>
         <a href="<?= htmlspecialchars($topicHref(['status' => 'draft', 'view' => 'active', 'page' => '']), ENT_QUOTES, 'UTF-8') ?>" class="<?= $viewFilter !== 'deleted' && $statusFilter === 'draft' ? 'is-active' : '' ?>">Taslak <span><?= number_format((int) $stats['draft'], 0, ',', '.') ?></span></a>
+        <a href="<?= htmlspecialchars($topicHref(['status' => 'revision', 'view' => 'active', 'page' => '']), ENT_QUOTES, 'UTF-8') ?>" class="<?= $viewFilter !== 'deleted' && $statusFilter === 'revision' ? 'is-active' : '' ?>">Revizyon <span><?= number_format((int) $stats['revision'], 0, ',', '.') ?></span></a>
         <a href="<?= htmlspecialchars($topicHref(['status' => '', 'view' => 'deleted', 'page' => '']), ENT_QUOTES, 'UTF-8') ?>" class="<?= $viewFilter === 'deleted' ? 'is-active is-danger' : '' ?>">Çöp kutusu <span><?= number_format((int) $stats['deleted'], 0, ',', '.') ?></span></a>
     </nav>
 
@@ -214,13 +239,13 @@ $topicHref = static function (array $changes = []) use ($topicQuery): string {
                                         <button type="submit" class="topic-action-item"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Geri yükle</button>
                                     </form>
                                 <?php endif; ?>
-                                    </div>
                                 <form action="<?= $baseUri ?>/admin/delete.php" method="post" class="ui-admin-inline-form-block">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
                                     <?php if ($isDeleted): ?><input type="hidden" name="permanent" value="1"><?php endif; ?>
-                                    <button type="submit" class="btn-icon-minimal danger" title="<?= $isDeleted ? 'Kalıcı sil' : 'Çöpe taşı' ?>" aria-label="<?= $isDeleted ? 'Kalıcı sil' : 'Çöpe taşı' ?>"><i class="bi <?= $isDeleted ? 'bi-fire' : 'bi-trash' ?>"></i></button>
+                                    <button type="submit" class="topic-action-item is-danger"><i class="bi <?= $isDeleted ? 'bi-fire' : 'bi-trash' ?>" aria-hidden="true"></i><?= $isDeleted ? 'Kalıcı sil' : 'Çöpe taşı' ?></button>
                                 </form>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -245,3 +270,4 @@ $topicHref = static function (array $changes = []) use ($topicQuery): string {
 <?php endif; ?>
 </footer>
 </section>
+<div class="topics-list-help"><span><i class="bi bi-check2-all" aria-hidden="true"></i>Toplu işlemler için konuları seçebilirsin.</span><span>Sayfa başına <?= number_format($perPage, 0, ',', '.') ?> konu</span></div>

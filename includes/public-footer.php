@@ -311,7 +311,7 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
     ?>
 
     <?php if ($_tEnabled): ?>
-        <div class="topic-toast-container toast-pos-<?= htmlspecialchars($_tPos) ?> ui-panel__foot" id="toastContainer" aria-live="polite" aria-atomic="true"
+        <div class="topic-toast-container toast-pos-<?= htmlspecialchars($_tPos) ?>" id="toastContainer" aria-live="polite" aria-atomic="true"
              data-toast-duration="<?= $_tDuration ?>"
              data-toast-theme="<?= htmlspecialchars($_tTheme) ?>"
              data-toast-animation="<?= htmlspecialchars($_tAnim) ?>"
@@ -329,7 +329,7 @@ $__themeManager = $GLOBALS["themeManager"] ?? null;
              data-toast-warning="<?= htmlspecialchars((string) $fWarning) ?>"
              data-toast-info="<?= htmlspecialchars((string) $fInfo) ?>"></div>
     <?php else: ?>
-        <div class="topic-toast-container is-hidden ui-panel__foot" id="toastContainer"></div>
+        <div class="topic-toast-container is-hidden" id="toastContainer"></div>
     <?php endif; ?>
 
     <?php if (function_exists('renderPopupAnnouncementHtml')): ?>

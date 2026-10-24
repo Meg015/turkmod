@@ -108,8 +108,8 @@ if ($schemaReady) {
 require __DIR__ . '/header.php';
 ?>
 <div class="static-pages-shell">
-    <div class="static-pages-commandbar">
-        <div class="static-pages-commandbar-copy">
+    <div class="static-pages-commandbar admin-page-heading">
+        <div class="static-pages-commandbar-copy admin-page-heading__copy">
             <h2><?= $showForm ? htmlspecialchars((string) (($editingPage['id'] ?? 0) > 0 ? 'Sayfayı düzenle' : 'Yeni sayfa')) : 'Kurumsal ve yasal içerikler' ?></h2>
             <p>Yayın, SEO ve footer görünürlüğünü tek yerden yönetin.</p>
         </div>
@@ -236,7 +236,7 @@ require __DIR__ . '/header.php';
                 <thead><tr><th>Sayfa</th><th>Durum</th><th>Footer</th><th>Güncelleme</th><th><span class="visually-hidden">İşlemler</span></th></tr></thead>
                 <tbody>
                 <?php if ($list['items'] === []): ?>
-                    <tr><td colspan="5"><div class="ui-admin-empty-state"><i class="bi bi-file-earmark-text"></i><strong>Sayfa bulunamadı</strong><span>Filtreyi değiştirin veya yeni bir sayfa oluşturun.</span></div></td></tr>
+                    <?= adminRenderTableEmptyRow(5, ['icon' => 'bi-file-earmark-text', 'title' => 'Sayfa bulunamadı', 'description' => 'Filtreyi değiştirin veya yeni bir sayfa oluşturun.']) ?>
                 <?php endif; ?>
                 <?php foreach ($list['items'] as $page): ?>
                     <?php $status = (string) ($page['status'] ?? 'draft'); ?>

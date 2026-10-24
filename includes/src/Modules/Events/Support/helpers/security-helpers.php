@@ -225,7 +225,7 @@ function eventsSanitizeFileUpload($file, $allowedTypes = ['image/jpeg', 'image/p
     // Verify file is actually an image
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mimeType = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
+    unset($finfo);
 
     if (!in_array($mimeType, $allowedTypes)) {
         return false;

@@ -307,7 +307,7 @@ function profileUploadAvatar(PDO $pdo, int $userId, array $file, string $uploadB
 
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mime = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
+    unset($finfo);
     if (!str_starts_with($mime, 'image/')) return 'Geçersiz dosya türü.';
 
     $stmt = $pdo->prepare("SELECT username, avatar FROM users WHERE id = :id LIMIT 1");

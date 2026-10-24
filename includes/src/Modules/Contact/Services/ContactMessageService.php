@@ -101,8 +101,8 @@ final class ContactMessageService
         }
 
         if ($query !== '') {
-            $where[] = '(m.sender_name LIKE :query OR m.sender_email LIKE :query OR m.subject LIKE :query OR m.message LIKE :query OR m.category_name_snapshot LIKE :query)';
-            $params['query'] = '%' . $query . '%';
+            $where[] = '(m.sender_name LIKE :query_name OR m.sender_email LIKE :query_email OR m.subject LIKE :query_subject OR m.message LIKE :query_message OR m.category_name_snapshot LIKE :query_category)';
+            $params += array_fill_keys(['query_name', 'query_email', 'query_subject', 'query_message', 'query_category'], '%' . $query . '%');
         }
 
         $whereSql = $where !== [] ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -154,8 +154,8 @@ final class ContactMessageService
         }
 
         if ($query !== '') {
-            $where[] = '(m.sender_name LIKE :query OR m.sender_email LIKE :query OR m.subject LIKE :query OR m.message LIKE :query OR m.category_name_snapshot LIKE :query)';
-            $params['query'] = '%' . $query . '%';
+            $where[] = '(m.sender_name LIKE :query_name OR m.sender_email LIKE :query_email OR m.subject LIKE :query_subject OR m.message LIKE :query_message OR m.category_name_snapshot LIKE :query_category)';
+            $params += array_fill_keys(['query_name', 'query_email', 'query_subject', 'query_message', 'query_category'], '%' . $query . '%');
         }
 
         $whereSql = $where !== [] ? 'WHERE ' . implode(' AND ', $where) : '';

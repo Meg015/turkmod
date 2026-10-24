@@ -356,7 +356,7 @@ class ScraperEngine
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $headerSize = (int)curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-            curl_close($ch);
+            unset($ch);
 
             if (is_string($response) && $httpCode >= 300 && $httpCode < 400 && $this->followRedirects) {
                 $headerBlock = substr($response, 0, $headerSize);
@@ -937,7 +937,7 @@ class ScraperEngine
             $response = curl_exec($ch);
             $curlError = curl_error($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            unset($ch);
 
             if ($httpCode === 200 && $response) {
                 $data = json_decode($response, true);

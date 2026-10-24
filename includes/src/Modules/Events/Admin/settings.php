@@ -249,9 +249,7 @@ $renderSection = static function (string $sectionKey) use ($sections, $renderFie
                 <?php $renderField($field); ?>
             <?php endforeach; ?>
         </div>
-        <div class="ui-events-settings-section-empty" data-ui-events-section-empty hidden>
-            Bu grupta aramayla eşleşen ayar yok.
-        </div>
+        <?= adminRenderEmptyState(['size' => 'inline', 'icon' => 'bi-search', 'title' => 'Bu grupta eşleşen ayar yok', 'description' => '', 'attrs' => ['data-ui-events-section-empty' => true, 'hidden' => true]]) ?>
     </section>
     <?php
 };
@@ -327,10 +325,7 @@ $renderSection = static function (string $sectionKey) use ($sections, $renderFie
             </div>
         <?php endforeach; ?>
 
-        <div class="ui-events-settings-empty-search" data-ui-events-settings-empty-search hidden>
-            <i class="bi bi-search"></i>
-            Arama ile eşleşen ayar bulunamadı.
-        </div>
+        <?= adminRenderEmptyState(['size' => 'compact', 'icon' => 'bi-search', 'title' => 'Aramayla eşleşen ayar bulunamadı', 'description' => 'Farklı bir sözcükle tekrar deneyebilirsiniz.', 'attrs' => ['data-ui-events-settings-empty-search' => true, 'hidden' => true]]) ?>
 
         <div class="ui-events-settings-savebar ui-events-form-toolbar ui-events-settings-footer-savebar ui-events-admin-savebar ui-panel__foot" data-ui-events-dirty-message="Kaydedilmemiş değişiklikler var. Kaydetmeden çıkarsan değişiklikler uygulanmaz.">
             <span data-ui-events-savebar-message><i class="bi bi-info-circle"></i> Kaydettiğin değişiklikler kullanıcı ekranlarına ve etkinlik işlemlerine hemen uygulanır.</span>

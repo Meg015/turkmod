@@ -642,8 +642,8 @@ function healthApplicationErrorFeed(
     $params = [];
 
     if ($search !== '') {
-        $where[] = "(message LIKE :search OR channel LIKE :search OR ip_address LIKE :search)";
-        $params['search'] = '%' . $search . '%';
+        $where[] = "(message LIKE :search_message OR channel LIKE :search_channel OR ip_address LIKE :search_ip)";
+        $params += array_fill_keys(['search_message', 'search_channel', 'search_ip'], '%' . $search . '%');
     }
     if ($normalizedLevel !== '') {
         $where[] = 'level = :level';
@@ -1541,7 +1541,6 @@ require_once __DIR__ . '/header.php';
                 'tone' => 'success',
                 'title' => 'Bu sekmede kontrol bulunamadı.',
                 'description' => 'Yeni kontroller eklendikçe burada listelenecek.',
-                'class' => 'health-empty',
             ]) ?>
         <?php else: ?>
             <?= adminRenderTableOpen([

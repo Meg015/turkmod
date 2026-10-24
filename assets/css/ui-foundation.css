@@ -398,6 +398,16 @@
     gap: .72rem;
     max-width: min(100vw, 28rem);
     padding: clamp(.72rem, 2vw, 1.1rem);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.topic-toast-container:empty {
+    min-height: 0;
+    height: 0;
+    padding: 0 !important;
+    border: 0 !important;
 }
 
 .topic-toast-container .topic-toast {

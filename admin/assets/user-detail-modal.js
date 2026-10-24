@@ -20,7 +20,7 @@
 
     function renderList(rows, renderer) {
         if (!Array.isArray(rows) || rows.length === 0) {
-            return '<p class="ui-admin-muted ui-admin-detail-empty-text ui-empty">Kayıt yok</p>';
+            return window.adminEmptyState.render({ size: 'inline', icon: 'bi-inbox', title: 'Kayıt yok', description: '' });
         }
         return '<ul class="ui-admin-detail-list">' + rows.map(renderer).join('') + '</ul>';
     }

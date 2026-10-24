@@ -136,7 +136,6 @@ function initTopicsEditableRows() {
     };
 
     bindEditableRows('.topics-editable-row[data-topic-edit-url]', 'data-topic-edit-url');
-    bindEditableRows('[data-health-edit-url]', 'data-health-edit-url');
 }
 
 function initTopicsModerationNoteModal() {
@@ -313,177 +312,6 @@ function initTopicsBulkSubmit() {
     });
 }
 
-function initTopicHealthScan() {
-    const shell = document.querySelector('[data-topic-health-shell]');
-    if (!shell) {
-        return;
-    }
-
-    const actions = shell.querySelector('.topic-health-scan-actions');
-    const startButton = document.getElementById('topicHealthScanStart');
-    const progressText = document.getElementById('topicHealthProgressText');
-    const progressPercent = document.getElementById('topicHealthProgressPercent');
-    const progressBar = document.getElementById('topicHealthProgressBar');
-
-    if (!actions || !startButton || !progressText || !progressPercent || !progressBar) {
-        return;
-    }
-
-    const apiUrl = actions.getAttribute('data-health-api') || '';
-    let csrfToken = actions.getAttribute('data-health-token') || '';
-    const batchSize = Math.max(1, Math.min(10, Number(actions.getAttribute('data-health-batch-size') || 3) || 3));
-    const formatter = new Intl.NumberFormat('tr-TR');
-    let isRunning = false;
-    const STATE_KEY = 'topicHealthScanState';
-
-    try {
-        const currentUrl = new URL(window.location.href);
-        if (currentUrl.searchParams.get('health_cleared') === '1') {
-            localStorage.removeItem(STATE_KEY);
-            ['checked', 'ok', 'warning', 'broken', 'download_link_issues', 'image_issues'].forEach(function(key) {
-                document.querySelectorAll('[data-health-summary="' + key + '"]').forEach(function(node) {
-                    node.textContent = formatter.format(0);
-                });
-            });
-            progressText.textContent = 'Sağlık geçmişi temizlendi.';
-            progressPercent.textContent = '0%';
-            progressBar.style.width = '0%';
-            document.querySelectorAll('.topics-admin-tabs .badge').forEach(function(node) {
-                node.remove();
-            });
-            currentUrl.searchParams.delete('health_cleared');
-            currentUrl.searchParams.delete('health_clear_ts');
-            window.history.replaceState({}, '', currentUrl.toString());
-        }
-    } catch (error) {}
-
-    function setProgress(processed, total, message) {
-        const safeTotal = Math.max(0, Number(total) || 0);
-        const safeProcessed = Math.min(Math.max(0, Number(processed) || 0), safeTotal);
-        const percent = safeTotal > 0 ? Math.round((safeProcessed / safeTotal) * 100) : 0;
-
-        progressText.textContent = message || (formatter.format(safeProcessed) + ' / ' + formatter.format(safeTotal) + ' konu kontrol edildi.');
-        progressPercent.textContent = percent + '%';
-        progressBar.style.width = percent + '%';
-    }
-
-    function updateSummary(summary) {
-        if (!summary || typeof summary !== 'object') {
-            return;
-        }
-
-        Object.keys(summary).forEach(function(key) {
-            document.querySelectorAll('[data-health-summary="' + key + '"]').forEach(function(node) {
-                node.textContent = formatter.format(Number(summary[key]) || 0);
-            });
-        });
-    }
-
-    async function runBatch(offset) {
-        const body = new FormData();
-        body.append('_token', csrfToken);
-        body.append('offset', String(offset));
-        body.append('batch_size', String(batchSize));
-
-        const payload = await window.adminFetchJson(apiUrl, {
-            method: 'POST',
-            body: body,
-            credentials: 'same-origin',
-            notifyError: false
-        });
-
-        if (payload._token) {
-            csrfToken = payload._token;
-            actions.setAttribute('data-health-token', csrfToken);
-        }
-        if (!payload.success && !payload.ok) {
-            throw new Error(payload.message || 'Sağlık kontrolü başarısız.');
-        }
-
-        return payload;
-    }
-
-    async function startScan(resumeOffset = 0, resumeTotal = 0) {
-        if (isRunning) {
-            return;
-        }
-
-        isRunning = true;
-        const startButtonState = window.adminAsync ? window.adminAsync.setButtonLoading(startButton, {
-            className: 'is-loading',
-            loadingHtml: '<i class="bi bi-hourglass-split"></i> Kontrol ediliyor'
-        }) : null;
-        
-        let total = resumeTotal || Number(actions.getAttribute('data-health-total') || 0);
-        setProgress(resumeOffset, total, 'Kontrol başlatılıyor...');
-
-        let offset = resumeOffset;
-
-        try {
-            while (true) {
-                localStorage.setItem(STATE_KEY, JSON.stringify({ offset: offset, total: total, isRunning: true }));
-
-                const payload = await runBatch(offset);
-                total = Number(payload.total || total || 0);
-                offset = Number(payload.next_offset || payload.processed || offset + 1);
-
-                if (payload.summary) {
-                    updateSummary(payload.summary);
-                }
-
-                const lastTitle = Array.isArray(payload.results) && payload.results[0] && payload.results[0].title
-                    ? ' Son: ' + payload.results[0].title
-                    : '';
-                setProgress(Number(payload.processed || offset), total, formatter.format(Number(payload.processed || offset)) + ' / ' + formatter.format(total) + ' konu kontrol edildi.' + lastTitle);
-
-                if (payload.done) {
-                    break;
-                }
-            }
-
-            localStorage.removeItem(STATE_KEY);
-            setProgress(total, total, 'Kontrol tamamlandı. Sonuçlar yenileniyor...');
-            adminTopicToast('Konu sağlığı kontrolü tamamlandı.', 'success');
-            setTimeout(function() {
-                window.location.href = 'topics.php?tab=health';
-            }, 900);
-        } catch (error) {
-            localStorage.setItem(STATE_KEY, JSON.stringify({ offset: offset, total: total, isRunning: false }));
-            progressText.textContent = error.message || 'Kontrol sırasında hata oluştu.';
-            adminTopicToast(progressText.textContent, 'error', 8000);
-            if (window.adminAsync) window.adminAsync.restoreButton(startButtonState);
-            startButton.innerHTML = '<i class="bi bi-play-circle"></i> Devam Et';
-            isRunning = false;
-        }
-    }
-
-    function handleStartClick() {
-        try {
-            const savedState = JSON.parse(localStorage.getItem(STATE_KEY));
-            if (savedState && typeof savedState.offset === 'number') {
-                startScan(savedState.offset, savedState.total);
-                return;
-            }
-        } catch(e) {}
-        startScan(0, 0);
-    }
-
-    startButton.addEventListener('click', handleStartClick);
-
-    // Auto resume if page was refreshed while running
-    try {
-        const savedState = JSON.parse(localStorage.getItem(STATE_KEY));
-        if (savedState && savedState.isRunning) {
-            startScan(savedState.offset || 0, savedState.total || 0);
-        } else if (savedState && !savedState.isRunning) {
-            startButton.innerHTML = '<i class="bi bi-play-circle"></i> Devam Et';
-            setProgress(savedState.offset || 0, savedState.total || 0, 'Önceki kontrol kaydedildi, devam edilebilir.');
-        }
-    } catch (e) {
-        // ignore
-    }
-}
-
 function initTopicsPage() {
     initTopicsSelection();
     initTopicsActionPopovers();
@@ -491,10 +319,9 @@ function initTopicsPage() {
     initTopicsModerationNoteModal();
     initTopicsModerationActionNoteModal();
     initTopicsBulkSubmit();
-    initTopicHealthScan();
 }
 
 window.adminPage.register('topics', initTopicsPage, {
     id: 'topics-page',
-    selector: '#bulkTopicsForm, .topic-row-checkbox, [data-topic-health-shell], [data-health-edit-url]'
+    selector: '#bulkTopicsForm, .topic-row-checkbox'
 });

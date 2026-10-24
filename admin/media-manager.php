@@ -300,6 +300,7 @@ $defaultUploadPath = $mediaCurrentPath !== '' ? $mediaCurrentPath : $configuredD
 $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $mediaCurrentPath : '');
 ?>
 <div class="mm-page">
+<?= adminRenderPageHero('bi-images', 'Dosya yönetimi', $pageTitle, 'Dosya ve görselleri düzenleyin, klasörleri yönetin.') ?>
 <?= adminRenderStatCards([
     ['tone' => 'info', 'icon' => 'bi-file-earmark', 'label' => 'Toplam Dosya', 'value' => number_format((int) $totalFiles, 0, ',', '.'), 'class' => 'mm-stat-card'],
     ['tone' => 'success', 'icon' => 'bi-image', 'label' => 'Görsel', 'value' => number_format((int) $totalImages, 0, ',', '.'), 'class' => 'mm-stat-card'],
@@ -404,7 +405,6 @@ $currentDisplayPath = $uploadRootLabel . ($mediaCurrentPath !== '' ? '/' . $medi
                 'tone' => 'info',
                 'title' => 'Bu dizin boş',
                 'description' => 'Yeni dosyalar yükleyebilir veya üst klasöre dönebilirsiniz.',
-                'class' => 'mm-empty-state',
             ]) ?>
         <?php else: ?>
             <div class="mm-grid">

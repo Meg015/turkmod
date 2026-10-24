@@ -14,7 +14,8 @@
         "ext-pdo": "*",
         "ext-redis": "*",
         "ext-tokenizer": "*",
-        "cboden/ratchet": "^0.4.4"
+        "cboden/ratchet": "^0.4.4",
+        "symfony/http-foundation": "^6.4.48"
     },
     "autoload": {
         "psr-4": {
@@ -30,6 +31,8 @@
     },
     "scripts": {
         "lint": "@php scripts/php-lint.php",
+        "post-install-cmd": "@php scripts/patch-php85-dependencies.php",
+        "post-update-cmd": "@php scripts/patch-php85-dependencies.php",
         "guard:migration:auto": "@php scripts/guard/migration_autogen.php --cached --stage",
         "guard:migration": "@php scripts/guard/migration_guard.php --cached",
         "guard:migration:workspace": "@php scripts/guard/migration_guard.php"

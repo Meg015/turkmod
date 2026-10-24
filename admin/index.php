@@ -103,6 +103,8 @@ require_once __DIR__ . '/header.php';
 ?>
 
 
+<?= adminRenderPageHero('bi-speedometer2', 'Yönetim paneli', $pageTitle, 'İçerikleri, kullanıcıları ve bekleyen işleri tek ekrandan takip edin.') ?>
+
 <?= adminRenderStatCards([
     ['href' => $baseUri . '/admin/topics.php?status=published', 'tone' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Yayındaki Konular', 'value' => number_format($stats['published'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Canlı', 'change_icon' => 'bi-arrow-up', 'change_class' => 'positive'],
     ['href' => $baseUri . '/admin/topics.php?status=draft', 'tone' => 'warning', 'icon' => 'bi-clock-history', 'label' => 'Taslak Konular', 'value' => number_format($stats['pending'], 0, ',', '.'), 'class' => 'ui-admin-link-plain', 'change_label' => 'Taslak', 'change_icon' => 'bi-dash', 'change_class' => 'neutral'],
@@ -228,14 +230,7 @@ $attentionTotal = $attentionTotal ?? 0;
         'header_right_html' => '<a href="' . $baseUri . '/admin/comments-manager.php" class="ui-admin-btn ui-admin-btn-sm ui-admin-btn-ghost">Tümünü Gör <i class="bi bi-arrow-right"></i></a>',
     ]) ?>
             <?php if (empty($recentComments)): ?>
-                <div class="activity-item">
-                    <div class="activity-icon info"><i class="bi bi-chat-dots"></i></div>
-                    <div class="activity-content">
-                        <span class="activity-title">Henüz yorum yok</span>
-                        <span class="activity-desc">Kullanıcıların yaptığı son yorumlar burada görünür.</span>
-                        <span class="activity-time">Şimdi</span>
-                    </div>
-                </div>
+                <?= adminRenderEmptyState(['size' => 'compact', 'icon' => 'bi-chat-dots', 'title' => 'Henüz yorum yok', 'description' => 'Kullanıcıların yaptığı son yorumlar burada görünür.']) ?>
             <?php else: ?>
                 <?php foreach ($recentComments as $comment): ?>
                     <?php

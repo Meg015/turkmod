@@ -741,25 +741,31 @@ if (!function_exists('emailLogsBuildWhere')) {
         $providerMessageIdCol = $prefix . 'provider_message_id';
 
         if ($search !== '') {
-            $where[] = "(
-                {$recipientEmailCol} LIKE :search
-                OR {$recipientNameCol} LIKE :search
-                OR {$subjectCol} LIKE :search
-                OR {$statusCol} LIKE :search
-                OR {$sourceCol} LIKE :search
-                OR {$sourceKeyCol} LIKE :search
-                OR {$driverCol} LIKE :search
-                OR {$transportCol} LIKE :search
-                OR {$errorMessageCol} LIKE :search
-                OR {$providerResponseCol} LIKE :search
-                OR {$smtpResponseCol} LIKE :search
-                OR {$providerMessageIdCol} LIKE :search
-                OR CAST({$queueIdCol} AS CHAR) LIKE :search
-                OR CAST({$notificationIdCol} AS CHAR) LIKE :search
-                OR CAST({$userIdCol} AS CHAR) LIKE :search
-                OR CAST({$contextCol} AS CHAR) LIKE :search
-            )";
-            $params['search'] = '%' . $search . '%';
+            $searchColumns = [
+                'recipient_email' => $recipientEmailCol,
+                'recipient_name' => $recipientNameCol,
+                'subject' => $subjectCol,
+                'status' => $statusCol,
+                'source' => $sourceCol,
+                'source_key' => $sourceKeyCol,
+                'driver' => $driverCol,
+                'transport' => $transportCol,
+                'error_message' => $errorMessageCol,
+                'provider_response' => $providerResponseCol,
+                'smtp_response' => $smtpResponseCol,
+                'provider_message_id' => $providerMessageIdCol,
+                'queue_id' => "CAST({$queueIdCol} AS CHAR)",
+                'notification_id' => "CAST({$notificationIdCol} AS CHAR)",
+                'user_id' => "CAST({$userIdCol} AS CHAR)",
+                'context' => "CAST({$contextCol} AS CHAR)",
+            ];
+            $searchPredicates = [];
+            foreach ($searchColumns as $key => $column) {
+                $parameter = 'search_' . $key;
+                $searchPredicates[] = $column . ' LIKE :' . $parameter;
+                $params[$parameter] = '%' . $search . '%';
+            }
+            $where[] = '(' . implode(' OR ', $searchPredicates) . ')';
         }
         if ($status !== '') {
             $where[] = "{$statusCol} = :status";

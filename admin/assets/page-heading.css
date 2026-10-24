@@ -1,0 +1,155 @@
+/* One main content heading across admin pages and modules. */
+.admin-content .admin-page-heading {
+    --admin-heading-bg: #861638;
+    --admin-heading-fg: #fff;
+    box-sizing: border-box;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap;
+    gap: 1.25rem !important;
+    min-width: 0;
+    width: 100%;
+    margin: 0 0 1.25rem;
+    padding: 1.5rem 1.75rem !important;
+    border: 1px solid var(--admin-heading-bg) !important;
+    border-radius: 12px !important;
+    background: var(--admin-heading-bg) !important;
+    color: var(--admin-heading-fg) !important;
+    box-shadow: none !important;
+    transition: none !important;
+    animation: none !important;
+    position: relative;
+    overflow: visible !important;
+}
+.admin-content .admin-page-heading::before,
+.admin-content .admin-page-heading::after { display: none !important; }
+.admin-content :is(.topics-page, .complaints-page, .contacts-page, .notifications-page, .health-page, .queue-page, .theme-center, .static-pages-shell, .comments-manager-sidebar, .leaderboard-page) > .admin-page-heading { margin-block-end: 0; }
+.admin-content .admin-page-heading__copy { flex: 1 1 260px; min-width: 0; max-width: 100%; }
+.admin-content .admin-page-heading__main { display: flex; flex: 1 1 320px; align-items: center; gap: 1rem; min-width: 0; }
+.admin-content .admin-page-heading .admin-page-heading__copy > :is(h1, h2, h3) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin: 0 !important;
+    padding: 0;
+    color: var(--admin-heading-fg) !important;
+    font-family: inherit;
+    font-size: clamp(1.375rem, 2vw, 1.75rem) !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+    letter-spacing: -.025em !important;
+    overflow-wrap: anywhere;
+}
+.admin-content .admin-page-heading .admin-page-heading__copy > :is(h1, h2, h3) > i { color: inherit !important; font-size: .9em; }
+.admin-content .admin-page-heading .admin-page-heading__copy > p {
+    width: auto;
+    max-width: 78ch !important;
+    margin: .5rem 0 0 !important;
+    padding: 0;
+    color: rgb(255 255 255 / 85%) !important;
+    font-size: .9rem !important;
+    font-weight: 400;
+    line-height: 1.65 !important;
+    opacity: 1 !important;
+    overflow-wrap: anywhere;
+}
+.admin-content .admin-page-heading .admin-page-heading__copy > :is(.ui-admin-kicker, .ui-events-page-kicker, .theme-eyebrow, .comments-manager-kicker) {
+    display: inline-flex !important;
+    align-items: center;
+    gap: .4rem;
+    margin: 0 0 .45rem !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: rgb(255 255 255 / 78%) !important;
+    font-size: .75rem !important;
+    font-weight: 600 !important;
+    line-height: 1.4;
+    letter-spacing: .04em !important;
+    text-transform: none !important;
+}
+.admin-content .admin-page-heading .admin-page-heading__copy > :is(.ui-admin-kicker, .theme-eyebrow, .comments-manager-kicker) i { color: inherit !important; }
+.admin-content .admin-page-heading .topics-heading-count {
+    display: inline-flex;
+    align-items: center;
+    padding: .2rem .55rem;
+    border: 1px solid rgb(255 255 255 / 24%);
+    border-radius: 6px;
+    background: rgb(255 255 255 / 12%);
+    color: #fff !important;
+    font-size: .875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0;
+}
+.admin-content .admin-page-heading .admin-page-heading__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end !important;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: .6rem !important;
+    max-width: 100%;
+    min-width: 0;
+}
+.admin-content .admin-page-heading .admin-page-heading__actions > :is(a, button),
+.admin-content .admin-page-heading .admin-page-heading__actions > :is(form, details) > :is(button, summary),
+.admin-content .admin-page-heading > a.ui-admin-btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    width: auto !important;
+    min-width: 40px;
+    max-width: 100%;
+    min-height: 40px;
+    height: auto;
+    padding: .6rem .85rem !important;
+    border: 1px solid rgb(255 255 255 / 75%) !important;
+    border-radius: 7px !important;
+    background: #fff !important;
+    color: var(--admin-heading-bg) !important;
+    box-shadow: none !important;
+    font-size: .875rem !important;
+    font-weight: 600;
+    line-height: 1.35;
+    text-decoration: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    overflow: visible;
+    cursor: pointer;
+}
+.admin-content .admin-page-heading .admin-page-heading__actions :is(a, button, summary) :is(i, span),
+.admin-content .admin-page-heading > a.ui-admin-btn i { color: inherit !important; }
+.admin-content .admin-page-heading .admin-page-heading__actions > :is(a, button):hover,
+.admin-content .admin-page-heading .admin-page-heading__actions > :is(form, details) > :is(button, summary):hover,
+.admin-content .admin-page-heading > a.ui-admin-btn:hover { background: #f8edf1 !important; color: #69102b !important; transform: none; }
+.admin-content .admin-page-heading .ui-events-page-hero-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    border: 1px solid rgb(255 255 255 / 22%) !important;
+    border-radius: 12px;
+    background: rgb(255 255 255 / 10%) !important;
+    color: #fff !important;
+}
+.admin-content .admin-page-heading .ui-events-page-hero-icon i { color: inherit !important; }
+.admin-content .admin-page-heading :is(.ui-admin-badge, .ui-events-page-meta > span) {
+    border-color: rgb(255 255 255 / 24%) !important;
+    background: rgb(255 255 255 / 12%) !important;
+    color: #fff !important;
+}
+.admin-content .admin-page-heading :is(.ui-admin-badge, .ui-events-page-meta > span) i { color: inherit !important; }
+@media (max-width: 640px) {
+    .admin-content .admin-page-heading { flex-direction: column !important; align-items: stretch !important; gap: 1rem !important; padding: 1.25rem !important; }
+    .admin-content .admin-page-heading__copy,
+    .admin-content .admin-page-heading__main { flex-basis: auto; width: 100%; }
+    .admin-content .admin-page-heading .admin-page-heading__actions { width: 100%; justify-content: flex-start !important; }
+    .admin-content .admin-page-heading .admin-page-heading__actions > :is(a, button, form, details),
+    .admin-content .admin-page-heading > a.ui-admin-btn { flex: 1 1 auto; }
+}

@@ -1464,8 +1464,8 @@ if (!function_exists('settingsCronTriggerByUrl')) {
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_CONNECTTIMEOUT => 8,
                 CURLOPT_TIMEOUT => max(5, $timeoutSeconds),
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
                 CURLOPT_USERAGENT => 'yenidosyalar-admin-cron-trigger/1.0',
             ]);
 
@@ -1473,12 +1473,12 @@ if (!function_exists('settingsCronTriggerByUrl')) {
             $result['status_code'] = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             if ($raw === false) {
                 $result['error'] = (string) curl_error($ch);
-                curl_close($ch);
+                unset($ch);
                 return $result;
             }
 
             $result['output'] = trim((string) $raw);
-            curl_close($ch);
+            unset($ch);
         } else {
             $context = stream_context_create([
                 'http' => [
@@ -1488,12 +1488,15 @@ if (!function_exists('settingsCronTriggerByUrl')) {
                     'header' => "User-Agent: yenidosyalar-admin-cron-trigger/1.0\r\n",
                 ],
                 'ssl' => [
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
+                    'verify_peer' => true,
+                    'verify_peer_name' => true,
+                    'allow_self_signed' => false,
                 ],
             ]);
-            $raw = file_get_contents($url, false, $context);
-            $headers = $http_response_header ?? [];
+            $raw = @file_get_contents($url, false, $context);
+            $headers = function_exists('http_get_last_response_headers')
+                ? http_get_last_response_headers()
+                : ($http_response_header ?? []);
             if (is_array($headers)) {
                 foreach ($headers as $headerLine) {
                     if (preg_match('~^HTTP/\S+\s+(\d{3})~', (string) $headerLine, $matches) === 1) {
@@ -2091,6 +2094,8 @@ $successMsg = get_flash('success');
 $errorMsg = get_flash('error');
 require_once __DIR__ . '/header.php';
 ?>
+
+<?= adminRenderPageHero('bi-sliders', 'Site yönetimi', $pageTitle, 'Site tercihlerini ve sistem ayarlarını tek yerden yönetin.') ?>
 
 <form method="post" action="settings.php" class="settings-admin-form" id="settingsForm" data-admin-no-lock="1" data-suppress-info-toasts="1" data-suppress-inline-alert-toasts="1">
     <?= csrf_field() ?>

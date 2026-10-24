@@ -69,6 +69,7 @@ function filterLogs(status) {
             statusLabel.textContent = `${statusText} durumunda içerik yok`;
         }
     }
+    if (window.adminEmptyState) window.adminEmptyState.enhance(table.parentElement);
 
     // İstatistik kartlarını güncelle (opsiyonel animasyon)
     const statsCards = document.querySelectorAll('#logStatsCards .admin-surface-card');

@@ -87,6 +87,8 @@ require_once __DIR__ . '/header.php';
 ?>
 
 
+<?= adminRenderPageHero('bi-palette', 'Görünüm yönetimi', $pageTitle, 'Header, footer, menü ve sidebar düzenini tek yerden yönetin.') ?>
+
 <form method="post" action="appearance.php" class="settings-admin-form" id="appearanceForm">
     <?= csrf_field() ?>
     <input type="hidden" name="_active_tab" id="activeTabInput" value="appearance">
@@ -391,11 +393,7 @@ require_once __DIR__ . '/header.php';
                                     <div><strong>Widget ayarlari</strong><span data-sidebar-selected-label>Secim yok</span></div>
                                 </div>
                                 <div class="sidebar-builder-inspector-body" data-sidebar-inspector>
-                                    <div class="sidebar-builder-empty ui-empty">
-                                        <i class="bi bi-cursor"></i>
-                                        <strong>Bir widget sec</strong>
-                                        <span>Orta alandaki kartlardan birini secince ayarlari burada acilir.</span>
-                                    </div>
+                                    <?= adminRenderEmptyState(['size' => 'compact', 'icon' => 'bi-cursor', 'title' => 'Bir widget seç', 'description' => 'Orta alandaki kartlardan birini seçince ayarları burada açılır.']) ?>
                                 </div>
                             </aside>
                         </div>
