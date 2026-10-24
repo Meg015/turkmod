@@ -83,6 +83,8 @@ mkdir($directory, 0755, true);
 $checks = 0;
 
 try {
+    mediaTestAssert(realpath(mediaProjectRoot(dirname(__DIR__) . '/uploads')) === realpath(dirname(__DIR__)), 'Media project root points outside application');
+    $checks++;
     $firstReservation = mediaReserveUploadFile($directory, 'reserved.jpg');
     $secondReservation = mediaReserveUploadFile($directory, 'reserved.jpg');
     fclose($firstReservation['stream']);

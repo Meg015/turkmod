@@ -80,7 +80,7 @@ function mediaRelativeToUploads(string $uploadBase, string $fullPath): string
 
 function mediaProjectRoot(string $uploadBase): string
 {
-    $moduleProjectRoot = realpath(dirname(__DIR__, 4));
+    $moduleProjectRoot = realpath(dirname(__DIR__, 5));
     if ($moduleProjectRoot !== false) {
         return $moduleProjectRoot;
     }
@@ -291,8 +291,6 @@ function mediaUploadFiles(
         return ['uploaded' => 0, 'errors' => ['Dosya seçilmedi.']];
     }
 
-    $projectRoot = mediaProjectRoot($uploadBase);
-
     $fileCount = count($files['name']);
     for ($i = 0; $i < $fileCount; $i++) {
         if ($files['error'][$i] !== UPLOAD_ERR_OK) {
@@ -356,17 +354,13 @@ function mediaUploadFiles(
             }
 
             try {
-                $relPath = str_replace(
-                    [$projectRoot . DIRECTORY_SEPARATOR, DIRECTORY_SEPARATOR],
-                    ['', '/'],
-                    realpath($destPath) ?: $destPath
-                );
+                $relPath = 'uploads/' . mediaRelativeToUploads($uploadBase, $destPath);
                 $mime = mediaDetectMimeType($destPath) ?: 'application/octet-stream';
                 $stmt = $pdo->prepare("INSERT INTO media_files (topic_id, user_id, type, disk, path, original_name, mime_type, size, created_at, updated_at)
                                        VALUES (NULL, :uid, :type, 'local', :path, :orig, :mime, :size, NOW(), NOW())");
                 $stmt->execute([
                     'uid' => $userId,
-                    'type' => $mime,
+                    'type' => str_starts_with($mime, 'image/') ? 'image' : 'attachment',
                     'path' => $relPath,
                     'orig' => $origName,
                     'mime' => $mime,
