@@ -326,23 +326,35 @@ function mediaUploadFiles(
         $safeName = preg_replace('/[^a-z0-9\-_\.]/i', '-', pathinfo($origName, PATHINFO_FILENAME));
         $safeName = preg_replace('/-+/', '-', trim($safeName, '-'));
         $fileName = $safeName . '-' . substr(uniqid(), -6) . '.' . $ext;
-        $destPath = $destDir . DIRECTORY_SEPARATOR . $fileName;
+        try {
+            $reserved = mediaReserveUploadFile($destDir, $fileName);
+            fclose($reserved['stream']);
+            $fileName = $reserved['name'];
+            $destPath = $reserved['path'];
+        } catch (RuntimeException $e) {
+            $errors[] = $origName . ': ' . $e->getMessage();
+            continue;
+        }
 
         if (move_uploaded_file($files['tmp_name'][$i], $destPath)) {
+            $createdFiles = [$destPath];
             // Resim işleme pipeline (WebP dönüşümü, boyutlandırma, thumbnail vb.)
             $imageExts = mediaSafeImageExtensions();
-            if (in_array($ext, $imageExts, true) && !empty($imageSettings)) {
+            if (in_array($ext, $imageExts, true)) {
                 try {
-                    $processResult = mediaProcessImage($destPath, $imageSettings);
+                    $processResult = mediaProcessImage($destPath, $imageSettings ?: mediaImageSettings($pdo));
                     $destPath = $processResult['path'];
                     $fileName = $processResult['name'];
                     $sizeBytes = $processResult['final_size'];
+                    $createdFiles = $processResult['created_files'];
                 } catch (Throwable $e) {
-                    // İşleme başarısız olursa orijinal dosyayı kullan
+                    mediaDeleteProcessedFiles($createdFiles);
+                    error_log('[media-upload] ' . $e->getMessage());
+                    $errors[] = $origName . ': ' . ($e instanceof RuntimeException ? $e->getMessage() : 'Görsel işlenemedi.');
+                    continue;
                 }
             }
 
-            $uploadedCount++;
             try {
                 $relPath = str_replace(
                     [$projectRoot . DIRECTORY_SEPARATOR, DIRECTORY_SEPARATOR],
@@ -360,8 +372,14 @@ function mediaUploadFiles(
                     'mime' => $mime,
                     'size' => $sizeBytes,
                 ]);
-            } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
+                $uploadedCount++;
+            } catch (Throwable $e) {
+                mediaDeleteProcessedFiles($createdFiles);
+                error_log('[media-upload] ' . $e->getMessage());
+                $errors[] = $origName . ': Veritabanına kaydedilemedi.';
+            }
         } else {
+            @unlink($destPath);
             $errors[] = $origName . ': Dosya taşınamadı.';
         }
     }
@@ -505,112 +523,17 @@ function mediaGetGlobalStats(string $basePath, bool $recursive = true): array
     return $stats;
 }
 
-/**
- * Resim işleme pipeline: boyutlandırma + WebP dönüşümü + metadata temizleme + netleştirme + thumbnail + filigran
- * @return array{path: string, name: string, converted: bool, thumbnail: string|null, original_size: int, final_size: int}
- */
-function mediaProcessImage(string $filePath, array $imageSettings): array
-{
-    $result = [
-        'path' => $filePath,
-        'name' => basename($filePath),
-        'converted' => false,
-        'thumbnail' => null,
-        'original_size' => filesize($filePath),
-        'final_size' => filesize($filePath),
-    ];
-
-    if (!extension_loaded('gd')) {
-        return $result;
-    }
-
-    $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-    $imageExts = mediaSafeImageExtensions();
-    if (!in_array($ext, $imageExts, true)) {
-        return $result;
-    }
-
-    $image = mediaCreateImageFromFile($filePath, $ext);
-    if (!$image) {
-        return $result;
-    }
-
-    $origWidth = imagesx($image);
-    $origHeight = imagesy($image);
-
-    // 1) Boyutlandırma
-    $autoResize = ($imageSettings['auto_resize_images'] ?? '0') === '1';
-    $maxW = (int)($imageSettings['image_resize_width'] ?? 1920);
-    $maxH = (int)($imageSettings['image_resize_height'] ?? 1080);
-    if ($autoResize && ($origWidth > $maxW || $origHeight > $maxH)) {
-        $image = mediaResizeImage($image, $origWidth, $origHeight, $maxW, $maxH);
-    }
-
-    // 2) EXIF/Metadata temizleme (strip = create clean copy)
-    $stripMeta = ($imageSettings['image_strip_metadata'] ?? '1') === '1';
-
-    // 3) Netleştirme
-    $sharpen = ($imageSettings['image_sharpen'] ?? '1') === '1';
-    if ($sharpen && ($autoResize && ($origWidth > $maxW || $origHeight > $maxH))) {
-        mediaSharpenImage($image);
-    }
-
-    // 4) Filigran
-    $watermarkEnabled = ($imageSettings['watermark_enabled'] ?? '0') === '1';
-    $watermarkText = trim($imageSettings['watermark_text'] ?? '');
-    if ($watermarkEnabled && $watermarkText !== '') {
-        mediaApplyWatermark($image, $watermarkText, $imageSettings);
-    }
-
-    // 5) WebP dönüşümü
-    $webpEnabled = ($imageSettings['webp_enabled'] ?? '1') === '1';
-    $webpQuality = max(1, min(100, (int)($imageSettings['webp_quality'] ?? 82)));
-    $keepOriginal = ($imageSettings['webp_keep_original'] ?? '0') === '1';
-    $gdInfo = gd_info();
-    $canWebp = !empty($gdInfo['WebP Support']);
-
-    if ($webpEnabled && $canWebp && $ext !== 'webp' && $ext !== 'gif') {
-        $webpPath = preg_replace('/\.[^.]+$/', '.webp', $filePath);
-        if (imagewebp($image, $webpPath, $webpQuality)) {
-            $result['converted'] = true;
-            $result['name'] = basename($webpPath);
-
-            if (!$keepOriginal) {
-                unlink($filePath);
-            }
-
-            $result['path'] = $webpPath;
-            $filePath = $webpPath;
-        }
-    } else {
-        // Orijinal formatta kaydet (kalite ayarlı)
-        mediaSaveImage($image, $filePath, $ext, $imageSettings);
-    }
-
-    $result['final_size'] = filesize($filePath);
-
-    unset($image);
-
-    // 6) Thumbnail (kayıtlı dosyadan oluştur)
-    $thumbEnabled = ($imageSettings['thumbnail_enabled'] ?? '1') === '1';
-    if ($thumbEnabled) {
-        $thumbPath = mediaCreateThumbnail($filePath, $imageSettings);
-        if ($thumbPath) {
-            $result['thumbnail'] = $thumbPath;
-        }
-    }
-
-    return $result;
-}
+require_once __DIR__ . '/image-processing.php';
 
 function mediaCreateImageFromFile(string $path, string $ext): ?\GdImage
 {
-    return match ($ext) {
-        'jpg', 'jpeg' => imagecreatefromjpeg($path) ?: null,
-        'png' => imagecreatefrompng($path) ?: null,
-        'gif' => imagecreatefromgif($path) ?: null,
-        'bmp' => imagecreatefrombmp($path) ?: null,
-        'webp' => imagecreatefromwebp($path) ?: null,
+    $info = mediaInspectImage($path);
+    return match ($info[2]) {
+        IMAGETYPE_JPEG => @imagecreatefromjpeg($path) ?: null,
+        IMAGETYPE_PNG => @imagecreatefrompng($path) ?: null,
+        IMAGETYPE_GIF => @imagecreatefromgif($path) ?: null,
+        IMAGETYPE_WEBP => @imagecreatefromwebp($path) ?: null,
+        IMAGETYPE_AVIF => function_exists('imagecreatefromavif') ? (@imagecreatefromavif($path) ?: null) : null,
         default => null,
     };
 }
@@ -618,8 +541,8 @@ function mediaCreateImageFromFile(string $path, string $ext): ?\GdImage
 function mediaResizeImage(\GdImage $image, int $origW, int $origH, int $maxW, int $maxH): \GdImage
 {
     $ratio = min($maxW / $origW, $maxH / $origH);
-    $newW = (int)round($origW * $ratio);
-    $newH = (int)round($origH * $ratio);
+    $newW = max(1, (int)round($origW * $ratio));
+    $newH = max(1, (int)round($origH * $ratio));
 
     $resized = imagecreatetruecolor($newW, $newH);
     imagealphablending($resized, false);
@@ -682,88 +605,15 @@ function mediaApplyWatermark(\GdImage &$image, string $text, array $settings): v
     imagestring($image, $gdFontSize, (int)$x, (int)$y - $textH, $text, $color);
 }
 
-function mediaSaveImage(?\GdImage $image, string $path, string $ext, array $settings): void
+function mediaSaveImage(?\GdImage $image, string $path, string $ext, array $settings): bool
 {
-    if ($image === null) {
-        error_log('[media] mediaSaveImage: null image provided, skipping save');
-        return;
-    }
-    switch ($ext) {
-        case 'jpg':
-        case 'jpeg':
-            $quality = max(1, min(100, (int)($settings['jpeg_quality'] ?? 85)));
-            imagejpeg($image, $path, $quality);
-            break;
-        case 'png':
-            $compression = max(0, min(9, (int)($settings['png_compression'] ?? 6)));
-            imagepng($image, $path, $compression);
-            break;
-        case 'gif':
-            imagegif($image, $path);
-            break;
-        case 'webp':
-            $quality = max(1, min(100, (int)($settings['webp_quality'] ?? 82)));
-            imagewebp($image, $path, $quality);
-            break;
-        case 'bmp':
-            imagebmp($image, $path);
-            break;
-    }
-}
-
-function mediaCreateThumbnail(string $sourcePath, array $settings): ?string
-{
-    $ext = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
-    $image = mediaCreateImageFromFile($sourcePath, $ext);
-    if (!$image) return null;
-
-    $origW = imagesx($image);
-    $origH = imagesy($image);
-    $thumbW = max(50, (int)($settings['thumbnail_width'] ?? 400));
-    $thumbH = max(50, (int)($settings['thumbnail_height'] ?? 300));
-    $crop = ($settings['thumbnail_crop'] ?? '1') === '1';
-
-    if ($crop) {
-        $ratio = max($thumbW / $origW, $thumbH / $origH);
-        $srcW = (int)round($thumbW / $ratio);
-        $srcH = (int)round($thumbH / $ratio);
-        $srcX = (int)round(($origW - $srcW) / 2);
-        $srcY = (int)round(($origH - $srcH) / 2);
-
-        $thumb = imagecreatetruecolor($thumbW, $thumbH);
-        imagealphablending($thumb, false);
-        imagesavealpha($thumb, true);
-        imagecopyresampled($thumb, $image, 0, 0, $srcX, $srcY, $thumbW, $thumbH, $srcW, $srcH);
-    } else {
-        $ratio = min($thumbW / $origW, $thumbH / $origH);
-        $newW = (int)round($origW * $ratio);
-        $newH = (int)round($origH * $ratio);
-
-        $thumb = imagecreatetruecolor($newW, $newH);
-        imagealphablending($thumb, false);
-        imagesavealpha($thumb, true);
-        imagecopyresampled($thumb, $image, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
-    }
-
-    $dir = dirname($sourcePath);
-    $name = pathinfo($sourcePath, PATHINFO_FILENAME);
-    $thumbDir = $dir . DIRECTORY_SEPARATOR . 'thumbnails';
-    if (!is_dir($thumbDir)) mkdir($thumbDir, 0755, true);
-
-    $webpEnabled = ($settings['webp_enabled'] ?? '1') === '1';
-    $gdInfo = gd_info();
-    $canWebp = !empty($gdInfo['WebP Support']);
-
-    if ($webpEnabled && $canWebp) {
-        $thumbPath = $thumbDir . DIRECTORY_SEPARATOR . $name . '.webp';
-        $quality = max(1, min(100, (int)($settings['webp_quality'] ?? 82)));
-        imagewebp($thumb, $thumbPath, $quality);
-    } else {
-        $thumbPath = $thumbDir . DIRECTORY_SEPARATOR . $name . '.' . $ext;
-        mediaSaveImage($thumb, $thumbPath, $ext, $settings);
-    }
-
-    unset($image, $thumb);
-
-    return $thumbPath;
+    if ($image === null) { return false; }
+    return match ($ext) {
+        'jpg', 'jpeg' => @imagejpeg($image, $path, max(1, min(100, (int)($settings['jpeg_quality'] ?? 85)))),
+        'png' => @imagepng($image, $path, max(0, min(9, (int)($settings['png_compression'] ?? 6)))),
+        'gif' => @imagegif($image, $path),
+        'webp' => function_exists('imagewebp') && @imagewebp($image, $path, max(1, min(100, (int)($settings['webp_quality'] ?? 82)))),
+        'avif' => function_exists('imageavif') && @imageavif($image, $path),
+        default => false,
+    };
 }

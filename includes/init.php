@@ -375,7 +375,7 @@ if (!$skipSessionBootstrap) {
         // prevent emitting a session cookie on anonymous default-home requests.
         if (!headers_sent()) {
             ini_set('session.use_cookies', '0');
-            ini_set('session.use_only_cookies', '0');
+            ini_set('session.use_only_cookies', '1');
             ini_set('session.use_trans_sid', '0');
         }
     }
@@ -3065,6 +3065,7 @@ function handleFileUpload(
     if (!$pdo || ($file["error"] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
         return null;
     }
+    require_once __DIR__ . '/src/Engine/Media/Support/helpers.php';
 
     // Extension † izin verilen MIME tipleri eşleştirme. Cross-check ile
     // birinin renamed/spoofed olması durumunda red etmek için kullanılır.
@@ -3157,11 +3158,18 @@ function handleFileUpload(
     }
 
     $safeName = uploadTitleFilename($filenameTitle, $extension, $filenameSequence);
-    $safeName = uploadAvailableFilename($uploadDir, $safeName);
+    try {
+        $reserved = mediaReserveUploadFile($uploadDir, $safeName);
+        fclose($reserved['stream']);
+        $safeName = $reserved['name'];
+    } catch (RuntimeException $e) {
+        return ['error' => $e->getMessage()];
+    }
     $relativePath = $baseRelativeDir . "/" . $safeName;
     $fullPath = $uploadDir . "/" . $safeName;
 
     if (!move_uploaded_file($tmpName, $fullPath)) {
+        @unlink($fullPath);
         return ["error" => "Dosya yüklenemedi."];
     }
 
@@ -3169,26 +3177,24 @@ function handleFileUpload(
 
     // Item 5 — Image Optimization / WebP: Process images through the existing media pipeline
     $actualSize = (int) ($file["size"] ?? 0);
-    if (
-        $logicalType === "image"
-        && function_exists('mediaProcessImage')
-        && function_exists('getAdminSettings')
-    ) {
+    $createdFiles = [$fullPath];
+    if ($logicalType === "image") {
         try {
-            $imageSettings = getAdminSettings($pdo);
+            $imageSettings = mediaImageSettings($pdo);
             $result = mediaProcessImage($fullPath, $imageSettings);
-            if ($result['converted'] ?? false) {
-                $safeName = $result['name'];
-                $relativePath = dirname($relativePath) . '/' . $safeName;
-                $fullPath = $result['path'];
-                $mimeType = 'image/webp';
-            }
-            $actualSize = $result['final_size'] ?? $actualSize;
+            $safeName = $result['name'];
+            $relativePath = dirname($relativePath) . '/' . $safeName;
+            $fullPath = $result['path'];
+            $mimeType = $result['mime_type'];
+            $actualSize = $result['final_size'];
+            $createdFiles = $result['created_files'];
         } catch (Throwable $e) {
             appFileLog('warning', 'Image processing failed during upload', [
                 'error' => $e->getMessage(),
                 'path'  => $relativePath,
             ]);
+            mediaDeleteProcessedFiles($createdFiles);
+            return ['error' => $e instanceof RuntimeException ? $e->getMessage() : 'Görsel işlenemedi.'];
         }
     }
 
@@ -3219,9 +3225,7 @@ function handleFileUpload(
             "is_primary" => $isPrimary,
         ];
     } catch (Throwable $e) {
-        if (is_file($fullPath)) {
-            unlink($fullPath);
-        }
+        mediaDeleteProcessedFiles($createdFiles);
         return ["error" => safeErrorMessage($e, "Dosya kaydedilemedi.")];
     }
 }

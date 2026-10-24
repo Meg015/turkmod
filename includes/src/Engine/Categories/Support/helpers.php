@@ -56,14 +56,10 @@ function getPublicCategories(?PDO $pdo): array
         // parent_slug aynı sorguda LEFT JOIN ile çekiliyor → N+1 önleniyor.
         $stmt = $pdo->query("SELECT cat.id, cat.name, cat.slug, cat.parent_id, cat.description, cat.seo_description,
                                     parent.slug AS parent_slug,
-                                    COUNT(t.id) AS topic_count
+                                    (SELECT COUNT(*) FROM topics t WHERE t.category_id = cat.id AND t.status = 'published' AND t.deleted_at IS NULL) AS topic_count
                              FROM categories cat
                              LEFT JOIN categories parent ON parent.id = cat.parent_id
-                             LEFT JOIN topics t ON t.category_id = cat.id
-                                 AND t.status = 'published'
-                                 AND t.deleted_at IS NULL
                              WHERE cat.status = 'active' AND cat.deleted_at IS NULL
-                             GROUP BY cat.id, cat.name, cat.slug, cat.parent_id, cat.description, cat.seo_description, parent.slug, cat.display_order
                              ORDER BY cat.display_order, cat.name");
         $rows = $stmt->fetchAll();
 
@@ -125,13 +121,9 @@ function getPublicCategoriesTree(?PDO $pdo): array
     }
 
     try {
-        $stmt = $pdo->query("SELECT cat.id, cat.parent_id, cat.name, cat.slug, cat.description, cat.seo_description, COUNT(t.id) AS topic_count
+        $stmt = $pdo->query("SELECT cat.id, cat.parent_id, cat.name, cat.slug, cat.description, cat.seo_description, (SELECT COUNT(*) FROM topics t WHERE t.category_id = cat.id AND t.status = 'published' AND t.deleted_at IS NULL) AS topic_count
                              FROM categories cat
-                             LEFT JOIN topics t ON t.category_id = cat.id
-                                 AND t.status = 'published'
-                                 AND t.deleted_at IS NULL
                              WHERE cat.status = 'active' AND cat.deleted_at IS NULL
-                             GROUP BY cat.id, cat.parent_id, cat.name, cat.slug, cat.description, cat.seo_description, cat.display_order
                              ORDER BY cat.display_order, cat.name");
         $rows = $stmt->fetchAll();
     } catch (Throwable $e) {

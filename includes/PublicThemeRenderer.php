@@ -158,6 +158,9 @@ final class PublicThemeRenderer
             ? sidebarBuilderAreaTemplateVars($pdo instanceof PDO ? $pdo : null, $settings, $sidebarConfig, 'right', $pageKey, $sidebarSourceVars)
             : ['has_sidebar_widgets' => true, 'sidebar_global_enabled' => true];
 
+        $leftSidebarVars = self::sidebarListingThumbnails($leftSidebarVars, $baseUri);
+        $rightSidebarVars = self::sidebarListingThumbnails($rightSidebarVars, $baseUri);
+
         $desktopLayout = (string) (($sidebarConfig['global']['desktop_layout'] ?? 'both'));
         $sidebarGlobalEnabled = !empty($leftSidebarVars['sidebar_global_enabled']) || !empty($rightSidebarVars['sidebar_global_enabled']);
         $showLeftSidebar = !$isFocusLayout && $sidebarGlobalEnabled && $desktopLayout !== 'right' && !empty($leftSidebarVars['has_sidebar_widgets']);
@@ -544,13 +547,11 @@ final class PublicThemeRenderer
         }
         $imageSrcset = '';
         $imageSizes = '';
-        if ($isLcpCandidate) {
-            $thumbnailHref = self::listingThumbnailHref($image, $baseUri);
-            if ($thumbnailHref !== '') {
-                $imageSrcset = $thumbnailHref . ' 400w, ' . $image . ' 1200w';
-                $imageSizes = '(max-width: 640px) 94vw, (max-width: 1024px) 70vw, 640px';
-                $image = $thumbnailHref;
-            }
+        $thumbnailHref = self::listingThumbnailHref($image, $baseUri);
+        if ($thumbnailHref !== '') {
+            $imageSrcset = self::listingThumbnailSrcset($thumbnailHref, $baseUri);
+            $imageSizes = '(max-width: 767px) calc(100vw - 48px), 220px';
+            $image = $thumbnailHref;
         }
 
         $imageAlt = function_exists('seoGenerateImageAlt')
@@ -2205,6 +2206,67 @@ final class PublicThemeRenderer
         }
 
         return rtrim($baseUri, '/') . '/' . ltrim($href, '/');
+    }
+
+    private static function sidebarListingThumbnails(array $vars, string $baseUri): array
+    {
+        foreach (($vars['sidebar_widgets'] ?? []) as $widgetIndex => $widget) {
+            if (empty($widget['is_popular_topics']) && empty($widget['is_editor_picks']) && empty($widget['is_latest_downloads']) && empty($widget['is_related_content'])) {
+                continue;
+            }
+            foreach (($widget['items'] ?? []) as $itemIndex => $item) {
+                $image = trim((string) ($item['image'] ?? ''));
+                if ($image === '') {
+                    continue;
+                }
+                $preview = self::listingThumbnailHref(self::absolutePublicHref($image, $baseUri), $baseUri);
+                if ($preview !== '') {
+                    $vars['sidebar_widgets'][$widgetIndex]['items'][$itemIndex]['image'] = $preview;
+                }
+            }
+        }
+        return $vars;
+    }
+
+    private static function listingThumbnailSrcset(string $thumbnailHref, string $baseUri): string
+    {
+        static $cache = [];
+        $key = $baseUri . '|' . $thumbnailHref;
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+
+        $path = (string) (parse_url($thumbnailHref, PHP_URL_PATH) ?? '');
+        $basePath = trim((string) (parse_url($baseUri, PHP_URL_PATH) ?? ''), '/');
+        if ($basePath !== '' && str_starts_with($path, '/' . $basePath . '/')) {
+            $path = substr($path, strlen($basePath) + 1);
+        }
+        $uploadRoot = realpath(__DIR__ . '/../uploads');
+        $smallPath = realpath(__DIR__ . '/../' . ltrim($path, '/'));
+        if ($uploadRoot === false || $smallPath === false || !str_starts_with($smallPath, $uploadRoot . DIRECTORY_SEPARATOR)) {
+            return $cache[$key] = '';
+        }
+
+        $candidates = [[$thumbnailHref, $smallPath]];
+        if (str_ends_with($smallPath, '.webp')) {
+            $candidates[] = [substr($thumbnailHref, 0, strrpos($thumbnailHref, '/') + 1) . '800/' . basename($smallPath), dirname($smallPath) . '/800/' . basename($smallPath)];
+        }
+        $variants = [];
+        foreach ($candidates as [$href, $file]) {
+            if (!is_file($file)) {
+                continue;
+            }
+            $dimensions = getimagesize($file);
+            if (is_array($dimensions) && (int) $dimensions[0] > 0) {
+                $variants[(int) $dimensions[0]] = $href;
+            }
+        }
+        ksort($variants);
+        $entries = [];
+        foreach ($variants as $width => $href) {
+            $entries[] = $href . ' ' . $width . 'w';
+        }
+        return $cache[$key] = implode(', ', $entries);
     }
 
     private static function listingThumbnailHref(string $imageHref, string $baseUri): string

@@ -14,6 +14,7 @@ use DOMXPath;
 require_once __DIR__ . '/ScraperEncodingNormalizer.php';
 require_once __DIR__ . '/ScraperUrlGuard.php';
 require_once dirname(__DIR__, 4) . '/helpers.php';
+require_once dirname(__DIR__, 2) . '/Media/Support/helpers.php';
 
 /**
  * Content Scraper Engine ï¿½ Fetch, Parse, Download, Translate
@@ -38,6 +39,7 @@ class ScraperEngine
     private bool $stripScripts;
     private bool $stripIframes;
     private int $maxImageBytes;
+    private array $imageSettings;
     private array $translationErrors = [];
 
     /**
@@ -59,7 +61,7 @@ class ScraperEngine
         self::$parseCache = [];
     }
 
-    public function __construct(array $botSettings = [])
+    public function __construct(array $botSettings = [], ?array $imageSettings = null)
     {
         $this->userAgent = $botSettings['bot_user_agent'] ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
         $this->timeout = (int)($botSettings['bot_request_timeout'] ?? 30);
@@ -96,6 +98,7 @@ class ScraperEngine
         $this->stripScripts = $this->settingEnabled($botSettings, 'bot_strip_scripts', '1');
         $this->stripIframes = $this->settingEnabled($botSettings, 'bot_strip_iframes', '1');
         $this->maxImageBytes = max(1, (int)($botSettings['bot_max_image_bytes'] ?? 8 * 1024 * 1024));
+        $this->imageSettings = $imageSettings ?? \mediaImageSettings($GLOBALS['pdo'] ?? null);
     }
 
     private function settingEnabled(array $settings, string $key, mixed $default = false): bool
@@ -233,7 +236,7 @@ class ScraperEngine
         return is_string($html) ? $this->normalizeHtmlEncoding($html) : null;
     }
 
-    private function fetchBinary(string $url, array $customHeaders = []): ?string
+    protected function fetchBinary(string $url, array $customHeaders = []): ?string
     {
         return $this->fetchUrl($url, $customHeaders, true);
     }
@@ -245,8 +248,8 @@ class ScraperEngine
             return null;
         }
 
-        $info = getimagesizefromstring($data);
-        if (!is_array($info) || empty($info['mime']) || !str_starts_with((string)$info['mime'], 'image/')) {
+        $info = @getimagesizefromstring($data);
+        if (!is_array($info) || empty($info['mime']) || $info[0] < 1 || $info[1] < 1 || (float)$info[0] * $info[1] > 24000000 || !str_starts_with((string)$info['mime'], 'image/')) {
             return null;
         }
 
@@ -288,7 +291,7 @@ class ScraperEngine
         }
 
         $headers = $binary
-            ? ['Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8', 'Accept-Language: tr,en;q=0.5']
+            ? ['Accept: image/webp,image/jpeg,image/png,image/gif', 'Accept-Language: tr,en;q=0.5']
             : ['Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language: tr,en;q=0.5'];
         array_push($headers, ...$this->steamCommunityHeaders($url));
         if ($this->customHeaders !== '') {
@@ -824,64 +827,70 @@ class ScraperEngine
      */
     public function downloadImage(string $imageUrl, string $siteSlug, string $topicSlug, ?int $sequence = null): ?string
     {
-        $dir = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/\\');
-        $appBasePath = dirname(__DIR__, 5);
+        $imageData = $this->fetchBinary($imageUrl);
+        if ($imageData === null || !$this->isValidImagePayload($imageData, '')) {
+            return null;
+        }
+        if (md5($imageData) === '006a3226b7a233d4a830078f7237868b') {
+            return null;
+        }
+        // The URL may end in .jpg while the server actually returns PNG or WebP.
+        $info = getimagesizefromstring($imageData);
+        $extension = match ($info[2]) {
+            IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png',
+            IMAGETYPE_GIF => 'gif', IMAGETYPE_WEBP => 'webp',
+            default => '',
+        };
+        if ($extension === '') { return null; }
 
+        $appBasePath = dirname(__DIR__, 5);
         $datePath = date('Y/m');
         $saveDir = $appBasePath . '/' . rtrim($this->imageSavePath, '/') . '/' . $datePath;
-
-        if (!is_dir($saveDir)) {
-            mkdir($saveDir, 0755, true);
-        }
-
-        $ext = pathinfo(parse_url($imageUrl, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION) ?: 'jpg';
-        $ext = preg_replace('/[^a-z0-9]/i', '', strtolower($ext));
-        if (!in_array($ext, $this->allowedImageExtensions, true)) {
-            $ext = 'jpg';
-        }
-        $filename = uploadTitleFilename($topicSlug, $ext, $sequence);
-        $filename = uploadAvailableFilename($saveDir, $filename);
-
-        // Path traversal protection: ensure filename doesn't contain directory separators
-        if (strpos($filename, '/') !== false || strpos($filename, '\\') !== false || strpos($filename, '..') !== false) {
+        $uploadsRoot = realpath($appBasePath . '/uploads');
+        if ($uploadsRoot === false) { return null; }
+        // Check every existing ancestor before mkdir or writing through a symlink.
+        $ancestor = $saveDir;
+        while (!file_exists($ancestor) && !is_link($ancestor)) { $ancestor = dirname($ancestor); }
+        $normalize = static fn (string $path): string => rtrim(str_replace('\\', '/', $path), '/');
+        $root = $normalize($uploadsRoot);
+        $realAncestor = realpath($ancestor);
+        if ($realAncestor === false || ($normalize($realAncestor) !== $root && !str_starts_with($normalize($realAncestor), $root . '/'))) {
             return null;
         }
-
-        $fullPath = $saveDir . '/' . $filename;
-
-        // Verify resolved path is within saveDir to prevent symlink attacks
+        if (!is_dir($saveDir) && !@mkdir($saveDir, 0755, true) && !is_dir($saveDir)) {
+            return null;
+        }
         $realSaveDir = realpath($saveDir);
-        $realTargetDir = realpath(dirname($fullPath));
-        if ($realSaveDir === false || $realTargetDir === false) {
-            return null;
-        }
+        if ($realSaveDir === false || !str_starts_with($normalize($realSaveDir), $root . '/')) { return null; }
+        $filename = \uploadTitleFilename($topicSlug, $extension, $sequence);
+        if (strpbrk($filename, '/\\') !== false || str_contains($filename, '..')) { return null; }
 
-        $normalizePath = static function (string $path): string {
-            return rtrim(str_replace('\\', '/', $path), '/');
-        };
-        $normalizedSaveDir = $normalizePath($realSaveDir);
-        $normalizedTargetDir = $normalizePath($realTargetDir);
-        if (
-            $normalizedTargetDir !== $normalizedSaveDir &&
-            !str_starts_with($normalizedTargetDir . '/', $normalizedSaveDir . '/')
-        ) {
-            return null;
-        }
-
-        $imageData = $this->fetchBinary($imageUrl);
-        if (!$imageData || !$this->isValidImagePayload($imageData, $ext)) return null;
-
-        if (file_put_contents($fullPath, $imageData) !== false) {
-            // Bilinen boï¿½/placeholder resimleri MD5 hash ile engelle
-            if (md5_file($fullPath) === '006a3226b7a233d4a830078f7237868b') {
-                unlink($fullPath);
-                return null;
+        $fullPath = '';
+        $created = [];
+        try {
+            $reserved = \mediaReserveUploadFile($saveDir, $filename);
+            $fullPath = $reserved['path'];
+            $stream = $reserved['stream'];
+            $created[] = $fullPath;
+            try {
+                $offset = 0;
+                $length = strlen($imageData);
+                while ($offset < $length) {
+                    $written = fwrite($stream, substr($imageData, $offset));
+                    if ($written === false || $written === 0) { throw new \RuntimeException('Bot görseli tam kaydedilemedi.'); }
+                    $offset += $written;
+                }
+            } finally {
+                fclose($stream);
             }
-
-            return rtrim($this->imageSavePath, '/') . '/' . $datePath . '/' . $filename;
+            $result = \mediaProcessImage($fullPath, $this->imageSettings);
+            $created = $result['created_files'];
+            return rtrim($this->imageSavePath, '/') . '/' . $datePath . '/' . $result['name'];
+        } catch (\Throwable $e) {
+            \mediaDeleteProcessedFiles($created);
+            error_log('[scraper-image] ' . $e->getMessage());
+            return null;
         }
-
-        return null;
     }
 
     /**
@@ -1097,7 +1106,7 @@ class ScraperEngine
         } elseif ($useHotlinkImages) {
             $result['downloaded_images'] = $result['images'];
         }
-        if ($requireCoverImage && empty($result['downloaded_images']) && empty($result['images'])) {
+        if ($requireCoverImage && empty($result['downloaded_images'])) {
             $result['error'] = 'Kapak gï¿½rseli bulunamadï¿½.';
             return $result;
         }
@@ -1871,8 +1880,8 @@ class ScraperEngine
             return false;
         }
 
-        $info = getimagesizefromstring($data);
-        if (!is_array($info) || empty($info['mime']) || !str_starts_with((string)$info['mime'], 'image/')) {
+        $info = @getimagesizefromstring($data);
+        if (!is_array($info) || empty($info['mime']) || $info[0] < 1 || $info[1] < 1 || (float)$info[0] * $info[1] > 24000000 || !str_starts_with((string)$info['mime'], 'image/')) {
             return false;
         }
 

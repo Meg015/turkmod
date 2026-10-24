@@ -1064,6 +1064,21 @@ function scraperNormalizePublishContent(string $content): string
     return trim($normalized);
 }
 
+function scraperLocalImageMetadata(string $path): ?array
+{
+    $root = dirname(__DIR__, 5);
+    $uploads = realpath($root . '/uploads');
+    $relative = ltrim(str_replace('\\', '/', $path), '/');
+    if (!str_starts_with($relative, 'uploads/')) { return null; }
+    $file = realpath($root . '/' . $relative);
+    if ($uploads === false || $file === false || !str_starts_with($file, $uploads . DIRECTORY_SEPARATOR) || !is_file($file)) {
+        return null;
+    }
+    $info = @getimagesize($file);
+    if (!is_array($info) || !str_starts_with((string)($info['mime'] ?? ''), 'image/')) { return null; }
+    return ['mime_type' => $info['mime'], 'size' => (int)filesize($file)];
+}
+
 function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string $publishStatus = 'draft')
 {
     if (!$pdo) {
@@ -1105,6 +1120,7 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
     }
     $siteSlug = preg_replace('/[^a-z0-9_-]+/i', '-', strtolower($siteSlug)) ?: ('site-' . (int)$import['bot_site_id']);
     $downloadImages = scraperBoolSetting($botSettings, 'bot_download_images', '1');
+    $useHotlinkImages = scraperBoolSetting($botSettings, 'bot_use_hotlink_images', '0');
     $sourceScheme = (string)(parse_url((string)($import['source_url'] ?? ''), PHP_URL_SCHEME) ?: 'https');
 
     $images = $import['downloaded_images'] ?: $import['source_images'] ?: '';
@@ -1165,16 +1181,19 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
 
             $localPath = trim((string)($downloadCache[$remoteUrl] ?? ''));
             if ($localPath !== '') {
-                $mediaItems[] = [
+                $mediaItems[] = array_merge([
                     'path' => $localPath,
                     'disk' => 'local',
-                    'mime_type' => null,
-                ];
+                ], scraperLocalImageMetadata($localPath) ?? ['mime_type' => null, 'size' => null]);
                 continue;
             }
         }
 
         if ($isRemote) {
+            if (!$useHotlinkImages) {
+                error_log('[scraper-image] Download failed; remote fallback is disabled.');
+                continue;
+            }
             $mediaItems[] = [
                 'path' => $remoteUrl,
                 'disk' => 'remote',
@@ -1183,11 +1202,17 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
             continue;
         }
 
-        $mediaItems[] = [
+        $metadata = scraperLocalImageMetadata($resolvedImagePath);
+        if ($metadata === null) { continue; }
+        $mediaItems[] = array_merge([
             'path' => $resolvedImagePath,
             'disk' => 'local',
-            'mime_type' => null,
-        ];
+        ], $metadata);
+    }
+
+    if (empty($mediaItems) && (!empty($imageLines) || scraperBoolSetting($botSettings, 'bot_require_cover_image', '0'))) {
+        error_log('[scraper-image] Import remains pending because no usable cover was saved.');
+        return false;
     }
 
     $storedImageLines = implode("\n", array_values(array_filter(array_map(
@@ -1222,7 +1247,7 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
 
         $primaryMediaId = null;
         $stmtMedia = $pdo->prepare("INSERT INTO media_files (topic_id, user_id, type, disk, path, original_name, mime_type, size, display_order, is_primary, created_at, updated_at)
-                                    VALUES (?, NULL, 'image', ?, ?, ?, ?, NULL, ?, ?, NOW(), NOW())");
+                                    VALUES (?, NULL, 'image', ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
         foreach ($mediaItems as $index => $mediaItem) {
             $imagePath = trim((string)($mediaItem['path'] ?? ''));
             if ($imagePath === '') {
@@ -1240,6 +1265,7 @@ function publishScraperImport(?PDO $pdo, int $importId, int $categoryId, string 
                 $imagePath,
                 $originalName,
                 $mimeType,
+                $mediaItem['size'] ?? null,
                 $index,
                 $index === 0 ? 1 : 0,
             ]);
