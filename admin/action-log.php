@@ -10,6 +10,7 @@ adminRequirePermission('logs.view', 'Kullanıcı işlem günlüğünü görünt�
 $pageTitle = 'Kullanıcı İşlem Günlüğü';
 $activityBaseRoute = 'action-log.php';
 $activityBaseParams = [];
+$activityShowSupplementaryPanels = false;
 $csrfToken = csrf_token();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {

@@ -244,9 +244,17 @@ class Analytics {
      * Track error
      */
     trackError(error, context = {}) {
+        const message = String(error?.message || error || 'Unknown error');
+        const stack = typeof error?.stack === 'string' ? error.stack : '';
+        // Extension failures are unrelated to application code; retain errors with unknown origins.
+        const firstFrame = stack.split('\n').find(line => /^\s*(?:at\s|[^\s]*@)/.test(line)) || stack;
+        const source = context.filename || firstFrame;
+        if (/(?:chrome|moz|safari|safari-web|edge)-extension(?::|\/\/)/i.test(source)) return;
+        const skippedTransition = /^(?:Skipping view transition because (?:skipTransition\(\) was called|viewport size changed)\.|Transition was skipped(?:\. Navigation aborted)?|Transition was aborted because of invalid state(?:\. (?:ViewTransition opt-in disabled|Document hidden))?)$/;
+        if (context.type === 'unhandled_promise_rejection' && !stack && skippedTransition.test(message)) return;
         this.track('error', {
-            message: error.message || error,
-            stack: error.stack,
+            message,
+            stack,
             ...context,
         });
     }

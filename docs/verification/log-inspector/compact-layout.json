@@ -1,0 +1,520 @@
+{
+  "date": "2026-10-25",
+  "before": {
+    "activity": {
+      "display": "flex",
+      "fontSize": "16px",
+      "gap": "16px",
+      "height": 1252.703125,
+      "margin": "24px 0px 0px",
+      "padding": "0px"
+    },
+    "card": {
+      "display": "grid",
+      "fontSize": "16px",
+      "gap": "13.6px",
+      "height": 104,
+      "margin": "0px",
+      "padding": "16px"
+    },
+    "control": {
+      "display": "block",
+      "fontSize": "14.4px",
+      "gap": "normal",
+      "height": 44,
+      "margin": "0px",
+      "padding": "12px 16px"
+    },
+    "label": {
+      "display": "inline-flex",
+      "fontSize": "12px",
+      "gap": "5.6px",
+      "height": 19.1875,
+      "margin": "0px 0px 6.4px",
+      "padding": "0px"
+    },
+    "main": {
+      "display": "grid",
+      "fontSize": "16px",
+      "gap": "12px",
+      "height": 76.578125,
+      "margin": "0px",
+      "padding": "0px"
+    },
+    "more": {
+      "display": "block",
+      "fontSize": "16px",
+      "gap": "normal",
+      "height": 36,
+      "margin": "12px 0px 0px",
+      "padding": "11px 0px 0px"
+    },
+    "summary": {
+      "display": "grid",
+      "fontSize": "16px",
+      "gap": "13.6px",
+      "height": 104,
+      "margin": "0px 0px 16px",
+      "padding": "0px"
+    },
+    "toolbar": {
+      "display": "block",
+      "fontSize": "16px",
+      "gap": "0px",
+      "height": 168.578125,
+      "margin": "0px 0px 18px",
+      "padding": "0px"
+    },
+    "toolbarBody": {
+      "display": "block",
+      "fontSize": "16px",
+      "gap": "9.92px",
+      "height": 166.578125,
+      "margin": "0px",
+      "padding": "20px"
+    },
+    "width": 1920
+  },
+  "after": {
+    "activity": {
+      "fontSize": "16px",
+      "gap": "0px",
+      "height": 1151.3125,
+      "margin": "0px",
+      "padding": "0px"
+    },
+    "card": {
+      "fontSize": "16px",
+      "gap": "10px",
+      "height": 80,
+      "margin": "0px",
+      "padding": "12px 14px"
+    },
+    "control": {
+      "fontSize": "14.4px",
+      "gap": "normal",
+      "height": 40,
+      "margin": "0px",
+      "padding": "8px 12px"
+    },
+    "label": {
+      "fontSize": "12px",
+      "gap": "5.6px",
+      "height": 19.1875,
+      "margin": "0px 0px 4px",
+      "padding": "0px"
+    },
+    "toolbar": {
+      "fontSize": "16px",
+      "gap": "0px",
+      "height": 131.1875,
+      "margin": "0px 0px 14px",
+      "padding": "0px"
+    },
+    "toolbarBody": {
+      "fontSize": "16px",
+      "gap": "9.92px",
+      "height": 129.1875,
+      "margin": "0px",
+      "padding": "10px 12px"
+    },
+    "width": 1920
+  },
+  "finalChecks": [
+    {
+      "route": "logs.php",
+      "width": 1440,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "action-log.php",
+      "width": 1440,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "application-logs.php",
+      "width": 1440,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "email-logs.php",
+      "width": 1440,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 1440,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 1440,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 1440,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php",
+      "width": 1024,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "action-log.php",
+      "width": 1024,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "application-logs.php",
+      "width": 1024,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "email-logs.php",
+      "width": 1024,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 1024,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 1024,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 1024,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php",
+      "width": 390,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "action-log.php",
+      "width": 390,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "application-logs.php",
+      "width": 390,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "email-logs.php",
+      "width": 390,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 390,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 390,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 390,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php",
+      "width": 320,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "action-log.php",
+      "width": 320,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "application-logs.php",
+      "width": 320,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "email-logs.php",
+      "width": 320,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 320,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 320,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 320,
+      "cards": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "font": "14.4px",
+      "detailOpen": false,
+      "pageOverflow": false,
+      "overflows": []
+    }
+  ],
+  "desktopControlHeight": 40,
+  "mobileControlHeight": 44,
+  "destructiveSubmissions": 0
+}

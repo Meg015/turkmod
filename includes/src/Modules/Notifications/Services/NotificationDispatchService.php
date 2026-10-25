@@ -71,11 +71,12 @@ final class NotificationDispatchService
         }
 
         $userSettings = $this->preferences->userSettings($pdo, $recipientId);
+        $recipient = $this->emailQueue->recipient($pdo, $recipientId);
         $payload = array_merge([
-            'recipient_name' => 'Kullanici',
+            'recipient_name' => $recipient['name'] ?? 'Kullanıcı',
             'comment_excerpt' => '',
             'moderation_note' => '',
-            'site_name' => 'Mod Portal',
+            'site_name' => trim((string) ($adminSettings['site_name'] ?? '')) ?: 'Türk Mod',
             'link' => '',
             'actor_name' => 'Bir kullanıcı',
             'topic_title' => 'Konu',
@@ -139,7 +140,7 @@ final class NotificationDispatchService
             }
             $emailBody = $this->templates->payloadValue($payload, 'email_body');
             if ($emailBody === '') {
-                $emailBody = $this->templates->render((string) ($dispatchTemplate['email_body_template'] ?? ''), $payload);
+                $emailBody = $this->templates->renderEmailBody($dispatchTemplate, $payload);
             }
             $emailLink = $this->templates->payloadValue($payload, 'email_link');
             if ($emailLink === '' && trim((string) ($dispatchTemplate['email_link_template'] ?? '')) !== '') {
@@ -383,6 +384,7 @@ final class NotificationDispatchService
                     'entity_id' => $entityId,
                     'actor_user_id' => $actorId,
                     'dedupe_key' => $dedupeKey,
+                    'body_format' => $this->templates->emailBodyFormat($dispatchTemplate),
                     'payload' => $payload,
                 ],
                 $emailQueueMaxAttempts

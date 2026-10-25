@@ -1150,7 +1150,7 @@ function adminRenderLogStatCards(array $cards, array $options = []): string
 {
     $options['base_class'] = 'admin-stat-grid logs-summary logs-stat-grid ui-grid admin-ui-stat-grid';
     $options['card_base_class'] = 'admin-stat-card logs-stat ui-card admin-ui-stat-card';
-    return adminRenderStatCards($cards, $options);
+    return adminRenderStatCards(array_slice($cards, 0, 4), $options);
 }
 
 function adminRenderLogToolbarOpen(string $bodyClass = '', string $wrapperClass = ''): string
@@ -1237,6 +1237,7 @@ function adminRenderLogListPanelClose(string $tag = 'section'): string
 
 /**
  * @param array{
+ *     kind?:string,
  *     wrapper_class?:string,
  *     table_class?:string,
  *     wrapper_attrs?:array<string,string|int|bool|null>,
@@ -1247,9 +1248,11 @@ function adminRenderLogTableOpen(array $options = []): string
 {
     $wrapperClass = trim(adminUiClass('table-wrapper ui-table-wrap ui-surface admin-log-table-wrap admin-log-standard-wrap ' . (string) ($options['wrapper_class'] ?? '')));
     $tableClass = trim(adminUiClass('admin-table admin-log-table admin-log-standard-table ' . (string) ($options['table_class'] ?? '')));
+    $tableAttrs = (array) ($options['table_attrs'] ?? []);
+    $tableAttrs['data-log-kind'] = (string) ($options['kind'] ?? 'activity');
 
     return '<div class="' . adminUiEscape($wrapperClass) . '"' . adminUiAttrs((array) ($options['wrapper_attrs'] ?? [])) . '>'
-        . '<table class="' . adminUiEscape($tableClass) . '"' . adminUiAttrs((array) ($options['table_attrs'] ?? [])) . '>';
+        . '<table class="' . adminUiEscape($tableClass) . '"' . adminUiAttrs($tableAttrs) . '>';
 }
 
 function adminRenderLogTableClose(): string
@@ -1342,7 +1345,9 @@ function adminLogCleanupRespond(bool $ok, string $message, string $redirectUrl, 
         sendJsonResponse($statusCode, $ok, $message, ['ok' => $ok]);
     }
 
-    flash($ok ? 'success' : 'error', $message);
+    if (!$ok || (string) ($_POST['_log_clear_silent'] ?? '') !== '1') {
+        flash($ok ? 'success' : 'error', $message);
+    }
     $redirectUrl = adminSanitizeRedirectUrl($redirectUrl);
     header('Location: ' . ($redirectUrl !== '' ? $redirectUrl : 'index.php'));
     exit;
@@ -1578,6 +1583,12 @@ function adminRenderLogsSubtabs(string $active): void
         ],
     ];
 
+    $shortLabels = ['activity' => 'Yönetici', 'action' => 'Kullanıcı', 'application' => 'Uygulama', 'email' => 'E-posta', 'cron' => 'Cron', 'system_notifications' => 'Bildirimler', 'rate_limits' => 'Rate Limit'];
+    foreach ($items as $key => &$item) {
+        $item['attrs']['title'] = $item['label'];
+        $item['label'] = $shortLabels[$key] ?? $item['label'];
+    }
+    unset($item);
     echo adminRenderTabBar($items, $active, [
         'class' => 'logs-subtabs',
         'link_class' => 'logs-subtab-link',

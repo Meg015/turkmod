@@ -416,9 +416,9 @@ function notificationTemplateDelete(PDO $pdo, string $templateKey): bool
     return notificationTemplateService()->delete($pdo, $templateKey);
 }
 
-function notificationTemplateReset(PDO $pdo, string $templateKey): bool
+function notificationTemplateReset(PDO $pdo, string $templateKey, ?string $channel = null): bool
 {
-    return notificationTemplateService()->reset($pdo, $templateKey);
+    return notificationTemplateService()->reset($pdo, $templateKey, $channel);
 }
 
 function notificationTemplatePreview(array $template, ?array $payload = null): array
@@ -534,4 +534,30 @@ function notificationDispatch(
         $entityId,
         $payload
     );
+}
+
+/** Notify the owner only when an existing topic enters a public status. */
+function notificationDispatchTopicPublished(PDO $pdo, array $topic, string $previousStatus, ?int $actorId = null): bool
+{
+    if (!in_array((string) ($topic['status'] ?? ''), ['published', 'approved'], true)
+        || in_array($previousStatus, ['published', 'approved'], true)) {
+        return false;
+    }
+
+    $topicId = (int) ($topic['id'] ?? 0);
+    $authorId = (int) ($topic['author_id'] ?? 0);
+    if ($topicId <= 0 || $authorId <= 0) {
+        return false;
+    }
+
+    try {
+        return notificationDispatch($pdo, 'topic_published', $authorId, $actorId === $authorId ? null : $actorId, 'topic', $topicId, [
+            'topic_title' => (string) ($topic['title'] ?? 'Konu'),
+            'actor_name' => (string) ($_SESSION['_auth_user_name'] ?? 'Yönetim'),
+            'link' => topicUrl((string) ($topic['slug'] ?? ''), $topicId),
+        ]);
+    } catch (Throwable $e) {
+        error_log('Topic publication notification failed: ' . $e->getMessage());
+        return false;
+    }
 }

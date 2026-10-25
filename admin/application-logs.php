@@ -193,6 +193,7 @@ require_once __DIR__ . '/header.php';
     <?= adminRenderLogPageHero('bi-journal-code', 'Sistem kayıtları', 'Uygulama Logları', 'Sistem, hata ve bakım kayıtlarını tek listede izleyin.') ?>
 
     <?= adminRenderAlert('', 'info', [
+        'class' => 'logs-context-note',
         'icon' => 'bi-info-circle',
         'html' => '<div><strong>Hata merkezi güncellendi:</strong> Sistem kaynaklı hataları tek noktadan takip etmek için <a href="' . htmlspecialchars(rtrim((string) $baseUri, '/') . '/admin/system-health.php?tab=logs', ENT_QUOTES, 'UTF-8') . '">Sistem Sağlığı &gt; Loglar &amp; Hatalar</a> sekmesini kullanın.</div>',
     ]) ?>
@@ -272,6 +273,7 @@ require_once __DIR__ . '/header.php';
                 ]) ?>
             <?php else: ?>
                 <?= adminRenderLogTableOpen([
+                    'kind' => 'application',
                     'wrapper_class' => 'application-logs-table-wrap',
                     'table_class' => 'application-logs-table admin-log-card-table',
                     'table_attrs' => ['aria-label' => 'Uygulama logları'],
@@ -356,52 +358,17 @@ require_once __DIR__ . '/header.php';
 
     <?php if ($canManageLogs): ?>
     <?php
-    $applicationClearOptions = [];
-    if ($hasFilters) {
-        $applicationClearOptions[] = [
-            'value' => 'clear_filtered',
-            'label' => 'Aktif filtreye uyan kayıtları sil',
-        ];
-    }
-    $applicationClearOptions[] = [
-        'value' => 'clear_old',
-        'label' => 'Belirtilen günden eski kayıtları sil',
-    ];
-    $applicationClearOptions[] = [
-        'value' => 'clear_all',
-        'label' => 'Tüm uygulama günlüğünü sil (Tehlikeli)',
-    ];
-
     $logClearModal = [
-        'aria_label' => 'Uygulama günlüğünü temizle',
-        'title' => 'Günlüğü Temizle',
         'form_action' => 'application-logs.php',
-        'scope_name' => 'action',
-        'options' => $applicationClearOptions,
+        'hidden_fields' => [
+            ['name' => 'action', 'value' => 'clear_all'],
+        ],
         'extra_hidden_renderer' => static function () use ($renderFilterHiddenFields): void {
             $renderFilterHiddenFields();
         },
-        'fields' => [
-            [
-                'show_for' => 'clear_old',
-                'label' => 'Gün sınırı',
-                'input' => [
-                    'id' => 'application-clear-days',
-                    'type' => 'number',
-                    'name' => 'days',
-                    'min' => '7',
-                    'max' => '3650',
-                    'step' => '1',
-                    'value' => '90',
-                    'class' => 'ui-admin-form-control',
-                    'aria-label' => 'Gün sayısı',
-                ],
-            ],
-        ],
-        'warning' => 'Seçilen kapsam kalıcı olarak silinir. Güvenlik incelemeleri için son logların tutulması önerilir. İşlem geri alınamaz.',
     ];
     adminRenderLogClearModal($logClearModal);
-    unset($logClearModal, $applicationClearOptions);
+    unset($logClearModal);
     ?>
     <?php endif; ?>
 </div>

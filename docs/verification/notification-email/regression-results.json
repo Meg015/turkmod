@@ -1,0 +1,11 @@
+{
+    "checks": 391,
+    "stored_templates": 24,
+    "event_templates": 24,
+    "account_templates": 7,
+    "admin_templates": 2,
+    "smtp_messages": 57,
+    "result": "PASS",
+    "javascript_tests": 3,
+    "javascript_result": "PASS"
+}

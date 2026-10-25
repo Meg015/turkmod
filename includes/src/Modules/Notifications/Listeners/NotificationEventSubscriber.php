@@ -44,13 +44,16 @@ final class NotificationEventSubscriber implements Listener
         if (!$pdo || $topicId <= 0 || $recipientId <= 0) {
             return;
         }
+        if (array_key_exists('previous_status', $payload) && in_array((string) $payload['previous_status'], ['published', 'approved'], true)) {
+            return;
+        }
 
         $actorId = (int) ($payload['actor_user_id'] ?? $payload['editor_user_id'] ?? 0);
-        $this->dispatch($pdo, 'topic_approved', $recipientId, $actorId > 0 ? $actorId : null, 'topic', $topicId, [
+        $this->dispatch($pdo, 'topic_published', $recipientId, $actorId > 0 && $actorId !== $recipientId ? $actorId : null, 'topic', $topicId, [
             'topic_title' => (string) ($payload['title'] ?? 'Konu'),
             'type' => 'success',
             'link' => $this->topicLink($pdo, $topicId),
-            'dedupe_key' => 'topic_approved:' . $recipientId . ':' . $topicId,
+            'dedupe_key' => 'topic_published:' . $recipientId . ':topic:' . $topicId,
         ]);
     }
 

@@ -11,6 +11,7 @@ $deviceLabels = [
 ];
 $activityBaseRoute = (string) ($activityBaseRoute ?? 'users.php');
 $activityBaseParams = is_array($activityBaseParams ?? null) ? $activityBaseParams : ['tab' => 'activity'];
+$showSupplementaryPanels = (bool) ($activityShowSupplementaryPanels ?? true);
 $canManageLogs = function_exists('adminCurrentUserCan') && adminCurrentUserCan('logs.manage');
 $showTabInput = isset($activityBaseParams['tab']);
 $activityBuildUrl = static function (array $extra = []) use ($activityBaseRoute, $activityBaseParams): string {
@@ -73,8 +74,10 @@ try {
     $events = userActivityList($pdo, $filters, $perPage, $offset);
     $totalEvents = userActivityCount($pdo, $filters);
     $stats = userActivityStats($pdo, $filters);
-    $securityRows = userActivitySecuritySummary($pdo, $filters, 10);
-    $adminRows = userActivityAdminActions($pdo, $filters, 10);
+    if ($showSupplementaryPanels) {
+        $securityRows = userActivitySecuritySummary($pdo, $filters, 10);
+        $adminRows = userActivityAdminActions($pdo, $filters, 10);
+    }
     $dbEventTypes = $pdo->query("SELECT DISTINCT event_type FROM user_activity_events ORDER BY event_type ASC LIMIT 100")->fetchAll(PDO::FETCH_COLUMN) ?: [];
     $knownEventTypes = function_exists('userActivityAllKnownEvents') ? userActivityAllKnownEvents() : [];
     if (function_exists('userActivityAdditionalEventLabels')) {
@@ -96,8 +99,10 @@ try {
 
     if ($userId > 0) {
         $selectedUser = usersGetById($pdo, $userId);
-        $contentSummary = userActivityContentSummary($pdo, $userId);
-        $adminNotes = usersGetAdminNotes($pdo, $userId, 8);
+        if ($showSupplementaryPanels) {
+            $contentSummary = userActivityContentSummary($pdo, $userId);
+            $adminNotes = usersGetAdminNotes($pdo, $userId, 8);
+        }
     }
 } catch (Throwable $e) {
     flash('error', safeErrorMessage($e, 'Kullanıcı izleme kayıtları yüklenemedi.'));
@@ -328,7 +333,7 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
             'title' => 'Hareket Akışı',
             'count_text' => number_format($totalEvents, 0, ',', '.') . ' kayıt',
             'actions_html' => $canManageLogs ? adminRenderLogClearTrigger([
-                'label' => 'Kayıtları Temizle',
+                'label' => 'Günlüğü Temizle',
                 'base_class' => 'ui-admin-btn ui-admin-btn-sm ui-admin-btn-danger',
             ]) : '',
         ]) ?>
@@ -478,6 +483,7 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                 <?php endif; ?>
         <?= adminRenderLogListPanelClose() ?>
 
+        <?php if ($showSupplementaryPanels): ?>
         <aside class="user-activity-side">
             <?= adminRenderPanelOpen(['title' => 'Güvenlik', 'icon' => 'bi-shield-lock', 'header_class' => 'user-activity-card-head']) ?>
                     <?php if (empty($securityRows)): ?>
@@ -549,42 +555,21 @@ $queryForPage = static function (int $targetPage) use ($activityBuildUrl, $q, $u
                 <?= adminRenderPanelClose() ?>
             <?php endif; ?>
         </aside>
+        <?php endif; ?>
     </div>
 </div>
 
 <?php if ($canManageLogs): ?>
 <!-- Clear Logs Modal -->
 <?php
-$activityClearOptions = [
-    [
-        'value' => 'older_than_30_days',
-        'label' => '30 Günden Eski Kayıtları Sil',
-    ],
-];
-if ($userId > 0 && $selectedUser) {
-    $activityClearOptions[] = [
-        'value' => 'user',
-        'label' => 'Sadece Bu Kullanıcının Kayıtlarını Sil (' . (string) ($selectedUser['username'] ?? 'Kullanici') . ')',
-    ];
-}
-$activityClearOptions[] = [
-    'value' => 'all',
-    'label' => 'Tüm Sistemin Loglarını Sil (Tehlikeli)',
-];
-
 $logClearModal = [
-    'aria_label' => 'Kayıtları temizle',
-    'title' => 'Kayıtları Temizle',
     'form_action' => $activityBuildUrl(),
     'hidden_fields' => [
         ['name' => 'action', 'value' => 'clear_activity_logs'],
         ['name' => 'target_user_id', 'value' => $userId > 0 ? (int) $userId : 0],
     ],
-    'scope_name' => 'scope',
-    'options' => $activityClearOptions,
-    'warning' => 'Bu işlem geri alınamaz. Silinen kayıtlar veritabanından kalıcı olarak silinecektir.',
 ];
 adminRenderLogClearModal($logClearModal);
-unset($logClearModal, $activityClearOptions);
+unset($logClearModal);
 ?>
 <?php endif; ?>

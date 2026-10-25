@@ -154,7 +154,7 @@ final class TopicEditService
             $pdo->commit();
             seoInvalidateSitemapCaches();
 
-            $this->emitEvents($pdo, $topicId, $userId, $status, $categoryId, $slug, $title);
+            $this->emitEvents($pdo, $topicId, $userId, $status, $categoryId, $slug, $title, $topic);
 
             return [
                 'topic_id' => $topicId,
@@ -182,6 +182,7 @@ final class TopicEditService
         int $categoryId,
         string $slug,
         string $title,
+        array $previousTopic,
     ): void {
         if (!$this->events instanceof EventDispatcher) {
             return;
@@ -190,6 +191,8 @@ final class TopicEditService
         $payload = [
             'topic_id' => $topicId,
             'editor_user_id' => $userId,
+            'author_id' => (int) ($previousTopic['author_id'] ?? $userId),
+            'previous_status' => (string) ($previousTopic['status'] ?? 'draft'),
             'status' => $status,
             'category_id' => $categoryId,
             'slug' => $slug,
@@ -200,7 +203,7 @@ final class TopicEditService
 
         $this->events->dispatch(new TopicWorkflowEvent('topic.updated', $payload));
 
-        if (in_array($status, ['published', 'approved'], true)) {
+        if (in_array($status, ['published', 'approved'], true) && !in_array($payload['previous_status'], ['published', 'approved'], true)) {
             $this->events->dispatch(new TopicWorkflowEvent('topic.published', $payload));
         }
     }

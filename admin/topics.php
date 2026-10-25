@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         $topicForNotification = null;
         if ($topicId > 0) {
             try {
-                $topicNoticeStmt = $pdo->prepare("SELECT id, author_id, title, slug FROM topics WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+                $topicNoticeStmt = $pdo->prepare("SELECT id, author_id, title, slug, status FROM topics WHERE id = ? AND deleted_at IS NULL LIMIT 1");
                 $topicNoticeStmt->execute([$topicId]);
                 $topicForNotification = $topicNoticeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
             } catch (Throwable $e) {
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                     'revision' => 'topic_revision_requested',
                 ][$decision] ?? '';
 
-                if ($eventKey !== '') {
+                if ($eventKey !== '' && !($decision === 'approve' && in_array((string) ($topicForNotification['status'] ?? ''), ['published', 'approved'], true))) {
                     $topicSlug = trim((string) ($topicForNotification['slug'] ?? ''));
                     $topicLink = $decision === 'approve'
                         ? topicUrl($topicSlug, (int) ($topicForNotification['id'] ?? $topicId))
@@ -98,9 +98,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
 
         switch ($action) {
             case 'publish':
+                $publicationStmt = $pdo->prepare("SELECT id, author_id, title, slug, status FROM topics WHERE id IN ({$placeholders}) AND deleted_at IS NULL AND status NOT IN ('published', 'approved')");
+                $publicationStmt->execute($selectedIds);
+                $publicationTopics = $publicationStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
                 $params = array_merge(['published'], $selectedIds);
                 $stmt = $pdo->prepare("UPDATE topics SET status = ?, published_at = COALESCE(published_at, NOW()), updated_at = NOW() WHERE id IN ({$placeholders}) AND deleted_at IS NULL");
                 $stmt->execute($params);
+                foreach ($publicationTopics as $publicationTopic) {
+                    notificationDispatchTopicPublished($pdo, array_replace($publicationTopic, ['status' => 'published']), (string) $publicationTopic['status'], $currentUserId ?: null);
+                }
                 flash('success', count($selectedIds) . ' konu yayına alındı.');
                 break;
 

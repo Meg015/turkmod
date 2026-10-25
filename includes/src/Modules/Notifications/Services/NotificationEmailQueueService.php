@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Notifications\Services;
 
 use PDO;
+use RuntimeException;
 use Throwable;
 
 final class NotificationEmailQueueService
@@ -12,6 +13,61 @@ final class NotificationEmailQueueService
     public function __construct(private ?NotificationSchemaService $schema = null)
     {
         $this->schema ??= new NotificationSchemaService();
+    }
+
+    /** Send the current editor contents without requiring the automatic queue to be enabled. */
+    public function sendTest(PDO $pdo, int $userId, string $templateKey, array $template, array $settings = []): bool
+    {
+        $recipient = $this->recipient($pdo, $userId);
+        if (!$recipient) {
+            throw new RuntimeException('Aktif admin hesabında geçerli e-posta adresi bulunamadı.');
+        }
+
+        $templates = new NotificationTemplateService();
+        $errors = array_merge($templates->validate($template), $templates->emailCopyErrors($template));
+        if ($errors !== []) {
+            throw new RuntimeException(implode(' ', $errors));
+        }
+
+        $payload = array_replace($templates->samplePayload(), [
+            'recipient_name' => $recipient['name'],
+            'site_name' => trim((string) ($settings['site_name'] ?? '')) ?: 'Türk Mod',
+        ]);
+        $preview = $templates->emailPreview($template, $payload);
+        $subject = mb_substr('Test: ' . $preview['subject'], 0, 255);
+        $html = $this->buildHtml([
+            'subject' => $subject,
+            'body' => $preview['body'],
+            'link' => $preview['link'],
+            'metadata_json' => json_encode([
+                'email_preview' => $preview['preview'],
+                'body_format' => $templates->emailBodyFormat($template),
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+        $sent = function_exists('appSendMail') && appSendMail($recipient['email'], $subject, $html, [
+            'settings' => $settings,
+            'email_log' => [
+                'source' => 'notification_test',
+                'source_key' => $templateKey,
+                'recipient_name' => $recipient['name'],
+                'user_id' => $userId,
+            ],
+        ]);
+        $this->logDelivery($pdo, $sent ? 'notification_email_sent' : 'notification_delivery_failed', [
+            'source' => 'admin_email_notification_test',
+            'status' => $sent ? 'sent' : 'failed',
+            'reason' => $sent ? '' : 'email_test_send_failed',
+            'error' => $sent ? '' : $this->buildMailFailureMessage(),
+            'event_key' => $templateKey,
+            'template_key' => $templateKey,
+            'recipient_user_id' => $userId,
+            'recipient_email' => $recipient['email'],
+            'recipient_type' => 'admin',
+            'title' => $subject,
+            'delivery_channels' => ['email'],
+        ], $sent ? 'info' : 'error');
+
+        return $sent;
     }
 
     /** @return array{total:int,queued:int,processing:int,sent:int,failed:int} */
@@ -191,18 +247,21 @@ final class NotificationEmailQueueService
     {
         $subject = (string) ($row['subject'] ?? '');
         $rawBody = (string) ($row['body'] ?? '');
-        if (function_exists('appMailIsStandardLayout') && appMailIsStandardLayout($rawBody)) {
-            return $rawBody;
-        }
-
         $metadata = [];
         if (!empty($row['metadata_json']) && is_string($row['metadata_json'])) {
             $decoded = json_decode($row['metadata_json'], true);
             $metadata = is_array($decoded) ? $decoded : [];
         }
-        $preheader = trim((string) ($metadata['email_preview'] ?? ''));
+        if (($metadata['body_format'] ?? '') !== 'text' && function_exists('appMailIsStandardLayout') && appMailIsStandardLayout($rawBody)) {
+            return $rawBody;
+        }
+        $preheader = trim((string) ($metadata['email_preview'] ?? $metadata['payload']['email_preview'] ?? ''));
         $link = $this->absoluteLink(isset($row['link']) ? (string) $row['link'] : null);
-        if (function_exists('appMailIsHtmlDocument') && appMailIsHtmlDocument($rawBody)) {
+        if (($metadata['body_format'] ?? '') === 'text') {
+            $contentHtml = function_exists('appMailPlainTextHtml')
+                ? appMailPlainTextHtml($rawBody)
+                : nl2br(htmlspecialchars($rawBody, ENT_QUOTES, 'UTF-8'));
+        } elseif (function_exists('appMailIsHtmlDocument') && appMailIsHtmlDocument($rawBody)) {
             $bodyText = function_exists('appMailTextFromHtml')
                 ? appMailTextFromHtml($rawBody)
                 : trim(html_entity_decode(strip_tags($rawBody), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
@@ -252,14 +311,16 @@ final class NotificationEmailQueueService
             'errors' => [],
         ];
 
-        try {
-            $pdo->exec("UPDATE notification_email_queue
-                SET status = 'queued', locked_at = NULL, updated_at = NOW()
-                WHERE status = 'processing'
-                  AND locked_at IS NOT NULL
-                  AND locked_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)");
-        } catch (Throwable $e) {
-            error_log('Notification email stale lock reset failed: ' . $e->getMessage());
+        if (!$dryRun) {
+            try {
+                $pdo->exec("UPDATE notification_email_queue
+                    SET status = 'queued', locked_at = NULL, updated_at = NOW()
+                    WHERE status = 'processing'
+                      AND locked_at IS NOT NULL
+                      AND locked_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)");
+            } catch (Throwable $e) {
+                error_log('Notification email stale lock reset failed: ' . $e->getMessage());
+            }
         }
 
         try {
@@ -332,8 +393,10 @@ final class NotificationEmailQueueService
         try {
             $lock = $pdo->prepare("UPDATE notification_email_queue
                 SET status = 'processing', locked_at = NOW(), updated_at = NOW()
-                WHERE id = ? AND status = 'queued'");
-            $lock->execute([$queueId]);
+                WHERE id = ? AND status = 'queued'
+                  AND attempts = ? AND attempts < max_attempts
+                  AND (available_at IS NULL OR available_at <= NOW())");
+            $lock->execute([$queueId, (int) ($row['attempts'] ?? 0)]);
             if ($lock->rowCount() !== 1) {
                 return;
             }

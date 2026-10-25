@@ -1155,6 +1155,7 @@ require_once __DIR__ . '/header.php';
                 ]) ?>
             <?php else: ?>
                 <?= adminRenderLogTableOpen([
+                    'kind' => 'activity',
                     'wrapper_class' => 'ui-admin-table-responsive',
                     'table_class' => 'ui-admin-table ui-admin-table-striped admin-log-card-table',
                 ]) ?>
@@ -1279,24 +1280,10 @@ require_once __DIR__ . '/header.php';
     <?php if ($canManageLogs): ?>
         <?php
         $logClearModal = [
-            'aria_label' => 'Yönetici günlüğünü temizle',
-            'title' => 'Günlüğü Temizle',
             'form_action' => $activityPostAction,
             'hidden_fields' => [
                 ['name' => 'action', 'value' => 'clear_action_logs'],
             ],
-            'scope_name' => 'scope',
-            'options' => [
-                [
-                    'value' => 'older_than_30_days',
-                    'label' => '30 Günden Eski Kayıtları Sil',
-                ],
-                [
-                    'value' => 'all',
-                    'label' => 'Tüm Günlüğü Sil (Tehlikeli)',
-                ],
-            ],
-            'warning' => 'Bu işlem denetim kayıtlarını silecektir. Güvenlik incelemeleri için son logların tutulması önerilir. Sadece gerekli olduğunda temizlik yapın. İşlem geri alınamaz.',
         ];
         adminRenderLogClearModal($logClearModal);
         unset($logClearModal);
@@ -1362,6 +1349,7 @@ require_once __DIR__ . '/header.php';
                 ]) ?>
             <?php else: ?>
                 <?= adminRenderLogTableOpen([
+                    'kind' => 'cron',
                     'wrapper_class' => 'cron-logs-table-wrap',
                     'table_class' => 'cron-logs-table admin-log-card-table',
                     'table_attrs' => ['aria-label' => 'Cron logları'],
@@ -1439,20 +1427,10 @@ require_once __DIR__ . '/header.php';
     <?php if ($canManageLogs): ?>
                 <?php
                 $logClearModal = [
-                    'aria_label' => 'Cron günlüğünü temizle',
-                    'title' => 'Günlüğü Temizle',
                     'form_action' => 'logs.php?view=cron',
                     'hidden_fields' => [
                         ['name' => 'action', 'value' => 'clear_cron_all'],
                     ],
-            'scope_name' => 'scope',
-            'options' => [
-                [
-                    'value' => 'all',
-                    'label' => 'Tüm cron günlüğünü sil (Tehlikeli)',
-                ],
-            ],
-            'warning' => 'Seçilen cron logları kalıcı olarak silinir. Bu işlem geri alınamaz.',
         ];
         adminRenderLogClearModal($logClearModal);
         unset($logClearModal);
@@ -1551,6 +1529,7 @@ require_once __DIR__ . '/header.php';
                         </div>
                 <?php endif; ?>
                 <?= adminRenderLogTableOpen([
+                    'kind' => 'system_notifications',
                     'wrapper_class' => 'system-notifications-table-wrap',
                     'table_class' => 'system-notifications-table admin-log-card-table',
                     'table_attrs' => ['aria-label' => 'Sistem bildirimleri'],
@@ -1724,20 +1703,10 @@ require_once __DIR__ . '/header.php';
             <?php if ($canManageLogs && (int) $systemNotificationStats['total'] > 0): ?>
                 <?php
                 $logClearModal = [
-                    'aria_label' => 'Sistem bildirimlerini temizle',
-                    'title' => 'Sistem Bildirimlerini Temizle',
                     'form_action' => 'logs.php?view=system_notifications',
                     'hidden_fields' => [
                         ['name' => 'action', 'value' => 'clear_system_notifications'],
                     ],
-                    'scope_name' => 'scope',
-                    'options' => [
-                        [
-                            'value' => 'all',
-                            'label' => 'Tüm sistem bildirimlerini sil (Tehlikeli)',
-                        ],
-                    ],
-                    'warning' => 'Tüm sistem bildirimleri ve ilişkili okundu/kuyruk/gizleme kayıtları kalıcı olarak silinir. Bu işlem geri alınamaz.',
                 ];
                 adminRenderLogClearModal($logClearModal);
                 unset($logClearModal);

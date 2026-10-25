@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/gif-sanitizer.php';
 
 /** Shared by browser uploads and downloaded bot images. */
 function mediaImageSettings(?PDO $pdo = null): array
@@ -37,6 +38,42 @@ function mediaInspectImage(string $path): array
     }
     $info['extension'] = $extensions[$info[2]];
     return $info;
+}
+
+/** Strip metadata and appended content, keeping format, dimensions and GIF animation. */
+function mediaSanitizeImage(string $filePath): void
+{
+    $info = mediaInspectImage($filePath);
+    $image = mediaCreateImageFromFile($filePath, $info['extension']);
+    if ($image === null) {
+        throw new RuntimeException('Görsel dosyası çözümlenemedi.');
+    }
+    imagealphablending($image, false);
+    imagesavealpha($image, true);
+    if ($info[2] === IMAGETYPE_GIF) {
+        $clean = mediaSanitizeGifData((string) file_get_contents($filePath), $info[0], $info[1]);
+        $temporary = @tempnam(dirname($filePath), '.tm-image-');
+        if ($temporary === false || realpath(dirname($temporary)) !== realpath(dirname($filePath))) {
+            if (is_string($temporary)) { @unlink($temporary); }
+            throw new RuntimeException('Görsel için geçici dosya oluşturulamadı.');
+        }
+    } else {
+        $temporary = mediaEncodeImageTemporary($image, dirname($filePath), $info['extension'], [
+            'jpeg_quality' => 90, 'webp_quality' => 90,
+        ]);
+    }
+    try {
+        if (isset($clean) && (@file_put_contents($temporary, $clean, LOCK_EX) !== strlen($clean) || !@chmod($temporary, 0644))) {
+            throw new RuntimeException('GIF güvenli biçimde kaydedilemedi.');
+        }
+        if (!@rename($temporary, $filePath)) {
+            throw new RuntimeException('Görsel güvenli biçimde kaydedilemedi.');
+        }
+    } finally {
+        if (is_file($temporary)) {
+            @unlink($temporary);
+        }
+    }
 }
 
 /** @return array{path:string,name:string,stream:resource} Caller must close the reserved stream. */

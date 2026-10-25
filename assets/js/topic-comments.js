@@ -23,6 +23,7 @@
             const loadMoreWrap = document.getElementById('tcLoadMoreWrap');
             const loadMoreBtn = document.getElementById('tcLoadMore');
             const paginationInfo = document.getElementById('tcPaginationInfo');
+            if (!list) return;
             let comments  = [];
             let pollTimer = null;
             let currentPage = 1;
@@ -41,6 +42,9 @@
                 return ALLOWED_SORTS.includes(candidate || '') ? candidate : 'asc';
             }
             let currentSort = resolveInitialSort();
+            let loadedSort = currentSort;
+            let commentsRequestVersion = 0;
+            let commentsRequestPending = false;
             if (sortSelect) {
                 sortSelect.value = currentSort;
                 try {
@@ -50,7 +54,16 @@
             let hasOpenInlineForm = false; // track if inline form is open
             let lastFocusedCommentHash = '';
             let hashAutoLoadInProgress = false;
+            let hashAutoLoadVersion = 0;
             const deleteInFlightIds = new Set();
+
+            function persistCommentSort() {
+                if (sortSelect) sortSelect.value = currentSort;
+                try { localStorage.setItem(SORT_STORAGE_KEY, currentSort); } catch (error) {}
+                const url = new URL(window.location.href);
+                url.searchParams.set('comments_sort', currentSort);
+                history.replaceState(null, '', url.pathname + url.search + url.hash);
+            }
 
             // -- Helpers --
             function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
@@ -214,7 +227,7 @@
                 // Bold: **text**
                 html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
                 // Italic: *text* (not adjacent to another *)
-                html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+                html = html.replace(/(^|[^*])\*(?!\*)([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
                 // Inline code: `text`
                 html = html.replace(/`([^`]+?)`/g, '<code>$1</code>');
                 // Links: [text](url) — only http/https
@@ -468,7 +481,7 @@
                 const newComments = data.comments || [];
                 totalComments = data.total || 0;
                 totalPages = data.pages || 1;
-                countEl.textContent = '(' + totalComments + ')';
+                if (countEl) countEl.textContent = '(' + totalComments + ')';
 
                 // Update pagination UI
                 updatePaginationUI();
@@ -528,19 +541,23 @@
             }
 
             function ensureCommentFromHash() {
+                if (commentsRequestPending) return;
                 const targetId = getCommentHashTargetId();
                 if (!targetId) return;
                 if (focusCommentFromHash()) return;
                 if (hashAutoLoadInProgress || currentPage >= totalPages) return;
 
                 hashAutoLoadInProgress = true;
+                const hashVersion = ++hashAutoLoadVersion;
 
                 const finish = function() {
+                    if (hashVersion !== hashAutoLoadVersion) return;
                     hashAutoLoadInProgress = false;
                     updatePaginationUI();
                 };
 
                 const loadNextPage = function() {
+                    if (hashVersion !== hashAutoLoadVersion) return;
                     const activeTargetId = getCommentHashTargetId();
                     if (!activeTargetId || activeTargetId !== targetId) {
                         finish();
@@ -564,6 +581,7 @@
                     }
 
                     loadComments(currentPage + 1, true, {skipHashEnsure: true}).then(function(data) {
+                        if (hashVersion !== hashAutoLoadVersion) return;
                         if (!data) {
                             finish();
                             return;
@@ -600,19 +618,12 @@
             function updatePaginationUI() {
                 const hasAnyComments = totalComments > 0 || comments.length > 0;
                 const hasNextPage = hasAnyComments && currentPage < totalPages;
-                if (hasNextPage) {
-                    loadMoreWrap.classList.remove('is-hidden');
-                    if (currentPage < totalPages) {
-                        loadMoreBtn.disabled = false;
-                        loadMoreBtn.innerHTML = 'Daha fazla yorum yükle';
-                    } else {
-                        loadMoreBtn.disabled = true;
-                        loadMoreBtn.innerHTML = 'En son yoruma ulaştınız';
-                    }
-                } else {
-                    loadMoreWrap.classList.add('is-hidden');
-                    loadMoreBtn.disabled = true;
+                if (loadMoreWrap) loadMoreWrap.classList.toggle('is-hidden', !hasNextPage);
+                if (loadMoreBtn) {
+                    loadMoreBtn.disabled = commentsRequestPending || !hasNextPage;
+                    loadMoreBtn.textContent = commentsRequestPending ? 'Yükleniyor...' : (hasNextPage ? 'Daha fazla yorum yükle' : 'En son yoruma ulaştınız');
                 }
+                if (!paginationInfo) return;
                 if (hasAnyComments && totalPages > 1) {
                     paginationInfo.classList.remove('is-hidden');
                     paginationInfo.textContent = 'Sayfa ' + currentPage + ' / ' + totalPages;
@@ -623,9 +634,22 @@
 
             // -- Fetch --
             function loadComments(page, append=false, options={}){
-                const params = new URLSearchParams({topic_id: TOPIC, page: page || 1, sort: currentSort, _t: new Date().getTime()});
+                if (!options.skipHashEnsure) {
+                    ++hashAutoLoadVersion;
+                    hashAutoLoadInProgress = false;
+                }
+                const requestVersion = ++commentsRequestVersion;
+                const requestSort = currentSort;
+                const requestHashVersion = hashAutoLoadVersion;
+                let resumeHashOnFailure = false;
+                let requestSucceeded = false;
+                commentsRequestPending = true;
+                updatePaginationUI();
+                const params = new URLSearchParams({topic_id: TOPIC, page: page || 1, sort: requestSort, _t: new Date().getTime()});
                 return fetchCommentJson(API + '?' + params.toString()).then(data=>{
-                    loading.classList.add('is-hidden');
+                    if (requestVersion !== commentsRequestVersion) return null;
+                    if (!data || !Array.isArray(data.comments)) throw new Error('Geçersiz yorum yanıtı');
+                    if (loading) loading.classList.add('is-hidden');
                     if(append && page > 1) {
                         // Append to existing comments
                         const newComments = data.comments || [];
@@ -633,7 +657,7 @@
                         currentPage = Math.max(currentPage, page || currentPage);
                         totalComments = data.total || 0;
                         totalPages = data.pages || 1;
-                        countEl.textContent = '(' + totalComments + ')';
+                        if (countEl) countEl.textContent = '(' + totalComments + ')';
                         // Append new HTML
                         const html = newComments.map(c=>renderComment(c)).join('');
                         list.insertAdjacentHTML('beforeend', html);
@@ -646,11 +670,36 @@
                         currentPage = page || 1;
                         renderAll(data);
                     }
+                    loadedSort = requestSort;
+                    requestSucceeded = true;
                     return data;
                 }).catch((e)=>{
-                    if(!append) loading.innerHTML='<p class="ui-comment-empty ui-empty">Yorumlar yüklenemedi. (' + e.message + ')</p>';
+                    if (requestVersion !== commentsRequestVersion) return null;
+                    if (currentSort !== loadedSort) {
+                        currentSort = loadedSort;
+                        resumeHashOnFailure = true;
+                        persistCommentSort();
+                    }
+                    const message = 'Yorumlar yüklenemedi. (' + (e && e.message ? e.message : 'Bağlantı hatası') + ')';
+                    if (!append && comments.length === 0) {
+                        const errorMessage = document.createElement('p');
+                        errorMessage.className = 'ui-comment-empty ui-empty';
+                        errorMessage.textContent = message;
+                        list.replaceChildren(errorMessage);
+                    } else {
+                        showAlert(message, 'error');
+                    }
+                    updatePaginationUI();
                     console.error('FETCH ERROR:', e);
                     return null;
+                }).finally(()=>{
+                    if (requestVersion === commentsRequestVersion) {
+                        commentsRequestPending = false;
+                        updatePaginationUI();
+                        if (resumeHashOnFailure || (requestSucceeded && !options.skipHashEnsure) || requestHashVersion !== hashAutoLoadVersion) {
+                            ensureCommentFromHash();
+                        }
+                    }
                 });
             }
 
@@ -666,9 +715,14 @@
                 pollTimer = setInterval(()=>{
                     if(document.hidden) return; // skip if tab not visible
                     if(currentPage > 1) return; // skip polling if user has loaded more pages
+                    if(commentsRequestPending || currentSort !== loadedSort) return;
                     if(window._isPollingComments) return;
                     window._isPollingComments = true;
-                    fetchCommentJson(API+'?topic_id='+TOPIC+'&page='+currentPage+'&sort='+currentSort+'&_t='+Date.now()).then(data=>{
+                    const pollVersion = commentsRequestVersion;
+                    const pollSort = currentSort;
+                    fetchCommentJson(API+'?topic_id='+TOPIC+'&page='+currentPage+'&sort='+pollSort+'&_t='+Date.now()).then(data=>{
+                        if (pollVersion !== commentsRequestVersion || commentsRequestPending || currentPage > 1 || pollSort !== currentSort) return;
+                        if (!data || !Array.isArray(data.comments)) return;
                         renderAll(data, true); // true = isPollUpdate
                     }).catch(()=>{}).finally(()=>{ window._isPollingComments = false; });
                 }, POLL*1000);
@@ -689,14 +743,8 @@
             if(sortSelect) {
                 sortSelect.addEventListener('change', function(){
                     currentSort = this.value;
-                    try {
-                        localStorage.setItem(SORT_STORAGE_KEY, currentSort);
-                    } catch (error) {}
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('comments_sort', currentSort);
-                    history.replaceState(null, '', url.pathname + url.search + url.hash);
-                    currentPage = 1;
-                    loading.classList.remove('is-hidden');
+                    persistCommentSort();
+                    if (loading && loading.isConnected) loading.classList.remove('is-hidden');
                     loadComments(1);
                 });
             }
@@ -704,10 +752,9 @@
             // -- Load More --
             if(loadMoreBtn) {
                 loadMoreBtn.addEventListener('click', function(){
-                    currentPage++;
                     this.disabled = true;
                     this.innerHTML = 'Yükleniyor...';
-                    loadComments(currentPage, true);
+                    loadComments(currentPage + 1, true);
                 });
             }
 
@@ -1162,6 +1209,8 @@
 
             // -- Init --
             window.addEventListener('hashchange', function() {
+                ++hashAutoLoadVersion;
+                hashAutoLoadInProgress = false;
                 ensureCommentFromHash();
             });
             loadComments(1);

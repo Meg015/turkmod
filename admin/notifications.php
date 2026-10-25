@@ -1167,7 +1167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             }
 
             if ($action === 'reset_template') {
-                if (!notificationTemplateReset($pdo, $templateKey)) {
+                if (!notificationTemplateReset($pdo, $templateKey, $channel)) {
                     throw new RuntimeException('Bildirim metni varsayılana döndürülemedi.');
                 }
                 flash('success', 'Bildirim metni varsayılana döndürüldü.');
@@ -1234,96 +1234,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                 if ($currentUserId <= 0) {
                     throw new RuntimeException('Test e-postası için aktif admin hesabı bulunamadı.');
                 }
-                if (!admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0')) {
-                    throw new RuntimeException('E-posta kuyruğu aktif değil.');
-                }
-                if (!notificationEmailRecipient($pdo, $currentUserId)) {
-                    throw new RuntimeException('Aktif admin hesabında geçerli e-posta adresi bulunamadı.');
-                }
-
-                $errors = array_merge(notificationTemplateValidate($templateInput), notificationTemplateEmailCopyErrors($templateInput));
-                if (!empty($errors)) {
-                    throw new RuntimeException(implode(' ', $errors));
+                $sent = notificationEmailQueueService()->sendTest($pdo, $currentUserId, $templateKey, $templateInput, $adminSettings);
+                if (!$sent) {
+                    $mailResult = function_exists('appLastMailResult') ? appLastMailResult() : [];
+                    $detail = admin_notification_mail_diagnostic($mailResult, [(string) ($adminSettings['smtp_password'] ?? '')]);
+                    throw new RuntimeException('Olay e-posta testi gönderilemedi.' . ($detail !== '' ? ' ' . $detail : ''));
                 }
 
-                $samplePayload = notificationTemplateSamplePayload();
-                $samplePayload['recipient_name'] = (string) ($_SESSION['_auth_user_name'] ?? 'Admin');
-                $preview = notificationTemplateEmailPreview($templateInput, $samplePayload);
-                $subject = mb_substr('Test: ' . $preview['subject'], 0, 255);
-                $startedTx = false;
-                if (!$pdo->inTransaction()) {
-                    $pdo->beginTransaction();
-                    $startedTx = true;
-                }
-
-                try {
-                    $notificationId = admin_notification_insert(
-                        $pdo,
-                        $currentUserId,
-                        $subject,
-                        $preview['body'],
-                        'system',
-                        $preview['link'] !== '' ? $preview['link'] : null,
-                        true,
-                        ['email_queue_pending'],
-                        [
-                            'source' => 'admin_email_notification_test',
-                            'event_key' => $templateKey,
-                            'template_key' => $templateKey,
-                            'recipient_type' => 'admin',
-                            'actor_user_id' => $currentUserId,
-                        ]
-                    );
-                    $queued = notificationQueueEmail(
-                        $pdo,
-                        $notificationId,
-                        $currentUserId,
-                        $templateKey,
-                        $subject,
-                        $preview['body'],
-                        $preview['link'] !== '' ? $preview['link'] : null,
-                        [
-                            'source' => 'admin_email_test',
-                            'template_key' => $templateKey,
-                            'event_key' => $templateKey,
-                            'recipient_type' => 'admin',
-                            'actor_user_id' => $currentUserId,
-                            'email_preview' => $preview['preview'],
-                        ],
-                        admin_notification_int($adminSettings, 'notif_email_queue_max_attempts', 3, 1, 10)
-                    );
-                    admin_notification_update_delivery_channels($pdo, $notificationId, [$queued ? 'email_queue' : 'email_queue_failed']);
-                    if (!$queued) {
-                        throw new RuntimeException('Test e-postası kuyruğa eklenemedi.');
-                    }
-                    if ($startedTx && $pdo->inTransaction()) {
-                        $pdo->commit();
-                    }
-                } catch (Throwable $e) {
-                    if ($startedTx && $pdo->inTransaction()) {
-                        $pdo->rollBack();
-                    }
-                    if (function_exists('notificationDeliveryLog')) {
-                        notificationDeliveryLog($pdo, 'notification_delivery_failed', [
-                            'source' => 'admin_email_notification_test',
-                            'status' => 'failed',
-                            'reason' => 'email_queue_transaction_failed',
-                            'error' => $e->getMessage(),
-                            'event_key' => $templateKey,
-                            'template_key' => $templateKey,
-                            'recipient_user_id' => $currentUserId,
-                            'recipient_type' => 'admin',
-                            'actor_user_id' => $currentUserId,
-                            'title' => $subject ?? '',
-                            'message' => $preview['body'] ?? '',
-                            'link' => $preview['link'] ?? '',
-                            'delivery_channels' => ['email_queue_failed'],
-                        ], 'error');
-                    }
-                    throw $e;
-                }
-
-                flash('success', 'Test e-postası kuyruğa eklendi.');
+                flash('success', 'Test e-postası admin hesabınızın e-posta adresine gönderildi.');
                 admin_notification_redirect('notifications.php?tab=email&email_group=events#' . admin_notification_template_anchor($templateKey));
             }
 
@@ -2933,7 +2851,7 @@ $csrfToken = csrf_token();
                         $emailErrors = notificationTemplateEmailCopyErrors($template);
                         $emailReady = $emailErrors === [];
                         $emailControlsDisabled = !$emailTemplateSchemaReady;
-                        $emailTestDisabled = $emailControlsDisabled || !admin_notification_bool($adminSettings, 'notif_email_channel_ready', '0') || !$currentAdminEmailRecipient;
+                        $emailTestDisabled = $emailControlsDisabled || !$currentAdminEmailRecipient;
                         $variables = array_values((array) ($template['variables'] ?? []));
                         $emailRequired = admin_notification_required_notification_variables($templateKey, 'email');
                     ?>
@@ -2987,6 +2905,11 @@ $csrfToken = csrf_token();
                                     <input type="checkbox" name="is_active" value="1" <?= (int) ($template['is_active'] ?? 1) === 1 ? 'checked' : '' ?> data-notification-status-toggle>
                                     <span class="ui-admin-switch-label">Aktif</span>
                                 </label>
+                                <input type="hidden" name="email_enabled" value="0">
+                                <label class="ui-admin-switch">
+                                    <input type="checkbox" name="email_enabled" value="1" <?= (int) ($template['email_enabled'] ?? 0) === 1 ? 'checked' : '' ?> <?= $emailControlsDisabled ? 'disabled' : '' ?> data-notification-email-toggle>
+                                    <span class="ui-admin-switch-label">E-Posta Gönder</span>
+                                </label>
                             </div>
                         </div>
 
@@ -3038,7 +2961,7 @@ $csrfToken = csrf_token();
                         </div>
 
                         <div class="notification-template-actions">
-                            <span class="notif-help">E-posta metni site içi bildirim metninden bağımsızdır.</span>
+                            <span class="notif-help">Test e-postası doğrudan admin hesabınıza gönderilir. Otomatik gönderimler e-posta kuyruğunu kullanır.</span>
                             <div class="notification-template-actions-group">
                                 <?php if (!empty($template['is_default'])): ?>
                                     <button type="submit" name="action" value="reset_template" class="ui-admin-btn ui-admin-btn-outline" formnovalidate <?= $emailControlsDisabled ? 'disabled' : '' ?>>

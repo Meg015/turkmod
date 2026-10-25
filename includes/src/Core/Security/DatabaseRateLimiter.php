@@ -55,10 +55,8 @@ final class DatabaseRateLimiter implements RateLimiter
             return false;
         }
 
-        $expiresAt = strtotime((string) $state['expires_at']);
-        if ($expiresAt !== false && $expiresAt <= time()) {
-            $this->clear($key);
-
+        if ($state['expires_at_epoch'] === null || $state['expires_at_epoch'] <= $state['database_now_epoch']) {
+            // Do not delete here: another request may have renewed this key after the read.
             return false;
         }
 
@@ -72,11 +70,10 @@ final class DatabaseRateLimiter implements RateLimiter
         }
 
         $normalizedKey = $this->normalizeKey($key);
-        $expiresAt = date('Y-m-d H:i:s', time() + $windowSeconds);
         $tableName = $this->table;
 
         $sql = "INSERT INTO `{$tableName}` (scope, rate_key, attempt_count, first_attempt_at, last_attempt_at, expires_at, created_at, updated_at)
-            VALUES (:scope, :rate_key, 1, NOW(), NOW(), :expires_at, NOW(), NOW())
+            VALUES (:scope, :rate_key, 1, NOW(), NOW(), TIMESTAMPADD(SECOND, :window_seconds, NOW()), NOW(), NOW())
             ON DUPLICATE KEY UPDATE
                 attempt_count = CASE
                     WHEN expires_at IS NULL OR expires_at <= NOW() THEN 1
@@ -95,7 +92,7 @@ final class DatabaseRateLimiter implements RateLimiter
             $stmt->execute([
                 'scope' => $this->scope,
                 'rate_key' => $normalizedKey,
-                'expires_at' => $expiresAt,
+                'window_seconds' => $windowSeconds,
             ]);
         } catch (PDOException $exception) {
             throw new RuntimeException('Rate limiter hit could not be persisted.', 0, $exception);
@@ -109,22 +106,10 @@ final class DatabaseRateLimiter implements RateLimiter
         }
 
         $state = $this->readState($key);
-        if ($state === null || empty($state['expires_at'])) {
+        if ($state === null || $state['expires_at_epoch'] === null) {
             return 0;
         }
-
-        $expiresAt = strtotime((string) $state['expires_at']);
-        if ($expiresAt === false) {
-            return 0;
-        }
-
-        if ($expiresAt <= time()) {
-            $this->clear($key);
-
-            return 0;
-        }
-
-        return max(0, $expiresAt - time());
+        return max(0, $state['expires_at_epoch'] - $state['database_now_epoch']);
     }
 
     public function clear(string $key): void
@@ -145,7 +130,7 @@ final class DatabaseRateLimiter implements RateLimiter
     }
 
     /**
-     * @return array{attempt_count:int,expires_at:?string}|null
+     * @return array{attempt_count:int,expires_at_epoch:?int,database_now_epoch:int}|null
      */
     private function readState(string $key): ?array
     {
@@ -153,7 +138,9 @@ final class DatabaseRateLimiter implements RateLimiter
 
         try {
             $stmt = $this->pdo->prepare(
-                "SELECT attempt_count, expires_at FROM `{$tableName}` WHERE scope = :scope AND rate_key = :rate_key LIMIT 1",
+                "SELECT attempt_count, UNIX_TIMESTAMP(expires_at) AS expires_at_epoch,
+                    UNIX_TIMESTAMP() AS database_now_epoch
+                 FROM `{$tableName}` WHERE scope = :scope AND rate_key = :rate_key LIMIT 1",
             );
             $stmt->execute([
                 'scope' => $this->scope,
@@ -170,7 +157,8 @@ final class DatabaseRateLimiter implements RateLimiter
 
         return [
             'attempt_count' => (int) ($row['attempt_count'] ?? 0),
-            'expires_at' => isset($row['expires_at']) ? (string) $row['expires_at'] : null,
+            'expires_at_epoch' => isset($row['expires_at_epoch']) ? (int) $row['expires_at_epoch'] : null,
+            'database_now_epoch' => (int) $row['database_now_epoch'],
         ];
     }
 
@@ -191,13 +179,11 @@ final class DatabaseRateLimiter implements RateLimiter
     private function assertSchemaReady(): void
     {
         try {
-            $stmt = $this->pdo->prepare(
-                'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name',
-            );
-            $stmt->execute(['table_name' => $this->table]);
-            if ((int) $stmt->fetchColumn() === 0) {
-                throw new RuntimeException('Rate limiter schema is missing; run Database Synchronization.');
-            }
+            // Check the actual table contract without a separate metadata permission/query.
+            $stmt = $this->pdo->prepare("SELECT scope, rate_key, attempt_count, first_attempt_at,
+                last_attempt_at, expires_at, created_at, updated_at FROM `{$this->table}` WHERE 1 = 0");
+            $stmt->execute();
+            $stmt->closeCursor();
         } catch (PDOException $exception) {
             throw new RuntimeException('Rate limiter schema readiness could not be verified.', 0, $exception);
         }

@@ -84,12 +84,18 @@ final class NotificationTemplateService
                 'message_template' => (string) ($definition['message'] ?? ''),
                 'link_template' => '{{link}}',
                 'in_app_enabled' => 1,
-                'email_enabled' => 0,
+                'email_enabled' => (int) ($definition['email_default'] ?? 0),
                 'is_active' => 1,
                 'variables' => $variables,
                 'sample_payload' => $samplePayload,
             ];
             $defaults[$eventKey] = array_merge($template, $this->emailDefaultsFrom($template));
+        }
+
+        foreach (['topic_approved' => 'onaylandı ve yayımlandı', 'topic_published' => 'yayımlandı'] as $eventKey => $action) {
+            $defaults[$eventKey]['email_subject_template'] = '{{site_name}} - ' . $defaults[$eventKey]['title_template'];
+            $defaults[$eventKey]['email_body_template'] = "Merhaba {{recipient_name}},\n\nPaylaştığınız \"{{topic_title}}\" konunuz " . $action . ".\n\nKonunuzu aşağıdaki bağlantıdan görüntüleyebilirsiniz.\n\nKatkınız için teşekkür ederiz.\n{{site_name}}";
+            $defaults[$eventKey]['email_preview_template'] = '"{{topic_title}}" konunuz ' . $action . '.';
         }
 
         $manualAnnouncement = [
@@ -430,11 +436,27 @@ final class NotificationTemplateService
         return $stmt->execute([$templateKey]);
     }
 
-    public function reset(PDO $pdo, string $templateKey): bool
+    public function reset(PDO $pdo, string $templateKey, ?string $channel = null): bool
     {
         $defaults = $this->defaults();
         if (!isset($defaults[$templateKey])) {
             return false;
+        }
+
+        if ($channel !== null) {
+            if (!in_array($channel, ['site', 'email'], true)) {
+                return false;
+            }
+            $current = $this->get($pdo, $templateKey) ?? $defaults[$templateKey];
+            $fields = $channel === 'email'
+                ? ['email_subject_template', 'email_body_template', 'email_link_template', 'email_preview_template']
+                : ['title_template', 'message_template', 'link_template'];
+            foreach ($fields as $field) {
+                $current[$field] = $defaults[$templateKey][$field];
+            }
+            $current['channel'] = $channel;
+
+            return $this->save($pdo, $templateKey, $current);
         }
 
         return $this->save($pdo, $templateKey, [
@@ -474,11 +496,26 @@ final class NotificationTemplateService
 
         return [
             'subject' => $this->render((string) ($template['email_subject_template'] ?? ''), $payload),
-            'body' => $this->render((string) ($template['email_body_template'] ?? ''), $payload),
+            'body' => $this->renderEmailBody($template, $payload),
             'link' => $this->render((string) ($template['email_link_template'] ?? ''), $payload),
             'preview' => $this->render((string) ($template['email_preview_template'] ?? ''), $payload),
             'type' => (string) ($template['type'] ?? 'info'),
         ];
+    }
+
+    public function emailBodyFormat(array $template): string
+    {
+        return preg_match('/<[a-z][^>]*>/i', (string) ($template['email_body_template'] ?? '')) ? 'html' : 'text';
+    }
+
+    public function renderEmailBody(array $template, array $payload): string
+    {
+        if ($this->emailBodyFormat($template) === 'html') {
+            $payload = array_map(static fn(mixed $value): mixed => is_scalar($value)
+                ? htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') : $value, $payload);
+        }
+
+        return $this->render((string) ($template['email_body_template'] ?? ''), $payload);
     }
 
     /** @return list<string> */

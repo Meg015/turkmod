@@ -1,0 +1,1143 @@
+{
+  "date": "2026-10-25",
+  "reference": "admin/categories.php",
+  "layoutChecks": [
+    {
+      "route": "logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "28px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 1,
+      "sidePanels": 0,
+      "width": 1440
+    },
+    {
+      "route": "action-log.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "28px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 1440
+    },
+    {
+      "route": "application-logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "28px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 1440
+    },
+    {
+      "route": "email-logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "28px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 1440
+    },
+    {
+      "route": "logs.php?view=cron",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "28px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 4,
+      "sidePanels": 0,
+      "width": 1440
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "28px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 9,
+      "sidePanels": 0,
+      "width": 1440
+    },
+    {
+      "route": "rate-limits.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "28px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 1440
+    },
+    {
+      "route": "logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 1,
+      "sidePanels": 0,
+      "width": 1024
+    },
+    {
+      "route": "action-log.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 1024
+    },
+    {
+      "route": "application-logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 1024
+    },
+    {
+      "route": "email-logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 1024
+    },
+    {
+      "route": "logs.php?view=cron",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 4,
+      "sidePanels": 0,
+      "width": 1024
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 9,
+      "sidePanels": 0,
+      "width": 1024
+    },
+    {
+      "route": "rate-limits.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "24px 28px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 1024
+    },
+    {
+      "route": "logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 1,
+      "sidePanels": 0,
+      "width": 390
+    },
+    {
+      "route": "action-log.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 390
+    },
+    {
+      "route": "application-logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 390
+    },
+    {
+      "route": "email-logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 390
+    },
+    {
+      "route": "logs.php?view=cron",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 4,
+      "sidePanels": 0,
+      "width": 390
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 9,
+      "sidePanels": 0,
+      "width": 390
+    },
+    {
+      "route": "rate-limits.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 390
+    },
+    {
+      "route": "logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 1,
+      "sidePanels": 0,
+      "width": 320
+    },
+    {
+      "route": "action-log.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 320
+    },
+    {
+      "route": "application-logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 320
+    },
+    {
+      "route": "email-logs.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 320
+    },
+    {
+      "route": "logs.php?view=cron",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 4,
+      "sidePanels": 0,
+      "width": 320
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        119,
+        119,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 9,
+      "sidePanels": 0,
+      "width": 320
+    },
+    {
+      "route": "rate-limits.php",
+      "button": {
+        "padding": "9.6px 13.6px",
+        "radius": "7px",
+        "size": "14px"
+      },
+      "cardHeights": [
+        104,
+        104,
+        104,
+        104
+      ],
+      "detailOpen": false,
+      "hero": {
+        "background": "rgb(134, 22, 56)",
+        "padding": "20px",
+        "titleColor": "rgb(255, 255, 255)",
+        "titleSize": "22px"
+      },
+      "inputFont": "14.4px",
+      "inspectors": 1,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "sidePanels": 0,
+      "width": 320
+    }
+  ],
+  "styleComparisons": [
+    {
+      "route": "logs.php",
+      "width": 1440,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "action-log.php",
+      "width": 1440,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "application-logs.php",
+      "width": 1440,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "email-logs.php",
+      "width": 1440,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 1440,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 1440,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 1440,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php",
+      "width": 1024,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "action-log.php",
+      "width": 1024,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "application-logs.php",
+      "width": 1024,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "email-logs.php",
+      "width": 1024,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 1024,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 1024,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 1024,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php",
+      "width": 390,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "action-log.php",
+      "width": 390,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "application-logs.php",
+      "width": 390,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "email-logs.php",
+      "width": 390,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 390,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 390,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 390,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php",
+      "width": 320,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "action-log.php",
+      "width": 320,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "application-logs.php",
+      "width": 320,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "email-logs.php",
+      "width": 320,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 320,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 320,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 320,
+      "headingAndActionMatch": true,
+      "inputFontMatch": true,
+      "statFontMatch": true
+    }
+  ],
+  "interactions": [
+    {
+      "route": "logs.php",
+      "width": 1024,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "action-log.php",
+      "width": 1024,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "application-logs.php",
+      "width": 1024,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "email-logs.php",
+      "width": 1024,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 1024,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 1024,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true,
+      "focusOpened": false
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 1024,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true,
+      "focusOpened": false
+    },
+    {
+      "route": "logs.php",
+      "width": 390,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "action-log.php",
+      "width": 390,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "application-logs.php",
+      "width": 390,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "email-logs.php",
+      "width": 390,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "logs.php?view=cron",
+      "width": 390,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "width": 390,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true,
+      "focusOpened": false
+    },
+    {
+      "route": "rate-limits.php",
+      "width": 390,
+      "filterOverflow": [],
+      "pageOverflow": false,
+      "selected": true,
+      "detailOverflow": [],
+      "closed": true,
+      "focusOpened": false
+    }
+  ],
+  "activityContexts": [
+    {
+      "route": "action-log.php?user_id=1",
+      "inspectors": 0,
+      "lists": 1,
+      "pageOverflow": false,
+      "sidePanels": 0
+    },
+    {
+      "route": "users.php?tab=activity",
+      "detailClosed": true,
+      "inspectors": 1,
+      "lists": 1,
+      "pageOverflow": false,
+      "sidePanels": 1
+    }
+  ],
+  "clearDialog": {
+    "open": true,
+    "options": 0,
+    "submit": "Tümünü sil"
+  },
+  "destructiveSubmissions": 0
+}

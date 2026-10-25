@@ -232,12 +232,13 @@ require_once __DIR__ . '/header.php';
     <?= adminRenderLogStatCards([
         ['tone' => 'info', 'icon' => 'bi-journal-code', 'label' => 'Toplam Log', 'value' => number_format((int) ($emailStats['total'] ?? 0), 0, ',', '.')],
         ['tone' => 'success', 'icon' => 'bi-clock', 'label' => '24 Saat', 'value' => number_format((int) ($emailStats['total_24h'] ?? 0), 0, ',', '.')],
-        ['tone' => 'info', 'icon' => 'bi-calendar-week', 'label' => '7 Gün', 'value' => number_format((int) ($emailStats['total_7d'] ?? 0), 0, ',', '.')],
         ['tone' => 'success', 'icon' => 'bi-send-check', 'label' => 'Gönderildi 24s', 'value' => number_format((int) ($emailStats['sent_24h'] ?? 0), 0, ',', '.')],
         ['tone' => 'danger', 'icon' => 'bi-exclamation-octagon', 'label' => 'Hatalı 24s', 'value' => number_format((int) ($emailStats['failed_24h'] ?? 0), 0, ',', '.')],
+        ['tone' => 'info', 'icon' => 'bi-calendar-week', 'label' => '7 Gün', 'value' => number_format((int) ($emailStats['total_7d'] ?? 0), 0, ',', '.')],
     ], ['class' => 'email-logs-summary', 'aria_label' => 'E-posta logları özeti']) ?>
 
     <?= adminRenderAlert('', 'info', [
+        'class' => 'logs-context-note',
         'icon' => 'bi-shield-check',
         'html' => '<div><strong>Teknik ayrıntılar korunur:</strong> SMTP kodu, sağlayıcı yanıtı, exception bilgisi ve kayıt bağlamı saklanır; parola, token ve cookie gibi hassas alanlar maskeleme ile korunur.</div>',
     ]) ?>
@@ -321,6 +322,7 @@ require_once __DIR__ . '/header.php';
                 ]) ?>
             <?php else: ?>
                 <?= adminRenderLogTableOpen([
+                    'kind' => 'email',
                     'table_class' => 'admin-log-card-table',
                 ]) ?>
                         <colgroup>
@@ -517,20 +519,10 @@ require_once __DIR__ . '/header.php';
     <?php if ($canManageLogs): ?>
     <?php
     $logClearModal = [
-        'aria_label' => 'E-posta günlüğünü temizle',
-        'title' => 'Günlüğü Temizle',
         'form_action' => 'email-logs.php',
         'hidden_fields' => [
             ['name' => 'action', 'value' => 'clear_all_email_logs'],
         ],
-        'scope_name' => 'scope',
-        'options' => [
-            [
-                'value' => 'all',
-                'label' => 'Tüm e-posta günlüğünü sil (Tehlikeli)',
-            ],
-        ],
-        'warning' => 'Tüm e-posta logları kalıcı olarak silinir. SMTP yanıtları ve teknik hata ayrıntıları dahil bu işlem geri alınamaz.',
     ];
     adminRenderLogClearModal($logClearModal);
     unset($logClearModal);

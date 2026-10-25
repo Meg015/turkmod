@@ -74,7 +74,7 @@ class ErrorHandler {
             $exception->getMessage(),
             $exception->getFile(),
             $exception->getLine(),
-            $exception->getTraceAsString()
+            $this->exceptionTrace($exception)
         );
 
         if ($this->isCli()) {
@@ -96,6 +96,21 @@ class ErrorHandler {
         }
 
         exit;
+    }
+
+    /** Keep backend causes in private logs without exposing them in the public error page. */
+    private function exceptionTrace(Throwable $exception): string {
+        $trace = $exception->getTraceAsString();
+        for ($cause = $exception->getPrevious(), $depth = 0; $cause !== null && $depth < 10; $cause = $cause->getPrevious(), $depth++) {
+            $trace .= sprintf("\nCaused by %s [%s]: %s in %s:%d\n%s",
+                get_class($cause), (string) $cause->getCode(), $cause->getMessage(),
+                $cause->getFile(), $cause->getLine(), $cause->getTraceAsString());
+            if ($cause instanceof PDOException && is_array($cause->errorInfo)) {
+                $trace .= sprintf("\nPDO SQLSTATE: %s; driver code: %s",
+                    (string) ($cause->errorInfo[0] ?? ''), (string) ($cause->errorInfo[1] ?? ''));
+            }
+        }
+        return $trace;
     }
 
     /**

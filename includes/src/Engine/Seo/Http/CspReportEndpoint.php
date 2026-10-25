@@ -36,11 +36,15 @@ final class CspReportEndpoint implements Handler
         }
 
         $report = $this->parseReportBody($body, $contentType);
-        if (!$this->shouldLogReport($report)) {
+        $items = array_values(array_filter(
+            $this->reportItems($report),
+            fn(array $item): bool => !$this->isIgnorableReportItem($item),
+        ));
+        if ($items === []) {
             return new Response('', 204);
         }
 
-        $this->logReport($report);
+        $this->logReport($items);
 
         return new Response('', 204);
     }
@@ -62,22 +66,6 @@ final class CspReportEndpoint implements Handler
         }
 
         return ['raw' => substr($body, 0, 8192)];
-    }
-
-    private function shouldLogReport(array $report): bool
-    {
-        $items = $this->reportItems($report);
-        if ($items === []) {
-            return true;
-        }
-
-        foreach ($items as $item) {
-            if (!$this->isIgnorableReportItem($item)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

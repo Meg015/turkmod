@@ -117,12 +117,18 @@ $adminStyleBridge = $adminAccentColor !== ''
     $isComplaintsReportsPage = str_contains($_SERVER['SCRIPT_NAME'], 'admin/complaints-reports.php');
     $isUsersPage = str_contains($_SERVER['SCRIPT_NAME'], 'admin/users.php');
     $isTopicsPage = str_contains($_SERVER['SCRIPT_NAME'], 'admin/topics.php');
+    $isLogWorkspacePage = in_array(basename((string) $_SERVER['SCRIPT_NAME']), ['logs.php', 'action-log.php', 'application-logs.php', 'email-logs.php', 'rate-limits.php'], true)
+        || ($isUsersPage && (string) ($_GET['tab'] ?? '') === 'activity');
     ?>
     <link rel="stylesheet" href="<?= asset_url('assets/css/design-tokens.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('assets/css/ui-foundation.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('admin/assets/admin.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('admin/assets/admin-foundation.css', $baseUri) ?>">
     <link rel="stylesheet" href="<?= asset_url('assets/bootstrap-icons.css', $baseUri) ?>">
+    <?php if ($isLogWorkspacePage): ?>
+    <link rel="stylesheet" href="<?= asset_url('admin/assets/log-inspector.css', $baseUri) ?>">
+    <script src="<?= asset_url('admin/assets/log-inspector.js', $baseUri) ?>" defer></script>
+    <?php endif; ?>
     <?php if ($isMediaManagerPage): ?>
     <link rel="stylesheet" href="<?= asset_url('admin/assets/media-manager.css', $baseUri) ?>">
     <?php endif; ?>
@@ -149,7 +155,7 @@ $adminStyleBridge = $adminAccentColor !== ''
     <script src="<?= asset_url('admin/assets/empty-state.js', $baseUri) ?>"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
 </head>
-<body>
+<body<?= $isLogWorkspacePage ? ' class="admin-log-workspace-page"' : '' ?>>
     <?= adminRenderEmptyStateTemplate() ?>
     <div id="admin-overlay" class="admin-overlay"></div>
     <div class="admin-shell ui-section">

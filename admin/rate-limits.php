@@ -277,6 +277,7 @@ require_once __DIR__ . '/header.php';
                     ]) ?>
                 <?php else: ?>
                     <?= adminRenderLogTableOpen([
+                        'kind' => 'rate_limits',
                         'wrapper_class' => 'rate-limit-table-wrap',
                         'table_class' => 'rate-limit-table admin-log-card-table',
                     ]) ?>
@@ -369,25 +370,10 @@ require_once __DIR__ . '/header.php';
     <?php if ($canManageRateLimits): ?>
         <?php
         $logClearModal = [
-            'aria_label' => 'İstek sınırı günlüğünü temizle',
-            'title' => 'Günlüğü Temizle',
             'form_action' => 'rate-limits.php',
-            'scope_name' => 'action',
-            'options' => [
-                [
-                    'value' => 'clear_expired',
-                    'label' => 'Süresi dolmuş kayıtları sil',
-                ],
-                [
-                    'value' => 'clear_login',
-                    'label' => 'Tüm giriş kilidi kayıtlarını sil',
-                ],
-                [
-                    'value' => 'clear_all',
-                    'label' => 'Tüm istek sınırı günlüğünü sil (Tehlikeli)',
-                ],
+            'hidden_fields' => [
+                ['name' => 'action', 'value' => 'clear_all'],
             ],
-            'warning' => 'Seçilen istek sınırı kayıtları kalıcı olarak silinir. Bu işlem geri alınamaz.',
         ];
         adminRenderLogClearModal($logClearModal);
         unset($logClearModal);

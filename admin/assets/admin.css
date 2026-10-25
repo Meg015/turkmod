@@ -14753,84 +14753,6 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
     color:var(--ui-admin-on-primary, #fff);
 }
 
-/* Shared admin log stat cards. Keep card sizing in this block only. */
-.logs-page .logs-stat-grid,
-.logs-page .admin-stat-grid.logs-summary {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)) !important;
-    align-items: stretch !important;
-    gap: .72rem !important;
-    width: 100%;
-    max-width: 100%;
-    min-height: 0 !important;
-    margin: 0 0 .95rem !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
-.logs-page .logs-stat-grid > .logs-stat.admin-stat-card,
-.logs-page .admin-stat-grid.logs-summary > .logs-stat.admin-stat-card {
-    align-self: stretch !important;
-    width: 100%;
-    min-width: 0;
-    height: auto !important;
-    min-height: 96px !important;
-    max-height: none !important;
-    padding: .82rem .95rem !important;
-    gap: .72rem !important;
-}
-
-.logs-page .logs-stat-grid > .logs-stat .stat-icon,
-.logs-page .admin-stat-grid.logs-summary > .logs-stat .stat-icon {
-    flex: 0 0 38px;
-    width: 38px;
-    height: 38px;
-    font-size: 1.02rem;
-}
-
-.logs-page .logs-stat-grid > .logs-stat .stat-content,
-.logs-page .admin-stat-grid.logs-summary > .logs-stat .stat-content {
-    flex: 1 1 auto;
-    min-width: 0;
-    gap: .22rem !important;
-}
-
-.logs-page .logs-stat-grid > .logs-stat .stat-label,
-.logs-page .admin-stat-grid.logs-summary > .logs-stat .stat-label {
-    font-size: .76rem !important;
-    line-height: 1.18 !important;
-    white-space: normal !important;
-    overflow-wrap: anywhere;
-}
-
-.logs-page .logs-stat-grid > .logs-stat .stat-value,
-.logs-page .admin-stat-grid.logs-summary > .logs-stat .stat-value {
-    font-size: 1.42rem !important;
-    line-height: 1.05;
-}
-
-@media (max-width: 1180px) {
-    .logs-page .logs-stat-grid,
-    .logs-page .admin-stat-grid.logs-summary {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
-}
-
-@media (max-width: 640px) {
-    .logs-page .logs-stat-grid,
-    .logs-page .admin-stat-grid.logs-summary {
-        grid-template-columns: 1fr !important;
-    }
-
-    .logs-page .logs-stat-grid > .logs-stat.admin-stat-card,
-    .logs-page .admin-stat-grid.logs-summary > .logs-stat.admin-stat-card {
-        min-height: 88px !important;
-    }
-}
-
 .logs-toolbar-shell {
     gap: .62rem !important;
 }
@@ -15507,19 +15429,6 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
 
 .admin-content :where(.logs-filter-actions form, .user-activity-selected-actions form) {
     margin: 0;
-}
-
-.admin-content :where(.logs-toolbar-actions .ui-admin-btn, .admin-log-filter-form .ui-admin-btn, .logs-filter-actions .ui-admin-btn, .user-activity-selected-actions .ui-admin-btn) {
-    min-height: 1.85rem !important;
-    padding: .32rem .55rem !important;
-    border-radius: 7px !important;
-    font-size: .75rem !important;
-    line-height: 1.1 !important;
-}
-
-.admin-content :where(.logs-toolbar-actions .ui-admin-btn i, .admin-log-filter-form .ui-admin-btn i, .logs-filter-actions .ui-admin-btn i, .user-activity-selected-actions .ui-admin-btn i) {
-    font-size: .95rem !important;
-    line-height: 1 !important;
 }
 
 .admin-content :where(.logs-filter-reset) {
@@ -17131,4 +17040,174 @@ html[data-theme-mode="dark"] .media-modal-header h3 {
 .admin-log-standard-table thead th.admin-log-col-actions-head,
 .admin-log-standard-table thead th.admin-log-col-check-head {
     text-align: center;
+}
+
+/* Shared log cleanup dialog: identical content and dimensions on every log page. */
+.ui-admin-modal-overlay.log-clear-overlay {
+    align-items: center !important;
+    padding: 1rem !important;
+    background: rgba(15, 23, 42, .42) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+}
+
+.log-clear-overlay .log-clear-modal {
+    --ui-admin-modal-width: 440px;
+    --log-clear-action: #b42318;
+    box-sizing: border-box;
+    width: min(440px, 100%) !important;
+    max-width: 440px !important;
+    height: 200px;
+    max-height: calc(100vh - 2rem) !important;
+    max-height: calc(100dvh - 2rem) !important;
+    align-self: center;
+    border-radius: 12px !important;
+    box-shadow: 0 16px 48px rgba(15, 23, 42, .2), 0 2px 8px rgba(15, 23, 42, .08);
+}
+
+.log-clear-overlay .log-clear-modal .log-clear-modal__head {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px 10px;
+    border-bottom: 0;
+    background: transparent !important;
+}
+
+.log-clear-modal__heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.log-clear-modal .log-clear-modal__heading h3 {
+    margin: 0;
+    color: var(--ui-admin-text);
+    font-size: .9375rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: -.01em;
+}
+
+.log-clear-modal__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border: 1px solid color-mix(in srgb, var(--color-danger) 15%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-danger) 7%, transparent);
+    color: var(--color-danger);
+    font-size: 1rem;
+}
+
+.log-clear-modal .log-clear-modal__head > .log-clear-modal__close {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ui-admin-text-secondary);
+    box-shadow: none;
+}
+
+.log-clear-modal .log-clear-modal__close:hover {
+    background: var(--ui-admin-surface-alt);
+    color: var(--ui-admin-text);
+}
+
+.log-clear-modal .log-clear-modal__close i {
+    font-size: .875rem;
+}
+
+.log-clear-overlay .log-clear-modal .log-clear-modal__body {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+    padding: 8px 20px 18px;
+}
+
+.log-clear-modal__description {
+    margin: 0;
+    color: var(--ui-admin-text);
+    font-size: .875rem;
+    line-height: 1.6;
+}
+
+.log-clear-modal__warning {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--ui-admin-text-secondary);
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.log-clear-modal__warning i {
+    flex: 0 0 auto;
+    color: var(--color-danger);
+    font-size: .8125rem;
+}
+
+.log-clear-overlay .log-clear-modal .log-clear-modal__foot {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--ui-admin-border);
+    background: var(--ui-admin-surface-alt);
+}
+
+.log-clear-modal .log-clear-modal__foot .ui-admin-btn {
+    justify-content: center;
+    min-width: 100px;
+    min-height: 36px !important;
+    padding: 7px 14px !important;
+    border-radius: 7px;
+    font-size: .8125rem !important;
+    font-weight: 600 !important;
+    line-height: 1.4;
+    box-shadow: none !important;
+    transform: none;
+}
+
+.log-clear-modal .log-clear-modal__foot .ui-admin-btn-danger {
+    border-color: var(--log-clear-action) !important;
+    background: var(--log-clear-action) !important;
+    color: #fff !important;
+}
+
+.log-clear-modal .log-clear-modal__foot .ui-admin-btn-danger:hover {
+    border-color: #912018 !important;
+    background: #912018 !important;
+}
+
+.log-clear-modal .log-clear-modal__foot .ui-admin-btn i {
+    font-size: .875rem;
+}
+
+@media (max-width: 480px) {
+    .log-clear-overlay .log-clear-modal {
+        height: 224px;
+    }
+
+    .log-clear-overlay .log-clear-modal .log-clear-modal__head,
+    .log-clear-overlay .log-clear-modal .log-clear-modal__body,
+    .log-clear-overlay .log-clear-modal .log-clear-modal__foot {
+        padding-inline: 16px;
+    }
+
+    .log-clear-modal .log-clear-modal__foot .ui-admin-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 40px !important;
+    }
 }

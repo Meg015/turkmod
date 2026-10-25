@@ -1052,7 +1052,8 @@ function syncNotificationStatusGroup(group) {
             return;
         }
         const enabled = Boolean(toggle.checked);
-        if (enabled) {
+        const emailToggle = card.querySelector('[data-notification-email-toggle]');
+        if (enabled && (!emailToggle || emailToggle.checked)) {
             active += 1;
         }
         card.classList.toggle('is-notification-disabled', !enabled);
@@ -1106,7 +1107,7 @@ function initNotificationStatusUi() {
     document.documentElement.dataset.notificationStatusUiBound = '1';
 
     document.addEventListener('change', function (event) {
-        const toggle = event.target.closest('[data-notification-status-toggle]');
+        const toggle = event.target.closest('[data-notification-status-toggle], [data-notification-email-toggle]');
         if (toggle) {
             const card = toggle.closest('[data-notification-status-card]');
             syncNotificationStatusGroup(String(card?.dataset.notificationStatusGroup || ''));
@@ -1130,6 +1131,24 @@ function notificationSubmissionAction(form, submitter) {
 }
 
 function initNotificationSubmissionState() {
+    if (document.documentElement.dataset.notificationSubmissionRestoreBound !== '1') {
+        document.documentElement.dataset.notificationSubmissionRestoreBound = '1';
+        window.addEventListener('pageshow', function () {
+            document.querySelectorAll('[data-notification-busy-submit]').forEach(function (button) {
+                button.disabled = false;
+                delete button.dataset.notificationBusySubmit;
+                if (button.dataset.originalHtml !== undefined) {
+                    button.innerHTML = button.dataset.originalHtml;
+                    delete button.dataset.originalHtml;
+                }
+                button.removeAttribute('aria-busy');
+            });
+            document.querySelectorAll('[data-notification-submit-action]').forEach(function (input) {
+                input.remove();
+            });
+        });
+    }
+
     document.querySelectorAll('form').forEach(function (form) {
         if (!form.closest('.notification-template-page') || form.dataset.notificationSubmitStateBound === '1') {
             return;
@@ -1145,9 +1164,26 @@ function initNotificationSubmissionState() {
                 return;
             }
 
+            // Disabled submit buttons are omitted from native form submission.
+            // Keep the selected action before applying the busy state.
+            if (submitter && submitter.name === 'action') {
+                let actionInput = form.querySelector('input[type="hidden"][name="action"]');
+                if (!actionInput) {
+                    actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'action';
+                    actionInput.dataset.notificationSubmitAction = '1';
+                    form.appendChild(actionInput);
+                }
+                actionInput.value = action;
+            }
+
             const buttons = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"]'));
             buttons.forEach(function (button) {
-                button.disabled = true;
+                if (!button.disabled) {
+                    button.dataset.notificationBusySubmit = '1';
+                    button.disabled = true;
+                }
             });
             if (submitter && submitter.tagName === 'BUTTON') {
                 submitter.dataset.originalHtml = submitter.innerHTML;

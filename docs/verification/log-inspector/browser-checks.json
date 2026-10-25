@@ -1,0 +1,793 @@
+{
+  "date": "2026-10-25",
+  "layoutChecks": [
+    {
+      "route": "logs.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 7,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 1,
+      "title": "Yönetici İşlem Günlüğü",
+      "width": 1440,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "action-log.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 7,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "Kullanıcı İşlem Günlüğü",
+      "width": 1440,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "application-logs.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 5,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "Uygulama Logları",
+      "width": 1440,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "email-logs.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 6,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "E-posta Logları",
+      "width": 1440,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php?view=cron",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 3,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 4,
+      "title": "Cron Logları",
+      "width": 1440,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm"
+      ],
+      "detailOpen": false,
+      "filterCount": 2,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 9,
+      "title": "Sistem Bildirimleri",
+      "width": 1440,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "rate-limits.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm"
+      ],
+      "detailOpen": false,
+      "filterCount": 2,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "İstek Sınırı İzleme",
+      "width": 1440,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 7,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 1,
+      "title": "Yönetici İşlem Günlüğü",
+      "width": 1024,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "action-log.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 7,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "Kullanıcı İşlem Günlüğü",
+      "width": 1024,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "application-logs.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 5,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "Uygulama Logları",
+      "width": 1024,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "email-logs.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 6,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "E-posta Logları",
+      "width": 1024,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php?view=cron",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 3,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 4,
+      "title": "Cron Logları",
+      "width": 1024,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm"
+      ],
+      "detailOpen": false,
+      "filterCount": 2,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 9,
+      "title": "Sistem Bildirimleri",
+      "width": 1024,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "rate-limits.php",
+      "cards": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "checkboxForms": [
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm"
+      ],
+      "detailOpen": false,
+      "filterCount": 2,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "İstek Sınırı İzleme",
+      "width": 1024,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 7,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 1,
+      "title": "Yönetici İşlem Günlüğü",
+      "width": 390,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "action-log.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 7,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "Kullanıcı İşlem Günlüğü",
+      "width": 390,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "application-logs.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 5,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "Uygulama Logları",
+      "width": 390,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "email-logs.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 6,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "E-posta Logları",
+      "width": 390,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php?view=cron",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 3,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 4,
+      "title": "Cron Logları",
+      "width": 390,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm"
+      ],
+      "detailOpen": false,
+      "filterCount": 2,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 9,
+      "title": "Sistem Bildirimleri",
+      "width": 390,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "rate-limits.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm"
+      ],
+      "detailOpen": false,
+      "filterCount": 2,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "İstek Sınırı İzleme",
+      "width": 390,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 7,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 1,
+      "title": "Yönetici İşlem Günlüğü",
+      "width": 320,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "action-log.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 7,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "Kullanıcı İşlem Günlüğü",
+      "width": 320,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "application-logs.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 5,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "Uygulama Logları",
+      "width": 320,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "email-logs.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 6,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "E-posta Logları",
+      "width": 320,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php?view=cron",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [],
+      "detailOpen": false,
+      "filterCount": 3,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 4,
+      "title": "Cron Logları",
+      "width": 320,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "logs.php?view=system_notifications",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm",
+        "systemNotificationsBulkForm"
+      ],
+      "detailOpen": false,
+      "filterCount": 2,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 9,
+      "title": "Sistem Bildirimleri",
+      "width": 320,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    },
+    {
+      "route": "rate-limits.php",
+      "cards": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "checkboxForms": [
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm",
+        "rateLimitBulkForm"
+      ],
+      "detailOpen": false,
+      "filterCount": 2,
+      "overflows": [],
+      "pageOverflow": false,
+      "records": 10,
+      "title": "İstek Sınırı İzleme",
+      "width": 320,
+      "allCheckboxesOwnForm": true,
+      "clearChoices": 0,
+      "clearSubmit": "Tümünü sil",
+      "controlsLabeled": true,
+      "fallbackTitles": 0
+    }
+  ],
+  "emailTechnicalRecords": [
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    },
+    {
+      "fields": 18,
+      "open": true,
+      "overflow": []
+    }
+  ],
+  "emailMobileTechnical": {
+    "fields": 18,
+    "open": true,
+    "overflow": [],
+    "pageOverflow": false,
+    "width": 320
+  },
+  "theme": {
+    "before": {
+      "dark": false,
+      "mode": "light",
+      "theme": "light"
+    },
+    "dark": {
+      "kicker": "rgb(148, 163, 184)",
+      "mode": "dark",
+      "overflow": false,
+      "surface": "rgb(16, 28, 47)",
+      "text": "rgb(248, 250, 252)",
+      "theme": "dark"
+    },
+    "restored": true
+  },
+  "interactions": {
+    "recordSwitch": true,
+    "escapeCloses": true,
+    "closeRestoresFullWidth": true,
+    "focusReturns": true,
+    "notificationBulkSelection": 9,
+    "rateLimitBulkSelection": 10,
+    "emptySearch": true,
+    "filterReset": true,
+    "nativePagination": true,
+    "clearDialogOpenedAndCancelled": true,
+    "destructiveSubmissions": 0
+  }
+}

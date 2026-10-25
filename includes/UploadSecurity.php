@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+require_once __DIR__ . '/src/Engine/Media/Support/helpers.php';
 /**
  * Upload Security Manager
  * Dosya yükleme güvenliğini sağlar
@@ -115,8 +116,9 @@ class UploadSecurity {
             $errors[] = 'Dosya içeriği uzantısıyla eşleşmiyor';
         }
         
-        // Dosya içeriği kontrolü (PHP kodu var mı?)
-        if ($this->containsPhpCode($file['tmp_name'])) {
+        // Compressed raster bytes can legitimately contain short tags and function names.
+        // Accepted images are decoded here and sanitized before either save path publishes them.
+        if ($this->containsPhpCode($file['tmp_name'], $type === 'image')) {
             $errors[] = 'Dosya içeriği güvenli değil';
             Logger::getInstance()->alert('PHP code detected in upload', [
                 'filename' => $file['name'],
@@ -126,7 +128,10 @@ class UploadSecurity {
         
         // Görsel dosyalar için ekstra kontrol
         if ($type === 'image' && !$this->isValidImage($file['tmp_name'])) {
-            $errors[] = 'Geçersiz görsel dosyası';
+            $header = (string) file_get_contents($file['tmp_name'], false, null, 0, 21);
+            $animatedWebp = substr($header, 0, 4) === 'RIFF' && substr($header, 8, 8) === 'WEBPVP8X'
+                && strlen($header) === 21 && (ord($header[20]) & 2);
+            $errors[] = $animatedWebp ? 'Hareketli WebP bu sunucuda desteklenmiyor; GIF kullanabilirsiniz.' : 'Geçersiz görsel dosyası';
         }
         
         return [
@@ -162,6 +167,14 @@ class UploadSecurity {
                 'errors' => $validation['errors']
             ];
         }
+
+        if ($type === 'image') {
+            try {
+                mediaSanitizeImage($file['tmp_name']);
+            } catch (Throwable $exception) {
+                return ['success' => false, 'errors' => ['Görsel güvenli biçimde kaydedilemedi.']];
+            }
+        }
         
         // Hedef dizini oluştur
         $uploadDir = dirname($destination);
@@ -183,11 +196,6 @@ class UploadSecurity {
         
         // Dosya izinlerini ayarla
         chmod($finalPath, 0644);
-        
-        // Görsel ise EXIF verilerini temizle
-        if ($type === 'image') {
-            $this->stripExifData($finalPath);
-        }
         
         Logger::getInstance()->info('File uploaded successfully', [
             'original_name' => $file['name'],
@@ -230,10 +238,17 @@ class UploadSecurity {
     /**
      * PHP kodu içeriyor mu kontrol et
      */
-    private function containsPhpCode($filePath) {
-        $content = file_get_contents($filePath, false, null, 0, 1024 * 1024);
+    private function containsPhpCode($filePath, bool $isImage = false) {
+        $content = file_get_contents($filePath, false, null, 0, $isImage ? $this->maxSizes['image'] : 1024 * 1024);
+        if ($content === false) {
+            return true;
+        }
         
-        $patterns = [
+        $patterns = $isImage ? [
+            '/<\?php\b/i',
+            '/<\?=/i',
+            '/<script[^>]*language\s*=\s*[\x22\x27]?php\b/i',
+        ] : [
             '/<\?php/i',
             '/<\?=/i',
             '/<\?(?!xml)/i',
@@ -259,63 +274,14 @@ class UploadSecurity {
      * Geçerli görsel mi kontrol et
      */
     private function isValidImage($filePath) {
-        $imageInfo = getimagesize($filePath);
-        
-        if ($imageInfo === false) {
-            return false;
-        }
-        
-        // Desteklenen görsel tipleri
-        $allowedTypes = [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP];
-        
-        return in_array($imageInfo[2], $allowedTypes);
-    }
-    
-    /**
-     * EXIF verilerini temizle - Güvenli ve robust
-     */
-    private function stripExifData($filePath) {
-        if (!function_exists('imagecreatefromjpeg')) {
-            Logger::getInstance()->warning('GD library not available for EXIF stripping', [
-                'file' => $filePath
-            ]);
-            return;
-        }
-
-        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-
         try {
-            $success = false;
-            switch ($extension) {
-                case 'jpg':
-                case 'jpeg':
-                    $image = imagecreatefromjpeg($filePath);
-                    if ($image) {
-                        $success = imagejpeg($image, $filePath, 90);
-                        unset($image);
-                    }
-                    break;
-
-                case 'png':
-                    $image = imagecreatefrompng($filePath);
-                    if ($image) {
-                        $success = imagepng($image, $filePath, 9);
-                        unset($image);
-                    }
-                    break;
+            $imageInfo = mediaInspectImage($filePath);
+            if (!in_array($imageInfo[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)) {
+                return false;
             }
-
-            if (!$success) {
-                Logger::getInstance()->error('Failed to strip EXIF data', [
-                    'file' => $filePath,
-                    'extension' => $extension
-                ]);
-            }
-        } catch (Exception $e) {
-            Logger::getInstance()->error('Exception during EXIF stripping', [
-                'file' => $filePath,
-                'error' => $e->getMessage()
-            ]);
+            return mediaCreateImageFromFile($filePath, $imageInfo['extension']) !== null;
+        } catch (Throwable $exception) {
+            return false;
         }
     }
     

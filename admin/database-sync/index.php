@@ -85,29 +85,40 @@ if ($isApply) {
 /* GET */
 $data = $syncService->run(false);
 $summary = is_array($data['summary'] ?? null) ? $data['summary'] : [];
-$modules = is_array($data['modules'] ?? null) ? $data['modules'] : [];
-$rootMigs = is_array($data['root_migrations'] ?? null) ? $data['root_migrations'] : [];
+// Keep the migration ledger intact; completed work only leaves the admin list.
+$needsAttention = static fn (array $migration): bool => ($migration['status'] ?? 'pending') !== 'applied';
+$modules = [];
+foreach ((is_array($data['modules'] ?? null) ? $data['modules'] : []) as $module) {
+    $module['migrations'] = array_values(array_filter(
+        is_array($module['migrations'] ?? null) ? $module['migrations'] : [],
+        $needsAttention,
+    ));
+    if ($module['migrations'] !== [] || ($module['status'] ?? '') === 'failed') {
+        $modules[] = $module;
+    }
+}
+$rootMigs = array_values(array_filter(
+    is_array($data['root_migrations'] ?? null) ? $data['root_migrations'] : [],
+    $needsAttention,
+));
 $warnings = array_values(array_unique(array_filter(array_map('strval', is_array($data['warnings'] ?? null) ? $data['warnings'] : []))));
 $errors = is_array($data['errors'] ?? null) ? array_values($data['errors']) : [];
 
-$modTotal = 0; $modPending = 0; $modApplied = 0; $modFailed = 0;
+$modTotal = 0; $modPending = 0; $modFailed = 0;
 foreach ($modules as $m) {
     $migs = is_array($m['migrations'] ?? null) ? $m['migrations'] : [];
     $modTotal += count($migs);
     $modPending += dbsCount($migs, 'pending');
-    $modApplied += dbsCount($migs, 'applied');
     $modFailed  += dbsCount($migs, 'failed');
     if ((string) ($m['status'] ?? '') === 'failed') $modFailed++;
 }
 
 $rootTotal = count($rootMigs);
 $rootPending = dbsCount($rootMigs, 'pending');
-$rootApplied = dbsCount($rootMigs, 'applied');
 $rootFailed  = dbsCount($rootMigs, 'failed');
 
 $allTotal = $modTotal + $rootTotal;
 $allPending = $modPending + $rootPending;
-$allApplied = $modApplied + $rootApplied;
 $allFailed  = max((int) ($summary['failed'] ?? 0), count($errors), $modFailed + $rootFailed);
 $allWarnings = count($warnings);
 
@@ -144,7 +155,7 @@ require __DIR__ . '/../header.php';
             <div class="admin-page-heading__copy">
                 <span class="ui-admin-badge ui-admin-badge-<?= $overallBadgeClass ?>"><i class="bi <?= dbsIcon($overall) ?>"></i> <?= $overallBadgeText ?></span>
                 <h1 class="ui-admin-card-title dbs-hero-title">Veritabanı Senkronizasyonu</h1>
-                <p class="dbs-hero-copy">Sayfa açıldığında sadece kontrol yapılır. Migration uygulamak için butonu kullanın.</p>
+                <p class="dbs-hero-copy">Yalnızca bekleyen veya hatalı migrationlar listelenir. Tamamlanan işlemler listeden otomatik kaldırılır. Migration uygulamak için butonu kullanın.</p>
             </div>
             <div class="dbs-hero-actions admin-page-heading__actions">
                 <a class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" href="index.php"><i class="bi bi-arrow-clockwise"></i> Yenile</a>
@@ -164,7 +175,6 @@ require __DIR__ . '/../header.php';
     <?= adminRenderStatCards([
         ['tone' => $overallBadgeClass, 'icon' => dbsIcon($overall), 'label' => 'Genel Durum', 'value' => match($overall) { 'failed'=>'Hata', 'pending'=>'Bekleyen', default=>'Güncel' }],
         ['tone' => 'info', 'icon' => 'bi-files', 'label' => 'Toplam Migration', 'value' => dbsFmt($allTotal)],
-        ['tone' => 'success', 'icon' => 'bi-check-circle-fill', 'label' => 'Uygulanmış', 'value' => dbsFmt($allApplied)],
         ['tone' => 'warning', 'icon' => 'bi-hourglass-split', 'label' => 'Bekleyen', 'value' => dbsFmt($allPending)],
         ['tone' => 'danger', 'icon' => 'bi-x-circle', 'label' => 'Hatalı', 'value' => dbsFmt($allFailed)],
         ['tone' => 'info', 'icon' => 'bi-exclamation-triangle', 'label' => 'Uyarı', 'value' => dbsFmt($allWarnings)],
@@ -225,8 +235,8 @@ require __DIR__ . '/../header.php';
             <?= adminRenderEmptyState([
                 'icon' => 'bi-puzzle',
                 'tone' => 'info',
-                'title' => 'Modül bulunamadı',
-                'description' => 'Migration dizini olan aktif modül bulunamadı.',
+                'title' => 'Bekleyen modül migrationı yok',
+                'description' => 'Modül veritabanları güncel. Tamamlanan işlemler listeden kaldırıldı.',
             ]) ?>
             <?php else: ?>
             <?= adminRenderTableOpen(['Modül', 'Durum', 'Migrationlar'], [
@@ -237,7 +247,6 @@ require __DIR__ . '/../header.php';
                             $modName = (string) ($mod['name'] ?? $mod['id'] ?? '?');
                             $migs = is_array($mod['migrations'] ?? null) ? $mod['migrations'] : [];
                             $mPend = dbsCount($migs, 'pending');
-                            $mApp  = dbsCount($migs, 'applied');
                             $mFail = dbsCount($migs, 'failed');
                             $ms = (string) ($mod['status'] ?? '');
                             $pill = match($ms) { 'disabled'=>'muted', 'failed'=>'danger', 'up_to_date','applied'=>'success', default=>'warning' };
@@ -255,13 +264,11 @@ require __DIR__ . '/../header.php';
                                     <span class="dbs-muted-sm">Dosya yok</span>
                                 <?php else: ?>
                                     <div class="dbs-migration-dots">
-                                        <?php if ($mApp > 0): ?><span class="dbs-dot applied" title="<?= $mApp ?> uygulanmış"></span><?php endif; ?>
                                         <?php if ($mPend > 0): ?><span class="dbs-dot pending" title="<?= $mPend ?> bekleyen"></span><?php endif; ?>
                                         <?php if ($mFail > 0): ?><span class="dbs-dot failed" title="<?= $mFail ?> hatalı"></span><?php endif; ?>
                                         <span class="dbs-migration-dot-text">
                                             <?php
                                             $parts = [];
-                                            if ($mApp > 0) $parts[] = dbsFmt($mApp) . ' uygulanmış';
                                             if ($mPend > 0) $parts[] = dbsFmt($mPend) . ' bekleyen';
                                             if ($mFail > 0) $parts[] = dbsFmt($mFail) . ' hatalı';
                                             echo implode(' · ', $parts);
@@ -316,8 +323,8 @@ require __DIR__ . '/../header.php';
             <?= adminRenderEmptyState([
                 'icon' => 'bi-database',
                 'tone' => 'info',
-                'title' => 'Root migration bulunamadı',
-                'description' => 'database/migrations dizininde dosya görünmüyor.',
+                'title' => 'Bekleyen root migrationı yok',
+                'description' => 'Ana veritabanı güncel. Tamamlanan işlemler listeden kaldırıldı.',
             ]) ?>
             <?php else: ?>
             <?= adminRenderTableOpen(['Dosya', 'Tür', 'Durum'], [

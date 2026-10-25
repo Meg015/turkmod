@@ -328,29 +328,41 @@ function profileUploadAvatar(PDO $pdo, int $userId, array $file, string $uploadB
         return 'Profil klasörü oluşturulamadı.';
     }
 
-    // Eski avatari sil
+    // Keep the current avatar until the replacement file and database update succeed.
     $oldAvatar = $user['avatar'] ?? null;
     $oldAvatarRelative = preg_replace('#^uploads/#', '', str_replace('\\', '/', (string)$oldAvatar)) ?: '';
     $oldAvatarPath = $oldAvatarRelative !== '' ? mediaResolvePath($uploadBase, $oldAvatarRelative) : null;
-    if ($oldAvatarPath && is_file($oldAvatarPath)) {
-        unlink($oldAvatarPath);
-    }
-
     $fileName = function_exists('uploadProfileAvatarFilename')
         ? uploadProfileAvatarFilename($userId, $profileIdentity, $ext)
         : 'user-' . $userId . '-' . $profileSlug . '-avatar.' . $ext;
-    $fileName = function_exists('uploadAvailableFilename')
-        ? uploadAvailableFilename($dir, $fileName)
-        : $fileName;
-    $destPath = $dir . DIRECTORY_SEPARATOR . $fileName;
-
-    if (!move_uploaded_file($file['tmp_name'], $destPath)) {
-        return 'Dosya taşınamadı.';
+    $destPath = null;
+    try {
+        // Sanitize the upload's temporary file before it becomes publicly accessible.
+        mediaSanitizeImage($file['tmp_name']);
+        $reserved = mediaReserveUploadFile($dir, $fileName);
+        fclose($reserved['stream']);
+        $destPath = $reserved['path'];
+        $fileName = $reserved['name'];
+        if (!move_uploaded_file($file['tmp_name'], $destPath)) {
+            throw new RuntimeException('Avatar dosyası taşınamadı.');
+        }
+        $relPath = $relativeDir . '/' . $fileName;
+        $statement = $pdo->prepare("UPDATE users SET avatar = :avatar, updated_at = NOW() WHERE id = :id");
+        if (!$statement || !$statement->execute(['avatar' => $relPath, 'id' => $userId])) {
+            throw new RuntimeException('Avatar veritabanına kaydedilemedi.');
+        }
+    } catch (Throwable $exception) {
+        if ($destPath !== null && is_file($destPath)) {
+            @unlink($destPath);
+        }
+        if (function_exists('appLogException')) {
+            appLogException($exception, ['source' => 'profile_avatar_upload', 'user_id' => $userId]);
+        }
+        return 'Profil görseli kaydedilemedi. Lütfen tekrar deneyin.';
     }
-
-    $relPath = $relativeDir . '/' . $fileName;
-    $pdo->prepare("UPDATE users SET avatar = :avatar, updated_at = NOW() WHERE id = :id")
-        ->execute(['avatar' => $relPath, 'id' => $userId]);
+    if ($oldAvatarPath && $oldAvatarPath !== $destPath && is_file($oldAvatarPath)) {
+        @unlink($oldAvatarPath);
+    }
     if (function_exists('invalidateUserAvatarCache')) {
         invalidateUserAvatarCache();
     }

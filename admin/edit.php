@@ -147,6 +147,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
             $pdo->commit();
             seoInvalidateSitemapCaches();
+            notificationDispatchTopicPublished($pdo, array_replace($topic, [
+                'title' => $title,
+                'slug' => $slug,
+                'status' => $status,
+            ]), (string) ($topic['status'] ?? 'draft'), (int) ($_SESSION['_auth_user_id'] ?? 0) ?: null);
             logActivity($pdo, 'topic_updated', 'topic', $id, ['title' => $title]);
             adminAuditLogger()->logAction($pdo, 'topic_updated', 'topic', $id, 'Konu güncellendi', [], ['title' => $title], false);
             flash('success', 'Konu düzenlendi');

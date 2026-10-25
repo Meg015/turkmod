@@ -3,16 +3,12 @@ function initLogsClearModal() {
         return document.getElementById('clearLogsModal');
     }
 
-    function scopeSelect(form) {
-        return form ? form.querySelector('[data-clear-logs-scope], select[name="scope"], select[name="action"]') : null;
-    }
-
     function openClearLogsModal() {
         const dialog = modal();
         if (!dialog) return;
         window.adminModal.open(dialog, {
             bodyClass: 'ui-admin-dialog-open',
-            initialFocus: '[data-clear-logs-scope], select[name="scope"], select[name="action"]',
+            initialFocus: '[data-clear-logs-cancel]',
             returnFocus: document.activeElement
         });
     }
@@ -23,37 +19,25 @@ function initLogsClearModal() {
         window.adminModal.close(dialog);
     }
 
-    function updateDependentFields(form) {
-        const select = scopeSelect(form);
-        if (!select) return;
-        const selected = select.options[select.selectedIndex];
-        form.querySelectorAll('[data-clear-logs-field]').forEach((field) => {
-            const onlyFor = (field.getAttribute('data-clear-logs-field') || '').split(',').map((value) => value.trim()).filter(Boolean);
-            const isActive = onlyFor.length === 0 || onlyFor.includes(selected.value);
-            field.hidden = !isActive;
-            field.querySelectorAll('input, select, textarea').forEach((input) => {
-                input.disabled = !isActive;
-            });
-        });
-    }
-
     function submitClearLogs(event) {
         event.preventDefault();
         const form = event.target;
 
         const button = form.querySelector('button[type="submit"]');
-        if (button?.disabled) return false;
+        if (form.dataset.clearLogsPending === '1' || button?.disabled) return false;
+        form.dataset.clearLogsPending = '1';
 
         window.adminAsync.submitForm(form, {
             button: button,
             loadingHtml: '<i class="bi bi-hourglass-split"></i> Siliniyor...',
+            notify: false,
             notifyError: false
         })
             .then((data) => {
                 if (!data) return;
                 if (data.ok || data.success) {
                     closeClearLogsModal();
-                    adminAlert(data.message || 'Günlük temizlendi.', { title: 'Başarılı', tone: 'success' }).then(() => window.location.reload());
+                    window.location.reload();
                     return;
                 }
                 adminAlert(data.message || 'Bir hata oluştu.', { title: 'Hata', tone: 'danger' });
@@ -61,6 +45,9 @@ function initLogsClearModal() {
             .catch((error) => {
                 const message = error && error.message ? error.message : 'Bir bağlantı hatası oluştu. Lütfen tekrar deneyin.';
                 adminAlert(message, { title: 'Hata', tone: 'danger' });
+            })
+            .finally(() => {
+                delete form.dataset.clearLogsPending;
             });
         return false;
     }
@@ -75,15 +62,7 @@ function initLogsClearModal() {
         }
     });
 
-    document.addEventListener('change', function (event) {
-        const target = event.target;
-        if (target && target.matches('[data-clear-logs-scope], select[name="scope"], select[name="action"]')) {
-            updateDependentFields(target.closest('form'));
-        }
-    });
-
     document.querySelectorAll('[data-clear-logs-form], #clearLogsForm').forEach((form) => {
-        updateDependentFields(form);
         form.addEventListener('submit', submitClearLogs);
     });
 }

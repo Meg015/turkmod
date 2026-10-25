@@ -623,7 +623,7 @@ $renderProfilePagination = static function (string $tabKey) use ($baseUri, $prof
 
     $currentPage = $profilePages[$tabKey];
 
-    $urlForPage = static function (int $page) use ($baseUri, $tabKey, $paramName, $safeTopicStatusFilter, $safeActivityFilter): string {
+    $urlForPage = static function (int $page) use ($profilePageBaseUrl, $tabKey, $paramName, $safeTopicStatusFilter, $safeActivityFilter): string {
 
         $url = $profilePageBaseUrl . '?tab=' . urlencode($tabKey) . "&" . urlencode($paramName) . "=" . $page;
 
