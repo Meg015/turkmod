@@ -625,13 +625,8 @@
 
             // İçeriği güvenli şekilde yükle (XSS koruması)
             if (initialContent) {
-                try {
-                    var delta = quill.clipboard.convert(initialContent);
-                    quill.setContents(delta, 'silent');
-                } catch (e) {
-                    // Fallback: plain text olarak yükle
-                    quill.setText(initialContent);
-                }
+                var delta = quill.clipboard.convert(initialContent);
+                quill.setContents(delta, 'silent');
             }
 
             quill.on('text-change', function () {
@@ -946,17 +941,6 @@ if (document.readyState === 'loading') {
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('img[data-fallback-src]').forEach(function(img) {
-        if (img.dataset.fallbackBound === '1') return;
-        img.dataset.fallbackBound = '1';
-        img.addEventListener('error', function() {
-            var fallback = img.getAttribute('data-fallback-src');
-            if (!fallback || img.src.endsWith(fallback)) return;
-            img.src = fallback;
-            img.classList.add('is-fallback-image');
-        });
-    });
-
     document.querySelectorAll('.category-item .subcategories').forEach(function(subcategories) {
         const item = subcategories.closest('.category-item');
         const toggle = item ? item.querySelector('.category-toggle') : null;

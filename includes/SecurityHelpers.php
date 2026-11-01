@@ -8,67 +8,11 @@ declare(strict_types=1);
 
 if (!function_exists("sanitizeHtml")) {
     /**
-     * Sanitize HTML content using HTMLPurifier
-     * Protects against XSS attacks while allowing safe HTML
+     * Use the same DOM allowlist for editor submissions and public rendering.
      */
     function sanitizeHtml(string $html): string
     {
-        static $purifier = null;
-
-        if ($purifier === null) {
-            // HTMLPurifier kurulu değilse basit sanitizasyon
-            if (!class_exists("HTMLPurifier")) {
-                // Güvenli HTML tagları
-                $allowed =
-                    "<p><br><strong><em><u><a><img><ul><ol><li><h2><h3><h4><blockquote><code><pre>";
-                $html = strip_tags($html, $allowed);
-
-                // Tehlikeli attribute'ları temizle
-                $html = preg_replace(
-                    "/<script\b[^>]*>(.*?)<\/script>/is",
-                    "",
-                    $html,
-                );
-                $html = preg_replace('/on\w+\s*=\s*["\'].*?["\']/i', "", $html);
-                $html = preg_replace("/javascript:/i", "", $html);
-
-                return $html;
-            }
-
-            $configClass = "HTMLPurifier_Config";
-            $purifierClass = "HTMLPurifier";
-            $autoLoader =
-                __DIR__ .
-                "/../vendor/htmlpurifier/library/HTMLPurifier.auto.php";
-            if (!class_exists($configClass) && file_exists($autoLoader)) {
-                require_once $autoLoader;
-            }
-            if (!class_exists($configClass) || !class_exists($purifierClass)) {
-                return $html;
-            }
-
-            $config = $configClass::createDefault();
-            $config->set(
-                "HTML.Allowed",
-                "p,br,strong,em,u,a[href|title|target],img[src|alt|width|height],ul,ol,li,h2,h3,h4,blockquote,code,pre",
-            );
-            $config->set(
-                "HTML.AllowedAttributes",
-                "a.href,a.title,a.target,img.src,img.alt,img.width,img.height",
-            );
-            $config->set("AutoFormat.RemoveEmpty", true);
-            $config->set("AutoFormat.AutoParagraph", true);
-            $config->set("HTML.TargetBlank", true);
-            $config->set("URI.AllowedSchemes", [
-                "http" => true,
-                "https" => true,
-                "mailto" => true,
-            ]);
-
-            $purifier = new $purifierClass($config);
-        }
-
-        return $purifier->purify($html);
+        return sanitizeTopicHtml($html);
     }
 }
 

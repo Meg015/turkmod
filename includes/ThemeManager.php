@@ -7,7 +7,7 @@ final class ThemeManager
     private const EDITABLE_FILE_MAX_BYTES = 5242880;
 
     private string $themesDir;
-    private string $activeThemeId = 'default';
+    private string $activeThemeId = '';
     private TemplateRenderer $renderer;
 
     /** @var array<string, array<string, mixed>> */
@@ -57,35 +57,7 @@ final class ThemeManager
 
     public function defaultThemeId(): string
     {
-        if ($this->isRenderableTheme('turkmod')) {
-            return 'turkmod';
-        }
-
-        if (!is_dir($this->themesDir)) {
-            return 'default';
-        }
-
-        foreach (scandir($this->themesDir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-
-            $themePath = $this->themesDir . DIRECTORY_SEPARATOR . $entry;
-            if (!is_dir($themePath)) {
-                continue;
-            }
-
-            $themeId = $this->sanitizeThemeId($entry);
-            if ($themeId === '' || !is_file($themePath . DIRECTORY_SEPARATOR . 'theme.json')) {
-                continue;
-            }
-
-            if ($this->isRenderableTheme($themeId)) {
-                return $themeId;
-            }
-        }
-
-        return 'default';
+        return 'turkmod';
     }
 
     public function setActiveTheme(string $themeId): void
@@ -93,10 +65,6 @@ final class ThemeManager
         $themeId = $this->sanitizeThemeId($themeId);
         if ($themeId === '') {
             throw new RuntimeException('Active theme not found: [invalid id]');
-        }
-
-        if (!$this->isRenderableTheme($themeId)) {
-            $themeId = $this->defaultThemeId();
         }
 
         if (!$this->isRenderableTheme($themeId)) {
@@ -401,16 +369,8 @@ final class ThemeManager
 
         $this->assertRequiredVariables($templateKey, $variables, $themeId);
 
-        if (method_exists($this->renderer, 'renderFile')) {
-            return $this->renderer->renderFile(
-                $templatePath,
-                $variables,
-                $this->allowedRawKeys($themeId, $rawKeys),
-            );
-        }
-
-        return $this->renderer->renderString(
-            (string) file_get_contents($templatePath),
+        return $this->renderer->renderFile(
+            $templatePath,
             $variables,
             $this->allowedRawKeys($themeId, $rawKeys),
         );
@@ -423,11 +383,7 @@ final class ThemeManager
             return false;
         }
 
-        try {
-            $manifest = $this->loadManifest($themeId);
-        } catch (Throwable) {
-            return false;
-        }
+        $manifest = $this->loadManifest($themeId);
 
         return ($manifest['shell']['renderer'] ?? '') === 'public';
     }
@@ -451,11 +407,7 @@ final class ThemeManager
             return [];
         }
 
-        try {
-            $manifest = $this->loadManifest($themeId);
-        } catch (Throwable $e) {
-            return [];
-        }
+        $manifest = $this->loadManifest($themeId);
 
         $rawSlots = $manifest['variables']['raw_slots'] ?? [];
         if (!is_array($rawSlots)) {
@@ -477,35 +429,21 @@ final class ThemeManager
     {
         $themeId = $this->sanitizeThemeId($themeId ?: $this->activeThemeId);
         if ($themeId === '') {
-            return '';
+            throw new RuntimeException('Active theme identifier is invalid.');
         }
 
-        try {
-            $manifest = $this->loadManifest($themeId);
-        } catch (Throwable $e) {
-            return '';
-        }
+        $manifest = $this->loadManifest($themeId);
 
         $assets = $manifest['assets'][$type] ?? [];
         if (!is_array($assets)) {
-            return '';
+            throw new RuntimeException('Theme asset list is invalid: ' . $themeId . ':' . $type);
         }
 
         $tags = [];
         foreach ($assets as $asset) {
             $asset = (string) $asset;
             if (!$this->fileExistsInsideTheme($themeId, $asset)) {
-                $message = "Theme asset not found: {$themeId}:{$asset}";
-                if ($this->debug) {
-                    $tags[] = '<!-- ' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . ' -->';
-                }
-                if (function_exists('appLog')) {
-                    appLog($GLOBALS['pdo'] ?? null, 'warning', 'theme', $message, [
-                        'theme_id' => $themeId,
-                        'asset' => $asset,
-                    ]);
-                }
-                continue;
+                throw new RuntimeException("Theme asset not found: {$themeId}:{$asset}");
             }
 
             $url = htmlspecialchars($this->assetUrl($themeId, $asset), ENT_QUOTES, 'UTF-8');
@@ -545,11 +483,7 @@ final class ThemeManager
             return null;
         }
 
-        try {
-            $manifest = $this->loadManifest($themeId);
-        } catch (Throwable $e) {
-            return null;
-        }
+        $manifest = $this->loadManifest($themeId);
 
         $publicAssets = $manifest['public_assets'] ?? [];
         if (!is_array($publicAssets) || empty($publicAssets['isolated'])) {
@@ -576,11 +510,7 @@ final class ThemeManager
             return false;
         }
 
-        try {
-            $manifest = $this->loadManifest($themeId);
-        } catch (Throwable $e) {
-            return false;
-        }
+        $manifest = $this->loadManifest($themeId);
 
         return !empty($manifest['public_assets']['isolated']);
     }
@@ -873,11 +803,7 @@ final class ThemeManager
 
     private function resolveTemplatePath(string $themeId, string $templateKey): ?string
     {
-        try {
-            $manifest = $this->loadManifest($themeId);
-        } catch (Throwable $e) {
-            return null;
-        }
+        $manifest = $this->loadManifest($themeId);
 
         $relative = $this->templateRelativePath($manifest, $templateKey);
         if ($relative === '') {

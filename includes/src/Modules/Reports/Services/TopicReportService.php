@@ -301,50 +301,8 @@ final class TopicReportService
             return false;
         }
 
-        $this->schema->ensureTopicReports($pdo);
-        $currentStmt = $pdo->prepare('SELECT r.status, r.admin_note, r.reporter_user_id, r.topic_id, t.title AS topic_title
-                                      FROM topic_reports r
-                                      LEFT JOIN topics t ON t.id = r.topic_id
-                                      WHERE r.id = :id
-                                      LIMIT 1');
-        $currentStmt->execute(['id' => $reportId]);
-        $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$current) {
-            return false;
-        }
-
-        $note = mb_substr(trim($adminNote), 0, 1000, 'UTF-8');
-        $stmt = $pdo->prepare('UPDATE topic_reports SET status = :status, admin_note = :admin_note, updated_at = :updated_at WHERE id = :id');
-        $stmt->execute([
-            'status' => $status,
-            'admin_note' => $note !== '' ? $note : null,
-            'updated_at' => $this->schema->now(),
-            'id' => $reportId,
-        ]);
-
-        if ($stmt->rowCount() <= 0 && (string) $current['status'] === $status && (string) ($current['admin_note'] ?? '') === $note) {
-            return false;
-        }
-
-        $this->createEvent($pdo, $reportId, 'status_updated', $actorId, (string) $current['status'], $status, $note);
-        $this->notifications->dispatchStatus(
-            $pdo,
-            'topic_report_status_updated',
-            (int) ($current['reporter_user_id'] ?? 0),
-            $actorId,
-            'topic_report',
-            $reportId,
-            $status,
-            $note,
-            [
-                'topic_title' => (string) ($current['topic_title'] ?? 'Konu'),
-            ]
-        );
-        if (function_exists('logActivity')) {
-            logActivity($pdo, 'topic_report_updated', 'topic_report', $reportId, ['status' => $status]);
-        }
-
-        return true;
+        return (new ReportStatusService($this->schema, $this->notifications))
+            ->updateSelected($pdo, 'topics', [$reportId], $status, $adminNote, $actorId) > 0;
     }
 
     public function deleteReport(?PDO $pdo, int $reportId, ?int $actorId = null): bool
@@ -352,15 +310,7 @@ final class TopicReportService
         if (!$pdo || $reportId <= 0) {
             return false;
         }
-        $this->schema->ensureTopicReports($pdo);
-        $stmt = $pdo->prepare("DELETE FROM topic_reports WHERE id = :id");
-        $stmt->execute(['id' => $reportId]);
-        $stmtEv = $pdo->prepare("DELETE FROM topic_report_events WHERE report_id = :id");
-        $stmtEv->execute(['id' => $reportId]);
-        if (function_exists('logActivity')) {
-            logActivity($pdo, 'topic_report_deleted', 'topic_report', $reportId);
-        }
-        return true;
+        return (new ReportDeletionService($this->schema))->deleteSelected($pdo, 'topics', [$reportId], $actorId) > 0;
     }
 
     /** @return array{reports:int,events:int,notifications:int,activities:int,user_activities:int} */

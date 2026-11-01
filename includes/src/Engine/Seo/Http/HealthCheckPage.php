@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Engine\Seo\Http;
 
+use App\Core\Bootstrap\Boot;
+use App\Core\Cache\Cache;
 use App\Core\Http\JsonResponse;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
@@ -43,8 +45,8 @@ final class HealthCheckPage implements Handler
         return new JsonResponse([
             'status' => $status,
             'checks' => $checks,
-        ], 200, [
-            'Cache-Control' => 'public, max-age=5',
+        ], $status === 'ok' ? 200 : 503, [
+            'Cache-Control' => $status === 'ok' ? 'public, max-age=5' : 'no-store',
             'Pragma' => 'public',
             'Expires' => $expiresAt->format('D, d M Y H:i:s') . ' GMT',
             'X-Robots-Tag' => 'noindex',
@@ -65,7 +67,7 @@ final class HealthCheckPage implements Handler
         return [
             'db' => $this->databaseStatus(),
             'cache' => $this->cacheStatus(),
-            'queue' => 'ok',
+            'queue' => $this->queueStatus(),
         ];
     }
 
@@ -108,9 +110,38 @@ final class HealthCheckPage implements Handler
 
     private function cacheStatus(): string
     {
-        $cachePath = $this->resolveRootPath() . '/storage/cache';
+        try {
+            $pdo = $GLOBALS['pdo'] ?? null;
+            $settings = getAdminSettings($pdo);
+            if (($settings['cache_enabled'] ?? '1') !== '1') {
+                return 'ok';
+            }
+            $cache = Boot::container($this->resolveRootPath())->get(Cache::class);
+            $key = 'health:' . bin2hex(random_bytes(12));
+            if (!$cache->set($key, 'ok', 10)) {
+                return 'fail';
+            }
+            try {
+                return $cache->get($key) === 'ok' ? 'ok' : 'fail';
+            } finally {
+                $cache->delete($key);
+            }
+        } catch (Throwable) {
+            return 'fail';
+        }
+    }
 
-        return is_dir($cachePath) && is_writable($cachePath) ? 'ok' : 'fail';
+    private function queueStatus(): string
+    {
+        $pdo = $GLOBALS['pdo'] ?? null;
+        if (!$pdo instanceof PDO) {
+            return 'fail';
+        }
+        try {
+            return $pdo->query('SELECT 1 FROM notification_email_queue LIMIT 1') !== false ? 'ok' : 'fail';
+        } catch (Throwable) {
+            return 'fail';
+        }
     }
 
     private function now(): DateTimeImmutable

@@ -19,13 +19,8 @@ final class CsrfGuard implements Middleware
             return $next->handle($request);
         }
 
-        if (!function_exists('verify_csrf_token')) {
-            trigger_error('CSRF guard bypassed: verify_csrf_token() not loaded', E_USER_WARNING);
-            return $next->handle($request);
-        }
-
         $token = $this->resolveToken($request);
-        if ($token !== '' && verify_csrf_token($token)) {
+        if (verify_csrf_token($token)) {
             return $next->handle($request);
         }
 
@@ -46,9 +41,9 @@ final class CsrfGuard implements Middleware
             }
         }
 
-        $queryToken = trim((string) $request->getQueryParam('_token', ''));
-        if ($queryToken !== '') {
-            return $queryToken;
+        $parsedBody = $request->getParsedBody();
+        if (array_key_exists('_token', $parsedBody)) {
+            return is_string($parsedBody['_token']) ? trim($parsedBody['_token']) : '';
         }
 
         $body = $request->getBody();
@@ -56,20 +51,17 @@ final class CsrfGuard implements Middleware
             return '';
         }
 
-        $contentType = strtolower((string) $request->header('Content-Type', ''));
-        if (str_contains($contentType, 'application/json')) {
+        $contentType = trim(explode(';', strtolower((string) $request->header('Content-Type', '')))[0]);
+        if ($contentType === 'application/json' || str_ends_with($contentType, '+json')) {
             $decoded = json_decode($body, true);
-            if (is_array($decoded)) {
-                $jsonToken = trim((string) ($decoded['_token'] ?? ''));
-                if ($jsonToken !== '') {
-                    return $jsonToken;
-                }
-            }
+            $token = is_array($decoded) ? ($decoded['_token'] ?? null) : null;
+            return is_string($token) ? trim($token) : '';
         }
 
-        parse_str($body, $parsed);
-        if (is_array($parsed)) {
-            return trim((string) ($parsed['_token'] ?? ''));
+        if ($contentType === 'application/x-www-form-urlencoded') {
+            parse_str($body, $parsed);
+            $token = $parsed['_token'] ?? null;
+            return is_string($token) ? trim($token) : '';
         }
 
         return '';
@@ -79,16 +71,19 @@ final class CsrfGuard implements Middleware
     {
         $path = ltrim($request->getPath(), '/');
         $accept = strtolower((string) $request->header('Accept', ''));
-        $isJson = str_starts_with($path, 'api/') || str_contains($accept, 'json');
+        $isJson = preg_match('~(?:^|/)api/~', $path) === 1
+            || str_contains($accept, 'json')
+            || str_contains(strtolower((string) $request->header('Content-Type', '')), 'json');
+        $headers = ['Cache-Control' => 'no-store', 'X-Robots-Tag' => 'noindex'];
 
         if ($isJson) {
             return new Response(
                 '{"success":false,"error":"csrf_token_invalid","message":"Güvenlik doğrulaması yenilendi. Lütfen işlemi tekrar deneyin.","retryable":true}',
                 419,
-                ['Content-Type' => 'application/json; charset=utf-8'],
+                $headers + ['Content-Type' => 'application/json; charset=utf-8'],
             );
         }
 
-        return new Response('Güvenlik doğrulaması yenilendi. Lütfen işlemi tekrar deneyin.', 419, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return new Response('Güvenlik doğrulaması yenilendi. Lütfen işlemi tekrar deneyin.', 419, $headers + ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

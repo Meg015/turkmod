@@ -211,9 +211,7 @@ final class PublicThemeRenderer
                     if (is_file($publicJsPath)) {
                         $scripts = '<script src="' . htmlspecialchars(asset_url('assets/dist/public.min.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
                     } else {
-                        $scripts = '<script src="' . htmlspecialchars(asset_url('assets/js/app.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>' . "\n" .
-                                   '<script src="' . htmlspecialchars(asset_url('assets/js/ui.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>' . "\n" .
-                                   '<script src="' . htmlspecialchars(asset_url('assets/js/ui-foundation.js', $baseUri), ENT_QUOTES, 'UTF-8') . '" defer></script>';
+                        throw new RuntimeException('Public JavaScript bundle is missing; run npm run build.');
                     }
                     if ($themeJs !== '') {
                         $scripts = trim($scripts . "\n" . $themeJs);
@@ -247,6 +245,7 @@ final class PublicThemeRenderer
                 if (function_exists('appLogException')) {
                     appLogException($error, ['source' => 'PublicThemeRenderer ui foundation js']);
                 }
+                throw $error;
             }
         }
         $breadcrumbsHtml = self::buildBreadcrumbHtml($themeManager, $context, $pageKey, $pageTitle, $baseUri, $isEventsRequest);
@@ -953,7 +952,7 @@ final class PublicThemeRenderer
             $rows[] = ['icon' => 'bi-controller', 'label' => 'Oyun Sürümü', 'value' => (string) ($topic['topic_version'] ?? '-'), 'url' => ''];
         }
 
-        $categoryUrl = categoryUrl($categorySlug);
+        $categoryUrl = categoryUrl($categorySlug, (string) ($topic['parent_slug'] ?? ''));
         $rows[] = ['icon' => 'bi-folder2-open', 'label' => 'Kategori', 'value' => $category, 'url' => $categoryUrl];
         $views = (int) ($topic['view_count'] ?? 0);
         if (($settings['show_view_count'] ?? '1') === '1' && $views > 0) {
@@ -1664,7 +1663,7 @@ final class PublicThemeRenderer
             $html .= self::topicInfoRow('bi-controller', 'Oyun Sürümü', htmlspecialchars((string) ($topic['topic_version'] ?? '-'), ENT_QUOTES, 'UTF-8'), true);
         }
 
-        $categoryUrl = categoryUrl($categorySlug);
+        $categoryUrl = categoryUrl($categorySlug, (string) ($topic['parent_slug'] ?? ''));
         $html .= self::topicInfoRow('bi-folder2-open', 'Kategori', '<a href="' . htmlspecialchars($categoryUrl, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($category, ENT_QUOTES, 'UTF-8') . '</a>', true);
         if ($showViews && $views > 0) {
             $html .= self::topicInfoRow('bi-eye', 'Görüntülenme', number_format($views, 0, ',', '.'), true);
@@ -2404,10 +2403,9 @@ final class PublicThemeRenderer
         }
 
         $robotsMeta = function_exists('seoRobotsMeta') ? seoRobotsMeta($settings, null, $seoPageKey) : 'index, follow';
-        $indexDraftTopics = seoIndexToggleValue($settings, 'index_draft_topics', '0');
         $indexEmptyCategories = seoIndexToggleValue($settings, 'index_empty_categories', '0');
 
-        if (isset($pageVars['topic']) && is_array($pageVars['topic']) && ($pageVars['topic']['status'] ?? 'published') !== 'published' && $indexDraftTopics !== '1') {
+        if (isset($pageVars['topic']) && is_array($pageVars['topic']) && ($pageVars['topic']['status'] ?? 'published') !== 'published') {
             $robotsMeta = 'noindex, nofollow';
         }
         if (isset($pageVars['categoryId'], $pageVars['items']) && (int) $pageVars['categoryId'] > 0 && empty($pageVars['items']) && $indexEmptyCategories !== '1') {
@@ -2465,8 +2463,7 @@ final class PublicThemeRenderer
                     if (is_file($publicCssPath)) {
                         $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/dist/public.min.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
                     } else {
-                        // Fallback: load individual files
-                        $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/general.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
+                        throw new RuntimeException('Public CSS bundle is missing; run npm run build.');
                     }
                     $head[] = '<link rel="stylesheet" href="' . htmlspecialchars(asset_url('assets/css/ui-foundation.css', $baseUri), ENT_QUOTES, 'UTF-8') . '">';
 
@@ -2485,8 +2482,7 @@ final class PublicThemeRenderer
                             $fontRelPath = 'assets/dist/' . basename($fontFiles[0]);
                             $head[] = '<link rel="preload" href="' . htmlspecialchars(asset_url($fontRelPath, $baseUri), ENT_QUOTES, 'UTF-8') . '" as="font" type="font/woff2" crossorigin>';
                         } else {
-                            // Fallback: preload original font path
-                            $head[] = '<link rel="preload" href="' . htmlspecialchars(asset_url('assets/bootstrap-icons/fonts/bootstrap-icons.woff2', $baseUri), ENT_QUOTES, 'UTF-8') . '" as="font" type="font/woff2" crossorigin>';
+                            throw new RuntimeException('Built icon font is missing; run npm run build.');
                         }
                     }
 
@@ -2511,6 +2507,7 @@ final class PublicThemeRenderer
                     if (function_exists('appLogException')) {
                         appLogException($error, ['source' => 'PublicThemeRenderer css loading']);
                     }
+                    throw $error;
                 }
             }
         }
@@ -2523,7 +2520,41 @@ final class PublicThemeRenderer
             $head[] = '<meta name="google-site-verification" content="' . htmlspecialchars((string) $settings['google_site_verification'], ENT_QUOTES, 'UTF-8') . '">';
         }
 
+        $head[] = self::googleTagHead($context);
+
         return trim(implode("\n", array_filter($head, static fn (string $line): bool => trim($line) !== '')));
+    }
+
+    private static function googleTagHead(array $context): string
+    {
+        $settings = self::arrayValue($context, 'settings');
+        $measurementId = trim((string) ($settings['google_analytics_id'] ?? ''));
+        if (preg_match('/^(?:G-[A-Z0-9]+|GT-[A-Z0-9]+|AW-[0-9]+|UA-[0-9]+-[0-9]+)$/D', $measurementId) !== 1) {
+            return '';
+        }
+
+        $baseUri = rtrim((string) ($context['base_uri'] ?? ''), '/');
+        $envConfig = self::arrayValue($context, 'env_config');
+        $conversionDestination = trim((string) ($envConfig['GOOGLE_ADS_CONVERSION_SEND_TO'] ?? ''));
+        $requestPath = parse_url((string) ($context['current_request_uri'] ?? '/'), PHP_URL_PATH);
+        $isHomepage = in_array($requestPath, [$baseUri . '/', $baseUri . '/index.php'], true);
+        $conversionAttribute = '';
+        if (
+            $isHomepage
+            && str_starts_with($measurementId, 'AW-')
+            && preg_match('~^' . preg_quote($measurementId, '~') . '/[A-Za-z0-9_-]+$~D', $conversionDestination) === 1
+        ) {
+            $conversionAttribute = ' data-ga-conversion="' . htmlspecialchars($conversionDestination, ENT_QUOTES, 'UTF-8') . '"';
+        }
+
+        $nonce = function_exists('appCspNonceAttr') ? appCspNonceAttr() : '';
+        $initUrl = function_exists('asset_url')
+            ? asset_url('assets/js/google-analytics-init.js', $baseUri)
+            : $baseUri . '/assets/js/google-analytics-init.js';
+
+        return '<script async' . $nonce . ' src="https://www.googletagmanager.com/gtag/js?id=' . rawurlencode($measurementId) . '"></script>' . "\n"
+            . '<script' . $nonce . ' src="' . htmlspecialchars($initUrl, ENT_QUOTES, 'UTF-8') . '" data-ga-id="'
+            . htmlspecialchars($measurementId, ENT_QUOTES, 'UTF-8') . '"' . $conversionAttribute . ' defer></script>';
     }
 
     private static function themeModeScript(string $baseUri): string
@@ -2531,16 +2562,10 @@ final class PublicThemeRenderer
         // Inline theme-mode-init - zero HTTP requests, executes immediately
         $initPath = __DIR__ . '/../assets/js/theme-mode-init.js';
         $code = file_get_contents($initPath);
-        if ($code !== false && $code !== '') {
-            $nonce = function_exists('appCspNonceAttr') ? appCspNonceAttr() : '';
-            return '<script' . $nonce . '>' . $code . '</script>';
+        if ($code === false || $code === '') {
+            throw new RuntimeException('Theme initialization script could not be read.');
         }
-        // Fallback: external script
-        $src = function_exists('asset_url')
-            ? asset_url('assets/js/theme-mode-init.js', $baseUri)
-            : rtrim($baseUri, '/') . '/assets/js/theme-mode-init.js';
-
-        return '<script src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"></script>';
+        return '<script' . appCspNonceAttr() . '>' . $code . '</script>';
     }
 
     /**

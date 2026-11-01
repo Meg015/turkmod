@@ -7,6 +7,8 @@ $projectRoot = isset($projectRoot) && is_string($projectRoot) && $projectRoot !=
     : dirname(__DIR__, 5);
 
 require_once $projectRoot . '/includes/init.php';
+header('X-Robots-Tag: noindex, nofollow');
+header('Cache-Control: private, no-store');
 
 $pageKey = 'download';
 $downloadSettings = is_array($adminSettingsGlobal ?? null) ? $adminSettingsGlobal : [];
@@ -53,12 +55,7 @@ function downloadTimerTemplateParts(string $template): array
 
 function downloadSafeTargetUrl(string $url): ?string
 {
-    if (function_exists('topicDownloadNormalizeUrl')) {
-        $url = topicDownloadNormalizeUrl($url);
-    } else {
-        $url = preg_replace('/[\x00-\x1F\x7F]+/u', '', $url) ?? $url;
-        $url = trim($url);
-    }
+    $url = topicDownloadNormalizeUrl($url);
 
     $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
     $host = (string) (parse_url($url, PHP_URL_HOST) ?: '');
@@ -138,18 +135,14 @@ try {
     $downloadTopicId = (int) ($link['topic_id'] ?? 0);
     $downloadTopicHref = topicUrl((string) ($link['topic_slug'] ?? ''), $downloadTopicId);
     $downloadIntent = trim((string) ($_GET['intent'] ?? ''));
-    $downloadIntentValid = function_exists('topicDownloadAccessIntentIsValid')
-        ? topicDownloadAccessIntentIsValid($linkId, $downloadTopicId, $downloadIntent)
-        : false;
+    $downloadIntentValid = topicDownloadAccessIntentIsValid($linkId, $downloadTopicId, $downloadIntent);
     if (!$downloadIntentValid) {
         header('Location: ' . $downloadTopicHref, true, 302);
         exit;
     }
 
     $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
-    $downloadAccessState = function_exists('topicDownloadAccessState')
-        ? topicDownloadAccessState($pdo, $downloadSettings, $downloadTopicId, $currentUserId)
-        : ['locked' => false, 'reason' => 'none', 'message' => ''];
+    $downloadAccessState = topicDownloadAccessState($pdo, $downloadSettings, $downloadTopicId, $currentUserId);
     if (!empty($downloadAccessState['locked'])) {
         http_response_code(403);
         $pageTitle = 'İndirme Kilitli';

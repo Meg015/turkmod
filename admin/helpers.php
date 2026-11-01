@@ -1744,7 +1744,7 @@ function adminSettingDefinitions(): array
         'meta_description_max_length' => ['label' => 'Meta Aciklama Azami Uzunluk', 'type' => 'number', 'default' => '160', 'section' => 'seo', 'min' => 80, 'max' => 320],
         'allow_indexing'           => ['label' => 'Arama Motoru Indekslemesi',    'type' => 'bool',   'default' => '1',   'section' => 'seo'],
         'canonical_base_url'       => ['label' => 'Canonical Ana URL',            'type' => 'string', 'default' => '',                               'section' => 'seo', 'tooltip' => 'Canonical URL\'ler için kullanılacak temel URL (boş bırakılırsa otomatik tespit edilir)'],
-        'canonical_trailing_slash' => ['label' => 'Canonical Sonda Slash Kullan', 'type' => 'bool',   'default' => '0',                                                  'section' => 'seo', 'tooltip' => 'Canonical URL\'lerin sonuna "/" ekler (örn: /sayfa/ yerine /sayfa)'],
+        'canonical_trailing_slash' => ['label' => 'Canonical Sonda Slash Kullan', 'type' => 'bool',   'default' => '0',                                                  'section' => 'seo', 'tooltip' => 'Slash yönlendirmesi kapalıyken bağlantı ve canonical adreslerinin sonuna "/" ekler. Yönlendirme açıksa onun kuralı uygulanır.'],
         'og_image'                 => ['label' => 'Open Graph Görsel URL',        'type' => 'string', 'default' => '',                                                   'section' => 'seo', 'tooltip' => 'Sosyal medyada paylaşımlarda kullanılacak varsayılan Open Graph görseli (1200x630px)'],
         'og_type'                  => ['label' => 'Open Graph Türü',              'type' => 'select', 'default' => 'website', 'section' => 'seo', 'options' => ['website' => 'Website', 'article' => 'Article', 'blog' => 'Blog'], 'tooltip' => 'Open Graph içerik türü (website: genel site, article: makale, blog: blog yazısı)'],
         'twitter_card'             => ['label' => 'Twitter Card Türü',            'type' => 'select', 'default' => 'summary_large_image', 'section' => 'seo', 'options' => ['summary' => 'Summary', 'summary_large_image' => 'Summary Large Image'], 'tooltip' => 'Twitter\'da paylaşımlarda kullanılacak kart türü (summary_large_image: büyük görsel önerilir)'],
@@ -1959,20 +1959,6 @@ function adminSettingDefinitions(): array
             'section' => 'seo',
             'tooltip' => 'Kapalı olduğunda içeriği olmayan kategori sayfalarına noindex uygulanır'
         ],
-        'index_draft_topics' => [
-            'label' => 'Taslak Konular Indexlensin',
-            'type' => 'bool',
-            'default' => '0',
-            'section' => 'seo',
-            'tooltip' => 'Kapalı olduğunda taslak konulara noindex uygulanır'
-        ],
-        'sitemap_exclude_drafts' => [
-            'label' => 'Taslakları Sitemap\'ten Çıkar',
-            'type' => 'bool',
-            'default' => '1',
-            'section' => 'seo',
-            'tooltip' => 'Taslak durumundaki konuları sitemap.xml içeriklerinden hariç tutar'
-        ],
         'index_paginated_pages' => [
             'label' => 'Sayfalama Sayfalari Indexlensin',
             'type' => 'bool',
@@ -1993,7 +1979,7 @@ function adminSettingDefinitions(): array
         'theme_preview_enabled'  => ['label' => 'Tema Önizleme',          'type' => 'bool',   'default' => '1',        'section' => 'appearance'],
         'theme_debug_mode'       => ['label' => 'Tema Debug Modu',        'type' => 'bool',   'default' => '0',        'section' => 'appearance'],
         // Internal/canonical active public theme key. Not rendered in settings UI.
-        'theme_active_id'        => ['label' => 'Active Theme (Internal)', 'type' => 'string', 'default' => 'default',  'section' => '__internal'],
+        'theme_active_id'        => ['label' => 'Active Theme (Internal)', 'type' => 'string', 'default' => 'turkmod',  'section' => '__internal'],
 
         // -- Header Ayarlari -----------------------------------
         'header_sticky'          => ['label' => 'Yapışkan Header',            'type' => 'bool',   'default' => '1',        'section' => 'lay_header'],

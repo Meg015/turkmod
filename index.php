@@ -83,14 +83,7 @@ if ($search !== "") {
     incrementRateLimit($rateLimitKey, $searchRateWindow);
 }
 
-$cache = null;
-if (class_exists(\App\Core\Bootstrap\Boot::class)) {
-    try {
-        $cache = \App\Core\Bootstrap\Boot::container()->get(\App\Core\Cache\Cache::class);
-    } catch (Throwable $e) {
-        // Cache service unavailable; continue without full-page cache.
-    }
-}
+$cache = $cacheEnabled ? \App\Core\Bootstrap\Boot::container()->get(\App\Core\Cache\Cache::class) : null;
 
 if ($canUseAnonHomeFullPageCache && $cache) {
     $activeThemeId = $themeManager instanceof ThemeManager
@@ -157,16 +150,20 @@ if ($canUseAnonHomeFullPageCache && $cache) {
 $result = null;
 $isDefaultHome = $isDefaultHomeRequest;
 if ($isDefaultHome && $cache) {
-    $result = $cache->get(publicContentCacheKey('homepage_default_topics_v2'));
+    $result = $cache->get(publicContentCacheKey('homepage_default_topics_v3'));
 }
 if (!is_array($result)) {
     $result = getTopics($pdo, $page, $perPage, $search, $sort, $categoryFilter);
     if ($isDefaultHome && $cache && is_array($result)) {
-        $cache->set(publicContentCacheKey('homepage_default_topics_v2'), $result, 300, $publicContentCacheTags);
+        $cache->set(publicContentCacheKey('homepage_default_topics_v3'), $result, 300, $publicContentCacheTags);
     }
 }
 $items = $result["items"];
 $total = $result["total"];
+if ($page > max(1, (int) ceil($total / $perPage))) {
+    require __DIR__ . '/includes/public-404.php';
+    exit;
+}
 
 // Popüler modlar (indirme sayısına göre) - N+1 query önlendi, görseller tek sorguda
 $sidebarItems = null;
@@ -192,6 +189,7 @@ if (!is_array($sidebarItems)) {
             }
         } catch (Throwable $e) {
             appLogException($e, ["source" => "index.php sidebarItems"]);
+            throw $e;
         }
     }
 }
@@ -282,6 +280,7 @@ if (is_array($statsCache) && isset($statsCache['categoryCounts'], $statsCache['s
             }
         } catch (Throwable $e) {
             appLogException($e, ["source" => "index.php categoryCounts+siteStats"]);
+            throw $e;
         }
     }
 }
@@ -314,6 +313,7 @@ if (!is_array($recentComments)) {
             }
         } catch (Throwable $e) {
             appLogException($e, ["source" => "index.php recentComments"]);
+            throw $e;
         }
     }
 }

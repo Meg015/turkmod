@@ -50,13 +50,13 @@ class CsrfProtection
     /**
      * CSRF token doğrula
      */
-    public static function verify(?string $token): bool
+    public static function verify(mixed $token): bool
     {
-        self::ensureSession();
-
-        if ($token === null || $token === '') {
+        if (!is_string($token) || $token === '') {
             return false;
         }
+
+        self::ensureSession();
 
         if (!isset($_SESSION[self::TOKEN_SESSION_KEY])) {
             return false;
@@ -100,7 +100,7 @@ class CsrfProtection
             }
         }
 
-        return $token;
+        return is_string($token) ? $token : null;
     }
 
     /**
@@ -166,7 +166,7 @@ if (!function_exists('csrf_token')) {
 }
 
 if (!function_exists('verify_csrf_token')) {
-    function verify_csrf_token(?string $token): bool
+    function verify_csrf_token(mixed $token): bool
     {
         return CsrfProtection::verify($token);
     }

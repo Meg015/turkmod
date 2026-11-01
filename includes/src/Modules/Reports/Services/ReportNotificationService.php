@@ -44,16 +44,9 @@ final class ReportNotificationService
         }
 
         if (!function_exists('notificationDispatch')) {
-            $notificationsFile = dirname(__DIR__, 4) . '/notifications.php';
-            if (is_file($notificationsFile)) {
-                require_once $notificationsFile;
-            }
-        }
-        if (!function_exists('notificationDispatch')) {
-            return;
+            require_once dirname(__DIR__, 4) . '/notifications.php';
         }
 
-        $baseUri = (string) ($GLOBALS['baseUri'] ?? '');
         $note = trim($adminNote);
         notificationDispatch($pdo, $eventKey, $recipientId, $actorId, $entityType, $reportId, array_merge([
             'report_status' => $this->statusLabel($status),

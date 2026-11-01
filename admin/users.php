@@ -49,6 +49,8 @@ $canViewUsers = userHasPermission($pdo, $currentUserId, 'users.view');
 $canViewGroups = userHasPermission($pdo, $currentUserId, 'groups.view');
 $canManageLogs = userHasPermission($pdo, $currentUserId, 'logs.manage');
 $canDeleteComments = userHasPermission($pdo, $currentUserId, 'comments.delete');
+$canDeleteUsers = userHasPermission($pdo, $currentUserId, 'users.delete');
+$canDeleteUserContent = $canDeleteComments && userHasPermission($pdo, $currentUserId, 'topics.delete');
 
 if ($activeTab === 'users' && !$canViewUsers) {
     if ($canViewGroups) {
@@ -78,7 +80,7 @@ $respond = static function (bool $ok, string $message, array $data = []) use ($i
         sendJsonResponse($ok ? 200 : 422, $ok, $message, ['ok' => $ok] + $data, $ok ? null : 'user_action_failed');
     }
 
-    flash($ok ? 'success' : 'error', $message);
+    flash($ok ? (!empty($data['cleanup_failed']) ? 'warning' : 'success') : 'error', $message);
     $params = ['tab' => $activeTab];
 
     if ($activeTab === 'moderation') {
@@ -115,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $respond(false, 'Güvenlik doğrulaması başarısız.');
     }
-    if (!userHasPermission($pdo, $currentUserId, 'users.edit') && !userHasPermission($pdo, $currentUserId, 'groups.edit')) {
+    if ($action === 'delete_user' ? !$canDeleteUsers : (!userHasPermission($pdo, $currentUserId, 'users.edit') && !userHasPermission($pdo, $currentUserId, 'groups.edit'))) {
         $respond(false, 'Bu işlemi yapma yetkiniz yok.');
     }
 
@@ -149,6 +151,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $error = '';
+        if ($userId > 0 && in_array($action, $userManagedActions, true)) {
+            $targetAccount = $pdo->prepare('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL');
+            $targetAccount->execute([$userId]);
+            if (!$targetAccount->fetchColumn()) {
+                $respond(false, 'Kullanıcı bulunamadı veya silinmiş bir sistem hesabı.');
+            }
+        }
         switch ($action) {
             case 'save_group':
                 if (!$canEditGroups && !$canEditUsers) {
@@ -177,6 +186,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $respond($error === '', $error === '' ? 'Grup pasife alindi.' : $error, ['group_id' => $groupId]);
                 break;
 
+            case 'delete_user':
+                foreach (['user_id', 'content_mode', 'confirm_username', 'reason', 'confirm_delete'] as $field) {
+                    if (!isset($_POST[$field]) || !is_string($_POST[$field])) {
+                        $respond(false, 'Silme formundaki tüm alanları doldurun.');
+                    }
+                }
+                $deleteUserId = filter_var($_POST['user_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                if ($deleteUserId === false || $_POST['confirm_delete'] !== '1') {
+                    $respond(false, 'Kalıcı silme işlemini onaylayın.');
+                }
+                $result = usersDeletePermanently($pdo, $deleteUserId, $currentUserId, $_POST['content_mode'], $_POST['confirm_username'], $_POST['reason'], (string) $baseUri);
+                $message = 'Kullanıcı kalıcı olarak silindi.';
+                $contentCounts = [];
+                if ($result['topics'] > 0) { $contentCounts[] = $result['topics'] . ' konu'; }
+                if ($result['comments'] > 0) { $contentCounts[] = $result['comments'] . ' yorum'; }
+                if ($contentCounts !== []) {
+                    $message .= ' ' . implode(' ve ', $contentCounts) . ($_POST['content_mode'] === 'preserve'
+                        ? ' Silinmiş Kullanıcı hesabına devredildi.'
+                        : ' kalıcı olarak silindi.');
+                }
+                if ($result['cleanup_failed']) {
+                    $message .= ' Bazı dosyalar temizlenemedi; ayrıntılar uygulama günlüğüne kaydedildi.';
+                }
+                if ($isAjax) {
+                    flash($result['cleanup_failed'] ? 'warning' : 'success', $message);
+                }
+                $respond(true, $message, $result);
+                break;
+
             case 'save_user':
                 $error = usersUpdateProfile($pdo, $userId, $_POST, $currentUserId, $validGroupIds);
                 if ($error === '') {
@@ -462,7 +500,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             default:
                 $respond(false, 'Geçersiz işlem.');
         }
-    } catch (Throwable $e) {
+    } catch (DomainException $e) {
+        $respond(false, $e->getMessage());
+    } catch (Throwable $e) {
         appLogException($e, ['source' => 'admin/users.php', 'action' => $action]);
         $respond(false, safeErrorMessage($e, 'İşlem tamamlanamadı.'));
     }
@@ -569,7 +609,8 @@ if ($activeTab === 'moderation') {
 $currentTabUrl = 'users.php?' . http_build_query($currentTabParams);
 
 $successMsg = get_flash('success');
-$errorMsg = get_flash('error');
+$errorMsg = get_flash('error');
+$warningMsg = get_flash('warning');
 
 require_once __DIR__ . '/header.php';
 ?>
@@ -577,10 +618,18 @@ require_once __DIR__ . '/header.php';
     <?php if ($successMsg): ?>
         <?= adminRenderAlert((string) $successMsg, 'success', ['closable' => true]) ?>
     <?php endif; ?>
+    <?php if ($warningMsg): ?>
+        <?= adminRenderAlert((string) $warningMsg, 'warning', ['closable' => true]) ?>
+    <?php endif; ?>
     <?php if ($errorMsg): ?>
         <?= adminRenderAlert((string) $errorMsg, 'danger', ['closable' => true]) ?>
     <?php endif; ?>
 
+    <?php
+    // Sayfada gösterilen mesajları footer ayrıca toast olarak tekrar göstermesin.
+    unset($successMsg, $errorMsg, $warningMsg);
+    ?>
+
     <?= adminRenderPageHero('bi-people', 'Kullanıcı yönetimi', $pageTitle, 'Kullanıcıları, grupları, banları, kısıtlamaları ve itirazları tek çalışma alanında yönetin.') ?>
 
     <?= adminRenderStatCards([
@@ -727,6 +776,10 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
+    <?php if ($canDeleteUsers): ?>
+        <?php require __DIR__ . '/partials/user-delete-modal.php'; ?>
+    <?php endif; ?>
+
     <!-- Ban Modal -->
     <div class="media-modal-overlay ui-admin-modal-overlay" id="banModal" role="dialog" aria-modal="true" aria-label="Kullanıcı banla" hidden aria-hidden="true">
         <div class="media-modal ui-admin-modal-sm ui-admin-modal-shell ui-modal-shell ui-panel">

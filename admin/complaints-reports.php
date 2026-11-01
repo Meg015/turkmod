@@ -75,7 +75,7 @@ function adminComplaintsNormalizeTopicReasons(array $keys, array $labels): array
             continue;
         }
         if ($key === '') {
-            $key = function_exists('slugify') ? slugify($label) : $label;
+            $key = slugify($label);
             $key = str_replace('-', '_', strtolower((string) $key));
         }
         $key = preg_replace('/[^a-z0-9_]+/', '_', $key) ?? '';
@@ -100,14 +100,12 @@ function adminComplaintsEnsureReportTable(?PDO $pdo, string $scope): void
 
 function adminComplaintsFetchReports(?PDO $pdo, string $scope, string $status, int $limit, array $filters): array
 {
-    $reports = adminComplaintsReportHelperCall($scope === 'users' ? 'getUserReports' : 'getTopicReports', [$pdo, $status, $limit, $filters]);
-    return is_array($reports) ? $reports : [];
+    return adminComplaintsReportHelperCall($scope === 'users' ? 'getUserReports' : 'getTopicReports', [$pdo, $status, $limit, $filters]);
 }
 
 function adminComplaintsFetchReportEvents(?PDO $pdo, string $scope, array $reportIds): array
 {
-    $events = adminComplaintsReportHelperCall($scope === 'users' ? 'getUserReportEventsForReports' : 'getTopicReportEventsForReports', [$pdo, $reportIds]);
-    return is_array($events) ? $events : [];
+    return adminComplaintsReportHelperCall($scope === 'users' ? 'getUserReportEventsForReports' : 'getTopicReportEventsForReports', [$pdo, $reportIds]);
 }
 
 function adminComplaintsUpdateReportStatus(?PDO $pdo, string $scope, int $reportId, string $status, string $adminNote, ?int $actorId = null): bool
@@ -128,6 +126,20 @@ function adminComplaintsDeleteReport(?PDO $pdo, string $scope, int $reportId, ?i
     );
 
     return (bool) $deleted;
+}
+
+function adminComplaintsSelectionExists(PDO $pdo, string $scope, array $reportIds): bool
+{
+    $table = match ($scope) {
+        'topics' => 'topic_reports',
+        'users' => 'user_reports',
+        default => throw new InvalidArgumentException('Geçersiz rapor türü.'),
+    };
+    $ids = \App\Modules\Reports\Services\ReportDeletionService::normalizeIds($reportIds);
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("SELECT 1 FROM {$table} WHERE id IN ({$placeholders}) LIMIT 1");
+    $stmt->execute($ids);
+    return (bool) $stmt->fetchColumn();
 }
 
 /** @return array{reports:int,events:int,notifications:int,activities:int,user_activities:int} */
@@ -151,27 +163,21 @@ function adminComplaintsStatusCounts(?PDO $pdo, string $scope): array
 {
     $counts = ['open' => 0, 'reviewing' => 0, 'resolved' => 0, 'rejected' => 0];
     if (!$pdo) {
-        return $counts;
+        throw new RuntimeException('Rapor sayıları alınamadı: veritabanı bağlantısı yok.');
     }
 
-    $allowedScopes = ['users' => 'user_reports', 'topics' => 'topic_reports'];
-    $table = $allowedScopes[$scope] ?? null;
-    if ($table === null) {
-        return $counts;
-    }
-
-    try {
-        adminComplaintsEnsureReportTable($pdo, $scope === 'users' ? 'users' : 'topics');
-
-        $stmt = $pdo->query("SELECT status, COUNT(*) AS total FROM {$table} GROUP BY status");
-        foreach ($stmt->fetchAll() ?: [] as $row) {
-            $status = (string) ($row['status'] ?? '');
-            if (array_key_exists($status, $counts)) {
-                $counts[$status] = (int) ($row['total'] ?? 0);
-            }
+    $table = match ($scope) {
+        'users' => 'user_reports',
+        'topics' => 'topic_reports',
+        default => throw new InvalidArgumentException('Geçersiz rapor türü.'),
+    };
+    adminComplaintsEnsureReportTable($pdo, $scope);
+    $stmt = $pdo->query("SELECT status, COUNT(*) AS total FROM {$table} GROUP BY status");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $status = (string) $row['status'];
+        if (array_key_exists($status, $counts)) {
+            $counts[$status] = (int) $row['total'];
         }
-    } catch (Throwable $e) {
-        return $counts;
     }
 
     return $counts;
@@ -201,9 +207,8 @@ $activeTab = in_array($activeTab, $allowedTabs, true) ? $activeTab : 'topics';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     adminRequirePermission('reports.manage', 'Şikayetleri yönetmek için gerekli izin hesabınıza tanımlanmamış.');
-    $postScope = (string) ($_POST['report_scope'] ?? $activeTab);
-    $postScope = in_array($postScope, ['topics', 'users', 'reasons'], true) ? $postScope : 'topics';
-    $returnQuery = (string) ($_POST['_return'] ?? '');
+    $postScope = is_string($_POST['report_scope'] ?? null) ? $_POST['report_scope'] : '';
+    $returnQuery = is_string($_POST['_return'] ?? null) ? $_POST['_return'] : '';
 
     try {
         if (!verify_csrf_token($_POST['_token'] ?? '')) {
@@ -211,10 +216,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             adminComplaintsRedirectAfterPost($postScope, $returnQuery);
         }
 
-        $action = (string) ($_POST['action'] ?? 'update');
+        if (!in_array($postScope, ['topics', 'users', 'reasons'], true)) {
+            throw new InvalidArgumentException('Geçersiz rapor türü.');
+        }
+        $action = is_string($_POST['action'] ?? null) ? $_POST['action'] : '';
         $actorId = (int) ($_SESSION['_auth_user_id'] ?? 0);
 
         if ($action === 'save_topic_reasons') {
+            if ($postScope !== 'reasons') {
+                throw new InvalidArgumentException('Geçersiz rapor ayarı işlemi.');
+            }
             $topicReasons = adminComplaintsNormalizeTopicReasons(
                 array_values((array) ($_POST['reason_keys'] ?? [])),
                 array_values((array) ($_POST['reason_labels'] ?? []))
@@ -228,6 +239,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
 
         if ($action === 'delete_all_topic_reports') {
+            if ($postScope !== 'topics') {
+                throw new InvalidArgumentException('Geçersiz rapor silme işlemi.');
+            }
             $deleted = adminComplaintsDeleteAllTopicReports($pdo, $actorId);
             flash(
                 'success',
@@ -244,74 +258,68 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             adminComplaintsRedirectAfterPost('topics');
         }
 
-        if ($postScope === 'users') {
-            if ($action === 'delete') {
-                $deleted = adminComplaintsDeleteReport($pdo, 'users', (int) ($_POST['report_id'] ?? 0), $actorId);
-                $deleted
-                    ? flash('success', 'Kullanıcı şikayeti silindi.')
-                    : flash('error', 'Şikayet silinemedi.');
-            } elseif ($action === 'bulk_update') {
-                $ids = array_values(array_filter(array_map('intval', (array) ($_POST['bulk_report_ids'] ?? [])), static fn (int $id): bool => $id > 0));
-                $bulkStatus = (string) ($_POST['bulk_status'] ?? '');
-                $bulkNote = (string) ($_POST['bulk_admin_note'] ?? '');
-                $updatedCount = 0;
-                if ($ids !== [] && in_array($bulkStatus, $allowedStatuses, true)) {
-                    foreach ($ids as $id) {
-                        if (adminComplaintsUpdateReportStatus($pdo, 'users', $id, $bulkStatus, $bulkNote, $actorId)) {
-                            $updatedCount++;
-                        }
-                    }
+        if (!in_array($postScope, ['topics', 'users'], true)) {
+            throw new InvalidArgumentException('Geçersiz rapor türü.');
+        }
+        $reportLabel = $postScope === 'users' ? 'kullanıcı şikayeti' : 'konu raporu';
+        if ($action === 'bulk_action') {
+            $rawIds = $_POST['bulk_report_ids'] ?? [];
+            if (!is_array($rawIds)) {
+                throw new InvalidArgumentException('Seçilen rapor kimlikleri geçersiz.');
+            }
+            $ids = \App\Modules\Reports\Services\ReportDeletionService::normalizeIds($rawIds);
+            $operation = $_POST['bulk_operation'] ?? '';
+            if ($operation === 'delete') {
+                $deletedCount = deleteSelectedReports($pdo, $postScope, $ids, $actorId);
+                $deletedCount > 0
+                    ? flash('success', "{$deletedCount} {$reportLabel} ve işlem geçmişi silindi.")
+                    : flash('error', 'Seçilen raporlar bulunamadı; hiçbir kayıt silinmedi.');
+            } elseif (is_string($operation) && in_array($operation, $allowedStatuses, true)) {
+                $bulkNote = $_POST['bulk_admin_note'] ?? '';
+                if (!is_string($bulkNote)) {
+                    throw new InvalidArgumentException('Yönetici notu geçersiz.');
                 }
-                $updatedCount > 0
-                    ? flash('success', "{$updatedCount} kullanıcı şikayeti güncellendi.")
-                    : flash('error', 'Toplu işlem uygulanamadı.');
+                $updatedCount = updateSelectedReportsStatus($pdo, $postScope, $ids, $operation, $bulkNote, $actorId);
+                if ($updatedCount > 0) {
+                    flash('success', "{$updatedCount} {$reportLabel} güncellendi.");
+                } elseif (adminComplaintsSelectionExists($pdo, $postScope, $ids)) {
+                    flash('success', 'Seçilen raporlar zaten güncel; değişiklik yapılmadı.');
+                } else {
+                    flash('error', 'Seçilen raporlar bulunamadı.');
+                }
             } else {
-                $updated = adminComplaintsUpdateReportStatus(
-                    $pdo,
-                    'users',
-                    (int) ($_POST['report_id'] ?? 0),
-                    (string) ($_POST['status'] ?? ''),
-                    (string) ($_POST['admin_note'] ?? ''),
-                    $actorId
-                );
-                $updated
-                    ? flash('success', 'Kullanıcı şikayeti güncellendi.')
-                    : flash('error', 'Şikayet güncellenemedi.');
+                throw new InvalidArgumentException('Geçerli bir toplu işlem seçin.');
+            }
+        } elseif ($action === 'delete') {
+            $reportId = \App\Modules\Reports\Services\ReportDeletionService::normalizeIds([$_POST['report_id'] ?? null])[0];
+            $deleted = adminComplaintsDeleteReport($pdo, $postScope, $reportId, $actorId);
+            $deleted
+                ? flash('success', $postScope === 'users' ? 'Kullanıcı şikayeti silindi.' : 'Konu raporu silindi.')
+                : flash('error', 'Rapor silinemedi.');
+        } elseif (in_array($action, ['update', 'quick_update'], true)) {
+            $reportId = \App\Modules\Reports\Services\ReportDeletionService::normalizeIds([$_POST['report_id'] ?? null])[0];
+            $status = $_POST['status'] ?? '';
+            $adminNote = $_POST['admin_note'] ?? '';
+            if (!is_string($status) || !in_array($status, $allowedStatuses, true) || !is_string($adminNote)) {
+                throw new InvalidArgumentException('Rapor durumu veya yönetici notu geçersiz.');
+            }
+            $updated = adminComplaintsUpdateReportStatus(
+                $pdo,
+                $postScope,
+                $reportId,
+                $status,
+                $adminNote,
+                $actorId
+            );
+            if ($updated) {
+                flash('success', $postScope === 'users' ? 'Kullanıcı şikayeti güncellendi.' : 'Konu raporu güncellendi.');
+            } elseif (adminComplaintsSelectionExists($pdo, $postScope, [$reportId])) {
+                flash('success', 'Rapor zaten güncel; değişiklik yapılmadı.');
+            } else {
+                flash('error', 'Rapor bulunamadı.');
             }
         } else {
-            if ($action === 'delete') {
-                $deleted = adminComplaintsDeleteReport($pdo, 'topics', (int) ($_POST['report_id'] ?? 0), $actorId);
-                $deleted
-                    ? flash('success', 'Konu raporu silindi.')
-                    : flash('error', 'Rapor silinemedi.');
-            } elseif ($action === 'bulk_update') {
-                $ids = array_values(array_filter(array_map('intval', (array) ($_POST['bulk_report_ids'] ?? [])), static fn (int $id): bool => $id > 0));
-                $bulkStatus = (string) ($_POST['bulk_status'] ?? '');
-                $bulkNote = (string) ($_POST['bulk_admin_note'] ?? '');
-                $updatedCount = 0;
-                if ($ids !== [] && in_array($bulkStatus, $allowedStatuses, true)) {
-                    foreach ($ids as $id) {
-                        if (adminComplaintsUpdateReportStatus($pdo, 'topics', $id, $bulkStatus, $bulkNote, $actorId)) {
-                            $updatedCount++;
-                        }
-                    }
-                }
-                $updatedCount > 0
-                    ? flash('success', "{$updatedCount} konu raporu güncellendi.")
-                    : flash('error', 'Toplu işlem uygulanamadı.');
-            } else {
-                $updated = adminComplaintsUpdateReportStatus(
-                    $pdo,
-                    'topics',
-                    (int) ($_POST['report_id'] ?? 0),
-                    (string) ($_POST['status'] ?? ''),
-                    (string) ($_POST['admin_note'] ?? ''),
-                    $actorId
-                );
-                $updated
-                    ? flash('success', 'Konu raporu güncellendi.')
-                    : flash('error', 'Rapor güncellenemedi.');
-            }
+            throw new InvalidArgumentException('Geçersiz rapor işlemi.');
         }
     } catch (Throwable $e) {
         flash('error', 'İşlem sırasında bir hata oluştu: ' . safeErrorMessage($e));
@@ -380,7 +388,8 @@ require_once __DIR__ . '/header.php';
 <div class="complaints-page">
     <?= adminRenderFlashAlerts($successMsg, $errorMsg) ?>
 
-    <?= adminRenderPageHero('bi-shield-exclamation', 'Moderasyon merkezi', 'Şikayetler & Raporlar', 'Siteyle ilgili konu raporlarını ve kullanıcı şikayetlerini tek yönetim kuyruğunda takip edin.', [], [
+    <?= adminRenderPageHero('bi-shield-exclamation', '', 'Şikayetler & Raporlar', 'Konu raporlarını ve kullanıcı şikayetlerini tek yerden yönetin.', [], [
+        'class' => 'complaints-heading',
         'actions_html' => '<span class="ui-admin-badge ui-admin-badge-warning"><i class="bi bi-inbox"></i> ' . number_format($totalActiveCount, 0, ',', '.') . ' aktif iş</span>',
     ]) ?>
 
@@ -389,7 +398,6 @@ require_once __DIR__ . '/header.php';
             'href' => adminComplaintsUrl('topics'),
             'icon' => 'bi-flag',
             'label' => 'Konu Raporları',
-            'description' => 'İçerik ve bağlantı bildirimleri',
             'badge' => number_format($topicActiveCount, 0, ',', '.'),
             'badge_tone' => $topicActiveCount > 0 ? 'danger' : 'muted',
         ],
@@ -397,7 +405,6 @@ require_once __DIR__ . '/header.php';
             'href' => adminComplaintsUrl('users'),
             'icon' => 'bi-person-exclamation',
             'label' => 'Kullanıcı Şikayetleri',
-            'description' => 'Üye davranışı ve güvenlik bildirimleri',
             'badge' => number_format($userActiveCount, 0, ',', '.'),
             'badge_tone' => $userActiveCount > 0 ? 'danger' : 'muted',
         ],
@@ -405,7 +412,6 @@ require_once __DIR__ . '/header.php';
             'href' => adminComplaintsUrl('reasons'),
             'icon' => 'bi-list-check',
             'label' => 'Rapor Nedenleri',
-            'description' => 'Public rapor seçeneklerini düzenle',
             'badge' => number_format(count(adminComplaintsReasonLabels('topics')), 0, ',', '.'),
             'badge_tone' => 'muted',
         ],
@@ -489,21 +495,23 @@ require_once __DIR__ . '/header.php';
 
     <?php
     $complaintsSummaryCards = [[
-        'href' => adminComplaintsUrl($activeTab, ['status' => '']),
+        'href' => adminComplaintsUrl($activeTab, $filters + ['status' => '']),
         'tone' => 'info',
         'icon' => $scopeIcon,
         'label' => 'Tüm kayıtlar',
         'value' => number_format($scopeTotal, 0, ',', '.'),
         'class' => 'complaints-summary-card' . ($currentStatus === '' ? ' is-active' : ''),
+        'attrs' => $currentStatus === '' ? ['aria-current' => 'page'] : [],
     ]];
     foreach ($statusLabels as $key => $meta) {
         $complaintsSummaryCards[] = [
-            'href' => adminComplaintsUrl($activeTab, ['status' => $key]),
+            'href' => adminComplaintsUrl($activeTab, $filters + ['status' => $key]),
             'tone' => $meta[1] === 'muted' ? 'info' : (string) $meta[1],
             'icon' => (string) $meta[2],
             'label' => (string) $meta[0],
             'value' => number_format((int) ($scopeCounts[$key] ?? 0), 0, ',', '.'),
             'class' => 'complaints-summary-card' . ($currentStatus === $key ? ' is-active' : ''),
+            'attrs' => $currentStatus === $key ? ['aria-current' => 'page'] : [],
         ];
     }
     echo adminRenderStatCards($complaintsSummaryCards, [
@@ -515,16 +523,16 @@ require_once __DIR__ . '/header.php';
     <?= adminRenderPanelOpen(['class' => 'complaints-board', 'body_class' => 'ui-admin-card-body-flush']) ?>
         <div class="complaints-toolbar">
             <div class="complaints-toolbar-title">
-                <div>
-                    <strong><?= htmlspecialchars($scopeTitle) ?> · <?= htmlspecialchars($currentStatusLabel) ?></strong>
-                    <span><?= number_format(count($reports), 0, ',', '.') ?> kayıt listeleniyor</span>
+                <div class="complaints-toolbar-heading">
+                    <strong><?= htmlspecialchars($scopeTitle) ?></strong>
+                    <span><?= htmlspecialchars($currentStatusLabel) ?> · <?= number_format(count($reports), 0, ',', '.') ?> kayıt</span>
                 </div>
                 <?php if ($activeTab === 'topics'): ?>
                 <form method="post" action="<?= htmlspecialchars(adminComplaintsUrl('topics')) ?>" class="ui-admin-inline-form complaints-delete-all-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="delete_all_topic_reports">
                     <input type="hidden" name="report_scope" value="topics">
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-danger ui-admin-btn-sm" <?= $scopeTotal <= 0 ? 'disabled' : '' ?>><i class="bi bi-trash3"></i> Tümünü Sil</button>
+                    <button type="submit" class="ui-admin-btn ui-admin-btn-danger-outline ui-admin-btn-sm" <?= $scopeTotal <= 0 ? 'disabled' : '' ?>><i class="bi bi-trash3"></i> Tüm raporları sil</button>
                 </form>
                 <?php endif; ?>
             </div>
@@ -532,7 +540,7 @@ require_once __DIR__ . '/header.php';
             <form method="get" class="complaints-filter admin-filter-form">
                 <input type="hidden" name="tab" value="<?= htmlspecialchars($activeTab) ?>">
                 <div class="complaints-filter-primary">
-                    <div>
+                    <div class="complaints-filter-search">
                         <label class="ui-admin-form-label" for="report-search">Ara</label>
                         <input id="report-search" name="q" class="ui-admin-form-control" value="<?= htmlspecialchars($filters['q']) ?>" placeholder="<?= $activeTab === 'users' ? 'Kullanıcı, e-posta veya detay' : 'Konu, kullanıcı veya detay' ?>">
                     </div>
@@ -546,32 +554,27 @@ require_once __DIR__ . '/header.php';
                         </select>
                     </div>
                     <div>
-                        <label class="ui-admin-form-label" for="report-reason-filter">Sebep</label>
+                        <label class="ui-admin-form-label" for="report-reason-filter">Rapor nedeni</label>
                         <select id="report-reason-filter" name="reason" class="ui-admin-form-select">
-                            <option value="">Tüm sebepler</option>
+                            <option value="">Tüm nedenler</option>
                             <?php foreach ($reasonLabels as $key => $label): ?>
                                 <option value="<?= htmlspecialchars($key) ?>" <?= $filters['reason'] === $key ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <div>
+                        <label class="ui-admin-form-label" for="report-date-from">Başlangıç tarihi</label>
+                        <input id="report-date-from" name="date_from" type="date" class="ui-admin-form-control" value="<?= htmlspecialchars($filters['date_from']) ?>">
+                    </div>
+                    <div>
+                        <label class="ui-admin-form-label" for="report-date-to">Bitiş tarihi</label>
+                        <input id="report-date-to" name="date_to" type="date" class="ui-admin-form-control" value="<?= htmlspecialchars($filters['date_to']) ?>">
+                    </div>
                     <div class="complaints-filter-actions">
-                        <button type="submit" class="ui-admin-btn ui-admin-btn-sm complaints-filter-submit"><i class="bi bi-search"></i> Filtrele</button>
-                        <a href="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Temizle"><i class="bi bi-x-lg"></i></a>
+                        <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-funnel"></i> Filtrele</button>
+                        <a href="<?= htmlspecialchars(adminComplaintsUrl($activeTab, ['status' => ''])) ?>" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" title="Filtreleri temizle" aria-label="Filtreleri temizle"><i class="bi bi-x-lg"></i></a>
                     </div>
                 </div>
-                <details class="complaints-filter-advanced" <?= ($filters['date_from'] !== '' || $filters['date_to'] !== '') ? 'open' : '' ?>>
-                    <summary><i class="bi bi-calendar-range"></i> Tarih aralığı</summary>
-                    <div class="complaints-filter-extra">
-                        <div>
-                            <label class="ui-admin-form-label" for="report-date-from">Başlangıç</label>
-                            <input id="report-date-from" name="date_from" type="date" class="ui-admin-form-control" value="<?= htmlspecialchars($filters['date_from']) ?>">
-                        </div>
-                        <div>
-                            <label class="ui-admin-form-label" for="report-date-to">Bitiş</label>
-                            <input id="report-date-to" name="date_to" type="date" class="ui-admin-form-control" value="<?= htmlspecialchars($filters['date_to']) ?>">
-                        </div>
-                    </div>
-                </details>
             </form>
         </div>
 
@@ -583,27 +586,32 @@ require_once __DIR__ . '/header.php';
                 'description' => 'Yeni bildirimler geldiğinde burada listelenecek.',
             ]) ?>
         <?php else: ?>
-            <form id="bulkReportsForm" method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-bulk-bar admin-bulk-action-bar">
+            <form id="bulkReportsForm" method="post" action="<?= htmlspecialchars(adminComplaintsUrl($activeTab)) ?>" class="complaints-bulk-bar admin-bulk-action-bar" data-admin-no-lock="1">
                 <?= csrf_field() ?>
                 <input type="hidden" name="report_scope" value="<?= htmlspecialchars($activeTab) ?>">
-                <input type="hidden" name="action" value="bulk_update">
+                <input type="hidden" name="action" value="bulk_action">
                 <input type="hidden" name="_return" value="<?= htmlspecialchars($returnQuery) ?>">
                 <div class="complaints-bulk-meta">
                     <label class="ui-admin-check-inline">
                         <input type="checkbox" id="selectAllReports">
                         <span>Tümünü seç</span>
                     </label>
-                    <span><i class="bi bi-check2-square"></i> <span id="selectedReportCount">0</span> seçili</span>
+                    <span class="complaints-selection-count" aria-live="polite" aria-atomic="true"><span id="selectedReportCount">0</span> seçili</span>
                 </div>
                 <div class="complaints-bulk-controls">
-                    <select name="bulk_status" class="ui-admin-form-select" required>
-                        <option value="">Toplu durum seç</option>
-                        <?php foreach ($statusLabels as $key => $meta): ?>
-                            <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($meta[0]) ?></option>
-                        <?php endforeach; ?>
+                    <select id="bulkReportOperation" name="bulk_operation" class="ui-admin-form-select" aria-label="Toplu işlem" required>
+                        <option value="">Toplu işlem seçin</option>
+                        <optgroup label="Durumu değiştir">
+                            <?php foreach ($statusLabels as $key => $meta): ?>
+                                <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($meta[0]) ?></option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                        <optgroup label="Silme işlemi">
+                            <option value="delete">Seçilenleri sil</option>
+                        </optgroup>
                     </select>
-                    <input name="bulk_admin_note" class="ui-admin-form-control" placeholder="Toplu admin notu">
-                    <button type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm"><i class="bi bi-lightning-charge"></i> Uygula</button>
+                    <input id="bulkReportNote" name="bulk_admin_note" class="ui-admin-form-control" placeholder="Not (boşsa mevcut not korunur)" maxlength="1000" aria-label="Toplu yönetici notu" title="Boş bırakıldığında her raporun mevcut yönetici notu korunur.">
+                    <button id="bulkReportSubmit" type="submit" class="ui-admin-btn ui-admin-btn-primary ui-admin-btn-sm" disabled><i class="bi bi-check2"></i> <span>Uygula</span></button>
                 </div>
             </form>
 
@@ -622,7 +630,7 @@ require_once __DIR__ . '/header.php';
                         <div class="complaints-item-header">
                             <div class="complaints-item-header-left">
                                 <label class="complaints-select" title="Şikayeti seç">
-                                    <input type="checkbox" name="bulk_report_ids[]" value="<?= $reportId ?>" class="complaints-row-checkbox" form="bulkReportsForm">
+                                    <input type="checkbox" name="bulk_report_ids[]" value="<?= $reportId ?>" class="complaints-row-checkbox" form="bulkReportsForm" aria-label="Rapor #<?= $reportId ?> seç">
                                 </label>
                                 <span class="complaints-id-badge"><i class="bi <?= $activeTab === 'users' ? 'bi-person-exclamation' : 'bi-flag-fill' ?>"></i> Rapor #<?= $reportId ?></span>
                                 <span class="complaints-reason-tag"><i class="bi bi-shield-exclamation"></i> <?= htmlspecialchars($reasonLabels[$report['reason']] ?? (string) $report['reason']) ?></span>
@@ -664,6 +672,8 @@ require_once __DIR__ . '/header.php';
                                 </div>
                             </div>
 
+                            <?php if ($details !== '' || $adminNote !== ''): ?>
+                            <div class="complaints-item-notes">
                             <?php if ($details !== ''): ?>
                                 <div class="complaints-reason-detail-box">
                                     <span class="complaints-detail-label"><i class="bi bi-chat-square-quote-fill"></i> ŞİKAYET AÇIKLAMASI</span>
@@ -676,6 +686,8 @@ require_once __DIR__ . '/header.php';
                                     <span class="complaints-admin-note-label"><i class="bi bi-sticky-fill"></i> YÖNETİCİ NOTU</span>
                                     <p><?= nl2br(htmlspecialchars($adminNote)) ?></p>
                                 </div>
+                            <?php endif; ?>
+                            </div>
                             <?php endif; ?>
                         </div>
 

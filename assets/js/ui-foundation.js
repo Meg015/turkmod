@@ -348,50 +348,6 @@
         });
     }
 
-    function defaultAvatarFallback() {
-        var configured = document.querySelector('[data-ui-avatar-fallback]');
-        if (configured && configured.getAttribute('data-ui-avatar-fallback')) {
-            return configured.getAttribute('data-ui-avatar-fallback');
-        }
-        var base = document.querySelector('base[href]');
-        if (base && base.href) {
-            return new URL('assets/images/noavatar-neon-helmet.svg', base.href).href;
-        }
-        var path = window.location.pathname || '/';
-        var marker = '/admin/';
-        var adminIndex = path.indexOf(marker);
-        if (adminIndex >= 0) {
-            path = path.slice(0, adminIndex + 1);
-        } else {
-            path = path.replace(/\/[^/]*$/, '/');
-        }
-        return path.replace(/\/$/, '') + '/assets/images/noavatar-neon-helmet.svg';
-    }
-
-    function avatarFallbackFor(image) {
-        if (!image) return defaultAvatarFallback();
-        var ownFallback = image.getAttribute('data-ui-avatar-fallback');
-        if (ownFallback) return ownFallback;
-        var holder = image.closest && image.closest('[data-avatar-fallback],[data-ui-avatar-fallback]');
-        if (holder) {
-            return holder.getAttribute('data-avatar-fallback') || holder.getAttribute('data-ui-avatar-fallback') || defaultAvatarFallback();
-        }
-        return defaultAvatarFallback();
-    }
-
-    function bindAvatarFallbacks(root) {
-        var scope = root || document;
-        scope.addEventListener('error', function (event) {
-            var image = event.target;
-            if (!image || image.tagName !== 'IMG' || !image.hasAttribute('data-ui-avatar-img')) return;
-            if (image.dataset.uiAvatarFailed === '1') return;
-            var fallback = avatarFallbackFor(image);
-            if (!fallback || image.src === fallback) return;
-            image.dataset.uiAvatarFailed = '1';
-            image.src = fallback;
-        }, true);
-    }
-
     function registerAction(name, handler) {
         if (!/^[a-zA-Z][a-zA-Z0-9_.:-]*$/.test(String(name || '')) || typeof handler !== 'function') {
             return false;
@@ -413,7 +369,6 @@
         bindTabs: bindTabs,
         bindActions: bindActions,
         bindStyleData: bindStyleData,
-        bindAvatarFallbacks: bindAvatarFallbacks,
         registerAction: registerAction,
         confirm: confirm,
         toast: function (message, type, duration) {
@@ -426,7 +381,6 @@
         bindDisclosures(document);
         bindTabs(document);
         bindActions(document);
-        bindAvatarFallbacks(document);
     });
 })();
 

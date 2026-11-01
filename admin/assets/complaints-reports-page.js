@@ -55,11 +55,29 @@ function initComplaintsBulkSelection() {
     var selectAll = document.getElementById('selectAllReports');
     var rowChecks = Array.prototype.slice.call(document.querySelectorAll('.complaints-row-checkbox'));
     var selectedCount = document.getElementById('selectedReportCount');
-    var bulkBar = document.querySelector('.complaints-bulk-bar');
+    var bulkBar = document.getElementById('bulkReportsForm');
+    if (!bulkBar) return;
+    var operation = document.getElementById('bulkReportOperation');
+    var note = document.getElementById('bulkReportNote');
+    var submit = document.getElementById('bulkReportSubmit');
+    var submitting = false;
     function sync() {
         var count = rowChecks.filter(function(input) { return input.checked; }).length;
+        var deleting = operation.value === 'delete';
         if (selectedCount) selectedCount.textContent = String(count);
-        if (bulkBar) bulkBar.classList.toggle('is-active', count > 0);
+        bulkBar.classList.toggle('is-active', count > 0);
+        bulkBar.setAttribute('aria-busy', submitting ? 'true' : 'false');
+        rowChecks.forEach(function(input) {
+            input.closest('.complaints-item-card').classList.toggle('is-selected', input.checked);
+        });
+        note.disabled = count === 0 || !operation.value || deleting;
+        note.placeholder = deleting ? 'Silme işleminde not kullanılmaz' : 'Not (boşsa mevcut not korunur)';
+        submit.disabled = submitting || count === 0 || !operation.value;
+        submit.classList.toggle('ui-admin-btn-danger', deleting);
+        submit.classList.toggle('ui-admin-btn-primary', !deleting);
+        submit.querySelector('i').className = submitting ? 'bi bi-hourglass-split' : (deleting ? 'bi bi-trash3' : 'bi bi-check2');
+        submit.querySelector('span').textContent = submitting ? 'İşleniyor' : (deleting ? 'Sil' : 'Uygula');
+        submit.setAttribute('aria-label', deleting ? 'Seçilen ' + count + ' raporu sil' : 'Toplu işlemi uygula');
         if (selectAll) {
             selectAll.checked = count > 0 && count === rowChecks.length;
             selectAll.indeterminate = count > 0 && count < rowChecks.length;
@@ -72,6 +90,22 @@ function initComplaintsBulkSelection() {
         });
     }
     rowChecks.forEach(function(input) { input.addEventListener('change', sync); });
+    operation.addEventListener('change', sync);
+    bulkBar.addEventListener('submit', function(event) {
+        if (submitting || !rowChecks.some(function(input) { return input.checked; })) {
+            event.preventDefault();
+            if (!submitting && rowChecks[0]) rowChecks[0].focus();
+            return;
+        }
+        if (!operation.value) {
+            event.preventDefault();
+            operation.reportValidity();
+            return;
+        }
+        submitting = true;
+        sync();
+    });
+    window.addEventListener('pageshow', function() { submitting = false; sync(); });
     sync();
 }
 

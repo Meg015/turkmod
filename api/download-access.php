@@ -41,17 +41,7 @@ try {
     }
 
     $currentUserId = (int) ($_SESSION['_auth_user_id'] ?? 0);
-    $state = function_exists('topicDownloadAccessState')
-        ? topicDownloadAccessState($pdo, $settings, $topicId, $currentUserId)
-        : [
-            'mode' => 'public',
-            'comment_requirement' => 'submitted',
-            'locked' => false,
-            'reason' => 'none',
-            'message' => '',
-            'has_comment' => false,
-            'requires_login' => false,
-        ];
+    $state = topicDownloadAccessState($pdo, $settings, $topicId, $currentUserId);
 
     sendSuccess('Erisim durumu guncellendi.', [
         'topic_id' => $topicId,

@@ -32,7 +32,7 @@ final class SitemapIndexPage implements Handler
         $settings = $this->settings ?? $this->resolveSettings();
         $canonicalBase = rtrim($this->canonicalBase ?? $this->resolveCanonicalBase($settings), '/');
         $cacheDuration = seoSitemapCacheTtl($settings);
-        $cacheKey = seoSitemapCacheKey('sitemap-index:v2', [
+        $cacheKey = seoSitemapCacheKey('sitemap-index:v3', [
             'base' => $canonicalBase,
             'settings' => $settings,
         ]);

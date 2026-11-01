@@ -15,4 +15,9 @@
 
     window.gtag("js", new Date());
     window.gtag("config", measurementId);
+
+    var conversionDestination = script.getAttribute("data-ga-conversion") || "";
+    if (conversionDestination !== "") {
+        window.gtag("event", "conversion", { send_to: conversionDestination });
+    }
 })();

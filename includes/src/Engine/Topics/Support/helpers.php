@@ -754,7 +754,7 @@ function topicDownloadRevokeAccessGrant(?PDO $pdo, int $commentId, string $reaso
         if (function_exists('appLogException')) {
             appLogException($e, ['fn' => 'topicDownloadRevokeAccessGrant', 'comment_id' => $commentId]);
         }
-        return false;
+        throw $e;
     }
 }
 

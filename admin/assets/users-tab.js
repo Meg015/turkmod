@@ -13,6 +13,62 @@ function closeUsersManagedModal(modal, resetCallback) {
     window.adminModal.close(modal, resetCallback);
 }
 
+function openUserDeleteModal(trigger) {
+    const modal = document.getElementById('userDeleteModal');
+    const form = document.getElementById('userDeleteForm');
+    if (!modal || !form || form.dataset.submitting === '1') return;
+    form.reset();
+    const token = form.querySelector('input[name="_token"]');
+    if (token) token.value = adminUsersCsrfToken() || token.value;
+    form.dataset.username = trigger.getAttribute('data-user-name') || '';
+    document.getElementById('deleteUserId').value = trigger.getAttribute('data-user-delete');
+    document.getElementById('deleteUserConfirmation').setCustomValidity('');
+    modal.querySelectorAll('[data-user-delete-name]').forEach(function (element) {
+        element.textContent = form.dataset.username;
+    });
+    modal.querySelector('[data-user-delete-purge-warning]').hidden = true;
+    openUsersManagedModal(modal, { initialFocus: '#deleteUserReason', returnFocus: trigger });
+}
+
+function initUserDeleteForm() {
+    const form = document.getElementById('userDeleteForm');
+    if (!form || form.dataset.ready === '1') return;
+    form.dataset.ready = '1';
+    form.addEventListener('change', function () {
+        const warning = form.querySelector('[data-user-delete-purge-warning]');
+        warning.hidden = form.querySelector('input[name="content_mode"]:checked')?.value !== 'purge';
+    });
+    const confirmation = document.getElementById('deleteUserConfirmation');
+    confirmation.addEventListener('input', function () { confirmation.setCustomValidity(''); });
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (form.dataset.submitting === '1') return;
+        confirmation.setCustomValidity(confirmation.value.trim() === form.dataset.username ? '' : 'Kullanıcı adını eksiksiz yazın.');
+        if (!form.reportValidity()) return;
+        form.dataset.submitting = '1';
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        let succeeded = false;
+        try {
+            const options = { method: 'POST', body: new FormData(form), notifyError: false };
+            const result = window.adminAsync
+                ? await window.adminAsync.fetchJson('users.php', { ...options, button: button, loadingText: 'Siliniyor...' })
+                : await window.adminFetchJson('users.php', options);
+            if (!result.ok && !result.success) throw new Error(result.message || 'Kullanıcı silinemedi.');
+            succeeded = true;
+            closeUsersManagedModal(document.getElementById('userDeleteModal'));
+            window.location.reload();
+        } catch (error) {
+            await adminAlert(error?.message || 'Kullanıcı silinemedi. Lütfen tekrar deneyin.', { title: 'Hata', tone: 'danger' });
+        } finally {
+            if (!succeeded) {
+                form.dataset.submitting = '0';
+                button.disabled = false;
+            }
+        }
+    });
+}
+
 var USER_RESTRICTION_LABELS = {
     all: 'Tüm İşlemler',
     comment: 'Yorum Yapma',
@@ -624,6 +680,19 @@ document.querySelectorAll('[data-admin-note-open]').forEach(button => {
 });
 
 document.addEventListener('click', function(event) {
+    const deleteTrigger = event.target.closest('[data-user-delete]');
+    if (deleteTrigger) {
+        event.preventDefault();
+        closeUserRowActionMenu();
+        openUserDeleteModal(deleteTrigger);
+        return;
+    }
+
+    if (event.target.closest('[data-user-delete-close]')) {
+        closeUsersManagedModal(document.getElementById('userDeleteModal'));
+        return;
+    }
+
     const editTrigger = event.target.closest('[data-user-edit-open]');
     if (editTrigger) {
         event.preventDefault();
@@ -895,6 +964,7 @@ function bindGroupPermissionTools() {
 
 function initUsersTabPage() {
     initUsersTabActions();
+    initUserDeleteForm();
     initUserRowActionMenus();
     bindUserBulkActions();
     initUsersTabRestrictionModal();
@@ -917,5 +987,5 @@ window.unbanUser = unbanUser;
 
 window.adminPage.register('users', initUsersTabPage, {
     id: 'users-tab',
-    selector: '[data-user-bulk-form], [data-user-detail-open], [data-user-edit-open], [data-group-permission-tools], #banForm, #unbanForm, #restrictionForm'
+    selector: '[data-user-bulk-form], [data-user-detail-open], [data-user-edit-open], [data-group-permission-tools], #banForm, #unbanForm, #restrictionForm, #userDeleteForm'
 });

@@ -38,23 +38,26 @@ $lookupTopicBySlug = static function (string $lookupSlug) use ($pdo): ?array {
 
     $lookupSlug = trim($lookupSlug);
 
-    if ($lookupSlug === "" || !$pdo) {
-
+    if (!$pdo instanceof PDO) {
+        throw new RuntimeException('Topic lookup requires a database connection.');
+    }
+    if ($lookupSlug === '') {
         return null;
-
     }
 
 
 
     try {
 
-        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
+        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, parent.slug AS parent_slug, u.username AS author
 
                                FROM topics t
 
                                LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
 
                                LEFT JOIN categories cat ON t.category_id = cat.id
+
+                               LEFT JOIN categories parent ON parent.id = cat.parent_id
 
                                LEFT JOIN users u ON t.author_id = u.id
 
@@ -74,7 +77,7 @@ $lookupTopicBySlug = static function (string $lookupSlug) use ($pdo): ?array {
 
         ]);
 
-        return null;
+        throw $e;
 
     }
 
@@ -109,7 +112,7 @@ if ($id > 0) {
 
     } else {
 
-        $topic = $lookupTopicBySlug($slug) ?: $lookupTopicBySlug((string) ($routedTopicParts["slug"] ?? ""));
+        $topic = null;
 
     }
 
@@ -559,7 +562,7 @@ if ($pdo && !empty($topic["id"])) {
 
 }
 
-$seoStructuredData = "<script type=\"application/ld+json\">\n" . json_encode($schemaData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n</script>";
+$seoStructuredData = "<script type=\"application/ld+json\">\n" . json_encode($schemaData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) . "\n</script>";
 
 
 
@@ -774,7 +777,7 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
 
     ["label" => "Ana Sayfa", "url" => $baseUri . "/index.php"],
 
-    ["label" => $category, "url" => categoryUrl($categorySlug)],
+    ["label" => $category, "url" => categoryUrl($categorySlug, (string) ($topic['parent_slug'] ?? ''))],
 
     ["label" => $topic["title"]],
 
@@ -1182,6 +1185,7 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
                     <strong<?= $topicInfoValueAttrs($category) ?>><a href="<?= categoryUrl(
 
                         $categorySlug,
+                        (string) ($topic['parent_slug'] ?? ''),
 
                     ) ?>"><?= htmlspecialchars($category) ?></a></strong>
 
@@ -1330,11 +1334,7 @@ $comments = getTopicComments($pdo, (int) ($topic["id"] ?? $id));
 
 
 
-        $downloadAccessState = function_exists('topicDownloadAccessState')
-
-            ? topicDownloadAccessState($pdo, $settings, (int) ($topic['id'] ?? 0), (int) $currentUserId)
-
-            : ['locked' => false, 'reason' => 'none', 'message' => '', 'mode' => 'public'];
+        $downloadAccessState = topicDownloadAccessState($pdo, $settings, (int) ($topic['id'] ?? 0), (int) $currentUserId);
 
         $downloadLocked = !empty($downloadAccessState['locked']);
 

@@ -7,16 +7,13 @@ require_once $projectRoot . '/includes/src/Engine/Users/Support/profile-helpers.
 require_once $projectRoot . '/includes/src/Engine/Seo/Support/helpers.php';
 
 $profileSlug = trim((string) ($_GET['profile'] ?? ''));
-$user = ($pdo instanceof PDO && function_exists('publicProfileResolveUserBySlug'))
-    ? publicProfileResolveUserBySlug($pdo, $profileSlug)
-    : null;
+if (!$pdo instanceof PDO) {
+    throw new RuntimeException('Public profile requires a database connection.');
+}
+$user = publicProfileResolveUserBySlug($pdo, $profileSlug);
 
-if (!$pdo || !is_array($user)) {
-    http_response_code(404);
-    $pageTitle = 'Profil Bulunamadi';
-    require_once $projectRoot . '/includes/public-header.php';
-    echo uiRenderAlert('Kullanici profili bulunamadi.', 'danger');
-    require_once $projectRoot . '/includes/public-footer.php';
+if (!is_array($user)) {
+    require $projectRoot . '/includes/public-404.php';
     exit;
 }
 
@@ -64,7 +61,11 @@ $profileContext = profileBuildProfileContext($user, [
 ]);
 $topicsPerPage = 12;
 $profileTotalPages = max(1, (int) ceil($publishedTopicCount / $topicsPerPage));
-$profileCurrentPage = max(1, min($profileTotalPages, (int) ($_GET['page'] ?? 1)));
+$profileCurrentPage = max(1, (int) ($_GET['page'] ?? 1));
+if ($profileCurrentPage > $profileTotalPages) {
+    require $projectRoot . '/includes/public-404.php';
+    exit;
+}
 $profileTopicOffset = ($profileCurrentPage - 1) * $topicsPerPage;
 $profileBaseUrl = publicProfileUrl($user);
 $profilePageUrl = $profileCurrentPage > 1

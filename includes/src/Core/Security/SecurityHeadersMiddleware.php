@@ -332,7 +332,7 @@ final class SecurityHeadersMiddleware implements Middleware
     {
         return [
             'default-src' => ["'self'"],
-            'script-src' => ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdn.quilljs.com"],
+            'script-src' => ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdn.quilljs.com", "https://www.googletagmanager.com", "https://www.googleadservices.com", "https://www.google.com"],
             'style-src' => ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdn.quilljs.com"],
             'style-src-attr' => ["'unsafe-inline'"],
             'img-src' => ["'self'", "data:", "blob:", "https:"],
@@ -343,7 +343,7 @@ final class SecurityHeadersMiddleware implements Middleware
             'form-action' => ["'self'"],
             'object-src' => ["'none'"],
             'media-src' => ["'self'", "data:", "blob:", "https:"],
-            'frame-src' => ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com", "https://player.vimeo.com"],
+            'frame-src' => ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com", "https://player.vimeo.com", "https://www.googletagmanager.com"],
         ];
     }
 

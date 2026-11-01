@@ -1,4 +1,5 @@
 <div class="home vstack gap-4">
+<h1 class="visually-hidden">{page_title}</h1>
 {if sort_options}
 <section class="card card-body ui-theme-home-toolbar ui-panel ui-panel__body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">

@@ -251,6 +251,9 @@ $usersFormatDateTime = static function ($value, string $fallback = '-'): string 
                                                     <button type="button" class="user-row-action is-danger" data-user-ban="<?= $userId ?>" data-user-name="<?= $userAttrName ?>"><i class="bi bi-slash-circle"></i> Banla</button>
                                                 <?php endif; ?>
                                                 <button type="button" class="user-row-action is-warning" data-user-restrict="<?= $userId ?>" data-user-name="<?= $userAttrName ?>"><i class="bi bi-shield-exclamation"></i> Kısıtla</button>
+                                                <?php if ($canDeleteUsers): ?>
+                                                    <button type="button" class="user-row-action is-danger" data-user-delete="<?= $userId ?>" data-user-name="<?= $userAttrName ?>"><i class="bi bi-trash"></i> Kullanıcıyı Sil</button>
+                                                <?php endif; ?>
                                             <?php endif; ?>
                                         </div>
                                     </details>

@@ -3,7 +3,6 @@
 
     var reconnectDelay = 5000;
     var reconnectDelayMax = 30000;
-    var fallbackIntervalMs = 5000;
 
     function refresh(kind) {
         if (document.hidden) {
@@ -105,11 +104,8 @@
         var tabId = createTabId();
         var lastActiveAt = Date.now();
         var coordinationScope = userId > 0 ? "user-" + userId : "guest";
-        var tabStatePrefix = "public-message-tab:" + coordinationScope + ":";
-        var tabStateKey = tabStatePrefix + tabId;
         var seenStorageKey = "public-message-seen:" + coordinationScope;
         var notificationSeenStorageKey = "public-notification-seen:" + coordinationScope;
-        var crossTabEventKey = "public-realtime-event:" + coordinationScope;
         var peerStates = new Map();
         var messageChannel = null;
         var heartbeatTimer = null;
@@ -119,7 +115,7 @@
         var presenceStates = new Map();
         var presenceWatcherSequence = 0;
         var socketSubscribedIds = new Set();
-        var presenceFallbackTimer = null;
+        var guestPresenceTimer = null;
         var presenceFailureCount = 0;
         var presenceRequestSequence = 0;
         var presenceAppliedRequestSequence = 0;
@@ -321,21 +317,8 @@
         }
 
         function broadcastChannelMessage(payload) {
-            var channelDelivered = false;
             if (messageChannel) {
-                try {
-                    messageChannel.postMessage(payload);
-                    channelDelivered = true;
-                } catch (error) {
-                    // localStorage remains available as a fallback where possible.
-                }
-            }
-            if (!channelDelivered && payload && ["realtime_event", "presence_payload", "bye", "seen", "notification_seen"].indexOf(payload.type) !== -1) {
-                safeStorageSet(crossTabEventKey, JSON.stringify({
-                    sender_tab_id: tabId,
-                    nonce: createTabId(),
-                    payload: payload
-                }));
+                messageChannel.postMessage(payload);
             }
         }
 
@@ -358,45 +341,12 @@
             }
             var state = currentTabState();
             recordPeerState(state);
-            safeStorageSet(tabStateKey, JSON.stringify(state));
             broadcastChannelMessage({ type: "state", state: state });
-        }
-
-        function loadStoredTabStates() {
-            var states = [];
-            if (messageChannel !== null) {
-                return states;
-            }
-            var now = Date.now();
-            try {
-                if (!window.localStorage) {
-                    return states;
-                }
-                for (var index = window.localStorage.length - 1; index >= 0; index -= 1) {
-                    var key = window.localStorage.key(index);
-                    if (!key || key.indexOf(tabStatePrefix) !== 0) {
-                        continue;
-                    }
-                    var value = window.localStorage.getItem(key);
-                    var state = value ? JSON.parse(value) : null;
-                    if (state && state.tab_id && now - Number(state.updated_at || 0) <= tabStateTtlMs) {
-                        states.push(state);
-                    } else {
-                        safeStorageRemove(key);
-                    }
-                }
-            } catch (error) {
-                return states;
-            }
-            return states;
         }
 
         function liveTabStates() {
             var now = Date.now();
             var candidates = new Map(peerStates);
-            loadStoredTabStates().forEach(function (state) {
-                candidates.set(String(state.tab_id), state);
-            });
             candidates.set(tabId, currentTabState());
 
             var liveStates = [];
@@ -453,9 +403,6 @@
         function notificationOwnerId() {
             var now = Date.now();
             var candidates = new Map(peerStates);
-            loadStoredTabStates().forEach(function (state) {
-                candidates.set(String(state.tab_id), state);
-            });
             candidates.set(tabId, currentTabState());
 
             var liveStates = [];
@@ -1107,6 +1054,7 @@
                     messageChannel.postMessage({ type: "hello", tab_id: tabId });
                 }
             } catch (error) {
+                console.error("Cross-tab channel could not be initialized.", error);
                 messageChannel = null;
             }
 
@@ -1158,7 +1106,7 @@
             });
         }
 
-        function applyPresenceUsers(users, source, preserveOnline) {
+        function applyPresenceUsers(users, source) {
             if (!users || typeof users !== "object") {
                 return;
             }
@@ -1179,13 +1127,6 @@
                     state_class: visible && incoming.is_online === true ? "is-online" : "is-offline",
                     _source: source
                 };
-                var previous = presenceStates.get(presenceUserId);
-                if (source === "http" && preserveOnline && visible && previous && previous.visible && previous._source === "websocket") {
-                    state.is_online = previous.is_online;
-                    state.status_label = previous.status_label;
-                    state.state_class = previous.state_class;
-                    state._source = previous._source;
-                }
                 presenceStates.set(presenceUserId, state);
                 notifyPresenceWatchers(presenceUserId, state);
             });
@@ -1217,7 +1158,7 @@
                 }
                 presenceAppliedRequestSequence = Math.max(presenceAppliedRequestSequence, requestSequence);
             }
-            applyPresenceUsers(payload.users, source, payload.preserve_online === true);
+            applyPresenceUsers(payload.users, source);
         }
 
         function recomputeLocalPresenceIds() {
@@ -1232,7 +1173,7 @@
             localPresenceIds = nextIds;
             persistTabState(false);
             reconcilePresenceSubscriptions();
-            schedulePresenceRefresh(0);
+            scheduleGuestPresenceRefresh(0);
         }
 
         function watchPresence(userIds, callback) {
@@ -1372,28 +1313,32 @@
             });
         }
 
-        function clearPresenceFallbackTimer() {
-            if (presenceFallbackTimer) {
-                window.clearTimeout(presenceFallbackTimer);
-                presenceFallbackTimer = null;
+        function clearGuestPresenceTimer() {
+            if (guestPresenceTimer) {
+                window.clearTimeout(guestPresenceTimer);
+                guestPresenceTimer = null;
             }
         }
 
-        function schedulePresenceRefresh(delay) {
-            clearPresenceFallbackTimer();
-            if (stopped || !ownsNetworkSurface() || document.hidden || combinedPresenceIds().length === 0) {
+        function scheduleGuestPresenceRefresh(delay) {
+            clearGuestPresenceTimer();
+            if (userId > 0 || stopped || !ownsNetworkSurface() || document.hidden || combinedPresenceIds().length === 0) {
                 return;
             }
-            var resolvedDelay = typeof delay === "number" ? Math.max(0, delay) : (connected ? 300000 : 60000);
-            presenceFallbackTimer = window.setTimeout(function () {
-                presenceFallbackTimer = null;
-                refreshPresenceFallback();
+            var resolvedDelay = typeof delay === "number" ? Math.max(0, delay) : 60000;
+            guestPresenceTimer = window.setTimeout(function () {
+                guestPresenceTimer = null;
+                refreshGuestPresence();
             }, resolvedDelay);
         }
 
-        function refreshPresenceFallback() {
+        // Guests use HTTP presence; authenticated users use WebSocket exclusively.
+        function refreshGuestPresence() {
+            if (userId > 0) {
+                return;
+            }
             if (stopped || !ownsNetworkSurface() || document.hidden) {
-                schedulePresenceRefresh();
+                scheduleGuestPresenceRefresh();
                 return;
             }
             var ids = combinedPresenceIds();
@@ -1407,7 +1352,7 @@
             var batches = chunkIds(ids, 100);
             var apiFetch = getPublicFetchJson();
             if (typeof apiFetch !== "function") {
-                schedulePresenceRefresh(60000);
+                scheduleGuestPresenceRefresh(60000);
                 return;
             }
             var chain = Promise.resolve();
@@ -1441,16 +1386,15 @@
                     source: "http",
                     request_sequence: requestSequence,
                     observed_at: Date.now(),
-                    preserve_online: connected,
                     users: users
                 };
                 applyPresencePayload(payload);
                 broadcastChannelMessage({ type: "presence_payload", payload: payload });
-                schedulePresenceRefresh(connected ? 300000 : 60000);
+                scheduleGuestPresenceRefresh(60000);
             }).catch(function () {
                 presenceFailureCount += 1;
                 var nextDelay = presenceFailureCount === 1 ? 120000 : 300000;
-                schedulePresenceRefresh(nextDelay);
+                scheduleGuestPresenceRefresh(nextDelay);
             });
         }
 
@@ -1477,7 +1421,7 @@
                 hasNetworkOwnership = false;
                 networkPresenceKey = "";
                 closeSocketForOwnershipChange();
-                clearPresenceFallbackTimer();
+                clearGuestPresenceTimer();
                 return;
             }
             var nextPresenceKey = combinedPresenceIds().join(",");
@@ -1489,9 +1433,9 @@
             }
             reconcilePresenceSubscriptions();
             if (shouldRefreshImmediately) {
-                schedulePresenceRefresh(0);
-            } else if (!presenceFallbackTimer) {
-                schedulePresenceRefresh();
+                scheduleGuestPresenceRefresh(0);
+            } else if (!guestPresenceTimer) {
+                scheduleGuestPresenceRefresh();
             }
         }
 
@@ -1547,7 +1491,7 @@
             if (payload.type === "presence_snapshot" || payload.type === "presence_changed") {
                 applyPresencePayload(payload);
             } else if (payload.type === "presence_error") {
-                schedulePresenceRefresh(0);
+                console.error("Presence subscription failed.", payload.error || payload.code || "unknown");
             } else if (payload.type === "message_badge_sync") {
                 window.publicTopbar.setMessageBadgeCount(payload.message_count || 0);
             } else if (payload.type === "new_message") {
@@ -1613,6 +1557,9 @@
             if (stopped || !ownsNetworkSurface() || userId <= 0 || !window.WebSocket) {
                 return;
             }
+            if (socket && (socket.readyState === window.WebSocket.CONNECTING || socket.readyState === window.WebSocket.OPEN)) {
+                return;
+            }
             var url = websocketUrl();
             if (!url) {
                 return;
@@ -1632,7 +1579,6 @@
                 socketSubscribedIds.clear();
                 refreshAll();
                 reconcilePresenceSubscriptions();
-                schedulePresenceRefresh(300000);
             };
 
             socket.onmessage = function (event) {
@@ -1659,7 +1605,7 @@
                 socket = null;
                 socketSubscribedIds.clear();
                 scheduleReconnect();
-                schedulePresenceRefresh(0);
+                scheduleGuestPresenceRefresh(0);
             };
         }
 
@@ -1674,10 +1620,10 @@
                     refreshAll();
                     window.setTimeout(flushDeferredMessageGroups, 25);
                     reconcileNetworkOwnership();
-                    schedulePresenceRefresh(0);
+                    scheduleGuestPresenceRefresh(0);
                 });
             } else {
-                clearPresenceFallbackTimer();
+                clearGuestPresenceTimer();
             }
         });
 
@@ -1694,8 +1640,14 @@
 
         window.addEventListener("pageshow", function (event) {
             if (event.persisted) {
-                reconcileNetworkOwnership();
-                refreshAuthState(true);
+                stopped = false;
+                initCrossTabCoordination();
+                refreshAuthState(true).then(function (isValid) {
+                    if (isValid) {
+                        initPresenceDomObserver();
+                        reconcileNetworkOwnership();
+                    }
+                });
             }
         });
 
@@ -1708,36 +1660,12 @@
                 discardPendingMessages(Array.from(seenMessageIds));
                 return;
             }
-            if (event.key === crossTabEventKey && event.newValue) {
-                try {
-                    var crossTabEvent = JSON.parse(event.newValue);
-                    if (crossTabEvent && crossTabEvent.sender_tab_id !== tabId) {
-                        handleCrossTabMessage(crossTabEvent.payload || {});
-                    }
-                } catch (error) {
-                    // Ignore malformed optional cross-tab events.
-                }
-                return;
-            }
-            if (event.key.indexOf(tabStatePrefix) === 0) {
-                if (event.newValue) {
-                    try {
-                        recordPeerState(JSON.parse(event.newValue));
-                    } catch (error) {
-                        // Ignore malformed optional tab state.
-                    }
-                } else {
-                    peerStates.delete(event.key.slice(tabStatePrefix.length));
-                }
-                flushDeferredMessageGroups();
-                scheduleOwnershipReconcile();
-            }
         });
 
         window.addEventListener("pagehide", function () {
             stopped = true;
             clearReconnectTimer();
-            clearPresenceFallbackTimer();
+            clearGuestPresenceTimer();
             connected = false;
             if (ownershipReconcileTimer) {
                 window.clearTimeout(ownershipReconcileTimer);
@@ -1764,7 +1692,6 @@
                     window.clearTimeout(group.timer);
                 }
             });
-            safeStorageRemove(tabStateKey);
             broadcastChannelMessage({ type: "bye", tab_id: tabId });
             if (messageChannel) {
                 try {
@@ -1779,15 +1706,6 @@
                 socket.close();
             }
         });
-
-        window.setInterval(function () {
-            if (!connected && !document.hidden) {
-                reconcileNetworkOwnership();
-            }
-            if (!connected && !document.hidden) {
-                refreshAll();
-            }
-        }, fallbackIntervalMs);
 
         window.publicTopbarRealtime = {
             notifyMessage: notifyMessage,

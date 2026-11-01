@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Modules\Reports\Services\ReportNotificationService;
+use App\Modules\Reports\Services\ReportDeletionService;
+use App\Modules\Reports\Services\ReportStatusService;
 use App\Modules\Reports\Services\ReportsSchemaService;
 use App\Modules\Reports\Services\TopicReportService;
 use App\Modules\Reports\Services\UserReportService;
@@ -196,6 +198,23 @@ function deleteTopicReport(?PDO $pdo, int $reportId, ?int $actorId = null): bool
 function deleteUserReport(?PDO $pdo, int $reportId, ?int $actorId = null): bool
 {
     return userReportService()->deleteReport($pdo, $reportId, $actorId);
+}
+
+function deleteSelectedReports(?PDO $pdo, string $scope, array $reportIds, ?int $actorId = null): int
+{
+    if (!$pdo) {
+        throw new RuntimeException('Raporlar silinemedi: veritabanı bağlantısı yok.');
+    }
+    return (new ReportDeletionService(reportsSchemaService()))->deleteSelected($pdo, $scope, $reportIds, $actorId);
+}
+
+function updateSelectedReportsStatus(?PDO $pdo, string $scope, array $reportIds, string $status, string $adminNote = '', ?int $actorId = null): int
+{
+    if (!$pdo) {
+        throw new RuntimeException('Raporlar güncellenemedi: veritabanı bağlantısı yok.');
+    }
+    return (new ReportStatusService(reportsSchemaService(), reportNotificationService()))
+        ->updateSelected($pdo, $scope, $reportIds, $status, trim($adminNote) === '' ? null : $adminNote, $actorId);
 }
 
 /** @return array{reports:int,events:int,notifications:int,activities:int,user_activities:int} */

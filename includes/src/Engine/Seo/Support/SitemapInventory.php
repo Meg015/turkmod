@@ -146,7 +146,7 @@ final class SitemapInventory
             if (!$this->typeEnabled($type, $settings)) {
                 continue;
             }
-            $pages = max(1, $this->pageCount($type, $settings));
+            $pages = $this->pageCount($type, $settings);
             for ($page = 1; $page <= $pages; $page++) {
                 $name = $type . '-sitemap' . ($page === 1 ? '' : '-' . $page) . '.xml';
                 $urls[] = $canonicalBase . '/' . $name;
@@ -241,6 +241,7 @@ final class SitemapInventory
                 if (function_exists('appLogException')) {
                     appLogException($exception, ['source' => self::class . ' static pages']);
                 }
+                throw $exception;
             }
         }
 
@@ -330,13 +331,10 @@ final class SitemapInventory
             return is_array($tree) ? array_values(array_filter($tree, 'is_array')) : [];
         }
 
-        if (function_exists('getPublicCategoriesTree') && $this->pdo instanceof PDO) {
-            $tree = getPublicCategoriesTree($this->pdo);
-
-            return is_array($tree) ? array_values(array_filter($tree, 'is_array')) : [];
+        if (!$this->pdo instanceof PDO) {
+            throw new \RuntimeException('Category sitemap inventory requires a database connection.');
         }
-
-        return [];
+        return getPublicCategoriesTree($this->pdo);
     }
 
     /**
@@ -345,7 +343,7 @@ final class SitemapInventory
     private function countTopics(array $settings): int
     {
         if (!$this->pdo instanceof PDO) {
-            return 0;
+            throw new \RuntimeException('Topic sitemap inventory requires a database connection.');
         }
 
         $statuses = $this->topicStatuses($settings);
@@ -364,15 +362,14 @@ final class SitemapInventory
             return max(0, (int) $statement->fetchColumn());
         } catch (Throwable $exception) {
             $this->log($exception, 'topic_count');
-
-            return 0;
+            throw $exception;
         }
     }
 
     private function countProfiles(): int
     {
         if (!$this->pdo instanceof PDO) {
-            return 0;
+            throw new \RuntimeException('Profile sitemap inventory requires a database connection.');
         }
 
         try {
@@ -389,8 +386,7 @@ final class SitemapInventory
             return max(0, (int) $statement->fetchColumn());
         } catch (Throwable $exception) {
             $this->log($exception, 'profile_count');
-
-            return 0;
+            throw $exception;
         }
     }
 
@@ -405,7 +401,7 @@ final class SitemapInventory
             return $this->imageTopicsCache[$cacheKey];
         }
         if (!$this->pdo instanceof PDO) {
-            return $this->imageTopicsCache[$cacheKey] = [];
+            throw new \RuntimeException('Image sitemap inventory requires a database connection.');
         }
 
         $statuses = $this->topicStatuses($settings);
@@ -445,8 +441,7 @@ final class SitemapInventory
             $mediaRows = $mediaStatement->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable $exception) {
             $this->log($exception, 'image_topics');
-
-            return $this->imageTopicsCache[$cacheKey] = [];
+            throw $exception;
         }
 
         $groupedMedia = [];
@@ -539,7 +534,30 @@ final class SitemapInventory
     /** @param array<string,mixed> $settings */
     private function imagePathIsCrawlable(string $path, array $settings): bool
     {
-        return trim($path) !== '';
+        $path = trim($path);
+        if ($path === '') {
+            return false;
+        }
+        if ((string) ($settings['robots_disallow_uploads'] ?? '0') !== '1'
+            || (string) ($settings['robots_enabled'] ?? '1') !== '1') {
+            return true;
+        }
+        $parts = parse_url($path);
+        if (!is_array($parts)) {
+            return false;
+        }
+        if (isset($parts['host'])) {
+            $siteHost = parse_url(seoCanonicalBase($settings), PHP_URL_HOST);
+            if (strcasecmp((string) $parts['host'], (string) $siteHost) !== 0) {
+                return true;
+            }
+        }
+        $imagePath = '/' . ltrim(rawurldecode((string) ($parts['path'] ?? '')), '/');
+        $basePath = rtrim((string) parse_url(seoCanonicalBase($settings), PHP_URL_PATH), '/');
+        if ($basePath !== '' && str_starts_with($imagePath, $basePath . '/')) {
+            $imagePath = substr($imagePath, strlen($basePath));
+        }
+        return $imagePath !== '/uploads' && !str_starts_with($imagePath, '/uploads/');
     }
 
     /** @param array<string,mixed> $settings */
@@ -556,15 +574,7 @@ final class SitemapInventory
      */
     private function topicStatuses(array $settings): array
     {
-        if (function_exists('seoSitemapTopicStatuses')) {
-            $statuses = seoSitemapTopicStatuses($settings);
-
-            return is_array($statuses) ? array_values(array_map('strval', $statuses)) : [];
-        }
-
-        return (string) ($settings['sitemap_exclude_drafts'] ?? '1') === '1'
-            ? ['published']
-            : ['published', 'draft'];
+        return seoSitemapTopicStatuses($settings);
     }
 
     /** @param array<string,mixed> $settings */

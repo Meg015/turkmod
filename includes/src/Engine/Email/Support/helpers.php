@@ -1247,11 +1247,11 @@ function appSendMail(string $to, string $subject, string $body, array $options =
         return $ok;
     }
 
-    // Sendmail and mail share the PHP mail() fallback; keep the transport label distinct for diagnostics.
+    // Explicitly selected sendmail and mail drivers use PHP mail().
     $transport = $driver === 'sendmail' ? 'sendmail' : 'mail';
     $mailBody = $mimePayload['body'];
 
-    // Fallback: PHP mail()
+    // Deliver through the selected local mail transport.
     try {
         $mailError = null;
         set_error_handler(static function (int $severity, string $message) use (&$mailError): bool {

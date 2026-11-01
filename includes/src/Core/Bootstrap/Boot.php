@@ -21,7 +21,6 @@ use App\Core\Security\SecurityHeadersMiddleware;
 use App\Engine\Auth\DisabledTwoFactor;
 use App\Engine\Auth\TwoFactor;
 use RuntimeException;
-use Throwable;
 
 final class Boot
 {
@@ -105,41 +104,30 @@ final class Boot
     private static function normalizeBackend(string $backend): string
     {
         $backend = strtolower(trim($backend));
-        if (in_array($backend, ['db', 'database'], true)) {
-            return 'database';
+        if (!in_array($backend, ['file', 'database', 'redis'], true)) {
+            throw new RuntimeException('Unknown CORE_CACHE_BACKEND: ' . $backend);
         }
-        if ($backend === 'redis') {
-            return 'redis';
-        }
-
-        return 'file';
+        return $backend;
     }
 
     private static function makeCacheStore(string $backend, string $cacheRoot, string $cacheTable): Cache
     {
         if ($backend === 'database') {
-            try {
-                $pdo = DatabaseConnection::connection();
-                if ($pdo instanceof \PDO) {
-                    return new DatabaseCache($pdo, $cacheTable, 'core-cache');
-                }
-            } catch (Throwable $exception) {
-                error_log('Database cache backend failed, falling back to file cache: ' . $exception->getMessage());
+            $pdo = DatabaseConnection::connection();
+            if (!$pdo instanceof \PDO) {
+                throw new RuntimeException('Database cache backend could not obtain a PDO connection.');
             }
+            return new DatabaseCache($pdo, $cacheTable, 'core-cache');
         }
 
         if ($backend === 'redis') {
-            try {
-                $env = DatabaseConnection::getEnvConfig();
-                return new RedisCache(
-                    host: (string) ($env['REDIS_HOST'] ?? '127.0.0.1'),
-                    port: (int) ($env['REDIS_PORT'] ?? 6379),
-                    password: (string) ($env['REDIS_PASSWORD'] ?? ''),
-                    prefix: (string) ($env['REDIS_PREFIX'] ?? 'core-cache'),
-                );
-            } catch (Throwable $exception) {
-                error_log('Redis cache backend failed, falling back to file cache: ' . $exception->getMessage());
-            }
+            $env = DatabaseConnection::getEnvConfig();
+            return new RedisCache(
+                host: (string) ($env['REDIS_HOST'] ?? '127.0.0.1'),
+                port: (int) ($env['REDIS_PORT'] ?? 6379),
+                password: (string) ($env['REDIS_PASSWORD'] ?? ''),
+                prefix: (string) ($env['REDIS_PREFIX'] ?? 'core-cache'),
+            );
         }
 
         return new FileCache(

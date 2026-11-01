@@ -157,6 +157,9 @@ if (!$_hSticky) {
 }
 $_publicCssBundle = __DIR__ . "/../assets/dist/public.min.css";
 $_publicJsBundle = __DIR__ . "/../assets/dist/public.min.js";
+if (!is_file($_publicCssBundle) || !is_file($_publicJsBundle)) {
+    throw new RuntimeException('Public bundles are missing; run npm run build.');
+}
 $_seoPageKey = function_exists('seoPublicPageResolveKey')
     ? seoPublicPageResolveKey($_currentRequestUri, $_lay, isset($pageKey) ? (string) $pageKey : null)
     : (isset($pageKey) ? (string) $pageKey : '');
@@ -371,19 +374,11 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script<?= function_exists('appCspNonceAttr') ? appCspNonceAttr() : '' ?>><?php
-// Inline theme-mode-init - sifir HTTP istegi, aninda calisir
-try {
-    $themeInitCode = file_get_contents(__DIR__ . '/../assets/js/theme-mode-init.js');
-    if ($themeInitCode !== false) {
-        // Remove wrapping IIFE - content is already a self-executing function
-        echo $themeInitCode;
-    } else {
-        // Fallback minimal inline version
-        echo '(function(){var d=document.documentElement,m=d.getAttribute("data-theme-mode")||"auto",s=window.localStorage?localStorage.getItem("theme-mode")||localStorage.getItem("theme"):"",t=s||m;t=t==="light"||t==="dark"?t:"auto";var h=t==="auto"?window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light":t;d.setAttribute("data-theme",h);d.setAttribute("data-theme-mode",t);d.setAttribute("data-bs-theme",h);})();';
-    }
-} catch (Throwable $_) {
-    echo '(function(){var d=document.documentElement,m=d.getAttribute("data-theme-mode")||"auto",t=m==="dark"?"dark":"light";if(m==="auto"&&window.matchMedia){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}d.setAttribute("data-theme",t);d.setAttribute("data-bs-theme",t);d.setAttribute("data-theme-mode",m==="light"||m==="dark"||m==="auto"?m:"auto");})();';
+$themeInitCode = file_get_contents(__DIR__ . '/../assets/js/theme-mode-init.js');
+if ($themeInitCode === false || $themeInitCode === '') {
+    throw new RuntimeException('Theme initialization script could not be read.');
 }
+echo $themeInitCode;
 ?></script>
     <title><?= htmlspecialchars($_resolvedSeoTitle) ?></title>
     <!-- SEO Meta Tags -->
@@ -399,10 +394,9 @@ try {
 <?php endif; ?>
     <?php
 $robotsMeta = seoRobotsMeta($_lay, null, $_seoPageKey);
-$indexDraftTopics = seoIndexToggleValue($_lay, 'index_draft_topics', '0');
 $indexEmptyCategories = seoIndexToggleValue($_lay, 'index_empty_categories', '0');
 
-if (isset($topic) && ($topic['status'] ?? 'published') !== 'published' && $indexDraftTopics !== '1') {
+if (isset($topic) && ($topic['status'] ?? 'published') !== 'published') {
     $robotsMeta = "noindex, nofollow";
 }
 if (isset($categoryId) && $categoryId > 0 && isset($items) && empty($items) && $indexEmptyCategories !== '1') {
@@ -421,27 +415,12 @@ if (isset($robotsMetaOverride) && trim((string) $robotsMetaOverride) !== '') {
     <link rel="stylesheet" href="<?= htmlspecialchars($__robotoLocalHref, ENT_QUOTES, 'UTF-8') ?>" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="<?= htmlspecialchars($__robotoLocalHref, ENT_QUOTES, 'UTF-8') ?>"></noscript>
     <link rel="icon" href="<?= htmlspecialchars($_faviconHref !== "" ? $_faviconHref : asset_url("assets/favicon.svg", $baseUri)) ?>">
-    <?php if (is_file($_publicCssBundle)): ?>
-    <!-- Critical CSS (render-blocking) -->
     <link rel="stylesheet" href="<?= asset_url("assets/dist/public.min.css", $baseUri) ?>">
-    <!-- Theme CSS -->
     <?php if ($_activePublicTheme === 'default'): ?>
-    <?php $_themeMinCss = __DIR__ . "/../assets/dist/theme.min.css"; if (is_file($_themeMinCss)): ?>
     <link rel="stylesheet" href="<?= asset_url("assets/dist/theme.min.css", $baseUri) ?>">
-    <?php endif; ?>
     <?php endif; ?>
     <?php $_fontFiles = glob(__DIR__ . "/../assets/dist/bootstrap-icons-*.woff2"); if (!empty($_fontFiles)): $_fontRelPath = 'assets/dist/' . basename($_fontFiles[0]); ?>
     <link rel="preload" href="<?= asset_url($_fontRelPath, $baseUri) ?>" as="font" type="font/woff2" crossorigin>
-    <?php endif; ?>
-    <?php else: ?>
-    <link rel="stylesheet" href="<?= asset_url("assets/css/general.css", $baseUri) ?>">
-    <?php $_bootstrapIconsCss = asset_url("assets/bootstrap-icons.css", $baseUri); ?>
-    <link rel="stylesheet" href="<?= $_bootstrapIconsCss ?>">
-    <?php if ($_activePublicTheme === 'default'): ?>
-    <?php $_themeCss = asset_url("assets/css/theme.css", $baseUri); ?>
-    <link rel="stylesheet" href="<?= $_themeCss ?>">
-    <?php endif; ?>
-    <link rel="stylesheet" href="<?= asset_url("assets/css/public-dialog.css", $baseUri) ?>">
     <?php endif; ?>
     <link rel="stylesheet" href="<?= asset_url("assets/css/ui-foundation.css", $baseUri) ?>">
     <?php foreach ($_pageCssFiles as $_pageCssFile): ?>
@@ -451,13 +430,7 @@ if (isset($robotsMetaOverride) && trim((string) $robotsMetaOverride) !== '') {
     <?= $_themeManager->renderAssetTags("css") . "\n" ?>
     <?php endif; ?>
     <script src="<?= asset_url("assets/js/public-api.js", $baseUri) ?>" defer></script>
-    <?php if (is_file($_publicJsBundle)): ?>
     <script src="<?= asset_url("assets/dist/public.min.js", $baseUri) ?>" defer></script>
-    <?php else: ?>
-    <script src="<?= asset_url("assets/js/app.js", $baseUri) ?>" defer></script>
-    <script src="<?= asset_url("assets/js/ui.js", $baseUri) ?>" defer></script>
-    <script src="<?= asset_url("assets/js/ui-foundation.js", $baseUri) ?>" defer></script>
-    <?php endif; ?>
     <script src="<?= asset_url("assets/js/public-toast-bridge.js", $baseUri) ?>" defer></script>
     <?php if ($_isAuthPage): ?>
     <script src="<?= asset_url("assets/js/auth-csrf-refresh.js", $baseUri) ?>" defer></script>

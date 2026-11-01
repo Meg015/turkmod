@@ -60,7 +60,7 @@ if (!$userInfo && function_exists('usersGetById')) {
 
 if (!$userInfo) {
     try {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1");
         $stmt->execute([$userId]);
         $userInfo = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     } catch (Throwable $e) {}

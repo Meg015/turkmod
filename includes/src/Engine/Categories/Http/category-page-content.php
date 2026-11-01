@@ -82,6 +82,7 @@ if ($categorySlug !== '') {
             }
         } catch (Throwable $e) {
             appLogException($e, ['source' => 'category.php categoryLookup', 'slug' => $categorySlug]);
+            throw $e;
 
         }
 
@@ -149,6 +150,7 @@ if ($categorySlug !== '') {
         } catch (Throwable $e) {
 
             appLogException($e, ['source' => 'category.php nameLookup', 'name' => $categoryName]);
+            throw $e;
 
         }
 
@@ -172,9 +174,15 @@ $publicCategories = getPublicCategories($pdo);
 $categoryCount = count($publicCategories);
 $allCategoryTopicCount = 0;
 foreach ($publicCategories as $publicCategory) {
-    $allCategoryTopicCount += (int) ($publicCategory['topic_count'] ?? 0);
+    if ($publicCategory['parent_id'] === null) {
+        $allCategoryTopicCount += (int) ($publicCategory['topic_count'] ?? 0);
+    }
 }
 $isSpecificCategory = $categorySlug !== '' || $categoryName !== '';
+if ($page > ($isSpecificCategory ? max(1, (int) ceil($total / $perPage)) : 1)) {
+    require $projectRoot . '/includes/public-404.php';
+    exit;
+}
 $paginationBase = $categorySlug !== '' ? categoryUrl($categorySlug, $categoryActualParentSlug) : categoryListUrl();
 $canonicalUrl = $paginationBase . ($page > 1 ? '?page=' . $page : '');
 

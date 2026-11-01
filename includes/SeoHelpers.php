@@ -21,7 +21,7 @@ if (!function_exists('getStructuredData')) {
         
         $structuredData = array_merge($structuredData, $data);
         
-        $json = json_encode($structuredData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        $json = json_encode($structuredData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
         
         return '<script type="application/ld+json">' . "\n" . $json . "\n" . '</script>';
     }
@@ -79,25 +79,25 @@ if (!function_exists('getBaseUrl')) {
 if (!function_exists('formatSitemapXml')) {
         function formatSitemapXml(string $xml): string
         {
-            if (!class_exists(DOMDocument::class)) {
-                return $xml;
-            }
-
             $document = new DOMDocument('1.0', 'UTF-8');
             $document->preserveWhiteSpace = false;
             $document->formatOutput = true;
 
-            libxml_use_internal_errors(true);
-            $loaded = $document->loadXML($xml, LIBXML_NOBLANKS);
+            $previousErrors = libxml_use_internal_errors(true);
+            $loaded = $document->loadXML($xml, LIBXML_NOBLANKS | LIBXML_NONET);
             libxml_clear_errors();
+            libxml_use_internal_errors($previousErrors);
 
             if (!$loaded) {
-                return $xml;
+                throw new RuntimeException('Generated sitemap XML is invalid.');
             }
 
             $formatted = $document->saveXML();
 
-            return is_string($formatted) && $formatted !== '' ? $formatted : $xml;
+            if (!is_string($formatted) || $formatted === '') {
+                throw new RuntimeException('Generated sitemap XML could not be serialized.');
+            }
+            return $formatted;
         }
     }
 
@@ -188,15 +188,12 @@ if (!function_exists('seoSitemapCacheTtl')) {
 if (!function_exists('seoSitemapCacheKey')) {
     function seoSitemapCacheKey(string $type, array $signature = []): string
     {
-        $payload = json_encode($signature, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (!is_string($payload)) {
-            $payload = serialize($signature);
-        }
+        $payload = json_encode($signature, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
         $normalizedType = strtolower(trim($type));
         $normalizedType = preg_replace('/[^a-z0-9:_-]+/i', '-', $normalizedType) ?? 'sitemap';
 
-        return 'seo-sitemap:v1:' . $normalizedType . ':' . hash('sha256', $payload);
+        return 'seo-sitemap:v2:' . $normalizedType . ':' . hash('sha256', $payload);
     }
 }
 
@@ -273,14 +270,10 @@ if (!function_exists('seoInvalidateSitemapCaches')) {
     function seoInvalidateSitemapCaches(?\App\Core\Cache\TaggableCache $cache = null): void
     {
         if (!$cache instanceof \App\Core\Cache\TaggableCache && class_exists(\App\Core\Bootstrap\Boot::class)) {
-            try {
-                $container = \App\Core\Bootstrap\Boot::container(dirname(__DIR__));
-                $resolved = $container->get(\App\Core\Cache\TaggableCache::class);
-                if ($resolved instanceof \App\Core\Cache\TaggableCache) {
-                    $cache = $resolved;
-                }
-            } catch (\Throwable $exception) {
-                return;
+            $container = \App\Core\Bootstrap\Boot::container(dirname(__DIR__));
+            $resolved = $container->get(\App\Core\Cache\TaggableCache::class);
+            if ($resolved instanceof \App\Core\Cache\TaggableCache) {
+                $cache = $resolved;
             }
         }
 
@@ -346,7 +339,7 @@ if (!function_exists('seoPrepareSitemapXml')) {
             }
         }
 
-        return function_exists('formatSitemapXml') ? formatSitemapXml($xml) : $xml;
+        return formatSitemapXml($xml);
     }
 }
 

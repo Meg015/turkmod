@@ -81,8 +81,14 @@ class ErrorHandler {
             $this->exitCliError(get_class($exception) . ': ' . $exception->getMessage(), $exception->getFile(), $exception->getLine());
         }
 
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Cache-Control: no-store');
+            header('X-Robots-Tag: noindex');
+        }
+
         // Production'da güvenli mesaj
-        if ($this->isProduction) {
+        if ($this->isProduction || !filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOL)) {
             $this->showErrorPage();
         } else {
             // Development'ta detaylı hata
@@ -131,7 +137,12 @@ class ErrorHandler {
                 $this->exitCliError($error['message'], $error['file'], $error['line']);
             }
 
-            if ($this->isProduction) {
+            if (!headers_sent()) {
+                http_response_code(500);
+                header('Cache-Control: no-store');
+                header('X-Robots-Tag: noindex');
+            }
+            if ($this->isProduction || !filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOL)) {
                 $this->showErrorPage();
             }
         }
@@ -248,29 +259,11 @@ class ErrorHandler {
     private function showErrorPage() {
         if (!headers_sent()) {
             http_response_code(500);
+            header('Cache-Control: no-store');
+            header('X-Robots-Tag: noindex');
         }
 
-        if (file_exists(__DIR__ . '/public-500.php')) {
-            include __DIR__ . '/public-500.php';
-        } else {
-            echo '<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bir Hata Oluştu</title>
-    <link rel="stylesheet" href="' . htmlspecialchars($this->fallbackCssHref(), ENT_QUOTES, "UTF-8") . '">
-</head>
-<body class="error-fallback-page">
-    <div class="error-container">
-        <h1>🚨 Bir Hata Oluştu</h1>
-        <p>Üzgünüz, bir şeyler yanlış gitti. Lütfen daha sonra tekrar deneyin.</p>
-        <p>Sorun devam ederse, lütfen site yöneticisiyle iletişime geçin.</p>
-        <p><a href="/">Ana Sayfaya Dön</a></p>
-    </div>
-</body>
-</html>';
-        }
+        require __DIR__ . '/public-500.php';
     }
 
     /**

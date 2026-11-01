@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Engine\Comments\CommentInput;
+
 require_once __DIR__ . '/../includes/init.php';
 require_once __DIR__ . '/../includes/notifications.php';
 if (is_file(__DIR__ . '/../includes/src/Modules/Events/init.php')) {
@@ -13,8 +15,6 @@ $settings = function_exists('getAdminSettings') ? getAdminSettings($pdo) : [];
 
 $allowComments = ($settings['allow_comments'] ?? '1') === '1';
 $approvalRequired = ($settings['comment_approval_required'] ?? '0') === '1';
-$maxLength = max(1, (int) ($settings['max_comment_length'] ?? 2000));
-$minLength = max(1, (int) ($settings['comment_min_length'] ?? 1));
 $guestComments = ($settings['comment_allow_guest'] ?? '0') === '1';
 $editWindow = max(0, (int) ($settings['comment_edit_window'] ?? 0));
 $nestedComments = ($settings['comment_nested'] ?? '0') === '1';
@@ -62,29 +62,9 @@ function jsonResponse(int $code, array $data): void
     sendJsonResponse($code, $success, $message !== '' ? $message : null, $extra, $errorCode);
 }
 
-function _commentsUsersHasUsername(PDO $pdo): bool
-{
-    static $cache = [];
-    $key = spl_object_id($pdo);
-    if (array_key_exists($key, $cache)) {
-        return $cache[$key];
-    }
-
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM users LIKE 'username'");
-        $cache[$key] = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
-    } catch (Throwable) {
-        $cache[$key] = false;
-    }
-
-    return $cache[$key];
-}
-
 function _commentsUserNameExpr(PDO $pdo, string $alias = 'u'): string
 {
-    return _commentsUsersHasUsername($pdo)
-        ? "COALESCE(NULLIF({$alias}.username, ''), CONCAT('user-', {$alias}.id))"
-        : "CONCAT('user-', {$alias}.id)";
+    return "COALESCE(NULLIF({$alias}.username, ''), CONCAT('user-', {$alias}.id))";
 }
 
 // ─── GET: List comments ───────────────────────────────────────
@@ -131,7 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
             jsonResponse(200, ['users' => $users]);
         } catch (Throwable $e) {
-            jsonResponse(200, ['users' => []]);
+            appLogException($e, ['source' => 'api.comments.mention-search']);
+            jsonResponse(500, ['error' => 'Kullanıcı araması tamamlanamadı.']);
         }
     }
 
@@ -143,9 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         if ($commentId <= 0) jsonResponse(400, ['error' => 'Gecersiz yorum ID.']);
 
         try {
-            $ownerStmt = $pdo->prepare("SELECT c.user_id FROM comments c WHERE c.id = ? AND c.deleted_at IS NULL LIMIT 1");
-            $ownerStmt->execute([$commentId]);
-            $commentRow = $ownerStmt->fetch(PDO::FETCH_ASSOC);
+            $commentRow = commentFindPublicComment($pdo, $commentId);
             if (!$commentRow) jsonResponse(404, ['error' => 'Yorum bulunamadi.']);
 
             $commentOwnerId = (int)($commentRow['user_id'] ?? 0);
@@ -216,6 +195,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $orderByPopular = in_array($sortParam, ['popular', 'liked', 'disliked']);
 
     try {
+        if (!commentPublicTopicExists($pdo, $topicId)) {
+            jsonResponse(404, ['error' => 'Konu bulunamadı.']);
+        }
         // Total count
         $countStmt = $pdo->prepare("SELECT COUNT(*) FROM comments WHERE topic_id = :tid AND status = 'approved' AND deleted_at IS NULL");
         $countStmt->execute(['tid' => $topicId]);
@@ -289,33 +271,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $userReactionsMap = [];
 
         if ($reactionsEnabled && !empty($commentIds)) {
-            try {
-                // Fetch all reactions for these comments
-                $placeholders = implode(',', array_fill(0, count($commentIds), '?'));
-                $reactionsStmt = $pdo->prepare("SELECT comment_id, reaction_type, COUNT(*) as count FROM comment_reactions WHERE comment_id IN ($placeholders) GROUP BY comment_id, reaction_type");
-                $reactionsStmt->execute($commentIds);
-                while ($row = $reactionsStmt->fetch()) {
-                    $cid = (int)$row['comment_id'];
-                    if (!isset($reactionsMap[$cid])) {
-                        $reactionsMap[$cid] = [];
-                    }
-                    $reactionsMap[$cid][$row['reaction_type']] = (int)$row['count'];
+            // Fetch all reactions for these comments
+            $placeholders = implode(',', array_fill(0, count($commentIds), '?'));
+            $reactionsStmt = $pdo->prepare("SELECT comment_id, reaction_type, COUNT(*) as count FROM comment_reactions WHERE comment_id IN ($placeholders) GROUP BY comment_id, reaction_type");
+            $reactionsStmt->execute($commentIds);
+            while ($row = $reactionsStmt->fetch()) {
+                $cid = (int)$row['comment_id'];
+                if (!isset($reactionsMap[$cid])) {
+                    $reactionsMap[$cid] = [];
                 }
+                $reactionsMap[$cid][$row['reaction_type']] = (int)$row['count'];
+            }
 
-                // Fetch user's reactions if logged in
-                if (isset($_SESSION['_auth_user_id'])) {
-                    $userReactionsStmt = $pdo->prepare("SELECT comment_id, reaction_type FROM comment_reactions WHERE comment_id IN ($placeholders) AND user_id = ?");
-                    $userReactionsStmt->execute(array_merge($commentIds, [(int)$_SESSION['_auth_user_id']]));
-                    while ($row = $userReactionsStmt->fetch()) {
-                        $cid = (int)$row['comment_id'];
-                        if (!isset($userReactionsMap[$cid])) {
-                            $userReactionsMap[$cid] = [];
-                        }
-                        $userReactionsMap[$cid][] = $row['reaction_type'];
+            // Fetch user's reactions if logged in
+            if (isset($_SESSION['_auth_user_id'])) {
+                $userReactionsStmt = $pdo->prepare("SELECT comment_id, reaction_type FROM comment_reactions WHERE comment_id IN ($placeholders) AND user_id = ?");
+                $userReactionsStmt->execute(array_merge($commentIds, [(int)$_SESSION['_auth_user_id']]));
+                while ($row = $userReactionsStmt->fetch()) {
+                    $cid = (int)$row['comment_id'];
+                    if (!isset($userReactionsMap[$cid])) {
+                        $userReactionsMap[$cid] = [];
                     }
+                    $userReactionsMap[$cid][] = $row['reaction_type'];
                 }
-            } catch (Throwable $e) {
-                // Silent fail for reactions
             }
         }
 
@@ -454,19 +432,9 @@ function parseMentions(string $body, PDO $pdo): array
     $usernames = array_unique($matches[1]);
     $placeholders = implode(',', array_fill(0, count($usernames), '?'));
 
-    try {
-        $lookupColumn = (function_exists('usersColumnExists') && usersColumnExists($pdo, 'users', 'username'))
-            ? 'username'
-            : 'name';
-        $selectName = $lookupColumn === 'username'
-            ? "username"
-            : 'name';
-        $stmt = $pdo->prepare("SELECT id, {$selectName} AS mention_name FROM users WHERE {$lookupColumn} IN ($placeholders) AND deleted_at IS NULL LIMIT 10");
-        $stmt->execute($usernames);
-        return $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // [id => mention_name]
-    } catch (Throwable $e) {
-        return [];
-    }
+    $stmt = $pdo->prepare("SELECT id, username AS mention_name FROM users WHERE username IN ($placeholders) AND deleted_at IS NULL LIMIT 10");
+    $stmt->execute($usernames);
+    return $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // [id => mention_name]
 }
 
 /**
@@ -515,9 +483,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         jsonResponse(413, ['error' => 'Request body çok büyük.']);
     }
 
-    $input = json_decode($rawInput, true) ?? $_POST;
-    if (!is_array($input)) {
-        jsonResponse(400, ['error' => 'Geçersiz JSON.']);
+    try {
+        $input = CommentInput::parse((string) ($_SERVER['CONTENT_TYPE'] ?? ''), $rawInput, $_POST);
+    } catch (InvalidArgumentException $e) {
+        jsonResponse(400, ['error' => $e->getMessage()]);
     }
 
     $action = $input['action'] ?? 'add';
@@ -539,9 +508,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($commentId <= 0) jsonResponse(400, ['error' => 'Geçersiz yorum ID.']);
 
         try {
-            $check = $pdo->prepare("SELECT id, topic_id, user_id, status, deleted_at FROM comments WHERE id = ? AND deleted_at IS NULL");
-            $check->execute([$commentId]);
-            $row = $check->fetch();
+            $row = commentFindPublicComment($pdo, $commentId);
             if (!$row) jsonResponse(404, ['error' => 'Yorum bulunamadı.']);
 
             $canDelete = ((int)$row['user_id'] === (int)$_SESSION['_auth_user_id'])
@@ -572,16 +539,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $commentId = (int)($input['id'] ?? 0);
         $body = trim($input['body'] ?? '');
         if ($commentId <= 0 || $body === '') jsonResponse(400, ['error' => 'Geçersiz veri.']);
+        try {
+            CommentInput::assertBodyLength($body, $settings);
+        } catch (InvalidArgumentException $e) {
+            jsonResponse(400, ['error' => $e->getMessage()]);
+        }
 
         try {
-            $check = $pdo->prepare("SELECT id, topic_id, user_id, body, created_at FROM comments WHERE id = ? AND deleted_at IS NULL");
-            $check->execute([$commentId]);
-            $row = $check->fetch();
+            $row = commentFindPublicComment($pdo, $commentId);
             if (!$row) jsonResponse(404, ['error' => 'Yorum bulunamadı.']);
 
             $isOwner = (int)$row['user_id'] === (int)$_SESSION['_auth_user_id'];
             $canEdit = $isOwner || (function_exists('userHasPermission') && userHasPermission($pdo, (int)$_SESSION['_auth_user_id'], 'comments.edit'));
             if (!$canEdit) jsonResponse(403, ['error' => 'Yetkiniz yok.']);
+
+            $editorId = (int) $_SESSION['_auth_user_id'];
+            if (!$currentUserIsAdmin && usersHasRestriction($pdo, $editorId, 'comment')) {
+                jsonResponse(403, ['error' => 'Yorum yapma yetkiniz kısıtlanmış.']);
+            }
+            if (!commentSpamIsUserExempt($pdo, $settings, $editorId)) {
+                $spamResult = commentSpamEvaluate($body, $settings);
+                if (!empty($spamResult['is_spam'])) {
+                    jsonResponse(422, ['error' => commentSpamUserMessage(commentSpamPrimaryReason((array) ($spamResult['reasons'] ?? [])), false)]);
+                }
+            }
 
             if ($isOwner && $editWindow > 0) {
                 $elapsed = time() - strtotime($row['created_at']);
@@ -632,7 +613,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // ── Add ── (only if action is not set or is 'add')
-    if ($action !== 'delete' && $action !== 'edit' && $action !== 'react' && $action !== 'report') {
+    if ($action === 'add') {
         if (!$allowComments) jsonResponse(403, ['error' => 'Yorumlar kapatılmış.']);
         if (!$isLoggedIn && !$guestComments) jsonResponse(401, ['error' => 'Yorum yapmak için giriş yapmalısınız.']);
 
@@ -653,8 +634,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = $approvalRequired ? 'pending' : 'approved';
 
         if ($topicId <= 0) jsonResponse(400, ['error' => 'Geçersiz konu.']);
-        if (mb_strlen($body) < $minLength) jsonResponse(400, ['error' => "Yorum en az {$minLength} karakter olmalı."]);
-        if (mb_strlen($body) > $maxLength) jsonResponse(400, ['error' => "Yorum en fazla {$maxLength} karakter olabilir."]);
+        if (!commentPublicTopicExists($pdo, $topicId)) jsonResponse(404, ['error' => 'Konu bulunamadı.']);
+        try {
+            CommentInput::assertBodyLength($body, $settings);
+        } catch (InvalidArgumentException $e) {
+            jsonResponse(400, ['error' => $e->getMessage()]);
+        }
 
         $spamDetected = false;
         $spamReasons = [];
@@ -755,9 +740,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Nested depth check
     if ($parentId) {
-        $parentStmt = $pdo->prepare("SELECT id, topic_id, parent_id, user_id FROM comments WHERE id = ? AND deleted_at IS NULL LIMIT 1");
-        $parentStmt->execute([$parentId]);
-        $parentRow = $parentStmt->fetch();
+        $parentRow = commentFindPublicComment($pdo, $parentId, true);
         if (!$parentRow) {
             jsonResponse(404, ['error' => 'Yanıt verilecek yorum bulunamadı.']);
         }
@@ -928,8 +911,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Fetch the newly created comment
         $newAuthorExpr = _commentsUserNameExpr($pdo, 'u');
-        $newStmt = $pdo->prepare("SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$newAuthorExpr} AS author, u.avatar, u.status AS user_status, u.is_banned AS user_is_banned, u.deleted_at AS user_deleted_at, u.last_activity_at
-                                  FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?");
+        $newParentAuthorExpr = _commentsUserNameExpr($pdo, 'pu');
+        $newStmt = $pdo->prepare("SELECT c.id, c.user_id, c.body, c.parent_id, c.created_at, c.updated_at, {$newAuthorExpr} AS author, u.avatar, u.status AS user_status, u.is_banned AS user_is_banned, u.deleted_at AS user_deleted_at, u.last_activity_at,
+                                       COALESCE(ug.name, '') AS group_name,
+                                       CASE WHEN p.id IS NOT NULL THEN COALESCE({$newParentAuthorExpr}, 'Anonim') END AS parent_author,
+                                       SUBSTR(p.body, 1, 80) AS parent_body_preview
+                                  FROM comments c
+                                  LEFT JOIN users u ON c.user_id = u.id
+                                  LEFT JOIN user_group_members ugm ON ugm.user_id = u.id AND ugm.is_primary = 1
+                                  LEFT JOIN user_groups ug ON ug.id = ugm.group_id
+                                  LEFT JOIN comments p ON p.id = c.parent_id
+                                  LEFT JOIN users pu ON pu.id = p.user_id
+                                  WHERE c.id = ?");
         $newStmt->execute([$newId]);
         $newComment = $newStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -969,9 +962,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'react
 
     try {
         // Check if comment exists and get comment owner
-        $checkStmt = $pdo->prepare("SELECT id, topic_id, user_id FROM comments WHERE id = ? AND deleted_at IS NULL");
-        $checkStmt->execute([$commentId]);
-        $comment = $checkStmt->fetch();
+        $comment = commentFindPublicComment($pdo, $commentId, true);
         if (!$comment) jsonResponse(404, ['error' => 'Yorum bulunamadı.']);
 
         $commentOwnerId = (int)($comment['user_id'] ?? 0);
@@ -1051,9 +1042,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'repor
 
     try {
         // Verify comment exists and get topic_id
-        $checkStmt = $pdo->prepare("SELECT id, topic_id, user_id, body FROM comments WHERE id = ? AND deleted_at IS NULL");
-        $checkStmt->execute([$commentId]);
-        $comment = $checkStmt->fetch();
+        $comment = commentFindPublicComment($pdo, $commentId, true);
         if (!$comment) jsonResponse(404, ['error' => 'Yorum bulunamadı.']);
 
         $topicId = (int)$comment['topic_id'];
@@ -1063,17 +1052,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'repor
         // Don't allow reporting own comments
         if ($commentOwnerId === $reporterId) {
             jsonResponse(400, ['error' => 'Kendi yorumunuzu şikayet edemezsiniz.']);
-        }
-
-        // Check for duplicate report in comment_reports
-        try {
-            $dupStmt = $pdo->prepare("SELECT id FROM comment_reports WHERE comment_id = ? AND user_id = ? AND status = 'open'");
-            $dupStmt->execute([$commentId, $reporterId]);
-            if ($dupStmt->fetch()) {
-                jsonResponse(400, ['error' => 'Bu yorumu zaten şikayet ettiniz.']);
-            }
-        } catch (Throwable $e) {
-            // Table might not exist yet, continue
         }
 
         $reasonMap = [
@@ -1091,6 +1069,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'repor
         }
 
         try {
+            $pdo->beginTransaction();
+            $lock = $pdo->prepare("SELECT id FROM comments WHERE id = ? AND status = 'approved' AND deleted_at IS NULL FOR UPDATE");
+            $lock->execute([$commentId]);
+            if ($lock->fetchColumn() === false) {
+                $pdo->rollBack();
+                jsonResponse(404, ['error' => 'Yorum bulunamadı.']);
+            }
+            $dupStmt = $pdo->prepare("SELECT id FROM comment_reports WHERE comment_id = ? AND user_id = ? AND status = 'open'");
+            $dupStmt->execute([$commentId, $reporterId]);
+            if ($dupStmt->fetch()) {
+                $pdo->rollBack();
+                jsonResponse(400, ['error' => 'Bu yorumu zaten şikayet ettiniz.']);
+            }
             $insertReport = $pdo->prepare("INSERT INTO comment_reports (comment_id, user_id, reason, status, created_at) VALUES (?, ?, ?, 'open', NOW())");
             $insertReport->execute([
                 $commentId,
@@ -1098,18 +1089,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($input['action'] ?? '') === 'repor
                 $mappedReason
             ]);
 
-            if ($autoHideCount > 0) {
-                $countStmt = $pdo->prepare("SELECT COUNT(*) FROM comment_reports WHERE comment_id = ?");
-                $countStmt->execute([$commentId]);
-                $totalReports = (int)$countStmt->fetchColumn();
-
-                if ($totalReports >= $autoHideCount) {
-                    $hideStmt = $pdo->prepare("UPDATE comments SET status = 'pending' WHERE id = ?");
-                    $hideStmt->execute([$commentId]);
-                }
+            $hidden = commentApplyReportThreshold($pdo, $comment, $autoHideCount);
+            $pdo->commit();
+            if ($hidden) {
+                invalidatePublicContentCache();
             }
-
         } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            appLogException($e, ['source' => 'api.comments.report', 'comment_id' => $commentId]);
             jsonResponse(500, ['error' => 'Şikayet kaydedilemedi.']);
         }
 

@@ -21,16 +21,9 @@ final class RateLimitMiddleware implements Middleware
 
     public function process(Request $request, Handler $next): Response
     {
-        if (!function_exists('checkRateLimit')) {
-            return $next->handle($request);
-        }
-
         $key = $this->buildKey($request);
         if (!checkRateLimit($key, $this->maxAttempts, $this->decayMinutes)) {
-            $remaining = function_exists('getRateLimitRemainingSeconds')
-                ? (int) getRateLimitRemainingSeconds($key, $this->decayMinutes)
-                : 0;
-            $remaining = max(0, $remaining);
+            $remaining = max(0, getRateLimitRemainingSeconds($key, $this->decayMinutes));
 
             global $pdo;
             if (($pdo ?? null) instanceof PDO && function_exists('logRateLimitExceeded')) {
@@ -51,9 +44,7 @@ final class RateLimitMiddleware implements Middleware
             return new Response('Too many requests.', 429, $headers);
         }
 
-        if (function_exists('incrementRateLimit')) {
-            incrementRateLimit($key, $this->decayMinutes);
-        }
+        incrementRateLimit($key, $this->decayMinutes);
 
         return $next->handle($request);
     }
@@ -87,6 +78,6 @@ final class RateLimitMiddleware implements Middleware
         }
 
         $path = ltrim($request->getPath(), '/');
-        return str_starts_with($path, 'api/');
+        return preg_match('~(?:^|/)api/~', $path) === 1;
     }
 }

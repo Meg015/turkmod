@@ -225,7 +225,6 @@ $seoGroups = [
             'sitemap_priority_topics',
             'sitemap_priority_categories',
             'sitemap_include_categories',
-            'sitemap_exclude_drafts',
             'sitemap_route_enabled',
             'sitemap_cache_duration',
             'image_sitemap_enabled',
@@ -2622,7 +2621,7 @@ require_once __DIR__ . '/header.php';
                                                 'title' => 'XML Site Haritası',
                                                 'icon' => 'bi-diagram-3',
                                                 'description' => 'XML sitemap üretimi, öncelik, değişim sıklığı ve kategori davranışı.',
-                                                'keys' => ['sitemap_enabled', 'sitemap_max_urls', 'sitemap_changefreq', 'sitemap_priority_home', 'sitemap_priority_topics', 'sitemap_priority_categories', 'sitemap_include_categories', 'sitemap_exclude_drafts'],
+                                                'keys' => ['sitemap_enabled', 'sitemap_max_urls', 'sitemap_changefreq', 'sitemap_priority_home', 'sitemap_priority_topics', 'sitemap_priority_categories', 'sitemap_include_categories'],
                                             ],
                                             [
                                                 'title' => 'Görsel Site Haritası',

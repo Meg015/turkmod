@@ -15,9 +15,6 @@ use PDO;
 final class ImageSitemapPage implements Handler
 {
     /**
-     * Legacy resolver arguments remain in the constructor for backward compatibility.
-     * Runtime inventory and output now share one authoritative data source.
-     *
      * @param array<string,mixed>|null $settings
      */
     public function __construct(
@@ -25,10 +22,6 @@ final class ImageSitemapPage implements Handler
         private ?string $canonicalBase = null,
         private ?PDO $pdo = null,
         private ?Closure $settingsResolver = null,
-        private ?Closure $topicsResolver = null,
-        private ?Closure $primaryMediaResolver = null,
-        private ?Closure $galleryResolver = null,
-        private ?Closure $mediaFilesResolver = null,
         private ?Closure $nowResolver = null,
         private ?TaggableCache $cache = null,
     ) {
@@ -45,7 +38,7 @@ final class ImageSitemapPage implements Handler
         }
 
         $cacheDuration = seoSitemapCacheTtl($settings);
-        $cacheKey = seoSitemapCacheKey('image-sitemap:v3', [
+        $cacheKey = seoSitemapCacheKey('image-sitemap:v4', [
             'base' => $canonicalBase,
             'page' => $page,
             'settings' => $settings,

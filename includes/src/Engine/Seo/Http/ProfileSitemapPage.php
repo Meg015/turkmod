@@ -161,7 +161,7 @@ final class ProfileSitemapPage implements Handler
     {
         $pdo = $this->resolvePdo();
         if (!$pdo instanceof PDO) {
-            return [];
+            throw new \RuntimeException('Profile sitemap requires a database connection.');
         }
 
         $offset = ($page - 1) * $maxUrlsPerSitemap;
@@ -191,9 +191,8 @@ final class ProfileSitemapPage implements Handler
             } else {
                 error_log($exception->getMessage());
             }
+            throw $exception;
         }
-
-        return [];
     }
 
     /**

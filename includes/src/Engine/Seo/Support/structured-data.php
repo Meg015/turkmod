@@ -61,8 +61,8 @@ if (!function_exists('seoGetCategoryStructuredData')) {
             'numberOfItems' => count($items)
         ];
 
-        $breadcrumbJson = json_encode($breadcrumbs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
-        $collectionJson = json_encode($collectionPage, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        $breadcrumbJson = json_encode($breadcrumbs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+        $collectionJson = json_encode($collectionPage, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
 
         return '<script type="application/ld+json">' . "\n" . $breadcrumbJson . "\n" . '</script>' . "\n" .
                '<script type="application/ld+json">' . "\n" . $collectionJson . "\n" . '</script>';
@@ -126,7 +126,7 @@ if (!function_exists('seoGetProfileStructuredData')) {
             }
         }
 
-        $json = json_encode($personSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        $json = json_encode($personSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
 
         return '<script type="application/ld+json">' . "\n" . $json . "\n" . '</script>';
     }

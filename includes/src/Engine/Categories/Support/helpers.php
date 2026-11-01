@@ -16,40 +16,12 @@ function invalidatePublicCategoriesCache(): bool
 
 function getPublicCategories(?PDO $pdo): array
 {
+    if (!$pdo instanceof PDO) {
+        throw new RuntimeException('Public categories require a database connection.');
+    }
     static $cache = null;
     if ($cache !== null) {
         return $cache;
-    }
-
-    $fallback = [
-        [
-            "name" => "Design",
-            "slug" => "design",
-            "description" => "Arayuz, gorsel ve deneyim odakli icerikler.",
-            "seo_description" => "",
-            "topic_count" => 0,
-            "parent_slug" => null,
-        ],
-        [
-            "name" => "Development",
-            "slug" => "development",
-            "description" => "Kod, entegrasyon ve gelistirme araclari.",
-            "seo_description" => "",
-            "topic_count" => 0,
-            "parent_slug" => null,
-        ],
-        [
-            "name" => "Operations",
-            "slug" => "operations",
-            "description" => "Sunucu, yayinlama ve operasyon yardimcilari.",
-            "seo_description" => "",
-            "topic_count" => 0,
-            "parent_slug" => null,
-        ],
-    ];
-
-    if (!$pdo) {
-        return $fallback;
     }
 
     try {
@@ -103,21 +75,21 @@ function getPublicCategories(?PDO $pdo): array
         }
     } catch (Throwable $e) {
         appLogException($e, ["source" => "getPublicCategories"]);
+        throw $e;
     }
 
-    $cache = $fallback;
+    $cache = [];
     return $cache;
 }
 
 function getPublicCategoriesTree(?PDO $pdo): array
 {
+    if (!$pdo instanceof PDO) {
+        throw new RuntimeException('Category tree requires a database connection.');
+    }
     $cacheFile = dirname(__DIR__, 5) . '/storage/cache/categories_tree.php';
     if (is_file($cacheFile) && filemtime($cacheFile) > (time() - 3600)) {
         return require $cacheFile;
-    }
-
-    if (!$pdo) {
-        return [];
     }
 
     try {
@@ -127,7 +99,8 @@ function getPublicCategoriesTree(?PDO $pdo): array
                              ORDER BY cat.display_order, cat.name");
         $rows = $stmt->fetchAll();
     } catch (Throwable $e) {
-        return [];
+        appLogException($e, ['source' => 'getPublicCategoriesTree']);
+        throw $e;
     }
 
     if (empty($rows)) {

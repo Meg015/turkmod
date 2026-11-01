@@ -174,6 +174,8 @@ if (!function_exists('loginSafeRedirect')) {
             return $fallback;
         }
 
+        $path = rtrim(strtolower(rawurldecode($path)), '/');
+
         $authPaths = [];
         $canonicalAuthPaths = [
             'login' => '/giris',
@@ -194,7 +196,7 @@ if (!function_exists('loginSafeRedirect')) {
         }
 
         foreach (array_values(array_unique($authPaths)) as $authPath) {
-            if ($authPath !== '' && str_ends_with($path, (string) $authPath)) {
+            if ($authPath !== '' && str_ends_with($path, rtrim(strtolower((string) $authPath), '/'))) {
                 return $fallback;
             }
         }

@@ -8,8 +8,7 @@ adminRequirePermission('themes.view', 'Temalari goruntulemek icin gerekli izin h
 $pageTitle = 'Tema Merkezi';
 
 if (!isset($themeManager) || !$themeManager instanceof ThemeManager) {
-    $themeManager = new ThemeManager(dirname(__DIR__), $baseUri ?? '', false);
-    $themeManager->setActiveTheme($themeManager->defaultThemeId());
+    throw new RuntimeException('Theme manager is not initialized.');
 }
 
 function adminThemesSaveSetting(PDO $pdo, string $key, string $value): void
@@ -147,16 +146,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 
 $settings = getAdminSettings($pdo);
-$activeThemeId = (string) ($settings['theme_active_id'] ?? 'default');
-if ($activeThemeId === '' || !$themeManager->themeExists($activeThemeId)) {
-    $activeThemeId = $themeManager->defaultThemeId();
+$activeThemeId = (string) ($settings['theme_active_id'] ?? $themeManager->defaultThemeId());
+if (isset($GLOBALS['_theme_activation_error'])) {
+    flash('error', 'Aktif tema yüklenemedi. Geçerli bir tema seçip etkinleştirin.');
 }
-$themeManager->setActiveTheme($activeThemeId);
-$activeThemeId = $themeManager->activeThemeId();
 $themes = $themeManager->discoverThemes();
-$selectedTheme = $themeManager->sanitizeThemeId((string) ($_GET['theme'] ?? $themeManager->activeThemeId()));
+$selectedTheme = $themeManager->sanitizeThemeId((string) ($_GET['theme'] ?? $activeThemeId));
 if ($selectedTheme === '' || !$themeManager->themeExists($selectedTheme)) {
-    $selectedTheme = $themeManager->activeThemeId();
+    $selectedTheme = '';
 }
 
 $editableFiles = $themeManager->editableFiles($selectedTheme);

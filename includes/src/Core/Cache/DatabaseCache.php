@@ -66,8 +66,8 @@ final class DatabaseCache implements TaggableCache
                 'tags' => $encodedTags,
                 'expires_at' => $expiresAt,
             ]);
-        } catch (PDOException) {
-            return false;
+        } catch (PDOException $exception) {
+            throw $exception;
         }
     }
 
@@ -77,8 +77,8 @@ final class DatabaseCache implements TaggableCache
             $stmt = $this->pdo->prepare("DELETE FROM `{$this->table}` WHERE cache_key = :cache_key");
 
             return $stmt->execute(['cache_key' => $this->entryKey($key)]);
-        } catch (PDOException) {
-            return false;
+        } catch (PDOException $exception) {
+            throw $exception;
         }
     }
 
@@ -90,8 +90,8 @@ final class DatabaseCache implements TaggableCache
             );
 
             return $stmt->execute(['prefix' => $this->prefixPattern()]);
-        } catch (PDOException) {
-            return false;
+        } catch (PDOException $exception) {
+            throw $exception;
         }
     }
 
@@ -114,8 +114,8 @@ final class DatabaseCache implements TaggableCache
                 if (!$stmt->execute(['cache_key' => $key])) {
                     $success = false;
                 }
-            } catch (PDOException) {
-                $success = false;
+            } catch (PDOException $exception) {
+                throw $exception;
             }
         }
 
@@ -145,8 +145,8 @@ final class DatabaseCache implements TaggableCache
             );
             $stmt->execute(['cache_key' => $this->entryKey($key)]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException) {
-            return null;
+        } catch (PDOException $exception) {
+            throw $exception;
         }
 
         if (!is_array($row)) {
@@ -188,8 +188,8 @@ final class DatabaseCache implements TaggableCache
             );
             $stmt->execute(['prefix' => $this->prefixPattern()]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        } catch (PDOException) {
-            return [];
+        } catch (PDOException $exception) {
+            throw $exception;
         }
 
         $keys = [];

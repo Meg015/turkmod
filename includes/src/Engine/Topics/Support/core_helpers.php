@@ -47,13 +47,8 @@ function getTopics(
         : preg_replace("/[^a-z0-9-]/", "", $categorySlug);
     $allowedSorts = ["newest", "popular", "downloads", "comments"];
     $sort = in_array($sort, $allowedSorts, true) ? $sort : "newest";
-    if (!$pdo) {
-        return [
-            "items" => [],
-            "total" => 0,
-            "page" => $page,
-            "perPage" => $perPage,
-        ];
+    if (!$pdo instanceof PDO) {
+        throw new RuntimeException('Topic listing requires a database connection.');
     }
 
     try {
@@ -106,10 +101,11 @@ function getTopics(
         $total = (int) $countStmt->fetchColumn();
 
         // Fetch items
-        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
+        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, parent.slug AS parent_slug, u.username AS author
                 FROM topics t
                 LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                 LEFT JOIN categories cat ON t.category_id = cat.id
+                LEFT JOIN categories parent ON parent.id = cat.parent_id
                 LEFT JOIN users u ON t.author_id = u.id
                 {$where}
                 ORDER BY {$orderBy}
@@ -140,28 +136,24 @@ function getTopics(
             "search" => $search,
             "category" => $categorySlug,
         ]);
-        return [
-            "items" => [],
-            "total" => 0,
-            "page" => $page,
-            "perPage" => $perPage,
-        ];
+        throw $e;
     }
 }
 
 function getTopic(?PDO $pdo, int $id): ?array
 {
-    if (!$pdo) {
-        return null;
+    if (!$pdo instanceof PDO) {
+        throw new RuntimeException('Topic lookup requires a database connection.');
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
+        $stmt = $pdo->prepare("SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, parent.slug AS parent_slug, u.username AS author
                                FROM topics t
                                LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                                LEFT JOIN categories cat ON t.category_id = cat.id
+                               LEFT JOIN categories parent ON parent.id = cat.parent_id
                                LEFT JOIN users u ON t.author_id = u.id
-                               WHERE t.id = :id AND t.deleted_at IS NULL");
+                               WHERE t.id = :id AND t.deleted_at IS NULL AND t.status = 'published'");
         $stmt->execute(["id" => $id]);
         $row = $stmt->fetch();
         if ($row) {
@@ -170,7 +162,7 @@ function getTopic(?PDO $pdo, int $id): ?array
         return $row ?: null;
     } catch (Throwable $e) {
         appLogException($e, ["fn" => "getTopic", "id" => $id]);
-        return null;
+        throw $e;
     }
 }
 
@@ -180,15 +172,12 @@ function getTopicsByCategorySlug(
     int $page = 1,
     int $perPage = 20,
 ): array {
+    $page = max(1, $page);
+    $perPage = max(1, min(60, $perPage));
     $offset = ($page - 1) * $perPage;
 
-    if (!$pdo) {
-        return [
-            "items" => [],
-            "total" => 0,
-            "page" => $page,
-            "perPage" => $perPage,
-        ];
+    if (!$pdo instanceof PDO) {
+        throw new RuntimeException('Category topics require a database connection.');
     }
 
     try {
@@ -227,13 +216,14 @@ function getTopicsByCategorySlug(
         $total = (int) $countStmt->fetchColumn();
 
         // Fetch sql
-        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, u.username AS author
+        $sql = "SELECT t.*, pm.path AS primary_media_path, cat.name AS category, cat.slug AS category_slug, parent.slug AS parent_slug, u.username AS author
                 FROM topics t
                 LEFT JOIN media_files pm ON pm.id = t.primary_media_file_id
                 INNER JOIN categories cat ON t.category_id = cat.id
+                LEFT JOIN categories parent ON parent.id = cat.parent_id
                 LEFT JOIN users u ON t.author_id = u.id
                 WHERE t.status = 'published' AND t.deleted_at IS NULL AND t.category_id IN ($placeholders)
-                ORDER BY t.published_at DESC
+                ORDER BY t.published_at DESC, t.id DESC
                 LIMIT ? OFFSET ?";
         
         $stmt = $pdo->prepare($sql);
@@ -262,31 +252,28 @@ function getTopicsByCategorySlug(
             "fn" => "getTopicsByCategorySlug",
             "slug" => $slug,
         ]);
-        return [
-            "items" => [],
-            "total" => 0,
-            "page" => $page,
-            "perPage" => $perPage,
-        ];
+        throw $e;
     }
 }
 
 function getTopicComments(?PDO $pdo, int $topicId): array
 {
     if (!$pdo) {
-        return [];
+        throw new RuntimeException('Topic comments require a database connection.');
     }
 
     try {
         $stmt = $pdo->prepare("SELECT c.*, u.username AS author
                                FROM comments c
+                               INNER JOIN topics t ON t.id = c.topic_id AND t.status = 'published' AND t.deleted_at IS NULL
                                LEFT JOIN users u ON c.user_id = u.id
                                WHERE c.topic_id = :topic_id AND c.status = 'approved' AND c.deleted_at IS NULL
                                ORDER BY c.created_at ASC");
         $stmt->execute(["topic_id" => $topicId]);
         return $stmt->fetchAll() ?: [];
     } catch (Throwable $e) {
-        return [];
+        appLogException($e, ['fn' => 'getTopicComments', 'topic_id' => $topicId]);
+        throw $e;
     }
 }
 

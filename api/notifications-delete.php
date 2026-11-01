@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendMethodNotAllowed(['POST']);
 }
 
-$submittedToken = (string) ($_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+$submittedToken = $_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!verify_csrf_token($submittedToken)) {
     sendCsrfError();
 }
@@ -26,11 +26,17 @@ if (!is_array($rawIds)) {
     $rawIds = preg_split('/[,\s]+/', (string) $rawIds, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 }
 
-$notificationIds = array_values(array_filter(array_map(static function ($value): int {
-    return (int) $value;
-}, $rawIds), static function (int $value): bool {
-    return $value > 0;
-}));
+$notificationIds = [];
+foreach ($rawIds as $value) {
+    $id = (is_string($value) || is_int($value))
+        ? filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+        : false;
+    if ($id === false) {
+        sendValidationError('Geçerli bir bildirim seçilmedi.', ['ids' => 'invalid']);
+    }
+    $notificationIds[] = $id;
+}
+$notificationIds = array_values(array_unique($notificationIds));
 
 if ($notificationIds === []) {
     sendValidationError('Geçerli bir bildirim seçilmedi.', ['ids' => 'required']);

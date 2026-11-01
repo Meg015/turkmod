@@ -29,9 +29,13 @@ try {
     $viewRateKey = "topic_view_" . $topicId . "_" . $realIp;
 
     if (checkRateLimit($viewRateKey, 1, RATE_LIMIT_VIEW_WINDOW)) {
-        $pdo->prepare(
-            "UPDATE topics SET view_count = view_count + 1 WHERE id = ? AND deleted_at IS NULL"
-        )->execute([$topicId]);
+        $viewUpdate = $pdo->prepare(
+            "UPDATE topics SET view_count = view_count + 1 WHERE id = ? AND status = 'published' AND deleted_at IS NULL"
+        );
+        $viewUpdate->execute([$topicId]);
+        if ($viewUpdate->rowCount() !== 1) {
+            sendNotFound('Konu bulunamadı.');
+        }
 
         if ($actorId > 0 && function_exists('logActivity')) {
             $activityProperties = [];

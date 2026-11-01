@@ -15,7 +15,11 @@ if (!function_exists('seoPublicPageLockedNoindexKeys')) {
      */
     function seoPublicPageLockedNoindexKeys(): array
     {
-        return [];
+        return [
+            'profile', 'login', 'register', 'forgot_password', 'reset_password',
+            'notifications', 'messages', 'ban_appeals', 'upload_topic',
+            'edit_topic', 'download', 'error_404',
+        ];
     }
 }
 
@@ -687,7 +691,7 @@ if (!function_exists('seoPublicPagePresetForKey')) {
     {
         $catalog = seoPublicPageCatalog($settings);
         $stored = seoPublicPagePresetsFromSettings($settings);
-        $defaultNoindex = !empty($catalog[$pageKey]['default_noindex']);
+        $defaultNoindex = seoPublicPageIsNoindexLocked($pageKey) || !empty($catalog[$pageKey]['default_noindex']);
         $defaultNofollow = seoPublicPageDefaultNofollow($catalog[$pageKey] ?? []);
 
         $defaultPriority = [
@@ -718,6 +722,9 @@ if (!function_exists('seoPublicPagePresetForKey')) {
         $preset['description'] = trim((string) ($preset['description'] ?? ''));
         $preset['image'] = trim((string) ($preset['image'] ?? ''));
         $preset['noindex'] = seoPublicPageBoolValue($preset['noindex'] ?? null, $defaultNoindex) ? '1' : '0';
+        if (seoPublicPageIsNoindexLocked($pageKey)) {
+            $preset['noindex'] = '1';
+        }
         $preset['nofollow'] = seoPublicPageBoolValue($preset['nofollow'] ?? null, $defaultNofollow) ? '1' : '0';
         $preset['sitemap_include'] = seoPublicPageBoolValue($preset['sitemap_include'] ?? null, true) ? '1' : '0';
         if ($preset['noindex'] === '1') {
@@ -1069,15 +1076,8 @@ if (!function_exists('seoSitemapTopicStatuses')) {
             return [];
         }
 
-        $statuses = ['published'];
-        $allowDraftsInSitemap = ((string) ($settings['sitemap_exclude_drafts'] ?? '1')) !== '1';
-        $draftsIndexable = seoIndexToggleValue($settings, 'index_draft_topics', '0') === '1';
-
-        if ($allowDraftsInSitemap && $draftsIndexable) {
-            $statuses[] = 'draft';
-        }
-
-        return $statuses;
+        // Drafts are private and never resolve to a public topic page.
+        return ['published'];
     }
 }
 
@@ -1095,7 +1095,7 @@ if (!function_exists('seoTopicShouldAppearInSitemap')) {
     }
 }
 
-if (!function_exists('seoCategoryShouldAppearInSitemap')) {
+if (!function_exists('seoCategoryTopicCountRecursive')) {
     /**
      * @param array<string,mixed> $category
      */

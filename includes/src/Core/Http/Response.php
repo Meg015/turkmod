@@ -77,7 +77,11 @@ class Response
 
     public function send(): void
     {
-        http_response_code($this->statusCode);
+        if ($this->statusCode === 419) {
+            header((string) ($_SERVER['SERVER_PROTOCOL'] ?? 'HTTP/1.1') . ' 419 Authentication Timeout', true, 419);
+        } else {
+            http_response_code($this->statusCode);
+        }
 
         foreach ($this->headers as $name => $value) {
             header($name . ': ' . $value, true);

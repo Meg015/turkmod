@@ -352,3 +352,268 @@
     object-fit: cover;
 }
 
+.user-delete-modal {
+    width: min(480px, 100%);
+    max-width: 480px;
+    border-radius: 12px;
+}
+
+.user-delete-modal .media-modal-header,
+.user-delete-modal .media-modal-footer {
+    flex-shrink: 0;
+    gap: 8px;
+    padding: 10px 16px;
+}
+
+.user-delete-modal .media-modal-header h3 {
+    gap: 9px;
+    font-size: .98rem;
+    font-weight: 700;
+}
+
+.user-delete-icon {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-danger, #dc3545) 10%, transparent);
+}
+
+.user-delete-modal .user-delete-icon i {
+    color: var(--color-danger, #dc3545);
+}
+
+.user-delete-modal .user-delete-close {
+    width: 32px;
+    min-height: 32px;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.user-delete-form {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.user-delete-modal .user-delete-body {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    padding: 15px 16px;
+    font-size: .81rem;
+    line-height: 1.45;
+}
+
+.user-delete-description {
+    margin: 0;
+    color: var(--ui-admin-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.user-delete-description strong {
+    color: var(--ui-admin-text);
+}
+
+.user-delete-description > span {
+    color: var(--color-danger, #dc3545);
+}
+
+.user-delete-label {
+    display: block;
+    margin: 0 0 6px;
+    color: var(--ui-admin-text-secondary);
+    font-size: .78rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.user-delete-options {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.user-delete-options legend {
+    padding: 0;
+}
+
+.user-delete-options-list {
+    overflow: hidden;
+    border: 1px solid var(--ui-admin-border);
+    border-radius: 8px;
+}
+
+.user-delete-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 0;
+    padding: 10px 11px;
+    background: var(--ui-admin-surface);
+    cursor: pointer;
+}
+
+.user-delete-option + .user-delete-option {
+    border-top: 1px solid var(--ui-admin-border);
+}
+
+.user-delete-option:has(input:checked) {
+    background: color-mix(in srgb, var(--ui-admin-primary) 6%, var(--ui-admin-surface));
+    box-shadow: inset 3px 0 var(--ui-admin-primary);
+}
+
+.user-delete-option-purge:has(input:checked) {
+    background: color-mix(in srgb, var(--color-danger, #dc3545) 6%, var(--ui-admin-surface));
+    box-shadow: inset 3px 0 var(--color-danger, #dc3545);
+}
+
+.user-delete-option:has(input:focus-visible) {
+    outline: 2px solid var(--ui-admin-primary);
+    outline-offset: -2px;
+}
+
+.user-delete-option:has(input:disabled) {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.user-delete-option input {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    margin: 2px 0 0;
+    accent-color: var(--ui-admin-primary);
+}
+
+.user-delete-option-purge input {
+    accent-color: var(--color-danger, #dc3545);
+}
+
+.user-delete-option > span {
+    min-width: 0;
+}
+
+.user-delete-option strong,
+.user-delete-option small {
+    display: block;
+    line-height: 1.4;
+}
+
+.user-delete-option strong {
+    font-size: .8rem;
+    font-weight: 650;
+}
+
+.user-delete-option small {
+    margin-top: 2px;
+    color: var(--ui-admin-text-muted);
+    font-size: .73rem;
+}
+
+.user-delete-recommended {
+    display: inline-block;
+    margin-left: 5px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--ui-admin-primary-soft);
+    color: var(--ui-admin-primary);
+    font-size: .63rem;
+    font-style: normal;
+    font-weight: 600;
+    vertical-align: 1px;
+}
+
+.user-delete-hint {
+    margin: 6px 0 0;
+    color: var(--ui-admin-text-muted);
+    font-size: .73rem;
+}
+
+.user-delete-warning {
+    padding: 8px 10px;
+    border-left: 3px solid var(--color-danger, #dc3545);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--color-danger, #dc3545) 7%, var(--ui-admin-surface));
+    color: var(--ui-admin-text-secondary);
+    font-size: .74rem;
+}
+
+.user-delete-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.user-delete-field > .user-delete-label {
+    margin: 0;
+}
+
+.user-delete-confirmation-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.user-delete-confirmation-label strong {
+    color: var(--ui-admin-primary);
+    overflow-wrap: anywhere;
+}
+
+.user-delete-modal .ui-admin-form-control {
+    min-height: 36px;
+    padding: 7px 10px !important;
+    font-size: .81rem !important;
+    line-height: 1.4;
+}
+
+.user-delete-modal textarea.ui-admin-form-control {
+    min-height: 56px;
+    max-height: 120px;
+    resize: vertical;
+}
+
+.user-delete-confirm {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    color: var(--ui-admin-text-secondary);
+    font-size: .76rem;
+    cursor: pointer;
+}
+
+.user-delete-confirm input {
+    flex-shrink: 0;
+    margin: 2px 0 0;
+    accent-color: var(--color-danger, #dc3545);
+}
+
+.user-delete-modal .media-modal-footer .ui-admin-btn {
+    min-height: 36px;
+    padding: 7px 12px;
+    font-size: .8rem;
+}
+
+@media (max-width: 480px) {
+    .user-delete-modal .media-modal-header,
+    .user-delete-modal .media-modal-footer {
+        padding: 11px 13px;
+    }
+
+    .user-delete-modal .user-delete-body {
+        gap: 12px;
+        padding: 13px;
+    }
+
+    .user-delete-modal .user-delete-close {
+        width: 36px;
+        min-height: 36px;
+    }
+}

@@ -23,6 +23,8 @@ final class NotFoundPage implements Handler
     {
         return new Response($this->renderBody($request), 404, [
             'Content-Type' => 'text/html; charset=utf-8',
+            'Cache-Control' => 'no-store',
+            'X-Robots-Tag' => 'noindex, nofollow',
         ]);
     }
 
@@ -56,7 +58,8 @@ final class NotFoundPage implements Handler
             $envConfig = $GLOBALS['envConfig'] ?? [];
             $_lay = $GLOBALS['_lay'] ?? null;
             $pageTitle = '404 - Sayfa Bulunamadı';
-            $pageKey = 'not_found';
+            $pageKey = 'error_404';
+            $robotsMetaOverride = 'noindex, nofollow';
             $pageCssFiles = ['assets/css/not-found.css'];
 
             ob_start();

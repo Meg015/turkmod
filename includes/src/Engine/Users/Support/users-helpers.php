@@ -2446,13 +2446,36 @@ function usersDeactivate(PDO $pdo, int $userId): void
 
 function usersDelete(PDO $pdo, int $userId): void
 {
-    $pdo->prepare("DELETE FROM users WHERE id = :id")->execute(['id' => $userId]);
-    \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $userId);
+    throw new LogicException('Kalıcı kullanıcı silmek için usersDeletePermanently kullanın.');
+}
+
+function usersDeletePermanently(PDO $pdo, int $userId, int $actorId, string $mode, string $confirmation, string $reason, string $baseUri = ''): array
+{
+    if ($pdo->inTransaction()) {
+        throw new LogicException('Kalıcı kullanıcı silme bağımsız bir işlem olarak başlatılmalıdır.');
+    }
+    $result = (new \App\Engine\Users\UserDeletionService())->delete($pdo, $userId, $actorId, $mode, $confirmation, $reason);
+    $result['cleanup_failed'] = false;
+    try {
+        \App\Engine\Users\UserDeletionFiles::cleanup($pdo, $result['file_paths'], $baseUri);
+    } catch (Throwable $error) {
+        $result['cleanup_failed'] = true;
+        error_log('[user-deletion-files] ' . $error->getMessage());
+    }
+    foreach ([
+        static fn () => \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $userId),
+        static function (): void { if (function_exists('invalidatePublicContentCache')) { invalidatePublicContentCache(); } },
+        static function (): void { if (function_exists('seoInvalidateSitemapCaches')) { seoInvalidateSitemapCaches(); } },
+    ] as $invalidate) {
+        try { $invalidate(); } catch (Throwable $error) { error_log('[user-deletion-cache] ' . $error->getMessage()); }
+    }
+    unset($result['file_paths']);
+    return $result;
 }
 
 function usersBuildListFilters(string $search = '', string $filterGroup = '', string $filterStatus = '', ?PDO $pdo = null): array
 {
-    $where = ['1=1'];
+    $where = ['u.deleted_at IS NULL'];
     $params = [];
     $searchNameExpr = ($pdo && usersColumnExists($pdo, 'users', 'username'))
         ? "COALESCE(NULLIF(u.username, ''), CONCAT('user-', u.id))"
@@ -2561,7 +2584,7 @@ function usersGetStats(PDO $pdo): array
     } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
     $adminCountSql = "SELECT COUNT(DISTINCT m.user_id)\n            FROM user_group_members m\n            INNER JOIN user_groups g ON g.id = m.group_id\n            LEFT JOIN user_group_permissions p ON p.group_id = g.id AND p.permission_value = 1 AND p.permission_key IN ('*', 'admin.access')\n            WHERE g.is_active = 1 AND (g.slug = 'admin' OR p.permission_key IS NOT NULL)";
     return [
-        'total' => (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn(),
+        'total' => (int) $pdo->query("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL")->fetchColumn(),
         'active' => (int) $pdo->query("SELECT COUNT(*) FROM users WHERE status = 'active' AND (is_banned = 0 OR is_banned IS NULL)")->fetchColumn(),
         'banned' => (int) $pdo->query("SELECT COUNT(*) FROM users WHERE is_banned = 1")->fetchColumn(),
         'admins' => (int) $pdo->query($adminCountSql)->fetchColumn(),
@@ -2571,7 +2594,7 @@ function usersGetStats(PDO $pdo): array
 
 function usersGetById(PDO $pdo, int $userId): ?array
 {
-    $stmt = $pdo->prepare("SELECT u.*\n                           FROM users u\n                           WHERE u.id = :id\n                           LIMIT 1");
+    $stmt = $pdo->prepare("SELECT u.*\n                           FROM users u\n                           WHERE u.id = :id AND u.deleted_at IS NULL\n                           LIMIT 1");
     $stmt->execute(['id' => $userId]);
     $user = $stmt->fetch();
     if (!$user) {
@@ -2709,6 +2732,12 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
         return 'Toplu islem icin en az bir kullanici secin.';
     }
 
+    $available = $pdo->prepare('SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND id IN (' . implode(',', array_fill(0, count($userIds), '?')) . ')');
+    $available->execute($userIds);
+    if ((int) $available->fetchColumn() !== count($userIds)) {
+        return 'Silinmiş veya bulunamayan hesaplara toplu işlem uygulanamaz.';
+    }
+
     if (in_array($currentUserId, $userIds, true) && in_array($action, ['ban', 'deactivate', 'delete'], true)) {
         return 'Kendi hesabiniza bu toplu islemi uygulayamazsiniz.';
     }
@@ -2770,15 +2799,7 @@ function usersApplyBulkAction(PDO $pdo, string $action, array $userIds, int $cur
             return '';
 
         case 'delete':
-            $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
-            foreach ($userIds as $id) {
-                if ($id === $currentUserId) {
-                    continue;
-                }
-                $stmt->execute([$id]);
-                \App\Engine\UserActivity\UserPresenceInvalidator::invalidateForDatabase($pdo, $id);
-            }
-            return '';
+            return 'Kalıcı silme için kullanıcı işlem menüsündeki Kullanıcıyı Sil seçeneğini kullanın.';
     }
 
     return 'Gecersiz toplu islem.';

@@ -10,15 +10,21 @@ use App\Modules\Events\Api\EventsApiHandler;
 // Without this, the router sets Content-type: text/html for all requests,
 // which breaks CSS, JS, and font delivery.
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-if ($uri !== null && $uri !== '/') {
+if ($uri !== null && $uri !== false && $uri !== '/') {
     $decoded = rawurldecode($uri);
     // Prevent path traversal: reject any path containing '..'
-    if (str_contains($decoded, '..')) {
-        routerNotFound();
+    if (str_contains($decoded, '..') || str_contains($decoded, '\\') || preg_match('/[\x00-\x1f\x7f]/', $decoded)) {
+        http_response_code(400);
+        header('Content-Type: text/plain; charset=UTF-8');
+        exit('Geçersiz istek yolu.');
     }
     $filePath = __DIR__ . str_replace('/', DIRECTORY_SEPARATOR, $decoded);
     $realPath = realpath($filePath);
-    if ($realPath !== false && str_starts_with($realPath, __DIR__ . DIRECTORY_SEPARATOR) && is_file($realPath)) {
+    if (PHP_SAPI === 'cli-server' && preg_match('~(?:^|/)\.|^/(?:vendor|node_modules|docs|tests|scripts|deployment|database|includes|storage)(?:/|$)~i', $decoded)) {
+        http_response_code(403);
+        exit;
+    }
+    if (PHP_SAPI === 'cli-server' && $realPath !== false && str_starts_with($realPath, __DIR__ . DIRECTORY_SEPARATOR) && is_file($realPath)) {
         return false;
     }
 }
@@ -157,36 +163,15 @@ function routerEventsRouteConfig(): array
         return $config;
     }
 
-    $defaults = [
-        'bootstrap' => 'includes/src/Modules/Events/init.php',
-        'assets_base' => 'includes/src/Modules/Events/assets',
-        'api_template' => 'includes/src/Modules/Events/Api/Endpoints/%s.php',
-        'page_map' => [
-            'events' => 'includes/src/Modules/Events/Pages/index.php',
-            'events/wheel' => 'includes/src/Modules/Events/Pages/wheel.php',
-            'events/raffle' => 'includes/src/Modules/Events/Pages/raffle.php',
-            'events/rewards' => 'includes/src/Modules/Events/Pages/rewards.php',
-            'events/tasks' => 'includes/src/Modules/Events/Pages/tasks.php',
-        ],
-    ];
-
     $routesFile = __DIR__ . '/includes/src/Modules/Events/routes.php';
-    if (!is_file($routesFile)) {
-        $config = $defaults;
-
-        return $config;
-    }
-
     $candidate = require $routesFile;
     if (!is_array($candidate)) {
-        $config = $defaults;
-
-        return $config;
+        throw new RuntimeException('Events route configuration must be an array.');
     }
 
     $pageMap = $candidate['page_map'] ?? [];
     if (!is_array($pageMap)) {
-        $pageMap = [];
+        throw new RuntimeException('Events page map must be an array.');
     }
 
     $normalizedPageMap = [];
@@ -202,15 +187,18 @@ function routerEventsRouteConfig(): array
         }
     }
 
-    $bootstrap = trim((string) ($candidate['bootstrap'] ?? $defaults['bootstrap']), "/\\ \t\n\r\0\x0B");
-    $assetsBase = trim((string) ($candidate['assets_base'] ?? $defaults['assets_base']), "/\\ \t\n\r\0\x0B");
-    $apiTemplate = trim((string) ($candidate['api_template'] ?? $defaults['api_template']));
+    $bootstrap = trim((string) ($candidate['bootstrap'] ?? ''), "/\\ \t\n\r\0\x0B");
+    $assetsBase = trim((string) ($candidate['assets_base'] ?? ''), "/\\ \t\n\r\0\x0B");
+    $apiTemplate = trim((string) ($candidate['api_template'] ?? ''));
+    if ($bootstrap === '' || $assetsBase === '' || !str_contains($apiTemplate, '%s') || $normalizedPageMap === []) {
+        throw new RuntimeException('Events route configuration is incomplete.');
+    }
 
     $config = [
-        'bootstrap' => $bootstrap !== '' ? $bootstrap : $defaults['bootstrap'],
-        'assets_base' => $assetsBase !== '' ? $assetsBase : $defaults['assets_base'],
-        'api_template' => str_contains($apiTemplate, '%s') ? $apiTemplate : $defaults['api_template'],
-        'page_map' => $normalizedPageMap !== [] ? $normalizedPageMap : $defaults['page_map'],
+        'bootstrap' => $bootstrap,
+        'assets_base' => $assetsBase,
+        'api_template' => $apiTemplate,
+        'page_map' => $normalizedPageMap,
     ];
 
     return $config;
@@ -241,7 +229,7 @@ function routerHandleEventsRoute(array $segments): void
     }
 
     $normalizedSegments = $segments;
-    $normalizedSegments[0] = $canonicalPrefix;
+    $normalizedSegments[0] = 'events';
 
     $config = routerEventsRouteConfig();
     $bootstrapFile = __DIR__ . '/' . ltrim($config['bootstrap'], '/\\');
@@ -255,7 +243,7 @@ function routerHandleEventsRoute(array $segments): void
         routerServeEventsAsset($assetsBase, array_slice($normalizedSegments, 2));
     }
 
-    if (isset($normalizedSegments[1]) && $normalizedSegments[1] === 'api' && isset($normalizedSegments[2])) {
+    if (isset($normalizedSegments[1]) && $normalizedSegments[1] === 'api' && count($normalizedSegments) === 3) {
         $handler = EventsApiHandler::fromTemplate(__DIR__, $config['api_template'], (string) $normalizedSegments[2]);
         if ($handler->exists()) {
             $dispatcher = routeCompatibilityDispatcher();
@@ -268,6 +256,9 @@ function routerHandleEventsRoute(array $segments): void
     }
 
     $pageMap = $config['page_map'];
+    if (count($normalizedSegments) > 2) {
+        routerNotFound();
+    }
     $pageKey = count($normalizedSegments) === 1 ? 'events' : implode('/', array_slice($normalizedSegments, 0, 2));
 
     if (isset($pageMap[$pageKey])) {
@@ -359,13 +350,17 @@ function routerHandleGotoPostRoute(array $segments): void
 
 function routerHandleDynamicContentRoute(array $segments, ?PDO $pdo): void
 {
+    if (count($segments) > 3) {
+        return;
+    }
     $hasNestedSlug = isset($segments[2]) && (string) $segments[2] !== '';
-    $prefix = routePrefixSanitize((string) ($_GET['prefix'] ?? ($segments[0] ?? '')));
-    $parent = trim((string) ($_GET['parent'] ?? ($hasNestedSlug ? ($segments[1] ?? '') : '')));
-    $slug = trim((string) ($_GET['slug'] ?? ($hasNestedSlug ? ($segments[2] ?? '') : ($segments[1] ?? ''))));
+    $prefix = routePrefixSanitize((string) ($segments[0] ?? ''));
+    $parent = trim((string) ($hasNestedSlug ? ($segments[1] ?? '') : ''));
+    $slug = trim((string) ($hasNestedSlug ? ($segments[2] ?? '') : ($segments[1] ?? '')));
     $routes = routePrefixSettings($pdo);
 
-    if (routePrefixMatches('topic', $prefix, $routes) && $slug !== '') {
+    if (routePrefixMatches('topic', $prefix, $routes) && count($segments) === 2 && $slug !== '') {
+        unset($_GET['id']);
         $_GET['slug'] = $slug;
         routerDispatchTarget(\App\Engine\Topics\Http\TopicPage::class, implode('/', $segments));
     }
@@ -376,6 +371,7 @@ function routerHandleDynamicContentRoute(array $segments, ?PDO $pdo): void
     }
 
     if (routePrefixMatches('category', $prefix, $routes)) {
+        unset($_GET['name']);
         if ($parent !== '') {
             $_GET['parent'] = $parent;
         } else {
@@ -390,7 +386,7 @@ function routerHandleDynamicContentRoute(array $segments, ?PDO $pdo): void
         routerDispatchTarget(\App\Engine\Categories\Http\CategoryPage::class, implode('/', $segments));
     }
 
-    if (routePrefixMatches('profile', $prefix, $routes)) {
+    if (routePrefixMatches('profile', $prefix, $routes) && count($segments) <= 2) {
         if ($slug !== '') {
             $_GET['profile'] = $slug;
             routerDispatchTarget(\App\Engine\Users\Http\PublicProfilePage::class, implode('/', $segments));

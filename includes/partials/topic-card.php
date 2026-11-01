@@ -49,7 +49,6 @@ $_cardImageMap = [
     "Operations" => "portal-server.svg",
 ];
 $_cardCover = $_cardImageMap[$_cardCategory] ?? "portal-pack.svg";
-$_cardFallbackSrc = asset_url("assets/portal-pack.svg", $baseUri);
 $_cardHero = getTopicPrimaryMediaPath($item);
 
 // Generate SEO-friendly alt text
@@ -103,11 +102,11 @@ if ($_cardThemeManager instanceof ThemeManager && $_cardThemeManager->usesPublic
         <?php if ($_cardHero && strpos((string) $_cardHero, "http") === 0): ?>
             <img src="<?= htmlspecialchars(
                 (string) $_cardHero,
-            ) ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
+            ) ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360">
         <?php elseif ($_cardHero): ?>
-            <img src="<?= htmlspecialchars($baseUri . '/' . ltrim((string) $_cardHero, '/'), ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
+            <img src="<?= htmlspecialchars($baseUri . '/' . ltrim((string) $_cardHero, '/'), ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360">
         <?php else: ?>
-            <img class="topic-list-fallback-image" src="<?= htmlspecialchars($baseUri . '/assets/' . $_cardCover, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360" data-fallback-src="<?= htmlspecialchars($_cardFallbackSrc) ?>">
+            <img class="topic-list-fallback-image" src="<?= htmlspecialchars($baseUri . '/assets/' . $_cardCover, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($_cardImageAlt) ?>" title="<?= htmlspecialchars($_cardImageTitle) ?>" loading="lazy" decoding="async" width="640" height="360">
         <?php endif; ?>
     </a>
     <div class="card__body topic-list-body ui-panel__body">

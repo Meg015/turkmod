@@ -40,7 +40,7 @@ final class TopicSitemapPage implements Handler
             return seoSitemapNotFoundResponse();
         }
         $cacheDuration = seoSitemapCacheTtl($settings);
-        $cacheKey = seoSitemapCacheKey('topic-sitemap:v3', [
+        $cacheKey = seoSitemapCacheKey('topic-sitemap:v4', [
             'base' => $canonicalBase,
             'page' => $page,
             'settings' => $settings,
@@ -166,14 +166,10 @@ final class TopicSitemapPage implements Handler
     {
         $pdo = $this->resolvePdo();
         if (!$pdo instanceof PDO) {
-            return [];
+            throw new \RuntimeException('Topic sitemap requires a database connection.');
         }
 
-        $statuses = function_exists('seoSitemapTopicStatuses')
-            ? seoSitemapTopicStatuses($settings)
-            : ((string) ($settings['sitemap_exclude_drafts'] ?? '1') === '1'
-                ? ['published']
-                : ['published', 'draft']);
+        $statuses = seoSitemapTopicStatuses($settings);
         if ($statuses === []) {
             return [];
         }
@@ -203,9 +199,8 @@ final class TopicSitemapPage implements Handler
             } else {
                 error_log($exception->getMessage());
             }
+            throw $exception;
         }
-
-        return [];
     }
 
     /**

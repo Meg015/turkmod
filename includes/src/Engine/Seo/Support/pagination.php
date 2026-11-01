@@ -6,8 +6,7 @@ if (!function_exists('seoGetPaginationTags')) {
     function seoGetPaginationTags(int $currentPage, int $totalPages, string $baseUrl, array $settings): string
     {
         $strategy = $settings['pagination_strategy'] ?? 'full';
-        $maxPagesIndex = (int) ($settings['pagination_max_pages_index'] ?? 50);
-        $baseUrl = seoCanonicalUrl($baseUrl, $settings);
+        $baseUrl = seoGetPaginationCanonical(1, seoCanonicalUrl($baseUrl, $settings));
 
         $tags = [];
 
@@ -41,6 +40,14 @@ if (!function_exists('seoGetPaginationTags')) {
 if (!function_exists('seoGetPaginationCanonical')) {
     function seoGetPaginationCanonical(int $currentPage, string $baseUrl): string
     {
+        $parts = parse_url($baseUrl);
+        $query = [];
+        parse_str(is_array($parts) ? (string) ($parts['query'] ?? '') : '', $query);
+        unset($query['page']);
+        $baseUrl = explode('?', explode('#', $baseUrl, 2)[0], 2)[0];
+        if ($query !== []) {
+            $baseUrl .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        }
         if ($currentPage <= 1) {
             return $baseUrl;
         }

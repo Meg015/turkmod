@@ -2,6 +2,37 @@
 
 declare(strict_types=1);
 
+if (!function_exists('commentPublicTopicExists')) {
+    function commentPublicTopicExists(PDO $pdo, int $topicId): bool
+    {
+        if ($topicId <= 0) {
+            return false;
+        }
+        $stmt = $pdo->prepare("SELECT id FROM topics WHERE id = ? AND status = 'published' AND deleted_at IS NULL LIMIT 1");
+        $stmt->execute([$topicId]);
+        return $stmt->fetchColumn() !== false;
+    }
+}
+
+if (!function_exists('commentFindPublicComment')) {
+    /** Pending comments may be looked up only for the subsequent owner/editor authorization. */
+    function commentFindPublicComment(PDO $pdo, int $commentId, bool $approvedOnly = false): ?array
+    {
+        if ($commentId <= 0) {
+            return null;
+        }
+        $status = $approvedOnly ? " AND c.status = 'approved'" : '';
+        $stmt = $pdo->prepare(
+            "SELECT c.* FROM comments c
+             INNER JOIN topics t ON t.id = c.topic_id AND t.status = 'published' AND t.deleted_at IS NULL
+             WHERE c.id = ? AND c.deleted_at IS NULL{$status} LIMIT 1"
+        );
+        $stmt->execute([$commentId]);
+        $comment = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $comment !== false ? $comment : null;
+    }
+}
+
 if (!function_exists('commentTopicCountsAsVisible')) {
     function commentTopicCountsAsVisible(array $comment, ?string $statusOverride = null, ?bool $deletedOverride = null): bool
     {
@@ -19,6 +50,39 @@ if (!function_exists('commentTopicCountDelta')) {
         $nextVisible = commentTopicCountsAsVisible($comment, $nextStatus, $nextDeleted);
 
         return (int) $nextVisible - (int) $currentVisible;
+    }
+}
+
+if (!function_exists('commentApplyReportThreshold')) {
+    /** The caller owns the report insert and moderation transaction. */
+    function commentApplyReportThreshold(PDO $pdo, array $comment, int $threshold): bool
+    {
+        if ($threshold <= 0) {
+            return false;
+        }
+        if (!$pdo->inTransaction()) {
+            throw new LogicException('Comment report moderation requires a transaction.');
+        }
+        $commentId = (int) ($comment['id'] ?? 0);
+        $count = $pdo->prepare("SELECT COUNT(*) FROM comment_reports WHERE comment_id = ? AND status = 'open'");
+        $count->execute([$commentId]);
+        if ((int) $count->fetchColumn() < $threshold) {
+            return false;
+        }
+        $hide = $pdo->prepare("UPDATE comments SET status = 'pending' WHERE id = ? AND status = 'approved' AND deleted_at IS NULL");
+        $hide->execute([$commentId]);
+        if ($hide->rowCount() !== 1) {
+            return false;
+        }
+        commentApplyTopicCountDelta($pdo, $comment, 'pending', false);
+        topicDownloadRevokeAccessGrant($pdo, $commentId, 'comment_rejected');
+        if (function_exists('eventsReverseActivityPoints') && (int) ($comment['user_id'] ?? 0) > 0) {
+            $result = eventsReverseActivityPoints($pdo, (int) $comment['user_id'], 'comment_created', 'comment', $commentId, 'comment_rejected');
+            if (($result['skipped'] ?? '') === 'error') {
+                throw new RuntimeException('Yorum etkinlik puanı geri alınamadı.');
+            }
+        }
+        return true;
     }
 }
 

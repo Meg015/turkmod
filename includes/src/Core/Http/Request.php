@@ -31,6 +31,7 @@ final class Request
      * @param array<string,mixed> $cookies
      * @param array<string,mixed> $files
      * @param array<string,mixed> $attributes
+     * @param array<string,mixed> $parsedBody
      */
     public function __construct(
         private string $method,
@@ -42,6 +43,7 @@ final class Request
         array $cookies = [],
         array $files = [],
         array $attributes = [],
+        private array $parsedBody = [],
     ) {
         $this->query = $query;
         $this->headers = $headers;
@@ -67,6 +69,8 @@ final class Request
             $_SERVER ?? [],
             $_COOKIE ?? [],
             $_FILES ?? [],
+            [],
+            $_POST ?? [],
         );
     }
 
@@ -121,6 +125,12 @@ final class Request
     public function getBody(): string
     {
         return $this->body;
+    }
+
+    /** @return array<string,mixed> */
+    public function getParsedBody(): array
+    {
+        return $this->parsedBody;
     }
 
     /**

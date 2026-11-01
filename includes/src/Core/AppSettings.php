@@ -159,9 +159,7 @@ final class AppSettings
         }
 
         if (!$this->pdo instanceof \PDO) {
-            $this->settings = $settings;
-            $this->loaded = true;
-            return;
+            throw new \RuntimeException('Application settings require a database connection.');
         }
 
         if (function_exists('apcu_fetch')) {
@@ -194,7 +192,6 @@ final class AppSettings
             }
         }
 
-        $persistedKeys = [];
         try {
             $statement = $this->pdo->query('SELECT setting_key, setting_value FROM admin_settings');
             while ($row = $statement->fetch(\PDO::FETCH_ASSOC)) {
@@ -204,17 +201,16 @@ final class AppSettings
                     continue;
                 }
                 if (array_key_exists($key, $definitions)) {
-                    $persistedKeys[$key] = true;
                     $settings[$key] = function_exists('adminNormalizeSettingValue')
                         ? adminNormalizeSettingValue($key, $value, $definitions[$key])
                         : $value;
                 }
             }
         } catch (\Throwable $exception) {
-            error_log('admin_settings read failed: ' . $exception->getMessage());
+            throw new \RuntimeException('Application settings could not be read.', 0, $exception);
         }
 
-        $this->settings = $this->applyLegacyFallbacks($settings, $definitions, $persistedKeys);
+        $this->settings = $settings;
         $this->loaded = true;
 
         $cacheDir = dirname($cacheFile);
@@ -251,34 +247,7 @@ final class AppSettings
             }
         }
 
-        return $this->applyLegacyFallbacks(
-            array_replace($defaults, $knownCached),
-            $definitions,
-            array_fill_keys(array_keys($knownCached), true)
-        );
-    }
-
-    /**
-     * @param array<string,string> $settings
-     * @param array<string,array<string,mixed>> $definitions
-     * @param array<string,bool> $persistedKeys
-     * @return array<string,string>
-     */
-    private function applyLegacyFallbacks(array $settings, array $definitions, array $persistedKeys): array
-    {
-        foreach ($definitions as $key => $definition) {
-            $legacyKey = trim((string) ($definition['legacy_key'] ?? ''));
-            if ($legacyKey === '' || isset($persistedKeys[$key]) || !array_key_exists($legacyKey, $settings)) {
-                continue;
-            }
-
-            $legacyValue = (string) $settings[$legacyKey];
-            $settings[$key] = function_exists('adminNormalizeSettingValue')
-                ? adminNormalizeSettingValue($key, $legacyValue, $definition)
-                : $legacyValue;
-        }
-
-        return $settings;
+        return array_replace($defaults, $knownCached);
     }
 
     private function cacheFile(): string

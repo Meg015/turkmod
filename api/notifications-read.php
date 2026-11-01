@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendMethodNotAllowed(['POST']);
 }
 
-$submittedToken = (string) ($_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+$submittedToken = $_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!verify_csrf_token($submittedToken)) {
     sendCsrfError();
 }
@@ -26,10 +26,14 @@ session_write_close();
 
 $pdo = requireDatabaseConnection($pdo ?? null);
 $notificationId = $_POST['id'] ?? 'all';
+if ((!is_string($notificationId) && !is_int($notificationId))
+    || ($notificationId !== 'all' && filter_var($notificationId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false)) {
+    sendValidationError('Geçerli bir bildirim seçilmedi.', ['id' => 'invalid']);
+}
 
 try {
     $service = new NotificationCenterService();
-    $marked = $service->markRead($pdo, $userId, is_scalar($notificationId) ? (string) $notificationId : 'all');
+    $marked = $service->markRead($pdo, $userId, $notificationId);
     if (!$marked) {
         sendError('notification_read_failed', 'Bildirim okundu olarak işaretlenemedi.', 409);
     }

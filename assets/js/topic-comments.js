@@ -256,7 +256,7 @@
                     const overflowClass = COMMENT_MAX_DEPTH > 0 && childDepth >= COMMENT_MAX_DEPTH
                         ? ' ui-comment-replies--depth-overflow'
                         : '';
-                    replies = '<div class="ui-comment-replies' + overflowClass + '">' + c.replies.map(r=>renderComment(r,true,childDepth)).join('') + '</div>';
+                    replies = '<div class="ui-comment-replies' + overflowClass + '" data-parent-id="' + c.id + '">' + c.replies.map(r=>renderComment(r,true,childDepth)).join('') + '</div>';
                 }
 
                 // Alıntı etiketi (minimal)
@@ -367,12 +367,12 @@
             let dynamicUiResizeBound = false;
             let dynamicUiResizeTimer = null;
 
-            function initCommentReadMore() {
+            function initCommentReadMore(scope = list) {
                 const isMobile = window.matchMedia('(max-width: 768px)').matches;
                 const truncateHeight = isMobile ? 150 : 280;
 
-                list.querySelectorAll('.ui-comment-read-more-btn').forEach(btn => btn.remove());
-                list.querySelectorAll('.comment-body').forEach(body => {
+                scope.querySelectorAll('.ui-comment-read-more-btn').forEach(btn => btn.remove());
+                scope.querySelectorAll('.comment-body').forEach(body => {
                     body.classList.remove('is-truncated');
                     body.style.removeProperty('--comment-truncate-height');
                     body.style.removeProperty('max-height');
@@ -407,7 +407,7 @@
                 });
             }
 
-            function initReplyCollapseControls() {
+            function initReplyCollapseControls(preserveState = false) {
                 list.querySelectorAll('.ui-comment-collapse-btn').forEach(btn => btn.remove());
 
                 const isMobile = window.matchMedia('(max-width: 768px)').matches;
@@ -424,10 +424,8 @@
                     const isNestedThread = !!repliesEl.closest('.ui-comment-replies .ui-comment-replies');
                     const shouldStartCollapsed = isMobile && (replyCount >= 5 || isNestedThread);
 
-                    if (shouldStartCollapsed) {
-                        repliesEl.classList.add('is-collapsed');
-                    } else {
-                        repliesEl.classList.remove('is-collapsed');
+                    if (!preserveState) {
+                        repliesEl.classList.toggle('is-collapsed', shouldStartCollapsed);
                     }
 
                     const toggleBtn = document.createElement('button');
@@ -478,6 +476,8 @@
             }
 
             function renderAll(data, isPollUpdate=false){
+                // Keep drafts and the displayed tree together until the form closes.
+                if (isPollUpdate && hasOpenInlineForm) return;
                 const newComments = data.comments || [];
                 totalComments = data.total || 0;
                 totalPages = data.pages || 1;
@@ -486,18 +486,8 @@
                 // Update pagination UI
                 updatePaginationUI();
 
-                if(isPollUpdate && hasOpenInlineForm) {
-                    // During poll, only update if there are truly new comments
-                    const oldIds = new Set(comments.map(c => c.id));
-                    const hasNew = newComments.some(c => !oldIds.has(c.id));
-                    const hasRemoved = comments.some(c => !newComments.find(nc => nc.id === c.id));
-                    if(!hasNew && !hasRemoved) {
-                        comments = newComments;
-                        return; // nothing changed, preserve inline forms
-                    }
-                }
-
                 comments = newComments;
+                hasOpenInlineForm = false;
                 if(!comments.length){
                     list.innerHTML = `
                     <div class="ui-comment-empty-state animate-in ui-empty">
@@ -813,7 +803,6 @@
             const submitBtn=document.getElementById('tcSubmit');
             const cancelBtn=document.getElementById('tcCancel');
             const charCount=document.getElementById('tcCharCount');
-            let replyTo = null;
             let mainSubmitInFlight = false;
 
             function submitMainComment(){
@@ -823,7 +812,6 @@
                 mainSubmitInFlight = true;
                 setButtonBusy(submitBtn, 'Gönderiliyor...');
                 const payload={topic_id:parseInt(TOPIC),body:body,_token:CSRF};
-                if(replyTo) payload.parent_id=replyTo;
                 fetchCommentJson(API,{
                     method:'POST',
                     headers:{'Content-Type':'application/json'},
@@ -836,7 +824,6 @@
                         input.style.height = '';
                         charCount.textContent='0';
                         submitBtn.disabled = true;
-                        replyTo = null;
                         if(data.pending){
                             showAlert(data.message,'warning');
                             dispatchCommentCreatedEvent({ pending: true, source: 'main' });
@@ -883,16 +870,73 @@
             }
 
             // -- Inline reply form --
+            function insertCreatedReply(createdComment, parentId) {
+                const commentId = Number(createdComment && createdComment.id);
+                if (!Number.isInteger(commentId) || commentId <= 0 || commentsRequestPending || currentSort !== loadedSort) return false;
+
+                const parent = findCommentById(comments, parentId);
+                const parentItem = list.querySelector('[data-comment-id="' + parentId + '"]');
+                if (!parent || !parentItem) return false;
+
+                // A poll may have received the saved reply before the POST completed.
+                const existing = findCommentById(comments, commentId);
+                const reply = existing || Object.assign({}, createdComment, {
+                    id: commentId,
+                    parent_id: parentId,
+                    parent_author: createdComment.parent_author || parent.author,
+                    parent_body_preview: createdComment.parent_body_preview || Array.from(parent.body || '').slice(0, 80).join('')
+                });
+
+                // Ignore older list/poll responses that do not contain this reply yet.
+                ++commentsRequestVersion;
+                if (!existing) {
+                    if (!Array.isArray(parent.replies)) parent.replies = [];
+                    parent.replies.push(reply);
+                    ++totalComments;
+                }
+
+                let replyItem = list.querySelector('[data-comment-id="' + commentId + '"]');
+                if (!replyItem) {
+                    let depth = 1;
+                    for (let ancestor = parentItem.parentElement; ancestor && ancestor !== list; ancestor = ancestor.parentElement) {
+                        if (ancestor.classList.contains('ui-comment-replies')) ++depth;
+                    }
+                    let repliesEl = list.querySelector('.ui-comment-replies[data-parent-id="' + parentId + '"]');
+                    if (!repliesEl) {
+                        repliesEl = document.createElement('div');
+                        repliesEl.className = 'ui-comment-replies';
+                        if (COMMENT_MAX_DEPTH > 0 && depth >= COMMENT_MAX_DEPTH) repliesEl.classList.add('ui-comment-replies--depth-overflow');
+                        repliesEl.dataset.parentId = String(parentId);
+                        parentItem.after(repliesEl);
+                    }
+                    repliesEl.insertAdjacentHTML('beforeend', renderComment(reply, true, depth));
+                    replyItem = list.querySelector('[data-comment-id="' + commentId + '"]');
+                }
+
+                replyItem.classList.remove('animate-in');
+                for (let thread = replyItem.closest('.ui-comment-replies'); thread; thread = thread.parentElement.closest('.ui-comment-replies')) {
+                    thread.classList.remove('is-collapsed');
+                }
+                initCommentReadMore(replyItem);
+                initReplyCollapseControls(true);
+                bindActions();
+                if (countEl) countEl.textContent = '(' + totalComments + ')';
+                updatePaginationUI();
+                return true;
+            }
+
             function removeInlineReply(){
                 const old=document.querySelector('.ui-comment-inline-form');
-                if(old) old.remove();
-                replyTo=null;
+                if(old) {
+                    const item = old.closest('.ui-comment-item');
+                    if(item) item.classList.remove('is-editing');
+                    old.remove();
+                }
                 hasOpenInlineForm=false;
             }
 
             function createInlineReply(parentId, authorName, slot){
                 removeInlineReply();
-                replyTo=parentId;
                 hasOpenInlineForm=true;
                 const wrap=document.createElement('div');
                 wrap.className='ui-comment-inline-form';
@@ -926,15 +970,15 @@
                     }).then(data=>{
                         if(data._token) CSRF=data._token;
                         if(data.success){
-                            removeInlineReply();
+                            if (wrap.isConnected) removeInlineReply();
                             if(data.pending) {
                                 showAlert(data.message,'warning');
                                 dispatchCommentCreatedEvent({ pending: true, source: 'reply' });
                             }
                             else {
+                                if (!insertCreatedReply(data.comment, parentId)) loadComments(1);
                                 showAlert(data.message,'success');
                                 dispatchCommentCreatedEvent({ pending: false, source: 'reply' });
-                                loadComments(1);
                             }
                     } else {
                         showAlert(data.error||data.message||'Hata','error');

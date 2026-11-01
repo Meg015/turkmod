@@ -234,43 +234,8 @@ final class UserReportService
             return false;
         }
 
-        $this->schema->ensureUserReports($pdo);
-        $currentStmt = $pdo->prepare('SELECT status, admin_note, reporter_user_id FROM user_reports WHERE id = :id LIMIT 1');
-        $currentStmt->execute(['id' => $reportId]);
-        $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$current) {
-            return false;
-        }
-
-        $note = mb_substr(trim($adminNote), 0, 1000, 'UTF-8');
-        $stmt = $pdo->prepare('UPDATE user_reports SET status = :status, admin_note = :admin_note, updated_at = :updated_at WHERE id = :id');
-        $stmt->execute([
-            'status' => $status,
-            'admin_note' => $note !== '' ? $note : null,
-            'updated_at' => $this->schema->now(),
-            'id' => $reportId,
-        ]);
-
-        if ($stmt->rowCount() <= 0 && (string) $current['status'] === $status && (string) ($current['admin_note'] ?? '') === $note) {
-            return false;
-        }
-
-        $this->createEvent($pdo, $reportId, 'status_updated', $actorId, (string) $current['status'], $status, $note);
-        $this->notifications->dispatchStatus(
-            $pdo,
-            'user_report_status_updated',
-            (int) ($current['reporter_user_id'] ?? 0),
-            $actorId,
-            'user_report',
-            $reportId,
-            $status,
-            $note
-        );
-        if (function_exists('logActivity')) {
-            logActivity($pdo, 'user_report_updated', 'user_report', $reportId, ['status' => $status]);
-        }
-
-        return true;
+        return (new ReportStatusService($this->schema, $this->notifications))
+            ->updateSelected($pdo, 'users', [$reportId], $status, $adminNote, $actorId) > 0;
     }
 
     public function deleteReport(?PDO $pdo, int $reportId, ?int $actorId = null): bool
@@ -278,15 +243,7 @@ final class UserReportService
         if (!$pdo || $reportId <= 0) {
             return false;
         }
-        $this->schema->ensureUserReports($pdo);
-        $stmt = $pdo->prepare("DELETE FROM user_reports WHERE id = :id");
-        $stmt->execute(['id' => $reportId]);
-        $stmtEv = $pdo->prepare("DELETE FROM user_report_events WHERE report_id = :id");
-        $stmtEv->execute(['id' => $reportId]);
-        if (function_exists('logActivity')) {
-            logActivity($pdo, 'user_report_deleted', 'user_report', $reportId);
-        }
-        return true;
+        return (new ReportDeletionService($this->schema))->deleteSelected($pdo, 'users', [$reportId], $actorId) > 0;
     }
 
     /** @param list<string> $where @param array<string,string> $params */

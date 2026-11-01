@@ -27,12 +27,13 @@ declare(strict_types=1);
 // Load the application's lightweight PSR-4 autoloader for App\\ classes.
 require_once __DIR__ . "/autoloader.php";
 
-// Asset versioning — single timestamp per request instead of per-file filemtime().
-if (!defined('ASSET_VERSION_METHOD')) {
-    define('ASSET_VERSION_METHOD', 'manual');
-}
-if (!defined('ASSET_VERSION_MANUAL')) {
-    define('ASSET_VERSION_MANUAL', (string) time());
+// Reject malformed query shapes before any page or bootstrap code consumes them.
+if (PHP_SAPI !== 'cli' && !\App\Core\Http\QueryInput::isValid($_GET)) {
+    http_response_code(400);
+    header('Content-Type: text/plain; charset=UTF-8');
+    header('Cache-Control: no-store');
+    header('X-Robots-Tag: noindex');
+    exit('Geçersiz sorgu parametreleri.');
 }
 
 // Base helpers
@@ -472,7 +473,7 @@ if (!function_exists('buildContentSecurityPolicy')) {
         $allowUnsafeInlineStyles = appEnvBool($envConfig, 'APP_CSP_ALLOW_UNSAFE_INLINE_STYLES', !$strictNonceMode);
         $nonceValue = appCspNonce();
 
-        $scriptSources = ["'self'", "'nonce-" . $nonceValue . "'", 'https://cdn.quilljs.com', 'https://cdn.jsdelivr.net'];
+        $scriptSources = ["'self'", "'nonce-" . $nonceValue . "'", 'https://cdn.quilljs.com', 'https://cdn.jsdelivr.net', 'https://www.googletagmanager.com', 'https://www.googleadservices.com', 'https://www.google.com'];
         if ($allowUnsafeInline) {
             $scriptSources[] = "'unsafe-inline'";
         }
@@ -497,7 +498,7 @@ if (!function_exists('buildContentSecurityPolicy')) {
             'font-src' => ["'self'", 'data:', 'https://fonts.gstatic.com'],
             'img-src' => ["'self'", 'data:', 'blob:', 'https:'],
             'connect-src' => ["'self'", 'ws:', 'wss:', 'https://cdn.jsdelivr.net', 'https://cdn.quilljs.com', 'https:'],
-            'frame-src' => ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
+            'frame-src' => ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com', 'https://www.googletagmanager.com'],
             'media-src' => ["'self'", 'https:', 'data:', 'blob:'],
         ];
 
@@ -782,7 +783,7 @@ try {
     }
 } catch (Throwable $themeActivationError) {
     if (function_exists('appLogException')) {
-                appLogException($themeActivationError, [
+        appLogException($themeActivationError, [
             'source' => 'Theme activation',
             'theme_active_id' => $activePublicTheme,
         ]);
@@ -792,25 +793,10 @@ try {
     $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
     $isAdminRequest = str_contains($scriptName, '/admin/');
 
-    if ($isAdminRequest) {
-        try {
-            $defaultId = $themeManager->defaultThemeId();
-            $themeManager->setActiveTheme($defaultId);
-            $defaultId = $themeManager->activeThemeId();
-            $defaultSettings = json_decode((string) ($adminSettingsGlobal['theme_' . $defaultId . '_settings'] ?? '{}'), true);
-            if (is_array($defaultSettings)) {
-                $themeManager->setThemeSettings($defaultSettings);
-            }
-        } catch (Throwable $fallbackError) {
-            if (function_exists('appLogException')) {
-                appLogException($fallbackError, [
-                    'source' => 'Theme activation admin recovery',
-                    'theme_active_id' => $themeManager->activeThemeId(),
-                ]);
-            }
-        }
-    } else {
+    if (!$isAdminRequest) {
         http_response_code(503);
+        header('Cache-Control: no-store');
+        header('X-Robots-Tag: noindex');
         $themeErrorTitle = $appDebug ? 'Tema etkinleştirilemedi' : 'Tema yüklenemedi';
         $themeErrorMessage = $appDebug
             ? $themeActivationError->getMessage()
@@ -820,12 +806,6 @@ try {
     }
 }
 $GLOBALS['themeManager'] = $themeManager;
-
-// Seed demo data only for controlled first-run scenarios
-require_once __DIR__ . "/src/Engine/Seeder/Support/helpers.php";
-if ($pdo && ($envConfig["APP_AUTO_SEED"] ?? "false") === "true") {
-    seederRun($pdo);
-}
 
 // Auth helpers are needed before the global auth/session gate.
 require_once __DIR__ . "/src/Engine/Auth/Support/helpers.php";
@@ -1236,7 +1216,7 @@ function routePublicStaticUrl(
         $url .= "/" . $suffix;
     }
 
-    return $url;
+    return routeApplyTrailingSlash($url, routeFriendlySettings($settings));
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1902,6 +1882,25 @@ function routePrefixMatches(
     );
 }
 
+function routeApplyTrailingSlash(string $path, array $settings, bool $preserveAppRoot = true): string
+{
+    $path = '/' . ltrim($path, '/');
+    $appRoot = rtrim((string) ($GLOBALS['baseUri'] ?? ''), '/');
+    if ($path === '/' || ($preserveAppRoot && $appRoot !== '' && rtrim($path, '/') === $appRoot)) {
+        return rtrim($path, '/') . '/';
+    }
+    if (preg_match('/\.[a-z0-9]+$/i', rtrim($path, '/')) === 1) {
+        return $path;
+    }
+
+    // Redirect policy also governs generated links and canonical URLs.
+    $mode = (string) ($settings['route_trailing_slash'] ?? 'none');
+    $addSlash = $mode === 'add'
+        || ($mode === 'none' && (string) ($settings['canonical_trailing_slash'] ?? '0') === '1');
+
+    return rtrim($path, '/') . ($addSlash ? '/' : '');
+}
+
 function routeCanonicalPath(string $type, string $slug = ""): string
 {
     global $baseUri;
@@ -1912,7 +1911,7 @@ function routeCanonicalPath(string $type, string $slug = ""): string
         $path .= "/" . rawurlencode($slug);
     }
 
-    return $path;
+    return routeApplyTrailingSlash($path, routeFriendlySettings());
 }
 
 function routeTopicIdSuffixEnabled(?array $settings = null): bool
@@ -2082,13 +2081,15 @@ function categoryUrl(string $slug, string $parentSlug = ""): string
         return routeCanonicalPath("category", $slug);
     }
 
-    return ($baseUri ?: "") .
+    $path = ($baseUri ?: "") .
         "/" .
         routePrefixValue("category") .
         "/" .
         rawurlencode($parentSlug) .
         "/" .
         rawurlencode($slug);
+
+    return routeApplyTrailingSlash($path, routeFriendlySettings());
 }
 
 function categoryListUrl(): string
@@ -2245,8 +2246,8 @@ function publicProfileResolveUserBySlug(PDO $pdo, string $slug): ?array
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             return is_array($user) ? $user : null;
         } catch (Throwable $e) {
-            error_log('[silent-catch] ' . $e->getMessage());
-            return null;
+            appLogException($e, ['fn' => 'publicProfileResolveUserBySlug']);
+            throw $e;
         }
     };
 
@@ -2761,12 +2762,14 @@ function seoCanonicalUrl(?string $path = null, ?array $settings = null): string
     $basePath = "/" . trim($basePath, "/");
     $basePath = $basePath === "/" ? "" : $basePath;
 
-    if ($path === null || $path === "") {
-        $path = (string) parse_url((string) ($_SERVER["REQUEST_URI"] ?? "/"), PHP_URL_PATH);
-    }
-    if (filter_var($path, FILTER_VALIDATE_URL)) {
-        $path = (string) parse_url($path, PHP_URL_PATH);
-    }
+    $source = $path === null || $path === '' ? (string) ($_SERVER['REQUEST_URI'] ?? '/') : $path;
+    $parts = parse_url($source);
+    $path = is_array($parts) ? (string) ($parts['path'] ?? '/') : '/';
+    $query = [];
+    parse_str(is_array($parts) ? (string) ($parts['query'] ?? '') : '', $query);
+    $page = is_scalar($query['page'] ?? null)
+        ? filter_var($query['page'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 2]])
+        : false;
 
     $path = "/" . ltrim(rawurldecode((string) $path), "/");
     $appBase = "/" . trim((string) ($baseUri ?? ""), "/");
@@ -2783,21 +2786,11 @@ function seoCanonicalUrl(?string $path = null, ?array $settings = null): string
     }
 
     $path = "/" . trim($path, "/");
-    $trailingSlash = (string) ($settings["canonical_trailing_slash"] ?? "0") === "1";
-    if ($path === "/") {
-        return $base . "/";
-    }
-
-    $hasExtension = pathinfo($path, PATHINFO_EXTENSION) !== "";
-    if ($trailingSlash && !$hasExtension && !str_ends_with($path, "/")) {
-        $path .= "/";
-    } elseif (!$trailingSlash) {
-        $path = rtrim($path, "/");
-    }
+    $path = routeApplyTrailingSlash($path, $settings, false);
 
     $url = $base . $path;
-    if (isset($_GET['page']) && is_numeric($_GET['page']) && (int)$_GET['page'] > 1) {
-        $url .= (str_contains($url, '?') ? '&' : '?') . 'page=' . (int)$_GET['page'];
+    if ($page !== false) {
+        $url .= '?page=' . $page;
     }
     
     return $url;
@@ -2984,7 +2977,7 @@ function getTopicStructuredDataJson(array $topic, ?array $settings = null): stri
             "name" => (string) $topic["author"],
         ];
     }
-    return (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
 }
 
 function getWebsiteStructuredDataJson(?array $settings = null): string
@@ -3012,7 +3005,7 @@ function getWebsiteStructuredDataJson(?array $settings = null): string
         ],
     ];
 
-    return (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
 }
 
 function sanitizeSeoHeadCode(string $html): string
