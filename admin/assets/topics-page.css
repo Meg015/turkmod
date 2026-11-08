@@ -202,3 +202,10 @@ html[data-theme="dark"] .topics-page, html[data-theme-mode="dark"] .topics-page 
     .topics-page .topic-actions-popover .topic-action-item { min-height: 44px; }
     .topics-page .topics-search-field input { font-size: 16px; }
 }
+
+.moderation-delivery-options { min-width: 0; margin: 18px 0 0; padding: 14px; border: 1px solid var(--ui-admin-border); border-radius: 10px; }
+.moderation-delivery-options[hidden] { display: none; }
+.moderation-delivery-options legend { float: none; width: auto; padding: 0 5px; margin: 0; font-size: 12px; font-weight: 700; color: var(--ui-admin-text); }
+.moderation-delivery-options label { display: flex; align-items: center; gap: 9px; padding: 7px 0; font-size: 13px; color: var(--ui-admin-text); cursor: pointer; }
+.moderation-delivery-options input { width: 16px; height: 16px; margin: 0; accent-color: var(--ui-admin-primary); }
+.moderation-delivery-options p { margin: 8px 0 0; font-size: 11px; line-height: 1.6; color: var(--ui-admin-text-secondary); }

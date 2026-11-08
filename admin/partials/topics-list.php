@@ -227,6 +227,9 @@ $topicSummaryItems = [
                                             <input type="hidden" name="topic_id" value="<?= (int) $t['id'] ?>">
                                             <input type="hidden" name="decision" value="revision">
                                             <input type="hidden" name="moderation_note" value="">
+                                            <input type="hidden" name="notify_in_app" value="1">
+                                            <input type="hidden" name="notify_message" value="0">
+                                            <input type="hidden" name="notify_email" value="0">
                                             <button type="submit" class="topic-action-item"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Revizyon iste</button>
                                         </form>
                                     <?php endif; ?>

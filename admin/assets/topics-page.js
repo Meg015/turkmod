@@ -193,6 +193,7 @@ function initTopicsModerationActionNoteModal() {
     const textarea = document.getElementById('moderationActionNoteText');
     const error = document.getElementById('moderationActionNoteError');
     const submitButton = document.getElementById('moderationActionNoteSubmit');
+    const deliveryOptions = modal ? modal.querySelector('[data-revision-delivery]') : null;
     let pendingForm = null;
     let pendingField = null;
     let lastTrigger = null;
@@ -227,6 +228,14 @@ function initTopicsModerationActionNoteModal() {
             event.preventDefault();
             pendingForm = form;
             pendingField = field;
+            submitButton.disabled = false;
+            const isRevision = form.querySelector('input[name="decision"]')?.value === 'revision';
+            if (deliveryOptions) {
+                deliveryOptions.hidden = !isRevision;
+                deliveryOptions.querySelectorAll('[data-revision-channel]').forEach(function(checkbox) {
+                    checkbox.checked = form.querySelector('input[name="notify_' + checkbox.dataset.revisionChannel + '"]')?.value === '1';
+                });
+            }
             const actionPanel = form.closest('.topic-actions-popover');
             lastTrigger = actionPanel
                 ? document.querySelector('[popovertarget="' + actionPanel.id + '"]')
@@ -260,8 +269,15 @@ function initTopicsModerationActionNoteModal() {
             return;
         }
 
-        if (pendingForm && pendingField) {
+        if (pendingForm && pendingField && !submitButton.disabled) {
             pendingField.value = note;
+            if (deliveryOptions && !deliveryOptions.hidden) {
+                deliveryOptions.querySelectorAll('[data-revision-channel]').forEach(function(checkbox) {
+                    const field = pendingForm.querySelector('input[name="notify_' + checkbox.dataset.revisionChannel + '"]');
+                    if (field) field.value = checkbox.checked ? '1' : '0';
+                });
+            }
+            submitButton.disabled = true;
             pendingForm.submit();
         }
     });

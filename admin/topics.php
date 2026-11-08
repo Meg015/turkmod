@@ -32,6 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         $topicId = (int)($_POST['topic_id'] ?? 0);
         $decision = trim((string)($_POST['decision'] ?? ''));
         $note = trim((string)($_POST['moderation_note'] ?? ''));
+        if (in_array($decision, ['revision', 'reject'], true) && ($note === '' || mb_strlen($note) > 2000)) {
+            flash('error', 'Moderasyon notu 1 ile 2000 karakter arasında olmalıdır.');
+            header('Location: topics.php');
+            exit;
+        }
         $topicForNotification = null;
         if ($topicId > 0) {
             try {
@@ -44,7 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         }
 
         $ok = adminQualitySetTopicModeration($pdo, $topicId, $decision, $note);
-        if ($ok && $topicForNotification && function_exists('notificationDispatch')) {
+        $revisionDelivery = null;
+        if ($ok && $topicForNotification && $decision === 'revision') {
+            $channels = [];
+            foreach (['in_app', 'email', 'message'] as $channel) {
+                if (($_POST['notify_' . $channel] ?? '0') === '1') $channels[] = $channel;
+            }
+            $revisionDelivery = (new \App\Modules\TopicWorkflow\Services\TopicModerationNotificationService())->sendRevision(
+                $pdo, $topicForNotification, $currentUserId, (string) ($_SESSION['_auth_user_name'] ?? 'Yönetim'),
+                $note, routePublicStaticUrl('edit_topic') . '?id=' . $topicId, $channels
+            );
+        } elseif ($ok && $topicForNotification && function_exists('notificationDispatch')) {
             try {
                 $eventKey = [
                     'approve' => 'topic_approved',
@@ -69,6 +84,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
             } catch (Throwable $e) { error_log('[silent-catch] ' . $e->getMessage()); }
         }
         flash($ok ? 'success' : 'error', $ok ? 'Moderasyon kararı kaydedildi.' : 'Moderasyon kararı kaydedilemedi.');
+        if ($revisionDelivery !== null) {
+            $channelLabels = ['in_app' => 'site içi bildirim', 'email' => 'e-posta', 'message' => 'özel mesaj'];
+            if ($revisionDelivery['sent'] !== []) {
+                $sentLabels = array_map(static fn (string $channel): string => $channelLabels[$channel] . ($channel === 'email' ? ' kuyruğa alındı' : ' gönderildi'), $revisionDelivery['sent']);
+                flash('success', 'Revizyon kaydedildi. ' . implode(', ', $sentLabels) . '.');
+            }
+            if ($revisionDelivery['failed'] !== []) {
+                flash('warning', 'Revizyon kaydedildi; şu kanallara iletilemedi: ' . implode(', ', array_map(static fn (string $channel): string => $channelLabels[$channel], $revisionDelivery['failed'])) . '. Gönderim ayarlarını ve alıcının tercihlerini kontrol edin.');
+            }
+        }
         header('Location: topics.php');
         exit;
     }
@@ -315,7 +340,14 @@ require_once __DIR__ . '/header.php';
                 Not metni
                 <span>Zorunlu</span>
             </label>
-            <textarea class="moderation-action-note-text" id="moderationActionNoteText" rows="5" placeholder="Örn: İçeriği yayınlamadan önce eksik bilgileri tamamlayın."></textarea>
+            <textarea class="moderation-action-note-text" id="moderationActionNoteText" rows="5" maxlength="2000" placeholder="Örn: İçeriği yayınlamadan önce eksik bilgileri tamamlayın."></textarea>
+            <fieldset class="moderation-delivery-options" data-revision-delivery hidden>
+                <legend>Revizyon notunu ilet</legend>
+                <label><input type="checkbox" data-revision-channel="in_app" checked><i class="bi bi-bell" aria-hidden="true"></i> Site içi bildirim</label>
+                <label><input type="checkbox" data-revision-channel="message"><i class="bi bi-chat-left-text" aria-hidden="true"></i> Özel mesaj</label>
+                <label><input type="checkbox" data-revision-channel="email"><i class="bi bi-envelope" aria-hidden="true"></i> E-posta</label>
+                <p>Seçtiğiniz kanallara not ve konu düzenleme bağlantısı iletilir. Seçim yapmadan da revizyonu kaydedebilirsiniz.</p>
+            </fieldset>
             <div class="moderation-action-note-error" id="moderationActionNoteError" aria-live="polite" hidden></div>
         </div>
         <div class="moderation-note-footer ui-modal__foot ui-panel__foot">

@@ -41,6 +41,7 @@
     }
 
     function toast(message, type) {
+        if (type === 'success') return;
         window.showToast(message, type || "info");
     }
 
@@ -139,6 +140,9 @@
         var historyLoading = false;
         var historyExhausted = false;
         var pendingThreadDeletes = {};
+        var threadVersion = 0;
+        var inboxVersion = 0;
+        var sendingMessage = false;
 
         if (stream) {
             stream.scrollTop = stream.scrollHeight;
@@ -276,10 +280,10 @@
         }
 
         var sidebarSearch = root.querySelector("[data-messages-sidebar-search-input]");
-        var threadItems = root.querySelectorAll("[data-thread-item]");
-        if (sidebarSearch && threadItems.length > 0) {
+        if (sidebarSearch) {
             sidebarSearch.addEventListener("input", function () {
                 var q = String(sidebarSearch.value || "").toLowerCase().trim();
+                var threadItems = root.querySelectorAll('[data-thread-item]');
                 for (var i = 0; i < threadItems.length; i++) {
                     var item = threadItems[i];
                     var strongEl = item.querySelector("strong");
@@ -325,11 +329,13 @@
             var url = new URL(apiUrl, window.location.origin);
             url.searchParams.set("action", "list");
             url.searchParams.set("limit", "1");
+            var version = inboxVersion;
             fetchJson(url.toString(), {
                 headers: { "X-Requested-With": "XMLHttpRequest" },
+                cache: 'no-store',
                 notifyError: false
             }).then(function (data) {
-                if (data && data.ok) {
+                if (data && data.ok && version === inboxVersion) {
                     updateThreadSummary(data.unread_count);
                     setTopbarMessageBadge(data.unread_count, true);
                 }
@@ -359,6 +365,7 @@
         function removeThreadFromPage(threadId, unreadCount) {
             var normalizedThreadId = Number(threadId || 0);
             if (normalizedThreadId <= 0) return;
+            inboxVersion++;
             var row = root.querySelector('[data-thread-id="' + normalizedThreadId + '"]');
             if (row) row.remove();
             updateThreadSummary(unreadCount);
@@ -371,6 +378,103 @@
                 root.setAttribute("data-active-thread-id", "0");
                 window.location.assign(messagesUrl);
             }
+        }
+
+        function updateInboxThreads(threads, unreadCount) {
+            var sidebar = root.querySelector('.messages-sidebar');
+            if (!sidebar) return;
+            var list = sidebar.querySelector('[data-messages-thread-list]');
+            var visibleIds = new Set(threads.map(function(thread) { return Number(thread.thread_id || 0); }));
+            if (list) list.querySelectorAll('[data-thread-item]').forEach(function(row) {
+                var id = Number(row.getAttribute('data-thread-id') || 0);
+                if (!visibleIds.has(id) && !pendingThreadDeletes[id]) row.remove();
+            });
+            if (!list && threads.length) {
+                sidebar.querySelector('.messages-empty-state')?.remove();
+                list = document.createElement('div');
+                list.className = 'messages-thread-list';
+                list.setAttribute('data-messages-thread-list', '');
+                sidebar.appendChild(list);
+            }
+            threads.forEach(function(thread, index) {
+                var id = Number(thread.thread_id || 0);
+                if (!list || id <= 0 || pendingThreadDeletes[id]) return;
+                var row = list.querySelector('[data-thread-id="' + id + '"]');
+                if (!row) {
+                    row = document.createElement('div');
+                    row.className = 'messages-thread-row';
+                    row.setAttribute('data-thread-item', '');
+                    row.setAttribute('data-thread-id', String(id));
+                    row.setAttribute('data-with-user-id', String(Number(thread.with_user_id || 0)));
+                    row.innerHTML = '<a class="messages-thread-item" href="' + escapeHtml(thread.thread_url) + '">'
+                        + '<span class="messages-avatar-presence messages-avatar-presence--thread"><img width="42" height="42" loading="lazy" data-ui-avatar-img src="' + escapeHtml(thread.with_user_avatar) + '" alt="' + escapeHtml(thread.with_user_name) + '">'
+                        + '<span class="messages-presence-dot" data-messages-thread-presence data-presence-user-id="' + Number(thread.with_user_id || 0) + '"></span></span>'
+                        + '<span class="messages-thread-main"><span class="messages-thread-topline"><strong>' + escapeHtml(thread.with_user_name) + '</strong><time></time></span><span class="messages-thread-preview"></span></span></a>'
+                        + '<button type="button" class="messages-thread-delete" data-messages-thread-delete data-delete-thread-id="' + id + '" data-delete-thread-name="' + escapeHtml(thread.with_user_name) + '" aria-label="' + escapeHtml(thread.with_user_name) + ' ile sohbeti sil" title="Sohbeti sil"><i class="bi bi-trash3" aria-hidden="true"></i></button>';
+                    list.prepend(row);
+                }
+                row.classList.toggle('is-active', id === activeThreadId);
+                row.querySelector('a').classList.toggle('is-active', id === activeThreadId);
+                if (list.children[index] !== row) list.insertBefore(row, list.children[index] || null);
+                var preview = row.querySelector('.messages-thread-preview');
+                var time = row.querySelector('time');
+                if (preview) preview.textContent = thread.last_message_preview || '';
+                if (time) {
+                    time.textContent = thread.last_message_at_label || '';
+                    time.setAttribute('datetime', thread.last_message_at || '');
+                }
+                updatePresenceIndicator(row.querySelector('[data-messages-thread-presence]'), thread);
+                var readState = row.querySelector('.messages-thread-read-state');
+                if (thread.last_message_is_mine) {
+                    if (!readState) {
+                        readState = document.createElement('span');
+                        readState.className = 'messages-thread-read-state';
+                        row.querySelector('.messages-thread-main').appendChild(readState);
+                    }
+                    readState.classList.toggle('is-read', !!thread.last_message_read);
+                    readState.textContent = thread.last_message_read ? 'Okundu' : 'Gönderildi';
+                } else if (readState) readState.remove();
+                var count = id === activeThreadId ? 0 : Number(thread.unread_count || 0);
+                var badge = row.querySelector('.messages-thread-unread');
+                if (count > 0 && !badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'messages-thread-unread';
+                    row.querySelector('a').appendChild(badge);
+                }
+                if (badge) {
+                    badge.hidden = count <= 0;
+                    badge.textContent = count > 99 ? '99+' : String(count);
+                }
+            });
+            updateThreadSummary(unreadCount);
+            setTopbarMessageBadge(unreadCount, true);
+            if (sidebarSearch && sidebarSearch.value) sidebarSearch.dispatchEvent(new Event('input'));
+        }
+
+        var inboxPolling = false;
+        var inboxPending = false;
+        function pollInbox() {
+            if (document.hidden || !apiUrl) return Promise.resolve();
+            if (inboxPolling) { inboxPending = true; return Promise.resolve(); }
+            inboxPolling = true;
+            var version = inboxVersion;
+            var url = new URL(apiUrl, window.location.origin);
+            url.searchParams.set('action', 'list');
+            url.searchParams.set('limit', '80');
+            url.searchParams.set('active_thread_id', String(activeThreadId));
+            var controller = new AbortController();
+            var timeout = window.setTimeout(function() { controller.abort(); }, 10000);
+            return fetchJson(url.toString(), { cache: 'no-store', notifyError: false, signal: controller.signal })
+                .then(function(data) {
+                    if (version !== inboxVersion) { inboxPending = true; return; }
+                    if (data.ok && Array.isArray(data.threads)) updateInboxThreads(data.threads, data.unread_count);
+                })
+                .catch(function() {})
+                .finally(function() {
+                    window.clearTimeout(timeout);
+                    inboxPolling = false;
+                    if (inboxPending) { inboxPending = false; pollInbox(); }
+                });
         }
 
         root.addEventListener("click", function (event) {
@@ -532,6 +636,7 @@
                     fetchJson(apiUrl, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
                     .then(function(data) {
                         if (data.ok) {
+                            applyMessageChange(data.updated_message || {id: msgId, body: 'Bu mesaj silindi', is_deleted: true});
                             toast(data.message || "Mesaj silindi.", "success");
                             pollThread(false); // refresh thread
                         }
@@ -567,6 +672,7 @@
                     fetchJson(apiUrl, { method: "POST", body: fd2, headers: { "X-Requested-With": "XMLHttpRequest" } })
                     .then(function(data) {
                         if (data.ok) {
+                            applyMessageChange(data.updated_message || {id: msgId, body: newBody, is_deleted: false});
                             toast(data.message || "Mesaj duzenlendi.", "success");
                             pollThread(false); // refresh thread
                         }
@@ -588,6 +694,18 @@
             threadMessages.forEach(function(m) { map[m.id] = m; });
             newMessages.forEach(function(m) { map[m.id] = m; });
             threadMessages = Object.values(map).sort(function(a, b) { return a.id - b.id; });
+        }
+
+        function applyMessageChange(patch) {
+            var id = Number(patch && patch.id || 0);
+            if (id <= 0) return;
+            threadVersion++;
+            inboxVersion++;
+            threadMessages = threadMessages.map(function(message) {
+                return Number(message.id) === id ? Object.assign({}, message, patch, {id: id}) : message;
+            });
+            renderStream();
+            pollInbox();
         }
 
         function formatDateOnlyLabel(ymd) {
@@ -727,7 +845,9 @@
                     url.searchParams.set("thread_id", activeThreadId);
                     url.searchParams.set("before_id", beforeId);
 
-                    fetchJson(url.toString(), { headers: { "X-Requested-With": "XMLHttpRequest" } })
+                    var controller = new AbortController();
+                    var timeout = window.setTimeout(function() { controller.abort(); }, 10000);
+                    fetchJson(url.toString(), { headers: { "X-Requested-With": "XMLHttpRequest" }, cache: 'no-store', notifyError: false, signal: controller.signal })
                     .then(function(data) {
                         if (data.ok && data.messages) {
                             if (data.messages.length === 0) {
@@ -739,7 +859,11 @@
                             }
                         }
                     })
+                    .catch(function(error) {
+                        toast(error && error.name !== 'AbortError' && error.message ? error.message : 'Geçmiş mesajlar yüklenemedi. Tekrar denemek için yukarı kaydırın.', 'error');
+                    })
                     .finally(function() {
+                        window.clearTimeout(timeout);
                         historyLoading = false;
                     });
                 }
@@ -749,8 +873,11 @@
         if (sendForm) {
             sendForm.addEventListener("submit", function(e) {
                 e.preventDefault();
+                if (sendingMessage) return;
+                var composerValue = composerTextarea ? composerTextarea.value : '';
                 var body = composerTextarea ? composerTextarea.value.trim() : "";
                 if (!body) return;
+                sendingMessage = true;
 
                 var btn = sendForm.querySelector("button[type='submit']");
                 var origBtnHtml = null;
@@ -769,7 +896,9 @@
                 })
                 .then(function(data) {
                     if (data.ok) {
-                        if (composerTextarea) {
+                        threadVersion++;
+                        inboxVersion++;
+                        if (composerTextarea && composerTextarea.value === composerValue) {
                             composerTextarea.value = "";
                             composerTextarea.style.height = "auto";
                             composerTextarea.focus();
@@ -825,6 +954,7 @@
 
                         // Sunucudan mesajları kesin güncelle
                         pollThread(true);
+                        pollInbox();
                     } else {
                         toast(data.message || "Mesaj gonderilemedi", "error");
                     }
@@ -833,6 +963,7 @@
                     toast(error && error.message ? error.message : "Baglanti hatasi", "error");
                 })
                 .finally(function() {
+                    sendingMessage = false;
                     if (btn) {
                         btn.disabled = false;
                         btn.classList.remove('is-submitting');
@@ -883,15 +1014,26 @@
                 return Promise.resolve();
             }
             isPolling = true;
+            var version = threadVersion;
+            var requestedThreadId = activeThreadId;
 
             var url = new URL(apiUrl, window.location.origin);
             url.searchParams.set("action", "thread");
             url.searchParams.set("thread_id", activeThreadId);
 
+            var controller = new AbortController();
+            var timeout = window.setTimeout(function () { controller.abort(); }, 10000);
             return fetchJson(url.toString(), {
-                headers: { "X-Requested-With": "XMLHttpRequest" }
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+                cache: 'no-store',
+                signal: controller.signal,
+                notifyError: false
             })
             .then(function(data) {
+                if (version !== threadVersion || requestedThreadId !== activeThreadId) {
+                    pollPending = true;
+                    return;
+                }
                 if (data.ok && data.thread && data.messages) {
                     var wasAtBottom = false;
                     if (stream) {
@@ -927,8 +1069,15 @@
                     }
                 }
             })
-            .catch(function() {})
+            .catch(function(error) {
+                if (Number(error && error.status) === 404 && requestedThreadId === activeThreadId) {
+                    activeThreadId = 0;
+                    root.setAttribute('data-active-thread-id', '0');
+                    window.location.assign(messagesUrl);
+                }
+            })
             .finally(function() {
+                window.clearTimeout(timeout);
                 isPolling = false;
                 if (pollPending) {
                     var nextForce = pollPendingForceScroll;
@@ -957,9 +1106,9 @@
                 return;
             }
 
-            if (data.thread_id === activeThreadId) {
+            if (Number(data.thread_id || 0) === activeThreadId) {
                 if (data.type === "typing") {
-                    if (data.user_id !== currentUserId && activeThreadData) {
+                    if (Number(data.user_id || 0) !== currentUserId && activeThreadData) {
                         activeThreadData.is_typing_now = true;
                         renderStream();
                         clearTimeout(window.typingTimer);
@@ -971,15 +1120,20 @@
                         }, 4000);
                     }
                 } else if (data.type === "stop_typing") {
-                    if (data.user_id !== currentUserId && activeThreadData) {
+                    if (Number(data.user_id || 0) !== currentUserId && activeThreadData) {
                         activeThreadData.is_typing_now = false;
                         clearTimeout(window.typingTimer);
                         renderStream();
                     }
-                } else if (data.type === "new_message" || data.type === "edit_message" || data.type === "delete_message") {
+                } else if (data.type === 'edit_message' || data.type === 'delete_message') {
+                    if (data.type === 'delete_message') applyMessageChange({id: data.message_id, body: 'Bu mesaj silindi', is_deleted: true});
+                    else if (typeof data.body === 'string') applyMessageChange({id: data.message_id, body: data.body, is_deleted: false});
+                    pollThread(false);
+                } else if (data.type === "new_message") {
                     pollThread(false);
                 }
             } else if (data.type === "new_message") {
+                pollInbox();
                 var threadItem = root.querySelector('[data-thread-id="' + data.thread_id + '"]');
                 if (threadItem) {
                     var preview = threadItem.querySelector(".messages-thread-preview");
@@ -993,20 +1147,45 @@
             }
         }
 
-        if (window.publicTopbarRealtime && typeof window.publicTopbarRealtime.subscribe === "function") {
-            window.publicTopbarRealtime.subscribe(handleRealtimeEvent);
+        var subscribedRealtimeApi = null;
+        var unsubscribeRealtime = null;
+        function bindMessagesRealtime() {
+            var api = window.publicTopbarRealtime;
+            if (api && api !== subscribedRealtimeApi && typeof api.subscribe === 'function') {
+                if (typeof unsubscribeRealtime === 'function') unsubscribeRealtime();
+                subscribedRealtimeApi = api;
+                unsubscribeRealtime = api.subscribe(handleRealtimeEvent);
+            }
         }
+        bindMessagesRealtime();
 
-        // Automatic 3.5s HTTP Polling interval for active thread (Real-time updates & typing indicator)
+        // HTTP fallback also keeps conversations current when WebSocket is unavailable.
         var activeThreadPollInterval = setInterval(function () {
+            bindMessagesRealtime();
             if (activeThreadId > 0 && !document.hidden) {
                 pollThread(false);
             }
-        }, 3500);
+        }, 2500);
+        var inboxPollInterval = setInterval(pollInbox, 10000);
+        pollInbox();
+
+        function resumeMessages() {
+            bindMessagesRealtime();
+            if (!document.hidden) {
+                pollThread(false);
+                pollInbox();
+            }
+        }
+        document.addEventListener('visibilitychange', resumeMessages);
+        window.addEventListener('focus', resumeMessages);
+        window.addEventListener('online', resumeMessages);
+        window.addEventListener('pageshow', resumeMessages);
 
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
+    function startMessagesPage() {
         initMessagesPage(document.querySelector("[data-messages-root]"));
-    });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startMessagesPage);
+    else startMessagesPage();
 })();

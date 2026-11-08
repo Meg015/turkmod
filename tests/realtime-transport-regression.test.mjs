@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-async function fixture(userId) {
+async function fixture(userId, options = {}) {
     const documentListeners = {};
     const windowListeners = {};
     const timers = new Map();
@@ -12,6 +12,8 @@ async function fixture(userId) {
     const sockets = [];
     const storage = new Map();
     const broadcasts = [];
+    const toasts = [];
+    let notificationBadges = 0;
     let sequence = 0;
     let refreshes = 0;
     class Socket {
@@ -29,10 +31,14 @@ async function fixture(userId) {
         close() {}
     }
     const document = {
+        readyState: options.readyState || 'loading',
         hidden: false,
         hasFocus: () => true,
         body: {},
         querySelector(selector) {
+            if (selector === '[data-messages-root]' && options.messagePage) {
+                return { getAttribute: () => String(options.activeThreadId || 0) };
+            }
             if (selector === '[data-public-topbar-user-id]') {
                 return {getAttribute: name => name === 'data-public-topbar-user-id' ? String(userId) : 'ws://localhost/realtime'};
             }
@@ -44,8 +50,9 @@ async function fixture(userId) {
         addEventListener(name, handler) { documentListeners[name] = handler; },
     };
     const window = {
-        location: {origin: 'http://localhost', protocol: 'http:', reload() {}},
-        publicTopbar: {refreshMessages() { refreshes++; }, refreshNotifications() { refreshes++; }},
+        location: {origin: 'http://localhost', href: 'http://localhost/turkmod/mesajlar', protocol: 'http:', reload() {}},
+        publicTopbar: {refreshMessages() { refreshes++; }, refreshNotifications() { refreshes++; }, incrementNotificationBadge() { notificationBadges++; }},
+        showToast(...args) { toasts.push(args); },
         WebSocket: Socket,
         BroadcastChannel: Channel,
         localStorage: {
@@ -67,7 +74,7 @@ async function fixture(userId) {
     };
     const context = vm.createContext({document, window, WebSocket: Socket, URL, console});
     vm.runInContext(fs.readFileSync(new URL('../assets/js/public-topbar-realtime.js', import.meta.url), 'utf8'), context);
-    documentListeners.DOMContentLoaded();
+    documentListeners.DOMContentLoaded?.();
     const settle = async () => { for (let i = 0; i < 12; i++) { await Promise.resolve(); } };
     await settle();
     const runTimers = async maxDelay => {
@@ -75,7 +82,7 @@ async function fixture(userId) {
         for (const [id, timer] of pending) { if (timers.delete(id)) timer.callback(); }
         await settle();
     };
-    return {window, timers, intervals, requests, sockets, storage, broadcasts, windowListeners, runTimers, settle, refreshes: () => refreshes};
+    return {window, document, timers, intervals, requests, sockets, storage, broadcasts, windowListeners, runTimers, settle, toasts, notificationBadges: () => notificationBadges, refreshes: () => refreshes};
 }
 
 test('authenticated presence uses WebSocket snapshots and never switches to HTTP after disconnection', async () => {
@@ -128,4 +135,36 @@ test('browser back restores the channel and connection after pagehide cleanup', 
     await f.runTimers(25);
     assert.equal(f.sockets.length, 2);
     assert.equal([...f.intervals.values()].filter(timer => timer.delay === 10000).length, 1);
+});
+
+test('active conversation suppresses its bell event and all private-message toasts', async () => {
+    const f = await fixture(5, {messagePage: true, activeThreadId: 12});
+    await f.runTimers(25);
+    const socket = f.sockets[0];
+    const notification = {type: 'notification', notification_id: 71, link: '/turkmod/mesajlar?thread=12', title: 'Yeni mesaj', message: 'Test'};
+    socket.onmessage({data: JSON.stringify(notification)});
+    assert.equal(f.notificationBadges(), 0);
+    assert.equal(f.toasts.length, 0);
+    assert.equal(f.window.publicTopbarRealtime.notifyMessage({message_id: 81, thread_id: 12, sender_user_id: 9, sender_name: 'Üye', thread_url: '/turkmod/mesajlar?thread=12'}), false);
+    assert.equal(f.toasts.length, 0);
+    socket.onmessage({data: JSON.stringify({...notification, notification_id: 72, link: '/turkmod/mesajlar?thread=13'})});
+    assert.equal(f.notificationBadges(), 1, 'Other conversations must retain their bell count');
+    assert.equal(f.toasts.length, 0, 'Message page must not toast other conversations either');
+    socket.onmessage({data: JSON.stringify({...notification, notification_id: 73, link: '/turkmod/konu/ornek'})});
+    assert.equal(f.notificationBadges(), 2);
+    assert.equal(f.toasts.length, 1, 'Nonmessage events must remain visible');
+});
+
+test('private-message toasts remain enabled outside the message page', async () => {
+    const f = await fixture(5);
+    const shown = f.window.publicTopbarRealtime.notifyMessage({message_id: 81, thread_id: 12, sender_user_id: 9, sender_name: 'Üye', thread_url: '/turkmod/mesajlar?thread=12'});
+    assert.equal(shown, true);
+    assert.equal(f.toasts.length, 1);
+});
+
+test('realtime initializes when the script loads after DOMContentLoaded', async () => {
+    const f = await fixture(5, {readyState: 'complete'});
+    await f.runTimers(25);
+    assert.ok(f.window.publicTopbarRealtime);
+    assert.equal(f.sockets.length, 1);
 });

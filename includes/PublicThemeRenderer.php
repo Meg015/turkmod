@@ -59,12 +59,12 @@ final class PublicThemeRenderer
         $headerCategoryMenuItems = self::categoryMenuItems($categoryNodes, $activeCategorySlug, 'topbar', $baseUri, $pdo);
 
         $isEventsRequest = preg_match('~(?:^|/)events(?:/|$)~', '/' . trim((string) parse_url($currentRequestUri, PHP_URL_PATH), '/')) === 1;
-        $pageKey = self::pageKey($currentScript, $isEventsRequest, $currentRequestUri);
+        $pageKey = !empty($context['is_not_found']) ? 'not_found' : self::pageKey($currentScript, $isEventsRequest, $currentRequestUri);
         $redirectPath = (string) parse_url((string) ($_GET['redirect'] ?? ''), PHP_URL_PATH);
         $isEventsLoginRedirect = in_array($currentScript, ['login.php', 'giris'], true)
             && preg_match('~(?:^|/)events(?:/|$)~', '/' . trim($redirectPath, '/')) === 1;
         $focusPageKeys = array_values(array_unique(array_merge(
-            ['download', 'events', 'profile', 'public_profile', 'upload_topic', 'edit_topic', 'notifications', 'messages', 'leaderboard', 'contact', 'static_page'],
+            ['download', 'events', 'profile', 'public_profile', 'upload_topic', 'edit_topic', 'notifications', 'messages', 'leaderboard', 'contact', 'static_page', 'not_found'],
             ThemeMetadata::authFocusPageKeys($themeManager),
         )));
         $isFocusLayout = in_array($pageKey, $focusPageKeys, true) || $isEventsLoginRedirect;
@@ -165,7 +165,7 @@ final class PublicThemeRenderer
         $sidebarGlobalEnabled = !empty($leftSidebarVars['sidebar_global_enabled']) || !empty($rightSidebarVars['sidebar_global_enabled']);
         $showLeftSidebar = !$isFocusLayout && $sidebarGlobalEnabled && $desktopLayout !== 'right' && !empty($leftSidebarVars['has_sidebar_widgets']);
         $showRightSidebar = !$isFocusLayout && $sidebarGlobalEnabled && $desktopLayout !== 'left' && !empty($rightSidebarVars['has_sidebar_widgets']);
-        if (in_array($pageKey, ['leaderboard', 'upload_topic', 'edit_topic', 'messages'], true)) {
+        if (in_array($pageKey, ['leaderboard', 'upload_topic', 'edit_topic', 'messages', 'not_found'], true)) {
             $showLeftSidebar = false;
             $showRightSidebar = false;
         }

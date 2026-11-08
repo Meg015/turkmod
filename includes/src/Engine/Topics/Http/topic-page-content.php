@@ -129,17 +129,8 @@ if ($id > 0) {
 
 
 if (!$topic) {
-
-    http_response_code(404);
-
-    $pageTitle = "Konu Bulunamadı";
-
-    require_once $projectRoot . "/includes/public-header.php";
-
-    echo uiRenderAlert('Konu bulunamadı veya silinmiş.', 'danger');
-
-    require_once $projectRoot . "/includes/public-footer.php";
-
+    (new \App\Engine\Seo\Http\NotFoundPage($projectRoot, $baseUri, topicMissing: true))
+        ->handle(\App\Core\Http\Request::fromGlobals())->send();
     exit();
 
 }

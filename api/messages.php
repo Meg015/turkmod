@@ -8,6 +8,8 @@ use App\Modules\Messages\Services\MessageService;
 
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $userId = (int) ($_SESSION['_auth_user_id'] ?? 0);
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 if ($userId <= 0) {
     sendUnauthorized('Oturum acmaniz gerekiyor.');
@@ -29,6 +31,7 @@ $postAction = trim((string) ($_POST['action'] ?? ''));
 
 try {
     if ($method === 'GET') {
+        session_write_close();
         $action = $getAction !== '' ? $getAction : 'dropdown';
 
         switch ($action) {
@@ -57,6 +60,8 @@ try {
                         'unread_count' => 0,
                     ]);
                 }
+                $activeThreadId = max(0, (int) ($_GET['active_thread_id'] ?? 0));
+                if ($activeThreadId > 0) $service->markThreadsRead($pdo, $userId, [$activeThreadId]);
                 sendSuccess('OK', [
                     'ok' => true,
                     'threads' => $service->listThreads($pdo, $userId, $limit, $baseUri),
@@ -217,7 +222,7 @@ try {
                 if (empty($result['success'])) {
                     sendValidationError((string) ($result['message'] ?? 'Mesaj silinemedi.'));
                 }
-                sendSuccess((string) ($result['message'] ?? 'Mesaj silindi.'), ['ok' => true]);
+                sendSuccess((string) ($result['message'] ?? 'Mesaj silindi.'), ['ok' => true, 'updated_message' => $result['updated_message'] ?? null]);
 
             case 'edit':
                 if (!$schemaReady) {
@@ -229,7 +234,7 @@ try {
                 if (empty($result['success'])) {
                     sendValidationError((string) ($result['message'] ?? 'Mesaj düzenlenemedi.'));
                 }
-                sendSuccess((string) ($result['message'] ?? 'Mesaj düzenlendi.'), ['ok' => true]);
+                sendSuccess((string) ($result['message'] ?? 'Mesaj düzenlendi.'), ['ok' => true, 'updated_message' => $result['updated_message'] ?? null]);
 
             default:
                 sendValidationError('Gecersiz islem.');

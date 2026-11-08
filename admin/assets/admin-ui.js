@@ -1414,7 +1414,10 @@
         return overlay;
     }
 
+    var activeNativeDialogCancel = null;
+
     function nativeDialog(options) {
+        if (activeNativeDialogCancel) activeNativeDialogCancel();
         var opts = Object.assign({
             title: 'Bilgi',
             message: '',
@@ -1443,7 +1446,7 @@
             ? 'textarea'
             : (opts.input === true ? (opts.type || 'text') : opts.input);
         var useTextarea = inputMode === 'textarea';
-        var inputField = useTextarea ? textarea : input;
+        var inputField = inputMode ? (useTextarea ? textarea : input) : null;
 
         var kindClass = opts.kind ? String(opts.kind).replace(/[^a-z0-9_-]/gi, '') : '';
         overlay.className = 'ui-admin-native-dialog-overlay is-' + (opts.tone || 'warning') + (kindClass ? ' is-' + kindClass : '');
@@ -1461,6 +1464,8 @@
             }
             field.hidden = true;
             field.value = '';
+            (field._adminPromptAttributes || []).forEach(function (attribute) { field.removeAttribute(attribute); });
+            field._adminPromptAttributes = [];
         });
 
         if (inputField) {
@@ -1476,6 +1481,7 @@
             }
             if (opts.inputAttributes && typeof opts.inputAttributes === 'object') {
                 Object.keys(opts.inputAttributes).forEach(function (attribute) {
+                    inputField._adminPromptAttributes.push(attribute);
                     var attributeValue = opts.inputAttributes[attribute];
                     if (attributeValue === null || attributeValue === undefined || attributeValue === false) {
                         inputField.removeAttribute(attribute);
@@ -1492,9 +1498,15 @@
         document.body.classList.add('ui-admin-dialog-open');
 
         return new Promise(function (resolve) {
+            var settled = false;
+            var focusTimer = null;
             var finish = function (result) {
+                if (settled) return;
+                settled = true;
+                if (focusTimer) window.clearTimeout(focusTimer);
+                if (activeNativeDialogCancel === onCancel) activeNativeDialogCancel = null;
                 overlay.hidden = true;
-                document.body.classList.remove('ui-admin-dialog-open');
+                syncDialogBodyLock();
                 okButton.removeEventListener('click', onOk);
                 cancelButton.removeEventListener('click', onCancel);
                 overlay.removeEventListener('click', onOverlay);
@@ -1507,6 +1519,7 @@
             var onCancel = function () {
                 finish(inputField ? null : false);
             };
+            activeNativeDialogCancel = onCancel;
             var onOverlay = function (event) {
                 if (event.target === overlay) {
                     onCancel();
@@ -1529,7 +1542,7 @@
             cancelButton.addEventListener('click', onCancel);
             overlay.addEventListener('click', onOverlay);
             document.addEventListener('keydown', onKeydown);
-            window.setTimeout(function () {
+            focusTimer = window.setTimeout(function () {
                 (inputField || okButton).focus();
             }, 0);
         });
@@ -1776,6 +1789,17 @@
 
     window.adminAlert = function (message, options) {
         var opts = Object.assign({ message: message }, options || {});
+        opts.message = String(opts.message || '').trim();
+        if (!opts.message) {
+            return Promise.resolve(true);
+        }
+        // Completed actions should not require a second click on a result dialog.
+        if (opts.tone === 'success') {
+            if (window.adminToast && typeof window.adminToast.success === 'function') {
+                window.adminToast.success(opts.message);
+            }
+            return Promise.resolve(true);
+        }
         if (window.Swal && typeof window.Swal.fire === 'function') {
             return window.Swal.fire(swalOptions(Object.assign({
                 title: opts.title || 'Bilgi',
@@ -1844,9 +1868,15 @@
         return nativeDialog(Object.assign({ input: inputMode, showCancel: true }, opts));
     };
 
+    var managedDialogCloseTimers = new WeakMap();
+
     function openManagedDialog(modal, options) {
         if (!modal) {
             return null;
+        }
+        if (managedDialogCloseTimers.has(modal)) {
+            window.clearTimeout(managedDialogCloseTimers.get(modal));
+            managedDialogCloseTimers.delete(modal);
         }
         var opts = options || {};
         var openClass = opts.openClass || 'is-open';
@@ -1881,6 +1911,7 @@
         if (!modal) {
             return;
         }
+        if (managedDialogCloseTimers.has(modal)) window.clearTimeout(managedDialogCloseTimers.get(modal));
         var opts = typeof options === 'function' ? { onClose: options } : (options || {});
         var openClass = opts.openClass || 'is-open';
         var bodyClass = opts.bodyClass || 'ui-admin-dialog-open';
@@ -1896,7 +1927,11 @@
         };
 
         modal.classList.add('is-closing');
-        window.setTimeout(finish, Number(opts.delay || 160));
+        var closeTimer = window.setTimeout(function () {
+            managedDialogCloseTimers.delete(modal);
+            finish();
+        }, opts.delay === undefined ? 160 : Math.max(0, Number(opts.delay) || 0));
+        managedDialogCloseTimers.set(modal, closeTimer);
     }
 
     var adminManagedDialogApi = {

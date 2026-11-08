@@ -907,51 +907,16 @@ if (typeof module !== 'undefined' && module.exports) {
       ["input", "change"].forEach(function (eventName) {
         input.addEventListener(eventName, function () {
           validateUploadFieldRules(form, false);
-          scheduleDraftSave(form);
         });
       });
     });
   }
 
-  function draftKey(form) {
-    return "turkmod.uploadTopicDraft.v2:" + (form.dataset.topicEditWizard === undefined ? "create" : "edit");
-  }
-
-  var draftTimer = null;
-  var restoringDraft = false;
-
-  function collectDraft(form) {
-    return {
-      title: inputValue(form, 'input[name="title"]'),
-      content: inputValue(form, 'textarea[name="content"]'),
-      author: inputValue(form, 'input[name="author_topic"]'),
-      version: inputValue(form, 'input[name="topic_version"]'),
-      videoUrl: inputValue(form, 'input[name="topic_video_url"]'),
-      links: Array.prototype.slice.call(form.querySelectorAll(".dl-row")).map(function (row) {
-        return {
-          name: inputValue(row, 'input[name="dl_name[]"]'),
-          url: inputValue(row, 'input[name="dl_url[]"]')
-        };
-      }),
-      savedAt: Date.now()
-    };
-  }
-
-  function saveDraft(form) {
-    if (restoringDraft || form.hasAttribute("data-topic-edit-wizard")) return;
-    try {
-      localStorage.setItem(draftKey(form), JSON.stringify(collectDraft(form)));
-    } catch (error) {}
-  }
-
-  function scheduleDraftSave(form) {
-    window.clearTimeout(draftTimer);
-    draftTimer = window.setTimeout(function () { saveDraft(form); }, 250);
-  }
-
   function clearDraft(form) {
+    if (form.hasAttribute('data-topic-edit-wizard')) return;
     try {
-      localStorage.removeItem(draftKey(form));
+      localStorage.removeItem('mod2.uploadTopicDraft.v1');
+      localStorage.removeItem('turkmod.uploadTopicDraft.v2:create');
     } catch (error) {}
   }
 
@@ -975,40 +940,30 @@ if (typeof module !== 'undefined' && module.exports) {
     return addDlRow(document.getElementById("uploadForm"), name, url);
   };
 
-  function restoreDraft(form) {
-    if (form.hasAttribute("data-topic-edit-wizard")) return;
-    var draft = null;
-    try {
-      draft = JSON.parse(localStorage.getItem(draftKey(form)) || "null");
-    } catch (error) {
-      draft = null;
-    }
-    if (!draft || typeof draft !== "object") return;
-    restoringDraft = true;
-    var title = form.querySelector('input[name="title"]');
-    var content = form.querySelector('textarea[name="content"]');
-    var author = form.querySelector('input[name="author_topic"]');
-    var version = form.querySelector('input[name="topic_version"]');
-    var video = form.querySelector('input[name="topic_video_url"]');
-    if (title && !title.value && draft.title) title.value = draft.title;
-    if (content && !content.value && draft.content) content.value = draft.content;
-    if (author && !author.value && draft.author) author.value = draft.author;
-    if (version && !version.value && draft.version) version.value = draft.version;
-    if (video && !video.value && draft.videoUrl) video.value = draft.videoUrl;
-    if (Array.isArray(draft.links) && draft.links.length > 0) {
-      var rows = Array.prototype.slice.call(form.querySelectorAll(".dl-row"));
-      rows.slice(1).forEach(function (row) { row.remove(); });
-      draft.links.forEach(function (link, index) {
-        var row = index === 0 ? form.querySelector(".dl-row") : addDlRow(form);
-        if (!row) return;
-        var nameInput = row.querySelector('input[name="dl_name[]"]');
-        var urlInput = row.querySelector('input[name="dl_url[]"]');
-        if (nameInput && !nameInput.value) nameInput.value = link.name || "";
-        if (urlInput && !urlInput.value) urlInput.value = link.url || "";
+  function resetCreateForm(form) {
+    if (form.hasAttribute('data-topic-edit-wizard')) return;
+    clearDraft(form);
+    form.reset();
+    form.querySelectorAll('textarea.rich-editor').forEach(function(textarea) {
+      if (textarea.quillInstance) textarea.quillInstance.setText('', 'silent');
+      textarea.value = '';
+    });
+    form.querySelectorAll('.dl-row').forEach(function(row, index) {
+      if (index > 0) row.remove();
+      else row.querySelectorAll('input').forEach(function(input) { input.value = ''; });
+    });
+    syncDownloadLinksHidden(form);
+    if (form.dataset.freshUploadHistoryBound !== '1') {
+      form.dataset.freshUploadHistoryBound = '1';
+      window.addEventListener('pageshow', function(event) {
+        var navigation = window.performance && typeof window.performance.getEntriesByType === 'function'
+          ? window.performance.getEntriesByType('navigation')[0] : null;
+        if (event.persisted || navigation && navigation.type === 'back_forward') {
+          resetCreateForm(form);
+          window.location.reload();
+        }
       });
     }
-    syncDownloadLinksHidden(form);
-    restoringDraft = false;
   }
 
   window.ensureUploadQuillEditors = function () {
@@ -1021,7 +976,6 @@ if (typeof module !== 'undefined' && module.exports) {
             var form = textarea.closest("form");
             if (form) {
               validateUploadFieldRules(form, false);
-              scheduleDraftSave(form);
             }
           });
         }
@@ -1069,7 +1023,6 @@ if (typeof module !== 'undefined' && module.exports) {
           var form = textarea.closest("form");
           if (form) {
             validateUploadFieldRules(form, false);
-            scheduleDraftSave(form);
           }
         });
         textarea.quillInstance = quill;
@@ -1136,7 +1089,6 @@ if (typeof module !== 'undefined' && module.exports) {
       if (addButton && form.contains(addButton)) {
         addDlRow(form);
         validateUploadFieldRules(form, false);
-        scheduleDraftSave(form);
         return;
       }
       var removeButton = event.target.closest("[data-dl-remove]");
@@ -1144,12 +1096,11 @@ if (typeof module !== 'undefined' && module.exports) {
         var row = removeButton.closest(".dl-row");
         if (row) row.remove();
         validateUploadFieldRules(form, false);
-        scheduleDraftSave(form);
       }
     });
 
     bindUploadRuleInputs(form, form);
-    restoreDraft(form);
+    resetCreateForm(form);
     validateUploadFieldRules(form, false);
     window.ensureUploadQuillEditors();
     window.addEventListener("load", window.ensureUploadQuillEditors);

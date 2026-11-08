@@ -351,6 +351,7 @@ if (
         "env_config" => $envConfig,
         "app_name" => $appName,
         "page_title" => $pageTitle,
+        "is_not_found" => ($pageKey ?? '') === 'not_found',
         "meta_description" => $metaDescription,
         "is_logged_in" => $isLoggedIn,
         "site_language" => $_siteLanguage,

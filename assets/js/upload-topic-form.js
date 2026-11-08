@@ -187,96 +187,50 @@ function bindUploadRuleInputs(scope) {
         input.addEventListener('input', function() {
             clearUploadFieldInvalid(input);
             validateUploadFieldRules(false);
-            scheduleUploadTopicDraftSave();
+
         });
         input.addEventListener('change', function() {
             clearUploadFieldInvalid(input);
             validateUploadFieldRules(false);
-            scheduleUploadTopicDraftSave();
+
         });
     });
 }
 
-const uploadTopicDraftKey = 'mod2.uploadTopicDraft.v1';
-let uploadTopicDraftTimer = null;
-let uploadTopicDraftRestoring = false;
-
-function collectUploadTopicDraft() {
-    return {
-        title: document.querySelector('input[name="title"]')?.value || '',
-        content: document.querySelector('textarea[name="content"]')?.value || '',
-        author: document.querySelector('input[name="author_topic"]')?.value || '',
-        version: document.querySelector('input[name="topic_version"]')?.value || '',
-        videoUrl: document.querySelector('input[name="topic_video_url"]')?.value || '',
-        links: Array.from(document.querySelectorAll('.dl-row')).map(function(row) {
-            return {
-                name: row.querySelector('input[name="dl_name[]"]')?.value || '',
-                url: row.querySelector('input[name="dl_url[]"]')?.value || ''
-            };
-        }),
-        savedAt: Date.now()
-    };
-}
-
-function saveUploadTopicDraft() {
-    if (uploadTopicDraftRestoring) return;
-    try {
-        localStorage.setItem(uploadTopicDraftKey, JSON.stringify(collectUploadTopicDraft()));
-    } catch (error) {}
-}
-
-function scheduleUploadTopicDraftSave() {
-    window.clearTimeout(uploadTopicDraftTimer);
-    uploadTopicDraftTimer = window.setTimeout(saveUploadTopicDraft, 250);
-}
-
-function restoreUploadTopicDraft() {
-    let draft = null;
-    try {
-        draft = JSON.parse(localStorage.getItem(uploadTopicDraftKey) || 'null');
-    } catch (error) {
-        draft = null;
-    }
-    if (!draft || typeof draft !== 'object') return;
-
-    uploadTopicDraftRestoring = true;
-    const title = document.querySelector('input[name="title"]');
-    const content = document.querySelector('textarea[name="content"]');
-    const author = document.querySelector('input[name="author_topic"]');
-    const version = document.querySelector('input[name="topic_version"]');
-    const video = document.querySelector('input[name="topic_video_url"]');
-
-    if (title && !title.value && draft.title) title.value = draft.title;
-    if (content && !content.value && draft.content) content.value = draft.content;
-    if (author && !author.value && draft.author) author.value = draft.author;
-    if (version && !version.value && draft.version) version.value = draft.version;
-    if (video && !video.value && draft.videoUrl) video.value = draft.videoUrl;
-
-    if (Array.isArray(draft.links) && draft.links.length > 0) {
-        const rows = Array.from(document.querySelectorAll('.dl-row'));
-        rows.slice(1).forEach(function(row) { row.remove(); });
-        const firstRow = document.querySelector('.dl-row');
-        draft.links.forEach(function(link, index) {
-            if (index === 0 && firstRow) {
-                const name = firstRow.querySelector('input[name="dl_name[]"]');
-                const url = firstRow.querySelector('input[name="dl_url[]"]');
-                if (name && !name.value) name.value = link.name || '';
-                if (url && !url.value) url.value = link.url || '';
-                return;
-            }
-            addDlRow(link.name || '', link.url || '');
-        });
-    }
-
-    syncDownloadLinksHidden();
-    uploadTopicDraftRestoring = false;
-}
-
 function clearUploadTopicDraft() {
     try {
-        localStorage.removeItem(uploadTopicDraftKey);
+        localStorage.removeItem('mod2.uploadTopicDraft.v1');
+        localStorage.removeItem('turkmod.uploadTopicDraft.v2:create');
     } catch (error) {}
 }
+
+function resetUploadTopicForm() {
+    const form = document.getElementById('uploadForm');
+    if (!form) return;
+    clearUploadTopicDraft();
+    form.reset();
+    form.querySelectorAll('textarea.rich-editor').forEach(function(textarea) {
+        if (textarea.quillInstance) textarea.quillInstance.setText('', 'silent');
+        textarea.value = '';
+    });
+    form.querySelectorAll('.dl-row').forEach(function(row, index) {
+        if (index > 0) row.remove();
+        else row.querySelectorAll('input').forEach(function(input) { input.value = ''; });
+    });
+    ['publicCoverPreview', 'publicGalleryPreview'].forEach(function(id) {
+        document.getElementById(id)?.replaceChildren();
+    });
+    syncDownloadLinksHidden();
+}
+
+window.addEventListener('pageshow', function(event) {
+    const navigation = window.performance && typeof window.performance.getEntriesByType === 'function'
+        ? window.performance.getEntriesByType('navigation')[0] : null;
+    if (event.persisted || navigation && navigation.type === 'back_forward') {
+        resetUploadTopicForm();
+        window.location.reload();
+    }
+});
 
 function syncInputFiles(input, files) {
     const dt = new DataTransfer();
@@ -454,7 +408,7 @@ function reorderPublicPreviewFile(input, previewId, maxFiles, fromIndex, toIndex
     syncInputFiles(input, files);
     renderPublicPreviews(input, previewId, maxFiles);
     notifyUploadImageRule('Galeri sırası güncellendi.', 'success');
-    scheduleUploadTopicDraftSave();
+
 }
 
 function renderPublicPreviews(input, previewId, maxFiles) {
@@ -606,11 +560,11 @@ document.querySelectorAll('[data-open-input]').forEach(function(trigger) {
 });
 
 bindUploadRuleInputs(document);
-restoreUploadTopicDraft();
+resetUploadTopicForm();
 document.getElementById('dlRows')?.addEventListener('click', function() {
     setTimeout(function() {
         validateUploadFieldRules(false);
-        scheduleUploadTopicDraftSave();
+
     }, 0);
 });
 validateUploadFieldRules(false);

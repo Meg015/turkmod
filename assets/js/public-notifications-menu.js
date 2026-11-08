@@ -164,6 +164,14 @@
             if (document.hidden || typeof window.showToast !== "function") {
                 return;
             }
+            if (document.querySelector('[data-messages-root]') && notification && notification.link) {
+                try {
+                    var messageLink = new URL(notification.link, window.location.href);
+                    if (messageLink.origin === window.location.origin && Number(messageLink.searchParams.get('thread') || 0) > 0) return;
+                } catch (error) {
+                    // A malformed link should not interrupt the notification menu.
+                }
+            }
 
             var title = String(notification && notification.title || "").trim();
             var message = String(notification && notification.message || "").trim();
@@ -306,7 +314,14 @@
                 return Promise.resolve();
             }
 
-            return fetchJson(apiUrl, {
+            var requestUrl = new URL(apiUrl, window.location.href);
+            var messagesRoot = document.querySelector('[data-messages-root]');
+            if (messagesRoot && !document.hidden) {
+                requestUrl.searchParams.set('active_thread_id', messagesRoot.getAttribute('data-active-thread-id') || '0');
+            }
+            return fetchJson(requestUrl.toString(), {
+                cache: 'no-store',
+                notifyError: false,
                 credentials: "same-origin",
                 headers: {
                     "Accept": "application/json",

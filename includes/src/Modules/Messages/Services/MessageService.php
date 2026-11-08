@@ -344,7 +344,7 @@ final class MessageService
     /**
      * @return array{success:bool,message:string,thread_id:int,message_id:int}
      */
-    public function sendMessage(PDO $pdo, int $senderUserId, int $targetUserId, string $body, string $baseUri = ''): array
+    public function sendMessage(PDO $pdo, int $senderUserId, int $targetUserId, string $body, string $baseUri = '', bool $notifyRecipient = true): array
     {
         if ($senderUserId <= 0) {
             return ['success' => false, 'message' => 'Mesaj gonderebilmek icin giris yapmalisiniz.', 'thread_id' => 0, 'message_id' => 0];
@@ -372,7 +372,7 @@ final class MessageService
             return ['success' => false, 'message' => 'Sohbet acilamadi.', 'thread_id' => 0, 'message_id' => 0];
         }
 
-        return $this->persistMessage($pdo, $senderUserId, $targetUserId, $threadId, $body, $baseUri);
+        return $this->persistMessage($pdo, $senderUserId, $targetUserId, $threadId, $body, $baseUri, $notifyRecipient);
     }
 
     /**
@@ -744,7 +744,7 @@ final class MessageService
             FROM message_messages
             WHERE thread_id = :thread_id
               AND id > :after_message_id
-            ORDER BY id ASC
+            ORDER BY id DESC
             LIMIT :limit
         ");
         $stmt->bindValue(':thread_id', $threadId, PDO::PARAM_INT);
@@ -752,7 +752,8 @@ final class MessageService
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        // Start at the latest messages; older messages are available through getHistory().
+        return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
     }
 
     /**
@@ -802,6 +803,7 @@ final class MessageService
         );
         $unreadCount = $this->countUnreadMessages($pdo, $threadId, $userId, $currentCursor);
         if ($unreadCount <= 0) {
+            $this->markThreadNotificationsRead($pdo, $threadId, $userId, $currentCursor);
             return 0;
         }
 
@@ -825,7 +827,34 @@ final class MessageService
             'user_id' => $userId,
         ]);
 
+        $this->markThreadNotificationsRead($pdo, $threadId, $userId, $latestMessageId);
+
         return $unreadCount;
+    }
+
+    private function markThreadNotificationsRead(PDO $pdo, int $threadId, int $userId, int $readCursor): void
+    {
+        if ($readCursor <= 0) return;
+        try {
+            $stmt = $pdo->prepare("SELECT n.id, n.dedupe_key FROM notifications n
+                WHERE n.user_id = ? AND n.event_key = 'direct_message_received'
+                  AND n.entity_type = 'message_thread' AND n.entity_id = ?
+                  AND NOT EXISTS (SELECT 1 FROM notification_reads nr WHERE nr.notification_id = n.id AND nr.user_id = ?)");
+            $stmt->execute([$userId, $threadId, $userId]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            if ($rows === []) return;
+            $insert = $pdo->prepare($this->schema->insertIgnorePrefix($pdo) . ' INTO notification_reads (notification_id, user_id) VALUES (?, ?)');
+            foreach ($rows as $row) {
+                // A concurrently arriving message must remain unread until it is fetched.
+                $key = (string) ($row['dedupe_key'] ?? '');
+                if (preg_match('/^direct_message_received:(\d+)$/', $key, $match) && (int) $match[1] > $readCursor) continue;
+                $insert->execute([(int) $row['id'], $userId]);
+            }
+        } catch (Throwable $exception) {
+            if (function_exists('appLogException')) {
+                appLogException($exception, ['source' => 'MessageService notification read sync', 'thread_id' => $threadId]);
+            }
+        }
     }
 
     private function latestMessageId(PDO $pdo, int $threadId): int
@@ -891,7 +920,7 @@ final class MessageService
     /**
      * @return array{success:bool,message:string,thread_id:int,message_id:int}
      */
-    private function persistMessage(PDO $pdo, int $senderUserId, int $targetUserId, int $threadId, string $body, string $baseUri): array
+    private function persistMessage(PDO $pdo, int $senderUserId, int $targetUserId, int $threadId, string $body, string $baseUri, bool $notifyRecipient = true): array
     {
         $body = $this->normalizeBody($body);
         if ($body === '') {
@@ -970,7 +999,7 @@ final class MessageService
             : 'Bir kullanıcı';
         $threadUrl = $this->threadUrl($threadId, $baseUri);
 
-        $this->dispatchNotificationBestEffort(
+        if ($notifyRecipient) $this->dispatchNotificationBestEffort(
             $pdo,
             $targetUserId,
             $senderUserId,
@@ -1359,7 +1388,8 @@ final class MessageService
             'message_id' => $messageId
         ]);
 
-        return ['success' => true, 'message' => 'Mesaj başarıyla silindi.'];
+        return ['success' => true, 'message' => 'Mesaj başarıyla silindi.',
+            'updated_message' => ['id' => $messageId, 'thread_id' => $threadId, 'body' => 'Bu mesaj silindi', 'is_deleted' => true]];
     }
 
     public function editMessage(PDO $pdo, int $messageId, int $userId, string $newBody): array
@@ -1368,9 +1398,12 @@ final class MessageService
             return ['success' => false, 'message' => 'Geçersiz istek.'];
         }
 
-        $newBody = trim($newBody);
+        $newBody = $this->normalizeBody($newBody);
         if ($newBody === '') {
             return ['success' => false, 'message' => 'Mesaj içeriği boş olamaz.'];
+        }
+        if ((function_exists('mb_strlen') ? mb_strlen($newBody) : strlen($newBody)) > 4000) {
+            return ['success' => false, 'message' => 'Mesaj en fazla 4000 karakter olabilir.'];
         }
 
         // Fetch only messages that remain visible to the requesting participant.
@@ -1417,7 +1450,8 @@ final class MessageService
             'body' => $newBody
         ]);
 
-        return ['success' => true, 'message' => 'Mesaj başarıyla düzenlendi.'];
+        return ['success' => true, 'message' => 'Mesaj başarıyla düzenlendi.',
+            'updated_message' => ['id' => $messageId, 'thread_id' => $threadId, 'body' => $newBody, 'is_deleted' => false]];
     }
 
     public function getHistory(PDO $pdo, int $userId, int $threadId, int $beforeId): array

@@ -21,7 +21,7 @@ final class NotificationCenterService
     /**
      * @return array<string,mixed>
      */
-    public function dropdownPayload(PDO $pdo, int $userId): array
+    public function dropdownPayload(PDO $pdo, int $userId, int $activeMessageThreadId = 0): array
     {
         if ($userId <= 0) {
             return [
@@ -63,6 +63,12 @@ final class NotificationCenterService
         $preferenceWhere = $this->preferences->whereSql($userSettings, 'n', $canFilterEvents, $respectUserPreferences);
         $typeSql = (string) ($preferenceWhere['sql'] ?? '');
         $typeParams = is_array($preferenceWhere['params'] ?? null) ? $preferenceWhere['params'] : [];
+        if ($activeMessageThreadId > 0 && $canFilterEvents
+            && (new MessageService())->threadForUser($pdo, $userId, $activeMessageThreadId) !== null) {
+            $typeSql .= " AND NOT (COALESCE(n.event_key, '') = 'direct_message_received'
+                AND COALESCE(n.entity_type, '') = 'message_thread' AND COALESCE(n.entity_id, 0) = ?)";
+            $typeParams[] = $activeMessageThreadId;
+        }
 
         $unreadCount = 0;
         if ($showBadge) {

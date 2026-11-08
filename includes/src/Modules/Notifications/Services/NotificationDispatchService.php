@@ -31,7 +31,8 @@ final class NotificationDispatchService
         ?int $actorId,
         string $entityType,
         int $entityId,
-        array $payload = []
+        array $payload = [],
+        ?array $requestedChannels = null
     ): bool {
         if ($recipientId <= 0 || $entityId <= 0 || $entityType === '') {
             return $this->suppressed($pdo, 'invalid_target', $eventKey, $recipientId, $actorId, $entityType, $entityId, null, null, null, [
@@ -83,7 +84,10 @@ final class NotificationDispatchService
             'moderation_note_line' => '',
         ], $payload);
 
-        $dispatchTemplate = $this->templates->forDispatch($pdo, $eventKey, $definition);
+        $dispatchTemplate = $requestedChannels === null
+            ? $this->templates->forDispatch($pdo, $eventKey, $definition)
+            : $this->templates->get($pdo, $eventKey);
+        if ($dispatchTemplate && (int) ($dispatchTemplate['is_active'] ?? 1) !== 1) $dispatchTemplate = null;
         if ($dispatchTemplate === null) {
             return $this->suppressed($pdo, 'template_disabled', $eventKey, $recipientId, $actorId, $entityType, $entityId);
         }
@@ -119,10 +123,16 @@ final class NotificationDispatchService
         $emailAllowedByUser = $this->preferences->groupEnabled($userSettings, 'notif_group_email')
             && $this->preferences->bool($userSettings, 'notif_email_updates', '1')
             && $this->preferences->emailEventEnabledForUser($userSettings, $eventKey, $definition);
-        $inAppRequested = (int) ($dispatchTemplate['in_app_enabled'] ?? 1) === 1 && $inAppAllowedByUser;
+        $inAppChannelEnabled = $requestedChannels === null
+            ? (int) ($dispatchTemplate['in_app_enabled'] ?? 1) === 1
+            : in_array('in_app', $requestedChannels, true);
+        $emailChannelEnabled = $requestedChannels === null
+            ? (int) ($dispatchTemplate['email_enabled'] ?? 0) === 1
+            : in_array('email', $requestedChannels, true);
+        $inAppRequested = $inAppAllowedByUser && $inAppChannelEnabled;
         $emailChannelReady = $this->preferences->bool($adminSettings, 'notif_email_channel_ready', '0');
         $emailQueueRequested = (
-            (int) ($dispatchTemplate['email_enabled'] ?? 0) === 1
+            $emailChannelEnabled
             && $emailChannelReady
             && $emailAllowedByUser
         );
@@ -157,8 +167,8 @@ final class NotificationDispatchService
         }
 
         if (!$inAppRequested && !$emailQueueRequested) {
-            $templateInAppEnabled = (int) ($dispatchTemplate['in_app_enabled'] ?? 1) === 1;
-            $templateEmailEnabled = (int) ($dispatchTemplate['email_enabled'] ?? 0) === 1;
+            $templateInAppEnabled = $inAppChannelEnabled;
+            $templateEmailEnabled = $emailChannelEnabled;
             $reason = 'user_preferences_disabled';
             if (!$templateInAppEnabled && !$templateEmailEnabled) {
                 $reason = 'template_channels_disabled';
@@ -258,8 +268,9 @@ final class NotificationDispatchService
                 'message' => $message,
                 'link' => $link,
             ]);
+            $emailQueued = false;
             if ($emailQueueRequested && $notificationId > 0) {
-                $this->queueEmailForNotification(
+                $emailQueued = $this->queueEmailForNotification(
                     $pdo,
                     $notificationId,
                     $recipientId,
@@ -279,7 +290,7 @@ final class NotificationDispatchService
                 );
             }
 
-            $this->publishRealtimeEvent(
+            if ($inAppRequested) $this->publishRealtimeEvent(
                 $recipientId,
                 $notificationId,
                 $type,
@@ -288,7 +299,7 @@ final class NotificationDispatchService
                 $link
             );
 
-            return true;
+            return $inAppRequested || $emailQueued;
         } catch (Throwable $e) {
             error_log('Notification dispatch insert failed: ' . $e->getMessage());
 
@@ -368,7 +379,7 @@ final class NotificationDispatchService
         int $emailQueueMaxAttempts,
         array $columnsAvailable,
         array $deliveryChannels
-    ): void {
+    ): bool {
         try {
             $emailQueued = $this->emailQueue->queue(
                 $pdo,
@@ -415,6 +426,7 @@ final class NotificationDispatchService
                 $update = $pdo->prepare('UPDATE notifications SET delivery_channels = ? WHERE id = ?');
                 $update->execute([json_encode($deliveryChannels, JSON_UNESCAPED_UNICODE), $notificationId]);
             }
+            return $emailQueued;
         } catch (Throwable $e) {
             if (isset($columnsAvailable['delivery_channels'])) {
                 $deliveryChannels = array_values(array_filter(
@@ -448,6 +460,7 @@ final class NotificationDispatchService
                 'message' => $message,
                 'link' => $link,
             ], 'error');
+            return false;
         }
     }
 

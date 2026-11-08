@@ -870,6 +870,12 @@
 
             group.timer = null;
 
+            if (document.querySelector('[data-messages-root]')) {
+                rememberMessages(group.message_ids);
+                clearPendingGroup(group);
+                return false;
+            }
+
             if (recentDirectMessageToast(group.thread_id)) {
                 rememberMessages(group.message_ids);
                 clearPendingGroup(group);
@@ -961,6 +967,10 @@
                 return false;
             }
             if (messageWasSeen(messageId) || pendingMessageIds.has(messageId)) {
+                return false;
+            }
+            if (document.querySelector('[data-messages-root]')) {
+                rememberMessage(messageId);
                 return false;
             }
             if (recentDirectMessageToast(threadId)) {
@@ -1517,10 +1527,16 @@
                 var topbar = window.publicTopbar || {};
                 var notificationId = Number(payload.notification_id || 0);
                 var shouldToastNotification = recordNotificationId(notificationId);
+                var messageThreadId = threadIdFromUrl(payload.link);
+                if (messageThreadId > 0 && !document.hidden && messageThreadId === activeMessageThreadId()) {
+                    refresh('notifications');
+                    emit(payload);
+                    return;
+                }
                 if (typeof topbar.incrementNotificationBadge === "function") {
                     topbar.incrementNotificationBadge();
                 }
-                if (shouldToastNotification) {
+                if (shouldToastNotification && !(messageThreadId > 0 && document.querySelector('[data-messages-root]'))) {
                     if (document.hidden) {
                         showRealtimeDesktopNotification(payload);
                     } else {
@@ -1741,5 +1757,6 @@
         });
     }
 
-    document.addEventListener("DOMContentLoaded", init);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
 })();

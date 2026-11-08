@@ -23,7 +23,11 @@ session_write_close();
 $pdo = requireDatabaseConnection($pdo ?? null);
 
 try {
-    $payload = (new NotificationCenterService())->dropdownPayload($pdo, $userId);
+    $activeThreadId = max(0, (int) ($_GET['active_thread_id'] ?? 0));
+    if ($activeThreadId > 0) {
+        (new \App\Modules\Messages\Services\MessageService())->markThreadsRead($pdo, $userId, [$activeThreadId]);
+    }
+    $payload = (new NotificationCenterService())->dropdownPayload($pdo, $userId, $activeThreadId);
     sendSuccess('OK', (array) $payload);
 } catch (Throwable $e) {
     appLogException($e, ['source' => '/api/notifications.php']);

@@ -50,7 +50,7 @@ window.ensureUploadQuillEditors = function() {
         quill.on('text-change', function() {
             textarea.value = quill.root.innerHTML;
             validateUploadFieldRules(false);
-            scheduleUploadTopicDraftSave();
+
         });
         textarea.quillInstance = quill;
     });
