@@ -1,3 +1,9 @@
+(function() {
+const form = document.getElementById('uploadForm');
+if (!form || form.dataset.uploadTopicStandalone !== '1' || form.dataset.turkmodUploadInit === '1') return;
+form.dataset.turkmodUploadInit = '1';
+form.noValidate = true;
+
 function addDlRow(name, url) {
     const row = document.createElement('div');
     row.className = 'dl-row';
@@ -23,6 +29,7 @@ function addDlRow(name, url) {
     document.getElementById('dlRows').appendChild(row);
     bindUploadRuleInputs(row);
 }
+window.addDlRow = addDlRow;
 window.TMUI.registerAction('addDlRow', function() { addDlRow(); });
 
 function setUploadLiveHint(key, message, state) {
@@ -41,7 +48,9 @@ function uploadContentText() {
     const editor = document.querySelector('.ql-editor');
     if (editor) return editor.textContent.trim();
     const textarea = document.querySelector('textarea[name="content"]');
-    return textarea ? textarea.value.replace(/<[^>]*>/g, '').trim() : '';
+    const template = document.createElement('template');
+    template.innerHTML = textarea ? textarea.value : '';
+    return template.content.textContent.trim();
 }
 
 function syncDownloadLinksHidden() {
@@ -58,10 +67,12 @@ function syncDownloadLinksHidden() {
 }
 
 function isAllowedVideoHost(url, allowedHosts) {
-    if (!url || allowedHosts.length === 0) return true;
+    if (!url) return true;
     try {
-        const host = new URL(url).hostname.toLowerCase();
-        return allowedHosts.some(function(allowedHost) {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+        const host = parsed.hostname.toLowerCase();
+        return allowedHosts.length === 0 || allowedHosts.some(function(allowedHost) {
             return host === allowedHost || host.endsWith('.' + allowedHost);
         });
     } catch (error) {
@@ -101,16 +112,25 @@ function validateUploadDownloadLinks(showToast) {
     if (!form) return true;
     const lines = syncDownloadLinksHidden();
     let validCount = 0;
+    let invalid = false;
     document.querySelectorAll('input[name="dl_url[]"]').forEach(function(input) {
+        input.required = false;
         if (!input.value.trim()) return;
         try {
             const url = new URL(input.value.trim());
             if (url.protocol === 'http:' || url.protocol === 'https:') validCount++;
-        } catch (error) {}
+            else invalid = true;
+        } catch (error) { invalid = true; }
     });
 
     if (form.dataset.requireDownloadLink === '1' && validCount === 0) {
         const message = 'En az bir geçerli indirme bağlantısı eklemelisiniz.';
+        setUploadLiveHint('download', message, 'error');
+        if (showToast) notifyUploadImageRule(message, 'error');
+        return false;
+    }
+    if (invalid) {
+        const message = 'İndirme bağlantıları http:// veya https:// ile başlayan geçerli adresler olmalı.';
         setUploadLiveHint('download', message, 'error');
         if (showToast) notifyUploadImageRule(message, 'error');
         return false;
@@ -123,14 +143,20 @@ function validateUploadDownloadLinks(showToast) {
     return true;
 }
 
-function validateUploadFieldRules(showToast) {
+function validateUploadFieldRules(showToast, step) {
     const form = uploadRuleForm();
     if (!form) return true;
-    let ok = true;
-    const title = document.querySelector('input[name="title"]');
-    const author = document.querySelector('input[name="author_topic"]');
-    const version = document.querySelector('input[name="topic_version"]');
-    const attachment = document.querySelector('input[name="attachment"]');
+    const scope = step ? form.querySelector('.upload-wizard-panel[data-step="' + step + '"]') : form;
+    if (!scope) return true;
+    let firstError = '';
+    function updateHint(key, message, state) {
+        setUploadLiveHint(key, message, state);
+        if (state === 'error' && !firstError) firstError = message;
+    }
+    const title = scope.querySelector('input[name="title"]');
+    const author = scope.querySelector('input[name="author_topic"]');
+    const version = scope.querySelector('input[name="topic_version"]');
+    const attachment = scope.querySelector('input[name="attachment"]');
     const minTitle = Number(form.dataset.minTitleLength || 0);
     const maxTitle = Number(form.dataset.maxTitleLength || 0);
     const minContent = Number(form.dataset.minContentLength || 0);
@@ -138,47 +164,47 @@ function validateUploadFieldRules(showToast) {
     if (title) {
         const length = title.value.trim().length;
         if (length === 0) {
-            setUploadLiveHint('title', minTitle + '-' + maxTitle + ' karakter aralığında başlık yazın.', 'warning');
+            updateHint('title', minTitle + '-' + maxTitle + ' karakter aralığında başlık yazın.', 'warning');
         } else if ((minTitle > 0 && length < minTitle) || (maxTitle > 0 && length > maxTitle)) {
-            ok = false;
-            setUploadLiveHint('title', 'Başlık ' + minTitle + '-' + maxTitle + ' karakter olmalı. Şu an: ' + length + '.', 'error');
+            updateHint('title', 'Başlık ' + minTitle + '-' + maxTitle + ' karakter olmalı. Şu an: ' + length + '.', 'error');
         } else {
-            setUploadLiveHint('title', 'Başlık uzunluğu uygun: ' + length + ' karakter.', 'ok');
+            updateHint('title', 'Başlık uzunluğu uygun: ' + length + ' karakter.', 'ok');
         }
     }
 
-    const contentLength = uploadContentText().length;
-    if (contentLength === 0) {
-        setUploadLiveHint('content', 'Açıklama en az ' + minContent + ' karakter olmalı.', 'warning');
-    } else if (minContent > 0 && contentLength < minContent) {
-        ok = false;
-        setUploadLiveHint('content', 'Açıklama en az ' + minContent + ' karakter olmalı. Şu an: ' + contentLength + '.', 'error');
-    } else {
-        setUploadLiveHint('content', 'Açıklama uzunluğu uygun: ' + contentLength + ' karakter.', 'ok');
+    if (!step || step === 3) {
+        const contentLength = uploadContentText().length;
+        if (contentLength === 0) {
+            updateHint('content', 'Açıklama en az ' + minContent + ' karakter olmalı.', 'warning');
+        } else if (minContent > 0 && contentLength < minContent) {
+            updateHint('content', 'Açıklama en az ' + minContent + ' karakter olmalı. Şu an: ' + contentLength + '.', 'error');
+        } else {
+            updateHint('content', 'Açıklama uzunluğu uygun: ' + contentLength + ' karakter.', 'ok');
+        }
     }
 
     if (author) {
         const missing = form.dataset.requireAuthor === '1' && !author.value.trim();
-        setUploadLiveHint('author', missing ? 'Yapımcı alanı zorunlu.' : (author.value.trim() ? 'Yapımcı bilgisi girildi.' : 'Yapımcı isteğe bağlı.'), missing ? 'error' : 'ok');
-        ok = ok && !missing;
+        updateHint('author', missing ? 'Yapımcı alanı zorunlu.' : (author.value.trim() ? 'Yapımcı bilgisi girildi.' : 'Yapımcı isteğe bağlı.'), missing ? 'error' : 'ok');
     }
     if (version) {
         const missing = form.dataset.requireVersion === '1' && !version.value.trim();
-        setUploadLiveHint('version', missing ? 'Oyun sürümü zorunlu.' : (version.value.trim() ? 'Sürüm bilgisi girildi.' : 'Sürüm isteğe bağlı.'), missing ? 'error' : 'ok');
-        ok = ok && !missing;
+        updateHint('version', missing ? 'Oyun sürümü zorunlu.' : (version.value.trim() ? 'Sürüm bilgisi girildi.' : 'Sürüm isteğe bağlı.'), missing ? 'error' : 'ok');
     }
     if (attachment && attachment.files.length > 0) {
         const maxMb = Number(form.dataset.attachmentMaxSizeMb || 0);
         const tooLarge = maxMb > 0 && attachment.files[0].size > maxMb * 1024 * 1024;
-        setUploadLiveHint('attachment', tooLarge ? 'Mod dosyası en fazla ' + maxMb + ' MB olabilir.' : 'Mod dosyası boyutu uygun.', tooLarge ? 'error' : 'ok');
-        ok = ok && !tooLarge;
+        updateHint('attachment', tooLarge ? 'Mod dosyası en fazla ' + maxMb + ' MB olabilir.' : 'Mod dosyası boyutu uygun.', tooLarge ? 'error' : 'ok');
     }
 
-    ok = validateUploadVideoUrl(showToast) && ok;
-    ok = validateUploadDownloadLinks(showToast) && ok;
-    if (!ok && showToast) notifyUploadImageRule('Lütfen kural uyarılarını düzeltin.', 'error');
+    let ok = !firstError;
+    if (!ok && showToast) notifyUploadImageRule(firstError, 'error');
+    if (!step || step === 4) ok = validateUploadVideoUrl(showToast && ok) && ok;
+    if (!step || step === 6) ok = validateUploadDownloadLinks(showToast && ok) && ok;
     return ok;
 }
+
+window.validateUploadFieldRules = validateUploadFieldRules;
 
 function bindUploadRuleInputs(scope) {
     (scope || document).querySelectorAll('input[name="title"], select[name="category_id"], textarea[name="content"], input[name="author_topic"], input[name="topic_version"], input[name="topic_video_url"], input[name="attachment"], input[name="dl_name[]"], input[name="dl_url[]"]').forEach(function(input) {
@@ -240,10 +266,11 @@ function syncInputFiles(input, files) {
     input.files = dt.files;
 }
 
-    function notifyUploadImageRule(message, type) {
-        window.showToast(message, type || 'warning');
-        return;
-    console.warn(message);
+function notifyUploadImageRule(message, type) {
+    const toastType = type || 'warning';
+    const options = toastType === 'warning' || toastType === 'error'
+        ? { dedupeKey: 'upload-rule:' + toastType + ':' + message } : undefined;
+    window.showToast(message, toastType, options);
 }
 
 function setUploadFieldInvalid(field) {
@@ -258,15 +285,24 @@ function clearUploadFieldInvalid(field) {
     field.removeAttribute('aria-invalid');
 }
 
+['input', 'change'].forEach(function(eventName) {
+    form.addEventListener(eventName, function(event) {
+        clearUploadFieldInvalid(event.target);
+    });
+});
+
 function focusUploadField(field) {
     if (!field) return;
     setUploadFieldInvalid(field);
-    if (typeof field.focus === 'function') field.focus();
-    if (typeof field.scrollIntoView === 'function') {
+    const target = field.quillInstance ? field.quillInstance.root
+        : field.type === 'file' ? form.querySelector('[data-open-input="' + field.id + '"]') : field;
+    if (!target) return;
+    if (typeof target.focus === 'function') target.focus();
+    if (typeof target.scrollIntoView === 'function') {
         try {
-            field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch (error) {
-            field.scrollIntoView();
+            target.scrollIntoView();
         }
     }
 }
@@ -366,21 +402,20 @@ async function validateUploadImageFile(file, config) {
 async function filterUploadImageSelection(input, files, config) {
     const limitedFiles = Array.from(files || []).slice(0, config.maxFiles);
     const validFiles = [];
-
-    if ((files?.length || 0) > config.maxFiles) {
-        notifyUploadImageRule('En fazla ' + config.maxFiles + ' adet görsel seçebilirsiniz. Fazla dosyalar eklenmedi.', 'warning');
-    }
+    let firstError = '';
 
     for (const file of limitedFiles) {
         const result = await validateUploadImageFile(file, config);
         if (result.ok) {
             validFiles.push(file);
-        } else {
-            notifyUploadImageRule(result.message, 'error');
+        } else if (!firstError) {
+            firstError = result.message;
         }
     }
 
     syncInputFiles(input, validFiles);
+    if (firstError) notifyUploadImageRule(firstError, 'error');
+    else if ((files?.length || 0) > config.maxFiles) notifyUploadImageRule('En fazla ' + config.maxFiles + ' adet görsel seçebilirsiniz. Fazla dosyalar eklenmedi.', 'warning');
     return validFiles.length === limitedFiles.length && limitedFiles.length > 0;
 }
 
@@ -445,9 +480,13 @@ function renderPublicPreviews(input, previewId, maxFiles) {
                 item.classList.remove('is-drop-target');
             });
             item.addEventListener('drop', function(event) {
+                if (event.dataTransfer.files.length > 0) return;
+                const source = event.dataTransfer.getData('text/plain');
+                if (!/^\d+$/.test(source)) return;
                 event.preventDefault();
+                event.stopPropagation();
                 item.classList.remove('is-drop-target');
-                const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+                const fromIndex = Number(source);
                 reorderPublicPreviewFile(input, previewId, maxFiles, fromIndex, index);
             });
             item.addEventListener('keydown', function(event) {
@@ -554,6 +593,7 @@ document.querySelectorAll('[data-open-input]').forEach(function(trigger) {
 
     zone.addEventListener('drop', async function(e) {
         const droppedFiles = Array.from(e.dataTransfer.files || []);
+        if (droppedFiles.length === 0) return;
         await filterUploadImageSelection(input, droppedFiles, config);
         renderPublicPreviews(input, config.previewId, config.maxFiles);
     });
@@ -571,13 +611,6 @@ validateUploadFieldRules(false);
 
 const uploadWizard = (function() {
     const form = document.getElementById('uploadForm');
-    if (form && form.dataset.wizardEnabled !== '1') {
-        document.querySelectorAll('.upload-wizard-panel').forEach(function(panel) {
-            panel.hidden = false;
-            panel.classList.add('is-active');
-        });
-        return { validateStep: function() { return true; }, setStep: function() {} };
-    }
     const panels = Array.from(document.querySelectorAll('.upload-wizard-panel'));
     const steps = Array.from(document.querySelectorAll('.upload-wizard-step'));
     const prevBtn = document.querySelector('[data-wizard-prev]');
@@ -593,18 +626,15 @@ const uploadWizard = (function() {
         7: 'Kontrol ve onay'
     };
     let current = 1;
+    let navigating = false;
+    let navigationRevision = 0;
 
     function notify(message) {
-        window.showToast(message, 'warning');
-        return;
-        console.warn(message);
+        notifyUploadImageRule(message, 'warning');
     }
 
     function getContentValue() {
-        const editor = document.querySelector('.ql-editor');
-        if (editor) return editor.textContent.trim();
-        const textarea = document.querySelector('textarea[name="content"]');
-        return textarea ? textarea.value.trim() : '';
+        return uploadContentText();
     }
 
     async function validateStep(step) {
@@ -617,7 +647,7 @@ const uploadWizard = (function() {
                 return false;
             }
             if (title && !title.checkValidity()) {
-                validateUploadFieldRules(true);
+                validateUploadFieldRules(true, step);
                 focusUploadField(title);
                 return false;
             }
@@ -626,11 +656,12 @@ const uploadWizard = (function() {
                 focusUploadField(category);
                 return false;
             }
+            if (!validateUploadFieldRules(true, step)) return false;
         }
 
         if (step === 2) {
             const cover = document.getElementById('publicCoverInput');
-            if (cover && cover.required && cover.files.length === 0) {
+            if (cover && (cover.required || form.dataset.requireCover === '1') && cover.files.length === 0) {
                 notify('Kapak görseli yüklemelisiniz.');
                 return false;
             }
@@ -646,7 +677,7 @@ const uploadWizard = (function() {
 
         if (step === 3) {
             const textarea = document.querySelector('textarea[name="content"]');
-            const minLength = Number(textarea?.dataset.minLength || 0);
+            const minLength = Number(textarea?.dataset.minLength || form.dataset.minContentLength || 0);
             const contentText = getContentValue();
             if (!contentText) {
                 notify('Mod açıklaması zorunludur.');
@@ -660,7 +691,7 @@ const uploadWizard = (function() {
 
         if (step === 4) {
             const gallery = document.getElementById('publicGalleryInput');
-            if (gallery && gallery.required && gallery.files.length === 0) {
+            if (gallery && (gallery.required || form.dataset.requireGallery === '1') && gallery.files.length === 0) {
                 notify('Galeri için en az 1 görsel yüklemelisiniz.');
                 return false;
             }
@@ -677,23 +708,32 @@ const uploadWizard = (function() {
             }))) {
                 return false;
             }
+            if (!validateUploadFieldRules(true, step)) return false;
         }
 
         if (step === 5) {
-            return validateUploadFieldRules(true);
+            if (!validateUploadFieldRules(true, step)) return false;
         }
 
         if (step === 6) {
-            return validateUploadFieldRules(true);
+            if (!validateUploadFieldRules(true, step)) return false;
         }
 
+        const panel = panels.find(item => Number(item.dataset.step) === step);
+        const invalid = panel && Array.from(panel.querySelectorAll('input, select, textarea')).find(field => !field.checkValidity());
+        if (invalid) {
+            setUploadFieldInvalid(invalid);
+            notify('Lütfen bu adımdaki alanları kontrol edin.');
+            return false;
+        }
         return true;
     }
 
     function setStep(step) {
+        navigationRevision++;
         current = Math.max(1, Math.min(7, step));
         panels.forEach(function(panel) {
-            const isActive = Number(panel.dataset.step) === current;
+            const isActive = form.dataset.wizardEnabled !== '1' || Number(panel.dataset.step) === current;
             panel.hidden = !isActive;
             panel.classList.toggle('is-active', isActive);
         });
@@ -701,6 +741,7 @@ const uploadWizard = (function() {
             const target = Number(button.dataset.stepTarget);
             button.classList.toggle('is-active', target === current);
             button.classList.toggle('is-complete', target < current);
+            button.setAttribute('aria-current', target === current ? 'step' : 'false');
         });
         if (prevBtn) prevBtn.disabled = current === 1;
         if (nextBtn) nextBtn.hidden = current === 7;
@@ -708,11 +749,46 @@ const uploadWizard = (function() {
         if (window.ensureUploadQuillEditors) window.ensureUploadQuillEditors();
     }
 
+    function revealStepError(step) {
+        setStep(step);
+        const panel = panels.find(item => Number(item.dataset.step) === step);
+        if (!panel) return;
+        const hint = panel.querySelector('.upload-live-hint.is-error');
+        const hintFields = {title:'title', content:'content', author:'author_topic', version:'topic_version', video:'topic_video_url', download:'dl_url[]', attachment:'attachment'};
+        const field = panel.querySelector('.is-invalid, :invalid')
+            || (hint && panel.querySelector('[name="' + hintFields[hint.dataset.liveHint] + '"]'))
+            || panel.querySelector('input:not([type="hidden"]), select, textarea');
+        focusUploadField(field);
+    }
+
+    async function navigateTo(target, allowSkip) {
+        if (allowSkip || target <= current) { setStep(target); return; }
+        if (navigating) return;
+        navigating = true;
+        const revision = navigationRevision;
+        try {
+            for (let step = current; step < target; step++) {
+                const valid = await validateStep(step);
+                if (revision !== navigationRevision) return;
+                if (!valid) { revealStepError(step); return; }
+            }
+            setStep(target);
+        } finally {
+            navigating = false;
+        }
+    }
+
+    async function validateAll() {
+        validateUploadFieldRules(false);
+        for (let step = 1; step <= 6; step++) {
+            if (!(await validateStep(step))) { revealStepError(step); return false; }
+        }
+        return true;
+    }
+
     steps.forEach(function(button) {
-        button.addEventListener('click', async function() {
-            const target = Number(button.dataset.stepTarget);
-            const allowSkip = document.getElementById('uploadForm')?.dataset.allowStepSkip === '1';
-            if (allowSkip || target <= current || await validateStep(current)) setStep(target);
+        button.addEventListener('click', function() {
+            navigateTo(Number(button.dataset.stepTarget), form.dataset.allowStepSkip === '1');
         });
     });
 
@@ -723,19 +799,20 @@ const uploadWizard = (function() {
     }
 
     if (nextBtn) {
-        nextBtn.addEventListener('click', async function() {
-            if (await validateStep(current)) setStep(current + 1);
+        nextBtn.addEventListener('click', function() {
+            navigateTo(current + 1, false);
         });
     }
 
     setStep(1);
-    return { validateStep: validateStep, setStep: setStep };
+    return { validateStep: validateStep, setStep: setStep, validateAll: validateAll };
 })();
 
 document.getElementById('uploadForm').addEventListener('submit', async function(e) {
     e.preventDefault();
 
     const form = this;
+    if (form.dataset.validating === '1') return;
     if (form.dataset.submitting === '1' || form.dataset.submitted === '1') {
         window.showToast('Bu konu zaten gönderiliyor veya gönderildi.', 'warning', {
             solution: 'Yükleme bittikten sonra Profil > Konularım ekranından durumunu kontrol edebilirsiniz.',
@@ -745,75 +822,27 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         return;
     }
 
-    if (window.ensureUploadQuillEditors) window.ensureUploadQuillEditors();
-    document.querySelectorAll('textarea.rich-editor').forEach(function(textarea) {
-        if (textarea.quillInstance) {
-            textarea.value = textarea.quillInstance.root.innerHTML;
-        }
-    });
-
-    const names = document.querySelectorAll('input[name="dl_name[]"]');
-    const urls = document.querySelectorAll('input[name="dl_url[]"]');
-    const lines = [];
-    names.forEach(function(n, i) {
-        const u = urls[i] ? urls[i].value.trim() : '';
-        if (u) lines.push((n.value.trim() || 'Link') + '|' + u);
-    });
-    document.getElementById('dlHidden').value = lines.join('\n');
-    syncDownloadLinksHidden();
-    if (!validateUploadFieldRules(true)) {
-        return;
-    }
-
-    const filesInput = document.getElementById('publicGalleryInput');
-    const coverInput = document.getElementById('publicCoverInput');
-    const maxImages = Number(form.dataset.maxImages || 10);
-    if (filesInput && filesInput.files.length > maxImages) {
-        window.showToast('En fazla ' + maxImages + ' adet resim yükleyebilirsiniz.', 'error', {
-            solution: 'Fazla görselleri kaldırıp tekrar gönderin.'
-        });
-        return;
-    }
-
-    if (coverInput && !(await validateImageSelection(coverInput, {
-        previewId: 'publicCoverPreview',
-        maxFiles: 1,
-        maxSizeMb: Number(form.dataset.coverMaxSizeMb || 10),
-        label: 'Kapak görseli'
-    }))) {
-        return;
-    }
-    if (filesInput && !(await validateImageSelection(filesInput, {
-        previewId: 'publicGalleryPreview',
-        maxFiles: maxImages,
-        maxSizeMb: Number(form.dataset.galleryMaxSizeMb || 10),
-        label: 'Galeri görseli'
-    }))) {
-        return;
-    }
-
-    if (!form.checkValidity()) {
-        const firstInvalid = form.querySelector(':invalid');
-        const invalidMessage = firstInvalid && firstInvalid.name === 'title'
-            ? 'Mod başlığı zorunludur.'
-            : firstInvalid && firstInvalid.name === 'category_id'
-                ? 'Kategori seçimi zorunludur.'
-                : 'Lütfen zorunlu alanları kontrol edin.';
-        focusUploadField(firstInvalid);
-        notify(invalidMessage);
-        return;
-    }
-
-    const submitButton = form.querySelector('.upload-final-actions button[type="submit"]');
+    form.dataset.validating = '1';
+    const submitButton = form.querySelector('.upload-final-actions button[type="submit"]') || form.querySelector('button[type="submit"]');
     const originalButtonHtml = submitButton ? submitButton.innerHTML : '';
-    form.dataset.submitting = '1';
-    if (submitButton) {
-        submitButton.disabled = true;
-        submitButton.classList.add('is-submitting');
-        submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Gönderiliyor...';
-    }
-
     try {
+        if (window.ensureUploadQuillEditors) window.ensureUploadQuillEditors();
+        form.querySelectorAll('textarea.rich-editor').forEach(function(textarea) {
+            if (textarea.quillInstance) textarea.value = textarea.quillInstance.root.innerHTML;
+        });
+        syncDownloadLinksHidden();
+        if (!(await uploadWizard.validateAll())) return;
+        if (!form.checkValidity()) {
+            focusUploadField(form.querySelector(':invalid'));
+            notifyUploadImageRule('Lütfen zorunlu alanları kontrol edin.', 'warning');
+            return;
+        }
+        form.dataset.submitting = '1';
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.classList.add('is-submitting');
+            submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Gönderiliyor...';
+        }
         const payload = await window.publicFetchJson(form.action, {
             method: 'POST',
             body: new FormData(form),
@@ -851,12 +880,14 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
             }, 900);
         }
     } catch (error) {
-        delete form.dataset.submitting;
-        if (Number(error && error.status) === 409 && submitButton) {
+        if (Number(error && error.status) === 409) {
             form.dataset.submitted = '1';
-            submitButton.classList.remove('is-submitting');
-            submitButton.classList.add('is-submit-locked');
-            submitButton.innerHTML = '<i class="bi bi-lock"></i> Gönderim Kilitlendi';
+            if (submitButton) {
+                submitButton.classList.remove('is-submitting');
+                submitButton.classList.add('is-submit-locked');
+                submitButton.innerHTML = '<i class="bi bi-lock"></i> Gönderim Kilitlendi';
+                submitButton.disabled = true;
+            }
         }
         window.showToast(error.message || 'Mod gönderilemedi.', 'error', {
             solution: 'Zorunlu alanları, görsel limitlerini ve indirme linkini kontrol edip tekrar deneyin.'
@@ -866,5 +897,9 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
             submitButton.classList.remove('is-submitting');
             submitButton.innerHTML = originalButtonHtml;
         }
+    } finally {
+        delete form.dataset.validating;
+        delete form.dataset.submitting;
     }
 });
+})();

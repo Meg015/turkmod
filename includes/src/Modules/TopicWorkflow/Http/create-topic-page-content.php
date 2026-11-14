@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+
+use App\Modules\TopicWorkflow\Services\TopicFormRules;
 require_once $projectRoot . "/includes/init.php";
 require_once $projectRoot . "/admin/helpers.php";
 requireAuth();
@@ -102,77 +104,17 @@ function uploadTopicApplyContentAlignment(string $content, string $align): strin
 
 function uploadTopicHasDownloadLink(string $links): bool
 {
-    foreach (preg_split('/\R+/', trim($links)) ?: [] as $line) {
-        $parts = array_map("trim", explode("|", $line, 2));
-        $url = $parts[1] ?? ($parts[0] ?? "");
-        if (filter_var($url, FILTER_VALIDATE_URL)) {
-            return true;
-        }
-    }
-    return false;
+    return TopicFormRules::downloadError($links, true) === null;
 }
 
 function uploadTopicVideoHostAllowed(string $url, array $allowedHosts): bool
 {
-    if ($url === "" || empty($allowedHosts)) {
-        return true;
-    }
-    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
-    if ($host === "") {
-        return false;
-    }
-    foreach ($allowedHosts as $allowedHost) {
-        if ($host === $allowedHost || str_ends_with($host, "." . $allowedHost)) {
-            return true;
-        }
-    }
-    return false;
+    return TopicFormRules::videoAllowed($url, $allowedHosts);
 }
 
 function uploadTopicValidateImageFile(array $file, string $label, array $settings, int $maxSizeMb): ?string
 {
-    if (($file["error"] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        return null;
-    }
-
-    $allowedExt = uploadTopicList($settings, "user_upload_allowed_image_ext", "jpg,jpeg,png,webp");
-    if (empty($allowedExt)) {
-        $allowedExt = ["jpg", "jpeg", "png", "webp"];
-    }
-    $extension = strtolower(pathinfo((string) ($file["name"] ?? ""), PATHINFO_EXTENSION));
-    if ($extension === "" || !in_array($extension, $allowedExt, true)) {
-        return $label . " için izinli uzantılar: " . implode(", ", $allowedExt) . ".";
-    }
-
-    $maxBytes = max(1, $maxSizeMb) * 1024 * 1024;
-    if ((int) ($file["size"] ?? 0) > $maxBytes) {
-        return $label . " boyutu en fazla " . max(1, $maxSizeMb) . " MB olabilir.";
-    }
-
-    $info = getimagesize((string) ($file["tmp_name"] ?? ""));
-    if (!$info) {
-        return $label . " geçerli bir görsel değil.";
-    }
-
-    [$width, $height] = $info;
-    $minWidth = uploadTopicInt($settings, "user_upload_image_min_width", 0);
-    $minHeight = uploadTopicInt($settings, "user_upload_image_min_height", 0);
-    $maxWidth = uploadTopicInt($settings, "user_upload_image_max_width", 0);
-    $maxHeight = uploadTopicInt($settings, "user_upload_image_max_height", 0);
-    if ($minWidth > 0 && $width < $minWidth) {
-        return $label . " genişliği minimum " . $minWidth . " px olmalıdır.";
-    }
-    if ($minHeight > 0 && $height < $minHeight) {
-        return $label . " yüksekliği minimum " . $minHeight . " px olmalıdır.";
-    }
-    if ($maxWidth > 0 && $width > $maxWidth) {
-        return $label . " genişliği maksimum " . $maxWidth . " px olmalıdır.";
-    }
-    if ($maxHeight > 0 && $height > $maxHeight) {
-        return $label . " yüksekliği maksimum " . $maxHeight . " px olmalıdır.";
-    }
-
-    return null;
+    return TopicFormRules::imageError($file, $label, $settings, $maxSizeMb);
 }
 
 if (!$userUploadEnabled) {
@@ -209,7 +151,12 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
     $categoryId = (int) ($_POST["category_id"] ?? 0);
     $defaultStatus = (string) ($settings["user_upload_default_status"] ?? "published");
     $status = $userUploadRequiresApproval ? "draft" : (in_array($defaultStatus, ["published", "draft"], true) ? $defaultStatus : "published");
-    $downloadLines = trim($_POST["download_lines"] ?? "");
+    try {
+        $downloadLines = TopicFormRules::downloadLines($_POST);
+        $_FILES["topic_images_files"] = TopicFormRules::galleryFiles((array) ($_FILES["topic_images_files"] ?? []));
+    } catch (InvalidArgumentException $error) {
+        uploadTopicRespond(false, $error->getMessage(), 422);
+    }
     $videoUrl = trim($_POST["topic_video_url"] ?? "");
 
     $requireCover =
@@ -239,7 +186,11 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
     if ($maxTitleLength > 0 && mb_strlen($title, "UTF-8") > $maxTitleLength) {
         uploadTopicRespond(false, "Mod başlığı en fazla " . $maxTitleLength . " karakter olabilir.", 422);
     }
-    if ($minContentLength > 0 && mb_strlen(trim(strip_tags($content)), "UTF-8") < $minContentLength) {
+    $contentText = TopicFormRules::contentText($content);
+    if ($contentText === "") {
+        uploadTopicRespond(false, "Mod açıklaması zorunludur.", 422);
+    }
+    if ($minContentLength > 0 && mb_strlen($contentText, "UTF-8") < $minContentLength) {
         uploadTopicRespond(false, "Mod açıklaması en az " . $minContentLength . " karakter olmalıdır.", 422);
     }
     if ($requireAuthor && $authorTopic === "") {
@@ -248,8 +199,9 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
     if ($requireVersion && $topicVersion === "") {
         uploadTopicRespond(false, "Oyun sürümü alanı zorunludur.", 422);
     }
-    if ($requireDownloadLink && !uploadTopicHasDownloadLink($downloadLines)) {
-        uploadTopicRespond(false, "En az bir geçerli indirme bağlantısı eklemelisiniz.", 422);
+    $downloadError = TopicFormRules::downloadError($downloadLines, $requireDownloadLink);
+    if ($downloadError !== null) {
+        uploadTopicRespond(false, $downloadError, 422);
     }
     if (!$allowVideoUrl) {
         $videoUrl = "";
@@ -266,7 +218,7 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
         uploadTopicRespond(false, "En az 1 adet galeri resmi yüklemek zorunludur.", 422);
     }
 
-    if (!empty($_FILES["topic_first_image_file"]["name"])) {
+    if (isset($_FILES["topic_first_image_file"])) {
         $imageError = uploadTopicValidateImageFile($_FILES["topic_first_image_file"], "Kapak görseli", $settings, $coverMaxSizeMb);
         if ($imageError !== null) {
             uploadTopicRespond(false, $imageError, 422);
@@ -311,8 +263,9 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
         }
     }
 
-    if (!empty($_FILES["attachment"]["name"]) && (int) ($_FILES["attachment"]["size"] ?? 0) > ($attachmentMaxSizeMb * 1024 * 1024)) {
-        uploadTopicRespond(false, "Mod dosyası en fazla " . $attachmentMaxSizeMb . " MB olabilir.", 422);
+    $attachmentError = TopicFormRules::attachmentError((array) ($_FILES["attachment"] ?? []), $attachmentMaxSizeMb);
+    if ($attachmentError !== null) {
+        uploadTopicRespond(false, $attachmentError, 422);
     }
 
     if ($pdo && $categoryId <= 0 && !empty($categoryOptions)) {
@@ -519,6 +472,10 @@ require_once $projectRoot . "/includes/public-header.php";
 <div class="ui-container container pb-5 upload-topic-form-container">
     <section class="ui-section public-upload-shell">
         <div class="ui-panel public-upload-card">
+            <header class="upload-form-heading">
+                <div><h1>Mod Yükle</h1><p>Modunu adım adım hazırla, görsellerini ekle ve toplulukla paylaş.</p></div>
+                <span class="upload-form-status"><i class="bi bi-shield-check" aria-hidden="true"></i> Moderatör onayı</span>
+            </header>
 
 
             <div class="public-upload-body ui-panel__body">
@@ -593,11 +550,11 @@ require_once $projectRoot . "/includes/public-header.php";
                                 <input type="file" name="topic_first_image_file" id="publicCoverInput" class="d-none" accept="<?= htmlspecialchars($acceptImageAttr) ?>" <?= $requireCover
                                     ? "required"
                                     : "" ?>>
-                                <div class="public-dropzone-trigger" data-open-input="publicCoverInput">
+                                <button type="button" class="public-dropzone-trigger" data-open-input="publicCoverInput">
                                     <i class="bi bi-cloud-arrow-up"></i>
                                     <strong>Kapak görselini buraya sürükleyin</strong>
                                     <span>veya seçmek için tıklayın (PNG, JPG, WEBP)</span>
-                                </div>
+                                </button>
                                 <div class="upload-image-rules" aria-live="polite">
                                     <span><i class="bi bi-filetype-jpg"></i> <?= htmlspecialchars($allowedImageExtText, ENT_QUOTES, "UTF-8") ?></span>
                                     <span><i class="bi bi-hdd"></i> Maks. <?= (int) $coverMaxSizeMb ?> MB</span>
@@ -667,11 +624,11 @@ require_once $projectRoot . "/includes/public-header.php";
                                 <input type="file" name="topic_images_files[]" id="publicGalleryInput" class="d-none" accept="<?= htmlspecialchars($acceptImageAttr) ?>" multiple <?= $requireGallery
                                     ? "required"
                                     : "" ?>>
-                                <div class="public-dropzone-trigger" data-open-input="publicGalleryInput">
+                                <button type="button" class="public-dropzone-trigger" data-open-input="publicGalleryInput">
                                     <i class="bi bi-images"></i>
                                     <strong>Galeri resimlerini toplu yükleyin</strong>
                                     <span>Birden çok görseli seçebilir veya sürükleyebilirsiniz</span>
-                                </div>
+                                </button>
                                 <div class="upload-image-rules" aria-live="polite">
                                     <span><i class="bi bi-filetype-jpg"></i> <?= htmlspecialchars($allowedImageExtText, ENT_QUOTES, "UTF-8") ?></span>
                                     <span><i class="bi bi-hdd"></i> Maks. <?= (int) $galleryMaxSizeMb ?> MB</span>

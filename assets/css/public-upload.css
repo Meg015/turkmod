@@ -2526,14 +2526,14 @@ body:has(.topic-edit-upload-page) {
 }
 
 /* Public upload/edit pages: no side columns, shared spacing rhythm. */
-.upload-topic-form-container .upload-composer-layout.upload-composer-layout--single,
-.topic-edit-upload-page .upload-composer-layout.upload-composer-layout--single {
+.upload-topic-form-container #uploadForm .upload-composer-layout--single {
+    display: grid;
     grid-template-columns: minmax(0, 1fr) !important;
-    gap: var(--space-4) !important;
+    gap: 0 !important;
 }
 
-.upload-topic-form-container .upload-composer-layout.upload-composer-layout--single .upload-form-fields,
-.topic-edit-upload-page .upload-composer-layout.upload-composer-layout--single .upload-form-fields {
+.upload-topic-form-container #uploadForm .upload-composer-layout--single .upload-form-fields {
+    grid-column: 1 / -1;
     min-width: 0;
     width: 100%;
 }
@@ -2564,4 +2564,321 @@ body.public-page-edit-topic .upload-topic-form-container .public-upload-shell {
         width: min(100% - var(--space-4), var(--container-wide)) !important;
         margin-top: var(--space-4) !important;
     }
+}
+
+/* Shared composer presentation. Form-scoped rules also win over the legacy theme copy. */
+.upload-topic-form-container .public-upload-card .upload-form-heading {
+    display: flex;
+    height: auto !important;
+    min-height: 0 !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--color-border, var(--border));
+}
+.upload-form-heading h1 {
+    margin: 0;
+    color: var(--color-text, var(--text));
+    font-size: clamp(1.35rem, 2vw, 1.65rem);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -.025em;
+}
+.upload-form-heading p {
+    margin: .45rem 0 0;
+    color: var(--color-text-muted, var(--text-muted));
+    font-size: .875rem;
+    line-height: 1.6;
+}
+.upload-form-status {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    flex-shrink: 0;
+    color: var(--color-text-muted, var(--text-muted));
+    font-size: .75rem;
+}
+.upload-form-status i { color: var(--primary); }
+.upload-topic-form-container .public-upload-card > .public-alert-note-strong {
+    margin: 1rem 1.5rem 0 !important;
+    padding: .85rem 1rem !important;
+    border-radius: 8px !important;
+    font-size: .8125rem !important;
+    box-shadow: none !important;
+}
+.upload-topic-form-container .public-upload-card > .public-alert-note-strong i {
+    font-size: 1.1rem !important;
+    text-shadow: none !important;
+}
+.upload-topic-form-container .public-upload-body {
+    padding: 0 !important;
+    background: transparent !important;
+}
+.upload-topic-form-container #uploadForm .upload-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    align-items: stretch;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-progress {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: .35rem !important;
+    margin: 0 !important;
+    padding: .5rem .75rem !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--color-border, var(--border)) !important;
+    border-radius: 0 !important;
+    background: var(--color-surface, var(--surface)) !important;
+    box-shadow: none !important;
+    backdrop-filter: none;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-step {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: .5rem !important;
+    min-width: 0;
+    min-height: 40px !important;
+    padding: .35rem .5rem !important;
+    border: 1px solid transparent !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: var(--color-text-muted, var(--text-muted)) !important;
+    text-align: left;
+    transform: none !important;
+    box-shadow: none !important;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-step::before,
+.upload-topic-form-container #uploadForm .upload-wizard-step::after { content: none !important; }
+.upload-topic-form-container #uploadForm .upload-wizard-step span {
+    display: inline-grid !important;
+    place-items: center;
+    flex: 0 0 24px;
+    width: 24px !important;
+    height: 24px !important;
+    margin: 0 !important;
+    border: 1px solid var(--color-border, var(--border)) !important;
+    border-radius: 50%;
+    background: var(--color-surface, var(--surface)) !important;
+    color: inherit !important;
+    font-size: .75rem !important;
+    box-shadow: none !important;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-step strong {
+    font-size: .75rem !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    white-space: normal !important;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-step:hover,
+.upload-topic-form-container #uploadForm .upload-wizard-step.is-active {
+    background: color-mix(in srgb, var(--primary) 7%, var(--color-surface, var(--surface))) !important;
+    color: var(--color-text, var(--text)) !important;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-step.is-active {
+    border-color: color-mix(in srgb, var(--primary) 20%, var(--color-border, var(--border))) !important;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-step.is-active span,
+.upload-topic-form-container #uploadForm .upload-wizard-step.is-complete span {
+    border-color: var(--primary) !important;
+    background: var(--primary) !important;
+    color: var(--on-primary, #fff) !important;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-panel {
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 1.5rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.upload-topic-form-container #uploadForm .upload-step-eyebrow {
+    margin: 0 0 .4rem !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--color-text-muted, var(--text-muted)) !important;
+    font-size: .75rem !important;
+    font-weight: 600 !important;
+    letter-spacing: .04em;
+    box-shadow: none !important;
+}
+.upload-topic-form-container #uploadForm .upload-step-title { font-size: 1.25rem; font-weight: 650; }
+.upload-topic-form-container #uploadForm .upload-step-copy { margin: .4rem 0 1.5rem; font-size: .875rem; line-height: 1.6; }
+.upload-topic-form-container #uploadForm .upload-wizard-panel > .row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    width: 100%;
+    margin: 0 !important;
+}
+.upload-topic-form-container #uploadForm .upload-wizard-panel[data-step="1"] > .row { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.upload-topic-form-container #uploadForm .upload-wizard-panel > .row > [class*="col-"] {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin: 0 !important;
+    padding: 0;
+}
+.upload-topic-form-container #uploadForm .form-label {
+    display: block;
+    margin-bottom: .5rem !important;
+    color: var(--color-text, var(--text)) !important;
+    font-size: .875rem !important;
+    font-weight: 600 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+.upload-topic-form-container #uploadForm .ui-admin-form-control,
+.upload-topic-form-container #uploadForm .form-select {
+    min-height: 46px !important;
+    padding: .7rem .85rem !important;
+    border: 1px solid var(--color-border, var(--border)) !important;
+    border-radius: 8px !important;
+    background: var(--color-surface-muted, var(--surface)) !important;
+    color: var(--color-text, var(--text)) !important;
+    font-size: .875rem !important;
+    font-weight: 400 !important;
+    box-shadow: none !important;
+}
+.upload-topic-form-container #uploadForm .ui-admin-form-control:focus,
+.upload-topic-form-container #uploadForm .form-select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: var(--ui-foundation-ring) !important;
+}
+.upload-topic-form-container #uploadForm .ui-admin-form-control.is-invalid,
+.upload-topic-form-container #uploadForm .form-select.is-invalid { border-color: var(--danger, #dc2626) !important; }
+.upload-topic-form-container #uploadForm .upload-field-rules,
+.upload-topic-form-container #uploadForm .upload-image-rules {
+    gap: .35rem .9rem;
+    margin-top: .6rem;
+    padding: 0;
+    border: 0;
+    background: transparent !important;
+}
+.upload-topic-form-container #uploadForm .upload-field-rules span,
+.upload-topic-form-container #uploadForm .upload-image-rules span {
+    padding: 0 !important;
+    min-height: 20px;
+    border: 0 !important;
+    background: transparent !important;
+    font-size: .75rem !important;
+    font-weight: 400 !important;
+    box-shadow: none !important;
+}
+.upload-topic-form-container #uploadForm .upload-live-hint {
+    min-height: 0;
+    margin-top: .4rem;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    font-size: .75rem !important;
+    font-weight: 400 !important;
+    line-height: 1.6;
+    box-shadow: none;
+}
+.upload-topic-form-container #uploadForm .upload-live-hint:empty { display: none; }
+.upload-topic-form-container #uploadForm .upload-live-hint.is-warning { color: var(--color-text-muted, var(--text-muted)) !important; }
+.upload-topic-form-container #uploadForm .upload-live-hint.is-ok { color: color-mix(in srgb, var(--success) 65%, var(--color-text, var(--text)) 35%) !important; }
+.upload-topic-form-container #uploadForm .upload-live-hint.is-error { color: color-mix(in srgb, var(--danger, #dc2626) 65%, var(--color-text, var(--text)) 35%) !important; }
+.upload-topic-form-container #uploadForm .public-media-card {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.upload-topic-form-container #uploadForm .public-media-head {
+    margin-bottom: 1rem !important;
+    padding: 0 0 1rem !important;
+    border-bottom: 1px solid var(--color-border, var(--border)) !important;
+}
+.upload-topic-form-container #uploadForm .public-media-head h3 { font-size: 1rem !important; }
+.upload-topic-form-container #uploadForm .public-media-head p { font-size: .8125rem !important; }
+.upload-topic-form-container #uploadForm .public-pill { font-size: .75rem !important; padding: .35rem .65rem !important; }
+.upload-topic-form-container #uploadForm .public-dropzone {
+    border: 1px dashed color-mix(in srgb, var(--primary) 30%, var(--color-border, var(--border))) !important;
+    border-radius: 10px !important;
+    background: color-mix(in srgb, var(--primary) 3%, var(--color-surface, var(--surface))) !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+.upload-topic-form-container #uploadForm .public-dropzone-trigger {
+    display: grid !important;
+    place-items: center;
+    gap: .5rem;
+    width: 100%;
+    min-height: 170px;
+    padding: 1.5rem !important;
+    border: 0;
+    background: transparent;
+    font: inherit;
+}
+.upload-topic-form-container #uploadForm .public-dropzone-trigger i { font-size: 2rem !important; text-shadow: none !important; }
+.upload-topic-form-container #uploadForm .public-dropzone-trigger strong { font-size: 1rem !important; }
+.upload-topic-form-container #uploadForm .public-dropzone-trigger span { font-size: .8125rem !important; }
+.upload-topic-form-container #uploadForm .public-preview-item { border-width: 1px !important; border-radius: 8px !important; box-shadow: none !important; }
+.upload-topic-form-container #uploadForm .public-preview-item:hover { transform: none !important; }
+.upload-topic-form-container #uploadForm .topic-edit-keep-toggle { font-weight: 500; }
+.upload-topic-form-container #uploadForm .topic-edit-keep-toggle:has(input:not(:checked)) { background: var(--color-surface-muted, var(--surface)); color: var(--color-text-muted, var(--text-muted)); }
+.upload-topic-form-container #uploadForm .upload-wizard-controls {
+    justify-content: space-between !important;
+    margin: 0 !important;
+    padding: 1rem 1.5rem !important;
+    border-top: 1px solid var(--color-border, var(--border));
+}
+.upload-topic-form-container #uploadForm .upload-final-actions { margin-top: 1.5rem !important; padding-top: 1rem !important; }
+.upload-topic-form-container #uploadForm .btn-submit-mod,
+.upload-topic-form-container #uploadForm .btn-cancel-mod {
+    flex-grow: 0 !important;
+    gap: .5rem !important;
+    min-height: 42px !important;
+    padding: .65rem 1.1rem !important;
+    border-radius: 8px !important;
+    font-size: .875rem !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+.upload-topic-form-container #uploadForm .btn-submit-mod { background: var(--primary) !important; color: var(--on-primary, #fff) !important; }
+.upload-topic-form-container #uploadForm .btn-cancel-mod { background: var(--color-surface, var(--surface)) !important; color: var(--color-text-muted, var(--text-muted)) !important; }
+.upload-topic-form-container #uploadForm .dl-row { grid-template-columns: minmax(130px, 190px) minmax(0, 1fr) 42px !important; }
+.upload-topic-form-container #uploadForm > .public-actions { display: none !important; }
+.upload-topic-form-container #uploadForm[data-wizard-enabled="0"] .upload-wizard-progress,
+.upload-topic-form-container #uploadForm[data-wizard-enabled="0"] .upload-wizard-controls { display: none !important; }
+@media (max-width: 991.98px) {
+    .upload-topic-form-container #uploadForm .upload-wizard-step { justify-content: center !important; }
+    .upload-topic-form-container #uploadForm .upload-wizard-step strong {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap !important;
+    }
+}
+@media (max-width: 767.98px) {
+    .upload-topic-form-container .public-upload-card .upload-form-heading { align-items: flex-start; flex-direction: column; gap: .75rem; padding: 1.25rem 1rem; }
+    .upload-topic-form-container .public-upload-card > .public-alert-note-strong { margin: 1rem 1rem 0 !important; }
+    .upload-topic-form-container #uploadForm .upload-wizard-progress { position: static; gap: .2rem !important; padding: .4rem !important; }
+    .upload-topic-form-container #uploadForm .upload-wizard-step { flex-direction: row !important; gap: .3rem !important; padding: .3rem .15rem !important; text-align: center; }
+    .upload-topic-form-container #uploadForm .upload-wizard-step strong { font-size: .6875rem !important; }
+    .upload-topic-form-container #uploadForm .upload-wizard-panel { padding: 1.25rem 1rem !important; }
+    .upload-topic-form-container #uploadForm .upload-wizard-panel > .row { grid-template-columns: minmax(0, 1fr) !important; gap: 1rem; }
+    .upload-topic-form-container #uploadForm .upload-wizard-controls { padding: 1rem !important; flex-direction: row !important; gap: .75rem; }
+    .upload-topic-form-container #uploadForm .upload-wizard-controls > * { width: auto !important; }
+    .upload-topic-form-container #uploadForm .ui-admin-form-control,
+    .upload-topic-form-container #uploadForm .form-select { font-size: 1rem !important; }
+}
+@media (max-width: 640px) {
+    .upload-topic-form-container #uploadForm .dl-row { grid-template-columns: minmax(0, 1fr) 42px !important; }
+    .upload-topic-form-container #uploadForm .dl-row .w-25 { grid-column: 1 / -1; }
+    .upload-topic-form-container #uploadForm .dl-row .ui-admin-btn { width: 42px !important; }
 }

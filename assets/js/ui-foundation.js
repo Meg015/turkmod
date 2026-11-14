@@ -495,6 +495,10 @@
         }
 
         var existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
+        var dedupeKey = String(options.dedupeKey || '');
+        if (dedupeKey && Array.prototype.some.call(existing, function (node) {
+            return node.dataset.toastDedupeKey === dedupeKey;
+        })) return;
         while (existing.length >= cfg.maxVisible) {
             dismissToast(existing[0], 'overflow');
             existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
@@ -502,6 +506,7 @@
 
         var toast = document.createElement('div');
         toast.className = 'topic-toast toast-' + type + ' toast-theme-' + cfg.theme + ' toast-anim-' + cfg.animation;
+        if (dedupeKey) toast.dataset.toastDedupeKey = dedupeKey;
         toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
         toast._onClose = typeof options.onClose === 'function' ? options.onClose : null;
 

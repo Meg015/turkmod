@@ -552,7 +552,10 @@ if (typeof module !== 'undefined' && module.exports) {
 
   function toast(message, type) {
     if (window.showToast) {
-      window.showToast(message, type || "warning");
+      var toastType = type || "warning";
+      var options = toastType === "warning" || toastType === "error"
+        ? { dedupeKey: "upload-rule:" + toastType + ":" + message } : undefined;
+      window.showToast(message, toastType, options);
       return;
     }
     if (window.console && message) console.warn(message);
@@ -575,7 +578,9 @@ if (typeof module !== 'undefined' && module.exports) {
     var editor = form.querySelector(".ql-editor");
     if (editor) return editor.textContent.trim();
     var textarea = form.querySelector('textarea[name="content"]');
-    return textarea ? textarea.value.replace(/<[^>]*>/g, "").trim() : "";
+    var template = document.createElement("template");
+    template.innerHTML = textarea ? textarea.value : "";
+    return template.content.textContent.trim();
   }
 
   function syncDownloadLinksHidden(form) {
@@ -592,10 +597,12 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function isAllowedVideoHost(url, allowedHosts) {
-    if (!url || allowedHosts.length === 0) return true;
+    if (!url) return true;
     try {
-      var host = new URL(url).hostname.toLowerCase();
-      return allowedHosts.some(function (allowedHost) {
+      var parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+      var host = parsed.hostname.toLowerCase();
+      return allowedHosts.length === 0 || allowedHosts.some(function (allowedHost) {
         return host === allowedHost || host.endsWith("." + allowedHost);
       });
     } catch (error) {
@@ -632,18 +639,28 @@ if (typeof module !== 'undefined' && module.exports) {
   function validateUploadDownloadLinks(form, showToast) {
     var lines = syncDownloadLinksHidden(form);
     var validCount = 0;
+    var invalid = false;
     form.querySelectorAll('input[name="dl_url[]"]').forEach(function (input) {
+      // The requirement applies to the group, not to every added row.
+      input.required = false;
       if (!input.value.trim()) return;
       try {
         var url = new URL(input.value.trim());
         if (url.protocol === "http:" || url.protocol === "https:") validCount++;
-      } catch (error) {}
+        else invalid = true;
+      } catch (error) { invalid = true; }
     });
 
     if (form.dataset.requireDownloadLink === "1" && validCount === 0) {
       var message = "En az bir gecerli indirme baglantisi eklemelisiniz.";
       setUploadLiveHint("download", message, "error");
       if (showToast) toast(message, "error");
+      return false;
+    }
+    if (invalid) {
+      var invalidMessage = "İndirme bağlantıları http:// veya https:// ile başlayan geçerli adresler olmalı.";
+      setUploadLiveHint("download", invalidMessage, "error");
+      if (showToast) toast(invalidMessage, "error");
       return false;
     }
     if (lines.length === 0) {
@@ -654,12 +671,18 @@ if (typeof module !== 'undefined' && module.exports) {
     return true;
   }
 
-  function validateUploadFieldRules(form, showToast) {
-    var ok = true;
-    var title = form.querySelector('input[name="title"]');
-    var author = form.querySelector('input[name="author_topic"]');
-    var version = form.querySelector('input[name="topic_version"]');
-    var attachment = form.querySelector('input[name="attachment"]');
+  function validateUploadFieldRules(form, showToast, step) {
+    var scope = step ? form.querySelector('.upload-wizard-panel[data-step="' + step + '"]') : form;
+    if (!scope) return true;
+    var firstError = "";
+    function updateHint(key, message, state) {
+      setUploadLiveHint(key, message, state);
+      if (state === "error" && !firstError) firstError = message;
+    }
+    var title = scope.querySelector('input[name="title"]');
+    var author = scope.querySelector('input[name="author_topic"]');
+    var version = scope.querySelector('input[name="topic_version"]');
+    var attachment = scope.querySelector('input[name="attachment"]');
     var minTitle = Number(form.dataset.minTitleLength || 0);
     var maxTitle = Number(form.dataset.maxTitleLength || 0);
     var minContent = Number(form.dataset.minContentLength || 0);
@@ -667,45 +690,43 @@ if (typeof module !== 'undefined' && module.exports) {
     if (title) {
       var length = title.value.trim().length;
       if (length === 0) {
-        setUploadLiveHint("title", minTitle + "-" + maxTitle + " karakter araliginda baslik yazin.", "warning");
+        updateHint("title", minTitle + "-" + maxTitle + " karakter araliginda baslik yazin.", "warning");
       } else if ((minTitle > 0 && length < minTitle) || (maxTitle > 0 && length > maxTitle)) {
-        ok = false;
-        setUploadLiveHint("title", "Baslik " + minTitle + "-" + maxTitle + " karakter olmali. Su an: " + length + ".", "error");
+        updateHint("title", "Baslik " + minTitle + "-" + maxTitle + " karakter olmali. Su an: " + length + ".", "error");
       } else {
-        setUploadLiveHint("title", "Baslik uzunlugu uygun: " + length + " karakter.", "ok");
+        updateHint("title", "Baslik uzunlugu uygun: " + length + " karakter.", "ok");
       }
     }
 
-    var contentLength = uploadContentText(form).length;
-    if (contentLength === 0) {
-      setUploadLiveHint("content", "Aciklama en az " + minContent + " karakter olmali.", "warning");
-    } else if (minContent > 0 && contentLength < minContent) {
-      ok = false;
-      setUploadLiveHint("content", "Aciklama en az " + minContent + " karakter olmali. Su an: " + contentLength + ".", "error");
-    } else {
-      setUploadLiveHint("content", "Aciklama uzunlugu uygun: " + contentLength + " karakter.", "ok");
+    if (!step || step === 3) {
+      var contentLength = uploadContentText(form).length;
+      if (contentLength === 0) {
+        updateHint("content", "Aciklama en az " + minContent + " karakter olmali.", "warning");
+      } else if (minContent > 0 && contentLength < minContent) {
+        updateHint("content", "Aciklama en az " + minContent + " karakter olmali. Su an: " + contentLength + ".", "error");
+      } else {
+        updateHint("content", "Aciklama uzunlugu uygun: " + contentLength + " karakter.", "ok");
+      }
     }
 
     if (author) {
       var authorMissing = form.dataset.requireAuthor === "1" && !author.value.trim();
-      setUploadLiveHint("author", authorMissing ? "Yapimci alani zorunlu." : (author.value.trim() ? "Yapimci bilgisi girildi." : "Yapimci istege bagli."), authorMissing ? "error" : "ok");
-      ok = ok && !authorMissing;
+      updateHint("author", authorMissing ? "Yapimci alani zorunlu." : (author.value.trim() ? "Yapimci bilgisi girildi." : "Yapimci istege bagli."), authorMissing ? "error" : "ok");
     }
     if (version) {
       var versionMissing = form.dataset.requireVersion === "1" && !version.value.trim();
-      setUploadLiveHint("version", versionMissing ? "Oyun surumu zorunlu." : (version.value.trim() ? "Surum bilgisi girildi." : "Surum istege bagli."), versionMissing ? "error" : "ok");
-      ok = ok && !versionMissing;
+      updateHint("version", versionMissing ? "Oyun surumu zorunlu." : (version.value.trim() ? "Surum bilgisi girildi." : "Surum istege bagli."), versionMissing ? "error" : "ok");
     }
     if (attachment && attachment.files.length > 0) {
       var maxMb = Number(form.dataset.attachmentMaxSizeMb || 0);
       var tooLarge = maxMb > 0 && attachment.files[0].size > maxMb * 1024 * 1024;
-      setUploadLiveHint("attachment", tooLarge ? "Mod dosyasi en fazla " + maxMb + " MB olabilir." : "Mod dosyasi boyutu uygun.", tooLarge ? "error" : "ok");
-      ok = ok && !tooLarge;
+      updateHint("attachment", tooLarge ? "Mod dosyasi en fazla " + maxMb + " MB olabilir." : "Mod dosyasi boyutu uygun.", tooLarge ? "error" : "ok");
     }
 
-    ok = validateUploadVideoUrl(form, showToast) && ok;
-    ok = validateUploadDownloadLinks(form, showToast) && ok;
-    if (!ok && showToast) toast("Lutfen kural uyarilarini duzeltin.", "error");
+    var ok = !firstError;
+    if (!ok && showToast) toast(firstError, "error");
+    if (!step || step === 4) ok = validateUploadVideoUrl(form, showToast && ok) && ok;
+    if (!step || step === 6) ok = validateUploadDownloadLinks(form, showToast && ok) && ok;
     return ok;
   }
 
@@ -798,20 +819,19 @@ if (typeof module !== 'undefined' && module.exports) {
     var selectedFiles = Array.prototype.slice.call(files || []);
     var limitedFiles = selectedFiles.slice(0, config.maxFiles);
     var validFiles = [];
-
-    if (selectedFiles.length > config.maxFiles) {
-      toast("En fazla " + config.maxFiles + " adet gorsel secebilirsiniz. Fazla dosyalar eklenmedi.", "warning");
-    }
+    var firstError = "";
 
     return limitedFiles.reduce(function (promise, file) {
       return promise.then(function () {
         return validateUploadImageFile(form, file, config).then(function (result) {
           if (result.ok) validFiles.push(file);
-          else toast(result.message, "error");
+          else if (!firstError) firstError = result.message;
         });
       });
     }, Promise.resolve()).then(function () {
       syncInputFiles(input, validFiles);
+      if (firstError) toast(firstError, "error");
+      else if (selectedFiles.length > config.maxFiles) toast("En fazla " + config.maxFiles + " adet gorsel secebilirsiniz. Fazla dosyalar eklenmedi.", "warning");
       return validFiles.length === limitedFiles.length && limitedFiles.length > 0;
     });
   }
@@ -859,9 +879,13 @@ if (typeof module !== 'undefined' && module.exports) {
         });
         item.addEventListener("dragleave", function () { item.classList.remove("is-drop-target"); });
         item.addEventListener("drop", function (event) {
+          if (event.dataTransfer.files.length > 0) return;
+          var fromIndex = event.dataTransfer.getData("text/plain");
+          if (!/^\d+$/.test(fromIndex)) return;
           event.preventDefault();
+          event.stopPropagation();
           item.classList.remove("is-drop-target");
-          reorderPublicPreviewFile(input, previewId, maxFiles, Number(event.dataTransfer.getData("text/plain")), index);
+          reorderPublicPreviewFile(input, previewId, maxFiles, Number(fromIndex), index);
         });
         item.addEventListener("keydown", function (event) {
           if (["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"].indexOf(event.key) === -1) return;
@@ -926,10 +950,11 @@ if (typeof module !== 'undefined' && module.exports) {
     var row = document.createElement("div");
     row.className = "dl-row";
     row.innerHTML = '<input type="text" name="dl_name[]" class="ui-admin-form-control w-25" placeholder="Kaynak Adi" value="">'
-      + '<input type="url" name="dl_url[]" class="ui-admin-form-control flex-grow-1" placeholder="https://..." value="' + (url || "") + '"' + (form.dataset.requireDownloadLink === "1" ? " required" : "") + ">"
+      + '<input type="url" name="dl_url[]" class="ui-admin-form-control flex-grow-1" placeholder="https://...">'
       + '<button type="button" class="ui-admin-btn ui-admin-btn-outline ui-admin-btn-sm" data-dl-remove title="Kaldir"><i class="bi bi-trash3"></i></button>';
     var nameInput = row.querySelector('input[name="dl_name[]"]');
     if (nameInput) nameInput.value = name || "";
+    row.querySelector('input[name="dl_url[]"]').value = url || "";
     var rows = form.querySelector("#dlRows");
     if (rows) rows.appendChild(row);
     bindUploadRuleInputs(form, row);
@@ -1036,6 +1061,11 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!form || form.dataset.turkmodUploadInit === "1") return;
     if (form.dataset.uploadTopicStandalone === "1") return;
     form.dataset.turkmodUploadInit = "1";
+    // Custom validation reveals hidden wizard fields before trying to focus them.
+    form.noValidate = true;
+    window.validateUploadFieldRules = function (showToast, step) {
+      return validateUploadFieldRules(form, showToast, step);
+    };
 
     function imageConfig(inputId) {
       var isCover = inputId === "publicCoverInput";
@@ -1072,6 +1102,7 @@ if (typeof module !== 'undefined' && module.exports) {
       });
       zone.addEventListener("drop", function (event) {
         var files = event.dataTransfer ? event.dataTransfer.files : [];
+        if (files.length === 0) return;
         filterUploadImageSelection(form, input, files, config).then(function () {
           renderPublicPreviews(input, config.previewId, config.maxFiles);
         });
@@ -1100,6 +1131,12 @@ if (typeof module !== 'undefined' && module.exports) {
     });
 
     bindUploadRuleInputs(form, form);
+    ["input", "change"].forEach(function (eventName) {
+      form.addEventListener(eventName, function (event) {
+        event.target.classList.remove("is-invalid");
+        event.target.removeAttribute("aria-invalid");
+      });
+    });
     resetCreateForm(form);
     validateUploadFieldRules(form, false);
     window.ensureUploadQuillEditors();
@@ -1111,6 +1148,8 @@ if (typeof module !== 'undefined' && module.exports) {
     var nextBtn = form.querySelector("[data-wizard-next]");
     var status = document.getElementById("uploadWizardStatus");
     var current = 1;
+    var navigating = false;
+    var navigationRevision = 0;
     var titles = {
       1: "Temel bilgiler",
       2: "Kapak gorseli",
@@ -1122,6 +1161,7 @@ if (typeof module !== 'undefined' && module.exports) {
     };
 
     function setStep(step) {
+      navigationRevision++;
       current = Math.max(1, Math.min(7, step));
       panels.forEach(function (panel) {
         var active = Number(panel.dataset.step) === current;
@@ -1132,6 +1172,7 @@ if (typeof module !== 'undefined' && module.exports) {
         var target = Number(button.dataset.stepTarget);
         button.classList.toggle("is-active", target === current);
         button.classList.toggle("is-complete", target < current);
+        button.setAttribute("aria-current", target === current ? "step" : "false");
       });
       if (prevBtn) prevBtn.disabled = current === 1;
       if (nextBtn) nextBtn.hidden = current === 7;
@@ -1148,84 +1189,127 @@ if (typeof module !== 'undefined' && module.exports) {
       });
     }
 
-    function validateStep(step) {
+    function retainedImages(step) {
+      return form.querySelectorAll('.upload-wizard-panel[data-step="' + step + '"] input[name="keep_media[]"]:checked').length;
+    }
+
+    function revealStepError(step) {
+      if (form.dataset.wizardEnabled === "1") setStep(step);
+      var panel = form.querySelector('.upload-wizard-panel[data-step="' + step + '"]');
+      if (!panel) return;
+      var hint = panel.querySelector(".upload-live-hint.is-error");
+      var hintFields = {title:"title", content:"content", author:"author_topic", version:"topic_version", video:"topic_video_url", download:"dl_url[]", attachment:"attachment"};
+      var field = panel.querySelector(".is-invalid, :invalid")
+        || (hint && panel.querySelector('[name="' + hintFields[hint.dataset.liveHint] + '"]'))
+        || panel.querySelector("input:not([type='hidden']), select, textarea");
+      if (!field) return;
+      field.classList.add("is-invalid");
+      field.setAttribute("aria-invalid", "true");
+      var target = field.quillInstance ? field.quillInstance.root
+        : field.type === "file" ? panel.querySelector('[data-open-input="' + field.id + '"]') : field;
+      if (target) {
+        target.focus();
+        target.scrollIntoView({behavior:"smooth", block:"center"});
+      }
+    }
+
+    async function validateStep(step) {
       if (step === 1) {
         var title = form.querySelector('input[name="title"]');
         var category = form.querySelector('select[name="category_id"]');
         if (!title || !title.value.trim()) {
           toast("Mod basligi zorunludur.", "warning");
-          if (title) title.focus();
-          return Promise.resolve(false);
+          return false;
         }
         if (title && !title.checkValidity()) {
-          validateUploadFieldRules(form, true);
-          title.reportValidity();
-          return Promise.resolve(false);
+          validateUploadFieldRules(form, true, step);
+          return false;
         }
         if (!category || !category.value) {
           toast("Kategori secimi zorunludur.", "warning");
-          if (category) category.focus();
-          return Promise.resolve(false);
+          return false;
         }
+        if (!validateUploadFieldRules(form, true, step)) return false;
       }
       if (step === 2) {
         var cover = document.getElementById("publicCoverInput");
-        if (cover && cover.required && cover.files.length === 0) {
-          toast("Kapak gorseli yuklemelisiniz.", "warning");
-          return Promise.resolve(false);
+        if (cover && cover.files.length === 0 && (cover.required || form.dataset.requireCover === "1" && retainedImages(2) === 0)) {
+          toast("Kapak görseli yüklemelisiniz.", "warning");
+          return false;
         }
-        return validateImageSelection(cover, imageConfig("publicCoverInput"));
+        if (!(await validateImageSelection(cover, imageConfig("publicCoverInput")))) return false;
       }
       if (step === 3) {
         var textarea = form.querySelector('textarea[name="content"]');
-        var minLength = Number(textarea ? textarea.dataset.minLength || 0 : 0);
+        var minLength = Number(textarea ? textarea.dataset.minLength || form.dataset.minContentLength || 0 : 0);
         var contentText = uploadContentText(form);
         if (!contentText) {
           toast("Mod aciklamasi zorunludur.", "warning");
-          return Promise.resolve(false);
+          return false;
         }
         if (minLength > 0 && contentText.length < minLength) {
           toast("Mod aciklamasi en az " + minLength + " karakter olmalidir.", "warning");
-          return Promise.resolve(false);
+          return false;
         }
       }
       if (step === 4) {
         var gallery = document.getElementById("publicGalleryInput");
-        if (gallery && gallery.required && gallery.files.length === 0) {
-          toast("Galeri icin en az 1 gorsel yuklemelisiniz.", "warning");
-          return Promise.resolve(false);
+        if (gallery && gallery.files.length === 0 && (gallery.required || form.dataset.requireGallery === "1" && retainedImages(4) === 0)) {
+          toast("Galeri için en az 1 görsel yüklemelisiniz.", "warning");
+          return false;
         }
-        if (gallery && gallery.files.length > Number(form.dataset.maxImages || 10)) {
+        if (gallery && gallery.files.length + retainedImages(4) > Number(form.dataset.maxImages || 10)) {
           toast("En fazla " + form.dataset.maxImages + " adet galeri gorseli yukleyebilirsiniz.", "warning");
-          return Promise.resolve(false);
+          return false;
         }
-        return validateImageSelection(gallery, imageConfig("publicGalleryInput"));
+        if (!(await validateImageSelection(gallery, imageConfig("publicGalleryInput")))) return false;
+        if (!validateUploadFieldRules(form, true, step)) return false;
       }
       if (step === 5 || step === 6) {
-        return Promise.resolve(validateUploadFieldRules(form, true));
+        if (!validateUploadFieldRules(form, true, step)) return false;
       }
-      return Promise.resolve(true);
+      var panel = form.querySelector('.upload-wizard-panel[data-step="' + step + '"]');
+      var invalid = panel && Array.prototype.find.call(panel.querySelectorAll("input, select, textarea"), function (field) { return !field.checkValidity(); });
+      if (invalid) {
+        invalid.classList.add("is-invalid");
+        toast("Lütfen bu adımdaki alanları kontrol edin.", "warning");
+        return false;
+      }
+      return true;
+    }
+
+    async function navigateTo(target, allowSkip) {
+      if (allowSkip || target <= current) {
+        setStep(target);
+        return;
+      }
+      if (navigating) return;
+      navigating = true;
+      var revision = navigationRevision;
+      try {
+        for (var step = current; step < target; step++) {
+          var valid = await validateStep(step);
+          if (revision !== navigationRevision) return;
+          if (!valid) {
+            revealStepError(step);
+            return;
+          }
+        }
+        setStep(target);
+      } finally {
+        navigating = false;
+      }
     }
 
     steps.forEach(function (button) {
       button.addEventListener("click", function () {
-        var target = Number(button.dataset.stepTarget);
-        var allowSkip = form.dataset.allowStepSkip === "1";
-        if (allowSkip || target <= current) {
-          setStep(target);
-          return;
-        }
-        validateStep(current).then(function (ok) {
-          if (ok) setStep(target);
-        });
+        navigateTo(Number(button.dataset.stepTarget), form.dataset.allowStepSkip === "1");
       });
     });
     if (prevBtn) prevBtn.addEventListener("click", function () { setStep(current - 1); });
     if (nextBtn) {
       nextBtn.addEventListener("click", function () {
-        validateStep(current).then(function (ok) {
-          if (ok) setStep(current + 1);
-        });
+        navigateTo(current + 1, false);
       });
     }
 
@@ -1238,39 +1322,41 @@ if (typeof module !== 'undefined' && module.exports) {
       setStep(1);
     }
 
-    form.addEventListener("submit", function (event) {
+    form.addEventListener("submit", async function (event) {
       event.preventDefault();
+      if (form.dataset.validating === "1") return;
       if (form.dataset.submitting === "1" || form.dataset.submitted === "1") {
         toast(form.hasAttribute("data-topic-edit-wizard") ? "Bu degisiklik zaten gonderiliyor veya gonderildi." : "Bu konu zaten gonderiliyor veya gonderildi.", "warning");
         return;
       }
-      window.ensureUploadQuillEditors();
-      form.querySelectorAll("textarea.rich-editor").forEach(function (textarea) {
-        if (textarea.quillInstance) {
-          textarea.value = textarea.quillInstance.root.innerHTML;
+      form.dataset.validating = "1";
+      var submitButton = form.querySelector(".upload-final-actions button[type='submit']") || form.querySelector("button[type='submit']");
+      var originalButtonHtml = submitButton ? submitButton.innerHTML : "";
+      try {
+        window.ensureUploadQuillEditors();
+        form.querySelectorAll("textarea.rich-editor").forEach(function (textarea) {
+          if (textarea.quillInstance) textarea.value = textarea.quillInstance.root.innerHTML;
+        });
+        syncDownloadLinksHidden(form);
+        validateUploadFieldRules(form, false);
+        for (var step = 1; step <= 6; step++) {
+          if (!(await validateStep(step))) {
+            revealStepError(step);
+            return;
+          }
         }
-      });
-      syncDownloadLinksHidden(form);
-      if (!validateUploadFieldRules(form, true)) return;
-
-      Promise.all([
-        validateImageSelection(document.getElementById("publicCoverInput"), imageConfig("publicCoverInput")),
-        validateImageSelection(document.getElementById("publicGalleryInput"), imageConfig("publicGalleryInput"))
-      ]).then(function (validResults) {
-        if (validResults.indexOf(false) !== -1) return;
         if (!form.checkValidity()) {
-          form.reportValidity();
+          toast("Lütfen zorunlu alanları kontrol edin.", "warning");
           return;
         }
-        var submitButton = form.querySelector(".upload-final-actions button[type='submit']") || form.querySelector("button[type='submit']");
-        var originalButtonHtml = submitButton ? submitButton.innerHTML : "";
         form.dataset.submitting = "1";
         if (submitButton) {
           submitButton.disabled = true;
           submitButton.classList.add("is-submitting");
           submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Gonderiliyor...';
         }
-        (window.publicFetchJson ? window.publicFetchJson(form.action, {
+        if (!window.publicFetchJson) throw new Error("Public API helper yuklenemedi.");
+        var payload = await window.publicFetchJson(form.action, {
           method: "POST",
           body: new FormData(form),
           headers: {
@@ -1278,40 +1364,44 @@ if (typeof module !== 'undefined' && module.exports) {
           },
           notifyError: false,
           errorMessage: form.hasAttribute("data-topic-edit-wizard") ? "Mod guncellenemedi." : "Mod gonderilemedi."
-        }) : Promise.reject(new Error("Public API helper yuklenemedi."))).then(function (payload) {
-            if (!payload.success) {
-              throw new Error(payload.message || (form.hasAttribute("data-topic-edit-wizard") ? "Mod guncellenemedi." : "Mod gonderilemedi."));
-            }
-            if (form.dataset.lockAfterSubmit === "1" || form.hasAttribute("data-topic-edit-wizard")) {
-              form.dataset.submitted = "1";
-            }
-            clearDraft(form);
-            toast(payload.message || (form.hasAttribute("data-topic-edit-wizard") ? "Degisiklikler onaya gonderildi." : "Mod onaya gonderildi."), "success");
-            if (submitButton) {
-              submitButton.classList.remove("is-submitting");
-              submitButton.classList.add("is-submitted");
-              submitButton.disabled = form.dataset.lockAfterSubmit === "1" || form.hasAttribute("data-topic-edit-wizard");
-              submitButton.innerHTML = '<i class="bi bi-check2-circle"></i> Gonderildi';
-            }
-            if (payload.redirect) {
-              window.setTimeout(function () { window.location.href = payload.redirect; }, 900);
-            }
-        }).catch(function (error) {
-          delete form.dataset.submitting;
-          if (Number(error && error.status) === 409 && submitButton) {
-            form.dataset.submitted = "1";
+        });
+        if (!payload.success) {
+          throw new Error(payload.message || (form.hasAttribute("data-topic-edit-wizard") ? "Mod guncellenemedi." : "Mod gonderilemedi."));
+        }
+        if (form.dataset.lockAfterSubmit === "1" || form.hasAttribute("data-topic-edit-wizard")) {
+          form.dataset.submitted = "1";
+        }
+        clearDraft(form);
+        toast(payload.message || (form.hasAttribute("data-topic-edit-wizard") ? "Degisiklikler onaya gonderildi." : "Mod onaya gonderildi."), "success");
+        if (submitButton) {
+          submitButton.classList.remove("is-submitting");
+          submitButton.classList.toggle("is-submitted", form.dataset.submitted === "1");
+          submitButton.disabled = form.dataset.submitted === "1";
+          submitButton.innerHTML = '<i class="bi bi-check2-circle"></i> Gonderildi';
+        }
+        if (payload.redirect) {
+          window.setTimeout(function () { window.location.href = payload.redirect; }, 900);
+        }
+      } catch (error) {
+        if (Number(error && error.status) === 409) {
+          form.dataset.submitted = "1";
+          if (submitButton) {
             submitButton.classList.remove("is-submitting");
             submitButton.classList.add("is-submit-locked");
             submitButton.innerHTML = '<i class="bi bi-lock"></i> Gonderim Kilitlendi';
+            submitButton.disabled = true;
           }
-          toast(error && error.message ? error.message : (form.hasAttribute("data-topic-edit-wizard") ? "Mod guncellenemedi." : "Mod gonderilemedi."), "error");
-          if (submitButton && form.dataset.submitted !== "1") {
-            submitButton.disabled = false;
-            submitButton.classList.remove("is-submitting");
-            submitButton.innerHTML = originalButtonHtml;
-          }
-        });
-      });
+        }
+        toast(error && error.message ? error.message : (form.hasAttribute("data-topic-edit-wizard") ? "Mod guncellenemedi." : "Mod gonderilemedi."), "error");
+        if (submitButton && form.dataset.submitted !== "1") {
+          submitButton.disabled = false;
+          submitButton.classList.remove("is-submitting");
+          submitButton.innerHTML = originalButtonHtml;
+        }
+      } finally {
+        delete form.dataset.validating;
+        delete form.dataset.submitting;
+      }
     });
   }
 
@@ -2859,6 +2949,10 @@ if (typeof module !== 'undefined' && module.exports) {
         }
 
         var existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
+        var dedupeKey = String(options.dedupeKey || '');
+        if (dedupeKey && Array.prototype.some.call(existing, function (node) {
+            return node.dataset.toastDedupeKey === dedupeKey;
+        })) return;
         while (existing.length >= cfg.maxVisible) {
             dismissToast(existing[0], 'overflow');
             existing = cfg.container.querySelectorAll('.topic-toast:not(.toast-out)');
@@ -2866,6 +2960,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
         var toast = document.createElement('div');
         toast.className = 'topic-toast toast-' + type + ' toast-theme-' + cfg.theme + ' toast-anim-' + cfg.animation;
+        if (dedupeKey) toast.dataset.toastDedupeKey = dedupeKey;
         toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
         toast._onClose = typeof options.onClose === 'function' ? options.onClose : null;
 
@@ -3253,7 +3348,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
     function initFormLoadingStates() {
         document.querySelectorAll('form').forEach(function (form) {
-            if (form.dataset.loadingInit === '1' || form.matches('[data-no-loading-state], .ttb-favorite-form')) return;
+            if (form.dataset.loadingInit === '1' || form.matches('[data-no-loading-state], .ttb-favorite-form, #uploadForm[data-wizard-enabled]')) return;
             form.dataset.loadingInit = '1';
 
             form.addEventListener('submit', function () {
@@ -3367,6 +3462,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // -- Form validation (client-side mirror of server-side validation) ----
     function initFormValidation() {
         document.querySelectorAll('form[novalidate]').forEach(function (form) {
+            if (form.matches('#uploadForm[data-wizard-enabled]')) return;
             form.addEventListener('submit', function (e) {
                 var valid = true;
                 form.dataset.clientInvalid = '0';
@@ -3411,6 +3507,7 @@ if (typeof module !== 'undefined' && module.exports) {
         });
 
         document.querySelectorAll('form [required]').forEach(function (input) {
+            if (input.closest('#uploadForm[data-wizard-enabled]')) return;
             input.addEventListener('blur', function () {
                 if (!input.value.trim()) {
                     input.classList.add('is-invalid');

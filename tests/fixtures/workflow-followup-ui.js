@@ -133,7 +133,7 @@ async (page) => {
     const uploadHtml = await (await page.request.get(base + '/output/playwright/upload-form-fixture.html')).text();
     for (const mode of ['standalone', 'theme']) {
     const scriptUrl = mode === 'theme' ? '/turkmod/themes/turkmod/js/bundle.js' : '/turkmod/assets/js/upload-topic-form.js';
-    await page.route('**/__workflow_followup?upload-' + mode, route => route.fulfill({contentType: 'text/html', body: '<!doctype html><meta charset="utf-8">' + uploadHtml + '<script>window.TMUI={registerAction(){}};window.showToast=()=>{};</script><script src="' + scriptUrl + '" defer></script>'}));
+    await page.route('**/__workflow_followup?upload-' + mode, route => route.fulfill({contentType: 'text/html', body: '<!doctype html><meta charset="utf-8">' + uploadHtml + '<script>window.TMUI={registerAction(){}};window.showToast=()=>{};' + (mode === 'standalone' ? 'document.getElementById("uploadForm").dataset.uploadTopicStandalone="1";' : '') + '</script><script src="' + scriptUrl + '" defer></script>'}));
     await page.goto(base + '/__workflow_followup?upload-' + mode);
     await page.locator('input[name="title"]').fill('Previous upload');
     await page.locator('[data-step-target="3"]').click();

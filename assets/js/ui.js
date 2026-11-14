@@ -386,7 +386,7 @@
 
     function initFormLoadingStates() {
         document.querySelectorAll('form').forEach(function (form) {
-            if (form.dataset.loadingInit === '1' || form.matches('[data-no-loading-state], .ttb-favorite-form')) return;
+            if (form.dataset.loadingInit === '1' || form.matches('[data-no-loading-state], .ttb-favorite-form, #uploadForm[data-wizard-enabled]')) return;
             form.dataset.loadingInit = '1';
 
             form.addEventListener('submit', function () {
@@ -500,6 +500,7 @@
     // -- Form validation (client-side mirror of server-side validation) ----
     function initFormValidation() {
         document.querySelectorAll('form[novalidate]').forEach(function (form) {
+            if (form.matches('#uploadForm[data-wizard-enabled]')) return;
             form.addEventListener('submit', function (e) {
                 var valid = true;
                 form.dataset.clientInvalid = '0';
@@ -542,6 +543,7 @@
         });
 
         document.querySelectorAll('form [required]').forEach(function (input) {
+            if (input.closest('#uploadForm[data-wizard-enabled]')) return;
             input.addEventListener('blur', function () {
                 if (!input.value.trim()) {
                     input.classList.add('is-invalid');

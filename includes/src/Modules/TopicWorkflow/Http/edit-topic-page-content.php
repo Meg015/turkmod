@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Modules\TopicWorkflow\Services\TopicFormRules;
+
 require_once $projectRoot . '/includes/init.php';
 require_once $projectRoot . '/admin/helpers.php';
 
@@ -47,16 +49,7 @@ function editTopicExistingVideo(array $mediaRecords): string
 
 function editTopicBuildDownloadLines(array $names, array $urls): string
 {
-    $lines = [];
-    foreach ($urls as $index => $url) {
-        $url = trim((string)$url);
-        if ($url === '') {
-            continue;
-        }
-        $name = trim((string)($names[$index] ?? ''));
-        $lines[] = ($name !== '' ? $name : 'Link') . '|' . $url;
-    }
-    return implode("\n", $lines);
+    return TopicFormRules::downloadLines(['dl_name' => $names, 'dl_url' => $urls]);
 }
 
 function editTopicApplyContentAlignment(string $content, string $align): string
@@ -80,7 +73,7 @@ function editTopicIsAjaxRequest(): bool
 
 function editTopicRespond(bool $success, string $message, int $statusCode = 200, array $data = []): void
 {
-    global $baseUri, $topicId;
+    global $editTopicUrl;
 
     if (editTopicIsAjaxRequest()) {
         sendJsonResponse($statusCode, $success, $message, $data, $success ? null : 'topic_edit_failed');
@@ -212,7 +205,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $authorTopic = trim((string)($_POST['author_topic'] ?? ''));
     $topicVersion = trim((string)($_POST['topic_version'] ?? ''));
     $videoUrl = $allowVideoUrl ? trim((string)($_POST['topic_video_url'] ?? '')) : '';
-    $downloadLines = editTopicBuildDownloadLines((array)($_POST['dl_name'] ?? []), (array)($_POST['dl_url'] ?? []));
+    try {
+        $downloadLines = TopicFormRules::downloadLines($_POST);
+        $_FILES['topic_images_files'] = TopicFormRules::galleryFiles((array) ($_FILES['topic_images_files'] ?? []));
+    } catch (InvalidArgumentException $error) {
+        editTopicRespond(false, $error->getMessage(), 422);
+    }
     $keepMediaIds = array_values(array_filter(array_map('intval', (array)($_POST['keep_media'] ?? [])), static fn(int $id): bool => $id > 0));
     $coverUploaded = !empty($_FILES['topic_first_image_file']['name']);
     $galleryFileNames = $_FILES['topic_images_files']['name'] ?? [];
@@ -231,7 +229,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $categoryId = (int)$categoryOptions[0]['id'];
     }
 
-    if ($title === '' || $content === '' || $categoryId <= 0) {
+    $contentText = TopicFormRules::contentText($content);
+    if ($title === '' || $contentText === '' || $categoryId <= 0) {
         editTopicRespond(false, 'Başlık, kategori ve açıklama alanları zorunludur.', 422);
     }
     if ($minTitleLength > 0 && mb_strlen($title, 'UTF-8') < $minTitleLength) {
@@ -240,7 +239,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if ($maxTitleLength > 0 && mb_strlen($title, 'UTF-8') > $maxTitleLength) {
         editTopicRespond(false, 'Mod başlığı en fazla ' . $maxTitleLength . ' karakter olabilir.', 422);
     }
-    if ($minContentLength > 0 && mb_strlen(trim(strip_tags($content)), 'UTF-8') < $minContentLength) {
+    if ($minContentLength > 0 && mb_strlen($contentText, 'UTF-8') < $minContentLength) {
         editTopicRespond(false, 'Mod açıklaması en az ' . $minContentLength . ' karakter olmalıdır.', 422);
     }
     if ($requireAuthor && $authorTopic === '') {
@@ -249,9 +248,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if ($requireVersion && $topicVersion === '') {
         editTopicRespond(false, 'Oyun sürümü alanı zorunludur.', 422);
     }
-    if ($requireDownloadLink && trim($downloadLines) === '') {
-        editTopicRespond(false, 'En az bir geçerli indirme bağlantısı eklemelisiniz.', 422);
+    $downloadError = TopicFormRules::downloadError($downloadLines, $requireDownloadLink);
+    if ($downloadError !== null) {
+        editTopicRespond(false, $downloadError, 422);
     }
+    $imageError = TopicFormRules::imageError((array) ($_FILES['topic_first_image_file'] ?? []), 'Kapak görseli', $settings, $coverMaxSizeMb);
+    if ($imageError !== null) editTopicRespond(false, $imageError, 422);
+    foreach ($_FILES['topic_images_files']['name'] as $index => $_) {
+        $file = [];
+        foreach (['name', 'type', 'tmp_name', 'error', 'size'] as $key) $file[$key] = $_FILES['topic_images_files'][$key][$index];
+        $imageError = TopicFormRules::imageError($file, 'Galeri görseli', $settings, $galleryMaxSizeMb);
+        if ($imageError !== null) editTopicRespond(false, $imageError, 422);
+    }
+    $attachmentError = TopicFormRules::attachmentError((array) ($_FILES['attachment'] ?? []), $attachmentMaxSizeMb);
+    if ($attachmentError !== null) editTopicRespond(false, $attachmentError, 422);
     if ($requireCover && !$coverUploaded && !$keptPrimary) {
         editTopicRespond(false, 'Kapak gorseli zorunludur. Mevcut kapagi koruyun veya yeni kapak yukleyin.', 422);
     }
@@ -261,8 +271,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if ($keptGalleryCount + $uploadedGalleryCount > $maxImages) {
         editTopicRespond(false, 'Galeri en fazla ' . $maxImages . ' gorsel icerebilir.', 422);
     }
-    if ($videoUrl !== '' && !filter_var($videoUrl, FILTER_VALIDATE_URL)) {
-        editTopicRespond(false, 'Video URL geçerli değil.', 422);
+    if ($videoUrl !== '' && !TopicFormRules::videoAllowed($videoUrl, $allowedVideoHosts)) {
+        editTopicRespond(false, 'Video URL izinli sağlayıcılardan geçerli bir adres olmalıdır.', 422);
     }
 
     $moderationDecision = function_exists('adminContentModerationDecision')
@@ -432,6 +442,10 @@ require_once $projectRoot . '/includes/public-header.php';
 <div class="ui-container container pb-5 upload-topic-form-container topic-edit-page topic-edit-upload-page">
     <section class="ui-section public-upload-shell">
         <div class="ui-panel public-upload-card">
+            <header class="upload-form-heading">
+                <div><h1>Mod Düzenle</h1><p>Bilgilerini ve görsellerini güncelleyip değişikliklerini onaya gönder.</p></div>
+                <span class="upload-form-status"><i class="bi bi-shield-check" aria-hidden="true"></i> Moderatör onayı</span>
+            </header>
 
             <div class="public-alert-note public-alert-note-strong ui-alert">
                 <i class="bi bi-hourglass-split"></i>
@@ -504,11 +518,11 @@ require_once $projectRoot . '/includes/public-header.php';
                                         <?php endif; ?>
                                         <div class="public-dropzone" data-uploader="cover">
                                             <input type="file" name="topic_first_image_file" id="publicCoverInput" class="d-none" accept="<?= htmlspecialchars($acceptImageAttr, ENT_QUOTES, 'UTF-8') ?>">
-                                            <div class="public-dropzone-trigger" data-open-input="publicCoverInput">
+                                            <button type="button" class="public-dropzone-trigger" data-open-input="publicCoverInput">
                                                 <i class="bi bi-cloud-arrow-up"></i>
                                                 <strong>Yeni kapak görseli seçin</strong>
                                                 <span>Değiştirmek istemiyorsanız mevcut görseli korulu bırakın</span>
-                                            </div>
+                                            </button>
                                             <div class="upload-image-rules">
                                                 <span><i class="bi bi-filetype-jpg"></i> <?= htmlspecialchars($allowedImageExtText, ENT_QUOTES, 'UTF-8') ?></span>
                                                 <span><i class="bi bi-hdd"></i> Maks. <?= (int)$coverMaxSizeMb ?> MB</span>
@@ -565,11 +579,11 @@ require_once $projectRoot . '/includes/public-header.php';
                                         <?php endif; ?>
                                         <div class="public-dropzone" data-uploader="gallery">
                                             <input type="file" name="topic_images_files[]" id="publicGalleryInput" class="d-none" accept="<?= htmlspecialchars($acceptImageAttr, ENT_QUOTES, 'UTF-8') ?>" multiple>
-                                            <div class="public-dropzone-trigger" data-open-input="publicGalleryInput">
+                                            <button type="button" class="public-dropzone-trigger" data-open-input="publicGalleryInput">
                                                 <i class="bi bi-images"></i>
                                                 <strong>Yeni galeri görselleri seçin</strong>
                                                 <span>Birden çok görsel seçebilir veya sürükleyebilirsiniz</span>
-                                            </div>
+                                            </button>
                                             <div class="upload-image-rules">
                                                 <span><i class="bi bi-filetype-jpg"></i> <?= htmlspecialchars($allowedImageExtText, ENT_QUOTES, 'UTF-8') ?></span>
                                                 <span><i class="bi bi-hdd"></i> Maks. <?= (int)$galleryMaxSizeMb ?> MB</span>
